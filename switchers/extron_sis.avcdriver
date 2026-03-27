@@ -1,0 +1,224 @@
+# Extron SIS (Simple Instruction Set) Protocol Driver
+#
+# Controls Extron products over TCP (port 23) or RS-232 (9600 8N1).
+# Covers 200+ products: crosspoint matrix switchers, presentation switchers,
+# scalers, distribution amplifiers, and DSPs.
+#
+# Protocol reference: Extron SIS Command/Response Reference
+# https://www.extron.com/article/sisseries
+#
+# Command format: <command><CR> or <command><LF>
+# Response format: varies by command, terminated with CR+LF
+#
+# Common across all SIS devices:
+#   {input}*{output}!  — Route input to output (tie)
+#   {input}!           — Route input to all outputs
+#   {level}*{channel}V — Set volume level on channel
+#   {channel}*{state}Z — Set mute (0=unmute, 1=mute)
+#   0!                 — Query current input routing
+#   V                  — Query volume
+#   Z                  — Query mute
+#   I                  — Query input status
+#   *Q                 — Query firmware version
+#   33*1I              — Query signal presence on input 1 (DTP/DXP)
+
+id: extron_sis
+name: Extron SIS Protocol
+manufacturer: Extron
+category: switcher
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Extron products via the SIS (Simple Instruction Set) protocol.
+  Covers crosspoint matrix switchers (DXP, CrossPoint), presentation
+  switchers (IN Series), scalers (DSC, DVS), distribution amplifiers,
+  and DSP products. Works over TCP (port 23) or RS-232 (9600 8N1).
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Universal control for Extron products using the SIS protocol. Works with
+    200+ products including crosspoint matrix switchers, presentation switchers,
+    scalers, distribution amplifiers, and DSPs.
+  setup: >
+    1. Connect the Extron device to the network or via RS-232 (9600 8N1).
+    2. For TCP control, set the device's IP address and use port 23 (default).
+    3. Extron recommends a 100ms delay between commands (pre-configured).
+
+discovery:
+  ports: [23]
+  mac_prefixes: ["00:05:a6"]
+
+default_config:
+  host: ""
+  port: 23
+  poll_interval: 10
+  inter_command_delay: 0.1
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Port
+  poll_interval:
+    type: integer
+    default: 10
+    min: 0
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.1
+    label: Inter-Command Delay (sec)
+    description: "Extron recommends 100ms between commands"
+
+state_variables:
+  input:
+    type: integer
+    label: Current Input
+  volume:
+    type: integer
+    label: Volume Level
+  mute:
+    type: boolean
+    label: Audio Mute
+  firmware:
+    type: string
+    label: Firmware Version
+  signal_active:
+    type: boolean
+    label: Signal Detected
+
+commands:
+  route:
+    label: Route Input to Output
+    send: "{input}*{output}!"
+    help: "Route a specific input to a specific output on the switcher."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 1
+        help: "Source input number"
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+        help: "Destination output number"
+
+  route_all:
+    label: Route Input to All Outputs
+    send: "{input}!"
+    help: "Route a single input to all outputs simultaneously."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 1
+
+  set_volume:
+    label: Set Volume
+    send: "{level}V"
+    help: "Set the audio volume level."
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume Level
+        min: 0
+        max: 100
+        help: "Volume level 0-100"
+
+  mute_on:
+    label: Mute Audio
+    send: "1Z"
+    help: "Mute the audio output."
+
+  mute_off:
+    label: Unmute Audio
+    send: "0Z"
+    help: "Unmute the audio output."
+
+  mute_toggle:
+    label: Toggle Mute
+    send: "Z"
+    help: "Toggle audio mute on/off."
+
+  # Video mute (AV mute) - available on many SIS devices
+  video_mute_on:
+    label: Video Mute On
+    send: "1B"
+    help: "Blank the video output (audio continues)."
+
+  video_mute_off:
+    label: Video Mute Off
+    send: "0B"
+    help: "Restore the video output."
+
+  recall_preset:
+    label: Recall Preset
+    send: "{preset}."
+    help: "Recall a saved routing preset."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+        max: 32
+        help: "Preset number 1-32"
+
+  save_preset:
+    label: Save Preset
+    send: "{preset},."
+    help: "Save the current routing configuration to a preset."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+        max: 32
+        help: "Preset number 1-32"
+
+responses:
+  # Input routing response: "In1 All" or "In1 Out2"
+  - match: 'In(\d+) All'
+    set: { input: "$1" }
+  - match: 'In(\d+) Out'
+    set: { input: "$1" }
+
+  # Volume response: "Vol50" or "Ds50"
+  - match: 'Vol(\d+)'
+    set: { volume: "$1" }
+  - match: 'Ds(\d+)'
+    set: { volume: "$1" }
+
+  # Mute response: "Amt1" (muted) or "Amt0" (unmuted)
+  - match: 'Amt1'
+    set: { mute: "true" }
+  - match: 'Amt0'
+    set: { mute: "false" }
+
+  # Firmware: "1.02.0001"
+  - match: 'Ver(\S+)'
+    set: { firmware: "$1" }
+
+  # Signal presence (0=no signal, 1=signal)
+  - match: 'Sig(\d)'
+    set: { signal_active: "$1" }
+
+polling:
+  interval: 10
+  queries:
+    - "I"
+    - "V"
+    - "Z"

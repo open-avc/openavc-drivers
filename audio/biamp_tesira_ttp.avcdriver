@@ -1,0 +1,185 @@
+# Biamp Tesira TTP (Tesira Text Protocol) Driver
+#
+# Controls Biamp Tesira and TesiraFORTE DSPs over TCP (port 23).
+#
+# Protocol reference: Biamp Tesira Text Protocol (TTP) Reference Guide
+# https://support.biamp.com
+#
+# Command format: <INSTANCE_TAG> <command> <index1> <index2> <value>\n
+# Response format: +OK "value"\r\n  or  -ERR "message"\r\n
+#
+# Key concepts:
+#   - Instance Tags: user-assigned labels in Tesira software for each block
+#     (e.g., "Level1" for a level control block, "Mute1" for a mute block)
+#   - Commands operate on tagged instances, not physical channels
+#   - Subscriptions allow the device to push state changes (not implemented in YAML driver)
+#
+# Common Instance Tag patterns in Tesira designs:
+#   "PgmLevel" — Program level fader
+#   "PgmMute"  — Program mute
+#   "MicLevel" — Microphone level
+#   "MicMute"  — Microphone mute
+#   "Preset"   — Preset block for recalling snapshots
+
+id: biamp_tesira_ttp
+name: Biamp Tesira TTP
+manufacturer: Biamp
+category: audio
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Biamp Tesira and TesiraFORTE DSPs via the TTP
+  (Tesira Text Protocol) over TCP port 23. Supports level control,
+  mute, and preset recall. Configure Instance Tags to match your
+  Tesira design file.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Controls Biamp Tesira and TesiraFORTE DSPs via the TTP protocol. Supports
+    level control, mute, and preset recall. Configure Instance Tags to match
+    your Tesira design file.
+  setup: >
+    1. Connect the Tesira DSP to the network.
+    2. Default control port is 23 (Telnet).
+    3. Set the Instance Tags to match your Tesira design file
+       (e.g., "PgmLevel" for the program level fader).
+    4. Instance Tags are user-assigned labels in the Biamp Tesira software.
+
+discovery:
+  ports: [23]
+  mac_prefixes: ["00:90:5e"]
+
+default_config:
+  host: ""
+  port: 23
+  level_instance_tag: "Level1"
+  mute_instance_tag: "Mute1"
+  preset_instance_tag: "Preset1"
+  poll_interval: 10
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Port
+  level_instance_tag:
+    type: string
+    default: "Level1"
+    label: Level Instance Tag
+    description: "Instance tag of the level control block in your Tesira design"
+  mute_instance_tag:
+    type: string
+    default: "Mute1"
+    label: Mute Instance Tag
+    description: "Instance tag of the mute block in your Tesira design"
+  preset_instance_tag:
+    type: string
+    default: "Preset1"
+    label: Preset Instance Tag
+    description: "Instance tag of the preset/snapshot block"
+  poll_interval:
+    type: integer
+    default: 10
+    min: 0
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+
+state_variables:
+  level:
+    type: number
+    label: Level (dB)
+  mute:
+    type: boolean
+    label: Mute State
+
+commands:
+  set_level:
+    label: Set Level
+    send: '{level_instance_tag} set level 1 {level}\n'
+    help: "Set the audio level for the configured level control block."
+    params:
+      level:
+        type: number
+        required: true
+        label: Level (dB)
+        min: -100
+        max: 12
+        description: "Level in dB. Typical range: -100.0 to +12.0"
+        help: "Level in dB (-100.0 to +12.0)"
+
+  increment_level:
+    label: Increment Level
+    send: '{level_instance_tag} increment level 1 {amount}\n'
+    help: "Increase the level by a specified amount in dB."
+    params:
+      amount:
+        type: number
+        default: 1.0
+        label: Amount (dB)
+        help: "Amount to increase in dB"
+
+  decrement_level:
+    label: Decrement Level
+    send: '{level_instance_tag} decrement level 1 {amount}\n'
+    help: "Decrease the level by a specified amount in dB."
+    params:
+      amount:
+        type: number
+        default: 1.0
+        label: Amount (dB)
+        help: "Amount to decrease in dB"
+
+  mute_on:
+    label: Mute On
+    send: '{mute_instance_tag} set mute 1 true\n'
+    help: "Mute the configured mute block."
+
+  mute_off:
+    label: Mute Off
+    send: '{mute_instance_tag} set mute 1 false\n'
+    help: "Unmute the configured mute block."
+
+  mute_toggle:
+    label: Toggle Mute
+    send: '{mute_instance_tag} toggle mute 1\n'
+    help: "Toggle mute on/off."
+
+  recall_preset:
+    label: Recall Preset
+    send: '{preset_instance_tag} recall {preset}\n'
+    help: "Recall a saved preset/snapshot in the Tesira design."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+        help: "Preset/snapshot number to recall"
+
+responses:
+  # Level response: +OK "value":"-12.5"
+  - match: '\+OK "value":"(-?[\d.]+)"'
+    set: { level: "$1" }
+
+  # Mute response: +OK "value":"true" or "false"
+  - match: '\+OK "value":"true"'
+    set: { mute: "true" }
+  - match: '\+OK "value":"false"'
+    set: { mute: "false" }
+
+polling:
+  interval: 10
+  queries:
+    - '{level_instance_tag} get level 1\n'
+    - '{mute_instance_tag} get mute 1\n'

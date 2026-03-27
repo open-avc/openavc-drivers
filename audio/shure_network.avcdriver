@@ -1,0 +1,180 @@
+# Shure Networked Audio Device Driver
+#
+# Controls Shure networked audio products over TCP (port 2202).
+# Covers MXA910/920/710 ceiling microphones, ANI interfaces,
+# P300 IntelliMix processor, and SCM820 automixer.
+#
+# Protocol reference: Shure Command Strings Reference
+# https://pubs.shure.com/guide/commandstrings
+#
+# Command format: < <COMMAND> <CHANNEL> <VALUE> >
+# Response format: < REP <COMMAND> <CHANNEL> <VALUE> >
+#
+# Notes:
+#   - Commands are wrapped in angle brackets: < ... >
+#   - Spaces between fields
+#   - Channel numbers are 1-based (use 0 for device-level commands)
+#   - GET commands use the same format as SET but without the value
+
+id: shure_network
+name: Shure Networked Devices
+manufacturer: Shure
+category: audio
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Shure networked audio devices over TCP (port 2202).
+  Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces,
+  P300 IntelliMix processor, and SCM820 automixer.
+
+transport: tcp
+delimiter: ">"
+
+discovery:
+  ports: [2202]
+  mac_prefixes: ["00:0e:dd"]
+
+default_config:
+  host: ""
+  port: 2202
+  poll_interval: 10
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 2202
+    label: Port
+  poll_interval:
+    type: integer
+    default: 10
+    min: 0
+    label: Poll Interval (sec)
+
+state_variables:
+  device_name:
+    type: string
+    label: Device Name
+  mute:
+    type: boolean
+    label: Mute State
+  audio_mute:
+    type: boolean
+    label: Audio Mute
+  led_state:
+    type: string
+    label: LED State
+  firmware:
+    type: string
+    label: Firmware Version
+  meter_level:
+    type: integer
+    label: Meter Level (dB)
+
+commands:
+  mute_on:
+    label: Mute
+    send: "< SET DEVICE_AUDIO_MUTE ON >"
+
+  mute_off:
+    label: Unmute
+    send: "< SET DEVICE_AUDIO_MUTE OFF >"
+
+  mute_toggle:
+    label: Toggle Mute
+    send: "< SET DEVICE_AUDIO_MUTE TOGGLE >"
+
+  # Channel-level mute (for multi-channel devices like MXA910)
+  channel_mute_on:
+    label: Channel Mute On
+    send: "< SET {channel} AUDIO_MUTE ON >"
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Channel Number
+        min: 1
+
+  channel_mute_off:
+    label: Channel Mute Off
+    send: "< SET {channel} AUDIO_MUTE OFF >"
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Channel Number
+        min: 1
+
+  set_led:
+    label: Set LED Color/State
+    send: "< SET LED_STATE_{state} >"
+    params:
+      state:
+        type: enum
+        values: ["ON", "OFF", "FLASHING"]
+        required: true
+        label: LED State
+
+  set_led_color:
+    label: Set LED Color
+    send: "< SET LED_COLOR_{color} >"
+    params:
+      color:
+        type: enum
+        values: ["RED", "GREEN", "BLUE", "PINK", "PURPLE", "YELLOW", "ORANGE", "WHITE"]
+        required: true
+        label: LED Color
+
+  # Gain control (IntelliMix P300)
+  set_gain:
+    label: Set Input Gain
+    send: "< SET {channel} AUDIO_GAIN_HI_RES {level} >"
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Channel Number
+      level:
+        type: integer
+        required: true
+        label: Gain (dB * 10)
+        description: "Gain in tenths of dB, e.g., -120 = -12.0 dB"
+
+  recall_preset:
+    label: Recall Preset
+    send: "< SET PRESET {preset} >"
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+        max: 10
+
+responses:
+  # Device name: < REP DEVICE_NAME {name} >
+  - match: 'REP DEVICE_NAME (.+)'
+    set: { device_name: "$1" }
+
+  # Device mute: < REP DEVICE_AUDIO_MUTE ON > or OFF
+  - match: 'REP DEVICE_AUDIO_MUTE ON'
+    set: { mute: "true", audio_mute: "true" }
+  - match: 'REP DEVICE_AUDIO_MUTE OFF'
+    set: { mute: "false", audio_mute: "false" }
+
+  # LED state
+  - match: 'REP LED_STATE_(\w+)'
+    set: { led_state: "$1" }
+
+  # Firmware version: < REP FW_VER x.x.x >
+  - match: 'REP FW_VER (\S+)'
+    set: { firmware: "$1" }
+
+polling:
+  interval: 10
+  queries:
+    - "< GET DEVICE_AUDIO_MUTE >"
+    - "< GET DEVICE_NAME >"

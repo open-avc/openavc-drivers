@@ -1,0 +1,182 @@
+# Kramer Protocol 3000 Driver
+#
+# Controls Kramer products over TCP (port 5000) or RS-232 (115200 8N1).
+# Covers matrix switchers, scalers, distribution amplifiers, and
+# Via wireless presentation systems.
+#
+# Protocol reference: Kramer Protocol 3000 Specification
+# https://www.kramerav.com/support/protocols
+#
+# Command format: #<CMD> <PARAM1>,<PARAM2>,...<CR>
+# Response format: ~<NN>@<CMD> <PARAM1>,<PARAM2>,...<CR><LF>
+#   NN = machine number (01 by default)
+#
+# Notes:
+#   - Commands are prefixed with # (request) or ~ (response)
+#   - Machine number defaults to 01, configurable per device
+#   - Error responses: ~NN@ERR <error_code><CR><LF>
+
+id: kramer_p3000
+name: Kramer Protocol 3000
+manufacturer: Kramer
+category: switcher
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Kramer products via Protocol 3000 over TCP (port 5000).
+  Covers matrix switchers (VS series), scalers (VP series),
+  distribution amplifiers, and Via wireless presentation systems.
+
+transport: tcp
+delimiter: "\r\n"
+
+discovery:
+  ports: [5000, 23]
+  mac_prefixes: ["00:0a:9a"]
+
+default_config:
+  host: ""
+  port: 5000
+  machine_number: "01"
+  poll_interval: 10
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 5000
+    label: Port
+  machine_number:
+    type: string
+    default: "01"
+    label: Machine Number
+    description: "01-99, used in Protocol 3000 responses"
+  poll_interval:
+    type: integer
+    default: 10
+    min: 0
+    label: Poll Interval (sec)
+
+state_variables:
+  input:
+    type: integer
+    label: Current Input (Layer 1)
+  output:
+    type: integer
+    label: Current Output (Layer 1)
+  video_mute:
+    type: boolean
+    label: Video Mute
+  audio_mute:
+    type: boolean
+    label: Audio Mute
+  signal_present:
+    type: boolean
+    label: Signal Present
+
+commands:
+  route:
+    label: Route Input to Output
+    send: "#ROUTE {layer},{output},{input}\r"
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 1
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+      layer:
+        type: integer
+        default: 1
+        label: Layer (1=Video, 2=Audio)
+
+  route_video:
+    label: Route Video
+    send: "#ROUTE 1,{output},{input}\r"
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+      output:
+        type: integer
+        required: true
+        label: Output Number
+
+  route_audio:
+    label: Route Audio
+    send: "#ROUTE 2,{output},{input}\r"
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+      output:
+        type: integer
+        required: true
+        label: Output Number
+
+  video_mute_on:
+    label: Video Mute On
+    send: "#VMUTE 1,1\r"
+
+  video_mute_off:
+    label: Video Mute Off
+    send: "#VMUTE 1,0\r"
+
+  audio_mute_on:
+    label: Audio Mute On
+    send: "#MUTE 1,1\r"
+
+  audio_mute_off:
+    label: Audio Mute Off
+    send: "#MUTE 1,0\r"
+
+  set_volume:
+    label: Set Volume
+    send: "#AUD-LVL 1,1,{level}\r"
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume Level
+        min: -100
+        max: 15
+        description: "Level in dB (-100 to +15)"
+
+responses:
+  # Route response: ~01@ROUTE 1,1,3  (layer 1, output 1, input 3)
+  - match: '~\d+@ROUTE 1,\d+,(\d+)'
+    set: { input: "$1" }
+
+  # Video mute: ~01@VMUTE 1,1  (output 1, muted)
+  - match: '~\d+@VMUTE 1,1'
+    set: { video_mute: "true" }
+  - match: '~\d+@VMUTE 1,0'
+    set: { video_mute: "false" }
+
+  # Audio mute: ~01@MUTE 1,1
+  - match: '~\d+@MUTE 1,1'
+    set: { audio_mute: "true" }
+  - match: '~\d+@MUTE 1,0'
+    set: { audio_mute: "false" }
+
+  # Signal presence: ~01@SIGNAL 1,1  (input 1, signal present)
+  - match: '~\d+@SIGNAL \d+,1'
+    set: { signal_present: "true" }
+  - match: '~\d+@SIGNAL \d+,0'
+    set: { signal_present: "false" }
+
+polling:
+  interval: 10
+  queries:
+    - "#ROUTE? 1,1\r"
+    - "#VMUTE? 1\r"
+    - "#MUTE? 1\r"

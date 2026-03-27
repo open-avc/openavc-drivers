@@ -1,0 +1,191 @@
+# QSC Q-SYS QRC (Q-SYS Remote Control) Protocol Driver
+#
+# Controls QSC Q-SYS Core processors over TCP (port 1702).
+#
+# Protocol reference: Q-SYS External Control Protocol
+# https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm
+#
+# Command format: <command>\n or <command>\0 (null-terminated)
+# Response format: varies by command
+#
+# Q-SYS uses "Named Controls" — user-assigned names in Q-SYS Designer
+# to faders, buttons, meters, etc. External control operates on these names.
+#
+# Key commands:
+#   cg <name> <value>         — Set a named control's value (0.0-1.0)
+#   csv <name> <string_value> — Set a control's string value
+#   cgp <name> <position>     — Set control position (0.0-1.0)
+#   cgs <name>                — Get/subscribe to a control's value
+#   cgsna <poll_group>        — Get all controls in a named poll group
+#   css <name> <rate>         — Subscribe to changes (rate in ms, 0=unsubscribe)
+#   sg <snapshot_name>        — Recall a snapshot (preset)
+#
+# Login (if authentication enabled):
+#   login <username> <password>
+
+id: qsc_qrc
+name: QSC Q-SYS QRC
+manufacturer: QSC
+category: audio
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls QSC Q-SYS Core processors via the QRC (Q-SYS Remote Control)
+  protocol over TCP port 1702. Supports named control values, positions,
+  strings, and snapshot recall. Configure Named Control names to match
+  your Q-SYS Designer file.
+
+transport: tcp
+delimiter: "\r\n"
+
+discovery:
+  ports: [1702, 52000]
+  mac_prefixes: ["00:0c:4d", "7c:2e:0d"]
+
+default_config:
+  host: ""
+  port: 1702
+  username: ""
+  password: ""
+  level_control: "Program.Level"
+  mute_control: "Program.Mute"
+  poll_interval: 5
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 1702
+    label: Port
+  username:
+    type: string
+    default: ""
+    label: Username
+    description: "Leave blank if no authentication required"
+  password:
+    type: string
+    default: ""
+    label: Password
+    secret: true
+  level_control:
+    type: string
+    default: "Program.Level"
+    label: Level Control Name
+    description: "Named Control for the main level fader in your Q-SYS design"
+  mute_control:
+    type: string
+    default: "Program.Mute"
+    label: Mute Control Name
+    description: "Named Control for the main mute in your Q-SYS design"
+  poll_interval:
+    type: integer
+    default: 5
+    min: 0
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+
+state_variables:
+  level:
+    type: number
+    label: Level Position (0-1)
+  level_db:
+    type: string
+    label: Level (dB string)
+  mute:
+    type: boolean
+    label: Mute State
+
+commands:
+  set_level:
+    label: Set Level (Position)
+    send: 'cgp "{level_control}" {position}\n'
+    params:
+      position:
+        type: number
+        required: true
+        label: Position (0.0-1.0)
+        min: 0
+        max: 1
+        description: "0.0 = minimum, 1.0 = maximum"
+
+  set_level_db:
+    label: Set Level (dB String)
+    send: 'csv "{level_control}" "{db}"\n'
+    params:
+      db:
+        type: string
+        required: true
+        label: Level (dB)
+        description: "e.g., -12.0 dB"
+
+  mute_on:
+    label: Mute On
+    send: 'cg "{mute_control}" 1\n'
+
+  mute_off:
+    label: Mute Off
+    send: 'cg "{mute_control}" 0\n'
+
+  set_control_value:
+    label: Set Named Control Value
+    send: 'cg "{name}" {value}\n'
+    params:
+      name:
+        type: string
+        required: true
+        label: Control Name
+        description: "Named Control from Q-SYS Designer"
+      value:
+        type: number
+        required: true
+        label: Value (0.0-1.0)
+
+  set_control_string:
+    label: Set Named Control String
+    send: 'csv "{name}" "{value}"\n'
+    params:
+      name:
+        type: string
+        required: true
+        label: Control Name
+      value:
+        type: string
+        required: true
+        label: String Value
+
+  recall_snapshot:
+    label: Recall Snapshot
+    send: 'sg "{snapshot}"\n'
+    params:
+      snapshot:
+        type: string
+        required: true
+        label: Snapshot Name
+        description: "Name of the snapshot in Q-SYS Designer"
+
+responses:
+  # Control value response: cv "Program.Level" "value" "position" "string"
+  # e.g.: cv "Program.Level" "-12.0" 0.65 "-12.0 dB"
+  - match: 'cv "{level_control}" "[^"]*" ([\d.]+)'
+    set: { level: "$1" }
+  - match: 'cv "{level_control}" "([^"]*)"'
+    set: { level_db: "$1" }
+
+  # Mute control: cv "Program.Mute" "1.000000" 1.000000 "muted"
+  - match: 'cv "{mute_control}" "1'
+    set: { mute: "true" }
+  - match: 'cv "{mute_control}" "0'
+    set: { mute: "false" }
+
+polling:
+  interval: 5
+  queries:
+    - 'cgs "{level_control}"\n'
+    - 'cgs "{mute_control}"\n'

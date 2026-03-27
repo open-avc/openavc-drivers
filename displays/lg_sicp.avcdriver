@@ -1,0 +1,186 @@
+# LG SICP (Serial Interface Communication Protocol) Driver
+#
+# Controls LG commercial displays over TCP (port 9761) or RS-232 (9600 8N1).
+# Covers webOS Signage displays, LED, and OLED commercial series.
+#
+# Protocol reference: LG Commercial Display RS-232C/IP Control Manual
+#
+# Command format: <cmd1><cmd2> <set_id> <data><CR>
+#   cmd1+cmd2: two-character command code
+#   set_id: display ID (01-99, or 00 for all)
+#   data: command parameter (two hex digits)
+#
+# Response format: <cmd2> <set_id> OK<data>x  or  <cmd2> <set_id> NG<data>x
+#   x = end delimiter
+#
+# Note: set_id is typically "01" for single-display control.
+
+id: lg_sicp
+name: LG SICP Display
+manufacturer: LG
+category: display
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls LG commercial displays via SICP over TCP (port 9761).
+  Supports power, input, volume, mute, and screen mute.
+  Covers webOS Signage, LED, and OLED commercial series.
+
+transport: tcp
+delimiter: "x"
+
+help:
+  overview: >
+    Controls LG commercial displays via the SICP protocol. Supports power,
+    input selection, volume, mute, and screen mute. Covers webOS Signage,
+    LED, and OLED commercial series.
+  setup: >
+    1. Connect the LG display to the network.
+    2. Default control port is 9761.
+    3. Set the Display ID (01-99, or 00 for broadcast to all displays).
+
+discovery:
+  ports: [9761]
+  mac_prefixes: ["00:05:c9", "00:e0:91", "10:68:3f", "2c:54:cf", "34:4d:f7", "38:8c:50", "58:a2:b5", "64:99:5d", "a8:23:fe", "bc:f1:71"]
+
+default_config:
+  host: ""
+  port: 9761
+  set_id: "01"
+  poll_interval: 15
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 9761
+    label: Port
+  set_id:
+    type: string
+    default: "01"
+    label: Display ID
+    description: "01-99, or 00 for broadcast to all displays"
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+
+state_variables:
+  power:
+    type: enum
+    values: ["off", "on"]
+    label: Power State
+  input:
+    type: string
+    label: Input Source
+  volume:
+    type: integer
+    label: Volume
+  mute:
+    type: boolean
+    label: Audio Mute
+  screen_mute:
+    type: boolean
+    label: Screen Mute
+
+commands:
+  power_on:
+    label: Power On
+    send: "ka {set_id} 01\r"
+    help: "Turn on the display."
+
+  power_off:
+    label: Power Off
+    send: "ka {set_id} 00\r"
+    help: "Turn off the display (standby)."
+
+  set_input_hdmi1:
+    label: Input HDMI 1
+    send: "xb {set_id} 90\r"
+    help: "Switch to HDMI 1 input."
+
+  set_input_hdmi2:
+    label: Input HDMI 2
+    send: "xb {set_id} 91\r"
+    help: "Switch to HDMI 2 input."
+
+  set_input_hdmi3:
+    label: Input HDMI 3
+    send: "xb {set_id} 92\r"
+    help: "Switch to HDMI 3 input."
+
+  set_input_dp:
+    label: Input DisplayPort
+    send: "xb {set_id} D0\r"
+    help: "Switch to DisplayPort input."
+
+  set_input_dvi:
+    label: Input DVI
+    send: "xb {set_id} 80\r"
+    help: "Switch to DVI input."
+
+  set_input_url:
+    label: Input URL Launcher
+    send: "xb {set_id} E0\r"
+    help: "Switch to URL Launcher (webOS app)."
+
+  set_volume:
+    label: Set Volume
+    send: "kf {set_id} {level:02x}\r"
+    help: "Set the display speaker volume."
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume (0-100)
+        min: 0
+        max: 100
+        help: "Volume level 0-100"
+
+  mute_on:
+    label: Mute On
+    send: "ke {set_id} 00\r"
+    help: "Mute the display audio."
+
+  mute_off:
+    label: Mute Off
+    send: "ke {set_id} 01\r"
+    help: "Unmute the display audio."
+
+  screen_mute_on:
+    label: Screen Mute On (blank screen)
+    send: "kd {set_id} 01\r"
+    help: "Blank the screen (display stays on, useful for presentations)."
+
+  screen_mute_off:
+    label: Screen Mute Off
+    send: "kd {set_id} 00\r"
+    help: "Restore the screen from blank."
+
+responses:
+  # Power query response: "a 01 OK01" (on) or "a 01 OK00" (off)
+  - match: 'a \d+ OK01'
+    set: { power: "on" }
+  - match: 'a \d+ OK00'
+    set: { power: "off" }
+
+  # Volume response: "f 01 OK32" (volume = 0x32 = 50)
+  - match: 'f \d+ OK(\w{2})'
+    set: { volume: "$1" }
+
+  # Mute response: "e 01 OK00" (muted) "e 01 OK01" (unmuted)
+  - match: 'e \d+ OK00'
+    set: { mute: "true" }
+  - match: 'e \d+ OK01'
+    set: { mute: "false" }
+
+polling:
+  interval: 15
+  queries:
+    - "ka {set_id} FF\r"
+    - "kf {set_id} FF\r"
+    - "ke {set_id} FF\r"

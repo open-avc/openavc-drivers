@@ -23,7 +23,6 @@ Reference:
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import httpx
@@ -45,26 +44,26 @@ query {
 """
 
 _QUERY_DEVICES = """
-query($domainName: String!) {
-  domain(name: $domainName) {
+query Domain($domainIDInput: ID!) {
+  domain(id: $domainIDInput) {
     id
     name
     devices {
       id
       name
-      manufacturer
-      productModelId
-      firmwareVersion
       txChannels {
+        id
         index
         name
       }
       rxChannels {
+        id
         index
         name
         subscribedDevice
         subscribedChannel
         status
+        summary
       }
     }
   }
@@ -72,35 +71,12 @@ query($domainName: String!) {
 """
 
 _MUTATION_SUBSCRIBE = """
-mutation($input: DeviceRxChannelsSubscriptionSetInput!) {
+mutation DeviceRxChannelsSubscriptionSet($input: DeviceRxChannelsSubscriptionSetInput!) {
   DeviceRxChannelsSubscriptionSet(input: $input) {
-    deviceId
-    rxChannels {
-      index
-      subscribedDevice
-      subscribedChannel
-      status
-    }
+    ok
   }
 }
 """
-
-# Subscription status codes from the Dante Managed API
-_STATUS_LABELS = {
-    "SUBSCRIBED": "active",
-    "RESOLVED": "active",
-    "SUBSCRIBE_SELF": "active",
-    "UNRESOLVED": "failed",
-    "REJECTED_FORMAT": "format_mismatch",
-    "REJECTED_BANDWIDTH": "bandwidth",
-    "REJECTED_LATENCY": "latency",
-    "REJECTED_CHANNEL_COUNT": "channel_limit",
-    "NO_CONNECTION": "no_connection",
-    "CHANNEL_FORMAT_CHANGED": "format_changed",
-    "IDLE": "idle",
-    "UNSUBSCRIBED": "unsubscribed",
-}
-
 
 class DanteDDMDriver(BaseDriver):
     """Dante DDM/Director driver via the Audinate Managed API (GraphQL)."""
@@ -110,7 +86,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
@@ -271,7 +247,8 @@ class DanteDDMDriver(BaseDriver):
         self._base_url: str = ""
         self._api_key: str = ""
         self._domain_name: str = ""
-        # Cached device data: {device_name: {id, name, manufacturer, txChannels, rxChannels}}
+        self._domain_id: str = ""
+        # Cached device data: {device_name: {id, name, txChannels, rxChannels}}
         self._devices: dict[str, dict[str, Any]] = {}
 
     async def connect(self) -> None:
@@ -302,23 +279,31 @@ class DanteDDMDriver(BaseDriver):
             verify=verify_ssl,
             timeout=15.0,
             headers={
-                "Authorization": f"Bearer {self._api_key}",
+                "Authorization": self._api_key,
                 "Content-Type": "application/json",
             },
         )
 
-        # Verify connection by querying domains
+        # Verify connection by querying domains and resolve name to ID
         try:
             result = await self._graphql(_QUERY_DOMAINS)
             domains = result.get("data", {}).get("domains", [])
-            domain_names = [d["name"] for d in domains]
 
-            if self._domain_name not in domain_names:
-                available = ", ".join(domain_names) if domain_names else "none"
+            # Find the domain by name and get its ID
+            matched = None
+            for d in domains:
+                if d["name"] == self._domain_name:
+                    matched = d
+                    break
+
+            if not matched:
+                available = ", ".join(d["name"] for d in domains) if domains else "none"
                 raise ConnectionError(
                     f"Domain '{self._domain_name}' not found. "
                     f"Available domains: {available}"
                 )
+
+            self._domain_id = matched["id"]
 
             log.info(
                 f"[{self.device_id}] Connected to DDM/Director at {host}, "
@@ -464,7 +449,7 @@ class DanteDDMDriver(BaseDriver):
         """Query all devices and channels from the managed domain."""
         try:
             result = await self._graphql(
-                _QUERY_DEVICES, {"domainName": self._domain_name}
+                _QUERY_DEVICES, {"domainIDInput": self._domain_id}
             )
 
             domain = result.get("data", {}).get("domain")
@@ -485,8 +470,7 @@ class DanteDDMDriver(BaseDriver):
 
                 # Count active subscriptions
                 for rx in dev.get("rxChannels", []):
-                    status = rx.get("status", "")
-                    if status in ("SUBSCRIBED", "RESOLVED", "SUBSCRIBE_SELF"):
+                    if rx.get("subscribedDevice"):
                         subscription_count += 1
 
             self.set_state("device_count", len(self._devices))
@@ -563,9 +547,9 @@ class DanteDDMDriver(BaseDriver):
         variables = {
             "input": {
                 "deviceId": rx_dev["id"],
-                "rxChannels": [
+                "subscriptions": [
                     {
-                        "index": rx_idx,
+                        "rxChannelIndex": rx_idx,
                         "subscribedDevice": tx_device_name,
                         "subscribedChannel": tx_channel,
                     }
@@ -582,6 +566,14 @@ class DanteDDMDriver(BaseDriver):
                     f"[{self.device_id}] Route failed: {error_msg}"
                 )
                 self.set_state("last_error", f"Route failed: {error_msg}")
+                return
+
+            ok = result.get("data", {}).get(
+                "DeviceRxChannelsSubscriptionSet", {}
+            ).get("ok", False)
+            if not ok:
+                log.warning(f"[{self.device_id}] Route mutation returned ok=false")
+                self.set_state("last_error", "Route mutation rejected")
                 return
 
             log.info(
@@ -623,9 +615,9 @@ class DanteDDMDriver(BaseDriver):
         variables = {
             "input": {
                 "deviceId": rx_dev["id"],
-                "rxChannels": [
+                "subscriptions": [
                     {
-                        "index": rx_idx,
+                        "rxChannelIndex": rx_idx,
                         "subscribedDevice": "",
                         "subscribedChannel": "",
                     }
@@ -642,6 +634,14 @@ class DanteDDMDriver(BaseDriver):
                     f"[{self.device_id}] Unroute failed: {error_msg}"
                 )
                 self.set_state("last_error", f"Unroute failed: {error_msg}")
+                return
+
+            ok = result.get("data", {}).get(
+                "DeviceRxChannelsSubscriptionSet", {}
+            ).get("ok", False)
+            if not ok:
+                log.warning(f"[{self.device_id}] Unroute mutation returned ok=false")
+                self.set_state("last_error", "Unroute mutation rejected")
                 return
 
             log.info(

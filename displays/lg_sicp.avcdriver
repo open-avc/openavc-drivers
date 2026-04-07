@@ -198,6 +198,25 @@ simulator:
   delays:
     command_response: 0.025
 
+  controls:
+    - type: power
+      key: power
+    - type: select
+      key: input
+      label: Input
+      options: ["HDMI 1", "HDMI 2", "HDMI 3", "DisplayPort", "DVI", "URL Launcher"]
+    - type: slider
+      key: volume
+      label: Volume
+      min: 0
+      max: 100
+    - type: toggle
+      key: mute
+      label: Audio Mute
+    - type: toggle
+      key: screen_mute
+      label: Screen Mute
+
   command_handlers:
     # Power query (ka XX FF) — respond with current power state
     - match: 'ka (\d+) FF'

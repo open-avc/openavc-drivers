@@ -201,6 +201,20 @@ simulator:
   delays:
     command_response: 0.03
 
+  controls:
+    - type: slider
+      key: level
+      label: Level
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: mute
+      label: Mute
+    - type: indicator
+      key: level_db
+      label: Level (dB)
+
   command_handlers:
     # Query a named control — respond with cv (control value) format
     - match: 'cgs "([^"]+)"'

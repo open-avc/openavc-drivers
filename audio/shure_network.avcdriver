@@ -193,6 +193,24 @@ simulator:
   delays:
     command_response: 0.02
 
+  controls:
+    - type: toggle
+      key: mute
+      label: Device Mute
+    - type: indicator
+      key: meter_level
+      label: Level (dB)
+    - type: select
+      key: led_state
+      label: LED State
+      options: ["ON", "OFF", "FLASHING"]
+    - type: indicator
+      key: device_name
+      label: Device Name
+    - type: indicator
+      key: firmware
+      label: Firmware
+
   command_handlers:
     # GET queries — respond with REP format
     # Patterns include < > framing since that's part of the on-wire protocol.

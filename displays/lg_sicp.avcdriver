@@ -184,3 +184,112 @@ polling:
     - "ka {set_id} FF\r"
     - "kf {set_id} FF\r"
     - "ke {set_id} FF\r"
+
+# ── SIMULATOR DEFINITION ──
+
+simulator:
+  initial_state:
+    power: "off"
+    input: "HDMI 1"
+    volume: 32
+    mute: false
+    screen_mute: false
+
+  delays:
+    command_response: 0.025
+
+  command_handlers:
+    # Power query (ka XX FF) — respond with current power state
+    - match: 'ka (\\d+) FF'
+      handler: |
+        sid = match.group(1)
+        val = "01" if state["power"] == "on" else "00"
+        respond(f"a {sid} OK{val}x")
+
+    # Power on (ka XX 01)
+    - match: 'ka (\\d+) 01'
+      handler: |
+        sid = match.group(1)
+        state["power"] = "on"
+        respond(f"a {sid} OK01x")
+
+    # Power off (ka XX 00)
+    - match: 'ka (\\d+) 00'
+      handler: |
+        sid = match.group(1)
+        state["power"] = "off"
+        respond(f"a {sid} OK00x")
+
+    # Volume query (kf XX FF) — respond with current volume as 2-digit hex
+    - match: 'kf (\\d+) FF'
+      handler: |
+        sid = match.group(1)
+        vol_hex = format(state["volume"], "02x")
+        respond(f"f {sid} OK{vol_hex}x")
+
+    # Set volume (kf XX <hex>)
+    - match: 'kf (\\d+) ([0-9a-fA-F]{2})'
+      handler: |
+        sid = match.group(1)
+        vol = int(match.group(2), 16)
+        vol = max(0, min(100, vol))
+        state["volume"] = vol
+        vol_hex = format(vol, "02x")
+        respond(f"f {sid} OK{vol_hex}x")
+
+    # Mute query (ke XX FF) — respond with mute state
+    - match: 'ke (\\d+) FF'
+      handler: |
+        sid = match.group(1)
+        val = "00" if state["mute"] else "01"
+        respond(f"e {sid} OK{val}x")
+
+    # Mute on (ke XX 00)
+    - match: 'ke (\\d+) 00'
+      handler: |
+        sid = match.group(1)
+        state["mute"] = True
+        respond(f"e {sid} OK00x")
+
+    # Mute off (ke XX 01)
+    - match: 'ke (\\d+) 01'
+      handler: |
+        sid = match.group(1)
+        state["mute"] = False
+        respond(f"e {sid} OK01x")
+
+    # Input select (xb XX <code>) — common input codes
+    - match: 'xb (\\d+) ([0-9a-fA-F]{2})'
+      handler: |
+        sid = match.group(1)
+        code = match.group(2).upper()
+        input_map = {
+            "90": "HDMI 1", "91": "HDMI 2", "92": "HDMI 3",
+            "D0": "DisplayPort", "80": "DVI", "E0": "URL Launcher"
+        }
+        state["input"] = input_map.get(code, f"Input 0x{code}")
+        respond(f"b {sid} OK{code}x")
+
+    # Screen mute on (kd XX 01)
+    - match: 'kd (\\d+) 01'
+      handler: |
+        sid = match.group(1)
+        state["screen_mute"] = True
+        respond(f"d {sid} OK01x")
+
+    # Screen mute off (kd XX 00)
+    - match: 'kd (\\d+) 00'
+      handler: |
+        sid = match.group(1)
+        state["screen_mute"] = False
+        respond(f"d {sid} OK00x")
+
+  error_modes:
+    communication_timeout:
+      behavior: no_response
+      description: "Display stops responding to all commands (network issue or display in deep standby)"
+    no_signal:
+      behavior: custom_state
+      state:
+        input: "HDMI 1"
+      description: "No signal detected on current input (source unplugged or powered off)"

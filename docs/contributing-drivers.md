@@ -11,9 +11,11 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 2. **Add device settings** if the device has configurable values (hostname, NDI name, video format, etc.) — see Device Settings below
 
-3. **Test thoroughly** against real hardware or a protocol simulator
+3. **Add simulation support** so your driver works without real hardware (YAML drivers get this automatically, Python drivers need a `_sim.py` companion file) — see [Writing Simulators](writing-simulators.md)
 
-4. **Fork this repo** and add your driver to the appropriate category folder:
+4. **Test thoroughly** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc-simulator)
+
+5. **Fork this repo** and add your driver to the appropriate category folder:
    - `projectors/` — Projectors
    - `displays/` — Commercial displays
    - `switchers/` — Matrix switchers, presentation switchers, scalers
@@ -23,9 +25,9 @@ Guide for contributing device drivers to the OpenAVC community library.
    - `lighting/` — DMX, Art-Net, sACN
    - `utility/` — Wake-on-LAN, relays, bridges
 
-5. **Update `index.json`** with your driver's metadata entry
+6. **Update `index.json`** with your driver's metadata entry (include `"simulated": true` if you added simulation support)
 
-6. **Submit a pull request**
+7. **Submit a pull request**
 
 ## index.json Entry Format
 

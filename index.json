@@ -30,7 +30,8 @@
       "verified": true,
       "description": "Controls any PJLink Class 1 compatible projector. Supports 100+ models from Epson, NEC, Panasonic, Sony, Christie, Hitachi, BenQ, Optoma, Canon, and Vivitek.",
       "protocols": ["pjlink"],
-      "ports": [4352]
+      "ports": [4352],
+      "simulated": true
     },
     {
       "id": "samsung_mdc",
@@ -75,7 +76,8 @@
       "verified": false,
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers 200+ products: crosspoint matrix switchers, presentation switchers, scalers, distribution amplifiers, and DSPs.",
       "protocols": ["extron_sis"],
-      "ports": [23]
+      "ports": [23],
+      "simulated": true
     },
     {
       "id": "lg_sicp",
@@ -90,7 +92,8 @@
       "verified": false,
       "description": "Controls LG commercial displays via the SICP (Serial Interface Communication Protocol) over TCP. Covers webOS signage displays, LED, and OLED commercial series.",
       "protocols": [],
-      "ports": [9761]
+      "ports": [9761],
+      "simulated": true
     },
     {
       "id": "kramer_p3000",
@@ -105,7 +108,8 @@
       "verified": false,
       "description": "Controls Kramer products via Protocol 3000. Covers matrix switchers, scalers, distribution amplifiers, and Via wireless presentation systems.",
       "protocols": ["kramer_p3000"],
-      "ports": [5000, 23]
+      "ports": [5000, 23],
+      "simulated": true
     },
     {
       "id": "biamp_tesira_ttp",
@@ -120,7 +124,8 @@
       "verified": false,
       "description": "Controls Biamp Tesira and TesiraFORTE DSPs via the TTP (Tesira Text Protocol). Supports level, mute, preset recall, and logic state control.",
       "protocols": ["biamp_tesira"],
-      "ports": [23]
+      "ports": [23],
+      "simulated": true
     },
     {
       "id": "shure_network",
@@ -135,7 +140,8 @@
       "verified": false,
       "description": "Controls Shure networked audio devices via TCP command strings. Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix, and SCM820 mixers.",
       "protocols": ["shure_dcs"],
-      "ports": [2202]
+      "ports": [2202],
+      "simulated": true
     },
     {
       "id": "qsc_qrc",
@@ -150,7 +156,8 @@
       "verified": false,
       "description": "Controls QSC Q-SYS Core processors via the QRC (Q-SYS Remote Control) protocol. Supports named controls, snapshots, and component access across the entire Q-SYS ecosystem.",
       "protocols": ["qsc"],
-      "ports": [1702, 52000]
+      "ports": [1702, 52000],
+      "simulated": true
     },
     {
       "id": "crestron_nvx",

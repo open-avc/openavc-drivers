@@ -189,3 +189,73 @@ polling:
   queries:
     - 'cgs "{level_control}"\n'
     - 'cgs "{mute_control}"\n'
+
+# ── SIMULATOR DEFINITION ──
+
+simulator:
+  initial_state:
+    level: 0.5
+    level_db: "-20.0 dB"
+    mute: false
+
+  delays:
+    command_response: 0.03
+
+  command_handlers:
+    # Query a named control — respond with cv (control value) format
+    - match: 'cgs "([^"]+)"'
+      handler: |
+        name = match.group(1)
+        if name == config.get("level_control", "Program.Level"):
+            pos = state["level"]
+            db = state["level_db"]
+            respond(f'cv "{name}" "{db}" {pos} "{db}"')
+        elif name == config.get("mute_control", "Program.Mute"):
+            val = "1.000000" if state["mute"] else "0.000000"
+            label = "muted" if state["mute"] else "unmuted"
+            respond(f'cv "{name}" "{val}" {val} "{label}"')
+        else:
+            respond(f'cv "{name}" "0.000000" 0.000000 "0.0"')
+
+    # Set control position (cgp) — update level and respond with cv
+    - match: 'cgp "([^"]+)" ([\\d.]+)'
+      handler: |
+        name = match.group(1)
+        pos = float(match.group(2))
+        pos = max(0.0, min(1.0, pos))
+        if name == config.get("level_control", "Program.Level"):
+            db_val = round(-80 + (pos * 80), 1)
+            db_str = f"{db_val} dB"
+            state["level"] = pos
+            state["level_db"] = db_str
+            respond(f'cv "{name}" "{db_val}" {pos} "{db_str}"')
+
+    # Set control value (cg) — used for mute and generic controls
+    - match: 'cg "([^"]+)" ([\\d.]+)'
+      handler: |
+        name = match.group(1)
+        val = float(match.group(2))
+        if name == config.get("mute_control", "Program.Mute"):
+            state["mute"] = val >= 0.5
+            label = "muted" if state["mute"] else "unmuted"
+            fval = "1.000000" if state["mute"] else "0.000000"
+            respond(f'cv "{name}" "{fval}" {fval} "{label}"')
+
+    # Set control string value (csv) — used for dB level strings
+    - match: 'csv "([^"]+)" "([^"]*)"'
+      handler: |
+        name = match.group(1)
+        value = match.group(2)
+        if name == config.get("level_control", "Program.Level"):
+            state["level_db"] = value
+            respond(f'cv "{name}" "{value}" {state["level"]} "{value}"')
+
+    # Snapshot recall — acknowledge only
+    - match: 'sg "([^"]+)"'
+      handler: |
+        respond(f'sr "ok"')
+
+  error_modes:
+    communication_timeout:
+      behavior: no_response
+      description: "Device stops responding to all commands (network issue or processor crash)"

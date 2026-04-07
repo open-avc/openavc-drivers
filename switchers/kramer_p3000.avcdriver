@@ -180,3 +180,92 @@ polling:
     - "#ROUTE? 1,1\r"
     - "#VMUTE? 1\r"
     - "#MUTE? 1\r"
+
+# ── SIMULATOR DEFINITION ──
+
+simulator:
+  initial_state:
+    input: 1
+    output: 1
+    video_mute: false
+    audio_mute: false
+    signal_present: true
+
+  delays:
+    command_response: 0.02
+
+  command_handlers:
+    # Route query (#ROUTE? layer,output) — respond with current route
+    - match: '#ROUTE\\? (\\d+),(\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        layer = match.group(1)
+        output = match.group(2)
+        respond(f"~{mn}@ROUTE {layer},{output},{state['input']}")
+
+    # Route set (#ROUTE layer,output,input) — update state and respond
+    - match: '#ROUTE (\\d+),(\\d+),(\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        layer = match.group(1)
+        output = match.group(2)
+        inp = int(match.group(3))
+        state["input"] = inp
+        state["output"] = int(output)
+        respond(f"~{mn}@ROUTE {layer},{output},{inp}")
+
+    # Video mute query (#VMUTE? output)
+    - match: '#VMUTE\\? (\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        output = match.group(1)
+        val = "1" if state["video_mute"] else "0"
+        respond(f"~{mn}@VMUTE {output},{val}")
+
+    # Video mute set (#VMUTE output,state)
+    - match: '#VMUTE (\\d+),(\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        output = match.group(1)
+        val = match.group(2)
+        state["video_mute"] = val == "1"
+        respond(f"~{mn}@VMUTE {output},{val}")
+
+    # Audio mute query (#MUTE? output)
+    - match: '#MUTE\\? (\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        output = match.group(1)
+        val = "1" if state["audio_mute"] else "0"
+        respond(f"~{mn}@MUTE {output},{val}")
+
+    # Audio mute set (#MUTE output,state)
+    - match: '#MUTE (\\d+),(\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        output = match.group(1)
+        val = match.group(2)
+        state["audio_mute"] = val == "1"
+        respond(f"~{mn}@MUTE {output},{val}")
+
+    # Volume set (#AUD-LVL output,type,level)
+    - match: '#AUD-LVL (\\d+),(\\d+),(-?\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        output = match.group(1)
+        atype = match.group(2)
+        level = match.group(3)
+        respond(f"~{mn}@AUD-LVL {output},{atype},{level}")
+
+    # Signal query (#SIGNAL? input)
+    - match: '#SIGNAL\\? (\\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        inp = match.group(1)
+        val = "1" if state["signal_present"] else "0"
+        respond(f"~{mn}@SIGNAL {inp},{val}")
+
+  error_modes:
+    communication_timeout:
+      behavior: no_response
+      description: "Device stops responding to all commands (network issue or device reboot)"

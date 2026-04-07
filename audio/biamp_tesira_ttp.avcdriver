@@ -183,3 +183,40 @@ polling:
   queries:
     - '{level_instance_tag} get level 1\n'
     - '{mute_instance_tag} get mute 1\n'
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  initial_state:
+    level: -12.0
+    mute: false
+
+  delays:
+    command_response: 0.03
+
+  command_handlers:
+    - receive: '.+ set level 1 (-?[\\d.]+)'
+      set_state: { level: "{1}" }
+      respond: "+OK\r\n"
+    - receive: '.+ set mute 1 true'
+      set_state: { mute: "true" }
+      respond: "+OK\r\n"
+    - receive: '.+ set mute 1 false'
+      set_state: { mute: "false" }
+      respond: "+OK\r\n"
+    - receive: '.+ toggle mute 1'
+      respond: "+OK\r\n"
+    - receive: '.+ get level 1'
+      respond: '+OK "value":"{state.level}"\r\n'
+    - receive: '.+ get mute 1'
+      respond: '+OK "value":"{state.mute}"\r\n'
+    - receive: '.+ increment level 1 (\\d+)'
+      respond: "+OK\r\n"
+    - receive: '.+ decrement level 1 (\\d+)'
+      respond: "+OK\r\n"
+    - receive: 'DEVICE recallPreset "(.*)"'
+      respond: "+OK\r\n"
+
+  error_modes:
+    communication_timeout:
+      description: "DSP stops responding"
+      behavior: no_response

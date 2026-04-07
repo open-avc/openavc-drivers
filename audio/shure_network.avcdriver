@@ -178,3 +178,90 @@ polling:
   queries:
     - "< GET DEVICE_AUDIO_MUTE >"
     - "< GET DEVICE_NAME >"
+
+# ── SIMULATOR DEFINITION ──
+
+simulator:
+  initial_state:
+    device_name: "MXA920-SIM"
+    mute: false
+    audio_mute: false
+    led_state: "ON"
+    firmware: "4.6.11"
+    meter_level: -42
+
+  delays:
+    command_response: 0.02
+
+  command_handlers:
+    # GET queries — respond with REP format
+    - match: 'GET DEVICE_AUDIO_MUTE'
+      handler: |
+        val = "ON" if state["mute"] else "OFF"
+        respond(f"< REP DEVICE_AUDIO_MUTE {val} >")
+
+    - match: 'GET DEVICE_NAME'
+      handler: |
+        respond(f'< REP DEVICE_NAME {state["device_name"]} >')
+
+    - match: 'GET FW_VER'
+      handler: |
+        respond(f'< REP FW_VER {state["firmware"]} >')
+
+    - match: 'GET LED_STATE'
+      handler: |
+        respond(f'< REP LED_STATE_{state["led_state"]} >')
+
+    # SET device mute
+    - match: 'SET DEVICE_AUDIO_MUTE (ON|OFF|TOGGLE)'
+      handler: |
+        action = match.group(1)
+        if action == "ON":
+            state["mute"] = True
+            state["audio_mute"] = True
+        elif action == "OFF":
+            state["mute"] = False
+            state["audio_mute"] = False
+        elif action == "TOGGLE":
+            state["mute"] = not state["mute"]
+            state["audio_mute"] = state["mute"]
+        val = "ON" if state["mute"] else "OFF"
+        respond(f"< REP DEVICE_AUDIO_MUTE {val} >")
+
+    # SET channel mute
+    - match: 'SET (\\d+) AUDIO_MUTE (ON|OFF)'
+      handler: |
+        channel = match.group(1)
+        action = match.group(2)
+        respond(f"< REP {channel} AUDIO_MUTE {action} >")
+
+    # SET LED state
+    - match: 'SET LED_STATE_(ON|OFF|FLASHING)'
+      handler: |
+        led = match.group(1)
+        state["led_state"] = led
+        respond(f"< REP LED_STATE_{led} >")
+
+    # SET LED color
+    - match: 'SET LED_COLOR_(\\w+)'
+      handler: |
+        color = match.group(1)
+        respond(f"< REP LED_COLOR_{color} >")
+
+    # SET gain
+    - match: 'SET (\\d+) AUDIO_GAIN_HI_RES (-?\\d+)'
+      handler: |
+        channel = match.group(1)
+        level = match.group(2)
+        respond(f"< REP {channel} AUDIO_GAIN_HI_RES {level} >")
+
+    # Recall preset
+    - match: 'SET PRESET (\\d+)'
+      handler: |
+        preset = match.group(1)
+        respond(f"< REP PRESET {preset} >")
+
+  error_modes:
+    communication_timeout:
+      behavior: no_response
+      description: "Device stops responding to all commands (network issue or device crash)"

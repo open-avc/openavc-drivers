@@ -222,3 +222,36 @@ polling:
     - "I"
     - "V"
     - "Z"
+
+# ── SIMULATOR DEFINITION ──
+# Enhances auto-generated simulation with realistic behavior.
+# Without this section, auto-gen still works (Level 0).
+simulator:
+  initial_state:
+    input: 1
+    volume: 50
+    mute: false
+    firmware: "1.04"
+    signal_active: true
+
+  delays:
+    command_response: 0.02   # 20ms — realistic for Extron SIS over TCP
+
+  # Handlers for commands the auto-gen can't infer
+  command_handlers:
+    - receive: "N"
+      respond: "SIS 1616\r\n"
+    - receive: '\*Q'
+      respond: "Ver{state.firmware}\r\n"
+    - receive: '(\d+)\.'
+      respond: "Rpr{1}\r\n"
+    - receive: '(\d+),\.'
+      respond: "Spr{1}\r\n"
+
+  error_modes:
+    communication_timeout:
+      description: "Device stops responding to commands"
+      behavior: no_response
+    garbled_response:
+      description: "Corrupted serial data on the wire"
+      behavior: corrupt_response

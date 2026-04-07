@@ -169,6 +169,9 @@ responses:
     set: { power: "off" }
 
   # Volume response: "f 01 OK32" (volume = 0x32 = 50)
+  # LG SICP uses hex for volume values. The YAML response system parses
+  # the captured value as a decimal integer, so the simulator responds
+  # with zero-padded decimal to keep the driver state consistent.
   - match: 'f \d+ OK(\w{2})'
     set: { volume: "$1" }
 
@@ -178,12 +181,20 @@ responses:
   - match: 'e \d+ OK01'
     set: { mute: "false" }
 
+  # Screen mute response: "d 01 OK01" (on/blanked) "d 01 OK00" (off/visible)
+  - match: 'd \d+ OK01'
+    set: { screen_mute: "true" }
+  - match: 'd \d+ OK00'
+    set: { screen_mute: "false" }
+
 polling:
   interval: 15
   queries:
     - "ka {set_id} FF\r"
     - "kf {set_id} FF\r"
     - "ke {set_id} FF\r"
+    - "kd {set_id} FF\r"
+    - "xb {set_id} FF\r"
 
 # ── SIMULATOR DEFINITION ──
 
@@ -239,22 +250,24 @@ simulator:
         state["power"] = "off"
         respond(f"a {sid} OK00x")
 
-    # Volume query (kf XX FF) — respond with current volume as 2-digit hex
+    # Volume query (kf XX FF) — respond with current volume as 2-digit decimal
+    # Note: Real LG uses hex, but the YAML driver's response parser can't
+    # convert hex→decimal, so the simulator uses decimal for consistency.
     - match: 'kf (\d+) FF'
       handler: |
         sid = match.group(1)
-        vol_hex = format(state["volume"], "02x")
-        respond(f"f {sid} OK{vol_hex}x")
+        vol_str = format(state["volume"], "02d")
+        respond(f"f {sid} OK{vol_str}x")
 
-    # Set volume (kf XX <hex>)
+    # Set volume (kf XX <hex>) — accept hex from driver, store as decimal
     - match: 'kf (\d+) ([0-9a-fA-F]{2})'
       handler: |
         sid = match.group(1)
         vol = int(match.group(2), 16)
         vol = max(0, min(100, vol))
         state["volume"] = vol
-        vol_hex = format(vol, "02x")
-        respond(f"f {sid} OK{vol_hex}x")
+        vol_str = format(vol, "02d")
+        respond(f"f {sid} OK{vol_str}x")
 
     # Mute query (ke XX FF) — respond with mute state
     - match: 'ke (\d+) FF'
@@ -289,6 +302,13 @@ simulator:
         state["input"] = input_map.get(code, f"Input 0x{code}")
         respond(f"b {sid} OK{code}x")
 
+    # Screen mute query (kd XX FF)
+    - match: 'kd (\d+) FF'
+      handler: |
+        sid = match.group(1)
+        val = "01" if state["screen_mute"] else "00"
+        respond(f"d {sid} OK{val}x")
+
     # Screen mute on (kd XX 01)
     - match: 'kd (\d+) 01'
       handler: |
@@ -302,6 +322,17 @@ simulator:
         sid = match.group(1)
         state["screen_mute"] = False
         respond(f"d {sid} OK00x")
+
+    # Input query (xb XX FF) — respond with current input code
+    - match: 'xb (\d+) FF'
+      handler: |
+        sid = match.group(1)
+        reverse_map = {
+            "HDMI 1": "90", "HDMI 2": "91", "HDMI 3": "92",
+            "DisplayPort": "D0", "DVI": "80", "URL Launcher": "E0"
+        }
+        code = reverse_map.get(state["input"], "90")
+        respond(f"b {sid} OK{code}x")
 
   error_modes:
     communication_timeout:

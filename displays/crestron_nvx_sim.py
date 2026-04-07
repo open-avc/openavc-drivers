@@ -60,7 +60,7 @@ class CrestronNvxSimulator(HTTPSimulator):
                 "key": "audio_source",
                 "label": "Audio Source",
                 "options": [
-                    "Automatic", "Input1", "Input2",
+                    "Automatic", "Input1", "Input2", "Analog",
                     "PrimaryAudio", "SecondaryAudio",
                 ],
             },

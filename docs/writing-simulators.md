@@ -687,14 +687,98 @@ This adds a badge in the Browse Drivers view so users know your driver supports 
 
 ---
 
+## Validating Your Simulator
+
+Before testing manually, run the validator to catch common mistakes automatically. The validator checks that your simulator and driver are compatible: every command has a matching handler, responses parse correctly through the driver's response patterns, polling queries are covered, and state variables have consistent types.
+
+### Running the Validator
+
+```bash
+# Validate a single driver
+cd openavc
+python -m simulator.validate ../openavc-drivers/audio/biamp_tesira_ttp.avcdriver
+
+# Validate a Python driver (checks the _sim.py companion file)
+python -m simulator.validate ../openavc-drivers/displays/samsung_mdc.py
+
+# Validate all drivers in a directory
+python -m simulator.validate ../openavc-drivers/
+
+# Quick summary (pass/fail only)
+python -m simulator.validate ../openavc-drivers/ --summary
+```
+
+### What It Checks
+
+**For YAML drivers (`.avcdriver`):**
+
+| Check | What it catches |
+|-------|----------------|
+| **State coverage** | State variables missing from `simulator.initial_state` |
+| **Command coverage** | Commands with no matching simulator handler |
+| **Response parsing** | Simulator responses that don't match any driver response pattern |
+| **Poll coverage** | Polling queries with no matching handler |
+| **Type consistency** | Boolean state used in `respond:` templates (produces `True` not `true`), wrong initial value types, enum values not in the allowed list |
+
+**For Python drivers (`.py` + `_sim.py`):**
+
+| Check | What it catches |
+|-------|----------------|
+| **SIMULATOR_INFO structure** | Missing required fields (`driver_id`, `name`, `initial_state`) |
+| **State coverage** | DRIVER_INFO state variables missing from SIMULATOR_INFO initial_state |
+| **driver_id match** | Mismatched IDs between driver and simulator |
+| **Type consistency** | Wrong types in initial_state values |
+| **Transport match** | Driver and simulator using different transports |
+
+### Reading the Output
+
+```
+PASS: kramer_p3000 [yaml]
+
+FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriver)
+  ERROR [command_coverage] No simulator handler matches command 'recall_preset' (sample: 'Preset1 recall 1')
+  ERROR [type_consistency] Handler uses {state.mute} in respond: template, but 'mute' is boolean...
+  WARN  [response_parsing] Handler response may not match any driver response pattern...
+```
+
+- **ERROR** = something that will break at runtime. Fix before testing.
+- **WARN** = might be intentional. Review, but may not need fixing.
+- Exit code 0 = all passed. Exit code 1 = at least one error.
+
+### Common Issues and Fixes
+
+**"No simulator handler matches command"** -- Your simulator section is missing a handler for this command. Either add a `command_handler` entry or let the auto-gen handle it (remove the conflicting explicit handler).
+
+**"Handler uses {state.X} in respond: template, but X is boolean"** -- Python's `str(True)` produces `"True"` (capitalized), but your driver's response pattern probably expects `"true"` (lowercase). Convert the handler to a script handler:
+
+```yaml
+# Before (broken):
+- receive: '.+ get mute 1'
+  respond: '+OK "value":"{state.mute}"\r\n'
+
+# After (fixed):
+- match: '.+ get mute 1'
+  handler: |
+    val = str(state["mute"]).lower()
+    respond(f'+OK "value":"{val}"\r\n')
+```
+
+**"No simulator handler matches polling query"** -- Your polling section sends a query that no handler recognizes. Add a handler for it, or check that the query text matches what the handler expects (including config variable substitution).
+
+**"State variable X not in initial_state"** -- Add the variable to your `simulator.initial_state` with a realistic default value.
+
+---
+
 ## Best Practices
 
-1. **Match real device behavior.** Study the device's protocol manual. If the device takes 3 seconds to warm up, your simulator should too. If the device rejects input changes when powered off, your simulator should too.
+1. **Run the validator first.** Before starting the simulator, run `python -m simulator.validate` on your driver. It catches the most common mistakes in seconds.
 
-2. **Include error modes.** Every real device can fail. Add at least a `communication_timeout` error mode so users can test their timeout handling.
+2. **Match real device behavior.** Study the device's protocol manual. If the device takes 3 seconds to warm up, your simulator should too. If the device rejects input changes when powered off, your simulator should too.
 
-3. **Use realistic initial state.** Don't start with everything at zero. A real projector has lamp hours, a real display has a default volume, a real switcher has input 1 selected.
+3. **Include error modes.** Every real device can fail. Add at least a `communication_timeout` error mode so users can test their timeout handling.
 
-4. **Keep it simple.** You don't need to simulate every feature of the device. Focus on the commands your driver actually uses. A simulator that handles power, input, and volume is more useful than no simulator at all.
+4. **Use realistic initial state.** Don't start with everything at zero. A real projector has lamp hours, a real display has a default volume, a real switcher has input 1 selected.
 
-5. **Test with the actual driver.** The ultimate test is connecting your driver to your simulator. If the driver works against the simulator the same way it works against real hardware, you're done.
+5. **Keep it simple.** You don't need to simulate every feature of the device. Focus on the commands your driver actually uses. A simulator that handles power, input, and volume is more useful than no simulator at all.
+
+6. **Test with the actual driver.** The ultimate test is connecting your driver to your simulator. If the driver works against the simulator the same way it works against real hardware, you're done.

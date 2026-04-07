@@ -89,7 +89,7 @@ class SonosSimulator(HTTPSimulator):
         "transport": "http",
         "default_port": 1400,
         "initial_state": {
-            "transport_state": "STOPPED",
+            "transport_state": "stopped",
             "volume": 25,
             "mute": False,
             "track_title": "Simulation Track",
@@ -113,11 +113,12 @@ class SonosSimulator(HTTPSimulator):
                 "type": "select",
                 "key": "transport_state",
                 "label": "Transport",
-                "options": ["STOPPED", "PLAYING", "PAUSED_PLAYBACK"],
+                "options": ["stopped", "playing", "paused", "transitioning"],
                 "labels": {
-                    "STOPPED": "Stopped",
-                    "PLAYING": "Playing",
-                    "PAUSED_PLAYBACK": "Paused",
+                    "stopped": "Stopped",
+                    "playing": "Playing",
+                    "paused": "Paused",
+                    "transitioning": "Transitioning",
                 },
             },
             {
@@ -180,24 +181,34 @@ class SonosSimulator(HTTPSimulator):
 
     # ── AVTransport handlers ──
 
+    # Map internal lowercase state → SOAP protocol uppercase
+    _STATE_TO_SOAP = {
+        "playing": "PLAYING",
+        "paused": "PAUSED_PLAYBACK",
+        "stopped": "STOPPED",
+        "transitioning": "TRANSITIONING",
+    }
+
     def _handle_av_transport(self, action: str, body: str) -> tuple[int, str]:
         if action == "Play":
-            self.set_state("transport_state", "PLAYING")
+            self.set_state("transport_state", "playing")
             return 200, _soap_response(_AV_TRANSPORT_URN, action, "")
 
         if action == "Pause":
-            self.set_state("transport_state", "PAUSED_PLAYBACK")
+            self.set_state("transport_state", "paused")
             return 200, _soap_response(_AV_TRANSPORT_URN, action, "")
 
         if action == "Stop":
-            self.set_state("transport_state", "STOPPED")
+            self.set_state("transport_state", "stopped")
             return 200, _soap_response(_AV_TRANSPORT_URN, action, "")
 
         if action in ("Next", "Previous"):
             return 200, _soap_response(_AV_TRANSPORT_URN, action, "")
 
         if action == "GetTransportInfo":
-            state = self.get_state("transport_state", "STOPPED")
+            state = self._STATE_TO_SOAP.get(
+                self.get_state("transport_state", "stopped"), "STOPPED"
+            )
             fields = (
                 f"<CurrentTransportState>{state}</CurrentTransportState>"
                 "<CurrentTransportStatus>OK</CurrentTransportStatus>"

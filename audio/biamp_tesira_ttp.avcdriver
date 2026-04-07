@@ -215,18 +215,30 @@ simulator:
     - receive: '.+ set mute 1 false'
       set_state: { mute: "false" }
       respond: "+OK\r\n"
-    - receive: '.+ toggle mute 1'
-      respond: "+OK\r\n"
-    - receive: '.+ get level 1'
-      respond: '+OK "value":"{state.level}"\r\n'
-    - receive: '.+ get mute 1'
-      respond: '+OK "value":"{state.mute}"\r\n'
-    - receive: '.+ increment level 1 (\d+)'
-      respond: "+OK\r\n"
-    - receive: '.+ decrement level 1 (\d+)'
-      respond: "+OK\r\n"
-    - receive: 'DEVICE recallPreset "(.*)"'
-      respond: "+OK\r\n"
+    - match: '.+ toggle mute 1'
+      handler: |
+        state["mute"] = not state["mute"]
+        respond("+OK\r\n")
+    - match: '.+ get level 1'
+      handler: |
+        respond(f'+OK "value":"{state["level"]}"\r\n')
+    - match: '.+ get mute 1'
+      handler: |
+        val = str(state["mute"]).lower()
+        respond(f'+OK "value":"{val}"\r\n')
+    - match: '.+ increment level 1 (-?[\d.]+)'
+      handler: |
+        amount = float(match.group(1))
+        state["level"] = round(min(12.0, state["level"] + amount), 1)
+        respond("+OK\r\n")
+    - match: '.+ decrement level 1 (-?[\d.]+)'
+      handler: |
+        amount = float(match.group(1))
+        state["level"] = round(max(-100.0, state["level"] - amount), 1)
+        respond("+OK\r\n")
+    - match: '.+ recall \d+'
+      handler: |
+        respond("+OK\r\n")
 
   error_modes:
     communication_timeout:

@@ -180,6 +180,7 @@ polling:
     - "#ROUTE? 1,1\r"
     - "#VMUTE? 1\r"
     - "#MUTE? 1\r"
+    - "#SIGNAL? 1\r"
 
 # ── SIMULATOR DEFINITION ──
 

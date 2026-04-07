@@ -89,6 +89,7 @@ INPUT_REVERSE = {v: k for v, k in {
 # Power status codes for the 305-3 response
 POWER_CODES = {
     "off": 0x00,
+    "warming": 0x03,
     "on": 0x04,
     "cooling": 0x05,
     "network_standby": 0x10,
@@ -151,6 +152,7 @@ class SharpNecProjectorSimulator(TCPSimulator):
             "volume": 50,
             "brightness": 50,
             "contrast": 50,
+            "sharpness": 50,
             "eco_mode": "0",
             "lamp_hours": 1250,
             "lamp_life_remaining": 87,
@@ -365,7 +367,8 @@ class SharpNecProjectorSimulator(TCPSimulator):
         # Power on
         if cmd == CMD_POWER_ON:
             if power in ("off", "network_standby"):
-                self.set_state("power", "on")
+                self.set_state("power", "warming")
+                self._schedule_warmup()
             return self._build_response(0x02, cmd)
 
         # Power off
@@ -615,11 +618,13 @@ class SharpNecProjectorSimulator(TCPSimulator):
         elif cmd == CMD_GAIN_REQ:
             if len(payload) >= 3:
                 target = payload[0]
-                # target: 0x00=brightness, 0x01=contrast, 0x05=volume
+                # target: 0x00=brightness, 0x01=contrast, 0x04=sharpness, 0x05=volume
                 if target == 0x00:
                     value = self.state.get("brightness", 50)
                 elif target == 0x01:
                     value = self.state.get("contrast", 50)
+                elif target == 0x04:
+                    value = self.state.get("sharpness", 50)
                 elif target == 0x05:
                     value = self.state.get("volume", 50)
                 else:
@@ -662,6 +667,10 @@ class SharpNecProjectorSimulator(TCPSimulator):
                     # Contrast
                     level = max(0, min(100, value))
                     self.set_state("contrast", level)
+                elif target == 0x04:
+                    # Sharpness
+                    level = max(0, min(100, value))
+                    self.set_state("sharpness", level)
                 # target 0x18 = aspect (no state to track in sim)
 
                 # ACK: [0x00, 0x00] = success
@@ -690,6 +699,19 @@ class SharpNecProjectorSimulator(TCPSimulator):
         return self._build_response(0x03, cmd)
 
     # ── Power state machine ──
+
+    def _schedule_warmup(self) -> None:
+        """Schedule transition from warming -> on after warmup period."""
+        if self._transition_task and not self._transition_task.done():
+            self._transition_task.cancel()
+        self._transition_task = asyncio.ensure_future(
+            self._do_warmup()
+        )
+
+    async def _do_warmup(self) -> None:
+        """Wait for warmup period, then set power to on."""
+        await asyncio.sleep(3.0)
+        self.set_state("power", "on")
 
     def _schedule_cooldown(self) -> None:
         """Schedule transition from cooling -> off after cooldown period."""

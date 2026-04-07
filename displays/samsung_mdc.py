@@ -266,6 +266,9 @@ class SamsungMDCDriver(BaseDriver):
             self.set_state("power", "on" if payload[0] else "off")
             self.set_state("volume", payload[1])
             self.set_state("mute", bool(payload[2]))
+            if len(payload) >= 4:
+                input_name = INPUT_REVERSE.get(payload[3], f"unknown_{payload[3]:02x}")
+                self.set_state("input", input_name)
 
     async def poll(self) -> None:
         """Query display status."""

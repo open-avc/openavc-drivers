@@ -209,16 +209,16 @@ simulator:
         if name == config.get("level_control", "Program.Level"):
             pos = state["level"]
             db = state["level_db"]
-            respond(f'cv "{name}" "{db}" {pos} "{db}"')
+            respond(f'cv "{name}" "{db}" {pos} "{db}"\r\n')
         elif name == config.get("mute_control", "Program.Mute"):
             val = "1.000000" if state["mute"] else "0.000000"
             label = "muted" if state["mute"] else "unmuted"
-            respond(f'cv "{name}" "{val}" {val} "{label}"')
+            respond(f'cv "{name}" "{val}" {val} "{label}"\r\n')
         else:
-            respond(f'cv "{name}" "0.000000" 0.000000 "0.0"')
+            respond(f'cv "{name}" "0.000000" 0.000000 "0.0"\r\n')
 
     # Set control position (cgp) — update level and respond with cv
-    - match: 'cgp "([^"]+)" ([\\d.]+)'
+    - match: 'cgp "([^"]+)" ([\d.]+)'
       handler: |
         name = match.group(1)
         pos = float(match.group(2))
@@ -228,10 +228,10 @@ simulator:
             db_str = f"{db_val} dB"
             state["level"] = pos
             state["level_db"] = db_str
-            respond(f'cv "{name}" "{db_val}" {pos} "{db_str}"')
+            respond(f'cv "{name}" "{db_val}" {pos} "{db_str}"\r\n')
 
     # Set control value (cg) — used for mute and generic controls
-    - match: 'cg "([^"]+)" ([\\d.]+)'
+    - match: 'cg "([^"]+)" ([\d.]+)'
       handler: |
         name = match.group(1)
         val = float(match.group(2))
@@ -239,7 +239,7 @@ simulator:
             state["mute"] = val >= 0.5
             label = "muted" if state["mute"] else "unmuted"
             fval = "1.000000" if state["mute"] else "0.000000"
-            respond(f'cv "{name}" "{fval}" {fval} "{label}"')
+            respond(f'cv "{name}" "{fval}" {fval} "{label}"\r\n')
 
     # Set control string value (csv) — used for dB level strings
     - match: 'csv "([^"]+)" "([^"]*)"'
@@ -248,12 +248,12 @@ simulator:
         value = match.group(2)
         if name == config.get("level_control", "Program.Level"):
             state["level_db"] = value
-            respond(f'cv "{name}" "{value}" {state["level"]} "{value}"')
+            respond(f'cv "{name}" "{value}" {state["level"]} "{value}"\r\n')
 
     # Snapshot recall — acknowledge only
     - match: 'sg "([^"]+)"'
       handler: |
-        respond(f'sr "ok"')
+        respond(f'sr "ok"\r\n')
 
   error_modes:
     communication_timeout:

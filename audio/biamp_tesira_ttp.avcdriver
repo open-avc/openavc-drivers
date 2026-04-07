@@ -193,8 +193,20 @@ simulator:
   delays:
     command_response: 0.03
 
+  controls:
+    - type: slider
+      key: level
+      label: Level
+      min: -100
+      max: 12
+      step: 0.5
+      unit: dB
+    - type: toggle
+      key: mute
+      label: Mute
+
   command_handlers:
-    - receive: '.+ set level 1 (-?[\\d.]+)'
+    - receive: '.+ set level 1 (-?[\d.]+)'
       set_state: { level: "{1}" }
       respond: "+OK\r\n"
     - receive: '.+ set mute 1 true'
@@ -209,9 +221,9 @@ simulator:
       respond: '+OK "value":"{state.level}"\r\n'
     - receive: '.+ get mute 1'
       respond: '+OK "value":"{state.mute}"\r\n'
-    - receive: '.+ increment level 1 (\\d+)'
+    - receive: '.+ increment level 1 (\d+)'
       respond: "+OK\r\n"
-    - receive: '.+ decrement level 1 (\\d+)'
+    - receive: '.+ decrement level 1 (\d+)'
       respond: "+OK\r\n"
     - receive: 'DEVICE recallPreset "(.*)"'
       respond: "+OK\r\n"

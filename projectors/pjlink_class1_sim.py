@@ -31,15 +31,27 @@ class PjlinkClass1Simulator(TCPSimulator):
         "delimiter": "\r",
         "initial_state": {
             "power": "off",
-            "input": "31",
+            # PJLink input codes: 1x=RGB, 2x=Video, 3x=Digital, 5x=Network
+            "input": "31",       # 31 = HDMI 1
             "mute_video": False,
             "mute_audio": False,
-            "lamp_hours": 3200,
+            "lamp_hours": 450,
             "error_status": "000000",
             "projector_name": "PJLink Simulator",
             "manufacturer": "OpenAVC",
             "product_name": "Virtual Projector",
         },
+        "controls": [
+            {"type": "power", "key": "power"},
+            {"type": "select", "key": "input",
+             "options": ["11", "12", "31", "32", "51"],
+             "labels": {"11": "VGA 1", "12": "VGA 2", "31": "HDMI 1", "32": "HDMI 2", "51": "Network"},
+             "label": "Input"},
+            {"type": "toggle", "key": "mute_video", "label": "Video Mute"},
+            {"type": "toggle", "key": "mute_audio", "label": "Audio Mute"},
+            {"type": "indicator", "key": "lamp_hours", "label": "Lamp Hours"},
+            {"type": "indicator", "key": "error_status", "label": "Error Status"},
+        ],
         "delays": {
             "command_response": 0.03,
         },

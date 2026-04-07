@@ -196,15 +196,15 @@ simulator:
 
   command_handlers:
     # Route query (#ROUTE? layer,output) — respond with current route
-    - match: '#ROUTE\\? (\\d+),(\\d+)'
+    - match: '#ROUTE\? (\d+),(\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         layer = match.group(1)
         output = match.group(2)
-        respond(f"~{mn}@ROUTE {layer},{output},{state['input']}")
+        respond(f"~{mn}@ROUTE {layer},{output},{state['input']}\r\n")
 
     # Route set (#ROUTE layer,output,input) — update state and respond
-    - match: '#ROUTE (\\d+),(\\d+),(\\d+)'
+    - match: '#ROUTE (\d+),(\d+),(\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         layer = match.group(1)
@@ -212,58 +212,58 @@ simulator:
         inp = int(match.group(3))
         state["input"] = inp
         state["output"] = int(output)
-        respond(f"~{mn}@ROUTE {layer},{output},{inp}")
+        respond(f"~{mn}@ROUTE {layer},{output},{inp}\r\n")
 
     # Video mute query (#VMUTE? output)
-    - match: '#VMUTE\\? (\\d+)'
+    - match: '#VMUTE\? (\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         output = match.group(1)
         val = "1" if state["video_mute"] else "0"
-        respond(f"~{mn}@VMUTE {output},{val}")
+        respond(f"~{mn}@VMUTE {output},{val}\r\n")
 
     # Video mute set (#VMUTE output,state)
-    - match: '#VMUTE (\\d+),(\\d+)'
+    - match: '#VMUTE (\d+),(\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         output = match.group(1)
         val = match.group(2)
         state["video_mute"] = val == "1"
-        respond(f"~{mn}@VMUTE {output},{val}")
+        respond(f"~{mn}@VMUTE {output},{val}\r\n")
 
     # Audio mute query (#MUTE? output)
-    - match: '#MUTE\\? (\\d+)'
+    - match: '#MUTE\? (\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         output = match.group(1)
         val = "1" if state["audio_mute"] else "0"
-        respond(f"~{mn}@MUTE {output},{val}")
+        respond(f"~{mn}@MUTE {output},{val}\r\n")
 
     # Audio mute set (#MUTE output,state)
-    - match: '#MUTE (\\d+),(\\d+)'
+    - match: '#MUTE (\d+),(\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         output = match.group(1)
         val = match.group(2)
         state["audio_mute"] = val == "1"
-        respond(f"~{mn}@MUTE {output},{val}")
+        respond(f"~{mn}@MUTE {output},{val}\r\n")
 
     # Volume set (#AUD-LVL output,type,level)
-    - match: '#AUD-LVL (\\d+),(\\d+),(-?\\d+)'
+    - match: '#AUD-LVL (\d+),(\d+),(-?\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         output = match.group(1)
         atype = match.group(2)
         level = match.group(3)
-        respond(f"~{mn}@AUD-LVL {output},{atype},{level}")
+        respond(f"~{mn}@AUD-LVL {output},{atype},{level}\r\n")
 
     # Signal query (#SIGNAL? input)
-    - match: '#SIGNAL\\? (\\d+)'
+    - match: '#SIGNAL\? (\d+)'
       handler: |
         mn = config.get("machine_number", "01")
         inp = match.group(1)
         val = "1" if state["signal_present"] else "0"
-        respond(f"~{mn}@SIGNAL {inp},{val}")
+        respond(f"~{mn}@SIGNAL {inp},{val}\r\n")
 
   error_modes:
     communication_timeout:

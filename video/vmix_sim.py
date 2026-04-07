@@ -1,10 +1,27 @@
 """
-vMix — Simulator
-Auto-generated skeleton. Fill in the handler method with protocol logic.
+vMix Video Production Software — Simulator
 
-Driver: vmix
-Transport: tcp
+Full-featured vMix TCP API simulator with:
+  - FUNCTION command handling (Cut, Fade, PreviewInput, etc.)
+  - XML state query with length-prefixed response
+  - TALLY subscription with real-time push updates
+  - ACTS subscription acknowledgment
+  - Recording, streaming, external output, fade-to-black state
+  - Input tracking (program, preview, per-input tally)
+  - Overlay channel management
+  - Audio state tracking
+  - Controls schema for Simulator UI
+
+Protocol: TCP text on port 8099.
+  Commands:  FUNCTION <name> <params>\r\n
+  Responses: FUNCTION OK\r\n  or  FUNCTION <n> ER <msg>\r\n
+  XML query: XML\r\n -> XML <length>\r\n<xml_body>
+  Tally sub: SUBSCRIBE TALLY\r\n -> TALLY OK <tally_string>\r\n (push)
 """
+
+import asyncio
+import xml.etree.ElementTree as ET
+
 from simulator.tcp_simulator import TCPSimulator
 
 
@@ -16,143 +33,579 @@ class VmixSimulator(TCPSimulator):
         "category": "video",
         "transport": "tcp",
         "default_port": 8099,
+        "delimiter": "\r\n",
         "initial_state": {
-            "active": 0,
-            "preview": 0,
+            "active": 1,
+            "preview": 2,
             "recording": False,
             "streaming": False,
             "external": False,
             "fadeToBlack": False,
-            "input_count": 0,
-            "version": "",
+            "input_count": 4,
+            "version": "27.0.0.48",
         },
         "delays": {
-            "command_response": 0.05,
+            "command_response": 0.02,
         },
         "error_modes": {
-            # Add error modes relevant to this device, e.g.:
-            # "no_signal": {
-            #     "description": "No input signal detected",
-            # },
+            "communication_timeout": {
+                "description": "vMix stops responding to commands",
+                "behavior": "no_response",
+            },
         },
+        "controls": [
+            {
+                "type": "select",
+                "state_key": "active",
+                "label": "Program Input",
+                "options": [
+                    {"label": "Input 1", "value": 1},
+                    {"label": "Input 2", "value": 2},
+                    {"label": "Input 3", "value": 3},
+                    {"label": "Input 4", "value": 4},
+                ],
+            },
+            {
+                "type": "select",
+                "state_key": "preview",
+                "label": "Preview Input",
+                "options": [
+                    {"label": "Input 1", "value": 1},
+                    {"label": "Input 2", "value": 2},
+                    {"label": "Input 3", "value": 3},
+                    {"label": "Input 4", "value": 4},
+                ],
+            },
+            {
+                "type": "toggle",
+                "state_key": "recording",
+                "label": "Recording",
+            },
+            {
+                "type": "toggle",
+                "state_key": "streaming",
+                "label": "Streaming",
+            },
+            {
+                "type": "toggle",
+                "state_key": "external",
+                "label": "External Output",
+            },
+            {
+                "type": "toggle",
+                "state_key": "fadeToBlack",
+                "label": "Fade to Black",
+            },
+        ],
     }
 
+    # Input names for the simulated production
+    _INPUT_NAMES = {
+        1: "Camera 1",
+        2: "Camera 2",
+        3: "Slides",
+        4: "Lower Third",
+    }
+
+    def __init__(self, device_id: str, config: dict | None = None):
+        super().__init__(device_id, config)
+        self._tally_subscribers: set[str] = set()
+        self._acts_subscribers: set[str] = set()
+        # Per-input audio state
+        self._input_audio: dict[int, dict] = {}
+        for i in range(1, 5):
+            self._input_audio[i] = {
+                "muted": False,
+                "volume": 100,
+                "solo": False,
+            }
+        self._master_audio = True
+        self._master_volume = 100
+        # Overlay state: channel -> input number (0 = off)
+        self._overlays: dict[int, int] = {1: 0, 2: 0, 3: 0, 4: 0}
+        # Error counter for generating error responses
+        self._error_counter = 0
+
     def handle_command(self, data: bytes) -> bytes | None:
-        """
-        Parse incoming bytes from the driver, return response bytes.
+        """Parse a vMix TCP command and return the response."""
+        text = data.decode("utf-8", errors="replace").strip()
+        if not text:
+            return None
 
-        Available helpers:
-            self.state              — dict of current state values
-            self.set_state(k, v)    — update state (triggers UI refresh)
-            self.active_errors      — set of currently active error mode names
+        # XML state request
+        if text == "XML":
+            return self._build_xml_response()
 
-        Driver commands to handle:
-            cut                  — Cut (params: input: string)
-            fade                 — Fade (params: input: string, duration: integer)
-            cut_direct           — Cut Direct (params: input: string)
-            fade_to_black        — Fade to Black
-            transition           — Transition (params: input: string, effect: string, duration: integer)
-            stinger              — Stinger (params: input: string, index: integer)
-            set_fader            — Set T-Bar (params: position: integer)
-            preview_input        — Preview Input (params: input: string)
-            active_input         — Active Input (Cut) (params: input: string)
-            preview_input_next   — Preview Next
-            preview_input_previous — Preview Previous
-            audio                — Audio Toggle (params: input: string)
-            audio_on             — Audio On (params: input: string)
-            audio_off            — Audio Off (params: input: string)
-            set_volume           — Set Volume (params: input: string, value: integer)
-            set_volume_fade      — Set Volume (Fade) (params: input: string, value: integer, duration: integer)
-            set_gain             — Set Gain (params: input: string, value: integer)
-            set_balance          — Set Balance (params: input: string, value: integer)
-            solo                 — Solo (params: input: string)
-            bus_audio            — Bus Audio Toggle (params: input: string, value: string)
-            bus_audio_on         — Bus Audio On (params: input: string, value: string)
-            bus_audio_off        — Bus Audio Off (params: input: string, value: string)
-            set_bus_volume       — Set Bus Volume (params: value: string, level: integer)
-            master_audio         — Master Audio Toggle
-            master_audio_on      — Master Audio On
-            master_audio_off     — Master Audio Off
-            set_master_volume    — Set Master Volume (params: value: integer)
-            overlay_input        — Overlay Toggle (params: input: string, value: integer)
-            overlay_input_in     — Overlay In (params: input: string, value: integer)
-            overlay_input_out    — Overlay Out (params: value: integer)
-            overlay_input_off    — Overlay Off (params: value: integer)
-            overlay_input_all_off — All Overlays Off
-            start_recording      — Start Recording
-            stop_recording       — Stop Recording
-            start_streaming      — Start Streaming (params: value: integer)
-            stop_streaming       — Stop Streaming (params: value: integer)
-            start_external       — Start External
-            stop_external        — Stop External
-            snapshot             — Snapshot
-            snapshot_input       — Snapshot Input (params: input: string)
-            set_text             — Set Text (params: input: string, selectedName: string, value: string)
-            set_image            — Set Image (params: input: string, selectedName: string, value: string)
-            set_countdown        — Set Countdown (params: input: string, value: string)
-            start_countdown      — Start Countdown (params: input: string)
-            stop_countdown       — Stop Countdown (params: input: string)
-            play                 — Play (params: input: string)
-            pause                — Pause (params: input: string)
-            play_pause           — Play/Pause (params: input: string)
-            restart              — Restart (params: input: string)
-            loop_on              — Loop On (params: input: string)
-            loop_off             — Loop Off (params: input: string)
-            set_position         — Set Position (params: input: string, value: integer)
-            set_rate             — Set Rate (params: input: string, value: string)
-            replay_play          — Replay Play
-            replay_pause         — Replay Pause
-            replay_mark_in       — Replay Mark In
-            replay_mark_out      — Replay Mark Out
-            replay_mark_in_out   — Replay Mark In/Out
-            replay_live          — Replay Live
-            replay_recorded      — Replay Recorded
-            replay_set_speed     — Replay Set Speed (params: value: string)
-            replay_play_last_event — Replay Last Event
-            ptz_move_up          — PTZ Up (params: input: string, value: string)
-            ptz_move_down        — PTZ Down (params: input: string, value: string)
-            ptz_move_left        — PTZ Left (params: input: string, value: string)
-            ptz_move_right       — PTZ Right (params: input: string, value: string)
-            ptz_move_stop        — PTZ Stop (params: input: string)
-            ptz_zoom_in          — PTZ Zoom In (params: input: string, value: string)
-            ptz_zoom_out         — PTZ Zoom Out (params: input: string, value: string)
-            ptz_zoom_stop        — PTZ Zoom Stop (params: input: string)
-            ptz_home             — PTZ Home (params: input: string)
-            ptz_focus_auto       — PTZ Auto Focus (params: input: string)
-            add_input            — Add Input (params: value: string)
-            remove_input         — Remove Input (params: input: string)
-            set_input_name       — Set Input Name (params: input: string, value: string)
-            select_index         — Select Index (params: input: string, value: integer)
-            next_item            — Next Item (params: input: string)
-            previous_item        — Previous Item (params: input: string)
-            browser_navigate     — Browser Navigate (params: input: string, value: string)
-            script_start         — Script Start (params: value: string)
-            script_stop          — Script Stop (params: value: string)
-            raw_function         — Raw Function (params: function: string, query: string)
+        # Subscription commands
+        if text.startswith("SUBSCRIBE"):
+            return self._handle_subscribe(text)
+        if text.startswith("UNSUBSCRIBE"):
+            return self._handle_unsubscribe(text)
 
-        State variables to maintain:
-            active               (integer ) — Program Input
-            preview              (integer ) — Preview Input
-            recording            (boolean ) — Recording
-            streaming            (boolean ) — Streaming
-            external             (boolean ) — External Output
-            fadeToBlack          (boolean ) — Fade to Black
-            input_count          (integer ) — Input Count
-            version              (string  ) — vMix Version
-        """
-        # TODO: Implement protocol parsing and response generation.
-        #
-        # Example for a text protocol:
-        #   text = data.decode().strip()
-        #   if text == "POWER ON":
-        #       self.set_state("power", "on")
-        #       return b"OK\r\n"
-        #
-        # Example for a binary protocol:
-        #   if len(data) >= 4 and data[0] == 0xAA:
-        #       cmd = data[1]
-        #       if cmd == 0x11:  # Power query
-        #           payload = [0x01 if self.state["power"] == "on" else 0x00]
-        #           return self._build_response(cmd, payload)
+        # FUNCTION commands
+        if text.startswith("FUNCTION"):
+            return self._handle_function(text)
+
+        # VERSION query
+        if text == "VERSION":
+            version = self.state.get("version", "27.0.0.48")
+            return f"VERSION OK {version}\r\n".encode("utf-8")
 
         return None
+
+    # ── FUNCTION command handling ──
+
+    def _handle_function(self, text: str) -> bytes:
+        """
+        Parse and execute a FUNCTION command.
+
+        Format: FUNCTION <FunctionName> <Param1=Value1&Param2=Value2>
+        Response: FUNCTION OK\r\n  or  FUNCTION 0 ER <message>\r\n
+        """
+        parts = text.split(" ", 2)
+        if len(parts) < 2:
+            return b"FUNCTION 0 ER Invalid command\r\n"
+
+        func_name = parts[1]
+        query_str = parts[2] if len(parts) > 2 else ""
+
+        # Parse query parameters (Key=Value&Key2=Value2)
+        params = {}
+        if query_str:
+            for pair in query_str.split("&"):
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
+                    params[key] = value
+
+        result = self._execute_function(func_name, params)
+        if result is True:
+            return b"FUNCTION OK\r\n"
+        elif isinstance(result, str):
+            # Error message
+            self._error_counter += 1
+            return f"FUNCTION {self._error_counter} ER {result}\r\n".encode("utf-8")
+        else:
+            return b"FUNCTION OK\r\n"
+
+    def _execute_function(self, func_name: str, params: dict) -> bool | str:
+        """
+        Execute a vMix function. Returns True on success, or an error message string.
+        Updates simulator state as appropriate.
+        """
+        input_num = self._resolve_input(params.get("Input"))
+        input_count = self.state.get("input_count", 4)
+
+        # ── Transitions ──
+
+        if func_name == "Cut":
+            # Cut to specified input (or current preview if no input given)
+            target = input_num if input_num else self.state.get("preview", 1)
+            if target < 1 or target > input_count:
+                return f"Input {target} does not exist"
+            old_active = self.state.get("active", 1)
+            self.set_state("active", target)
+            # Move old program to preview
+            self.set_state("preview", old_active)
+            self._push_tally()
+            return True
+
+        if func_name == "Fade":
+            target = input_num if input_num else self.state.get("preview", 1)
+            if target < 1 or target > input_count:
+                return f"Input {target} does not exist"
+            old_active = self.state.get("active", 1)
+            self.set_state("active", target)
+            self.set_state("preview", old_active)
+            self._push_tally()
+            return True
+
+        if func_name == "CutDirect":
+            if not input_num:
+                return "Input parameter required"
+            if input_num < 1 or input_num > input_count:
+                return f"Input {input_num} does not exist"
+            self.set_state("active", input_num)
+            self._push_tally()
+            return True
+
+        if func_name == "FadeToBlack":
+            current = self.state.get("fadeToBlack", False)
+            self.set_state("fadeToBlack", not current)
+            return True
+
+        if func_name in ("Transition", "Stinger"):
+            target = input_num if input_num else self.state.get("preview", 1)
+            if target < 1 or target > input_count:
+                return f"Input {target} does not exist"
+            old_active = self.state.get("active", 1)
+            self.set_state("active", target)
+            self.set_state("preview", old_active)
+            self._push_tally()
+            return True
+
+        if func_name == "SetFader":
+            # T-bar position — just acknowledge
+            return True
+
+        # ── Input Switching ──
+
+        if func_name == "PreviewInput":
+            if not input_num:
+                return "Input parameter required"
+            if input_num < 1 or input_num > input_count:
+                return f"Input {input_num} does not exist"
+            self.set_state("preview", input_num)
+            self._push_tally()
+            return True
+
+        if func_name == "ActiveInput":
+            if not input_num:
+                return "Input parameter required"
+            if input_num < 1 or input_num > input_count:
+                return f"Input {input_num} does not exist"
+            self.set_state("active", input_num)
+            self._push_tally()
+            return True
+
+        if func_name == "PreviewInputNext":
+            current = self.state.get("preview", 1)
+            next_input = current + 1 if current < input_count else 1
+            self.set_state("preview", next_input)
+            self._push_tally()
+            return True
+
+        if func_name == "PreviewInputPrevious":
+            current = self.state.get("preview", 1)
+            prev_input = current - 1 if current > 1 else input_count
+            self.set_state("preview", prev_input)
+            self._push_tally()
+            return True
+
+        # ── Audio ──
+
+        if func_name == "Audio":
+            if input_num and input_num in self._input_audio:
+                self._input_audio[input_num]["muted"] = not self._input_audio[input_num]["muted"]
+            return True
+
+        if func_name == "AudioOn":
+            if input_num and input_num in self._input_audio:
+                self._input_audio[input_num]["muted"] = False
+            return True
+
+        if func_name == "AudioOff":
+            if input_num and input_num in self._input_audio:
+                self._input_audio[input_num]["muted"] = True
+            return True
+
+        if func_name == "SetVolume":
+            if input_num and input_num in self._input_audio:
+                try:
+                    vol = int(params.get("Value", 100))
+                    self._input_audio[input_num]["volume"] = max(0, min(100, vol))
+                except ValueError:
+                    pass
+            return True
+
+        if func_name == "SetVolumeFade":
+            # Fade to volume — just set it immediately in the simulator
+            if input_num and input_num in self._input_audio:
+                try:
+                    vol = int(params.get("Value", 100))
+                    self._input_audio[input_num]["volume"] = max(0, min(100, vol))
+                except ValueError:
+                    pass
+            return True
+
+        if func_name == "SetGain":
+            # Acknowledge gain changes
+            return True
+
+        if func_name == "SetBalance":
+            # Acknowledge balance changes
+            return True
+
+        if func_name == "Solo":
+            if input_num and input_num in self._input_audio:
+                self._input_audio[input_num]["solo"] = not self._input_audio[input_num]["solo"]
+            return True
+
+        # Bus audio commands (BusAAudio, BusBAudioOn, etc.)
+        if func_name.startswith("Bus") and "Audio" in func_name:
+            return True
+
+        if func_name.startswith("SetBus") and "Volume" in func_name:
+            return True
+
+        if func_name == "MasterAudio":
+            self._master_audio = not self._master_audio
+            return True
+
+        if func_name == "MasterAudioOn":
+            self._master_audio = True
+            return True
+
+        if func_name == "MasterAudioOff":
+            self._master_audio = False
+            return True
+
+        if func_name == "SetMasterVolume":
+            try:
+                vol = int(params.get("Value", 100))
+                self._master_volume = max(0, min(100, vol))
+            except ValueError:
+                pass
+            return True
+
+        # ── Overlays ──
+
+        if func_name == "OverlayInput":
+            channel = self._resolve_int(params.get("Value"))
+            if channel and 1 <= channel <= 4 and input_num:
+                if self._overlays.get(channel) == input_num:
+                    self._overlays[channel] = 0  # Toggle off
+                else:
+                    self._overlays[channel] = input_num
+            return True
+
+        if func_name == "OverlayInputIn":
+            channel = self._resolve_int(params.get("Value"))
+            if channel and 1 <= channel <= 4 and input_num:
+                self._overlays[channel] = input_num
+            return True
+
+        if func_name == "OverlayInputOut":
+            channel = self._resolve_int(params.get("Value"))
+            if channel and 1 <= channel <= 4:
+                self._overlays[channel] = 0
+            return True
+
+        if func_name == "OverlayInputOff":
+            channel = self._resolve_int(params.get("Value"))
+            if channel and 1 <= channel <= 4:
+                self._overlays[channel] = 0
+            return True
+
+        if func_name == "OverlayInputAllOff":
+            for ch in self._overlays:
+                self._overlays[ch] = 0
+            return True
+
+        # ── Recording / Streaming / External ──
+
+        if func_name == "StartRecording":
+            self.set_state("recording", True)
+            return True
+
+        if func_name == "StopRecording":
+            self.set_state("recording", False)
+            return True
+
+        if func_name == "StartStreaming":
+            self.set_state("streaming", True)
+            return True
+
+        if func_name == "StopStreaming":
+            self.set_state("streaming", False)
+            return True
+
+        if func_name == "StartExternal":
+            self.set_state("external", True)
+            return True
+
+        if func_name == "StopExternal":
+            self.set_state("external", False)
+            return True
+
+        # ── Snapshot / Titles / Countdown / Playback / Replay / PTZ ──
+        # These are all fire-and-forget commands in vMix. Accept them silently.
+
+        if func_name in (
+            "Snapshot", "SnapshotInput",
+            "SetText", "SetImage", "SetCountdown",
+            "StartCountdown", "StopCountdown",
+            "Play", "Pause", "PlayPause", "Restart",
+            "LoopOn", "LoopOff", "SetPosition", "SetRate",
+            "ReplayPlay", "ReplayPause",
+            "ReplayMarkIn", "ReplayMarkOut", "ReplayMarkInOut",
+            "ReplayLive", "ReplayRecorded", "ReplaySetSpeed",
+            "ReplayPlayLastEvent",
+            "PTZMoveUp", "PTZMoveDown", "PTZMoveLeft", "PTZMoveRight",
+            "PTZMoveStop", "PTZZoomIn", "PTZZoomOut", "PTZZoomStop",
+            "PTZHome", "PTZFocusAuto",
+            "AddInput", "RemoveInput", "SetInputName",
+            "SelectIndex", "NextItem", "PreviousItem",
+            "BrowserNavigate", "ScriptStart", "ScriptStop",
+        ):
+            return True
+
+        # Unknown function — still return OK (vMix is permissive)
+        return True
+
+    # ── Subscriptions ──
+
+    def _handle_subscribe(self, text: str) -> bytes:
+        """Handle SUBSCRIBE commands."""
+        parts = text.split()
+        if len(parts) < 2:
+            return b"SUBSCRIBE OK\r\n"
+
+        topic = parts[1].upper()
+
+        if topic == "TALLY":
+            # Store that this connection wants tally pushes.
+            # Since TCPSimulator broadcasts via push(), we just
+            # need to track that at least one client is subscribed.
+            self._tally_subscribers.add("active")
+            tally_str = self._build_tally_string()
+            return f"SUBSCRIBE OK TALLY\r\nTALLY OK {tally_str}\r\n".encode("utf-8")
+
+        if topic == "ACTS":
+            self._acts_subscribers.add("active")
+            return b"SUBSCRIBE OK ACTS\r\n"
+
+        return b"SUBSCRIBE OK\r\n"
+
+    def _handle_unsubscribe(self, text: str) -> bytes:
+        """Handle UNSUBSCRIBE commands."""
+        parts = text.split()
+        if len(parts) >= 2:
+            topic = parts[1].upper()
+            if topic == "TALLY":
+                self._tally_subscribers.discard("active")
+            elif topic == "ACTS":
+                self._acts_subscribers.discard("active")
+        return b"UNSUBSCRIBE OK\r\n"
+
+    # ── Tally ──
+
+    def _build_tally_string(self) -> str:
+        """
+        Build a tally string: one digit per input.
+        0 = safe (not in program or preview)
+        1 = program (live)
+        2 = preview
+        """
+        active = self.state.get("active", 1)
+        preview = self.state.get("preview", 2)
+        input_count = self.state.get("input_count", 4)
+        chars = []
+        for i in range(1, input_count + 1):
+            if i == active:
+                chars.append("1")
+            elif i == preview:
+                chars.append("2")
+            else:
+                chars.append("0")
+        return "".join(chars)
+
+    def _push_tally(self) -> None:
+        """Push a tally update to all subscribed clients."""
+        if not self._tally_subscribers:
+            return
+        tally_str = self._build_tally_string()
+        msg = f"TALLY OK {tally_str}\r\n".encode("utf-8")
+        asyncio.ensure_future(self.push(msg))
+
+    # ── XML state response ──
+
+    def _build_xml_response(self) -> bytes:
+        """
+        Build the XML state response.
+
+        Format: XML <length>\r\n<xml_body>
+        The driver parses this with a custom frame parser that reads
+        the length header, then consumes that many bytes of XML body.
+        """
+        xml_body = self._build_xml_body()
+        xml_bytes = xml_body.encode("utf-8")
+        header = f"XML {len(xml_bytes)}\r\n".encode("utf-8")
+        return header + xml_bytes
+
+    def _build_xml_body(self) -> str:
+        """
+        Build the vMix XML state document.
+
+        The driver parses these elements:
+          - <vmix> root: version, active, preview attributes
+          - <recording>, <streaming>, <external>, <fadeToBlack> text elements
+          - <inputs> with <input> children (number, title, type, state, muted, loop, position, duration)
+          - <overlays> with <overlay> children (number attribute, text = input number)
+          - <transitions> with <transition> children (number, effect, duration)
+        """
+        active = self.state.get("active", 1)
+        preview = self.state.get("preview", 2)
+        version = self.state.get("version", "27.0.0.48")
+        recording = self.state.get("recording", False)
+        streaming = self.state.get("streaming", False)
+        external = self.state.get("external", False)
+        ftb = self.state.get("fadeToBlack", False)
+        input_count = self.state.get("input_count", 4)
+
+        root = ET.Element("vmix")
+        root.set("version", version)
+        root.set("active", str(active))
+        root.set("preview", str(preview))
+
+        # Recording / streaming / external / FTB
+        ET.SubElement(root, "recording").text = str(recording)
+        ET.SubElement(root, "streaming").text = str(streaming)
+        ET.SubElement(root, "external").text = str(external)
+        ET.SubElement(root, "fadeToBlack").text = str(ftb)
+
+        # Inputs
+        inputs_el = ET.SubElement(root, "inputs")
+        for i in range(1, input_count + 1):
+            inp = ET.SubElement(inputs_el, "input")
+            inp.set("number", str(i))
+            inp.set("title", self._INPUT_NAMES.get(i, f"Input {i}"))
+            inp.set("type", "Capture" if i <= 2 else "Image")
+            inp.set("state", "Running")
+            audio = self._input_audio.get(i, {})
+            inp.set("muted", str(audio.get("muted", False)))
+            inp.set("loop", "False")
+            inp.set("position", "0")
+            inp.set("duration", "0")
+
+        # Overlays
+        overlays_el = ET.SubElement(root, "overlays")
+        for ch in range(1, 5):
+            ov = ET.SubElement(overlays_el, "overlay")
+            ov.set("number", str(ch))
+            ov_input = self._overlays.get(ch, 0)
+            ov.text = str(ov_input) if ov_input else ""
+
+        # Transitions (4 default slots)
+        transitions_el = ET.SubElement(root, "transitions")
+        for t_num, effect in enumerate(["Fade", "Merge", "Wipe", "CubeZoom"], start=1):
+            trans = ET.SubElement(transitions_el, "transition")
+            trans.set("number", str(t_num))
+            trans.set("effect", effect)
+            trans.set("duration", "1000")
+
+        return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    # ── Helpers ──
+
+    def _resolve_input(self, value: str | None) -> int | None:
+        """Convert an input parameter to an integer, or None if not provided."""
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            # Try matching by name
+            for num, name in self._INPUT_NAMES.items():
+                if name.lower() == value.lower():
+                    return num
+            return None
+
+    @staticmethod
+    def _resolve_int(value: str | None) -> int | None:
+        """Convert a string to int, or None."""
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            return None

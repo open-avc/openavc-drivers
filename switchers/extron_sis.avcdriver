@@ -233,9 +233,37 @@ simulator:
     mute: false
     firmware: "1.04"
     signal_active: true
+    route_1: 1
+    route_2: 1
+    route_3: 1
+    route_4: 1
 
   delays:
     command_response: 0.02   # 20ms — realistic for Extron SIS over TCP
+
+  controls:
+    - type: matrix
+      label: Video Routing
+      inputs: 8
+      outputs: 4
+      state_pattern: "route_{output}"
+    - type: slider
+      key: volume
+      label: Volume
+      min: 0
+      max: 100
+    - type: toggle
+      key: mute
+      label: Audio Mute
+    - type: indicator
+      key: signal_active
+      label: Signal
+      color_map:
+        "true": "#22c55e"
+        "false": "#6b7089"
+    - type: indicator
+      key: firmware
+      label: Firmware
 
   # Handlers for commands the auto-gen can't infer
   command_handlers:

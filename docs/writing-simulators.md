@@ -121,7 +121,7 @@ simulator:
       respond: "Rpr{1}\r\n"
 ```
 
-**Handler fields:**
+**Template handler fields:**
 
 | Field | Description |
 |-------|-------------|
@@ -130,6 +130,44 @@ simulator:
 | `set_state` | Dict of state changes to apply when matched |
 
 **Regex escaping in YAML:** Use single quotes for patterns. Within single quotes, backslashes are literal, so `'\d+'` is the regex `\d+`. If you need a literal backslash in the regex, use `'\\'`. Do NOT double-escape: `'\\d+'` would be the regex `\\d+` (literal backslash followed by d), which is wrong.
+
+### Script Handlers
+
+For protocols that need conditional logic, math, or config variable access, use a `match:` + `handler:` pair with inline Python:
+
+```yaml
+simulator:
+  command_handlers:
+    - match: '#ROUTE (\d+),(\d+),(\d+)'
+      handler: |
+        mn = config.get("machine_number", "01")
+        layer = match.group(1)
+        output = match.group(2)
+        inp = int(match.group(3))
+        state["input"] = inp
+        respond(f"~{mn}@ROUTE {layer},{output},{inp}\r\n")
+```
+
+**Script handler fields:**
+
+| Field | Description |
+|-------|-------------|
+| `match` | Regex pattern to match incoming data (anchored to full line) |
+| `handler` | Inline Python code executed when the pattern matches |
+
+The handler code has access to:
+
+| Variable | Description |
+|----------|-------------|
+| `match` | The regex match object (use `match.group(1)`, etc.) |
+| `state` | Mutable state dict. Writes trigger UI updates. |
+| `config` | Device config from the project file |
+| `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
+| `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format` | Built-in functions |
+
+State changes made via `state["key"] = value` are reflected in the Simulator UI in real time.
+
+**When to use script vs template handlers:** Use template handlers (`receive:` + `respond:`) for simple command/response patterns. Use script handlers (`match:` + `handler:`) when you need conditionals, math, config access, or complex state logic.
 
 ### State Machines
 
@@ -231,6 +269,118 @@ simulator:
       description: "Corrupted serial data on the wire"
       behavior: corrupt_response
 ```
+
+### Controls Schema
+
+By default, the Simulator UI renders category-based panels (projector gets power/input controls, audio gets level/mute, etc.). For devices that need custom controls (matrix switchers with multiple outputs, multi-channel DSPs, devices with non-standard state), add a `controls` array to your `simulator:` section.
+
+When a `controls` array is present, the UI renders those controls instead of the default category panel.
+
+**Control types:**
+
+| Type | What it renders | Required fields |
+|------|----------------|-----------------|
+| `power` | Power button with LED indicator | `key` |
+| `select` | Button group | `key`, `options`; optional `labels` |
+| `slider` | Range slider with value display | `key`, `min`, `max`; optional `step`, `unit` |
+| `toggle` | On/off toggle button | `key`, `label` |
+| `matrix` | Input x output routing grid | `inputs`, `outputs`, `state_pattern` |
+| `meters` | Vertical level meter bars | `channels`, `key_pattern`; optional `mute_pattern` |
+| `presets` | Numbered/named preset buttons | `key`; `count` or `names` |
+| `group` | Groups other controls with a label | `label`, `controls` (nested array) |
+| `indicator` | Read-only status display | `key`, `label`; optional `color_map` |
+
+All control types also accept an optional `label` field.
+
+**Matrix switcher example:**
+
+```yaml
+simulator:
+  initial_state:
+    route_1: 1
+    route_2: 1
+    route_3: 1
+    route_4: 1
+    volume: 50
+    mute: false
+
+  controls:
+    - type: matrix
+      label: Video Routing
+      inputs: 8
+      outputs: 4
+      state_pattern: "route_{output}"
+    - type: slider
+      key: volume
+      label: Master Volume
+      min: 0
+      max: 100
+    - type: toggle
+      key: mute
+      label: Audio Mute
+```
+
+The `state_pattern` field uses `{output}` as a placeholder. For output 1, the state key is `route_1`; for output 2, `route_2`, and so on. Each state key holds the currently routed input number.
+
+**Multi-channel DSP example:**
+
+```yaml
+simulator:
+  controls:
+    - type: group
+      label: Channel 1
+      controls:
+        - type: slider
+          key: ch1_level
+          label: Level
+          min: -80
+          max: 12
+          unit: dB
+        - type: toggle
+          key: ch1_mute
+          label: Mute
+    - type: group
+      label: Channel 2
+      controls:
+        - type: slider
+          key: ch2_level
+          label: Level
+          min: -80
+          max: 12
+          unit: dB
+        - type: toggle
+          key: ch2_mute
+          label: Mute
+    - type: presets
+      label: Presets
+      names: [Meeting, Presentation, Video Call, All Mute]
+      key: active_preset
+```
+
+**Indicator with color mapping:**
+
+```yaml
+- type: indicator
+  key: signal_active
+  label: Signal
+  color_map:
+    "true": "#22c55e"
+    "false": "#6b7089"
+```
+
+**Meters for multi-channel level display:**
+
+```yaml
+- type: meters
+  label: Channel Levels
+  channels: 4
+  key_pattern: "level_{ch}"
+  mute_pattern: "mute_{ch}"
+```
+
+The `key_pattern` and `mute_pattern` use `{ch}` as a placeholder, numbered starting from 1. The meter bars show the level value normalized to 0-100.
+
+Controls are optional. Drivers without a `controls` array continue to use the default category-based panel. Most YAML auto-gen drivers work well with the defaults.
 
 ---
 
@@ -376,6 +526,25 @@ Inside `handle_command` or `handle_request`, you have access to:
 | `self.active_errors` | Set of currently active error mode names |
 | `self.has_error_behavior(name)` | Check if any active error uses the given behavior |
 | `self.config` | Device-specific config passed at startup |
+
+### Custom Controls in Python
+
+Python simulators can also declare custom controls via the `controls` key in `SIMULATOR_INFO`:
+
+```python
+SIMULATOR_INFO = {
+    ...
+    "controls": [
+        {"type": "power", "key": "power"},
+        {"type": "select", "key": "input", "options": ["hdmi1", "hdmi2", "vga"],
+         "labels": {"hdmi1": "HDMI 1", "hdmi2": "HDMI 2", "vga": "VGA"}},
+        {"type": "slider", "key": "volume", "min": 0, "max": 100, "label": "Volume"},
+        {"type": "toggle", "key": "mute", "label": "Mute"},
+    ],
+}
+```
+
+The control types and fields are the same as for YAML drivers. See the Controls Schema section under Level 1 for the full reference.
 
 ### File Naming and Placement
 

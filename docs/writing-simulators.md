@@ -11,7 +11,7 @@ Simulation support is optional but strongly recommended. It enables:
 
 ## How Simulation Works
 
-The [OpenAVC Simulator](https://github.com/open-avc/openavc-simulator) is a standalone application that runs alongside OpenAVC. It discovers your driver files, starts fake protocol servers (TCP or HTTP), and responds to commands using the rules you define. OpenAVC drivers connect to these servers instead of real hardware. From the driver's perspective, it's talking to a real device.
+The [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main OpenAVC repo at `simulator/`) is a standalone application that runs alongside OpenAVC. It discovers your driver files, starts fake protocol servers (TCP or HTTP), and responds to commands using the rules you define. OpenAVC drivers connect to these servers instead of real hardware. From the driver's perspective, it's talking to a real device.
 
 ```
 OpenAVC                          Simulator
@@ -241,7 +241,7 @@ For Python drivers with binary or complex protocols, write a companion simulator
 ### Step 1: Generate the Skeleton
 
 ```bash
-cd openavc-simulator
+cd openavc
 python -m simulator.scaffold ../openavc-drivers/displays/samsung_mdc.py
 # Creates: ../openavc-drivers/displays/samsung_mdc_sim.py
 ```
@@ -473,7 +473,7 @@ Start the simulator with your driver and connect with a raw TCP client:
 
 ```bash
 # Start the simulator
-cd openavc-simulator
+cd openavc
 python -m simulator --driver-paths ../openavc-drivers
 
 # In another terminal, connect to the simulated device

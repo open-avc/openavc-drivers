@@ -13,7 +13,7 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 3. **Add simulation support** so your driver works without real hardware (YAML drivers get this automatically, Python drivers need a `_sim.py` companion file) — see [Writing Simulators](writing-simulators.md)
 
-4. **Test thoroughly** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc-simulator)
+4. **Test thoroughly** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main repo at `simulator/`)
 
 5. **Fork this repo** and add your driver to the appropriate category folder:
    - `projectors/` — Projectors

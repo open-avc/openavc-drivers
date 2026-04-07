@@ -194,6 +194,24 @@ simulator:
   delays:
     command_response: 0.02
 
+  controls:
+    - type: select
+      key: input
+      label: Input
+      options: ["1", "2", "3", "4", "5", "6", "7", "8"]
+    - type: toggle
+      key: video_mute
+      label: Video Mute
+    - type: toggle
+      key: audio_mute
+      label: Audio Mute
+    - type: indicator
+      key: signal_present
+      label: Signal
+      color_map:
+        "true": "#22c55e"
+        "false": "#6b7089"
+
   command_handlers:
     # Route query (#ROUTE? layer,output) — respond with current route
     - match: '#ROUTE\? (\d+),(\d+)'

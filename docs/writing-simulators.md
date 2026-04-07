@@ -42,9 +42,11 @@ If your driver is a YAML `.avcdriver` file, it already has everything the simula
 
 1. Your `commands` section tells the simulator what data to expect (incoming commands)
 2. Your `responses` section tells the simulator what format to reply in
-3. Your `state_variables` section tells the simulator what state to track
+3. Your `state_variables` section tells the simulator what state to track and what controls to show in the UI
 
 The simulator reverses these definitions: when it receives data matching a command's `send` template, it updates state and responds using the matching response format.
+
+The Simulator UI auto-generates controls from your `state_variables`: booleans become toggles, integers/numbers with min/max become sliders, enums become dropdowns, and strings become read-only indicators. Labels come from each variable's `label` field. No UI configuration needed.
 
 **Example:** Given this driver definition:
 

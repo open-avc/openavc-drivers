@@ -50,6 +50,20 @@ index.json           # Driver catalog (used by the Browse Drivers UI)
 
 See the [Contributing Guide](docs/contributing-drivers.md) for the full checklist, and the [Driver Creation Guide](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) in the main repo for complete documentation on YAML and Python driver formats.
 
+### Using an AI Assistant
+
+If you use an AI coding assistant, point it to [`AGENTS.md`](AGENTS.md) in this repository. It contains the complete YAML schema, Python driver API, and examples in a format optimized for LLM agents. Run `python validate.py` to check the result before submitting.
+
+## Validation
+
+Run the validator before submitting a pull request:
+
+```bash
+python validate.py                              # Validate all drivers
+python validate.py switchers/my_driver.avcdriver # Validate a specific driver
+python validate.py --check-index                 # Also check index.json consistency
+```
+
 ## License
 
 All drivers in this repository are released under the [MIT License](LICENSE). By contributing, you agree to license your driver under MIT.

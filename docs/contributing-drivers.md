@@ -166,6 +166,20 @@ Add your own `log.info(f"[{self.device_id}] ...")` calls only for semantic event
 
 All contributed drivers must be released under the **MIT License**. By submitting a pull request, you agree to license your driver under MIT.
 
+## Validation
+
+Run the validator before submitting:
+
+```bash
+python validate.py                              # Validate all drivers
+python validate.py switchers/my_driver.avcdriver # Validate a specific driver
+python validate.py --check-index                 # Also check index.json consistency
+```
+
+## Using an AI Assistant
+
+If you use an AI coding assistant, point it to [`AGENTS.md`](../AGENTS.md) in the root of this repository. It contains the complete YAML schema, Python driver API, naming conventions, and examples in a format optimized for LLM agents. Have your assistant run `python validate.py` on its output to catch errors before you submit.
+
 ## Driver Creation Reference
 
 For complete documentation on driver formats, the `.avcdriver` YAML schema, Python driver API, and the Driver Builder UI, see the [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) guide in the main OpenAVC repo.

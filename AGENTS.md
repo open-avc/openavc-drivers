@@ -373,7 +373,7 @@ frame_parser:
 
 ## 3. Python Driver API
 
-For complex protocols that YAML can't express. Python drivers subclass `BaseDriver`.
+For complex protocols that YAML can't express. Python drivers subclass `BaseDriver`. They can be created and edited directly in the Programmer IDE's **Code** view with hot-reload support, or placed manually in `driver_repo/`.
 
 **Source reference:** [`server/drivers/base.py`](https://github.com/open-avc/openavc/blob/main/server/drivers/base.py)
 

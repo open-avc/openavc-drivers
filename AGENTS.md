@@ -61,10 +61,10 @@ YAML driver definitions are interpreted at runtime by the `ConfigurableDriver` c
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `manufacturer` | string | `""` | Manufacturer name. |
-| `category` | string | `"other"` | One of: `projector`, `display`, `switcher`, `scaler`, `audio`, `camera`, `lighting`, `relay`, `utility`, `other` |
+| `manufacturer` | string | `"Generic"` | Manufacturer name. |
+| `category` | string | `"utility"` | One of: `projector`, `display`, `switcher`, `scaler`, `audio`, `camera`, `lighting`, `relay`, `utility`, `other` |
 | `version` | string | `"1.0.0"` | Semantic version of the driver. |
-| `author` | string | `""` | Driver author. |
+| `author` | string | `"Community"` | Driver author. |
 | `description` | string | `""` | Brief description. |
 | `delimiter` | string | `"\r"` | Message delimiter. Supports escape sequences: `\r`, `\n`, `\r\n`, or a literal character. |
 | `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. |
@@ -158,7 +158,7 @@ Properties read from the device and exposed to the system. State keys are automa
 ```yaml
 state_variables:
   power:
-    type: enum               # string | integer | number | boolean | enum
+    type: enum               # string | integer | number | float | boolean | enum
     values: ["off", "on", "warming", "cooling"]
     label: "Power State"
     help: "Current power state of the projector"
@@ -223,7 +223,7 @@ commands:
 commands:
   power_on:
     label: "Power On"
-    method: POST                 # GET | POST | PUT | DELETE (default: GET)
+    method: POST                 # GET | POST | PUT | DELETE | PATCH (default: GET)
     path: "/api/power"           # Supports {param} substitution
     body: '{"power": "on"}'      # Optional. For POST/PUT.
     help: "Turn on the device"
@@ -246,7 +246,9 @@ commands:
     # Response text is matched against response patterns
 ```
 
-**Config substitution:** `{config_key}` placeholders (e.g., `{display_id}`) are replaced with the device's config values. This works in both `send` strings and HTTP `path`/`body` fields.
+HTTP commands also support `query_params` (a dict of URL query parameters with `{param}` substitution) and the config field `api_key_header` (default: `"X-API-Key"`) for customizing the API key auth header name.
+
+**Config substitution:** `{config_key}` placeholders (e.g., `{display_id}`) are replaced with the device's config values. This works in `send` strings, HTTP `path`/`body`/`query_params` fields.
 
 ### 2.7 responses
 
@@ -323,7 +325,7 @@ Configurable values that live on the device hardware (not in the project file). 
 ```yaml
 device_settings:
   hostname:
-    type: string                 # string | integer | number | boolean | enum
+    type: string                 # string | integer | number | float | boolean | enum
     label: "Device Hostname"
     help: "Network hostname of the device"
     default: "DEVICE"
@@ -584,7 +586,7 @@ response = await self.transport.send_and_wait(b"POWR?\r", timeout=3.0)
 from server.transport.serial_transport import SerialTransport
 
 self.transport = await SerialTransport.create(
-    port=self.config.get("serial_port", "COM3"),
+    port=self.config.get("port", "COM3"),
     baudrate=self.config.get("baudrate", 9600),
     on_data=self._handle_data,
     on_disconnect=self._handle_disconnect,

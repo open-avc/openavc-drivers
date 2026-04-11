@@ -165,7 +165,8 @@ The handler code has access to:
 | `state` | Mutable state dict. Writes trigger UI updates. |
 | `config` | Device config from the project file |
 | `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
-| `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format` | Built-in functions |
+| `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate` | Built-in functions |
+| `True`, `False`, `None` | Built-in constants |
 
 State changes made via `state["key"] = value` are reflected in the Simulator UI in real time.
 

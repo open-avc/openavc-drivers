@@ -56,7 +56,7 @@ Add an entry to the `drivers` array in `index.json`:
 | `id` | Unique identifier, lowercase with underscores |
 | `file` | Path relative to repo root |
 | `format` | `"avcdriver"` for YAML, `"python"` for .py |
-| `category` | One of: projector, display, switcher, audio, video, camera, lighting, utility |
+| `category` | One of: projector, display, switcher, scaler, audio, video, camera, lighting, relay, utility, other |
 | `transport` | Primary transport: tcp, serial, udp, http |
 | `verified` | Set to `false` for new contributions (maintainers verify) |
 | `protocols` | Protocol IDs that discovery probes can identify (e.g., `["pjlink"]`, `["extron_sis"]`). Helps discovery suggest your driver when it detects a matching protocol on the network. Leave as `[]` if your protocol isn't auto-detected. |

@@ -47,7 +47,8 @@ Add an entry to the `drivers` array in `index.json`:
     "verified": false,
     "description": "One-line description of what equipment this controls.",
     "protocols": ["your_protocol_name"],
-    "ports": [23]
+    "ports": [23],
+    "simulated": true
 }
 ```
 
@@ -60,7 +61,8 @@ Add an entry to the `drivers` array in `index.json`:
 | `transport` | Primary transport: tcp, serial, udp, http |
 | `verified` | Set to `false` for new contributions (maintainers verify) |
 | `protocols` | Protocol IDs that discovery probes can identify (e.g., `["pjlink"]`, `["extron_sis"]`). Helps discovery suggest your driver when it detects a matching protocol on the network. Leave as `[]` if your protocol isn't auto-detected. |
-| `ports` | TCP ports the device typically listens on (e.g., `[23]`, `[4352]`). Used by discovery to match open ports to drivers. |
+| `ports` | TCP/UDP ports the device typically listens on (e.g., `[23]`, `[4352]`). Used by discovery to match open ports to drivers. |
+| `min_platform_version` | Optional. Minimum OpenAVC version required (e.g., `"0.5.13"`). If set, older versions will block installation with a clear error message. Use this when your driver depends on platform features that weren't available in earlier releases. |
 
 ## Discovery Hints
 

@@ -326,7 +326,8 @@
             "ports": [
                 6000
             ],
-            "simulated": true
+            "simulated": true,
+            "min_platform_version": "0.5.13"
         },
         {
             "id": "birddog_codec",

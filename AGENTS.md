@@ -850,6 +850,7 @@ Every driver must have an entry in `index.json`. The catalog is used by the Prog
 | `protocols` | No | List of protocol names (from driver). |
 | `ports` | No | TCP ports the device listens on. |
 | `simulated` | No | `true` if the driver has simulator support. |
+| `min_platform_version` | No | Minimum OpenAVC version required (e.g., `"0.5.13"`). Set when the driver uses platform features not available in all releases. Older versions block installation with a clear error. |
 
 ---
 

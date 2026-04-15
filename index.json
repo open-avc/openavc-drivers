@@ -116,6 +116,22 @@
             "simulated": true
         },
         {
+            "id": "lg_webos",
+            "name": "LG WebOS",
+            "file": "displays/lg_webos.py",
+            "format": "python",
+            "category": "display",
+            "manufacturer": "LG",
+            "version": "3.0.0",
+            "author": "Keaton Stacks",
+            "transport": "tcp",
+            "verified": false,
+            "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
+            "ports": [
+                3001
+            ]
+        },
+        {
             "id": "kramer_p3000",
             "name": "Kramer Protocol 3000",
             "file": "switchers/kramer_p3000.avcdriver",

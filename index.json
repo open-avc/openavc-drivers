@@ -1,6 +1,6 @@
 {
-    "version": "1.5.0",
-    "updated": "2026-04-07",
+    "version": "1.6.0",
+    "updated": "2026-04-14",
     "drivers": [
         {
             "id": "sharp_nec_projector",
@@ -307,6 +307,24 @@
             "ports": [
                 8080,
                 52381
+            ],
+            "simulated": true
+        },
+        {
+            "id": "novastar_h_series",
+            "name": "Novastar H Series Video Wall Splicer",
+            "file": "video/novastar_h_series.avcdriver",
+            "format": "avcdriver",
+            "category": "video",
+            "manufacturer": "Novastar",
+            "version": "1.0.0",
+            "author": "OpenAVC",
+            "transport": "udp",
+            "verified": false,
+            "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Layers, presets, input switching, brightness, freeze, volume, test patterns, OSD, and device management. Compatible with H2, H5, H9, H15, H20.",
+            "protocols": [],
+            "ports": [
+                6000
             ],
             "simulated": true
         },

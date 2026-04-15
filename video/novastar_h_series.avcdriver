@@ -1,0 +1,1169 @@
+# Novastar H Series Video Wall Splicer Driver
+#
+# Controls Novastar H series video wall splicers via UDP (port 6000)
+# or RS-232 (9600 8N1). Covers H2, H5, H9, H15, H20, and related models.
+#
+# Protocol reference: "H Series Video Wall Splicers Control Protocol V1.0.18"
+#
+# Communication: JSON arrays over UDP. Each command is a JSON array containing
+# one or more command objects. The device responds with a JSON array containing
+# the result. Write commands receive {"ack":"Ok"} or {"ack":"Error"}.
+# Read commands return structured JSON data.
+#
+# Command format:  [{"cmd":"XXXX", "deviceId":0, ...}]
+# Response format: [{"cmd":"XXXX", "deviceId":0, "ack":"Ok", ...}]
+#
+# Command naming: W = write, R = read. E.g., W0605 = write preset load,
+# R0600 = read preset list.
+#
+# The device processes one command at a time. A 1-second timeout is
+# recommended between commands when no response is received.
+
+id: novastar_h_series
+name: Novastar H Series Video Wall Splicer
+manufacturer: Novastar
+category: video
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Novastar H series video wall splicers via UDP JSON commands.
+  Covers layer operations, preset management, input switching, brightness,
+  fade-to-black, freeze, volume, test patterns, screen color, OSD, and
+  device management. Compatible with H2, H5, H9, H15, H20, and similar
+  models using the H Series Control Protocol.
+
+transport: udp
+
+help:
+  overview: >
+    Controls Novastar H series LED video wall splicers. These processors
+    manage LED wall layouts, input routing, presets, and screen settings.
+    Common in large-format LED installations including houses of worship,
+    corporate lobbies, broadcast studios, and live event stages.
+  setup: >
+    1. Connect the processor to the network via Ethernet.
+    2. Set the processor's IP address via the front panel or web interface.
+    3. Enter the IP address and port 6000 (default) in the device config.
+    4. Device ID defaults to 0. If using multiple processors, set the
+       device_id config field to match each unit's ID.
+    5. Screen ID defaults to 0. Set screen_id for multi-screen setups.
+
+default_config:
+  host: ""
+  port: 6000
+  device_id: 0
+  screen_id: 0
+  poll_interval: 30
+  inter_command_delay: 0.15
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: "IP address of the Novastar processor"
+  port:
+    type: integer
+    default: 6000
+    label: UDP Port
+    description: "UDP control port (default: 6000)"
+  device_id:
+    type: integer
+    default: 0
+    label: Device ID
+    description: "Device ID for multi-processor setups (default: 0)"
+  screen_id:
+    type: integer
+    default: 0
+    label: Screen ID
+    description: "Screen ID for multi-screen setups (default: 0)"
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (sec)
+    description: "How often to query device status (0 = disabled)"
+  inter_command_delay:
+    type: number
+    default: 0.15
+    label: Inter-Command Delay (sec)
+    description: "Delay between commands. The processor handles one command at a time."
+
+state_variables:
+  brightness:
+    type: integer
+    label: Screen Brightness
+    help: "Current screen brightness (0-100)"
+  freeze:
+    type: boolean
+    label: Screen Frozen
+    help: "Whether the screen output is frozen"
+  ftb:
+    type: boolean
+    label: Fade to Black
+    help: "Whether fade-to-black is active"
+  volume:
+    type: integer
+    label: Volume
+    help: "Output volume level"
+  mute:
+    type: boolean
+    label: Muted
+    help: "Whether audio output is muted"
+  preset_id:
+    type: integer
+    label: Active Preset
+    help: "ID of the currently loaded preset"
+  input_name:
+    type: string
+    label: Current Input
+    help: "Name of the current input source on the active layer"
+
+# ── COMMANDS ──
+# All commands use JSON-over-UDP. Parameters use {placeholder} substitution.
+# Literal JSON braces are preserved by the safe substitution engine.
+
+commands:
+
+  # ── Preset Operations ──
+
+  load_preset:
+    label: Load Preset
+    send: '[{"cmd":"W0605","deviceId":{device_id},"screenId":{screen_id},"presetId":{preset_id}}]'
+    help: "Load a saved preset by ID."
+    params:
+      preset_id:
+        type: integer
+        required: true
+        label: Preset ID
+        min: 0
+        help: "Preset ID (starting from 0)"
+
+  save_preset:
+    label: Save Preset
+    send: '[{"cmd":"W0602","screenId":{screen_id},"deviceId":{device_id},"presetId":{preset_id},"name":"{preset_name}","overWrite":{overwrite}}]'
+    help: "Save the current layout as a preset."
+    params:
+      preset_id:
+        type: integer
+        required: true
+        label: Preset ID
+        min: 0
+      preset_name:
+        type: string
+        required: true
+        label: Preset Name
+      overwrite:
+        type: integer
+        default: 1
+        label: Overwrite
+        help: "0 = create new, 1 = overwrite existing"
+
+  clear_preset:
+    label: Clear Preset
+    send: '[{"cmd":"W0603","presetId":{preset_id},"screenId":{screen_id},"deviceId":{device_id}}]'
+    help: "Delete a saved preset."
+    params:
+      preset_id:
+        type: integer
+        required: true
+        label: Preset ID
+
+  get_presets:
+    label: Get Preset List
+    send: '[{"cmd":"R0600","param0":{device_id},"param1":{screen_id}}]'
+    help: "Query the list of saved presets for the current screen."
+
+  # ── Layer Operations ──
+
+  open_layer:
+    label: Open Layer
+    send: '[{"cmd":"W0201","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"inputId":{input_id},"window":{"width":{width},"height":{height},"x":{x},"y":{y}},"name":"Layer {layer_id}"}]'
+    help: "Open a new layer with an input source at the specified position and size."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+      input_id:
+        type: integer
+        required: true
+        label: Input ID
+        help: "Input source ID"
+      x:
+        type: integer
+        default: 0
+        label: X Position
+      y:
+        type: integer
+        default: 0
+        label: Y Position
+      width:
+        type: integer
+        default: 1920
+        label: Width
+      height:
+        type: integer
+        default: 1080
+        label: Height
+
+  close_layer:
+    label: Close Layer
+    send: '[{"cmd":"W0202","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id}}]'
+    help: "Close (remove) a layer from the screen."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+
+  move_layer:
+    label: Move / Resize Layer
+    send: '[{"cmd":"W0203","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"window":{"width":{width},"height":{height},"x":{x},"y":{y}}}]'
+    help: "Change a layer's position and size."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+      x:
+        type: integer
+        required: true
+        label: X Position
+      y:
+        type: integer
+        required: true
+        label: Y Position
+      width:
+        type: integer
+        required: true
+        label: Width
+      height:
+        type: integer
+        required: true
+        label: Height
+
+  layer_to_front:
+    label: Layer to Front
+    send: '[{"cmd":"W0204","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"zorderType":0}]'
+    help: "Bring a layer to the front (on top of all other layers)."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+
+  layer_to_back:
+    label: Layer to Back
+    send: '[{"cmd":"W0204","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"zorderType":1}]'
+    help: "Send a layer to the back (behind all other layers)."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+
+  switch_layer_input:
+    label: Switch Layer Input
+    send: '[{"cmd":"W0206","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"inputId":{input_id}}]'
+    help: "Change the input source on an existing layer."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+      input_id:
+        type: integer
+        required: true
+        label: Input ID
+        help: "New input source ID"
+
+  crop_layer:
+    label: Crop Layer Input
+    send: '[{"cmd":"W0207","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"crop":{"x":{crop_x},"y":{crop_y},"width":{crop_width},"height":{crop_height}}}]'
+    help: "Crop the input source displayed in a layer."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+      crop_x:
+        type: integer
+        default: 0
+        label: Crop X
+      crop_y:
+        type: integer
+        default: 0
+        label: Crop Y
+      crop_width:
+        type: integer
+        required: true
+        label: Crop Width
+      crop_height:
+        type: integer
+        required: true
+        label: Crop Height
+
+  freeze_layer:
+    label: Freeze Layer
+    send: '[{"cmd":"W0208","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"enable":{enable}}]'
+    help: "Freeze or unfreeze a specific layer."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+      enable:
+        type: integer
+        required: true
+        label: Freeze
+        help: "1 = freeze, 0 = unfreeze"
+
+  flip_layer:
+    label: Flip Layer
+    send: '[{"cmd":"W0205","deviceId":{device_id},"screenId":{screen_id},"layerId":{layer_id},"flipType":{flip_type}}]'
+    help: "Flip a layer's image."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+      flip_type:
+        type: integer
+        required: true
+        label: Flip Type
+        help: "0 = none, 1 = horizontal, 2 = vertical, 3 = both"
+
+  # ── Screen Operations ──
+
+  set_brightness:
+    label: Set Screen Brightness
+    send: '[{"cmd":"W0410","deviceId":{device_id},"screenId":{screen_id},"brightness":{brightness}}]'
+    help: "Set the LED screen brightness (for screens using LED 4K sending cards)."
+    params:
+      brightness:
+        type: integer
+        required: true
+        label: Brightness
+        min: 0
+        max: 100
+        help: "Brightness level 0-100"
+
+  save_brightness:
+    label: Save Screen Brightness
+    send: '[{"cmd":"W0417","deviceId":{device_id},"screenId":{screen_id},"brightness":{brightness}}]'
+    help: "Save the screen brightness value (persists across restarts)."
+    params:
+      brightness:
+        type: integer
+        required: true
+        label: Brightness
+        min: 0
+        max: 100
+
+  fade_to_black:
+    label: Fade to Black
+    send: '[{"cmd":"W0409","deviceId":{device_id},"screenId":{screen_id},"type":0}]'
+    help: "Enable fade-to-black (screen goes dark)."
+
+  fade_to_black_off:
+    label: Fade to Black Off
+    send: '[{"cmd":"W0409","deviceId":{device_id},"screenId":{screen_id},"type":1}]'
+    help: "Disable fade-to-black (screen returns to normal)."
+
+  freeze_screen:
+    label: Freeze Screen
+    send: '[{"cmd":"W040A","screenId":{screen_id},"enable":1}]'
+    help: "Freeze all layers on the screen."
+
+  unfreeze_screen:
+    label: Unfreeze Screen
+    send: '[{"cmd":"W040A","screenId":{screen_id},"enable":0}]'
+    help: "Unfreeze all layers on the screen."
+
+  clear_screen:
+    label: Clear Screen
+    send: '[{"cmd":"W0411","screenId":{screen_id}}]'
+    help: "Remove all layers from the screen."
+
+  set_volume:
+    label: Set Volume
+    send: '[{"cmd":"W041C","deviceId":{device_id},"screenId":{screen_id},"volume":{volume},"isMute":0}]'
+    help: "Set the output volume level."
+    params:
+      volume:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+
+  mute:
+    label: Mute Audio
+    send: '[{"cmd":"W041C","deviceId":{device_id},"screenId":{screen_id},"volume":0,"isMute":1}]'
+    help: "Mute the audio output."
+
+  unmute:
+    label: Unmute Audio
+    send: '[{"cmd":"W041C","deviceId":{device_id},"screenId":{screen_id},"volume":{volume},"isMute":0}]'
+    help: "Unmute the audio output and restore volume."
+    params:
+      volume:
+        type: integer
+        default: 100
+        label: Volume
+        min: 0
+        max: 100
+
+  set_screen_color:
+    label: Set Screen Color
+    send: '[{"cmd":"W040E","deviceId":{device_id},"screenId":{screen_id},"imageQualityMode":{mode},"eyeCare":{eye_care},"contrast":{"all":{contrast},"R":{contrast},"G":{contrast},"B":{contrast}},"brightness":{"all":{color_brightness},"R":{color_brightness},"G":{color_brightness},"B":{color_brightness}},"hue":{hue},"saturation":{saturation},"colorTemperature":{color_temp}}]'
+    help: "Set screen image quality parameters. Sends all values together for consistency."
+    params:
+      mode:
+        type: integer
+        default: 0
+        label: Display Mode
+        help: "0 = Standard, 1 = Document, 2 = Conference, 3 = Video"
+      eye_care:
+        type: integer
+        default: 0
+        label: Eye Care
+        help: "0 = Off, 1 = On"
+      contrast:
+        type: integer
+        default: 50
+        label: Contrast
+        min: 0
+        max: 100
+      color_brightness:
+        type: integer
+        default: 50
+        label: Color Brightness
+        min: 0
+        max: 100
+      hue:
+        type: integer
+        default: 0
+        label: Hue
+      saturation:
+        type: integer
+        default: 50
+        label: Saturation
+      color_temp:
+        type: integer
+        default: 6500
+        label: Color Temperature
+        min: 2000
+        max: 10000
+        help: "Color temperature in Kelvin (2000-10000)"
+
+  enable_bkg:
+    label: Enable Background
+    send: '[{"cmd":"W040B","deviceId":{device_id},"screenId":{screen_id},"enable":1,"bkgId":{bkg_id}}]'
+    help: "Enable a background image on the screen."
+    params:
+      bkg_id:
+        type: integer
+        default: 0
+        label: Background ID
+
+  disable_bkg:
+    label: Disable Background
+    send: '[{"cmd":"W040B","deviceId":{device_id},"screenId":{screen_id},"enable":0,"bkgId":0}]'
+    help: "Disable the background image."
+
+  enable_text_osd:
+    label: Enable Text OSD
+    send: '[{"cmd":"W040C","deviceId":{device_id},"screenId":{screen_id},"enable":1,"type":0,"isJudge":0,"position":{"height":300,"width":1920,"x":0,"y":0},"text":[{"words":"{osd_text}","font":3,"fontSize":100,"horizontalAlign":1,"verticalAlign":1,"type":0,"id":0,"width":1920,"height":300,"x":0,"y":0,"zOrder":0}],"global":{"backgroundColor":{"A":50,"R":0,"G":0,"B":0},"backgroundEnable":1,"fontColor":{"A":100,"R":255,"G":255,"B":255}}}]'
+    help: "Display text OSD on the screen."
+    params:
+      osd_text:
+        type: string
+        required: true
+        label: OSD Text
+
+  disable_text_osd:
+    label: Disable Text OSD
+    send: '[{"cmd":"W040C","deviceId":{device_id},"screenId":{screen_id},"enable":0,"type":0}]'
+    help: "Turn off the text OSD overlay."
+
+  enable_image_osd:
+    label: Enable Image OSD
+    send: '[{"cmd":"W040C","deviceId":{device_id},"screenId":{screen_id},"enable":1,"type":1,"isJudge":0,"width":1920,"height":300,"x":0,"y":0,"image":{"opacity":100}}]'
+    help: "Enable the image OSD overlay. Image must be uploaded via the web interface."
+
+  disable_image_osd:
+    label: Disable Image OSD
+    send: '[{"cmd":"W040C","deviceId":{device_id},"screenId":{screen_id},"enable":0,"type":1}]'
+    help: "Turn off the image OSD overlay."
+
+  set_hdr:
+    label: Set HDR Mode
+    send: '[{"cmd":"W0414","deviceId":{device_id},"screenId":{screen_id},"hdrEn":{hdr_enable},"hdrMode":{hdr_mode},"peakLight":{peak_light},"ambientLight":{ambient_light},"lowGray":{low_gray},"modeFlag":4}]'
+    help: "Configure HDR for screens using LED 4K sending cards."
+    params:
+      hdr_enable:
+        type: integer
+        required: true
+        label: HDR Enable
+        help: "0 = Off, 1 = On"
+      hdr_mode:
+        type: integer
+        default: 1
+        label: HDR Mode
+        help: "1 = HDR10, 2 = HLG"
+      peak_light:
+        type: integer
+        default: 1000
+        label: Peak Brightness (cd/m2)
+        min: 100
+        max: 10000
+      ambient_light:
+        type: integer
+        default: 30
+        label: Ambient Light (Lux)
+        min: 0
+        max: 200
+      low_gray:
+        type: integer
+        default: 15
+        label: Low Grayscale
+        min: 0
+        max: 50
+
+  # ── Preset Playback & Groups ──
+
+  start_preset_playback:
+    label: Start Preset Playback
+    send: '[{"cmd":"W060C","screenId":{screen_id},"deviceId":{device_id},"presetGroupId":{group_id},"enable":1}]'
+    help: "Start automatic preset group playback."
+    params:
+      group_id:
+        type: integer
+        required: true
+        label: Preset Group ID
+
+  stop_preset_playback:
+    label: Stop Preset Playback
+    send: '[{"cmd":"W060C","screenId":{screen_id},"deviceId":{device_id},"presetGroupId":{group_id},"enable":0}]'
+    help: "Stop automatic preset group playback."
+    params:
+      group_id:
+        type: integer
+        required: true
+        label: Preset Group ID
+
+  # ── PVW to PGM (Preview to Program) ──
+
+  enter_preview_mode:
+    label: Enter Preview Mode
+    send: '[{"cmd":"W0412","deviceId":{device_id},"screenId":{screen_id},"enNonTime":1,"manualPlay":0}]'
+    help: "Enter non-real-time (preview) mode. Changes are staged, not live."
+
+  send_pvw_to_pgm:
+    label: Send PVW to PGM
+    send: '[{"cmd":"W0412","deviceId":{device_id},"screenId":{screen_id},"enNonTime":1,"manualPlay":1}]'
+    help: "Push the preview layout to the live output (PVW to PGM)."
+
+  enter_live_mode:
+    label: Enter Live Mode
+    send: '[{"cmd":"W0412","deviceId":{device_id},"screenId":{screen_id},"enNonTime":0,"manualPlay":0}]'
+    help: "Return to real-time (live) mode. All changes take effect immediately."
+
+  # ── MVR (Multi-View / Monitoring) ──
+
+  open_mvr_window:
+    label: Open MVR Window
+    send: '[{"cmd":"W0802","deviceId":{device_id},"MVRId":{mvr_id},"windowId":{window_id},"slotId":0,"srcId":{src_id},"windowType":{window_type},"window":{"width":{width},"height":{height},"x":{x},"y":{y}}}]'
+    help: "Open a monitoring view (MVR) window."
+    params:
+      mvr_id:
+        type: integer
+        default: 0
+        label: MVR ID
+      window_id:
+        type: integer
+        required: true
+        label: Window ID
+      src_id:
+        type: integer
+        required: true
+        label: Source ID
+      window_type:
+        type: integer
+        default: 0
+        label: Window Type
+        help: "0 = Input, 1 = PGM, 2 = PVW, 3 = IPC"
+      x:
+        type: integer
+        default: 0
+        label: X Position
+      y:
+        type: integer
+        default: 0
+        label: Y Position
+      width:
+        type: integer
+        default: 480
+        label: Width
+      height:
+        type: integer
+        default: 270
+        label: Height
+
+  close_mvr_window:
+    label: Close MVR Window
+    send: '[{"cmd":"W0803","deviceId":{device_id},"MVRId":{mvr_id},"windowId":{window_id}}]'
+    help: "Close a monitoring view (MVR) window."
+    params:
+      mvr_id:
+        type: integer
+        default: 0
+        label: MVR ID
+      window_id:
+        type: integer
+        required: true
+        label: Window ID
+
+  switch_mvr_page:
+    label: Switch MVR Page
+    send: '[{"cmd":"W070A","MVRId":{mvr_id},"mvrGroupId":{mvr_group_id},"switch":{direction}}]'
+    help: "Switch MVR window pages."
+    params:
+      mvr_id:
+        type: integer
+        default: 0
+        label: MVR ID
+      mvr_group_id:
+        type: integer
+        default: 0
+        label: MVR Group ID
+      direction:
+        type: integer
+        required: true
+        label: Direction
+        help: "1 = next page, 2 = previous page"
+
+  # ── Device Operations ──
+
+  get_device_info:
+    label: Get Device Info
+    send: '[{"cmd":"R0100","param0":{device_id}}]'
+    help: "Query device information (model, firmware, inputs, outputs)."
+
+  get_input_list:
+    label: Get Input List
+    send: '[{"cmd":"R0200","param0":{device_id}}]'
+    help: "Query the list of available input sources."
+
+  get_screen_details:
+    label: Get Screen Details
+    send: '[{"cmd":"R0401","param0":{device_id},"param1":{screen_id}}]'
+    help: "Query detailed screen information including all current settings."
+
+  get_screen_outputs:
+    label: Get Screen Outputs
+    send: '[{"cmd":"R0405","param0":{device_id},"param1":{screen_id}}]'
+    help: "Query the output connector configuration for a screen."
+
+  get_layer_list:
+    label: Get Layer List
+    send: '[{"cmd":"R0500","param0":{device_id},"param1":{screen_id}}]'
+    help: "Query the list of layers on the current screen."
+
+  get_layer_details:
+    label: Get Layer Details
+    send: '[{"cmd":"R0501","param0":{device_id},"param1":{screen_id},"param2":{layer_id}}]'
+    help: "Query detailed information about a specific layer."
+    params:
+      layer_id:
+        type: integer
+        required: true
+        label: Layer ID
+
+  set_test_pattern:
+    label: Set Test Pattern
+    send: '[{"cmd":"W0303","outputId":{output_id},"deviceId":{device_id},"testPattern":{pattern},"bright":0,"grid":0,"speed":0}]'
+    help: >
+      Display a test pattern on an output. Pattern values: 0=Black, 1=Red,
+      2=Green, 3=Blue, 4=White, 5=Vertical Lines, 6=Horizontal Lines,
+      7=Checkerboard, 65535=Off.
+    params:
+      output_id:
+        type: integer
+        required: true
+        label: Output ID
+      pattern:
+        type: integer
+        required: true
+        label: Test Pattern
+        help: "0=Black, 1=Red, 2=Green, 3=Blue, 4=White, 5=V-Lines, 6=H-Lines, 7=Checker, 65535=Off"
+
+  test_pattern_off:
+    label: Test Pattern Off
+    send: '[{"cmd":"W0303","outputId":{output_id},"deviceId":{device_id},"testPattern":65535,"bright":0,"grid":0,"speed":0}]'
+    help: "Turn off the test pattern on an output."
+    params:
+      output_id:
+        type: integer
+        required: true
+        label: Output ID
+
+  factory_reset:
+    label: Factory Reset
+    send: '[{"cmd":"W010B","deviceId":{device_id},"type":{reset_type}}]'
+    help: "Reset the device to factory settings."
+    params:
+      reset_type:
+        type: integer
+        default: 1
+        label: Reset Type
+        help: "0 = full reset, 1 = reset but keep communication settings and user data"
+
+  restart_device:
+    label: Restart Device
+    send: '[{"cmd":"W010A","deviceId":{device_id},"type":0}]'
+    help: "Restart the video wall splicer."
+
+  switch_primary_backup:
+    label: Switch Primary/Backup
+    send: '[{"cmd":"W014F","deviceId":{device_id},"deviceWorkMode":{work_mode}}]'
+    help: "Switch between primary and backup device roles."
+    params:
+      work_mode:
+        type: integer
+        required: true
+        label: Work Mode
+        help: "0 = Primary, 1 = Backup"
+
+  set_language:
+    label: Set Device Language
+    send: '[{"cmd":"W0115","deviceId":{device_id},"lang":"{lang}"}]'
+    help: "Switch the device interface language."
+    params:
+      lang:
+        type: string
+        required: true
+        label: Language
+        help: "zh = Chinese, en = English"
+
+  # ── HDMI/DP Connector Switching ──
+
+  switch_hdmi_dp:
+    label: Switch HDMI/DP Connector
+    send: '[{"cmd":"W0116","deviceId":{device_id},"slotId":{slot_id},"interfaceType":{interface_type}}]'
+    help: "Switch between HDMI and DP on a combo input connector."
+    params:
+      slot_id:
+        type: integer
+        required: true
+        label: Slot ID
+      interface_type:
+        type: integer
+        required: true
+        label: Interface Type
+        help: "0 = HDMI, 1 = DP"
+
+  # ── Audio Settings ──
+
+  set_screen_audio:
+    label: Set Screen Audio Source
+    send: '[{"cmd":"W0422","deviceId":{device_id},"screenId":{screen_id},"audio":{"inputId":{audio_input_id},"inputType":{audio_input_type},"slotId":255,"interfaceId":255,"layerId":255,"isMute":{is_mute},"volume":{volume},"outputSlotId":255,"outputInterfaceId":255}}]'
+    help: "Configure the screen audio source and volume."
+    params:
+      audio_input_id:
+        type: integer
+        default: 0
+        label: Audio Input ID
+      audio_input_type:
+        type: integer
+        default: 1
+        label: Audio Input Type
+        help: "0 = No audio, 1 = Embedded audio, 2 = Audio card"
+      is_mute:
+        type: integer
+        default: 0
+        label: Mute
+        help: "0 = Unmuted, 1 = Muted"
+      volume:
+        type: integer
+        default: 100
+        label: Volume
+        min: 0
+        max: 100
+
+# ── RESPONSE PATTERNS ──
+# Parse JSON responses from the device. The device wraps all responses
+# in a JSON array. These regex patterns match against the raw response text.
+
+responses:
+  # Ack responses for write commands
+  - match: '"ack"\s*:\s*"Ok"'
+    set: {}
+
+  # Error responses
+  - match: '"ack"\s*:\s*"Error"'
+    set: {}
+
+  # Brightness from screen details query (R0401)
+  - match: '"brightness"\s*:\s*(\d+)'
+    mappings:
+      - group: 1
+        state: brightness
+        type: integer
+
+  # Freeze state from screen details
+  - match: '"Freeze"\s*:\s*\{\s*"enable"\s*:\s*(\d)'
+    mappings:
+      - group: 1
+        state: freeze
+        type: boolean
+
+  # FTB state from screen details
+  - match: '"Ftb"\s*:\s*\{\s*"enable"\s*:\s*(\d)'
+    mappings:
+      - group: 1
+        state: ftb
+        type: boolean
+
+  # Volume from screen details (audio section)
+  - match: '"volume"\s*:\s*(\d+)'
+    mappings:
+      - group: 1
+        state: volume
+        type: integer
+
+  # Mute state from screen details
+  - match: '"isMute"\s*:\s*(\d)'
+    mappings:
+      - group: 1
+        state: mute
+        type: boolean
+
+  # Layer input name from layer details (R0501)
+  - match: '"source"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"'
+    mappings:
+      - group: 1
+        state: input_name
+        type: string
+
+# ── POLLING ──
+# Periodically query the device for current status.
+# Uses command names so they route through send_command.
+
+polling:
+  interval: 30
+  queries:
+    - get_screen_details
+
+# ── SIMULATOR DEFINITION ──
+# JSON-over-UDP protocols cannot use Level 0 auto-generation (the regex
+# approach can't parse JSON commands with config-injected values). All
+# command handling uses script handlers that parse JSON via regex extraction
+# and return JSON response strings.
+
+simulator:
+  initial_state:
+    brightness: 100
+    freeze: false
+    ftb: false
+    volume: 100
+    mute: false
+    preset_id: 0
+    input_name: "HDMI 1"
+    # Internal state for layer tracking
+    layer_0_input: 0
+    layer_0_x: 0
+    layer_0_y: 0
+    layer_0_w: 1920
+    layer_0_h: 1080
+    layer_0_open: false
+    test_pattern: 65535
+
+  delays:
+    command_response: 0.03
+
+  controls:
+    - type: slider
+      key: brightness
+      label: Screen Brightness
+      min: 0
+      max: 100
+    - type: toggle
+      key: ftb
+      label: Fade to Black
+    - type: toggle
+      key: freeze
+      label: Screen Frozen
+    - type: slider
+      key: volume
+      label: Volume
+      min: 0
+      max: 100
+    - type: toggle
+      key: mute
+      label: Muted
+    - type: indicator
+      key: preset_id
+      label: Active Preset
+    - type: indicator
+      key: input_name
+      label: Current Input
+    - type: indicator
+      key: test_pattern
+      label: Test Pattern
+
+  command_handlers:
+    # ── Master JSON command handler ──
+    # Matches any JSON array command and routes by cmd code.
+    # Uses regex to extract fields since json module is not available in sandbox.
+    - match: '.*'
+      handler: |
+        text = match.group(0)
+
+        # Extract cmd code
+        cmd_m = re.search(r'"cmd"\s*:\s*"(\w+)"', text)
+        if not cmd_m:
+            respond('[{"ack":"Error"}]')
+        else:
+            cmd = cmd_m.group(1)
+
+            # Helper to extract integer field
+            def get_int(name, default=0):
+                m = re.search(r'"' + name + r'"\s*:\s*(-?\d+)', text)
+                return int(m.group(1)) if m else default
+
+            # Helper to extract string field
+            def get_str(name, default=""):
+                m = re.search(r'"' + name + r'"\s*:\s*"([^"]*)"', text)
+                return m.group(1) if m else default
+
+            device_id = get_int("deviceId")
+            screen_id = get_int("screenId")
+
+            # ── Write commands (W****) ──
+
+            if cmd == "W0605":
+                # Load preset
+                pid = get_int("presetId")
+                state["preset_id"] = pid
+                respond('[{"cmd":"W0605","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0602":
+                # Save preset
+                respond('[{"cmd":"W0602","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0603":
+                # Clear preset
+                respond('[{"cmd":"W0603","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0201":
+                # Open layer
+                lid = get_int("layerId")
+                iid = get_int("inputId")
+                state["layer_0_open"] = True
+                state["layer_0_input"] = iid
+                state["input_name"] = "Input " + str(iid)
+                respond('[{"cmd":"W0201","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0202":
+                # Close layer
+                state["layer_0_open"] = False
+                respond('[{"cmd":"W0202","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0203":
+                # Move/resize layer
+                respond('[{"cmd":"W0203","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0204":
+                # Z-order (bring to front/back)
+                respond('[{"cmd":"W0204","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0205":
+                # Flip layer
+                respond('[{"cmd":"W0205","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0206":
+                # Switch layer input
+                iid = get_int("inputId")
+                state["layer_0_input"] = iid
+                state["input_name"] = "Input " + str(iid)
+                respond('[{"cmd":"W0206","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0207":
+                # Crop layer
+                respond('[{"cmd":"W0207","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0208":
+                # Freeze layer
+                en = get_int("enable")
+                state["freeze"] = en == 1
+                respond('[{"cmd":"W0208","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0410":
+                # Set brightness
+                b = get_int("brightness", 100)
+                state["brightness"] = max(0, min(100, b))
+                respond('[{"cmd":"W0410","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0417":
+                # Save brightness
+                respond('[{"cmd":"W0417","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0409":
+                # Fade to black (type 0 = enable, type 1 = disable)
+                t = get_int("type")
+                state["ftb"] = t == 0
+                respond('[{"cmd":"W0409","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W040A":
+                # Freeze screen
+                en = get_int("enable")
+                state["freeze"] = en == 1
+                respond('[{"cmd":"W040A","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0411":
+                # Clear screen
+                state["layer_0_open"] = False
+                respond('[{"cmd":"W0411","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W041C":
+                # Set volume / mute
+                v = get_int("volume", 100)
+                m = get_int("isMute")
+                state["volume"] = max(0, min(100, v))
+                state["mute"] = m == 1
+                respond('[{"cmd":"W041C","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W040E":
+                # Set screen color
+                respond('[{"cmd":"W040E","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W040B":
+                # BKG enable/disable
+                respond('[{"cmd":"W040B","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W040C":
+                # OSD (text or image)
+                respond('[{"cmd":"W040C","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0414":
+                # HDR
+                respond('[{"cmd":"W0414","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W060C":
+                # Preset playback
+                respond('[{"cmd":"W060C","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0412":
+                # PVW to PGM mode switching
+                respond('[{"cmd":"W0412","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0802":
+                # Open MVR window
+                respond('[{"cmd":"W0802","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0803":
+                # Close MVR window
+                respond('[{"cmd":"W0803","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W070A":
+                # Switch MVR page
+                respond('[{"cmd":"W070A","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0303":
+                # Test pattern
+                tp = get_int("testPattern", 65535)
+                state["test_pattern"] = tp
+                respond('[{"cmd":"W0303","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W010B":
+                # Factory reset
+                state["brightness"] = 100
+                state["volume"] = 100
+                state["mute"] = False
+                state["freeze"] = False
+                state["ftb"] = False
+                state["preset_id"] = 0
+                respond('[{"cmd":"W010B","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W010A":
+                # Restart device
+                respond('[{"cmd":"W010A","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W014F":
+                # Primary/backup switch
+                respond('[{"cmd":"W014F","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0115":
+                # Set language
+                respond('[{"cmd":"W0115","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0116":
+                # HDMI/DP switch
+                respond('[{"cmd":"W0116","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            elif cmd == "W0422":
+                # Set screen audio
+                respond('[{"cmd":"W0422","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            # ── Read commands (R****) ──
+
+            elif cmd == "R0401":
+                # Get screen details — returns current state
+                freeze_val = 1 if state["freeze"] else 0
+                ftb_val = 1 if state["ftb"] else 0
+                mute_val = 1 if state["mute"] else 0
+                respond('[{"cmd":"R0401","ack":"Ok","deviceId":' + str(device_id) + ',"screenId":' + str(screen_id) + ',"brightness":' + str(state["brightness"]) + ',"Freeze":{"enable":' + str(freeze_val) + '},"Ftb":{"enable":' + str(ftb_val) + '},"audio":{"volume":' + str(state["volume"]) + ',"isMute":' + str(mute_val) + '}}]')
+
+            elif cmd == "R0600":
+                # Get preset list
+                respond('[{"cmd":"R0600","ack":"Ok","deviceId":' + str(device_id) + ',"screenId":' + str(screen_id) + ',"presets":[{"name":"Preset 1","presetId":0},{"name":"Preset 2","presetId":1},{"name":"Preset 3","presetId":2}]}]')
+
+            elif cmd == "R0100":
+                # Get device info
+                respond('[{"cmd":"R0100","ack":"Ok","deviceId":' + str(device_id) + ',"model":"H9","firmware":"V4.6.0","inputs":8,"outputs":4}]')
+
+            elif cmd == "R0200":
+                # Get input list
+                respond('[{"cmd":"R0200","ack":"Ok","deviceId":' + str(device_id) + ',"inputs":[{"inputId":0,"name":"HDMI 1","type":0},{"inputId":1,"name":"HDMI 2","type":0},{"inputId":2,"name":"HDMI 3","type":0},{"inputId":3,"name":"DP 1","type":1},{"inputId":4,"name":"DVI 1","type":2},{"inputId":5,"name":"SDI 1","type":3}]}]')
+
+            elif cmd == "R0405":
+                # Get screen outputs
+                respond('[{"cmd":"R0405","ack":"Ok","deviceId":' + str(device_id) + ',"screenId":' + str(screen_id) + ',"mosaic":{"row":1,"column":2},"size":{"width":1920,"height":1080},"screenInterfaces":[{"interfaceId":0,"outputId":0,"x":0,"y":0,"width":1920,"height":1080}]}]')
+
+            elif cmd == "R0500":
+                # Get layer list
+                if state["layer_0_open"]:
+                    respond('[{"cmd":"R0500","ack":"Ok","deviceId":' + str(device_id) + ',"screenId":' + str(screen_id) + ',"screenLayers":[{"name":"Layer 0","layerId":0}]}]')
+                else:
+                    respond('[{"cmd":"R0500","ack":"Ok","deviceId":' + str(device_id) + ',"screenId":' + str(screen_id) + ',"screenLayers":[]}]')
+
+            elif cmd == "R0501":
+                # Get layer details
+                iid = state.get("layer_0_input", 0)
+                respond('[{"cmd":"R0501","ack":"Ok","deviceId":' + str(device_id) + ',"screenId":' + str(screen_id) + ',"layerId":0,"general":{"layerId":0,"name":"Layer 0","zorder":0,"isFreeze":0},"window":{"width":1920,"height":1080,"x":0,"y":0},"source":{"sourceType":0,"inputId":' + str(iid) + ',"name":"Input ' + str(iid) + '"}}]')
+
+            elif cmd == "R0606":
+                # Get preset groups
+                respond('[{"cmd":"R0606","ack":"Ok","deviceId":' + str(device_id) + ',"screenId":' + str(screen_id) + ',"presetGroups":[]}]')
+
+            elif cmd == "R0620":
+                # Get multi-screen preset groups
+                respond('[{"cmd":"R0620","ack":"Ok","deviceId":' + str(device_id) + ',"presetCollectionList":[]}]')
+
+            elif cmd.startswith("W") or cmd.startswith("R"):
+                # Catch-all for unhandled commands
+                respond('[{"cmd":"' + cmd + '","deviceId":' + str(device_id) + ',"ack":"Ok"}]')
+
+            else:
+                respond('[{"cmd":"' + cmd + '","ack":"Error"}]')
+
+  error_modes:
+    communication_timeout:
+      description: "Device stops responding to commands"
+      behavior: no_response
+    garbled_response:
+      description: "Corrupted UDP data"
+      behavior: corrupt_response

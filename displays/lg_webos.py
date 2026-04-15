@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+from server.system_config import get_system_config
 import re
 import socket
 import ssl
@@ -110,12 +111,12 @@ class LgWebosDriver(BaseDriver):
 
         "default_config": {
             "mac_address":   "",
-            "ip_address":    "",
+            "host":    "",
             "poll_interval": 5,
         },
 
         "config_schema": {
-            "ip_address":    {"type": "string",  "required": True,  "label": "IP Address"},
+            "host":    {"type": "string",  "required": True,  "label": "IP Address"},
             "mac_address":   {"type": "string",  "required": True,  "label": "MAC Address"},
             "poll_interval": {"type": "integer", "default": 5,      "label": "Poll Interval (s)"},
         },
@@ -164,16 +165,17 @@ class LgWebosDriver(BaseDriver):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._poll_locked_until: float = 0.0
-        base_path = os.path.dirname(__file__)
-        self._key_path = os.path.join(base_path, f"lg_key_{self.device_id}.txt")
+        data_dir = get_system_config().data_dir
+        self._key_path = os.path.join(data_dir, f"lg_key_{self.device_id}.txt")
         self._volume_target: int | None = None
 
     async def connect(self) -> None:
         self._connected = True
         self._poll_locked_until = 0.0
-        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
         self.set_state("input", "Syncing...")
         interval = self.config.get("poll_interval", 5)
+        self.set_state("connected", True)
         await self.start_polling(interval=interval)
         log.info(f"[{self.device_id}] LG WebOS v{self.DRIVER_INFO['version']} Loaded")
         await self.poll()
@@ -182,6 +184,7 @@ class LgWebosDriver(BaseDriver):
         await self.stop_polling()
         self._connected = False
         self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
     # ------------------------------------------------------------------
     # Polling
@@ -190,8 +193,9 @@ class LgWebosDriver(BaseDriver):
         if asyncio.get_running_loop().time() < self._poll_locked_until:
             return
         try:
-            ip = self.config.get("ip_address")
-
+            ip = self.config.get("host")
+            is_reachable = await self._check_ssap_raw(ip) if ip else False
+            self.set_state("connected", is_reachable)
             # --- OFFLINE STATE FLUSH ---
             if not ip or not await self._check_ssap_raw(ip):
                 self.set_states({
@@ -290,7 +294,7 @@ class LgWebosDriver(BaseDriver):
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
         mac    = self.config.get("mac_address", "").strip()
-        ip     = self.config.get("ip_address",  "").strip()
+        ip     = self.config.get("host",  "").strip()
         params = params or {}
 
         def _parse_bool(val: Any) -> bool:

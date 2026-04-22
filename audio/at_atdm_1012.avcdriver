@@ -782,6 +782,87 @@ simulator:
       key: input_1_mute
       label: Input 1 Mute
     - type: slider
+      key: input_2_level
+      label: Input 2 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_2_mute
+      label: Input 2 Mute
+    - type: slider
+      key: input_3_level
+      label: Input 3 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_3_mute
+      label: Input 3 Mute
+    - type: slider
+      key: input_4_level
+      label: Input 4 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_4_mute
+      label: Input 4 Mute
+    - type: slider
+      key: input_5_level
+      label: Input 5 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_5_mute
+      label: Input 5 Mute
+    - type: slider
+      key: input_6_level
+      label: Input 6 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_6_mute
+      label: Input 6 Mute
+    - type: slider
+      key: input_7_level
+      label: Input 7 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_7_mute
+      label: Input 7 Mute
+    - type: slider
+      key: input_8_level
+      label: Input 8 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_8_mute
+      label: Input 8 Mute
+    - type: slider
+      key: input_9_level
+      label: Input 9 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_9_mute
+      label: Input 9 Mute
+    - type: slider
+      key: input_10_level
+      label: Input 10 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_10_mute
+      label: Input 10 Mute
+    - type: slider
       key: output_1_level
       label: Output 1 Level
       min: 0
@@ -790,6 +871,69 @@ simulator:
     - type: toggle
       key: output_1_mute
       label: Output 1 Mute
+    - type: slider
+      key: output_2_level
+      label: Output 2 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_2_mute
+      label: Output 2 Mute
+    - type: slider
+      key: output_3_level
+      label: Output 3 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_3_mute
+      label: Output 3 Mute
+    - type: slider
+      key: output_4_level
+      label: Output 4 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_4_mute
+      label: Output 4 Mute
+    - type: slider
+      key: output_5_level
+      label: Output 5 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_5_mute
+      label: Output 5 Mute
+    - type: slider
+      key: output_6_level
+      label: Output 6 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_6_mute
+      label: Output 6 Mute
+    - type: slider
+      key: output_7_level
+      label: Output 7 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_7_mute
+      label: Output 7 Mute
+    - type: slider
+      key: output_8_level
+      label: Output 8 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_8_mute
+      label: Output 8 Mute
 
   command_handlers:
     # Firmware version query
@@ -866,52 +1010,52 @@ simulator:
         respond('SOCM ACK\r')
 
     # Bus assign set
-    - match: 'SBUS S 0000 00 NC'
+    - match: 'SBUS S 0000 00 NC.*'
       handler: |
         respond('SBUS ACK\r')
 
     # Operator fader level set
-    - match: 'SOPL S 0000 00 NC'
+    - match: 'SOPL S 0000 00 NC.*'
       handler: |
         respond('SOPL ACK\r')
 
     # Operator fader mute set
-    - match: 'SOPM S 0000 00 NC'
+    - match: 'SOPM S 0000 00 NC.*'
       handler: |
         respond('SOPM ACK\r')
 
     # SmartMix mode set
-    - match: 'SSMM S 0000 00 NC'
+    - match: 'SSMM S 0000 00 NC.*'
       handler: |
         respond('SSMM ACK\r')
 
     # Open mic count set
-    - match: 'NOOM S 0000 00 NC'
+    - match: 'NOOM S 0000 00 NC.*'
       handler: |
         respond('NOOM ACK\r')
 
     # Preset recall
-    - match: 'CALLP S 0000 00 NC'
+    - match: 'CALLP S 0000 00 NC.*'
       handler: |
         respond('CALLP ACK\r')
 
     # Preset save
-    - match: 'REGIP S 0000 00 NC'
+    - match: 'REGIP S 0000 00 NC.*'
       handler: |
         respond('REGIP ACK\r')
 
     # Partial preset recall
-    - match: 'CALLPP S 0000 00 NC'
+    - match: 'CALLPP S 0000 00 NC.*'
       handler: |
         respond('CALLPP ACK\r')
 
     # Identify
-    - match: 'identify S 0000 00 NC'
+    - match: 'identify S 0000 00 NC.*'
       handler: |
         respond('identify ACK\r')
 
     # Reboot
-    - match: 'reboot S 0000 00 NC'
+    - match: 'reboot S 0000 00 NC.*'
       handler: |
         respond('reboot ACK\r')
 

@@ -427,14 +427,71 @@ simulator:
       max: 511
       step: 1
     - type: slider
+      key: input_2_level
+      label: Input 2 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
+      key: input_3_level
+      label: Input 3 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
+      key: input_4_level
+      label: Input 4 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
+      key: input_5_level
+      label: Input 5 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
+      key: input_6_level
+      label: Input 6 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
       key: output_1_level
       label: Output 1 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
+      key: output_2_level
+      label: Output 2 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
+      key: output_3_level
+      label: Output 3 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
+      key: output_4_level
+      label: Output 4 Level
       min: 0
       max: 511
       step: 1
     - type: toggle
       key: output_1_mute
       label: Output 1 Mute
+    - type: toggle
+      key: output_2_mute
+      label: Output 2 Mute
+    - type: toggle
+      key: output_3_mute
+      label: Output 3 Mute
+    - type: toggle
+      key: output_4_mute
+      label: Output 4 Mute
 
   command_handlers:
     # Firmware version query
@@ -450,11 +507,11 @@ simulator:
         level = state.get(key, 411)
         respond(f'g_input_gain_level 0000 00 NC {ch},20,20,{level},0,0,0\r')
 
-    # Input gain/level set
-    - match: 's_input_gain_level S 0000 00 NC (\d+),(\d+),(\d+),(\d+)'
+    # Input gain/level set (7 params: ch, mic_gain, line_gain, level, max_en, max_vol, mute)
+    - match: 's_input_gain_level S 0000 00 NC (\d+),\d+,\d+,(\d+).*'
       handler: |
         ch = int(match.group(1))
-        level = int(match.group(4))
+        level = int(match.group(2))
         key = f'input_{ch+1}_level'
         state[key] = level
         respond('s_input_gain_level ACK\r')
@@ -494,32 +551,32 @@ simulator:
         respond('s_output_mute ACK\r')
 
     # Preset recall
-    - match: 'call_preset S 0000 00 NC (\d+)'
+    - match: 'call_preset S 0000 00 NC.*'
       handler: |
         respond('call_preset ACK\r')
 
     # Preset save
-    - match: 'save_preset S 0000 00 NC (\d+)'
+    - match: 'save_preset S 0000 00 NC.*'
       handler: |
         respond('save_preset ACK\r')
 
     # SmartMix set
-    - match: 's_smart_mix S 0000 00 NC'
+    - match: 's_smart_mix S 0000 00 NC.*'
       handler: |
         respond('s_smart_mix ACK\r')
 
     # SmartMix mode set
-    - match: 's_smart_mix_general S 0000 00 NC'
+    - match: 's_smart_mix_general S 0000 00 NC.*'
       handler: |
         respond('s_smart_mix_general ACK\r')
 
     # Identify
-    - match: 'identify S 0000 00 NC'
+    - match: 'identify S 0000 00 NC.*'
       handler: |
         respond('identify ACK\r')
 
     # Reboot
-    - match: 'reboot S 0000 00 NC'
+    - match: 'reboot S 0000 00 NC.*'
       handler: |
         respond('reboot ACK\r')
 

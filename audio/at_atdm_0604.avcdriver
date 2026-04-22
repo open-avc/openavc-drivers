@@ -54,7 +54,7 @@ discovery:
 default_config:
   host: ""
   port: 17300
-  poll_interval: 15
+  poll_interval: 10
   inter_command_delay: 0.05
 
 config_schema:

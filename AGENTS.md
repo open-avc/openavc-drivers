@@ -300,7 +300,19 @@ The `{level_instance_tag}` is replaced with the device's config value when the d
 
 **Important:** The first matching pattern wins. Order your patterns from most specific to most general.
 
-### 2.8 polling
+### 2.8 on_connect
+
+Commands sent once immediately after connection, before polling starts. Use for enabling feedback/verbose mode or requesting initial state.
+
+```yaml
+on_connect:
+  - "\x1b3CV\r\n"    # Extron: enable verbose mode 3 (push all state changes)
+  - "< GET ALL >"    # Shure: request all current state values
+```
+
+This enables real-time push notifications from devices that support it. Without `on_connect`, the driver relies entirely on polling.
+
+### 2.9 polling
 
 Periodic status queries sent to the device.
 

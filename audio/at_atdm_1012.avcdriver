@@ -35,7 +35,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers

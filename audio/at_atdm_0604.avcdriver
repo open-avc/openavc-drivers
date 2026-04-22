@@ -25,7 +25,7 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP.

@@ -722,6 +722,14 @@ simulator:
       outputs: 4
       state_pattern: "route_{output}"
 
+  notifications:
+    # Push unsolicited messages when state changes (simulates real device behavior)
+    volume:
+      '*': 'Vol{value}'            # {value} replaced with new state value
+    mute:
+      'true': 'Amt1'              # Value-specific messages
+      'false': 'Amt0'
+
   command_handlers:
     # Simple: exact match with static response
     - receive: 'POWR ON'

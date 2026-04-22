@@ -20,7 +20,7 @@ id: shure_network
 name: Shure Networked Devices
 manufacturer: Shure
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
@@ -210,6 +210,16 @@ simulator:
     - type: indicator
       key: firmware
       label: Firmware
+
+  notifications:
+    mute:
+      'true': '< REP DEVICE_AUDIO_MUTE ON >'
+      'false': '< REP DEVICE_AUDIO_MUTE OFF >'
+    audio_mute:
+      'true': '< REP DEVICE_AUDIO_MUTE ON >'
+      'false': '< REP DEVICE_AUDIO_MUTE OFF >'
+    led_state:
+      '*': '< REP LED_STATE_{value} >'
 
   command_handlers:
     # GET queries — respond with REP format

@@ -254,6 +254,15 @@ simulator:
   delays:
     command_response: 0.02
 
+  notifications:
+    input:
+      '*': 'In{value} All'
+    volume:
+      '*': 'Vol{value}'
+    mute:
+      'true': 'Amt1'
+      'false': 'Amt0'
+
   command_handlers:
     - receive: "N"
       respond: "SIS 1616\r\n"
@@ -384,6 +393,35 @@ simulator:
 The `key_pattern` and `mute_pattern` use `{ch}` as a placeholder, numbered starting from 1. The meter bars show the level value normalized to 0-100.
 
 Controls are optional. Drivers without a `controls` array continue to use the default category-based panel. Most YAML auto-gen drivers work well with the defaults.
+
+### Notifications (Push State Changes)
+
+Many AV devices push unsolicited messages to connected clients when state changes, without being polled. For example, Extron devices in verbose mode send `Vol50` when volume changes, Audio-Technica mixers send `MD output_mute_notice ...` when someone mutes an output, and Shure microphones send `< REP DEVICE_AUDIO_MUTE ON >` when the physical mute button is pressed.
+
+To make the simulator behave the same way, add a `notifications` section that maps state variable changes to the messages that should be broadcast:
+
+```yaml
+simulator:
+  notifications:
+    # Wildcard: any value change sends a message with {value} replaced
+    volume:
+      '*': 'Vol{value}'
+    input:
+      '*': 'In{value} All'
+
+    # Value-specific: different messages for different values
+    mute:
+      'true': 'Amt1'
+      'false': 'Amt0'
+```
+
+When state changes (from a simulator UI control, a command handler, or the API), the simulator broadcasts the notification to all connected TCP clients. The driver's existing response matchers handle these messages the same way they handle polled responses, so state updates in OpenAVC are instant.
+
+**When to use notifications:** If your driver's `responses:` section has matchers for unsolicited messages (messages that arrive without a corresponding poll query), add matching `notifications:` entries so the simulator can produce those messages.
+
+**Template variables:**
+- `{value}` is replaced with the new state value
+- `{key}` is replaced with the state variable name
 
 ---
 

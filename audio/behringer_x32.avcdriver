@@ -20,7 +20,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.0.1
+version: 1.1.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -66,6 +66,14 @@ state_variables:
   firmware_version:
     type: string
     label: Firmware Version
+
+  # Scene/show
+  current_scene:
+    type: integer
+    label: Current Scene
+  show_name:
+    type: string
+    label: Show Name
 
   # ── Input Channels 1-32 ──
   ch01_fader:
@@ -667,6 +675,47 @@ commands:
     label: Query Console Info
     address: "/info"
 
+  # ── Scene/Show commands ──
+  recall_scene:
+    label: Recall Scene
+    address: "/-action/goscene"
+    args:
+      - type: i
+        value: "{scene}"
+    params:
+      scene:
+        type: integer
+        label: Scene Number (0-99)
+
+  recall_snippet:
+    label: Recall Snippet
+    address: "/-action/gosnippet"
+    args:
+      - type: i
+        value: "{snippet}"
+    params:
+      snippet:
+        type: integer
+        label: Snippet Number (0-99)
+
+  recall_cue:
+    label: Recall Cue
+    address: "/-action/gocue"
+    args:
+      - type: i
+        value: "{cue}"
+    params:
+      cue:
+        type: integer
+        label: Cue Number (0-99)
+
+  clear_solo:
+    label: Clear All Solo
+    address: "/-action/clearsolo"
+    args:
+      - type: i
+        value: "1"
+
   # ── Channel commands ──
   # Channel faders (0.0 = -inf, 1.0 = +10 dB, 0.75 ≈ 0 dB)
   set_ch_fader:
@@ -889,6 +938,18 @@ responses:
         type: string
       - arg: 3
         state: firmware_version
+        type: string
+
+  # Scene/show
+  - address: "/-show/prepos/current"
+    mappings:
+      - arg: 0
+        state: current_scene
+        type: integer
+  - address: "/-show/showfile/show/name"
+    mappings:
+      - arg: 0
+        state: show_name
         type: string
 
   # ── Channel 01-32 faders ──
@@ -2132,6 +2193,8 @@ simulator:
   initial_state:
     console_model: X32
     firmware_version: "4.06"
+    current_scene: 0
+    show_name: "Default Show"
     # Channels 1-8: unmuted at unity
     ch01_fader: 0.75
     ch01_mute: false

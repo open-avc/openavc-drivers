@@ -1,0 +1,921 @@
+# Audio-Technica ATDM-1012 Digital SmartMixer Driver
+#
+# Controls Audio-Technica ATDM-1012 and ATDM-1012DAN automatic mixers
+# over TCP (port 17300).
+#
+# Protocol reference: IP Control Protocol Specification ATDM-1012 V1.0
+# Working reference: Bitfocus companion-module-audiotechnica-digitalmixer
+#
+# Command format (Set):  <command> S <modelID> <unitNo> NC <params>\r
+# Command format (Get):  <command> O <modelID> <unitNo> NC <params>\r
+# Response ACK:          <command> ACK\r
+# Response NAK:          <command> NAK <error_code>\r
+# Answer:                <command> <modelID> <unitNo> NC <params>\r
+# Notification:          MD <notice> <modelID> <unitNo> NC <params>\r
+#
+# All fields are space-delimited (0x20). Parameters are comma-separated.
+#
+# The ATDM-1012 supports two command styles:
+#   Short (individual):  SICL, GICL, SOCL, GOCL, etc. — used here for
+#                        fast level/mute control
+#   Verbose (shared):    s_input_gain_level, g_output_level, etc. — same
+#                        as ATDM-0604, used for detailed settings
+#
+# Key concepts:
+#   - 10 mic/line inputs (0-9), 2 stereo inputs (10-11), 8 sub-inputs (12-19)
+#   - 8 outputs (0-7), 2 stereo outputs (8-9)
+#   - 12 mix buses with per-input bus assign
+#   - 4 SmartMix groups with Gate or Gain Share modes
+#   - 8 operator pages with 8 faders each
+#   - 8 presets + 40 partial presets
+#   - Fader values: 0 = mute(-inf), 1-511 = -120dB to +10dB (0.25dB steps)
+#   - Max 5 simultaneous TCP connections
+
+id: at_atdm_1012
+name: Audio-Technica ATDM-1012
+manufacturer: Audio-Technica
+category: audio
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
+  via TCP. Supports input/output level and mute control, bus assign,
+  SmartMix configuration, operator faders, and preset recall.
+
+transport: tcp
+delimiter: "\r"
+
+help:
+  overview: >
+    Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers.
+    The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses,
+    designed for conference rooms, courtrooms, and council chambers.
+    The DAN variant adds Dante audio networking.
+  setup: >
+    1. Connect the ATDM-1012 to the network.
+    2. The default control port is 17300.
+    3. Configure the device's IP address via the front panel or web interface.
+    4. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8.
+    5. Output channels: 1-8, ST1, ST2.
+    6. The ATDM-1012DAN uses the same protocol with added Dante settings.
+
+discovery:
+  ports: [17300]
+  mac_prefixes: ["00:0a:45"]
+
+default_config:
+  host: ""
+  port: 17300
+  poll_interval: 15
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 17300
+    label: Port
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+
+state_variables:
+  firmware_version:
+    type: string
+    label: Firmware Version
+  input_1_level:
+    type: number
+    label: Input 1 Level
+  input_2_level:
+    type: number
+    label: Input 2 Level
+  input_3_level:
+    type: number
+    label: Input 3 Level
+  input_4_level:
+    type: number
+    label: Input 4 Level
+  input_5_level:
+    type: number
+    label: Input 5 Level
+  input_6_level:
+    type: number
+    label: Input 6 Level
+  input_7_level:
+    type: number
+    label: Input 7 Level
+  input_8_level:
+    type: number
+    label: Input 8 Level
+  input_9_level:
+    type: number
+    label: Input 9 Level
+  input_10_level:
+    type: number
+    label: Input 10 Level
+  input_1_mute:
+    type: boolean
+    label: Input 1 Mute
+  input_2_mute:
+    type: boolean
+    label: Input 2 Mute
+  input_3_mute:
+    type: boolean
+    label: Input 3 Mute
+  input_4_mute:
+    type: boolean
+    label: Input 4 Mute
+  input_5_mute:
+    type: boolean
+    label: Input 5 Mute
+  input_6_mute:
+    type: boolean
+    label: Input 6 Mute
+  input_7_mute:
+    type: boolean
+    label: Input 7 Mute
+  input_8_mute:
+    type: boolean
+    label: Input 8 Mute
+  input_9_mute:
+    type: boolean
+    label: Input 9 Mute
+  input_10_mute:
+    type: boolean
+    label: Input 10 Mute
+  output_1_level:
+    type: number
+    label: Output 1 Level
+  output_2_level:
+    type: number
+    label: Output 2 Level
+  output_3_level:
+    type: number
+    label: Output 3 Level
+  output_4_level:
+    type: number
+    label: Output 4 Level
+  output_5_level:
+    type: number
+    label: Output 5 Level
+  output_6_level:
+    type: number
+    label: Output 6 Level
+  output_7_level:
+    type: number
+    label: Output 7 Level
+  output_8_level:
+    type: number
+    label: Output 8 Level
+  output_1_mute:
+    type: boolean
+    label: Output 1 Mute
+  output_2_mute:
+    type: boolean
+    label: Output 2 Mute
+  output_3_mute:
+    type: boolean
+    label: Output 3 Mute
+  output_4_mute:
+    type: boolean
+    label: Output 4 Mute
+  output_5_mute:
+    type: boolean
+    label: Output 5 Mute
+  output_6_mute:
+    type: boolean
+    label: Output 6 Mute
+  output_7_mute:
+    type: boolean
+    label: Output 7 Mute
+  output_8_mute:
+    type: boolean
+    label: Output 8 Mute
+
+commands:
+  # ── Input Level Control (short commands) ──
+  set_input_level:
+    label: Set Input Level
+    send: 'SICL S 0000 00 NC {channel},{level}\r'
+    help: >
+      Set the input level for a channel using the short command format.
+      Level is a fader value (0=mute, 1=-120dB, 411=0dB, 511=+10dB).
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Input Channel
+        min: 0
+        max: 19
+        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
+      level:
+        type: integer
+        required: true
+        label: Level (Fader)
+        min: 0
+        max: 511
+        help: "0=mute, 1=-120dB, 411=0dB, 511=+10dB"
+
+  # ── Input Mute Control ──
+  input_mute_on:
+    label: Input Mute On
+    send: 'SICM S 0000 00 NC {channel},1\r'
+    help: "Mute an input channel."
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Input Channel
+        min: 0
+        max: 19
+        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
+
+  input_mute_off:
+    label: Input Mute Off
+    send: 'SICM S 0000 00 NC {channel},0\r'
+    help: "Unmute an input channel."
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Input Channel
+        min: 0
+        max: 19
+        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
+
+  # ── Output Level Control (short commands) ──
+  set_output_level:
+    label: Set Output Level
+    send: 'SOCL S 0000 00 NC {channel},{level}\r'
+    help: >
+      Set the output level for a channel. Level is a fader value (0=mute,
+      1=-120dB, 411=0dB, 511=+10dB).
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Output Channel
+        min: 0
+        max: 9
+        help: "0-7 = Output 1-8, 8 = ST1, 9 = ST2"
+      level:
+        type: integer
+        required: true
+        label: Level (Fader)
+        min: 0
+        max: 511
+        help: "0=mute, 1=-120dB, 411=0dB, 511=+10dB"
+
+  # ── Output Mute Control ──
+  output_mute_on:
+    label: Output Mute On
+    send: 'SOCM S 0000 00 NC {channel},1\r'
+    help: "Mute an output channel."
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Output Channel
+        min: 0
+        max: 9
+        help: "0-7 = Output 1-8, 8 = ST1, 9 = ST2"
+
+  output_mute_off:
+    label: Output Mute Off
+    send: 'SOCM S 0000 00 NC {channel},0\r'
+    help: "Unmute an output channel."
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Output Channel
+        min: 0
+        max: 9
+        help: "0-7 = Output 1-8, 8 = ST1, 9 = ST2"
+
+  # ── Bus Assign ──
+  set_bus_assign:
+    label: Set Bus Assign
+    send: 'SBUS S 0000 00 NC {channel},{bus},{assign},{level}\r'
+    help: "Set the bus assign and level for an input-to-bus routing."
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Input Channel
+        min: 0
+        max: 19
+        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
+      bus:
+        type: integer
+        required: true
+        label: Bus Channel
+        min: 1
+        max: 12
+        help: "Bus 1-12"
+      assign:
+        type: integer
+        required: true
+        label: Bus Assign
+        min: 0
+        max: 2
+        help: "0=Off, 1=SmartMix Pre, 2=SmartMix Post"
+      level:
+        type: integer
+        default: 411
+        label: Level (Fader)
+        min: 0
+        max: 411
+        help: "0=mute, 1=-120dB, 411=0dB"
+
+  # ── Operator Fader Control ──
+  set_operator_fader:
+    label: Set Operator Fader
+    send: 'SOPL S 0000 00 NC {page},{fader},{level}\r'
+    help: "Set an operator page fader level."
+    params:
+      page:
+        type: integer
+        required: true
+        label: Operator Page
+        min: 1
+        max: 8
+        help: "Operator page 1-8"
+      fader:
+        type: integer
+        required: true
+        label: Fader Number
+        min: 1
+        max: 8
+        help: "Fader 1-8"
+      level:
+        type: integer
+        required: true
+        label: Level
+        min: 0
+        max: 100
+        help: "0-100"
+
+  operator_fader_mute_on:
+    label: Operator Fader Mute On
+    send: 'SOPM S 0000 00 NC {page},{fader},1\r'
+    help: "Mute an operator fader."
+    params:
+      page:
+        type: integer
+        required: true
+        label: Operator Page
+        min: 1
+        max: 8
+      fader:
+        type: integer
+        required: true
+        label: Fader Number
+        min: 1
+        max: 8
+
+  operator_fader_mute_off:
+    label: Operator Fader Mute Off
+    send: 'SOPM S 0000 00 NC {page},{fader},0\r'
+    help: "Unmute an operator fader."
+    params:
+      page:
+        type: integer
+        required: true
+        label: Operator Page
+        min: 1
+        max: 8
+      fader:
+        type: integer
+        required: true
+        label: Fader Number
+        min: 1
+        max: 8
+
+  # ── SmartMix Control ──
+  set_smart_mix_mode:
+    label: Set SmartMix Mode
+    send: 'SSMM S 0000 00 NC {group},{mode}\r'
+    help: "Set the SmartMix operating mode for a group."
+    params:
+      group:
+        type: integer
+        required: true
+        label: Group
+        min: 1
+        max: 4
+        help: "SmartMix group 1-4"
+      mode:
+        type: integer
+        required: true
+        label: Mode
+        min: 0
+        max: 2
+        help: "0=Off, 1=Gate, 2=Gain Share"
+
+  set_open_mic_count:
+    label: Set Open Mic Count
+    send: 'NOOM S 0000 00 NC {group},{count}\r'
+    help: "Set the maximum number of simultaneously open microphones in a group."
+    params:
+      group:
+        type: integer
+        required: true
+        label: Group
+        min: 1
+        max: 4
+        help: "SmartMix group 1-4"
+      count:
+        type: integer
+        required: true
+        label: Open Mic Count
+        min: 1
+        max: 10
+        help: "Max simultaneously open mics"
+
+  # ── Preset Control ──
+  recall_preset:
+    label: Recall Preset
+    send: 'CALLP S 0000 00 NC {preset}\r'
+    help: "Load a saved preset."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Bank
+        min: 1
+        max: 8
+        help: "Preset bank 1-8"
+
+  save_preset:
+    label: Save Preset
+    send: 'REGIP S 0000 00 NC {preset}\r'
+    help: "Save current settings to a preset bank."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Bank
+        min: 1
+        max: 8
+        help: "Preset bank 1-8"
+
+  recall_partial_preset:
+    label: Recall Partial Preset
+    send: 'CALLPP S 0000 00 NC {preset}\r'
+    help: "Load a partial preset (subset of settings)."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Partial Preset
+        min: 1
+        max: 40
+        help: "Partial preset 1-40"
+
+  # ── System Commands ──
+  identify:
+    label: Identify (Blink LED)
+    send: 'identify S 0000 00 NC \r'
+    help: "Blinks the front panel LED to identify the unit."
+
+  reboot:
+    label: Reboot
+    send: 'reboot S 0000 00 NC \r'
+    help: "Reboots the ATDM-1012."
+
+responses:
+  # ── Firmware version answer ──
+  - match: 'g_firmware_version 0000 \S+ NC (.+)'
+    set: { firmware_version: "$1" }
+
+  # ── Input level answers (short command format) ──
+  - match: 'GICL 0000 \S+ NC 0,(\d+)'
+    set: { input_1_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 1,(\d+)'
+    set: { input_2_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 2,(\d+)'
+    set: { input_3_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 3,(\d+)'
+    set: { input_4_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 4,(\d+)'
+    set: { input_5_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 5,(\d+)'
+    set: { input_6_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 6,(\d+)'
+    set: { input_7_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 7,(\d+)'
+    set: { input_8_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 8,(\d+)'
+    set: { input_9_level: "$1" }
+  - match: 'GICL 0000 \S+ NC 9,(\d+)'
+    set: { input_10_level: "$1" }
+
+  # ── Input mute answers ──
+  - match: 'GICM 0000 \S+ NC 0,1'
+    set: { input_1_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 0,0'
+    set: { input_1_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 1,1'
+    set: { input_2_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 1,0'
+    set: { input_2_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 2,1'
+    set: { input_3_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 2,0'
+    set: { input_3_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 3,1'
+    set: { input_4_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 3,0'
+    set: { input_4_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 4,1'
+    set: { input_5_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 4,0'
+    set: { input_5_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 5,1'
+    set: { input_6_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 5,0'
+    set: { input_6_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 6,1'
+    set: { input_7_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 6,0'
+    set: { input_7_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 7,1'
+    set: { input_8_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 7,0'
+    set: { input_8_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 8,1'
+    set: { input_9_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 8,0'
+    set: { input_9_mute: "false" }
+  - match: 'GICM 0000 \S+ NC 9,1'
+    set: { input_10_mute: "true" }
+  - match: 'GICM 0000 \S+ NC 9,0'
+    set: { input_10_mute: "false" }
+
+  # ── Output level answers ──
+  - match: 'GOCL 0000 \S+ NC 0,(\d+)'
+    set: { output_1_level: "$1" }
+  - match: 'GOCL 0000 \S+ NC 1,(\d+)'
+    set: { output_2_level: "$1" }
+  - match: 'GOCL 0000 \S+ NC 2,(\d+)'
+    set: { output_3_level: "$1" }
+  - match: 'GOCL 0000 \S+ NC 3,(\d+)'
+    set: { output_4_level: "$1" }
+  - match: 'GOCL 0000 \S+ NC 4,(\d+)'
+    set: { output_5_level: "$1" }
+  - match: 'GOCL 0000 \S+ NC 5,(\d+)'
+    set: { output_6_level: "$1" }
+  - match: 'GOCL 0000 \S+ NC 6,(\d+)'
+    set: { output_7_level: "$1" }
+  - match: 'GOCL 0000 \S+ NC 7,(\d+)'
+    set: { output_8_level: "$1" }
+
+  # ── Output mute answers ──
+  - match: 'GOCM 0000 \S+ NC 0,1'
+    set: { output_1_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 0,0'
+    set: { output_1_mute: "false" }
+  - match: 'GOCM 0000 \S+ NC 1,1'
+    set: { output_2_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 1,0'
+    set: { output_2_mute: "false" }
+  - match: 'GOCM 0000 \S+ NC 2,1'
+    set: { output_3_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 2,0'
+    set: { output_3_mute: "false" }
+  - match: 'GOCM 0000 \S+ NC 3,1'
+    set: { output_4_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 3,0'
+    set: { output_4_mute: "false" }
+  - match: 'GOCM 0000 \S+ NC 4,1'
+    set: { output_5_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 4,0'
+    set: { output_5_mute: "false" }
+  - match: 'GOCM 0000 \S+ NC 5,1'
+    set: { output_6_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 5,0'
+    set: { output_6_mute: "false" }
+  - match: 'GOCM 0000 \S+ NC 6,1'
+    set: { output_7_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 6,0'
+    set: { output_7_mute: "false" }
+  - match: 'GOCM 0000 \S+ NC 7,1'
+    set: { output_8_mute: "true" }
+  - match: 'GOCM 0000 \S+ NC 7,0'
+    set: { output_8_mute: "false" }
+
+  # ── MD push notifications (state changes multicast to all connected hosts) ──
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 0,\d+,\d+,(\d+)'
+    set: { input_1_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 1,\d+,\d+,(\d+)'
+    set: { input_2_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 2,\d+,\d+,(\d+)'
+    set: { input_3_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 3,\d+,\d+,(\d+)'
+    set: { input_4_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 4,\d+,\d+,(\d+)'
+    set: { input_5_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 5,\d+,\d+,(\d+)'
+    set: { input_6_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 6,\d+,\d+,(\d+)'
+    set: { input_7_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 7,\d+,\d+,(\d+)'
+    set: { input_8_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 8,\d+,\d+,(\d+)'
+    set: { input_9_level: "$1" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 9,\d+,\d+,(\d+)'
+    set: { input_10_level: "$1" }
+
+  - match: 'MD output_level_notice 0000 \S+ NC 0,(\d+)'
+    set: { output_1_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 1,(\d+)'
+    set: { output_2_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 2,(\d+)'
+    set: { output_3_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 3,(\d+)'
+    set: { output_4_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 4,(\d+)'
+    set: { output_5_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 5,(\d+)'
+    set: { output_6_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 6,(\d+)'
+    set: { output_7_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 7,(\d+)'
+    set: { output_8_level: "$1" }
+
+  - match: 'MD output_mute_notice 0000 \S+ NC 0,1'
+    set: { output_1_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 0,0'
+    set: { output_1_mute: "false" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 1,1'
+    set: { output_2_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 1,0'
+    set: { output_2_mute: "false" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 2,1'
+    set: { output_3_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 2,0'
+    set: { output_3_mute: "false" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 3,1'
+    set: { output_4_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 3,0'
+    set: { output_4_mute: "false" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 4,1'
+    set: { output_5_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 4,0'
+    set: { output_5_mute: "false" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 5,1'
+    set: { output_6_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 5,0'
+    set: { output_6_mute: "false" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 6,1'
+    set: { output_7_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 6,0'
+    set: { output_7_mute: "false" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 7,1'
+    set: { output_8_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 7,0'
+    set: { output_8_mute: "false" }
+
+polling:
+  interval: 15
+  queries:
+    - 'g_firmware_version O 0000 00 NC \r'
+    - 'GICL O 0000 00 NC 0\r'
+    - 'GICL O 0000 00 NC 1\r'
+    - 'GICL O 0000 00 NC 2\r'
+    - 'GICL O 0000 00 NC 3\r'
+    - 'GICL O 0000 00 NC 4\r'
+    - 'GICL O 0000 00 NC 5\r'
+    - 'GICL O 0000 00 NC 6\r'
+    - 'GICL O 0000 00 NC 7\r'
+    - 'GICL O 0000 00 NC 8\r'
+    - 'GICL O 0000 00 NC 9\r'
+    - 'GICM O 0000 00 NC 0\r'
+    - 'GICM O 0000 00 NC 1\r'
+    - 'GICM O 0000 00 NC 2\r'
+    - 'GICM O 0000 00 NC 3\r'
+    - 'GICM O 0000 00 NC 4\r'
+    - 'GICM O 0000 00 NC 5\r'
+    - 'GICM O 0000 00 NC 6\r'
+    - 'GICM O 0000 00 NC 7\r'
+    - 'GICM O 0000 00 NC 8\r'
+    - 'GICM O 0000 00 NC 9\r'
+    - 'GOCL O 0000 00 NC 0\r'
+    - 'GOCL O 0000 00 NC 1\r'
+    - 'GOCL O 0000 00 NC 2\r'
+    - 'GOCL O 0000 00 NC 3\r'
+    - 'GOCL O 0000 00 NC 4\r'
+    - 'GOCL O 0000 00 NC 5\r'
+    - 'GOCL O 0000 00 NC 6\r'
+    - 'GOCL O 0000 00 NC 7\r'
+    - 'GOCM O 0000 00 NC 0\r'
+    - 'GOCM O 0000 00 NC 1\r'
+    - 'GOCM O 0000 00 NC 2\r'
+    - 'GOCM O 0000 00 NC 3\r'
+    - 'GOCM O 0000 00 NC 4\r'
+    - 'GOCM O 0000 00 NC 5\r'
+    - 'GOCM O 0000 00 NC 6\r'
+    - 'GOCM O 0000 00 NC 7\r'
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  initial_state:
+    firmware_version: "1.0.0"
+    input_1_level: 411
+    input_2_level: 411
+    input_3_level: 411
+    input_4_level: 411
+    input_5_level: 411
+    input_6_level: 411
+    input_7_level: 411
+    input_8_level: 411
+    input_9_level: 411
+    input_10_level: 411
+    input_1_mute: false
+    input_2_mute: false
+    input_3_mute: false
+    input_4_mute: false
+    input_5_mute: false
+    input_6_mute: false
+    input_7_mute: false
+    input_8_mute: false
+    input_9_mute: false
+    input_10_mute: false
+    output_1_level: 411
+    output_2_level: 411
+    output_3_level: 411
+    output_4_level: 411
+    output_5_level: 411
+    output_6_level: 411
+    output_7_level: 411
+    output_8_level: 411
+    output_1_mute: false
+    output_2_mute: false
+    output_3_mute: false
+    output_4_mute: false
+    output_5_mute: false
+    output_6_mute: false
+    output_7_mute: false
+    output_8_mute: false
+
+  delays:
+    command_response: 0.03
+
+  controls:
+    - type: slider
+      key: input_1_level
+      label: Input 1 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: input_1_mute
+      label: Input 1 Mute
+    - type: slider
+      key: output_1_level
+      label: Output 1 Level
+      min: 0
+      max: 511
+      step: 1
+    - type: toggle
+      key: output_1_mute
+      label: Output 1 Mute
+
+  command_handlers:
+    # Firmware version query
+    - match: 'g_firmware_version O 0000 00 NC'
+      handler: |
+        respond(f'g_firmware_version 0000 00 NC {state["firmware_version"]}\r')
+
+    # Input level query (short command)
+    - match: 'GICL O 0000 00 NC (\d+)'
+      handler: |
+        ch = int(match.group(1))
+        key = f'input_{ch+1}_level'
+        level = state.get(key, 411)
+        respond(f'GICL 0000 00 NC {ch},{level}\r')
+
+    # Input level set (short command)
+    - match: 'SICL S 0000 00 NC (\d+),(\d+)'
+      handler: |
+        ch = int(match.group(1))
+        level = int(match.group(2))
+        key = f'input_{ch+1}_level'
+        state[key] = level
+        respond('SICL ACK\r')
+
+    # Input mute query (short command)
+    - match: 'GICM O 0000 00 NC (\d+)'
+      handler: |
+        ch = int(match.group(1))
+        key = f'input_{ch+1}_mute'
+        val = 1 if state.get(key, False) else 0
+        respond(f'GICM 0000 00 NC {ch},{val}\r')
+
+    # Input mute set (short command)
+    - match: 'SICM S 0000 00 NC (\d+),(\d+)'
+      handler: |
+        ch = int(match.group(1))
+        mute = match.group(2) == '1'
+        key = f'input_{ch+1}_mute'
+        state[key] = mute
+        respond('SICM ACK\r')
+
+    # Output level query (short command)
+    - match: 'GOCL O 0000 00 NC (\d+)'
+      handler: |
+        ch = int(match.group(1))
+        key = f'output_{ch+1}_level'
+        level = state.get(key, 411)
+        respond(f'GOCL 0000 00 NC {ch},{level}\r')
+
+    # Output level set (short command)
+    - match: 'SOCL S 0000 00 NC (\d+),(\d+)'
+      handler: |
+        ch = int(match.group(1))
+        level = int(match.group(2))
+        key = f'output_{ch+1}_level'
+        state[key] = level
+        respond('SOCL ACK\r')
+
+    # Output mute query (short command)
+    - match: 'GOCM O 0000 00 NC (\d+)'
+      handler: |
+        ch = int(match.group(1))
+        key = f'output_{ch+1}_mute'
+        val = 1 if state.get(key, False) else 0
+        respond(f'GOCM 0000 00 NC {ch},{val}\r')
+
+    # Output mute set (short command)
+    - match: 'SOCM S 0000 00 NC (\d+),(\d+)'
+      handler: |
+        ch = int(match.group(1))
+        mute = match.group(2) == '1'
+        key = f'output_{ch+1}_mute'
+        state[key] = mute
+        respond('SOCM ACK\r')
+
+    # Bus assign set
+    - match: 'SBUS S 0000 00 NC'
+      handler: |
+        respond('SBUS ACK\r')
+
+    # Operator fader level set
+    - match: 'SOPL S 0000 00 NC'
+      handler: |
+        respond('SOPL ACK\r')
+
+    # Operator fader mute set
+    - match: 'SOPM S 0000 00 NC'
+      handler: |
+        respond('SOPM ACK\r')
+
+    # SmartMix mode set
+    - match: 'SSMM S 0000 00 NC'
+      handler: |
+        respond('SSMM ACK\r')
+
+    # Open mic count set
+    - match: 'NOOM S 0000 00 NC'
+      handler: |
+        respond('NOOM ACK\r')
+
+    # Preset recall
+    - match: 'CALLP S 0000 00 NC'
+      handler: |
+        respond('CALLP ACK\r')
+
+    # Preset save
+    - match: 'REGIP S 0000 00 NC'
+      handler: |
+        respond('REGIP ACK\r')
+
+    # Partial preset recall
+    - match: 'CALLPP S 0000 00 NC'
+      handler: |
+        respond('CALLPP ACK\r')
+
+    # Identify
+    - match: 'identify S 0000 00 NC'
+      handler: |
+        respond('identify ACK\r')
+
+    # Reboot
+    - match: 'reboot S 0000 00 NC'
+      handler: |
+        respond('reboot ACK\r')
+
+  error_modes:
+    communication_timeout:
+      description: "Mixer stops responding"
+      behavior: no_response

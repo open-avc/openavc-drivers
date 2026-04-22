@@ -1,6 +1,6 @@
 {
-    "version": "1.6.0",
-    "updated": "2026-04-14",
+    "version": "1.7.0",
+    "updated": "2026-04-21",
     "drivers": [
         {
             "id": "sharp_nec_projector",
@@ -286,6 +286,40 @@
             "protocols": [],
             "ports": [
                 443
+            ],
+            "simulated": true
+        },
+        {
+            "id": "at_atdm_0604",
+            "name": "Audio-Technica ATDM-0604",
+            "file": "audio/at_atdm_0604.avcdriver",
+            "format": "avcdriver",
+            "category": "audio",
+            "manufacturer": "Audio-Technica",
+            "version": "1.0.0",
+            "author": "OpenAVC",
+            "transport": "tcp",
+            "verified": false,
+            "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer. 6-input, 4-output automatic mixer for conferencing. Input/output levels, output mute, SmartMix mode, presets.",
+            "ports": [
+                17300
+            ],
+            "simulated": true
+        },
+        {
+            "id": "at_atdm_1012",
+            "name": "Audio-Technica ATDM-1012",
+            "file": "audio/at_atdm_1012.avcdriver",
+            "format": "avcdriver",
+            "category": "audio",
+            "manufacturer": "Audio-Technica",
+            "version": "1.0.0",
+            "author": "OpenAVC",
+            "transport": "tcp",
+            "verified": false,
+            "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers. 10-input, 8-output automatic mixer with 12 buses, SmartMix groups, operator faders, and Dante (DAN variant).",
+            "ports": [
+                17300
             ],
             "simulated": true
         },

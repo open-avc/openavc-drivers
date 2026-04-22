@@ -1,7 +1,24 @@
 {
-    "version": "1.7.0",
-    "updated": "2026-04-21",
+    "version": "1.8.0",
+    "updated": "2026-04-22",
     "drivers": [
+        {
+            "id": "behringer_x32",
+            "name": "Behringer X32 Digital Mixer",
+            "file": "audio/behringer_x32.avcdriver",
+            "format": "avcdriver",
+            "category": "audio",
+            "manufacturer": "Behringer",
+            "version": "1.0.0",
+            "author": "OpenAVC",
+            "transport": "osc",
+            "verified": false,
+            "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. Channel faders, mutes, pans, bus sends, DCA faders, and main output. Also compatible with Midas M32.",
+            "protocols": [],
+            "ports": [10023],
+            "simulated": true,
+            "min_platform_version": "0.6.0"
+        },
         {
             "id": "sharp_nec_projector",
             "name": "Sharp NEC Projector",

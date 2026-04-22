@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 REQUIRED_INDEX_FIELDS = {"id", "name", "file", "format", "category", "manufacturer", "version", "author", "transport", "description"}
 VALID_FORMATS = {"avcdriver", "python"}
-VALID_TRANSPORTS = {"tcp", "serial", "udp", "http"}
+VALID_TRANSPORTS = {"tcp", "serial", "udp", "http", "osc"}
 
 REQUIRED_AVCDRIVER_FIELDS = {"name", "id", "transport"}
 

@@ -2,7 +2,7 @@
 
 This file is a self-contained reference for LLM-based coding agents helping users create device drivers for OpenAVC. It contains the complete YAML schema, Python driver API, naming conventions, validation instructions, and examples needed to produce working drivers without reading the full platform source code.
 
-**What is OpenAVC?** An open-source (MIT) AV room control platform that replaces Crestron, Extron, and AMX. Drivers translate device protocols (TCP, serial, HTTP, UDP) into a unified state and command model.
+**What is OpenAVC?** An open-source (MIT) AV room control platform that replaces Crestron, Extron, and AMX. Drivers translate device protocols (TCP, serial, HTTP, UDP, OSC) into a unified state and command model.
 
 **Repository:** `github.com/open-avc/openavc-drivers`
 **Platform source:** `github.com/open-avc/openavc`
@@ -30,7 +30,7 @@ OpenAVC supports two driver formats. Both produce identical runtime behavior.
 
 | Format | Extension | Best For |
 |--------|-----------|----------|
-| YAML definition | `.avcdriver` | Text-based protocols (TCP, serial, HTTP). No code needed. |
+| YAML definition | `.avcdriver` | Text-based and OSC protocols (TCP, serial, HTTP, OSC). No code needed. |
 | Python class | `.py` | Binary protocols, authentication handshakes, UDP, complex state logic. |
 
 **Decision guide:**
@@ -55,7 +55,7 @@ YAML driver definitions are interpreted at runtime by the `ConfigurableDriver` c
 |-------|------|-------------|
 | `id` | string | Unique identifier. Lowercase, underscores only. (e.g., `extron_sis`) |
 | `name` | string | Human-readable display name. |
-| `transport` | string | One of: `tcp`, `serial`, `http`, `udp` |
+| `transport` | string | One of: `tcp`, `serial`, `http`, `udp`, `osc` |
 
 #### Optional
 
@@ -401,7 +401,7 @@ class MyDriver(BaseDriver):
         # Required
         "id": "my_driver",
         "name": "My Device",
-        "transport": "tcp",  # tcp | serial | http | udp
+        "transport": "tcp",  # tcp | serial | http | udp | osc
 
         # Metadata
         "manufacturer": "Acme",
@@ -680,6 +680,7 @@ from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16, h
 | `serial` | `serial_port`, `baudrate`, `bytesize`, `parity`, `stopbits` | RS-232/RS-485 devices |
 | `http` | `host`, `port`, `ssl`, `verify_ssl`, `auth_type`, `username`, `password`, `token`, `api_key` | REST API devices |
 | `udp` | `host`, `port` | Broadcast protocols (Wake-on-LAN, Art-Net) |
+| `osc` | `host`, `port`, `listen_port` | OSC (Open Sound Control) devices — mixing consoles, show control, lighting |
 
 **Common config fields (all transports):**
 - `poll_interval` -- Seconds between polls (0 = disabled)
@@ -890,7 +891,7 @@ The validator checks:
 - Driver ID format (lowercase, underscores only)
 - Category is valid
 - State variable types valid
-- Command structure valid (TCP/serial vs HTTP)
+- Command structure valid (TCP/serial vs HTTP vs OSC)
 - Response patterns compile as valid regex
 - No nested quantifiers in regex (causes backtracking)
 - Delimiter is valid

@@ -28,7 +28,7 @@ except ImportError:
         print("ERROR: PyYAML is required. Install with: pip install pyyaml")
         sys.exit(1)
 
-VALID_TRANSPORTS = {"tcp", "serial", "http", "udp"}
+VALID_TRANSPORTS = {"tcp", "serial", "http", "udp", "osc"}
 VALID_CATEGORIES = {
     "projector", "display", "switcher", "scaler", "audio",
     "camera", "lighting", "relay", "utility", "other", "video",
@@ -157,7 +157,14 @@ def validate_yaml_driver(file_path, data, result):
                 if "label" not in cmd_def:
                     result.warn(f"Command '{cmd_id}' missing 'label' field")
 
-                if transport in ("tcp", "serial"):
+                if transport == "osc":
+                    has_address = "address" in cmd_def
+                    has_send = "send" in cmd_def or "string" in cmd_def
+                    if has_send and not has_address:
+                        result.error(f"Command '{cmd_id}': OSC commands should use 'address', not 'send'/'string'")
+                    if has_address and not cmd_def["address"].startswith("/"):
+                        result.error(f"Command '{cmd_id}': OSC address must start with '/'")
+                elif transport in ("tcp", "serial"):
                     has_send = "send" in cmd_def or "string" in cmd_def
                     has_http = "method" in cmd_def or "path" in cmd_def
                     if has_http and not has_send:
@@ -186,9 +193,17 @@ def validate_yaml_driver(file_path, data, result):
                 if not isinstance(resp, dict):
                     result.error(f"Response #{i+1} must be a dict")
                     continue
+
+                # OSC responses use "address" key
+                if "address" in resp:
+                    addr = resp["address"]
+                    if not isinstance(addr, str) or not addr.startswith("/"):
+                        result.error(f"Response #{i+1}: OSC address must start with '/'")
+                    continue
+
                 pattern = resp.get("match") or resp.get("pattern")
                 if not pattern:
-                    result.error(f"Response #{i+1} missing 'match' or 'pattern' field")
+                    result.error(f"Response #{i+1} missing 'match', 'pattern', or 'address' field")
                     continue
 
                 # Config substitution placeholders won't compile as regex directly

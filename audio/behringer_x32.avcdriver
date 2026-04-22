@@ -1,0 +1,783 @@
+# Behringer X32 Digital Mixer — OSC Driver
+#
+# Controls Behringer X32 and X32 Compact digital mixing consoles via OSC
+# over UDP. Also compatible with Midas M32 (same protocol).
+#
+# Protocol reference: Patrick-Gilles Maillot's Unofficial X32/M32 OSC
+# Remote Protocol (github.com/pmaillot/X32-Behringer)
+#
+# The X32 does NOT send unsolicited updates. You must send /xremote
+# every <=10 seconds to receive feedback. This driver handles that
+# automatically via polling.
+#
+# Querying values: send any address with no arguments to get the
+# current value back.
+
+id: behringer_x32
+name: Behringer X32 Digital Mixer
+manufacturer: Behringer
+category: audio
+version: 1.0.0
+author: OpenAVC
+description: >-
+  Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
+  Channel faders, mutes, pans, bus sends, DCA faders, and main output.
+  Also compatible with Midas M32.
+transport: osc
+
+help:
+  overview: >-
+    Controls a Behringer X32 or X32 Compact digital mixer over the network
+    using the OSC (Open Sound Control) protocol. Covers channels 1-8,
+    buses 1-4, DCAs 1-4, and the main stereo output.
+  setup: >-
+    1. Connect the X32 to the same network as the OpenAVC server.
+    2. On the X32, go to Setup > Network and note the IP address.
+    3. Enter the IP address in the device config. The default port is 10023.
+    4. The driver will automatically subscribe to feedback and start
+       receiving fader/mute updates.
+
+default_config:
+  host: ""
+  port: 10023
+  poll_interval: 9
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: X32 network IP address (Setup > Network on the console)
+  port:
+    type: integer
+    default: 10023
+    label: OSC Port
+    description: Default is 10023 for X32/M32, 10024 for X-Air series
+
+state_variables:
+  # Console info
+  console_model:
+    type: string
+    label: Console Model
+  firmware_version:
+    type: string
+    label: Firmware Version
+
+  # Channels 1-8
+  ch01_fader:
+    type: number
+    label: Ch 1 Fader
+  ch01_mute:
+    type: boolean
+    label: Ch 1 Mute
+  ch01_pan:
+    type: number
+    label: Ch 1 Pan
+  ch01_name:
+    type: string
+    label: Ch 1 Name
+  ch02_fader:
+    type: number
+    label: Ch 2 Fader
+  ch02_mute:
+    type: boolean
+    label: Ch 2 Mute
+  ch02_name:
+    type: string
+    label: Ch 2 Name
+  ch03_fader:
+    type: number
+    label: Ch 3 Fader
+  ch03_mute:
+    type: boolean
+    label: Ch 3 Mute
+  ch03_name:
+    type: string
+    label: Ch 3 Name
+  ch04_fader:
+    type: number
+    label: Ch 4 Fader
+  ch04_mute:
+    type: boolean
+    label: Ch 4 Mute
+  ch04_name:
+    type: string
+    label: Ch 4 Name
+  ch05_fader:
+    type: number
+    label: Ch 5 Fader
+  ch05_mute:
+    type: boolean
+    label: Ch 5 Mute
+  ch05_name:
+    type: string
+    label: Ch 5 Name
+  ch06_fader:
+    type: number
+    label: Ch 6 Fader
+  ch06_mute:
+    type: boolean
+    label: Ch 6 Mute
+  ch06_name:
+    type: string
+    label: Ch 6 Name
+  ch07_fader:
+    type: number
+    label: Ch 7 Fader
+  ch07_mute:
+    type: boolean
+    label: Ch 7 Mute
+  ch07_name:
+    type: string
+    label: Ch 7 Name
+  ch08_fader:
+    type: number
+    label: Ch 8 Fader
+  ch08_mute:
+    type: boolean
+    label: Ch 8 Mute
+  ch08_name:
+    type: string
+    label: Ch 8 Name
+
+  # Buses 1-4
+  bus01_fader:
+    type: number
+    label: Bus 1 Fader
+  bus01_mute:
+    type: boolean
+    label: Bus 1 Mute
+  bus02_fader:
+    type: number
+    label: Bus 2 Fader
+  bus02_mute:
+    type: boolean
+    label: Bus 2 Mute
+  bus03_fader:
+    type: number
+    label: Bus 3 Fader
+  bus03_mute:
+    type: boolean
+    label: Bus 3 Mute
+  bus04_fader:
+    type: number
+    label: Bus 4 Fader
+  bus04_mute:
+    type: boolean
+    label: Bus 4 Mute
+
+  # DCAs 1-4
+  dca1_fader:
+    type: number
+    label: DCA 1 Fader
+  dca1_mute:
+    type: boolean
+    label: DCA 1 Mute
+  dca2_fader:
+    type: number
+    label: DCA 2 Fader
+  dca2_mute:
+    type: boolean
+    label: DCA 2 Mute
+  dca3_fader:
+    type: number
+    label: DCA 3 Fader
+  dca3_mute:
+    type: boolean
+    label: DCA 3 Mute
+  dca4_fader:
+    type: number
+    label: DCA 4 Fader
+  dca4_mute:
+    type: boolean
+    label: DCA 4 Mute
+
+  # Main stereo
+  main_fader:
+    type: number
+    label: Main Fader
+  main_mute:
+    type: boolean
+    label: Main Mute
+
+commands:
+  # Subscription renewal (called by polling)
+  renew:
+    label: Renew Subscription
+    address: "/xremote"
+
+  query_info:
+    label: Query Console Info
+    address: "/info"
+
+  # Channel faders (0.0 = -inf, 1.0 = +10 dB, 0.75 ≈ 0 dB)
+  set_ch_fader:
+    label: Set Channel Fader
+    address: "/ch/{channel}/mix/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      channel:
+        type: string
+        label: Channel (01-32)
+      level:
+        type: number
+        label: Level (0.0-1.0)
+
+  # Channel mute (0 = muted, 1 = unmuted)
+  mute_ch:
+    label: Mute Channel
+    address: "/ch/{channel}/mix/on"
+    args:
+      - type: i
+        value: "0"
+    params:
+      channel:
+        type: string
+        label: Channel (01-32)
+
+  unmute_ch:
+    label: Unmute Channel
+    address: "/ch/{channel}/mix/on"
+    args:
+      - type: i
+        value: "1"
+    params:
+      channel:
+        type: string
+        label: Channel (01-32)
+
+  set_ch_pan:
+    label: Set Channel Pan
+    address: "/ch/{channel}/mix/pan"
+    args:
+      - type: f
+        value: "{pan}"
+    params:
+      channel:
+        type: string
+        label: Channel (01-32)
+      pan:
+        type: number
+        label: Pan (0.0=L, 0.5=C, 1.0=R)
+
+  # Bus faders
+  set_bus_fader:
+    label: Set Bus Fader
+    address: "/bus/{bus}/mix/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      bus:
+        type: string
+        label: Bus (01-16)
+      level:
+        type: number
+        label: Level (0.0-1.0)
+
+  mute_bus:
+    label: Mute Bus
+    address: "/bus/{bus}/mix/on"
+    args:
+      - type: i
+        value: "0"
+    params:
+      bus:
+        type: string
+        label: Bus (01-16)
+
+  unmute_bus:
+    label: Unmute Bus
+    address: "/bus/{bus}/mix/on"
+    args:
+      - type: i
+        value: "1"
+    params:
+      bus:
+        type: string
+        label: Bus (01-16)
+
+  # DCA faders
+  set_dca_fader:
+    label: Set DCA Fader
+    address: "/dca/{dca}/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      dca:
+        type: string
+        label: DCA (1-8)
+      level:
+        type: number
+        label: Level (0.0-1.0)
+
+  mute_dca:
+    label: Mute DCA
+    address: "/dca/{dca}/on"
+    args:
+      - type: i
+        value: "0"
+    params:
+      dca:
+        type: string
+        label: DCA (1-8)
+
+  unmute_dca:
+    label: Unmute DCA
+    address: "/dca/{dca}/on"
+    args:
+      - type: i
+        value: "1"
+    params:
+      dca:
+        type: string
+        label: DCA (1-8)
+
+  # Main stereo output
+  set_main_fader:
+    label: Set Main Fader
+    address: "/main/st/mix/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      level:
+        type: number
+        label: Level (0.0-1.0)
+
+  mute_main:
+    label: Mute Main
+    address: "/main/st/mix/on"
+    args:
+      - type: i
+        value: "0"
+
+  unmute_main:
+    label: Unmute Main
+    address: "/main/st/mix/on"
+    args:
+      - type: i
+        value: "1"
+
+# Subscribe to feedback on connect, query console info
+on_connect:
+  - "/xremote"
+  - "/info"
+
+# Renew subscription every 9 seconds (X32 expires after ~10s)
+polling:
+  interval: 9
+  queries:
+    - "renew"
+
+responses:
+  # Console info (4 string args: server version, server name, model, firmware)
+  - address: "/info"
+    mappings:
+      - arg: 2
+        state: console_model
+        type: string
+      - arg: 3
+        state: firmware_version
+        type: string
+
+  # Channel faders
+  - address: "/ch/01/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch01_fader
+        type: float
+  - address: "/ch/02/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch02_fader
+        type: float
+  - address: "/ch/03/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch03_fader
+        type: float
+  - address: "/ch/04/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch04_fader
+        type: float
+  - address: "/ch/05/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch05_fader
+        type: float
+  - address: "/ch/06/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch06_fader
+        type: float
+  - address: "/ch/07/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch07_fader
+        type: float
+  - address: "/ch/08/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch08_fader
+        type: float
+
+  # Channel mutes (0=muted, 1=unmuted → invert for boolean mute state)
+  - address: "/ch/01/mix/on"
+    mappings:
+      - arg: 0
+        state: ch01_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/02/mix/on"
+    mappings:
+      - arg: 0
+        state: ch02_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/03/mix/on"
+    mappings:
+      - arg: 0
+        state: ch03_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/04/mix/on"
+    mappings:
+      - arg: 0
+        state: ch04_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/05/mix/on"
+    mappings:
+      - arg: 0
+        state: ch05_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/06/mix/on"
+    mappings:
+      - arg: 0
+        state: ch06_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/07/mix/on"
+    mappings:
+      - arg: 0
+        state: ch07_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/08/mix/on"
+    mappings:
+      - arg: 0
+        state: ch08_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+  # Channel pans
+  - address: "/ch/01/mix/pan"
+    mappings:
+      - arg: 0
+        state: ch01_pan
+        type: float
+
+  # Channel names
+  - address: "/ch/01/config/name"
+    mappings:
+      - arg: 0
+        state: ch01_name
+        type: string
+  - address: "/ch/02/config/name"
+    mappings:
+      - arg: 0
+        state: ch02_name
+        type: string
+  - address: "/ch/03/config/name"
+    mappings:
+      - arg: 0
+        state: ch03_name
+        type: string
+  - address: "/ch/04/config/name"
+    mappings:
+      - arg: 0
+        state: ch04_name
+        type: string
+  - address: "/ch/05/config/name"
+    mappings:
+      - arg: 0
+        state: ch05_name
+        type: string
+  - address: "/ch/06/config/name"
+    mappings:
+      - arg: 0
+        state: ch06_name
+        type: string
+  - address: "/ch/07/config/name"
+    mappings:
+      - arg: 0
+        state: ch07_name
+        type: string
+  - address: "/ch/08/config/name"
+    mappings:
+      - arg: 0
+        state: ch08_name
+        type: string
+
+  # Bus faders
+  - address: "/bus/01/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus01_fader
+        type: float
+  - address: "/bus/02/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus02_fader
+        type: float
+  - address: "/bus/03/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus03_fader
+        type: float
+  - address: "/bus/04/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus04_fader
+        type: float
+
+  # Bus mutes
+  - address: "/bus/01/mix/on"
+    mappings:
+      - arg: 0
+        state: bus01_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/02/mix/on"
+    mappings:
+      - arg: 0
+        state: bus02_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/03/mix/on"
+    mappings:
+      - arg: 0
+        state: bus03_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/04/mix/on"
+    mappings:
+      - arg: 0
+        state: bus04_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+  # DCA faders
+  - address: "/dca/1/fader"
+    mappings:
+      - arg: 0
+        state: dca1_fader
+        type: float
+  - address: "/dca/2/fader"
+    mappings:
+      - arg: 0
+        state: dca2_fader
+        type: float
+  - address: "/dca/3/fader"
+    mappings:
+      - arg: 0
+        state: dca3_fader
+        type: float
+  - address: "/dca/4/fader"
+    mappings:
+      - arg: 0
+        state: dca4_fader
+        type: float
+
+  # DCA mutes
+  - address: "/dca/1/on"
+    mappings:
+      - arg: 0
+        state: dca1_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/dca/2/on"
+    mappings:
+      - arg: 0
+        state: dca2_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/dca/3/on"
+    mappings:
+      - arg: 0
+        state: dca3_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/dca/4/on"
+    mappings:
+      - arg: 0
+        state: dca4_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+  # Main stereo
+  - address: "/main/st/mix/fader"
+    mappings:
+      - arg: 0
+        state: main_fader
+        type: float
+  - address: "/main/st/mix/on"
+    mappings:
+      - arg: 0
+        state: main_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+# ── SIMULATOR ──
+# The auto-generator handles most behavior from the responses section:
+# - Messages with args → update state, echo back
+# - Messages without args → respond with current state (query)
+# The simulator section adds controls for the Simulator UI and
+# initial state values matching a realistic X32 default scene.
+
+simulator:
+  initial_state:
+    console_model: X32
+    firmware_version: "4.06"
+    ch01_fader: 0.75
+    ch01_mute: false
+    ch01_pan: 0.5
+    ch01_name: "Ch 1"
+    ch02_fader: 0.75
+    ch02_mute: false
+    ch02_name: "Ch 2"
+    ch03_fader: 0.75
+    ch03_mute: false
+    ch03_name: "Ch 3"
+    ch04_fader: 0.75
+    ch04_mute: false
+    ch04_name: "Ch 4"
+    ch05_fader: 0.0
+    ch05_mute: true
+    ch05_name: "Ch 5"
+    ch06_fader: 0.0
+    ch06_mute: true
+    ch06_name: "Ch 6"
+    ch07_fader: 0.0
+    ch07_mute: true
+    ch07_name: "Ch 7"
+    ch08_fader: 0.0
+    ch08_mute: true
+    ch08_name: "Ch 8"
+    bus01_fader: 0.75
+    bus01_mute: false
+    bus02_fader: 0.75
+    bus02_mute: false
+    bus03_fader: 0.0
+    bus03_mute: true
+    bus04_fader: 0.0
+    bus04_mute: true
+    dca1_fader: 0.75
+    dca1_mute: false
+    dca2_fader: 0.75
+    dca2_mute: false
+    dca3_fader: 0.0
+    dca3_mute: true
+    dca4_fader: 0.0
+    dca4_mute: true
+    main_fader: 0.75
+    main_mute: false
+
+  delays:
+    command_response: 0.005
+
+  controls:
+    - type: slider
+      key: ch01_fader
+      label: Ch 1 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: ch01_mute
+      label: Ch 1 Mute
+    - type: slider
+      key: ch02_fader
+      label: Ch 2 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: ch02_mute
+      label: Ch 2 Mute
+    - type: slider
+      key: ch03_fader
+      label: Ch 3 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: ch03_mute
+      label: Ch 3 Mute
+    - type: slider
+      key: ch04_fader
+      label: Ch 4 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: ch04_mute
+      label: Ch 4 Mute
+    - type: slider
+      key: main_fader
+      label: Main Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: main_mute
+      label: Main Mute
+    - type: slider
+      key: dca1_fader
+      label: DCA 1 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: dca1_mute
+      label: DCA 1 Mute

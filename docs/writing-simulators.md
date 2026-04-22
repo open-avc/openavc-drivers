@@ -11,11 +11,11 @@ Simulation support is optional but strongly recommended. It enables:
 
 ## How Simulation Works
 
-The [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main OpenAVC repo at `simulator/`) is a standalone application that runs alongside OpenAVC. It discovers your driver files, starts fake protocol servers (TCP or HTTP), and responds to commands using the rules you define. OpenAVC drivers connect to these servers instead of real hardware. From the driver's perspective, it's talking to a real device.
+The [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main OpenAVC repo at `simulator/`) is a standalone application that runs alongside OpenAVC. It discovers your driver files, starts fake protocol servers (TCP, HTTP, or OSC), and responds to commands using the rules you define. OpenAVC drivers connect to these servers instead of real hardware. From the driver's perspective, it's talking to a real device.
 
 ```
 OpenAVC                          Simulator
-┌──────────┐     TCP/HTTP     ┌──────────────┐
+┌──────────┐   TCP/HTTP/OSC   ┌──────────────┐
 │  Driver   │ ──────────────► │  Fake Device  │
 │ (PJLink)  │ ◄────────────── │  (PJLink Sim) │
 └──────────┘                  └──────────────┘
@@ -442,7 +442,7 @@ The skeleton includes:
 - All state variables with types and default values
 - All command names listed as reference comments
 - Example code showing the pattern
-- The correct base class (`TCPSimulator` or `HTTPSimulator`) chosen by transport type
+- The correct base class (`TCPSimulator`, `HTTPSimulator`, or `OSCSimulator`) chosen by transport type
 
 ### Step 2: Fill In the Protocol Logic
 

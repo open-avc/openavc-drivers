@@ -12,24 +12,28 @@
 #
 # Querying values: send any address with no arguments to get the
 # current value back.
+#
+# Full console coverage: 32 input channels, 16 mix buses, 6 matrices,
+# 8 DCAs, 8 aux inputs, 8 FX returns, main stereo, main mono.
 
 id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
-  Channel faders, mutes, pans, bus sends, DCA faders, and main output.
-  Also compatible with Midas M32.
+  32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs,
+  8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.
 transport: osc
 
 help:
   overview: >-
     Controls a Behringer X32 or X32 Compact digital mixer over the network
-    using the OSC (Open Sound Control) protocol. Covers channels 1-8,
-    buses 1-4, DCAs 1-4, and the main stereo output.
+    using the OSC (Open Sound Control) protocol. Full console coverage
+    including all 32 input channels, 16 mix buses, 6 matrices, 8 DCAs,
+    8 aux inputs, 8 FX returns, and main stereo/mono outputs.
   setup: >-
     1. Connect the X32 to the same network as the OpenAVC server.
     2. On the X32, go to Setup > Network and note the IP address.
@@ -63,110 +67,433 @@ state_variables:
     type: string
     label: Firmware Version
 
-  # Channels 1-8
+  # ── Input Channels 1-32 ──
   ch01_fader:
     type: number
-    label: Ch 1 Fader
+    label: Ch 01 Fader
   ch01_mute:
     type: boolean
-    label: Ch 1 Mute
-  ch01_pan:
-    type: number
-    label: Ch 1 Pan
+    label: Ch 01 Mute
   ch01_name:
     type: string
-    label: Ch 1 Name
+    label: Ch 01 Name
   ch02_fader:
     type: number
-    label: Ch 2 Fader
+    label: Ch 02 Fader
   ch02_mute:
     type: boolean
-    label: Ch 2 Mute
+    label: Ch 02 Mute
   ch02_name:
     type: string
-    label: Ch 2 Name
+    label: Ch 02 Name
   ch03_fader:
     type: number
-    label: Ch 3 Fader
+    label: Ch 03 Fader
   ch03_mute:
     type: boolean
-    label: Ch 3 Mute
+    label: Ch 03 Mute
   ch03_name:
     type: string
-    label: Ch 3 Name
+    label: Ch 03 Name
   ch04_fader:
     type: number
-    label: Ch 4 Fader
+    label: Ch 04 Fader
   ch04_mute:
     type: boolean
-    label: Ch 4 Mute
+    label: Ch 04 Mute
   ch04_name:
     type: string
-    label: Ch 4 Name
+    label: Ch 04 Name
   ch05_fader:
     type: number
-    label: Ch 5 Fader
+    label: Ch 05 Fader
   ch05_mute:
     type: boolean
-    label: Ch 5 Mute
+    label: Ch 05 Mute
   ch05_name:
     type: string
-    label: Ch 5 Name
+    label: Ch 05 Name
   ch06_fader:
     type: number
-    label: Ch 6 Fader
+    label: Ch 06 Fader
   ch06_mute:
     type: boolean
-    label: Ch 6 Mute
+    label: Ch 06 Mute
   ch06_name:
     type: string
-    label: Ch 6 Name
+    label: Ch 06 Name
   ch07_fader:
     type: number
-    label: Ch 7 Fader
+    label: Ch 07 Fader
   ch07_mute:
     type: boolean
-    label: Ch 7 Mute
+    label: Ch 07 Mute
   ch07_name:
     type: string
-    label: Ch 7 Name
+    label: Ch 07 Name
   ch08_fader:
     type: number
-    label: Ch 8 Fader
+    label: Ch 08 Fader
   ch08_mute:
     type: boolean
-    label: Ch 8 Mute
+    label: Ch 08 Mute
   ch08_name:
     type: string
-    label: Ch 8 Name
+    label: Ch 08 Name
+  ch09_fader:
+    type: number
+    label: Ch 09 Fader
+  ch09_mute:
+    type: boolean
+    label: Ch 09 Mute
+  ch09_name:
+    type: string
+    label: Ch 09 Name
+  ch10_fader:
+    type: number
+    label: Ch 10 Fader
+  ch10_mute:
+    type: boolean
+    label: Ch 10 Mute
+  ch10_name:
+    type: string
+    label: Ch 10 Name
+  ch11_fader:
+    type: number
+    label: Ch 11 Fader
+  ch11_mute:
+    type: boolean
+    label: Ch 11 Mute
+  ch11_name:
+    type: string
+    label: Ch 11 Name
+  ch12_fader:
+    type: number
+    label: Ch 12 Fader
+  ch12_mute:
+    type: boolean
+    label: Ch 12 Mute
+  ch12_name:
+    type: string
+    label: Ch 12 Name
+  ch13_fader:
+    type: number
+    label: Ch 13 Fader
+  ch13_mute:
+    type: boolean
+    label: Ch 13 Mute
+  ch13_name:
+    type: string
+    label: Ch 13 Name
+  ch14_fader:
+    type: number
+    label: Ch 14 Fader
+  ch14_mute:
+    type: boolean
+    label: Ch 14 Mute
+  ch14_name:
+    type: string
+    label: Ch 14 Name
+  ch15_fader:
+    type: number
+    label: Ch 15 Fader
+  ch15_mute:
+    type: boolean
+    label: Ch 15 Mute
+  ch15_name:
+    type: string
+    label: Ch 15 Name
+  ch16_fader:
+    type: number
+    label: Ch 16 Fader
+  ch16_mute:
+    type: boolean
+    label: Ch 16 Mute
+  ch16_name:
+    type: string
+    label: Ch 16 Name
+  ch17_fader:
+    type: number
+    label: Ch 17 Fader
+  ch17_mute:
+    type: boolean
+    label: Ch 17 Mute
+  ch17_name:
+    type: string
+    label: Ch 17 Name
+  ch18_fader:
+    type: number
+    label: Ch 18 Fader
+  ch18_mute:
+    type: boolean
+    label: Ch 18 Mute
+  ch18_name:
+    type: string
+    label: Ch 18 Name
+  ch19_fader:
+    type: number
+    label: Ch 19 Fader
+  ch19_mute:
+    type: boolean
+    label: Ch 19 Mute
+  ch19_name:
+    type: string
+    label: Ch 19 Name
+  ch20_fader:
+    type: number
+    label: Ch 20 Fader
+  ch20_mute:
+    type: boolean
+    label: Ch 20 Mute
+  ch20_name:
+    type: string
+    label: Ch 20 Name
+  ch21_fader:
+    type: number
+    label: Ch 21 Fader
+  ch21_mute:
+    type: boolean
+    label: Ch 21 Mute
+  ch21_name:
+    type: string
+    label: Ch 21 Name
+  ch22_fader:
+    type: number
+    label: Ch 22 Fader
+  ch22_mute:
+    type: boolean
+    label: Ch 22 Mute
+  ch22_name:
+    type: string
+    label: Ch 22 Name
+  ch23_fader:
+    type: number
+    label: Ch 23 Fader
+  ch23_mute:
+    type: boolean
+    label: Ch 23 Mute
+  ch23_name:
+    type: string
+    label: Ch 23 Name
+  ch24_fader:
+    type: number
+    label: Ch 24 Fader
+  ch24_mute:
+    type: boolean
+    label: Ch 24 Mute
+  ch24_name:
+    type: string
+    label: Ch 24 Name
+  ch25_fader:
+    type: number
+    label: Ch 25 Fader
+  ch25_mute:
+    type: boolean
+    label: Ch 25 Mute
+  ch25_name:
+    type: string
+    label: Ch 25 Name
+  ch26_fader:
+    type: number
+    label: Ch 26 Fader
+  ch26_mute:
+    type: boolean
+    label: Ch 26 Mute
+  ch26_name:
+    type: string
+    label: Ch 26 Name
+  ch27_fader:
+    type: number
+    label: Ch 27 Fader
+  ch27_mute:
+    type: boolean
+    label: Ch 27 Mute
+  ch27_name:
+    type: string
+    label: Ch 27 Name
+  ch28_fader:
+    type: number
+    label: Ch 28 Fader
+  ch28_mute:
+    type: boolean
+    label: Ch 28 Mute
+  ch28_name:
+    type: string
+    label: Ch 28 Name
+  ch29_fader:
+    type: number
+    label: Ch 29 Fader
+  ch29_mute:
+    type: boolean
+    label: Ch 29 Mute
+  ch29_name:
+    type: string
+    label: Ch 29 Name
+  ch30_fader:
+    type: number
+    label: Ch 30 Fader
+  ch30_mute:
+    type: boolean
+    label: Ch 30 Mute
+  ch30_name:
+    type: string
+    label: Ch 30 Name
+  ch31_fader:
+    type: number
+    label: Ch 31 Fader
+  ch31_mute:
+    type: boolean
+    label: Ch 31 Mute
+  ch31_name:
+    type: string
+    label: Ch 31 Name
+  ch32_fader:
+    type: number
+    label: Ch 32 Fader
+  ch32_mute:
+    type: boolean
+    label: Ch 32 Mute
+  ch32_name:
+    type: string
+    label: Ch 32 Name
 
-  # Buses 1-4
+  # ── Mix Buses 1-16 ──
   bus01_fader:
     type: number
-    label: Bus 1 Fader
+    label: Bus 01 Fader
   bus01_mute:
     type: boolean
-    label: Bus 1 Mute
+    label: Bus 01 Mute
   bus02_fader:
     type: number
-    label: Bus 2 Fader
+    label: Bus 02 Fader
   bus02_mute:
     type: boolean
-    label: Bus 2 Mute
+    label: Bus 02 Mute
   bus03_fader:
     type: number
-    label: Bus 3 Fader
+    label: Bus 03 Fader
   bus03_mute:
     type: boolean
-    label: Bus 3 Mute
+    label: Bus 03 Mute
   bus04_fader:
     type: number
-    label: Bus 4 Fader
+    label: Bus 04 Fader
   bus04_mute:
     type: boolean
-    label: Bus 4 Mute
+    label: Bus 04 Mute
+  bus05_fader:
+    type: number
+    label: Bus 05 Fader
+  bus05_mute:
+    type: boolean
+    label: Bus 05 Mute
+  bus06_fader:
+    type: number
+    label: Bus 06 Fader
+  bus06_mute:
+    type: boolean
+    label: Bus 06 Mute
+  bus07_fader:
+    type: number
+    label: Bus 07 Fader
+  bus07_mute:
+    type: boolean
+    label: Bus 07 Mute
+  bus08_fader:
+    type: number
+    label: Bus 08 Fader
+  bus08_mute:
+    type: boolean
+    label: Bus 08 Mute
+  bus09_fader:
+    type: number
+    label: Bus 09 Fader
+  bus09_mute:
+    type: boolean
+    label: Bus 09 Mute
+  bus10_fader:
+    type: number
+    label: Bus 10 Fader
+  bus10_mute:
+    type: boolean
+    label: Bus 10 Mute
+  bus11_fader:
+    type: number
+    label: Bus 11 Fader
+  bus11_mute:
+    type: boolean
+    label: Bus 11 Mute
+  bus12_fader:
+    type: number
+    label: Bus 12 Fader
+  bus12_mute:
+    type: boolean
+    label: Bus 12 Mute
+  bus13_fader:
+    type: number
+    label: Bus 13 Fader
+  bus13_mute:
+    type: boolean
+    label: Bus 13 Mute
+  bus14_fader:
+    type: number
+    label: Bus 14 Fader
+  bus14_mute:
+    type: boolean
+    label: Bus 14 Mute
+  bus15_fader:
+    type: number
+    label: Bus 15 Fader
+  bus15_mute:
+    type: boolean
+    label: Bus 15 Mute
+  bus16_fader:
+    type: number
+    label: Bus 16 Fader
+  bus16_mute:
+    type: boolean
+    label: Bus 16 Mute
 
-  # DCAs 1-4
+  # ── Matrices 1-6 ──
+  mtx01_fader:
+    type: number
+    label: Matrix 01 Fader
+  mtx01_mute:
+    type: boolean
+    label: Matrix 01 Mute
+  mtx02_fader:
+    type: number
+    label: Matrix 02 Fader
+  mtx02_mute:
+    type: boolean
+    label: Matrix 02 Mute
+  mtx03_fader:
+    type: number
+    label: Matrix 03 Fader
+  mtx03_mute:
+    type: boolean
+    label: Matrix 03 Mute
+  mtx04_fader:
+    type: number
+    label: Matrix 04 Fader
+  mtx04_mute:
+    type: boolean
+    label: Matrix 04 Mute
+  mtx05_fader:
+    type: number
+    label: Matrix 05 Fader
+  mtx05_mute:
+    type: boolean
+    label: Matrix 05 Mute
+  mtx06_fader:
+    type: number
+    label: Matrix 06 Fader
+  mtx06_mute:
+    type: boolean
+    label: Matrix 06 Mute
+
+  # ── DCAs 1-8 ──
   dca1_fader:
     type: number
     label: DCA 1 Fader
@@ -191,14 +518,144 @@ state_variables:
   dca4_mute:
     type: boolean
     label: DCA 4 Mute
-
-  # Main stereo
-  main_fader:
+  dca5_fader:
     type: number
-    label: Main Fader
-  main_mute:
+    label: DCA 5 Fader
+  dca5_mute:
     type: boolean
-    label: Main Mute
+    label: DCA 5 Mute
+  dca6_fader:
+    type: number
+    label: DCA 6 Fader
+  dca6_mute:
+    type: boolean
+    label: DCA 6 Mute
+  dca7_fader:
+    type: number
+    label: DCA 7 Fader
+  dca7_mute:
+    type: boolean
+    label: DCA 7 Mute
+  dca8_fader:
+    type: number
+    label: DCA 8 Fader
+  dca8_mute:
+    type: boolean
+    label: DCA 8 Mute
+
+  # ── Aux Inputs 1-8 ──
+  auxin01_fader:
+    type: number
+    label: Aux In 01 Fader
+  auxin01_mute:
+    type: boolean
+    label: Aux In 01 Mute
+  auxin02_fader:
+    type: number
+    label: Aux In 02 Fader
+  auxin02_mute:
+    type: boolean
+    label: Aux In 02 Mute
+  auxin03_fader:
+    type: number
+    label: Aux In 03 Fader
+  auxin03_mute:
+    type: boolean
+    label: Aux In 03 Mute
+  auxin04_fader:
+    type: number
+    label: Aux In 04 Fader
+  auxin04_mute:
+    type: boolean
+    label: Aux In 04 Mute
+  auxin05_fader:
+    type: number
+    label: Aux In 05 Fader
+  auxin05_mute:
+    type: boolean
+    label: Aux In 05 Mute
+  auxin06_fader:
+    type: number
+    label: Aux In 06 Fader
+  auxin06_mute:
+    type: boolean
+    label: Aux In 06 Mute
+  auxin07_fader:
+    type: number
+    label: Aux In 07 Fader
+  auxin07_mute:
+    type: boolean
+    label: Aux In 07 Mute
+  auxin08_fader:
+    type: number
+    label: Aux In 08 Fader
+  auxin08_mute:
+    type: boolean
+    label: Aux In 08 Mute
+
+  # ── FX Returns 1-8 ──
+  fxrtn01_fader:
+    type: number
+    label: FX Return 01 Fader
+  fxrtn01_mute:
+    type: boolean
+    label: FX Return 01 Mute
+  fxrtn02_fader:
+    type: number
+    label: FX Return 02 Fader
+  fxrtn02_mute:
+    type: boolean
+    label: FX Return 02 Mute
+  fxrtn03_fader:
+    type: number
+    label: FX Return 03 Fader
+  fxrtn03_mute:
+    type: boolean
+    label: FX Return 03 Mute
+  fxrtn04_fader:
+    type: number
+    label: FX Return 04 Fader
+  fxrtn04_mute:
+    type: boolean
+    label: FX Return 04 Mute
+  fxrtn05_fader:
+    type: number
+    label: FX Return 05 Fader
+  fxrtn05_mute:
+    type: boolean
+    label: FX Return 05 Mute
+  fxrtn06_fader:
+    type: number
+    label: FX Return 06 Fader
+  fxrtn06_mute:
+    type: boolean
+    label: FX Return 06 Mute
+  fxrtn07_fader:
+    type: number
+    label: FX Return 07 Fader
+  fxrtn07_mute:
+    type: boolean
+    label: FX Return 07 Mute
+  fxrtn08_fader:
+    type: number
+    label: FX Return 08 Fader
+  fxrtn08_mute:
+    type: boolean
+    label: FX Return 08 Mute
+
+  # ── Main Outputs ──
+  main_st_fader:
+    type: number
+    label: Main Stereo Fader
+  main_st_mute:
+    type: boolean
+    label: Main Stereo Mute
+  main_m_fader:
+    type: number
+    label: Main Mono Fader
+  main_m_mute:
+    type: boolean
+    label: Main Mono Mute
 
 commands:
   # Subscription renewal (called by polling)
@@ -210,6 +667,7 @@ commands:
     label: Query Console Info
     address: "/info"
 
+  # ── Channel commands ──
   # Channel faders (0.0 = -inf, 1.0 = +10 dB, 0.75 ≈ 0 dB)
   set_ch_fader:
     label: Set Channel Fader
@@ -248,21 +706,7 @@ commands:
         type: string
         label: Channel (01-32)
 
-  set_ch_pan:
-    label: Set Channel Pan
-    address: "/ch/{channel}/mix/pan"
-    args:
-      - type: f
-        value: "{pan}"
-    params:
-      channel:
-        type: string
-        label: Channel (01-32)
-      pan:
-        type: number
-        label: Pan (0.0=L, 0.5=C, 1.0=R)
-
-  # Bus faders
+  # ── Bus commands ──
   set_bus_fader:
     label: Set Bus Fader
     address: "/bus/{bus}/mix/fader"
@@ -299,7 +743,44 @@ commands:
         type: string
         label: Bus (01-16)
 
-  # DCA faders
+  # ── Matrix commands ──
+  set_mtx_fader:
+    label: Set Matrix Fader
+    address: "/mtx/{mtx}/mix/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      mtx:
+        type: string
+        label: Matrix (01-06)
+      level:
+        type: number
+        label: Level (0.0-1.0)
+
+  mute_mtx:
+    label: Mute Matrix
+    address: "/mtx/{mtx}/mix/on"
+    args:
+      - type: i
+        value: "0"
+    params:
+      mtx:
+        type: string
+        label: Matrix (01-06)
+
+  unmute_mtx:
+    label: Unmute Matrix
+    address: "/mtx/{mtx}/mix/on"
+    args:
+      - type: i
+        value: "1"
+    params:
+      mtx:
+        type: string
+        label: Matrix (01-06)
+
+  # ── DCA commands ──
   set_dca_fader:
     label: Set DCA Fader
     address: "/dca/{dca}/fader"
@@ -336,9 +817,9 @@ commands:
         type: string
         label: DCA (1-8)
 
-  # Main stereo output
-  set_main_fader:
-    label: Set Main Fader
+  # ── Main stereo output ──
+  set_main_st_fader:
+    label: Set Main Stereo Fader
     address: "/main/st/mix/fader"
     args:
       - type: f
@@ -348,16 +829,42 @@ commands:
         type: number
         label: Level (0.0-1.0)
 
-  mute_main:
-    label: Mute Main
+  mute_main_st:
+    label: Mute Main Stereo
     address: "/main/st/mix/on"
     args:
       - type: i
         value: "0"
 
-  unmute_main:
-    label: Unmute Main
+  unmute_main_st:
+    label: Unmute Main Stereo
     address: "/main/st/mix/on"
+    args:
+      - type: i
+        value: "1"
+
+  # ── Main mono output ──
+  set_main_m_fader:
+    label: Set Main Mono Fader
+    address: "/main/m/mix/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      level:
+        type: number
+        label: Level (0.0-1.0)
+
+  mute_main_m:
+    label: Mute Main Mono
+    address: "/main/m/mix/on"
+    args:
+      - type: i
+        value: "0"
+
+  unmute_main_m:
+    label: Unmute Main Mono
+    address: "/main/m/mix/on"
     args:
       - type: i
         value: "1"
@@ -384,7 +891,7 @@ responses:
         state: firmware_version
         type: string
 
-  # Channel faders
+  # ── Channel 01-32 faders ──
   - address: "/ch/01/mix/fader"
     mappings:
       - arg: 0
@@ -425,8 +932,128 @@ responses:
       - arg: 0
         state: ch08_fader
         type: float
+  - address: "/ch/09/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch09_fader
+        type: float
+  - address: "/ch/10/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch10_fader
+        type: float
+  - address: "/ch/11/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch11_fader
+        type: float
+  - address: "/ch/12/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch12_fader
+        type: float
+  - address: "/ch/13/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch13_fader
+        type: float
+  - address: "/ch/14/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch14_fader
+        type: float
+  - address: "/ch/15/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch15_fader
+        type: float
+  - address: "/ch/16/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch16_fader
+        type: float
+  - address: "/ch/17/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch17_fader
+        type: float
+  - address: "/ch/18/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch18_fader
+        type: float
+  - address: "/ch/19/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch19_fader
+        type: float
+  - address: "/ch/20/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch20_fader
+        type: float
+  - address: "/ch/21/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch21_fader
+        type: float
+  - address: "/ch/22/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch22_fader
+        type: float
+  - address: "/ch/23/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch23_fader
+        type: float
+  - address: "/ch/24/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch24_fader
+        type: float
+  - address: "/ch/25/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch25_fader
+        type: float
+  - address: "/ch/26/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch26_fader
+        type: float
+  - address: "/ch/27/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch27_fader
+        type: float
+  - address: "/ch/28/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch28_fader
+        type: float
+  - address: "/ch/29/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch29_fader
+        type: float
+  - address: "/ch/30/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch30_fader
+        type: float
+  - address: "/ch/31/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch31_fader
+        type: float
+  - address: "/ch/32/mix/fader"
+    mappings:
+      - arg: 0
+        state: ch32_fader
+        type: float
 
-  # Channel mutes (0=muted, 1=unmuted → invert for boolean mute state)
+  # ── Channel 01-32 mutes (0=muted, 1=unmuted → invert for boolean mute state) ──
   - address: "/ch/01/mix/on"
     mappings:
       - arg: 0
@@ -491,15 +1118,200 @@ responses:
         map:
           "0": "true"
           "1": "false"
-
-  # Channel pans
-  - address: "/ch/01/mix/pan"
+  - address: "/ch/09/mix/on"
     mappings:
       - arg: 0
-        state: ch01_pan
-        type: float
+        state: ch09_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/10/mix/on"
+    mappings:
+      - arg: 0
+        state: ch10_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/11/mix/on"
+    mappings:
+      - arg: 0
+        state: ch11_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/12/mix/on"
+    mappings:
+      - arg: 0
+        state: ch12_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/13/mix/on"
+    mappings:
+      - arg: 0
+        state: ch13_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/14/mix/on"
+    mappings:
+      - arg: 0
+        state: ch14_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/15/mix/on"
+    mappings:
+      - arg: 0
+        state: ch15_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/16/mix/on"
+    mappings:
+      - arg: 0
+        state: ch16_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/17/mix/on"
+    mappings:
+      - arg: 0
+        state: ch17_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/18/mix/on"
+    mappings:
+      - arg: 0
+        state: ch18_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/19/mix/on"
+    mappings:
+      - arg: 0
+        state: ch19_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/20/mix/on"
+    mappings:
+      - arg: 0
+        state: ch20_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/21/mix/on"
+    mappings:
+      - arg: 0
+        state: ch21_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/22/mix/on"
+    mappings:
+      - arg: 0
+        state: ch22_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/23/mix/on"
+    mappings:
+      - arg: 0
+        state: ch23_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/24/mix/on"
+    mappings:
+      - arg: 0
+        state: ch24_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/25/mix/on"
+    mappings:
+      - arg: 0
+        state: ch25_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/26/mix/on"
+    mappings:
+      - arg: 0
+        state: ch26_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/27/mix/on"
+    mappings:
+      - arg: 0
+        state: ch27_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/28/mix/on"
+    mappings:
+      - arg: 0
+        state: ch28_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/29/mix/on"
+    mappings:
+      - arg: 0
+        state: ch29_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/30/mix/on"
+    mappings:
+      - arg: 0
+        state: ch30_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/31/mix/on"
+    mappings:
+      - arg: 0
+        state: ch31_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/ch/32/mix/on"
+    mappings:
+      - arg: 0
+        state: ch32_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
 
-  # Channel names
+  # ── Channel 01-32 names ──
   - address: "/ch/01/config/name"
     mappings:
       - arg: 0
@@ -540,8 +1352,128 @@ responses:
       - arg: 0
         state: ch08_name
         type: string
+  - address: "/ch/09/config/name"
+    mappings:
+      - arg: 0
+        state: ch09_name
+        type: string
+  - address: "/ch/10/config/name"
+    mappings:
+      - arg: 0
+        state: ch10_name
+        type: string
+  - address: "/ch/11/config/name"
+    mappings:
+      - arg: 0
+        state: ch11_name
+        type: string
+  - address: "/ch/12/config/name"
+    mappings:
+      - arg: 0
+        state: ch12_name
+        type: string
+  - address: "/ch/13/config/name"
+    mappings:
+      - arg: 0
+        state: ch13_name
+        type: string
+  - address: "/ch/14/config/name"
+    mappings:
+      - arg: 0
+        state: ch14_name
+        type: string
+  - address: "/ch/15/config/name"
+    mappings:
+      - arg: 0
+        state: ch15_name
+        type: string
+  - address: "/ch/16/config/name"
+    mappings:
+      - arg: 0
+        state: ch16_name
+        type: string
+  - address: "/ch/17/config/name"
+    mappings:
+      - arg: 0
+        state: ch17_name
+        type: string
+  - address: "/ch/18/config/name"
+    mappings:
+      - arg: 0
+        state: ch18_name
+        type: string
+  - address: "/ch/19/config/name"
+    mappings:
+      - arg: 0
+        state: ch19_name
+        type: string
+  - address: "/ch/20/config/name"
+    mappings:
+      - arg: 0
+        state: ch20_name
+        type: string
+  - address: "/ch/21/config/name"
+    mappings:
+      - arg: 0
+        state: ch21_name
+        type: string
+  - address: "/ch/22/config/name"
+    mappings:
+      - arg: 0
+        state: ch22_name
+        type: string
+  - address: "/ch/23/config/name"
+    mappings:
+      - arg: 0
+        state: ch23_name
+        type: string
+  - address: "/ch/24/config/name"
+    mappings:
+      - arg: 0
+        state: ch24_name
+        type: string
+  - address: "/ch/25/config/name"
+    mappings:
+      - arg: 0
+        state: ch25_name
+        type: string
+  - address: "/ch/26/config/name"
+    mappings:
+      - arg: 0
+        state: ch26_name
+        type: string
+  - address: "/ch/27/config/name"
+    mappings:
+      - arg: 0
+        state: ch27_name
+        type: string
+  - address: "/ch/28/config/name"
+    mappings:
+      - arg: 0
+        state: ch28_name
+        type: string
+  - address: "/ch/29/config/name"
+    mappings:
+      - arg: 0
+        state: ch29_name
+        type: string
+  - address: "/ch/30/config/name"
+    mappings:
+      - arg: 0
+        state: ch30_name
+        type: string
+  - address: "/ch/31/config/name"
+    mappings:
+      - arg: 0
+        state: ch31_name
+        type: string
+  - address: "/ch/32/config/name"
+    mappings:
+      - arg: 0
+        state: ch32_name
+        type: string
 
-  # Bus faders
+  # ── Bus 01-16 faders ──
   - address: "/bus/01/mix/fader"
     mappings:
       - arg: 0
@@ -562,8 +1494,68 @@ responses:
       - arg: 0
         state: bus04_fader
         type: float
+  - address: "/bus/05/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus05_fader
+        type: float
+  - address: "/bus/06/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus06_fader
+        type: float
+  - address: "/bus/07/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus07_fader
+        type: float
+  - address: "/bus/08/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus08_fader
+        type: float
+  - address: "/bus/09/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus09_fader
+        type: float
+  - address: "/bus/10/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus10_fader
+        type: float
+  - address: "/bus/11/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus11_fader
+        type: float
+  - address: "/bus/12/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus12_fader
+        type: float
+  - address: "/bus/13/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus13_fader
+        type: float
+  - address: "/bus/14/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus14_fader
+        type: float
+  - address: "/bus/15/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus15_fader
+        type: float
+  - address: "/bus/16/mix/fader"
+    mappings:
+      - arg: 0
+        state: bus16_fader
+        type: float
 
-  # Bus mutes
+  # ── Bus 01-16 mutes ──
   - address: "/bus/01/mix/on"
     mappings:
       - arg: 0
@@ -596,8 +1588,186 @@ responses:
         map:
           "0": "true"
           "1": "false"
+  - address: "/bus/05/mix/on"
+    mappings:
+      - arg: 0
+        state: bus05_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/06/mix/on"
+    mappings:
+      - arg: 0
+        state: bus06_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/07/mix/on"
+    mappings:
+      - arg: 0
+        state: bus07_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/08/mix/on"
+    mappings:
+      - arg: 0
+        state: bus08_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/09/mix/on"
+    mappings:
+      - arg: 0
+        state: bus09_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/10/mix/on"
+    mappings:
+      - arg: 0
+        state: bus10_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/11/mix/on"
+    mappings:
+      - arg: 0
+        state: bus11_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/12/mix/on"
+    mappings:
+      - arg: 0
+        state: bus12_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/13/mix/on"
+    mappings:
+      - arg: 0
+        state: bus13_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/14/mix/on"
+    mappings:
+      - arg: 0
+        state: bus14_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/15/mix/on"
+    mappings:
+      - arg: 0
+        state: bus15_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/bus/16/mix/on"
+    mappings:
+      - arg: 0
+        state: bus16_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
 
-  # DCA faders
+  # ── Matrix 01-06 faders ──
+  - address: "/mtx/01/mix/fader"
+    mappings:
+      - arg: 0
+        state: mtx01_fader
+        type: float
+  - address: "/mtx/02/mix/fader"
+    mappings:
+      - arg: 0
+        state: mtx02_fader
+        type: float
+  - address: "/mtx/03/mix/fader"
+    mappings:
+      - arg: 0
+        state: mtx03_fader
+        type: float
+  - address: "/mtx/04/mix/fader"
+    mappings:
+      - arg: 0
+        state: mtx04_fader
+        type: float
+  - address: "/mtx/05/mix/fader"
+    mappings:
+      - arg: 0
+        state: mtx05_fader
+        type: float
+  - address: "/mtx/06/mix/fader"
+    mappings:
+      - arg: 0
+        state: mtx06_fader
+        type: float
+
+  # ── Matrix 01-06 mutes ──
+  - address: "/mtx/01/mix/on"
+    mappings:
+      - arg: 0
+        state: mtx01_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/mtx/02/mix/on"
+    mappings:
+      - arg: 0
+        state: mtx02_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/mtx/03/mix/on"
+    mappings:
+      - arg: 0
+        state: mtx03_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/mtx/04/mix/on"
+    mappings:
+      - arg: 0
+        state: mtx04_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/mtx/05/mix/on"
+    mappings:
+      - arg: 0
+        state: mtx05_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/mtx/06/mix/on"
+    mappings:
+      - arg: 0
+        state: mtx06_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+  # ── DCA 1-8 faders ──
   - address: "/dca/1/fader"
     mappings:
       - arg: 0
@@ -618,8 +1788,28 @@ responses:
       - arg: 0
         state: dca4_fader
         type: float
+  - address: "/dca/5/fader"
+    mappings:
+      - arg: 0
+        state: dca5_fader
+        type: float
+  - address: "/dca/6/fader"
+    mappings:
+      - arg: 0
+        state: dca6_fader
+        type: float
+  - address: "/dca/7/fader"
+    mappings:
+      - arg: 0
+        state: dca7_fader
+        type: float
+  - address: "/dca/8/fader"
+    mappings:
+      - arg: 0
+        state: dca8_fader
+        type: float
 
-  # DCA mutes
+  # ── DCA 1-8 mutes ──
   - address: "/dca/1/on"
     mappings:
       - arg: 0
@@ -652,17 +1842,280 @@ responses:
         map:
           "0": "true"
           "1": "false"
+  - address: "/dca/5/on"
+    mappings:
+      - arg: 0
+        state: dca5_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/dca/6/on"
+    mappings:
+      - arg: 0
+        state: dca6_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/dca/7/on"
+    mappings:
+      - arg: 0
+        state: dca7_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/dca/8/on"
+    mappings:
+      - arg: 0
+        state: dca8_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
 
-  # Main stereo
+  # ── Aux Input 01-08 faders ──
+  - address: "/auxin/01/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin01_fader
+        type: float
+  - address: "/auxin/02/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin02_fader
+        type: float
+  - address: "/auxin/03/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin03_fader
+        type: float
+  - address: "/auxin/04/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin04_fader
+        type: float
+  - address: "/auxin/05/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin05_fader
+        type: float
+  - address: "/auxin/06/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin06_fader
+        type: float
+  - address: "/auxin/07/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin07_fader
+        type: float
+  - address: "/auxin/08/mix/fader"
+    mappings:
+      - arg: 0
+        state: auxin08_fader
+        type: float
+
+  # ── Aux Input 01-08 mutes ──
+  - address: "/auxin/01/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin01_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/auxin/02/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin02_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/auxin/03/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin03_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/auxin/04/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin04_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/auxin/05/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin05_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/auxin/06/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin06_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/auxin/07/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin07_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/auxin/08/mix/on"
+    mappings:
+      - arg: 0
+        state: auxin08_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+  # ── FX Return 01-08 faders ──
+  - address: "/fxrtn/01/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn01_fader
+        type: float
+  - address: "/fxrtn/02/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn02_fader
+        type: float
+  - address: "/fxrtn/03/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn03_fader
+        type: float
+  - address: "/fxrtn/04/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn04_fader
+        type: float
+  - address: "/fxrtn/05/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn05_fader
+        type: float
+  - address: "/fxrtn/06/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn06_fader
+        type: float
+  - address: "/fxrtn/07/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn07_fader
+        type: float
+  - address: "/fxrtn/08/mix/fader"
+    mappings:
+      - arg: 0
+        state: fxrtn08_fader
+        type: float
+
+  # ── FX Return 01-08 mutes ──
+  - address: "/fxrtn/01/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn01_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/fxrtn/02/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn02_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/fxrtn/03/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn03_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/fxrtn/04/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn04_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/fxrtn/05/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn05_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/fxrtn/06/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn06_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/fxrtn/07/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn07_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+  - address: "/fxrtn/08/mix/on"
+    mappings:
+      - arg: 0
+        state: fxrtn08_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+  # ── Main stereo ──
   - address: "/main/st/mix/fader"
     mappings:
       - arg: 0
-        state: main_fader
+        state: main_st_fader
         type: float
   - address: "/main/st/mix/on"
     mappings:
       - arg: 0
-        state: main_mute
+        state: main_st_mute
+        type: boolean
+        map:
+          "0": "true"
+          "1": "false"
+
+  # ── Main mono ──
+  - address: "/main/m/mix/fader"
+    mappings:
+      - arg: 0
+        state: main_m_fader
+        type: float
+  - address: "/main/m/mix/on"
+    mappings:
+      - arg: 0
+        state: main_m_mute
         type: boolean
         map:
           "0": "true"
@@ -679,9 +2132,9 @@ simulator:
   initial_state:
     console_model: X32
     firmware_version: "4.06"
+    # Channels 1-8: unmuted at unity
     ch01_fader: 0.75
     ch01_mute: false
-    ch01_pan: 0.5
     ch01_name: "Ch 1"
     ch02_fader: 0.75
     ch02_mute: false
@@ -692,41 +2145,201 @@ simulator:
     ch04_fader: 0.75
     ch04_mute: false
     ch04_name: "Ch 4"
-    ch05_fader: 0.0
-    ch05_mute: true
+    ch05_fader: 0.75
+    ch05_mute: false
     ch05_name: "Ch 5"
-    ch06_fader: 0.0
-    ch06_mute: true
+    ch06_fader: 0.75
+    ch06_mute: false
     ch06_name: "Ch 6"
-    ch07_fader: 0.0
-    ch07_mute: true
+    ch07_fader: 0.75
+    ch07_mute: false
     ch07_name: "Ch 7"
-    ch08_fader: 0.0
-    ch08_mute: true
+    ch08_fader: 0.75
+    ch08_mute: false
     ch08_name: "Ch 8"
+    # Channels 9-32: muted at -inf
+    ch09_fader: 0.0
+    ch09_mute: true
+    ch09_name: "Ch 9"
+    ch10_fader: 0.0
+    ch10_mute: true
+    ch10_name: "Ch 10"
+    ch11_fader: 0.0
+    ch11_mute: true
+    ch11_name: "Ch 11"
+    ch12_fader: 0.0
+    ch12_mute: true
+    ch12_name: "Ch 12"
+    ch13_fader: 0.0
+    ch13_mute: true
+    ch13_name: "Ch 13"
+    ch14_fader: 0.0
+    ch14_mute: true
+    ch14_name: "Ch 14"
+    ch15_fader: 0.0
+    ch15_mute: true
+    ch15_name: "Ch 15"
+    ch16_fader: 0.0
+    ch16_mute: true
+    ch16_name: "Ch 16"
+    ch17_fader: 0.0
+    ch17_mute: true
+    ch17_name: "Ch 17"
+    ch18_fader: 0.0
+    ch18_mute: true
+    ch18_name: "Ch 18"
+    ch19_fader: 0.0
+    ch19_mute: true
+    ch19_name: "Ch 19"
+    ch20_fader: 0.0
+    ch20_mute: true
+    ch20_name: "Ch 20"
+    ch21_fader: 0.0
+    ch21_mute: true
+    ch21_name: "Ch 21"
+    ch22_fader: 0.0
+    ch22_mute: true
+    ch22_name: "Ch 22"
+    ch23_fader: 0.0
+    ch23_mute: true
+    ch23_name: "Ch 23"
+    ch24_fader: 0.0
+    ch24_mute: true
+    ch24_name: "Ch 24"
+    ch25_fader: 0.0
+    ch25_mute: true
+    ch25_name: "Ch 25"
+    ch26_fader: 0.0
+    ch26_mute: true
+    ch26_name: "Ch 26"
+    ch27_fader: 0.0
+    ch27_mute: true
+    ch27_name: "Ch 27"
+    ch28_fader: 0.0
+    ch28_mute: true
+    ch28_name: "Ch 28"
+    ch29_fader: 0.0
+    ch29_mute: true
+    ch29_name: "Ch 29"
+    ch30_fader: 0.0
+    ch30_mute: true
+    ch30_name: "Ch 30"
+    ch31_fader: 0.0
+    ch31_mute: true
+    ch31_name: "Ch 31"
+    ch32_fader: 0.0
+    ch32_mute: true
+    ch32_name: "Ch 32"
+    # Buses 1-4: unmuted at unity
     bus01_fader: 0.75
     bus01_mute: false
     bus02_fader: 0.75
     bus02_mute: false
-    bus03_fader: 0.0
-    bus03_mute: true
-    bus04_fader: 0.0
-    bus04_mute: true
+    bus03_fader: 0.75
+    bus03_mute: false
+    bus04_fader: 0.75
+    bus04_mute: false
+    # Buses 5-16: muted at -inf
+    bus05_fader: 0.0
+    bus05_mute: true
+    bus06_fader: 0.0
+    bus06_mute: true
+    bus07_fader: 0.0
+    bus07_mute: true
+    bus08_fader: 0.0
+    bus08_mute: true
+    bus09_fader: 0.0
+    bus09_mute: true
+    bus10_fader: 0.0
+    bus10_mute: true
+    bus11_fader: 0.0
+    bus11_mute: true
+    bus12_fader: 0.0
+    bus12_mute: true
+    bus13_fader: 0.0
+    bus13_mute: true
+    bus14_fader: 0.0
+    bus14_mute: true
+    bus15_fader: 0.0
+    bus15_mute: true
+    bus16_fader: 0.0
+    bus16_mute: true
+    # Matrices 1-6: all muted at -inf
+    mtx01_fader: 0.0
+    mtx01_mute: true
+    mtx02_fader: 0.0
+    mtx02_mute: true
+    mtx03_fader: 0.0
+    mtx03_mute: true
+    mtx04_fader: 0.0
+    mtx04_mute: true
+    mtx05_fader: 0.0
+    mtx05_mute: true
+    mtx06_fader: 0.0
+    mtx06_mute: true
+    # DCAs 1-2: unmuted at unity
     dca1_fader: 0.75
     dca1_mute: false
     dca2_fader: 0.75
     dca2_mute: false
+    # DCAs 3-8: muted at -inf
     dca3_fader: 0.0
     dca3_mute: true
     dca4_fader: 0.0
     dca4_mute: true
-    main_fader: 0.75
-    main_mute: false
+    dca5_fader: 0.0
+    dca5_mute: true
+    dca6_fader: 0.0
+    dca6_mute: true
+    dca7_fader: 0.0
+    dca7_mute: true
+    dca8_fader: 0.0
+    dca8_mute: true
+    # Aux inputs 1-8: all muted at -inf
+    auxin01_fader: 0.0
+    auxin01_mute: true
+    auxin02_fader: 0.0
+    auxin02_mute: true
+    auxin03_fader: 0.0
+    auxin03_mute: true
+    auxin04_fader: 0.0
+    auxin04_mute: true
+    auxin05_fader: 0.0
+    auxin05_mute: true
+    auxin06_fader: 0.0
+    auxin06_mute: true
+    auxin07_fader: 0.0
+    auxin07_mute: true
+    auxin08_fader: 0.0
+    auxin08_mute: true
+    # FX returns 1-8: all muted at -inf
+    fxrtn01_fader: 0.0
+    fxrtn01_mute: true
+    fxrtn02_fader: 0.0
+    fxrtn02_mute: true
+    fxrtn03_fader: 0.0
+    fxrtn03_mute: true
+    fxrtn04_fader: 0.0
+    fxrtn04_mute: true
+    fxrtn05_fader: 0.0
+    fxrtn05_mute: true
+    fxrtn06_fader: 0.0
+    fxrtn06_mute: true
+    fxrtn07_fader: 0.0
+    fxrtn07_mute: true
+    fxrtn08_fader: 0.0
+    fxrtn08_mute: true
+    # Main outputs
+    main_st_fader: 0.75
+    main_st_mute: false
+    main_m_fader: 0.0
+    main_m_mute: true
 
   delays:
     command_response: 0.005
 
   controls:
+    # Channel 1-8 faders and mutes
     - type: slider
       key: ch01_fader
       label: Ch 1 Fader
@@ -764,14 +2377,79 @@ simulator:
       key: ch04_mute
       label: Ch 4 Mute
     - type: slider
-      key: main_fader
-      label: Main Fader
+      key: ch05_fader
+      label: Ch 5 Fader
       min: 0
       max: 1
       step: 0.01
     - type: toggle
-      key: main_mute
-      label: Main Mute
+      key: ch05_mute
+      label: Ch 5 Mute
+    - type: slider
+      key: ch06_fader
+      label: Ch 6 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: ch06_mute
+      label: Ch 6 Mute
+    - type: slider
+      key: ch07_fader
+      label: Ch 7 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: ch07_mute
+      label: Ch 7 Mute
+    - type: slider
+      key: ch08_fader
+      label: Ch 8 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: ch08_mute
+      label: Ch 8 Mute
+    # Bus 1-4 faders and mutes
+    - type: slider
+      key: bus01_fader
+      label: Bus 1 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: bus01_mute
+      label: Bus 1 Mute
+    - type: slider
+      key: bus02_fader
+      label: Bus 2 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: bus02_mute
+      label: Bus 2 Mute
+    - type: slider
+      key: bus03_fader
+      label: Bus 3 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: bus03_mute
+      label: Bus 3 Mute
+    - type: slider
+      key: bus04_fader
+      label: Bus 4 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: bus04_mute
+      label: Bus 4 Mute
+    # DCA 1-4 faders and mutes
     - type: slider
       key: dca1_fader
       label: DCA 1 Fader
@@ -781,3 +2459,49 @@ simulator:
     - type: toggle
       key: dca1_mute
       label: DCA 1 Mute
+    - type: slider
+      key: dca2_fader
+      label: DCA 2 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: dca2_mute
+      label: DCA 2 Mute
+    - type: slider
+      key: dca3_fader
+      label: DCA 3 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: dca3_mute
+      label: DCA 3 Mute
+    - type: slider
+      key: dca4_fader
+      label: DCA 4 Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: dca4_mute
+      label: DCA 4 Mute
+    # Main outputs
+    - type: slider
+      key: main_st_fader
+      label: Main Stereo Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: main_st_mute
+      label: Main Stereo Mute
+    - type: slider
+      key: main_m_fader
+      label: Main Mono Fader
+      min: 0
+      max: 1
+      step: 0.01
+    - type: toggle
+      key: main_m_mute
+      label: Main Mono Mute

@@ -35,7 +35,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 1.0.1
+version: 1.0.2
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
@@ -934,6 +934,68 @@ simulator:
     - type: toggle
       key: output_8_mute
       label: Output 8 Mute
+
+  notifications:
+    input_1_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,20,20,{value},0,0,0,0,0,0'
+    input_2_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,20,20,{value},0,0,0,0,0,0'
+    input_3_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,20,20,{value},0,0,0,0,0,0'
+    input_4_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,20,20,{value},0,0,0,0,0,0'
+    input_5_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,20,20,{value},0,0,0,0,0,0'
+    input_6_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,20,20,{value},0,0,0,0,0,0'
+    input_7_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 6,20,20,{value},0,0,0,0,0,0'
+    input_8_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 7,20,20,{value},0,0,0,0,0,0'
+    input_9_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 8,20,20,{value},0,0,0,0,0,0'
+    input_10_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 9,20,20,{value},0,0,0,0,0,0'
+    output_1_level:
+      '*': 'MD output_level_notice 0000 00 NC 0,{value}'
+    output_2_level:
+      '*': 'MD output_level_notice 0000 00 NC 1,{value}'
+    output_3_level:
+      '*': 'MD output_level_notice 0000 00 NC 2,{value}'
+    output_4_level:
+      '*': 'MD output_level_notice 0000 00 NC 3,{value}'
+    output_5_level:
+      '*': 'MD output_level_notice 0000 00 NC 4,{value}'
+    output_6_level:
+      '*': 'MD output_level_notice 0000 00 NC 5,{value}'
+    output_7_level:
+      '*': 'MD output_level_notice 0000 00 NC 6,{value}'
+    output_8_level:
+      '*': 'MD output_level_notice 0000 00 NC 7,{value}'
+    output_1_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 0,1'
+      'false': 'MD output_mute_notice 0000 00 NC 0,0'
+    output_2_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 1,1'
+      'false': 'MD output_mute_notice 0000 00 NC 1,0'
+    output_3_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 2,1'
+      'false': 'MD output_mute_notice 0000 00 NC 2,0'
+    output_4_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 3,1'
+      'false': 'MD output_mute_notice 0000 00 NC 3,0'
+    output_5_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 4,1'
+      'false': 'MD output_mute_notice 0000 00 NC 4,0'
+    output_6_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 5,1'
+      'false': 'MD output_mute_notice 0000 00 NC 5,0'
+    output_7_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 6,1'
+      'false': 'MD output_mute_notice 0000 00 NC 6,0'
+    output_8_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 7,1'
+      'false': 'MD output_mute_notice 0000 00 NC 7,0'
 
   command_handlers:
     # Firmware version query

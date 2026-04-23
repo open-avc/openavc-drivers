@@ -70,7 +70,7 @@ The auto-generated simulator will:
 
 **What auto-gen handles:** Commands with parameters, queries, boolean toggles (`mute_on`/`mute_off`), state tracking.
 
-**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, unsolicited push messages, commands the simulator can't infer from naming conventions. For these, add a `simulator:` section (Level 1).
+**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions. For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
 
 ---
 
@@ -254,11 +254,11 @@ simulator:
   delays:
     command_response: 0.02
 
+  # Enable push: state changes are pushed to connected drivers
+  push_state: true
+
+  # Optional: override push format for mute (value-specific messages)
   notifications:
-    input:
-      '*': 'In{value} All'
-    volume:
-      '*': 'Vol{value}'
     mute:
       'true': 'Amt1'
       'false': 'Amt0'
@@ -394,11 +394,19 @@ The `key_pattern` and `mute_pattern` use `{ch}` as a placeholder, numbered start
 
 Controls are optional. Drivers without a `controls` array continue to use the default category-based panel. Most YAML auto-gen drivers work well with the defaults.
 
-### Notifications (Push State Changes)
+### State Change Push (TCP, UDP, OSC)
 
 Many AV devices push unsolicited messages to connected clients when state changes, without being polled. For example, Extron devices in verbose mode send `Vol50` when volume changes, Audio-Technica mixers send `MD output_mute_notice ...` when someone mutes an output, and Shure microphones send `< REP DEVICE_AUDIO_MUTE ON >` when the physical mute button is pressed.
 
-To make the simulator behave the same way, add a `notifications` section that maps state variable changes to the messages that should be broadcast:
+**Simulators with `push_state: true` push state changes to connected drivers.** When state changes (from a simulator UI control, a command handler, or the API), the simulator formats the update using the driver's existing `responses:` patterns (the `StateResponse` format) and broadcasts it to all connected clients. The driver's response matchers handle these messages the same way they handle polled responses, so state updates in OpenAVC are instant.
+
+Without `push_state: true`, the simulator is poll-only, matching real devices that don't send unsolicited updates. Only set this flag for devices that actually push state changes in their protocol (e.g., Extron verbose mode, Shure subscription updates).
+
+HTTP simulators are always poll-based regardless of the flag. State changes from the simulator UI are visible to the driver on its next poll cycle.
+
+### Notifications (Custom Push Format Override)
+
+When `push_state: true` is set, the default push format uses the driver's existing `responses:` patterns. If your device's unsolicited message format differs from the standard response format (for example, different prefixes for pushed vs. polled responses, or value-specific messages like `Amt1` vs. `Amt0`), add a `notifications` section to override the push format:
 
 ```yaml
 simulator:
@@ -415,9 +423,7 @@ simulator:
       'false': 'Amt0'
 ```
 
-When state changes (from a simulator UI control, a command handler, or the API), the simulator broadcasts the notification to all connected TCP clients. The driver's existing response matchers handle these messages the same way they handle polled responses, so state updates in OpenAVC are instant.
-
-**When to use notifications:** If your driver's `responses:` section has matchers for unsolicited messages (messages that arrive without a corresponding poll query), add matching `notifications:` entries so the simulator can produce those messages.
+When a `notifications` entry exists for a state variable, it takes priority over the auto-generated push for that variable. Variables without a `notifications` entry still use the automatic format.
 
 **Template variables:**
 - `{value}` is replaced with the new state value
@@ -633,9 +639,9 @@ SIMULATOR_INFO = {
 
 Without a delimiter, the simulator reads raw byte chunks (binary mode).
 
-### Push Notifications
+### Custom Push Messages
 
-For protocols that send unsolicited messages (subscription-based updates):
+TCP, UDP, and OSC simulators with `push_state: true` in their `SIMULATOR_INFO` push state changes to connected drivers when `set_state()` is called. For protocols that need additional unsolicited messages beyond state changes (subscription-based updates, tally notifications, etc.), use `push()`:
 
 ```python
 # Send data to all connected clients

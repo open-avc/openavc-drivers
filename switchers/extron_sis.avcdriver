@@ -230,6 +230,7 @@ polling:
 # Enhances auto-generated simulation with realistic behavior.
 # Without this section, auto-gen still works (Level 0).
 simulator:
+  push_state: true
   initial_state:
     input: 1
     volume: 50

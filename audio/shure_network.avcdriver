@@ -185,6 +185,7 @@ polling:
 # ── SIMULATOR DEFINITION ──
 
 simulator:
+  push_state: true
   initial_state:
     device_name: "MXA920-SIM"
     mute: false

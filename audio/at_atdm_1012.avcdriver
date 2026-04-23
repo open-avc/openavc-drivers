@@ -729,6 +729,7 @@ polling:
 
 # ── SIMULATOR DEFINITION ──
 simulator:
+  push_state: true
   initial_state:
     firmware_version: "1.0.0"
     input_1_level: 411

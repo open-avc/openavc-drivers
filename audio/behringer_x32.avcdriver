@@ -20,7 +20,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -79,6 +79,8 @@ state_variables:
   ch01_fader:
     type: number
     label: Ch 01 Fader
+    min: 0
+    max: 1
   ch01_mute:
     type: boolean
     label: Ch 01 Mute
@@ -88,6 +90,8 @@ state_variables:
   ch02_fader:
     type: number
     label: Ch 02 Fader
+    min: 0
+    max: 1
   ch02_mute:
     type: boolean
     label: Ch 02 Mute
@@ -97,6 +101,8 @@ state_variables:
   ch03_fader:
     type: number
     label: Ch 03 Fader
+    min: 0
+    max: 1
   ch03_mute:
     type: boolean
     label: Ch 03 Mute
@@ -106,6 +112,8 @@ state_variables:
   ch04_fader:
     type: number
     label: Ch 04 Fader
+    min: 0
+    max: 1
   ch04_mute:
     type: boolean
     label: Ch 04 Mute
@@ -115,6 +123,8 @@ state_variables:
   ch05_fader:
     type: number
     label: Ch 05 Fader
+    min: 0
+    max: 1
   ch05_mute:
     type: boolean
     label: Ch 05 Mute
@@ -124,6 +134,8 @@ state_variables:
   ch06_fader:
     type: number
     label: Ch 06 Fader
+    min: 0
+    max: 1
   ch06_mute:
     type: boolean
     label: Ch 06 Mute
@@ -133,6 +145,8 @@ state_variables:
   ch07_fader:
     type: number
     label: Ch 07 Fader
+    min: 0
+    max: 1
   ch07_mute:
     type: boolean
     label: Ch 07 Mute
@@ -142,6 +156,8 @@ state_variables:
   ch08_fader:
     type: number
     label: Ch 08 Fader
+    min: 0
+    max: 1
   ch08_mute:
     type: boolean
     label: Ch 08 Mute
@@ -151,6 +167,8 @@ state_variables:
   ch09_fader:
     type: number
     label: Ch 09 Fader
+    min: 0
+    max: 1
   ch09_mute:
     type: boolean
     label: Ch 09 Mute
@@ -160,6 +178,8 @@ state_variables:
   ch10_fader:
     type: number
     label: Ch 10 Fader
+    min: 0
+    max: 1
   ch10_mute:
     type: boolean
     label: Ch 10 Mute
@@ -169,6 +189,8 @@ state_variables:
   ch11_fader:
     type: number
     label: Ch 11 Fader
+    min: 0
+    max: 1
   ch11_mute:
     type: boolean
     label: Ch 11 Mute
@@ -178,6 +200,8 @@ state_variables:
   ch12_fader:
     type: number
     label: Ch 12 Fader
+    min: 0
+    max: 1
   ch12_mute:
     type: boolean
     label: Ch 12 Mute
@@ -187,6 +211,8 @@ state_variables:
   ch13_fader:
     type: number
     label: Ch 13 Fader
+    min: 0
+    max: 1
   ch13_mute:
     type: boolean
     label: Ch 13 Mute
@@ -196,6 +222,8 @@ state_variables:
   ch14_fader:
     type: number
     label: Ch 14 Fader
+    min: 0
+    max: 1
   ch14_mute:
     type: boolean
     label: Ch 14 Mute
@@ -205,6 +233,8 @@ state_variables:
   ch15_fader:
     type: number
     label: Ch 15 Fader
+    min: 0
+    max: 1
   ch15_mute:
     type: boolean
     label: Ch 15 Mute
@@ -214,6 +244,8 @@ state_variables:
   ch16_fader:
     type: number
     label: Ch 16 Fader
+    min: 0
+    max: 1
   ch16_mute:
     type: boolean
     label: Ch 16 Mute
@@ -223,6 +255,8 @@ state_variables:
   ch17_fader:
     type: number
     label: Ch 17 Fader
+    min: 0
+    max: 1
   ch17_mute:
     type: boolean
     label: Ch 17 Mute
@@ -232,6 +266,8 @@ state_variables:
   ch18_fader:
     type: number
     label: Ch 18 Fader
+    min: 0
+    max: 1
   ch18_mute:
     type: boolean
     label: Ch 18 Mute
@@ -241,6 +277,8 @@ state_variables:
   ch19_fader:
     type: number
     label: Ch 19 Fader
+    min: 0
+    max: 1
   ch19_mute:
     type: boolean
     label: Ch 19 Mute
@@ -250,6 +288,8 @@ state_variables:
   ch20_fader:
     type: number
     label: Ch 20 Fader
+    min: 0
+    max: 1
   ch20_mute:
     type: boolean
     label: Ch 20 Mute
@@ -259,6 +299,8 @@ state_variables:
   ch21_fader:
     type: number
     label: Ch 21 Fader
+    min: 0
+    max: 1
   ch21_mute:
     type: boolean
     label: Ch 21 Mute
@@ -268,6 +310,8 @@ state_variables:
   ch22_fader:
     type: number
     label: Ch 22 Fader
+    min: 0
+    max: 1
   ch22_mute:
     type: boolean
     label: Ch 22 Mute
@@ -277,6 +321,8 @@ state_variables:
   ch23_fader:
     type: number
     label: Ch 23 Fader
+    min: 0
+    max: 1
   ch23_mute:
     type: boolean
     label: Ch 23 Mute
@@ -286,6 +332,8 @@ state_variables:
   ch24_fader:
     type: number
     label: Ch 24 Fader
+    min: 0
+    max: 1
   ch24_mute:
     type: boolean
     label: Ch 24 Mute
@@ -295,6 +343,8 @@ state_variables:
   ch25_fader:
     type: number
     label: Ch 25 Fader
+    min: 0
+    max: 1
   ch25_mute:
     type: boolean
     label: Ch 25 Mute
@@ -304,6 +354,8 @@ state_variables:
   ch26_fader:
     type: number
     label: Ch 26 Fader
+    min: 0
+    max: 1
   ch26_mute:
     type: boolean
     label: Ch 26 Mute
@@ -313,6 +365,8 @@ state_variables:
   ch27_fader:
     type: number
     label: Ch 27 Fader
+    min: 0
+    max: 1
   ch27_mute:
     type: boolean
     label: Ch 27 Mute
@@ -322,6 +376,8 @@ state_variables:
   ch28_fader:
     type: number
     label: Ch 28 Fader
+    min: 0
+    max: 1
   ch28_mute:
     type: boolean
     label: Ch 28 Mute
@@ -331,6 +387,8 @@ state_variables:
   ch29_fader:
     type: number
     label: Ch 29 Fader
+    min: 0
+    max: 1
   ch29_mute:
     type: boolean
     label: Ch 29 Mute
@@ -340,6 +398,8 @@ state_variables:
   ch30_fader:
     type: number
     label: Ch 30 Fader
+    min: 0
+    max: 1
   ch30_mute:
     type: boolean
     label: Ch 30 Mute
@@ -349,6 +409,8 @@ state_variables:
   ch31_fader:
     type: number
     label: Ch 31 Fader
+    min: 0
+    max: 1
   ch31_mute:
     type: boolean
     label: Ch 31 Mute
@@ -358,6 +420,8 @@ state_variables:
   ch32_fader:
     type: number
     label: Ch 32 Fader
+    min: 0
+    max: 1
   ch32_mute:
     type: boolean
     label: Ch 32 Mute
@@ -369,96 +433,128 @@ state_variables:
   bus01_fader:
     type: number
     label: Bus 01 Fader
+    min: 0
+    max: 1
   bus01_mute:
     type: boolean
     label: Bus 01 Mute
   bus02_fader:
     type: number
     label: Bus 02 Fader
+    min: 0
+    max: 1
   bus02_mute:
     type: boolean
     label: Bus 02 Mute
   bus03_fader:
     type: number
     label: Bus 03 Fader
+    min: 0
+    max: 1
   bus03_mute:
     type: boolean
     label: Bus 03 Mute
   bus04_fader:
     type: number
     label: Bus 04 Fader
+    min: 0
+    max: 1
   bus04_mute:
     type: boolean
     label: Bus 04 Mute
   bus05_fader:
     type: number
     label: Bus 05 Fader
+    min: 0
+    max: 1
   bus05_mute:
     type: boolean
     label: Bus 05 Mute
   bus06_fader:
     type: number
     label: Bus 06 Fader
+    min: 0
+    max: 1
   bus06_mute:
     type: boolean
     label: Bus 06 Mute
   bus07_fader:
     type: number
     label: Bus 07 Fader
+    min: 0
+    max: 1
   bus07_mute:
     type: boolean
     label: Bus 07 Mute
   bus08_fader:
     type: number
     label: Bus 08 Fader
+    min: 0
+    max: 1
   bus08_mute:
     type: boolean
     label: Bus 08 Mute
   bus09_fader:
     type: number
     label: Bus 09 Fader
+    min: 0
+    max: 1
   bus09_mute:
     type: boolean
     label: Bus 09 Mute
   bus10_fader:
     type: number
     label: Bus 10 Fader
+    min: 0
+    max: 1
   bus10_mute:
     type: boolean
     label: Bus 10 Mute
   bus11_fader:
     type: number
     label: Bus 11 Fader
+    min: 0
+    max: 1
   bus11_mute:
     type: boolean
     label: Bus 11 Mute
   bus12_fader:
     type: number
     label: Bus 12 Fader
+    min: 0
+    max: 1
   bus12_mute:
     type: boolean
     label: Bus 12 Mute
   bus13_fader:
     type: number
     label: Bus 13 Fader
+    min: 0
+    max: 1
   bus13_mute:
     type: boolean
     label: Bus 13 Mute
   bus14_fader:
     type: number
     label: Bus 14 Fader
+    min: 0
+    max: 1
   bus14_mute:
     type: boolean
     label: Bus 14 Mute
   bus15_fader:
     type: number
     label: Bus 15 Fader
+    min: 0
+    max: 1
   bus15_mute:
     type: boolean
     label: Bus 15 Mute
   bus16_fader:
     type: number
     label: Bus 16 Fader
+    min: 0
+    max: 1
   bus16_mute:
     type: boolean
     label: Bus 16 Mute
@@ -467,36 +563,48 @@ state_variables:
   mtx01_fader:
     type: number
     label: Matrix 01 Fader
+    min: 0
+    max: 1
   mtx01_mute:
     type: boolean
     label: Matrix 01 Mute
   mtx02_fader:
     type: number
     label: Matrix 02 Fader
+    min: 0
+    max: 1
   mtx02_mute:
     type: boolean
     label: Matrix 02 Mute
   mtx03_fader:
     type: number
     label: Matrix 03 Fader
+    min: 0
+    max: 1
   mtx03_mute:
     type: boolean
     label: Matrix 03 Mute
   mtx04_fader:
     type: number
     label: Matrix 04 Fader
+    min: 0
+    max: 1
   mtx04_mute:
     type: boolean
     label: Matrix 04 Mute
   mtx05_fader:
     type: number
     label: Matrix 05 Fader
+    min: 0
+    max: 1
   mtx05_mute:
     type: boolean
     label: Matrix 05 Mute
   mtx06_fader:
     type: number
     label: Matrix 06 Fader
+    min: 0
+    max: 1
   mtx06_mute:
     type: boolean
     label: Matrix 06 Mute
@@ -505,48 +613,64 @@ state_variables:
   dca1_fader:
     type: number
     label: DCA 1 Fader
+    min: 0
+    max: 1
   dca1_mute:
     type: boolean
     label: DCA 1 Mute
   dca2_fader:
     type: number
     label: DCA 2 Fader
+    min: 0
+    max: 1
   dca2_mute:
     type: boolean
     label: DCA 2 Mute
   dca3_fader:
     type: number
     label: DCA 3 Fader
+    min: 0
+    max: 1
   dca3_mute:
     type: boolean
     label: DCA 3 Mute
   dca4_fader:
     type: number
     label: DCA 4 Fader
+    min: 0
+    max: 1
   dca4_mute:
     type: boolean
     label: DCA 4 Mute
   dca5_fader:
     type: number
     label: DCA 5 Fader
+    min: 0
+    max: 1
   dca5_mute:
     type: boolean
     label: DCA 5 Mute
   dca6_fader:
     type: number
     label: DCA 6 Fader
+    min: 0
+    max: 1
   dca6_mute:
     type: boolean
     label: DCA 6 Mute
   dca7_fader:
     type: number
     label: DCA 7 Fader
+    min: 0
+    max: 1
   dca7_mute:
     type: boolean
     label: DCA 7 Mute
   dca8_fader:
     type: number
     label: DCA 8 Fader
+    min: 0
+    max: 1
   dca8_mute:
     type: boolean
     label: DCA 8 Mute
@@ -555,48 +679,64 @@ state_variables:
   auxin01_fader:
     type: number
     label: Aux In 01 Fader
+    min: 0
+    max: 1
   auxin01_mute:
     type: boolean
     label: Aux In 01 Mute
   auxin02_fader:
     type: number
     label: Aux In 02 Fader
+    min: 0
+    max: 1
   auxin02_mute:
     type: boolean
     label: Aux In 02 Mute
   auxin03_fader:
     type: number
     label: Aux In 03 Fader
+    min: 0
+    max: 1
   auxin03_mute:
     type: boolean
     label: Aux In 03 Mute
   auxin04_fader:
     type: number
     label: Aux In 04 Fader
+    min: 0
+    max: 1
   auxin04_mute:
     type: boolean
     label: Aux In 04 Mute
   auxin05_fader:
     type: number
     label: Aux In 05 Fader
+    min: 0
+    max: 1
   auxin05_mute:
     type: boolean
     label: Aux In 05 Mute
   auxin06_fader:
     type: number
     label: Aux In 06 Fader
+    min: 0
+    max: 1
   auxin06_mute:
     type: boolean
     label: Aux In 06 Mute
   auxin07_fader:
     type: number
     label: Aux In 07 Fader
+    min: 0
+    max: 1
   auxin07_mute:
     type: boolean
     label: Aux In 07 Mute
   auxin08_fader:
     type: number
     label: Aux In 08 Fader
+    min: 0
+    max: 1
   auxin08_mute:
     type: boolean
     label: Aux In 08 Mute
@@ -605,48 +745,64 @@ state_variables:
   fxrtn01_fader:
     type: number
     label: FX Return 01 Fader
+    min: 0
+    max: 1
   fxrtn01_mute:
     type: boolean
     label: FX Return 01 Mute
   fxrtn02_fader:
     type: number
     label: FX Return 02 Fader
+    min: 0
+    max: 1
   fxrtn02_mute:
     type: boolean
     label: FX Return 02 Mute
   fxrtn03_fader:
     type: number
     label: FX Return 03 Fader
+    min: 0
+    max: 1
   fxrtn03_mute:
     type: boolean
     label: FX Return 03 Mute
   fxrtn04_fader:
     type: number
     label: FX Return 04 Fader
+    min: 0
+    max: 1
   fxrtn04_mute:
     type: boolean
     label: FX Return 04 Mute
   fxrtn05_fader:
     type: number
     label: FX Return 05 Fader
+    min: 0
+    max: 1
   fxrtn05_mute:
     type: boolean
     label: FX Return 05 Mute
   fxrtn06_fader:
     type: number
     label: FX Return 06 Fader
+    min: 0
+    max: 1
   fxrtn06_mute:
     type: boolean
     label: FX Return 06 Mute
   fxrtn07_fader:
     type: number
     label: FX Return 07 Fader
+    min: 0
+    max: 1
   fxrtn07_mute:
     type: boolean
     label: FX Return 07 Mute
   fxrtn08_fader:
     type: number
     label: FX Return 08 Fader
+    min: 0
+    max: 1
   fxrtn08_mute:
     type: boolean
     label: FX Return 08 Mute
@@ -655,12 +811,16 @@ state_variables:
   main_st_fader:
     type: number
     label: Main Stereo Fader
+    min: 0
+    max: 1
   main_st_mute:
     type: boolean
     label: Main Stereo Mute
   main_m_fader:
     type: number
     label: Main Mono Fader
+    min: 0
+    max: 1
   main_m_mute:
     type: boolean
     label: Main Mono Mute
@@ -728,9 +888,13 @@ commands:
       channel:
         type: string
         label: Channel (01-32)
+        description: "Two-digit format: 01, 02, ... 32"
       level:
         type: number
         label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
   # Channel mute (0 = muted, 1 = unmuted)
   mute_ch:
@@ -766,9 +930,13 @@ commands:
       bus:
         type: string
         label: Bus (01-16)
+        description: "Two-digit format: 01, 02, ... 16"
       level:
         type: number
         label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
   mute_bus:
     label: Mute Bus
@@ -803,9 +971,13 @@ commands:
       mtx:
         type: string
         label: Matrix (01-06)
+        description: "Two-digit format: 01, 02, ... 06"
       level:
         type: number
         label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
   mute_mtx:
     label: Mute Matrix
@@ -840,9 +1012,13 @@ commands:
       dca:
         type: string
         label: DCA (1-8)
+        description: "Single digit: 1, 2, ... 8"
       level:
         type: number
         label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
   mute_dca:
     label: Mute DCA
@@ -877,6 +1053,9 @@ commands:
       level:
         type: number
         label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
   mute_main_st:
     label: Mute Main Stereo
@@ -903,6 +1082,9 @@ commands:
       level:
         type: number
         label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
   mute_main_m:
     label: Mute Main Mono
@@ -2190,6 +2372,7 @@ responses:
 # initial state values matching a realistic X32 default scene.
 
 simulator:
+  push_state: true
   initial_state:
     console_model: X32
     firmware_version: "4.06"

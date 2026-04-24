@@ -86,7 +86,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
@@ -136,6 +136,12 @@ class DanteDDMDriver(BaseDriver):
                 ),
             },
             "port": {"type": "integer", "default": 443, "label": "Port"},
+            "ssl": {
+                "type": "boolean",
+                "default": True,
+                "label": "Use HTTPS",
+                "description": "Disable for on-premise DDM running plain HTTP.",
+            },
             "api_key": {
                 "type": "string",
                 "required": True,

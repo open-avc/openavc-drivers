@@ -448,9 +448,9 @@ class CrestronNVXDriver(BaseDriver):
         """Send a GET request and return parsed JSON."""
         try:
             headers = {"Referer": self._base_url}
-            log.info(f"[{self.device_id}] GET {path}")
+            log.debug(f"[{self.device_id}] GET {path}")
             resp = await self._client.get(path, headers=headers)
-            log.info(f"[{self.device_id}] GET {path} -> {resp.status_code}")
+            log.debug(f"[{self.device_id}] GET {path} -> {resp.status_code}")
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPStatusError as e:
@@ -479,9 +479,9 @@ class CrestronNVXDriver(BaseDriver):
             if self._xsrf_token:
                 headers["X-CREST-XSRF-TOKEN"] = self._xsrf_token
 
-            log.info(f"[{self.device_id}] POST {path}")
+            log.debug(f"[{self.device_id}] POST {path}")
             resp = await self._client.post(path, json=body, headers=headers)
-            log.info(f"[{self.device_id}] POST {path} -> {resp.status_code}")
+            log.debug(f"[{self.device_id}] POST {path} -> {resp.status_code}")
             resp.raise_for_status()
             return resp.json() if resp.text else None
         except httpx.HTTPStatusError as e:

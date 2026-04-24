@@ -506,7 +506,7 @@ class SonosDriver(BaseDriver):
         body, soap_action = _build_soap(service, action, **params)
 
         try:
-            log.info(f"[{self.device_id}] SOAP {action}")
+            log.debug(f"[{self.device_id}] SOAP {action}")
             resp = await self._client.post(
                 endpoint,
                 content=body.encode("utf-8"),

@@ -46,7 +46,7 @@
             "format": "python",
             "category": "projector",
             "manufacturer": "Generic",
-            "version": "1.0.0",
+            "version": "2.0.0",
             "author": "OpenAVC",
             "transport": "tcp",
             "verified": true,
@@ -266,7 +266,7 @@
             "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio mixing, overlays, recording, streaming, titles, replay, and PTZ.",
             "protocols": [],
             "ports": [
-                8088
+                8099
             ],
             "simulated": true
         },

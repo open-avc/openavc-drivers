@@ -23,7 +23,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.0.1
+version: 1.0.2
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -33,6 +33,9 @@ description: >
   models using the H Series Control Protocol.
 
 transport: udp
+
+discovery:
+  ports: [6000]
 
 help:
   overview: >

@@ -95,6 +95,19 @@
             "ports": []
         },
         {
+            "id": "generic_http",
+            "name": "Generic HTTP/REST Device",
+            "file": "utility/generic_http.avcdriver",
+            "format": "avcdriver",
+            "category": "utility",
+            "manufacturer": "Generic",
+            "version": "1.0.0",
+            "author": "OpenAVC",
+            "transport": "http",
+            "verified": false,
+            "description": "Template driver for HTTP/REST-controlled devices. Install and customize with your own commands and state variables using the Driver Builder."
+        },
+        {
             "id": "extron_sis",
             "name": "Extron SIS Protocol",
             "file": "switchers/extron_sis.avcdriver",
@@ -155,7 +168,7 @@
             "format": "avcdriver",
             "category": "switcher",
             "manufacturer": "Kramer",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "author": "OpenAVC",
             "transport": "tcp",
             "verified": false,
@@ -368,7 +381,7 @@
             "format": "avcdriver",
             "category": "video",
             "manufacturer": "Novastar",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "author": "OpenAVC",
             "transport": "udp",
             "verified": false,

@@ -20,7 +20,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Kramer products via Protocol 3000 over TCP (port 5000).
@@ -29,6 +29,18 @@ description: >
 
 transport: tcp
 delimiter: "\r\n"
+
+help:
+  overview: >
+    Controls Kramer matrix switchers, scalers, distribution amplifiers, and
+    Via wireless presentation systems via Protocol 3000. Common in corporate
+    AV, education, and houses of worship.
+  setup: >
+    1. Connect the switcher to the network via Ethernet.
+    2. Set the IP address via the front panel menu or Kramer Network.
+    3. Enter the IP address and port 5000 (default) in the device config.
+    4. Machine number defaults to 01. Change it if multiple Kramer units
+       share the same port.
 
 discovery:
   ports: [5000, 23]
@@ -80,6 +92,7 @@ state_variables:
 commands:
   route:
     label: Route Input to Output
+    help: "Route an input to an output on a given layer (1=video, 2=audio)."
     send: "#ROUTE {layer},{output},{input}\r"
     params:
       input:
@@ -99,6 +112,7 @@ commands:
 
   route_video:
     label: Route Video
+    help: "Route a video input to an output."
     send: "#ROUTE 1,{output},{input}\r"
     params:
       input:
@@ -112,6 +126,7 @@ commands:
 
   route_audio:
     label: Route Audio
+    help: "Route an audio input to an output."
     send: "#ROUTE 2,{output},{input}\r"
     params:
       input:
@@ -125,18 +140,22 @@ commands:
 
   video_mute_on:
     label: Video Mute On
+    help: "Blank the video output."
     send: "#VMUTE 1,1\r"
 
   video_mute_off:
     label: Video Mute Off
+    help: "Restore the video output."
     send: "#VMUTE 1,0\r"
 
   audio_mute_on:
     label: Audio Mute On
+    help: "Mute audio output."
     send: "#MUTE 1,1\r"
 
   audio_mute_off:
     label: Audio Mute Off
+    help: "Unmute audio output."
     send: "#MUTE 1,0\r"
 
   set_volume:

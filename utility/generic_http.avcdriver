@@ -29,6 +29,21 @@ description: >
   and optional HTTPS with self-signed certificate support.
 transport: http
 
+help:
+  overview: >
+    Template driver for controlling any device with an HTTP or REST API.
+    Install this driver and add your own commands, state variables, and
+    polling using the Driver Builder. Many modern AV devices expose
+    REST APIs alongside traditional serial or TCP protocols.
+  setup: >
+    1. Enter the device's IP address and HTTP port.
+    2. Configure authentication if the device requires it (basic, bearer,
+       API key, or digest).
+    3. Enable HTTPS if the device uses TLS. Disable certificate verification
+       for self-signed certs (common on AV equipment).
+    4. Use the Driver Builder to add commands and state variables for
+       your specific device.
+
 default_config:
   host: ""
   port: 80

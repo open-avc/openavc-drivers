@@ -86,7 +86,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
@@ -199,6 +199,11 @@ class SamsungMDCDriver(BaseDriver):
     def _resolve_delimiter(self) -> Optional[bytes]:
         """MDC uses binary framing, not delimiters."""
         return None
+
+    async def connect(self) -> None:
+        """Connect and immediately query status."""
+        await super().connect()
+        await self.poll()
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None

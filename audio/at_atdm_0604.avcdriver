@@ -25,7 +25,7 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 1.0.2
+version: 1.0.3
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP.
@@ -54,7 +54,7 @@ discovery:
 default_config:
   host: ""
   port: 17300
-  poll_interval: 10
+  poll_interval: 15
   inter_command_delay: 0.05
 
 config_schema:

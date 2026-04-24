@@ -40,7 +40,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Crestron DM NVX AV-over-IP encoders and decoders via "
@@ -101,6 +101,8 @@ class CrestronNVXDriver(BaseDriver):
             "vertical_resolution": {"type": "integer", "label": "Vertical Resolution"},
             "sync_detected": {"type": "boolean", "label": "Sync Detected"},
             "firmware": {"type": "string", "label": "Firmware Version"},
+            "device_name": {"type": "string", "label": "Device Name"},
+            "led_enabled": {"type": "boolean", "label": "LEDs Enabled"},
         },
         "device_settings": {
             "device_name": {
@@ -110,7 +112,7 @@ class CrestronNVXDriver(BaseDriver):
                     "The friendly name shown in the NVX web UI and Crestron "
                     "Toolbox. Helps identify this endpoint on the network."
                 ),
-                "state_key": "firmware",
+                "state_key": "device_name",
                 "default": "DM-NVX",
                 "setup": True,
                 "unique": True,
@@ -122,7 +124,7 @@ class CrestronNVXDriver(BaseDriver):
                     "Enable or disable the front panel LED indicators. "
                     "Disable for a cleaner look in visible installations."
                 ),
-                "state_key": "device_ready",
+                "state_key": "led_enabled",
                 "default": True,
                 "setup": False,
             },
@@ -522,6 +524,10 @@ class CrestronNVXDriver(BaseDriver):
             self.set_state("active_audio_source", ds["ActiveAudioSource"])
         if "Version" in ds:
             self.set_state("firmware", ds["Version"])
+        if "DeviceName" in ds:
+            self.set_state("device_name", ds["DeviceName"])
+        if "LedsEnabled" in ds:
+            self.set_state("led_enabled", ds["LedsEnabled"])
 
     def _parse_av_io(self, data: dict) -> None:
         """Parse /Device/AudioVideoInputOutput response into state."""

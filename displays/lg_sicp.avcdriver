@@ -19,7 +19,7 @@ id: lg_sicp
 name: LG SICP Display
 manufacturer: LG
 category: display
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls LG commercial displays via SICP over TCP (port 9761).
@@ -169,23 +169,38 @@ responses:
     set: { power: "off" }
 
   # Volume response: "f 01 OK32" (volume = 0x32 = 50)
-  # LG SICP uses hex for volume values. The YAML response system parses
-  # the captured value as a decimal integer, so the simulator responds
-  # with zero-padded decimal to keep the driver state consistent.
+  # KNOWN LIMITATION: Real LG hardware returns hex volume values (e.g. "32"
+  # for volume 50), but YAML drivers cannot hex-decode. The stored value will
+  # be the raw hex string. The simulator compensates by responding in decimal.
+  # For accurate volume with real hardware, use a Python driver instead.
   - match: 'f \d+ OK(\w{2})'
     set: { volume: "$1" }
 
   # Mute response: "e 01 OK00" (muted) "e 01 OK01" (unmuted)
   - match: 'e \d+ OK00'
-    set: { mute: "true" }
+    set: { mute: true }
   - match: 'e \d+ OK01'
-    set: { mute: "false" }
+    set: { mute: false }
 
   # Screen mute response: "d 01 OK01" (on/blanked) "d 01 OK00" (off/visible)
   - match: 'd \d+ OK01'
-    set: { screen_mute: "true" }
+    set: { screen_mute: true }
   - match: 'd \d+ OK00'
-    set: { screen_mute: "false" }
+    set: { screen_mute: false }
+
+  # Input query response: "b 01 OK90" (HDMI 1)
+  - match: 'b \d+ OK90'
+    set: { input: "HDMI 1" }
+  - match: 'b \d+ OK91'
+    set: { input: "HDMI 2" }
+  - match: 'b \d+ OK92'
+    set: { input: "HDMI 3" }
+  - match: 'b \d+ OKD0'
+    set: { input: "DisplayPort" }
+  - match: 'b \d+ OK80'
+    set: { input: "DVI" }
+  - match: 'b \d+ OKE0'
+    set: { input: "URL Launcher" }
 
 polling:
   interval: 15

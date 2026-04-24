@@ -61,6 +61,18 @@ class CrestronNVXDriver(BaseDriver):
         "config_schema": {
             "host": {"type": "string", "required": True, "label": "IP Address"},
             "port": {"type": "integer", "default": 443, "label": "Port"},
+            "ssl": {
+                "type": "boolean",
+                "default": True,
+                "label": "Use HTTPS",
+                "description": "NVX endpoints use HTTPS by default",
+            },
+            "verify_ssl": {
+                "type": "boolean",
+                "default": False,
+                "label": "Verify SSL Certificate",
+                "description": "Disable for self-signed certificates (NVX default)",
+            },
             "username": {
                 "type": "string",
                 "default": "admin",

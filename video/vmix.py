@@ -806,11 +806,8 @@ class VMixDriver(BaseDriver):
 
     async def disconnect(self) -> None:
         """Disconnect from vMix."""
-        self._tally_subscribed = False
-        self._acts_subscribed = False
         await self.stop_polling()
         if self.transport:
-            # Unsubscribe before disconnecting
             try:
                 if self._tally_subscribed:
                     await self.transport.send(b"UNSUBSCRIBE TALLY\r\n")
@@ -820,6 +817,8 @@ class VMixDriver(BaseDriver):
                 pass
             await self.transport.close()
             self.transport = None
+        self._tally_subscribed = False
+        self._acts_subscribed = False
         self._connected = False
         self.set_state("connected", False)
         await self.events.emit(f"device.disconnected.{self.device_id}")

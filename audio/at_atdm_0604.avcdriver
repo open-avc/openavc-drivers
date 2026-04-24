@@ -205,7 +205,7 @@ commands:
         max: 10
         help: "0-3 = Output 1-4, 10 = Output ST"
 
-  # ─�� Smart Mix Control ──
+  # ── Smart Mix Control ──
   set_smart_mix:
     label: Set SmartMix
     send: 's_smart_mix S 0000 00 NC {channel},{weight},{off_attenuation}\r'

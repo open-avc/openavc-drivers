@@ -26,7 +26,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
@@ -216,8 +216,10 @@ responses:
     set: { firmware: "$1" }
 
   # Signal presence (0=no signal, 1=signal)
-  - match: 'Sig(\d)'
-    set: { signal_active: "$1" }
+  - match: 'Sig1'
+    set: { signal_active: true }
+  - match: 'Sig0'
+    set: { signal_active: false }
 
 polling:
   interval: 10

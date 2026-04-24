@@ -23,7 +23,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -798,14 +798,6 @@ commands:
 # in a JSON array. These regex patterns match against the raw response text.
 
 responses:
-  # Ack responses for write commands
-  - match: '"ack"\s*:\s*"Ok"'
-    set: {}
-
-  # Error responses
-  - match: '"ack"\s*:\s*"Error"'
-    set: {}
-
   # Brightness from screen details query (R0401)
   - match: '"brightness"\s*:\s*(\d+)'
     mappings:
@@ -847,6 +839,13 @@ responses:
       - group: 1
         state: input_name
         type: string
+
+  # Ack/error catch-alls — must be last so specific patterns match first
+  - match: '"ack"\s*:\s*"Ok"'
+    set: {}
+
+  - match: '"ack"\s*:\s*"Error"'
+    set: {}
 
 # ── POLLING ──
 # Periodically query the device for current status.

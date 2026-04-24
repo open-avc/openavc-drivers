@@ -368,7 +368,7 @@
             "format": "avcdriver",
             "category": "video",
             "manufacturer": "Novastar",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "author": "OpenAVC",
             "transport": "udp",
             "verified": false,

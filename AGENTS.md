@@ -191,7 +191,7 @@ Actions the driver can send to the device.
 commands:
   power_on:
     label: "Power On"
-    send: "POWR ON\r"           # The raw string to send. "string" is an alias for "send".
+    send: "POWR ON\r"           # The raw string to send.
     help: "Turn on the projector"
   set_input:
     label: "Set Input"
@@ -258,7 +258,7 @@ Regex patterns for parsing device responses and mapping captured values to state
 
 ```yaml
 responses:
-  - match: 'In(\d+) All'          # Regex pattern. "pattern" is an alias for "match".
+  - match: 'In(\d+) All'          # Regex with capture groups.
     set: { input: "$1" }           # $1, $2, etc. = capture groups
   - match: 'Vol(\d+)'
     set: { volume: "$1" }

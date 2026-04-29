@@ -157,11 +157,13 @@ def validate_yaml_driver(file_path, data, result):
                 if "label" not in cmd_def:
                     result.warn(f"Command '{cmd_id}' missing 'label' field")
 
+                if "string" in cmd_def and "send" not in cmd_def:
+                    result.warn(f"Command '{cmd_id}': key 'string' is a deprecated alias for 'send'; rename to 'send'")
                 if transport == "osc":
                     has_address = "address" in cmd_def
                     has_send = "send" in cmd_def or "string" in cmd_def
                     if has_send and not has_address:
-                        result.error(f"Command '{cmd_id}': OSC commands should use 'address', not 'send'/'string'")
+                        result.error(f"Command '{cmd_id}': OSC commands should use 'address', not 'send'")
                     if has_address and not cmd_def["address"].startswith("/"):
                         result.error(f"Command '{cmd_id}': OSC address must start with '/'")
                 elif transport in ("tcp", "serial"):
@@ -201,9 +203,11 @@ def validate_yaml_driver(file_path, data, result):
                         result.error(f"Response #{i+1}: OSC address must start with '/'")
                     continue
 
+                if "pattern" in resp and "match" not in resp:
+                    result.warn(f"Response #{i+1}: key 'pattern' is a deprecated alias for 'match'; rename to 'match'")
                 pattern = resp.get("match") or resp.get("pattern")
                 if not pattern:
-                    result.error(f"Response #{i+1} missing 'match', 'pattern', or 'address' field")
+                    result.error(f"Response #{i+1} missing 'match' or 'address' field")
                     continue
 
                 # Config substitution placeholders won't compile as regex directly

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T19:53:28+00:00",
+    "generated_at": "2026-04-30T20:24:47+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 31,
+    "total_drivers": 32,
     "shards": null
   },
   "drivers": [
@@ -784,6 +784,49 @@
           ],
           "confidence": "untested",
           "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "id": "mersive_solstice",
+      "name": "Mersive Solstice Pod",
+      "manufacturer": "Mersive",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
+      "source_url": "https://documentation.mersive.com/content/pdf/opencontrolapiguide.pdf",
+      "file": "streaming/mersive_solstice.py",
+      "format": "python",
+      "ports": [
+        80,
+        443
+      ],
+      "simulated": true,
+      "tags": [
+        "wireless-presentation",
+        "byod",
+        "byom",
+        "collaboration",
+        "huddle-room"
+      ],
+      "help": {
+        "overview": "Mersive Solstice is a wireless presentation system. Users share screens, video, and media from laptops, phones, and tablets to a Solstice Pod that drives the room display.\n\nOpenAVC controls the Pod's runtime: clear posts, boot all users at end-of-meeting, sleep / wake the display, reset the on-screen connection key, and push bulletin or emergency banners. Live state includes connected users, active posts, bandwidth, and the current screen key.\n\nInstall-time configuration (network setup, calendar integration, splash-screen images) stays in the Solstice Dashboard. RS-232 pass-thru is exposed for chained-display control via a USB-to-serial adapter on the Pod.",
+        "setup": "1. Confirm the Pod has Solstice Enterprise Edition. The OpenControl API is gated to Enterprise hosts.\n2. In the Solstice Dashboard, set an admin password (strongly recommended \u2014 without one, any device on the network can drive this Pod).\n3. Enter the Pod's IP address and admin password here. Default port is 80 (HTTP). Tick Use HTTPS for port 443; Solstice ships with a self-signed certificate which the driver does not verify.\n4. Mersive recommends polling no more than once every 10 seconds. The default interval is 30 s; the minimum is 10 s."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Mersive",
+          "models": [
+            "Solstice Pod Gen3",
+            "Solstice Pod Gen2i",
+            "Solstice Pod Gen2",
+            "Solstice Pod Gen1",
+            "Solstice Windows Software"
+          ],
+          "confidence": "untested",
+          "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
         }
       ]
     },

@@ -1,11 +1,72 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T19:53:28+00:00",
+    "generated_at": "2026-04-30T20:24:47+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 0,
+    "total_devices": 5,
     "shards": null,
     "category": "streaming"
   },
-  "devices": []
+  "devices": [
+    {
+      "manufacturer": "Mersive",
+      "model": "Solstice Pod Gen1",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "mersive_solstice",
+          "confidence": "untested",
+          "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Mersive",
+      "model": "Solstice Pod Gen2",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "mersive_solstice",
+          "confidence": "untested",
+          "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Mersive",
+      "model": "Solstice Pod Gen2i",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "mersive_solstice",
+          "confidence": "untested",
+          "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Mersive",
+      "model": "Solstice Pod Gen3",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "mersive_solstice",
+          "confidence": "untested",
+          "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Mersive",
+      "model": "Solstice Windows Software",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "mersive_solstice",
+          "confidence": "untested",
+          "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
+        }
+      ]
+    }
+  ]
 }

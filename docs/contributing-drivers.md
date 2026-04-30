@@ -25,44 +25,70 @@ Guide for contributing device drivers to the OpenAVC community library.
    - `lighting/` — DMX, Art-Net, sACN
    - `utility/` — Wake-on-LAN, relays, bridges
 
-6. **Update `index.json`** with your driver's metadata entry (include `"simulated": true` if you added simulation support)
+6. **Add metadata fields to your driver file** (NOT `index.json` — see below)
 
-7. **Submit a pull request**
+7. **Run the build script** to regenerate `index.json` and `devices.json`:
+   ```bash
+   pip install pyyaml pydantic
+   python scripts/build_index.py
+   ```
 
-## index.json Entry Format
+8. **Submit a pull request** — CI will fail if you forgot to run the build script.
 
-Add an entry to the `drivers` array in `index.json`:
+## Driver Metadata
 
-```json
-{
-    "id": "your_driver_id",
-    "name": "Human-Readable Driver Name",
-    "file": "category/your_driver_id.avcdriver",
-    "format": "avcdriver",
-    "category": "switcher",
-    "manufacturer": "Manufacturer Name",
-    "version": "1.0.0",
-    "author": "Your Name",
-    "transport": "tcp",
-    "verified": false,
-    "description": "One-line description of what equipment this controls.",
-    "protocols": ["your_protocol_name"],
-    "ports": [23],
-    "simulated": true
-}
-```
+`index.json` and `devices.json` are **generated artifacts**. Do not edit them by hand. The driver file is the single source of truth — add metadata there, then regenerate.
+
+For YAML drivers, metadata sits at the top level alongside `transport` and `commands`. For Python drivers, it goes inside the `DRIVER_INFO` class attribute.
+
+### Required fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier, lowercase + underscores (e.g., `extron_sis`). |
+| `name` | string | Human-readable display name. |
+| `manufacturer` | string | Must appear in `manufacturers.json`. Add it there first if it's new. |
+| `category` | enum | One of: `projector`, `display`, `switcher`, `audio`, `camera`, `video`, `streaming`, `lighting`, `power`, `utility`. |
+| `version` | string | Semver. Bump on every change. |
+| `author` | string | Your name or GitHub handle. |
+| `transport` | enum | One of: `tcp`, `udp`, `http`, `osc`, `serial`. |
+| `description` | string | One paragraph for AV integrators. Plain language. |
+| `source_url` | URL | The protocol document or canonical implementation you built from. No driver ships without this. |
+
+### Optional fields
 
 | Field | Description |
 |-------|-------------|
-| `id` | Unique identifier, lowercase with underscores |
-| `file` | Path relative to repo root |
-| `format` | `"avcdriver"` for YAML, `"python"` for .py |
-| `category` | One of: projector, display, switcher, scaler, audio, video, camera, lighting, relay, utility, other |
-| `transport` | Primary transport: tcp, serial, udp, http, osc |
-| `verified` | Set to `false` for new contributions (maintainers verify) |
-| `protocols` | Protocol IDs that discovery probes can identify (e.g., `["pjlink"]`, `["extron_sis"]`). Helps discovery suggest your driver when it detects a matching protocol on the network. Leave as `[]` if your protocol isn't auto-detected. |
-| `ports` | TCP/UDP ports the device typically listens on (e.g., `[23]`, `[4352]`). Used by discovery to match open ports to drivers. |
-| `min_platform_version` | Optional. Minimum OpenAVC version required (e.g., `"0.5.13"`). If set, older versions will block installation with a clear error message. Use this when your driver depends on platform features that weren't available in earlier releases. |
+| `ports` | TCP/UDP ports the device listens on (e.g., `[23]`, `[4352]`). |
+| `protocols` | Protocol IDs that auto-discovery probes can identify (e.g., `["pjlink"]`). |
+| `simulated` | `true` if a simulator covers this driver. |
+| `verified` | `true` only after testing on real hardware. New contributions: leave `false`. |
+| `min_platform_version` | Minimum OpenAVC version (semver). Omit when compatible with all versions. |
+| `tags` | Lowercase, hyphen-separated keywords for Browse Drivers search (e.g., `["ndi", "ptz"]`). |
+| `help` | `{ overview, setup }` block — both non-empty strings. Shown in Browse Drivers. |
+| `deprecated` | Mark this driver as superseded. |
+| `replacement_id` | Required when `deprecated: true`. Points at the replacement driver's `id`. |
+| `compatible_models` | List of `{ manufacturer, models, confidence, notes? }` — see below. |
+
+### `compatible_models` — what makes your driver discoverable
+
+The build script reverse-indexes every `compatible_models` entry into `devices.json`, so AV integrators searching "Sony XBR-65X950H" in Browse Drivers find the right driver. Populate this list from the manufacturer's protocol manual or compatibility chart.
+
+```yaml
+compatible_models:
+  - manufacturer: Biamp                      # Must match manufacturers.json
+    models: [TesiraFORTE AVB, TesiraFORTE CI]
+    confidence: full                          # full | partial | untested
+    notes: AVB models lack analog I/O         # optional
+```
+
+Confidence values (chosen for honesty with AV integrators):
+
+- `full` — driver controls every documented feature of these devices.
+- `partial` — driver controls common features only. Some advanced features unsupported.
+- `untested` — generic protocol driver expected to work but not specifically verified for these models.
+
+Generic protocol drivers (PJLink, SNMP, ONVIF, Modbus, etc.) leave their own `compatible_models` mostly empty — their device coverage comes from `devices-extra.json` entries that point at them.
 
 ## Discovery Hints
 

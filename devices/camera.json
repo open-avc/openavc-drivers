@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T15:47:00+00:00",
+    "generated_at": "2026-04-30T18:21:31+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 12,
+    "total_devices": 26,
     "shards": null,
     "category": "camera"
   },
@@ -137,6 +137,174 @@
         {
           "id": "birddog_ptz",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "12X-USB",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "20X-NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "20X-SDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "30X-NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "30X-SDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "EDU NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "EDU SDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "Link 4K",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "Link SDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "Move 4K",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "Move PT4K",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "Move SE",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "Studio Pro",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "PTZOptics",
+      "model": "VL-ZCAM",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "ptzoptics",
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
         }
       ]
     }

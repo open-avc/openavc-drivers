@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T15:47:00+00:00",
+    "generated_at": "2026-04-30T18:21:31+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 28,
+    "total_drivers": 29,
     "shards": null
   },
   "drivers": [
@@ -825,6 +825,60 @@
             "H20"
           ],
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "ptzoptics",
+      "name": "PTZOptics Camera",
+      "manufacturer": "PTZOptics",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls PTZOptics PTZ cameras over the VISCA-over-IP protocol on TCP port 5678. Pan, tilt, zoom, focus, preset recall / save / reset, tally light, image flip, auto-exposure mode, white balance mode, and backlight. Polled state covers pan / tilt / zoom / focus position, focus mode, AE mode, WB mode, backlight, and flip settings.",
+      "source_url": "https://ptzoptics.com/wp-content/uploads/2020/11/PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf",
+      "file": "cameras/ptzoptics.py",
+      "format": "python",
+      "ports": [
+        5678
+      ],
+      "protocols": [
+        "visca"
+      ],
+      "simulated": true,
+      "tags": [
+        "ptz",
+        "camera",
+        "visca",
+        "ndi",
+        "sdi"
+      ],
+      "help": {
+        "overview": "PTZOptics cameras are widely used in classrooms, houses of worship, and conference rooms. This driver speaks raw VISCA over TCP 5678 (no Sony VISCA-over-IP header), which is what PTZOptics cameras actually expose \u2014 UDP 1259 also works but TCP gives reliable delivery for absolute-position commands.\n\nVISCA is request/response only. The driver polls the camera every few seconds for pan / tilt / zoom / focus position and exposure / WB state. Joystick-style movement uses pt_up / pt_down / etc. with pt_stop to halt; absolute moves use pt_absolute with explicit pan and tilt positions.",
+        "setup": "1. Find the camera's IP via the OSD menu, the PTZOptics utility, or your router's DHCP table.\n2. Confirm VISCA-over-IP is enabled in the camera's web UI (Settings \u2192 Network or Settings \u2192 VISCA). Most cameras ship with it on by default.\n3. Enter the IP in OpenAVC. Port 5678 is fixed.\n4. After connecting, pan_position / tilt_position / zoom_position will populate automatically.\n5. Save up to 128 presets (numbered 0\u2013127). 'set preset speed' applies to subsequent recalls."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "PTZOptics",
+          "models": [
+            "Move 4K",
+            "Move SE",
+            "Move PT4K",
+            "Link 4K",
+            "Link SDI",
+            "Studio Pro",
+            "EDU SDI",
+            "EDU NDI",
+            "30X-NDI",
+            "30X-SDI",
+            "20X-NDI",
+            "20X-SDI",
+            "12X-USB",
+            "VL-ZCAM"
+          ],
+          "confidence": "untested",
+          "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
         }
       ]
     },

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T02:23:04+00:00",
+    "generated_at": "2026-04-30T11:48:26+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 116,
+    "total_devices": 127,
     "shards": null
   },
   "devices": [
@@ -526,6 +526,138 @@
         {
           "id": "birddog_ptz",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Videohub 12G 10x10",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Videohub 12G 20x20",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Videohub 12G 40x40",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Blackmagic Videohub 80x80 12G",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Smart Videohub 12G CleanSwitch 12x12",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Smart Videohub 16x16",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Smart Videohub 20x20",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Universal Videohub 288",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Universal Videohub 72",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Videohub Master Control Pro",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Videohub Smart Control Pro",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
         }
       ]
     },

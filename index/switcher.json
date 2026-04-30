@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T02:23:04+00:00",
+    "generated_at": "2026-04-30T11:48:26+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 4,
+    "total_drivers": 5,
     "shards": null,
     "category": "switcher"
   },
@@ -54,6 +54,57 @@
           ],
           "confidence": "untested",
           "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "id": "blackmagic_videohub",
+      "name": "Blackmagic Videohub",
+      "manufacturer": "Blackmagic Design",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Supports video output routing, monitoring output routing, input/output label editing, and output locking across the entire Videohub product line.",
+      "source_url": "https://documents.blackmagicdesign.com/DeveloperManuals/VideohubEthernetProtocol.pdf",
+      "file": "switchers/blackmagic_videohub.py",
+      "format": "python",
+      "ports": [
+        9990
+      ],
+      "protocols": [
+        "videohub"
+      ],
+      "simulated": true,
+      "tags": [
+        "matrix-switcher",
+        "sdi",
+        "12g",
+        "videohub",
+        "broadcast"
+      ],
+      "help": {
+        "overview": "Blackmagic Videohub is a family of SDI matrix routers used in broadcast, post-production, and live event facilities. This driver speaks the Videohub Ethernet Protocol, used by every Videohub server-class device since 2010. It exposes video routing, monitoring routing, lock state, and label editing as macro-callable commands.",
+        "setup": "1. Connect the Videohub to your network via Ethernet.\n2. Find the unit's IP address from the front panel (Smart Videohub) or from Blackmagic Videohub Setup.\n3. The Videohub Ethernet Protocol on TCP 9990 is always enabled \u2014 no auth, no enable step.\n4. Enter the IP address in the device config; leave port at 9990.\n5. Outputs and inputs are 1-indexed in commands.\n6. Routing 'output X to input Y' sends VIDEO OUTPUT ROUTING with the protocol's 0-indexed values."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Blackmagic Design",
+          "models": [
+            "Blackmagic Videohub 12G 10x10",
+            "Blackmagic Videohub 12G 20x20",
+            "Blackmagic Videohub 12G 40x40",
+            "Blackmagic Videohub 80x80 12G",
+            "Smart Videohub 12G CleanSwitch 12x12",
+            "Smart Videohub 16x16",
+            "Smart Videohub 20x20",
+            "Universal Videohub 72",
+            "Universal Videohub 288",
+            "Videohub Master Control Pro",
+            "Videohub Smart Control Pro"
+          ],
+          "confidence": "untested",
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
         }
       ]
     },

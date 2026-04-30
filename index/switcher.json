@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T02:03:27+00:00",
+    "generated_at": "2026-04-30T02:23:04+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 3,
+    "total_drivers": 4,
     "shards": null,
     "category": "switcher"
   },
@@ -146,6 +146,60 @@
           ],
           "confidence": "untested",
           "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "id": "lightware_lw3",
+      "name": "Lightware LW3",
+      "manufacturer": "Lightware",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides video and audio crosspoint switching, mute, lock, HDCP, output 5V, embedded- audio mute, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
+      "source_url": "https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf",
+      "file": "switchers/lightware_lw3.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        6107
+      ],
+      "protocols": [
+        "lightware_lw3"
+      ],
+      "simulated": true,
+      "tags": [
+        "matrix-switcher",
+        "hdbaset",
+        "av-over-ip",
+        "lw3",
+        "hdmi",
+        "edid",
+        "cec"
+      ],
+      "help": {
+        "overview": "Lightware LW3 is the unified ASCII control protocol used across Lightware's matrix switchers, extenders, and modular routers. Commands target a tree of nodes (e.g. /V1/MEDIA/VIDEO/XP) using GET, SET, and CALL operations. The driver exposes the most-used runtime control surface: video and audio routing, mute, HDCP, output power, EDID, analog audio level, and CEC.\n",
+        "setup": "1. Connect the Lightware device to the network via Ethernet. 2. Confirm the device's IP address using LDC (Lightware Device Controller)\n   or the front-panel display.\n3. In LDC's Network tab, ensure the LW3 service on port 6107 is enabled\n   and that authentication (IPLogin) is OFF \u2014 this driver does not\n   authenticate.\n4. Enter the IP address and port 6107 in the device config. 5. Use input/output port numbers as integers (I3 \u2192 input=3, O2 \u2192 output=2).\n   Setting input=0 disconnects an output.\n6. Polled state covers I1..I4 and O1..O4. Larger devices respond to\n   routing commands on any valid port number.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Lightware",
+          "models": [
+            "UCX-2x1-HC30",
+            "UCX-2x2-H30",
+            "UCX-4x3-HC30",
+            "UCX-4x3-HC40",
+            "Taurus UCX",
+            "MMX2-4x1-H20",
+            "MMX2-4x3-H20",
+            "MMX series",
+            "MX2M-FR8",
+            "MX2M-FR48",
+            "MX2M-FR65",
+            "MX2M-FR80"
+          ],
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
         }
       ]
     }

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T02:03:27+00:00",
+    "generated_at": "2026-04-30T02:23:04+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 104,
+    "total_devices": 116,
     "shards": null
   },
   "devices": [
@@ -726,6 +726,150 @@
         {
           "id": "lg_webos",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "MMX series",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "MMX2-4x1-H20",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "MMX2-4x3-H20",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "MX2M-FR48",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "MX2M-FR65",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "MX2M-FR8",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "MX2M-FR80",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "Taurus UCX",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "UCX-2x1-HC30",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "UCX-2x2-H30",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "UCX-4x3-HC30",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lightware",
+      "model": "UCX-4x3-HC40",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "lightware_lw3",
+          "confidence": "untested",
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
         }
       ]
     },

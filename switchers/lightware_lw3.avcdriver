@@ -1,0 +1,1143 @@
+# Lightware LW3 Driver
+#
+# Controls Lightware AV switchers, extenders, and matrix routers over the
+# Lightware Protocol #3 (LW3) ASCII command set.
+#
+# Models covered: any current Lightware product implementing LW3, including
+#   UCX series          Universal matrix switchers (UCX-2x1-HC30, UCX-2x2-H30,
+#                       UCX-4x3-HC30, UCX-4x3-HC40, etc.)
+#   Taurus UCX          Universal matrix switchers
+#   MMX2 series         Multimedia matrix switchers (MMX2-4x1-H20, MMX2-4x3-H20)
+#   MMX series          Earlier multimedia matrix switchers
+#   MX2M series         Hybrid modular matrix routers (FR8, FR48, FR65, FR80)
+#
+# Protocol reference: Lightware Protocol #3 (LW3) — Programmer's Reference,
+#                     embedded in every Lightware product manual. Reference
+#                     copy: MMX2 series User Manual, chapter 7.
+# https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf
+#
+# Transport: TCP, port 6107 (raw LW3 over Ethernet).
+#
+# Command format: <Type> <Path><CrLf>
+#   Examples:
+#     GET /V1/MEDIA/VIDEO/I1.SignalPresent
+#     SET /V1/MEDIA/VIDEO/XP/O1.Mute=false
+#     CALL /V1/MEDIA/VIDEO/XP:switch(I2:O1)
+#
+# Response format: <Prefix> <Path>=<Value><CrLf>
+#   Prefixes: pr (read-only property), pw (read-write property),
+#             m- (method), mO (method ok), mF (method failed),
+#             nE / pE / mE (errors)
+#
+# Notes:
+#   - Switching '0' to an output disconnects: CALL ...XP:switch(0:O1)
+#   - The driver polls outputs O1..O4 and inputs I1..I4 by default, which
+#     covers UCX/Taurus/MMX2. Routing commands accept any port number.
+#   - Authentication is not handled by this driver. If the unit has IPLogin
+#     or 6107 authentication enabled, disable it in LDC or switch the unit
+#     to its WSS interface (not supported here).
+#   - The protocol echoes both SET and GET on writable properties with the
+#     `pw` prefix. SignalPresent is read-only and uses `pr`.
+
+id: lightware_lw3
+name: Lightware LW3
+manufacturer: Lightware
+category: switcher
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
+  TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides
+  video and audio crosspoint switching, mute, lock, HDCP, output 5V, embedded-
+  audio mute, EDID switching, analog audio level/mute/balance, and CEC command
+  sending.
+
+source_url: https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf
+tags: [matrix-switcher, hdbaset, av-over-ip, lw3, hdmi, edid, cec]
+verified: false
+simulated: true
+protocols: [lightware_lw3]
+ports: [6107]
+compatible_models:
+  - manufacturer: Lightware
+    models:
+      - UCX-2x1-HC30
+      - UCX-2x2-H30
+      - UCX-4x3-HC30
+      - UCX-4x3-HC40
+      - Taurus UCX
+      - MMX2-4x1-H20
+      - MMX2-4x3-H20
+      - MMX series
+      - MX2M-FR8
+      - MX2M-FR48
+      - MX2M-FR65
+      - MX2M-FR80
+    confidence: untested
+    notes: >
+      Any Lightware product that implements LW3 (most products since 2012).
+      Polled state covers ports I1..I4 and O1..O4 — adequate for UCX, Taurus,
+      and MMX2; commands accept any port number for larger MX2M frames.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Lightware LW3 is the unified ASCII control protocol used across Lightware's
+    matrix switchers, extenders, and modular routers. Commands target a tree
+    of nodes (e.g. /V1/MEDIA/VIDEO/XP) using GET, SET, and CALL operations.
+    The driver exposes the most-used runtime control surface: video and audio
+    routing, mute, HDCP, output power, EDID, analog audio level, and CEC.
+  setup: >
+    1. Connect the Lightware device to the network via Ethernet.
+    2. Confirm the device's IP address using LDC (Lightware Device Controller)
+       or the front-panel display.
+    3. In LDC's Network tab, ensure the LW3 service on port 6107 is enabled
+       and that authentication (IPLogin) is OFF — this driver does not
+       authenticate.
+    4. Enter the IP address and port 6107 in the device config.
+    5. Use input/output port numbers as integers (I3 → input=3, O2 → output=2).
+       Setting input=0 disconnects an output.
+    6. Polled state covers I1..I4 and O1..O4. Larger devices respond to
+       routing commands on any valid port number.
+
+discovery:
+  ports: [6107, 80, 443]
+  mac_prefixes: ["d0:73:7f"]
+
+default_config:
+  host: ""
+  port: 6107
+  poll_interval: 30
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 6107
+    label: TCP Port
+    description: "6107 for LW3 over raw TCP. WS (80) and WSS (443) interfaces are not used by this driver."
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (sec)
+    description: "Set to 0 to disable polling."
+
+state_variables:
+  device_label:
+    type: string
+    label: Device Label
+  firmware:
+    type: string
+    label: Firmware Version
+  source_o1:
+    type: string
+    label: Output 1 — Connected Source
+  source_o2:
+    type: string
+    label: Output 2 — Connected Source
+  source_o3:
+    type: string
+    label: Output 3 — Connected Source
+  source_o4:
+    type: string
+    label: Output 4 — Connected Source
+  signal_i1:
+    type: boolean
+    label: Input 1 — Signal Present
+  signal_i2:
+    type: boolean
+    label: Input 2 — Signal Present
+  signal_i3:
+    type: boolean
+    label: Input 3 — Signal Present
+  signal_i4:
+    type: boolean
+    label: Input 4 — Signal Present
+  mute_o1:
+    type: boolean
+    label: Output 1 — Video Mute
+  mute_o2:
+    type: boolean
+    label: Output 2 — Video Mute
+  mute_o3:
+    type: boolean
+    label: Output 3 — Video Mute
+  mute_o4:
+    type: boolean
+    label: Output 4 — Video Mute
+  audio_volume_percent:
+    type: number
+    label: Analog Audio Out (O4) — Volume (%)
+  audio_volume_db:
+    type: number
+    label: Analog Audio Out (O4) — Volume (dB)
+  audio_mute:
+    type: boolean
+    label: Analog Audio Out (O4) — Mute
+
+commands:
+
+  # ── System ──
+
+  identify:
+    label: Identify (Flash LEDs)
+    send: "CALL /V1/MANAGEMENT/UI:identifyMe()\r\n"
+    help: "Flash the front-panel LEDs for 10 seconds to physically locate this unit."
+
+  reboot:
+    label: Reboot
+    send: "CALL /V1/SYS:restart()\r\n"
+    help: "Restart the unit. Active connections will be terminated."
+
+  set_device_label:
+    label: Set Device Label
+    send: "SET /V1/MANAGEMENT/LABEL.DeviceLabel={label}\r\n"
+    help: "Set a custom device label (max 49 ASCII characters)."
+    params:
+      label:
+        type: string
+        required: true
+        label: Device Label
+
+  # ── Video routing ──
+
+  set_video_route:
+    label: Route Video Source to Output
+    send: "CALL /V1/MEDIA/VIDEO/XP:switch(I{input}:O{output})\r\n"
+    help: "Route an HDMI input to an HDMI output."
+    params:
+      input:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Input
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+
+  disconnect_video_output:
+    label: Disconnect Video Output
+    send: "CALL /V1/MEDIA/VIDEO/XP:switch(0:O{output})\r\n"
+    help: "Disconnect any video source from the specified output."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+
+  set_video_route_all:
+    label: Route Video to All Outputs
+    send: "CALL /V1/MEDIA/VIDEO/XP:switchAll(I{input})\r\n"
+    help: "Route a single input to every video output."
+    params:
+      input:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Input
+
+  set_video_mute:
+    label: Set Video Mute
+    send: "SET /V1/MEDIA/VIDEO/XP/O{output}.Mute={state}\r\n"
+    help: "Mute or unmute the specified video output port."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      state:
+        type: string
+        required: true
+        choices: ["true", "false"]
+        label: Mute State
+
+  set_video_lock:
+    label: Lock Video Output
+    send: "SET /V1/MEDIA/VIDEO/XP/O{output}.Lock={state}\r\n"
+    help: "Lock the video output crosspoint to prevent route changes."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      state:
+        type: string
+        required: true
+        choices: ["true", "false"]
+        label: Lock State
+
+  set_output_5v:
+    label: Set HDMI Output +5V
+    send: "SET /V1/MEDIA/VIDEO/O{output}.Output5VMode={state}\r\n"
+    help: "Enable or disable the HDMI +5V power on the output port."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      state:
+        type: string
+        required: true
+        choices: [On, Auto, Off]
+        label: 5V Mode
+
+  set_input_hdcp:
+    label: Set Input HDCP Allowed Version
+    send: "SET /V1/MEDIA/VIDEO/I{input}/HDCP.AllowedHdcpVersion={version}\r\n"
+    help: "Choose which HDCP version the input port advertises to sources."
+    params:
+      input:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Input
+      version:
+        type: string
+        required: true
+        choices: ["HDCP 1.4", "HDCP 2.2", "Off"]
+        label: HDCP Version
+
+  set_output_hdcp_mode:
+    label: Set Output HDCP Mode
+    send: "SET /V1/MEDIA/VIDEO/O{output}.HdcpMode={mode}\r\n"
+    help: "Auto encrypts only when the input is encrypted; Always forces HDCP."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      mode:
+        type: string
+        required: true
+        choices: [Auto, Always]
+        label: HDCP Mode
+
+  set_output_signal_type:
+    label: Set Output Signal Type
+    send: "SET /V1/MEDIA/VIDEO/O{output}.OutputSignalType={signal_type}\r\n"
+    help: "Force the output signal type (HDMI auto-detect or DVI)."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      signal_type:
+        type: string
+        required: true
+        choices: [Auto, DVI]
+        label: Signal Type
+
+  set_embedded_audio_mute:
+    label: Set Embedded Audio Mute
+    send: "SET /V1/MEDIA/VIDEO/XP/O{output}.EmbeddedAudioMute={state}\r\n"
+    help: "Mute or unmute the audio embedded in the HDMI output."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      state:
+        type: string
+        required: true
+        choices: ["true", "false"]
+        label: Mute State
+
+  # ── Audio routing & analog output ──
+
+  set_audio_route:
+    label: Route Audio Source to Output
+    send: "CALL /V1/MEDIA/AUDIO/XP:switch(I{input}:O{output})\r\n"
+    help: "Route an audio input to an audio output (analog or de-embedded)."
+    params:
+      input:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Input
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+
+  disconnect_audio_output:
+    label: Disconnect Audio Output
+    send: "CALL /V1/MEDIA/AUDIO/XP:switch(0:O{output})\r\n"
+    help: "Disconnect any audio source from the specified audio output."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+
+  set_audio_port_mute:
+    label: Set Audio Crosspoint Mute
+    send: "SET /V1/MEDIA/AUDIO/XP/{port}.Mute={state}\r\n"
+    help: "Mute or unmute an audio crosspoint port (e.g. I2 or O4)."
+    params:
+      port:
+        type: string
+        required: true
+        default: O4
+        label: Port
+        description: "Examples: I1, I2, I3, I4, O4."
+      state:
+        type: string
+        required: true
+        choices: ["true", "false"]
+        label: Mute State
+
+  set_analog_volume_percent:
+    label: Set Analog Output Volume (%)
+    send: "SET /V1/MEDIA/AUDIO/O{output}.VolumePercent={level}\r\n"
+    help: "Set the analog audio output level as a percentage (0–100)."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+      level:
+        type: number
+        required: true
+        min: 0
+        max: 100
+        label: Volume (%)
+
+  set_analog_volume_db:
+    label: Set Analog Output Volume (dB)
+    send: "SET /V1/MEDIA/AUDIO/O{output}.VolumedB={level}\r\n"
+    help: "Set the analog audio output level in dB (-95.62 to 0 in 0.375 dB steps)."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+      level:
+        type: number
+        required: true
+        min: -95.62
+        max: 0
+        label: Volume (dB)
+
+  set_analog_balance:
+    label: Set Analog Output Balance
+    send: "SET /V1/MEDIA/AUDIO/O{output}.Balance={level}\r\n"
+    help: "Set the analog audio balance (-100 = full left, 0 = center, 100 = full right)."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+      level:
+        type: integer
+        required: true
+        min: -100
+        max: 100
+        label: Balance
+
+  step_analog_volume_db:
+    label: Step Analog Output Volume (dB)
+    send: "CALL /V1/MEDIA/AUDIO/O{output}:stepVolumedB({step})\r\n"
+    help: "Increment or decrement the analog output volume by the given dB step."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+      step:
+        type: number
+        required: true
+        default: -1
+        label: Step (dB)
+
+  step_analog_volume_percent:
+    label: Step Analog Output Volume (%)
+    send: "CALL /V1/MEDIA/AUDIO/O{output}:stepVolumePercent({step})\r\n"
+    help: "Increment or decrement the analog output volume by the given percentage step."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+      step:
+        type: number
+        required: true
+        default: 5
+        label: Step (%)
+
+  set_analog_mute:
+    label: Set Analog Output Mute
+    send: "SET /V1/MEDIA/AUDIO/O{output}.Mute={state}\r\n"
+    help: "Mute or unmute the analog audio output (Mute property on the port itself)."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 4
+        min: 1
+        max: 80
+        label: Output
+      state:
+        type: string
+        required: true
+        choices: ["true", "false"]
+        label: Mute State
+
+  # ── EDID ──
+
+  set_edid:
+    label: Emulate EDID on Input Port
+    send: "CALL /V1/EDID:switch({source}:E{input})\r\n"
+    help: >
+      Emulate an EDID memory slot on a given input. Source examples:
+      F49 (Universal HDMI), F89, U2 (User EDID 2), D1 (Dynamic — last sink).
+    params:
+      source:
+        type: string
+        required: true
+        default: F49
+        label: EDID Source
+        description: "F1–F155 (factory), U1–U100 (user), D1–D3 (dynamic)."
+      input:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Input
+
+  set_edid_all:
+    label: Emulate EDID on All Inputs
+    send: "CALL /V1/EDID:switchAll({source})\r\n"
+    help: "Emulate the same EDID source on every input port."
+    params:
+      source:
+        type: string
+        required: true
+        default: F49
+        label: EDID Source
+
+  copy_edid:
+    label: Copy EDID to User Memory
+    send: "CALL /V1/EDID:copy({source}:U{slot})\r\n"
+    help: "Copy an EDID into a user memory slot (U1..U100)."
+    params:
+      source:
+        type: string
+        required: true
+        label: Source EDID
+      slot:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 100
+        label: User Slot
+
+  reset_edid:
+    label: Reset Emulated EDIDs
+    send: "CALL /V1/EDID:reset()\r\n"
+    help: "Reset all emulated EDIDs to factory defaults."
+
+  # ── CEC ──
+
+  cec_send:
+    label: Send CEC Command
+    send: "CALL /V1/MEDIA/VIDEO/O{output}/CEC:send({command})\r\n"
+    help: >
+      Send a raw CEC opcode on the HDMI output (e.g. 446D=Power on, 446C=Power off,
+      36=Standby, 446B=Power toggle, 4441=Volume up, 4442=Volume down,
+      4443=Mute toggle, 4444=Play, 4445=Stop, 4446=Pause).
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      command:
+        type: string
+        required: true
+        default: "446D"
+        label: CEC Hex Code
+
+  cec_user_control:
+    label: Send CEC User Control Click
+    send: "CALL /V1/MEDIA/VIDEO/O{output}/CEC:sendUserControlClick({command})\r\n"
+    help: "Send a CEC push-button-style command (volume, navigation, etc.)."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 80
+        label: Output
+      command:
+        type: string
+        required: true
+        default: "4441"
+        label: CEC Hex Code
+
+  # ── Subscriptions ──
+
+  open_subscription:
+    label: Subscribe to Node
+    send: "OPEN {path}\r\n"
+    help: "Open a subscription to a node so the device pushes change notifications."
+    params:
+      path:
+        type: string
+        required: true
+        default: "/V1/MEDIA/VIDEO/*"
+        label: LW3 Path
+
+  close_subscription:
+    label: Unsubscribe from Node
+    send: "CLOSE {path}\r\n"
+    help: "Close a subscription previously opened with OPEN."
+    params:
+      path:
+        type: string
+        required: true
+        default: "/V1/MEDIA/VIDEO/*"
+        label: LW3 Path
+
+  raw_lw3:
+    label: Send Raw LW3 Command
+    send: "{command}\r\n"
+    help: "Send an arbitrary LW3 command (e.g. GET /V1/MANAGEMENT/UID/PACKAGE.Version)."
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+responses:
+
+  # Firmware version: pr /V1/MANAGEMENT/UID/PACKAGE.Version=1.3.3b3
+  - match: 'pr /V1/MANAGEMENT/UID/PACKAGE\.Version=(\S+)'
+    set: { firmware: "$1" }
+
+  # Device label: pw /V1/MANAGEMENT/LABEL.DeviceLabel=<name>
+  - match: 'pw /V1/MANAGEMENT/LABEL\.DeviceLabel=(.*)'
+    set: { device_label: "$1" }
+
+  # Connected source per output: pw /V1/MEDIA/VIDEO/XP/O1.ConnectedSource=I3
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O1\.ConnectedSource=(\S+)'
+    set: { source_o1: "$1" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O2\.ConnectedSource=(\S+)'
+    set: { source_o2: "$1" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O3\.ConnectedSource=(\S+)'
+    set: { source_o3: "$1" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O4\.ConnectedSource=(\S+)'
+    set: { source_o4: "$1" }
+
+  # Notifications echo the same property on subscribed nodes:
+  # CHG /V1/MEDIA/VIDEO/XP/O1.ConnectedSource=I3
+  - match: 'CHG /V1/MEDIA/VIDEO/XP/O1\.ConnectedSource=(\S+)'
+    set: { source_o1: "$1" }
+  - match: 'CHG /V1/MEDIA/VIDEO/XP/O2\.ConnectedSource=(\S+)'
+    set: { source_o2: "$1" }
+  - match: 'CHG /V1/MEDIA/VIDEO/XP/O3\.ConnectedSource=(\S+)'
+    set: { source_o3: "$1" }
+  - match: 'CHG /V1/MEDIA/VIDEO/XP/O4\.ConnectedSource=(\S+)'
+    set: { source_o4: "$1" }
+
+  # Signal present per input (read-only): pr /V1/MEDIA/VIDEO/I1.SignalPresent=true
+  - match: 'pr /V1/MEDIA/VIDEO/I1\.SignalPresent=true'
+    set: { signal_i1: "true" }
+  - match: 'pr /V1/MEDIA/VIDEO/I1\.SignalPresent=false'
+    set: { signal_i1: "false" }
+  - match: 'pr /V1/MEDIA/VIDEO/I2\.SignalPresent=true'
+    set: { signal_i2: "true" }
+  - match: 'pr /V1/MEDIA/VIDEO/I2\.SignalPresent=false'
+    set: { signal_i2: "false" }
+  - match: 'pr /V1/MEDIA/VIDEO/I3\.SignalPresent=true'
+    set: { signal_i3: "true" }
+  - match: 'pr /V1/MEDIA/VIDEO/I3\.SignalPresent=false'
+    set: { signal_i3: "false" }
+  - match: 'pr /V1/MEDIA/VIDEO/I4\.SignalPresent=true'
+    set: { signal_i4: "true" }
+  - match: 'pr /V1/MEDIA/VIDEO/I4\.SignalPresent=false'
+    set: { signal_i4: "false" }
+
+  # Output mute (read-write): pw /V1/MEDIA/VIDEO/XP/O1.Mute=false
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O1\.Mute=true'
+    set: { mute_o1: "true" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O1\.Mute=false'
+    set: { mute_o1: "false" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O2\.Mute=true'
+    set: { mute_o2: "true" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O2\.Mute=false'
+    set: { mute_o2: "false" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O3\.Mute=true'
+    set: { mute_o3: "true" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O3\.Mute=false'
+    set: { mute_o3: "false" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O4\.Mute=true'
+    set: { mute_o4: "true" }
+  - match: 'pw /V1/MEDIA/VIDEO/XP/O4\.Mute=false'
+    set: { mute_o4: "false" }
+
+  # Analog audio (output O4): pw /V1/MEDIA/AUDIO/O4.VolumePercent=50.00
+  - match: 'pw /V1/MEDIA/AUDIO/O4\.VolumePercent=([\d.\-]+)'
+    set: { audio_volume_percent: "$1" }
+  - match: 'pw /V1/MEDIA/AUDIO/O4\.VolumedB=([\d.\-]+)'
+    set: { audio_volume_db: "$1" }
+  - match: 'pw /V1/MEDIA/AUDIO/O4\.Mute=true'
+    set: { audio_mute: "true" }
+  - match: 'pw /V1/MEDIA/AUDIO/O4\.Mute=false'
+    set: { audio_mute: "false" }
+
+polling:
+  interval: 30
+  queries:
+    - "GET /V1/MANAGEMENT/UID/PACKAGE.Version\r\n"
+    - "GET /V1/MANAGEMENT/LABEL.DeviceLabel\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O1.ConnectedSource\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O2.ConnectedSource\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O3.ConnectedSource\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O4.ConnectedSource\r\n"
+    - "GET /V1/MEDIA/VIDEO/I1.SignalPresent\r\n"
+    - "GET /V1/MEDIA/VIDEO/I2.SignalPresent\r\n"
+    - "GET /V1/MEDIA/VIDEO/I3.SignalPresent\r\n"
+    - "GET /V1/MEDIA/VIDEO/I4.SignalPresent\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O1.Mute\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O2.Mute\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O3.Mute\r\n"
+    - "GET /V1/MEDIA/VIDEO/XP/O4.Mute\r\n"
+    - "GET /V1/MEDIA/AUDIO/O4.VolumePercent\r\n"
+    - "GET /V1/MEDIA/AUDIO/O4.VolumedB\r\n"
+    - "GET /V1/MEDIA/AUDIO/O4.Mute\r\n"
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  push_state: true
+  initial_state:
+    device_label: "MMX2_LabSim"
+    firmware: "1.3.3b3"
+    source_o1: "I1"
+    source_o2: "I2"
+    source_o3: "I3"
+    source_o4: "I4"
+    signal_i1: true
+    signal_i2: true
+    signal_i3: false
+    signal_i4: false
+    mute_o1: false
+    mute_o2: false
+    mute_o3: false
+    mute_o4: false
+    audio_volume_percent: 75.0
+    audio_volume_db: -10.0
+    audio_mute: false
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: indicator
+      key: device_label
+      label: Device Label
+    - type: indicator
+      key: firmware
+      label: Firmware
+    - type: indicator
+      key: source_o1
+      label: O1 Source
+    - type: indicator
+      key: source_o2
+      label: O2 Source
+    - type: indicator
+      key: source_o3
+      label: O3 Source
+    - type: indicator
+      key: source_o4
+      label: O4 Source
+    - type: toggle
+      key: signal_i1
+      label: I1 Signal
+    - type: toggle
+      key: signal_i2
+      label: I2 Signal
+    - type: toggle
+      key: signal_i3
+      label: I3 Signal
+    - type: toggle
+      key: signal_i4
+      label: I4 Signal
+    - type: toggle
+      key: mute_o1
+      label: O1 Mute
+    - type: toggle
+      key: mute_o2
+      label: O2 Mute
+    - type: toggle
+      key: mute_o3
+      label: O3 Mute
+    - type: toggle
+      key: mute_o4
+      label: O4 Mute
+    - type: slider
+      key: audio_volume_percent
+      label: Analog Volume (%)
+      min: 0
+      max: 100
+    - type: toggle
+      key: audio_mute
+      label: Analog Mute
+
+  command_handlers:
+
+    # ── System ──
+
+    - match: '^CALL\s+/V1/MANAGEMENT/UI:identifyMe\(\)\s*$'
+      handler: |
+        respond("mO /V1/MANAGEMENT/UI:identifyMe=\r\n")
+
+    - match: '^CALL\s+/V1/SYS:restart\(\)\s*$'
+      handler: |
+        respond("mO /V1/SYS:restart=\r\n")
+
+    - match: '^CALL\s+/V1/SYS:factoryDefaults\(\)\s*$'
+      handler: |
+        respond("mO /V1/SYS:factoryDefaults=\r\n")
+
+    - match: '^GET\s+/V1/MANAGEMENT/UID/PACKAGE\.Version\s*$'
+      handler: |
+        respond(f"pr /V1/MANAGEMENT/UID/PACKAGE.Version={state['firmware']}\r\n")
+
+    - match: '^GET\s+/V1/MANAGEMENT/LABEL\.DeviceLabel\s*$'
+      handler: |
+        respond(f"pw /V1/MANAGEMENT/LABEL.DeviceLabel={state['device_label']}\r\n")
+
+    - match: '^SET\s+/V1/MANAGEMENT/LABEL\.DeviceLabel=(.*)$'
+      handler: |
+        label = match.group(1).strip()
+        state['device_label'] = label
+        respond(f"pw /V1/MANAGEMENT/LABEL.DeviceLabel={label}\r\n")
+
+    # ── Video routing ──
+
+    - match: '^CALL\s+/V1/MEDIA/VIDEO/XP:switch\(I(\d+):O(\d+)\)\s*$'
+      handler: |
+        i = match.group(1)
+        o = match.group(2)
+        key = f"source_o{o}"
+        if key in state:
+            state[key] = f"I{i}"
+        respond("mO /V1/MEDIA/VIDEO/XP:switch=\r\n")
+
+    - match: '^CALL\s+/V1/MEDIA/VIDEO/XP:switch\(0:O(\d+)\)\s*$'
+      handler: |
+        o = match.group(1)
+        key = f"source_o{o}"
+        if key in state:
+            state[key] = "0"
+        respond("mO /V1/MEDIA/VIDEO/XP:switch=\r\n")
+
+    - match: '^CALL\s+/V1/MEDIA/VIDEO/XP:switchAll\(I(\d+)\)\s*$'
+      handler: |
+        i = match.group(1)
+        for o in (1, 2, 3, 4):
+            key = f"source_o{o}"
+            if key in state:
+                state[key] = f"I{i}"
+        respond("mO /V1/MEDIA/VIDEO/XP:switchAll=\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/XP/O(\d+)\.ConnectedSource\s*$'
+      handler: |
+        o = match.group(1)
+        src = state.get(f"source_o{o}", "0")
+        respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.ConnectedSource={src}\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/I(\d+)\.SignalPresent\s*$'
+      handler: |
+        i = match.group(1)
+        present = state.get(f"signal_i{i}", False)
+        respond(f"pr /V1/MEDIA/VIDEO/I{i}.SignalPresent={'true' if present else 'false'}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/VIDEO/XP/O(\d+)\.Mute=(true|false)\s*$'
+      handler: |
+        o = match.group(1)
+        v = match.group(2)
+        key = f"mute_o{o}"
+        if key in state:
+            state[key] = (v == "true")
+        respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.Mute={v}\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/XP/O(\d+)\.Mute\s*$'
+      handler: |
+        o = match.group(1)
+        muted = state.get(f"mute_o{o}", False)
+        respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.Mute={'true' if muted else 'false'}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/VIDEO/XP/O(\d+)\.Lock=(true|false)\s*$'
+      handler: |
+        o = match.group(1)
+        v = match.group(2)
+        respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.Lock={v}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/VIDEO/O(\d+)\.Output5VMode=(\S+)\s*$'
+      handler: |
+        o = match.group(1)
+        v = match.group(2)
+        respond(f"pw /V1/MEDIA/VIDEO/O{o}.Output5VMode={v}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/VIDEO/I(\d+)/HDCP\.AllowedHdcpVersion=(.+)$'
+      handler: |
+        i = match.group(1)
+        v = match.group(2).strip()
+        respond(f"pw /V1/MEDIA/VIDEO/I{i}/HDCP.AllowedHdcpVersion={v}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/VIDEO/O(\d+)\.HdcpMode=(\S+)\s*$'
+      handler: |
+        o = match.group(1)
+        v = match.group(2)
+        respond(f"pw /V1/MEDIA/VIDEO/O{o}.HdcpMode={v}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/VIDEO/O(\d+)\.OutputSignalType=(\S+)\s*$'
+      handler: |
+        o = match.group(1)
+        v = match.group(2)
+        respond(f"pw /V1/MEDIA/VIDEO/O{o}.OutputSignalType={v}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/VIDEO/XP/O(\d+)\.EmbeddedAudioMute=(true|false)\s*$'
+      handler: |
+        o = match.group(1)
+        v = match.group(2)
+        respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.EmbeddedAudioMute={v}\r\n")
+
+    # ── Audio routing & analog output ──
+
+    - match: '^CALL\s+/V1/MEDIA/AUDIO/XP:switch\(I(\d+):O(\d+)\)\s*$'
+      handler: |
+        respond("mO /V1/MEDIA/AUDIO/XP:switch=\r\n")
+
+    - match: '^CALL\s+/V1/MEDIA/AUDIO/XP:switch\(0:O(\d+)\)\s*$'
+      handler: |
+        respond("mO /V1/MEDIA/AUDIO/XP:switch=\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/AUDIO/XP/(\S+?)\.Mute=(true|false)\s*$'
+      handler: |
+        port = match.group(1)
+        v = match.group(2)
+        respond(f"pw /V1/MEDIA/AUDIO/XP/{port}.Mute={v}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/AUDIO/O(\d+)\.VolumePercent=(\S+)\s*$'
+      handler: |
+        o = match.group(1)
+        raw = match.group(2)
+        ok = True
+        level = 0.0
+        try:
+            level = max(0.0, min(100.0, float(raw)))
+        except:  # noqa: E722 — script namespace has no exception names
+            ok = False
+        if not ok:
+            respond(f"pE /V1/MEDIA/AUDIO/O{o}.VolumePercent %E001:Syntax error\r\n")
+        else:
+            if o == "4":
+                state['audio_volume_percent'] = level
+            respond(f"pw /V1/MEDIA/AUDIO/O{o}.VolumePercent={level:.2f}\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/AUDIO/O(\d+)\.VolumePercent\s*$'
+      handler: |
+        o = match.group(1)
+        level = state.get('audio_volume_percent', 100.0) if o == "4" else 100.0
+        respond(f"pw /V1/MEDIA/AUDIO/O{o}.VolumePercent={level:.2f}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/AUDIO/O(\d+)\.VolumedB=(\S+)\s*$'
+      handler: |
+        o = match.group(1)
+        raw = match.group(2)
+        ok = True
+        level = 0.0
+        try:
+            level = max(-95.62, min(0.0, float(raw)))
+        except:  # noqa: E722
+            ok = False
+        if not ok:
+            respond(f"pE /V1/MEDIA/AUDIO/O{o}.VolumedB %E001:Syntax error\r\n")
+        else:
+            if o == "4":
+                state['audio_volume_db'] = level
+            respond(f"pw /V1/MEDIA/AUDIO/O{o}.VolumedB={level:.2f}\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/AUDIO/O(\d+)\.VolumedB\s*$'
+      handler: |
+        o = match.group(1)
+        level = state.get('audio_volume_db', 0.0) if o == "4" else 0.0
+        respond(f"pw /V1/MEDIA/AUDIO/O{o}.VolumedB={level:.2f}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/AUDIO/O(\d+)\.Balance=(\S+)\s*$'
+      handler: |
+        o = match.group(1)
+        raw = match.group(2)
+        ok = True
+        v = 0
+        try:
+            v = max(-100, min(100, int(float(raw))))
+        except:  # noqa: E722
+            ok = False
+        if not ok:
+            respond(f"pE /V1/MEDIA/AUDIO/O{o}.Balance %E001:Syntax error\r\n")
+        else:
+            respond(f"pw /V1/MEDIA/AUDIO/O{o}.Balance={v}\r\n")
+
+    - match: '^SET\s+/V1/MEDIA/AUDIO/O(\d+)\.Mute=(true|false)\s*$'
+      handler: |
+        o = match.group(1)
+        v = match.group(2)
+        if o == "4":
+            state['audio_mute'] = (v == "true")
+        respond(f"pw /V1/MEDIA/AUDIO/O{o}.Mute={v}\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/AUDIO/O(\d+)\.Mute\s*$'
+      handler: |
+        o = match.group(1)
+        muted = state.get('audio_mute', False) if o == "4" else False
+        respond(f"pw /V1/MEDIA/AUDIO/O{o}.Mute={'true' if muted else 'false'}\r\n")
+
+    - match: '^CALL\s+/V1/MEDIA/AUDIO/O(\d+):stepVolumedB\(([-+]?\d+(?:\.\d+)?)\)\s*$'
+      handler: |
+        o = match.group(1)
+        step = float(match.group(2))
+        if o == "4":
+            cur = state.get('audio_volume_db', 0.0)
+            state['audio_volume_db'] = max(-95.62, min(0.0, cur + step))
+        respond(f"mO /V1/MEDIA/AUDIO/O{o}:stepVolumedB=\r\n")
+
+    - match: '^CALL\s+/V1/MEDIA/AUDIO/O(\d+):stepVolumePercent\(([-+]?\d+(?:\.\d+)?)\)\s*$'
+      handler: |
+        o = match.group(1)
+        step = float(match.group(2))
+        if o == "4":
+            cur = state.get('audio_volume_percent', 100.0)
+            state['audio_volume_percent'] = max(0.0, min(100.0, cur + step))
+        respond(f"mO /V1/MEDIA/AUDIO/O{o}:stepVolumePercent=\r\n")
+
+    - match: '^CALL\s+/V1/MEDIA/AUDIO/O(\d+):stepBalance\(([-+]?\d+)\)\s*$'
+      handler: |
+        o = match.group(1)
+        respond(f"mO /V1/MEDIA/AUDIO/O{o}:stepBalance=\r\n")
+
+    # ── EDID ──
+
+    - match: '^CALL\s+/V1/EDID:switch\((\S+):E(\d+)\)\s*$'
+      handler: |
+        respond("mO /V1/EDID:switch=\r\n")
+
+    - match: '^CALL\s+/V1/EDID:switchAll\((\S+)\)\s*$'
+      handler: |
+        respond("mO /V1/EDID:switchAll=\r\n")
+
+    - match: '^CALL\s+/V1/EDID:copy\((\S+):U(\d+)\)\s*$'
+      handler: |
+        respond("mO /V1/EDID:copy=\r\n")
+
+    - match: '^CALL\s+/V1/EDID:reset\(\)\s*$'
+      handler: |
+        respond("mO /V1/EDID:reset=\r\n")
+
+    # ── CEC ──
+
+    - match: '^CALL\s+/V1/MEDIA/VIDEO/O(\d+)/CEC:send\((\S+)\)\s*$'
+      handler: |
+        o = match.group(1)
+        respond(f"mO /V1/MEDIA/VIDEO/O{o}/CEC:send=OK\r\n")
+
+    - match: '^CALL\s+/V1/MEDIA/VIDEO/O(\d+)/CEC:sendUserControlClick\((\S+)\)\s*$'
+      handler: |
+        o = match.group(1)
+        respond(f"mO /V1/MEDIA/VIDEO/O{o}/CEC:sendUserControlClick=OK\r\n")
+
+    # ── Subscriptions ──
+
+    - match: '^OPEN\s*$'
+      handler: |
+        respond("o-\r\n")
+
+    - match: '^OPEN\s+(\S+)\s*$'
+      handler: |
+        respond(f"o- {match.group(1)}\r\n")
+
+    - match: '^CLOSE\s+(\S+)\s*$'
+      handler: |
+        respond(f"c- {match.group(1)}\r\n")
+
+    # Catch-all: report a generic error matching the LW3 error grammar.
+    # Must remain last in this block; written as `match: + handler:` so it
+    # routes via _script_handlers and stays after the specific entries above.
+    - match: '.+'
+      handler: |
+        respond("nE %E001:Syntax error\r\n")
+
+  error_modes:
+    communication_timeout:
+      description: "Device stops responding to commands"
+      behavior: no_response
+    auth_required:
+      description: "IPLogin enabled — device requires LW3 authentication"
+      behavior: no_response

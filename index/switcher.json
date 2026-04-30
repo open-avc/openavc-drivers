@@ -1,13 +1,62 @@
 {
   "_meta": {
-    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generated_at": "2026-04-30T02:03:27+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 2,
+    "total_drivers": 3,
     "shards": null,
     "category": "switcher"
   },
   "drivers": [
+    {
+      "id": "atlona_omnistream",
+      "name": "Atlona OmniStream",
+      "manufacturer": "Atlona",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP encoders and decoders via the Telnet CLI (port 23). Supports source routing, audio mute/volume, video enable, HDCP, analog speaker power, and CEC/RS-232 display triggers. Runtime control surface only \u2014 install-time setup is configured in the device's web UI.\n",
+      "source_url": "https://atlona.com/pdf/OmniStream_CLI-JSON_API.pdf",
+      "file": "switchers/atlona_omnistream.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23,
+        2323,
+        22
+      ],
+      "protocols": [
+        "atlona_omnistream"
+      ],
+      "simulated": true,
+      "tags": [
+        "av-over-ip",
+        "encoder",
+        "decoder",
+        "omnistream",
+        "telnet"
+      ],
+      "help": {
+        "overview": "Atlona OmniStream is an AV-over-IP encoder/decoder system. Encoders take HDMI sources and produce network streams; decoders pick a stream and output HDMI to a display. Routing happens by setting which IP stream each decoder receives (the VideoInput command).\n",
+        "setup": "1. Set a static IP on the OmniStream unit via its web UI. 2. In the web UI, disable Telnet login authentication (IPLogin) so\n   this driver can connect without credentials.\n3. Configure encoder sessions (multicast addresses, video format)\n   and decoder IP inputs in the web UI before driver use.\n4. Connect this driver to port 23. The HDMI output index ranges\n   1..2 on most decoders; the session index ranges 1..6.\n5. Volume range is 0..15 (Atlona's native scale). 6. To route a source: send the \"Set Video Input\" command with the\n   output number and the IP input name (e.g. \"ip_input3\") configured\n   on the decoder's web UI.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Atlona",
+          "models": [
+            "AT-OMNI-111",
+            "AT-OMNI-111WP",
+            "AT-OMNI-112",
+            "AT-OMNI-121",
+            "AT-OMNI-122",
+            "AT-OMNI-512",
+            "AT-OMNI-521"
+          ],
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
     {
       "id": "extron_sis",
       "name": "Extron SIS Protocol",

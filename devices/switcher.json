@@ -1,13 +1,97 @@
 {
   "_meta": {
-    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generated_at": "2026-04-30T02:03:27+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 12,
+    "total_devices": 19,
     "shards": null,
     "category": "switcher"
   },
   "devices": [
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OMNI-111",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_omnistream",
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OMNI-111WP",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_omnistream",
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OMNI-112",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_omnistream",
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OMNI-121",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_omnistream",
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OMNI-122",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_omnistream",
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OMNI-512",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_omnistream",
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OMNI-521",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_omnistream",
+          "confidence": "untested",
+          "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
     {
       "manufacturer": "Extron",
       "model": "CrossPoint Series matrix switchers",

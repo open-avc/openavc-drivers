@@ -1,0 +1,846 @@
+# Atlona OmniStream Driver
+#
+# Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP
+# encoders/decoders over TCP (Telnet, port 23).
+#
+# Models covered (firmware 2.0+):
+#   AT-OMNI-111, AT-OMNI-111WP   1-channel encoder (Pro / Wallplate)
+#   AT-OMNI-112                  2-channel encoder (Pro)
+#   AT-OMNI-121                  1-channel decoder (Pro)
+#   AT-OMNI-122                  2-channel decoder (Pro)
+#   AT-OMNI-512                  4-channel encoder (Pro)
+#   AT-OMNI-521                  Single-channel decoder (Pro)
+#
+# Protocol reference: Atlona OmniStream CLI Command Set + JSON over WebSocket
+#                     (Version 15, May 2023, firmware 2.0)
+# https://atlona.com/pdf/OmniStream_CLI-JSON_API.pdf
+#
+# Command format: <Command><index><space><value><CR>     (CR = 0x0d)
+# Feedback:       <Command><index> <value> set<CR><LF>   (after a set)
+#                 <Command><index> <value><CR><LF>       (after a query)
+#                 ! Command not found<CR><LF>            (on error)
+# Inter-command:  500 ms minimum between commands
+# Status query:   pass `sta` as the value parameter to read current state
+#
+# Notes:
+#   - Some commands are Pro-only (audio mute / volume / input, AnalogPower,
+#     DisplayBtn, VolumeBtn, InputBtn). On R-Type units these return
+#     "! Command not found" — the driver simply ignores the error.
+#   - VideoInput uses string stream names like "ip_input3" (configured on
+#     the device's web UI), not integer indices.
+#   - HDCPSet uses "HDMI1" / "HDMI2" identifiers, not bare integers.
+#   - This driver covers runtime control. Install-time setup (IP config,
+#     multicast addresses, EDID, encoder bit rate, FEC, scrambling) is
+#     left to the device's web UI by design.
+#   - If IPLogin is enabled on the device, this driver will not authenticate.
+#     Disable IPLogin in the device's web UI, or wait for a future driver
+#     revision that handles the Telnet login handshake.
+
+id: atlona_omnistream
+name: Atlona OmniStream
+manufacturer: Atlona
+category: switcher
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP
+  encoders and decoders via the Telnet CLI (port 23). Supports source
+  routing, audio mute/volume, video enable, HDCP, analog speaker power,
+  and CEC/RS-232 display triggers. Runtime control surface only —
+  install-time setup is configured in the device's web UI.
+
+source_url: https://atlona.com/pdf/OmniStream_CLI-JSON_API.pdf
+tags: [av-over-ip, encoder, decoder, omnistream, telnet]
+verified: false
+simulated: true
+protocols: [atlona_omnistream]
+ports: [23, 2323, 22]
+compatible_models:
+  - manufacturer: Atlona
+    models:
+      - AT-OMNI-111
+      - AT-OMNI-111WP
+      - AT-OMNI-112
+      - AT-OMNI-121
+      - AT-OMNI-122
+      - AT-OMNI-512
+      - AT-OMNI-521
+    confidence: untested
+    notes: >
+      All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+.
+      Some audio commands (mute, volume, AudioInput, AnalogPower,
+      DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op
+      on R-Type units.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Atlona OmniStream is an AV-over-IP encoder/decoder system. Encoders
+    take HDMI sources and produce network streams; decoders pick a stream
+    and output HDMI to a display. Routing happens by setting which IP
+    stream each decoder receives (the VideoInput command).
+  setup: >
+    1. Set a static IP on the OmniStream unit via its web UI.
+    2. In the web UI, disable Telnet login authentication (IPLogin) so
+       this driver can connect without credentials.
+    3. Configure encoder sessions (multicast addresses, video format)
+       and decoder IP inputs in the web UI before driver use.
+    4. Connect this driver to port 23. The HDMI output index ranges
+       1..2 on most decoders; the session index ranges 1..6.
+    5. Volume range is 0..15 (Atlona's native scale).
+    6. To route a source: send the "Set Video Input" command with the
+       output number and the IP input name (e.g. "ip_input3") configured
+       on the decoder's web UI.
+
+discovery:
+  ports: [23]
+  mac_prefixes: ["b8:98:b0", "00:1b:c5"]
+
+default_config:
+  host: ""
+  port: 23
+  poll_interval: 30
+  inter_command_delay: 0.5
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Telnet Port
+    description: "23 (with NVT), 2323 (without NVT). SSH (22) not supported by this driver."
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (sec)
+    description: "Set to 0 to disable polling."
+  inter_command_delay:
+    type: number
+    default: 0.5
+    min: 0.5
+    label: Inter-Command Delay (sec)
+    description: "Atlona requires at least 500 ms between commands."
+
+state_variables:
+  device_type:
+    type: string
+    label: Device Type
+  firmware:
+    type: string
+    label: Firmware Version
+  temperature_c:
+    type: number
+    label: System Temperature (°C)
+  video_active_input_1:
+    type: string
+    label: HDMI Out 1 — Active Input
+  video_active_input_2:
+    type: string
+    label: HDMI Out 2 — Active Input
+  video_active_status_1:
+    type: string
+    label: HDMI Out 1 — Video Status
+  video_active_status_2:
+    type: string
+    label: HDMI Out 2 — Video Status
+  audio_active_input_1:
+    type: string
+    label: HDMI Out 1 — Active Audio Input
+  audio_active_input_2:
+    type: string
+    label: HDMI Out 2 — Active Audio Input
+  audio_active_status_1:
+    type: string
+    label: HDMI Out 1 — Audio Status
+  audio_active_status_2:
+    type: string
+    label: HDMI Out 2 — Audio Status
+  audio_mute_1:
+    type: boolean
+    label: HDMI Out 1 — Audio Mute
+  audio_mute_2:
+    type: boolean
+    label: HDMI Out 2 — Audio Mute
+  audio_volume_1:
+    type: integer
+    label: HDMI Out 1 — Audio Volume (0–15)
+  audio_volume_2:
+    type: integer
+    label: HDMI Out 2 — Audio Volume (0–15)
+  analog_power_1:
+    type: boolean
+    label: HDMI Out 1 — Analog Speaker Power
+  analog_power_2:
+    type: boolean
+    label: HDMI Out 2 — Analog Speaker Power
+
+commands:
+
+  # ── Universal commands ──
+
+  identify:
+    label: Identify (Flash LEDs)
+    send: "Identify\r"
+    help: "Flash the front-panel LEDs for 10 seconds to physically locate this unit."
+
+  reboot:
+    label: Reboot
+    send: "Reboot\r"
+    help: "Reboot the OmniStream unit."
+
+  # ── Video routing (decoder side) ──
+
+  set_video_input:
+    label: Route Video Source to Output
+    send: "VideoInput{output} {ip_input}\r"
+    help: >
+      Route a video source (named IP input) to an HDMI output on the decoder.
+      The IP input name (e.g. "ip_input3") must be configured in the device's
+      web UI before use.
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+      ip_input:
+        type: string
+        required: true
+        label: IP Input Name
+        description: "IP input or multiview name configured on the decoder (e.g. ip_input3)."
+
+  set_video_enable:
+    label: Set Video Output Enable
+    send: "VideoEnable{session} {state}\r"
+    help: "Enable or disable the video for the specified session."
+    params:
+      session:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 6
+        label: Session
+      state:
+        type: string
+        required: true
+        choices: [on, off]
+        label: State
+
+  # ── Audio (Pro-only, no-op on R-Type) ──
+
+  set_audio_mute:
+    label: Set Audio Mute
+    send: "AudioMute{output} {state}\r"
+    help: "Mute or unmute audio on the specified HDMI output. Pro units only."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+      state:
+        type: string
+        required: true
+        choices: [on, off]
+        label: Mute State
+
+  set_audio_volume:
+    label: Set Audio Volume
+    send: "AudioVolume{output} {level}\r"
+    help: "Set the audio volume on the specified HDMI output. Pro units only."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+      level:
+        type: integer
+        required: true
+        min: 0
+        max: 15
+        label: Volume (0–15)
+
+  set_audio_input:
+    label: Set Audio Input
+    send: "AudioInput{output} {input}\r"
+    help: "Set the audio input for the specified HDMI output. Pro units only."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+      input:
+        type: integer
+        required: true
+        min: 1
+        max: 16
+        label: Audio Input
+
+  set_audio_source:
+    label: Set HDMI Audio Source
+    send: "AudioSource{session} {source}\r"
+    help: "Set the HDMI audio source for the specified session."
+    params:
+      session:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 6
+        label: Session
+      source:
+        type: integer
+        required: true
+        label: Audio Source
+
+  set_audio_enable:
+    label: Set Audio Output Enable
+    send: "AudioEnable{session} {state}\r"
+    help: "Enable or disable the audio for the specified session."
+    params:
+      session:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 6
+        label: Session
+      state:
+        type: string
+        required: true
+        choices: [on, off]
+        label: State
+
+  audio_to_backup:
+    label: Switch Audio to Backup
+    send: "AudioToBackup{output}\r"
+    help: "Promote the active audio input as the backup input."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+
+  audio_to_primary:
+    label: Switch Audio to Primary
+    send: "AudioToPrimary{output}\r"
+    help: "Promote the active audio input as the primary input."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+
+  video_to_backup:
+    label: Switch Video to Backup
+    send: "VideoToBackup{output}\r"
+    help: "Promote the active video input as the backup input."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+
+  video_to_primary:
+    label: Switch Video to Primary
+    send: "VideoToPrimary{output}\r"
+    help: "Promote the active video input as the primary input."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+
+  # ── Display / power triggers (decoder side) ──
+
+  set_analog_power:
+    label: Set Analog Speaker Power
+    send: "AnalogPowerEnable{output} {state}\r"
+    help: >
+      Enable or disable the analog speaker amplifier for the specified
+      HDMI output. Pro units only.
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+      state:
+        type: string
+        required: true
+        choices: [on, off]
+        label: Power
+
+  set_hdcp:
+    label: Set HDCP Version
+    send: "HDCPSet{port} {version}\r"
+    help: "Set the HDCP version for the specified HDMI input or output."
+    params:
+      port:
+        type: string
+        required: true
+        default: HDMI1
+        label: HDMI Port
+        description: "HDMI1, HDMI2, etc."
+      version:
+        type: string
+        required: true
+        choices: ["1.4", "2.2", "none", "off"]
+        label: HDCP Version
+
+  press_display_button:
+    label: Press Display Button
+    send: "DisplayBtn{input} {action}\r"
+    help: "Send a display power command (on/off/toggle) tied to the HDMI input. Pro units only."
+    params:
+      input:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Input
+      action:
+        type: string
+        required: true
+        choices: [on, off, toggle]
+        label: Action
+
+  press_input_button:
+    label: Press Input Button
+    send: "InputBtn {action}\r"
+    help: "Emulate the front-panel INPUT button. Pro units only."
+    params:
+      action:
+        type: string
+        required: true
+        default: tog
+        choices: ["1", "2", "tog"]
+        label: Action
+
+  press_volume_button:
+    label: Press Volume Button
+    send: "VolumeBtn {direction}\r"
+    help: "Send a volume up or down step (±1). Pro units only."
+    params:
+      direction:
+        type: string
+        required: true
+        choices: [up, down]
+        label: Direction
+
+  trigger_cec:
+    label: Trigger CEC Command
+    send: "TrigCEC{output} {command}\r"
+    help: "Send a stored CEC command on the specified HDMI output."
+    params:
+      output:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 2
+        label: HDMI Output
+      command:
+        type: string
+        required: true
+        choices: [on, off, "vol+", "vol-"]
+        label: CEC Command
+
+  trigger_rs232:
+    label: Trigger RS-232 Command
+    send: "TrigRS232{port} {command}\r"
+    help: "Send a stored RS-232 command on the specified RS-232 port."
+    params:
+      port:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 6
+        label: RS-232 Port
+      command:
+        type: string
+        required: true
+        choices: [on, off, "vol+", "vol-"]
+        label: RS-232 Command
+
+responses:
+
+  # Type query: "at-omni-112"
+  - match: '^(at-omni-\S+)'
+    set: { device_type: "$1" }
+
+  # Version query: free-form text — capture the first token after "Version"
+  - match: '^Version\s+(\S+)'
+    set: { firmware: "$1" }
+
+  # Temperature: "System temperature: 114.80 F (46.00 C) Die temperature: ..."
+  - match: 'System temperature:\s+[\d.]+\s+F\s+\(([\d.]+)\s+C\)'
+    set: { temperature_c: "$1" }
+
+  # VideoActiveInput<N> <input>
+  - match: 'VideoActiveInput1\s+(\S+)'
+    set: { video_active_input_1: "$1" }
+  - match: 'VideoActiveInput2\s+(\S+)'
+    set: { video_active_input_2: "$1" }
+
+  # VideoActiveStatus<N> <active|inactive>
+  - match: 'VideoActiveStatus1\s+(\S+)'
+    set: { video_active_status_1: "$1" }
+  - match: 'VideoActiveStatus2\s+(\S+)'
+    set: { video_active_status_2: "$1" }
+
+  # AudioActiveInput<N> <input>
+  - match: 'AudioActiveInput1\s+(\S+)'
+    set: { audio_active_input_1: "$1" }
+  - match: 'AudioActiveInput2\s+(\S+)'
+    set: { audio_active_input_2: "$1" }
+
+  # AudioActiveStatus<N> <Active|Inactive>
+  - match: 'AudioActiveStatus1\s+(\S+)'
+    set: { audio_active_status_1: "$1" }
+  - match: 'AudioActiveStatus2\s+(\S+)'
+    set: { audio_active_status_2: "$1" }
+
+  # AudioMute<N> on|off
+  - match: 'AudioMute1\s+on'
+    set: { audio_mute_1: "true" }
+  - match: 'AudioMute1\s+off'
+    set: { audio_mute_1: "false" }
+  - match: 'AudioMute2\s+on'
+    set: { audio_mute_2: "true" }
+  - match: 'AudioMute2\s+off'
+    set: { audio_mute_2: "false" }
+
+  # AudioVolume<N> <level>
+  - match: 'AudioVolume1\s+(\d+)'
+    set: { audio_volume_1: "$1" }
+  - match: 'AudioVolume2\s+(\d+)'
+    set: { audio_volume_2: "$1" }
+
+  # AnalogPowerStatus<N> <active|inactive>
+  - match: 'AnalogPowerStatus1\s+active'
+    set: { analog_power_1: "true" }
+  - match: 'AnalogPowerStatus1\s+inactive'
+    set: { analog_power_1: "false" }
+  - match: 'AnalogPowerStatus2\s+active'
+    set: { analog_power_2: "true" }
+  - match: 'AnalogPowerStatus2\s+inactive'
+    set: { analog_power_2: "false" }
+
+polling:
+  interval: 30
+  queries:
+    - "Type\r"
+    - "Version\r"
+    - "Temperature\r"
+    - "VideoActiveInput1\r"
+    - "VideoActiveInput2\r"
+    - "VideoActiveStatus1\r"
+    - "VideoActiveStatus2\r"
+    - "AudioActiveInput1\r"
+    - "AudioActiveInput2\r"
+    - "AudioActiveStatus1\r"
+    - "AudioActiveStatus2\r"
+    - "AudioMute1 sta\r"
+    - "AudioMute2 sta\r"
+    - "AudioVolume1 sta\r"
+    - "AudioVolume2 sta\r"
+    - "AnalogPowerStatus1\r"
+    - "AnalogPowerStatus2\r"
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  push_state: true
+  initial_state:
+    device_type: "at-omni-122"
+    firmware: "2.0.6"
+    temperature_c: 46.0
+    video_active_input_1: "ip_input1"
+    video_active_input_2: "ip_input2"
+    video_active_status_1: "active"
+    video_active_status_2: "active"
+    audio_active_input_1: "1"
+    audio_active_input_2: "2"
+    audio_active_status_1: "Active"
+    audio_active_status_2: "Active"
+    audio_mute_1: false
+    audio_mute_2: false
+    audio_volume_1: 8
+    audio_volume_2: 8
+    analog_power_1: true
+    analog_power_2: true
+
+  delays:
+    command_response: 0.05
+
+  controls:
+    - type: indicator
+      key: device_type
+      label: Device Type
+    - type: indicator
+      key: firmware
+      label: Firmware
+    - type: indicator
+      key: temperature_c
+      label: Temperature (°C)
+    - type: indicator
+      key: video_active_input_1
+      label: Out 1 Source
+    - type: indicator
+      key: video_active_input_2
+      label: Out 2 Source
+    - type: indicator
+      key: video_active_status_1
+      label: Out 1 Video
+    - type: indicator
+      key: video_active_status_2
+      label: Out 2 Video
+    - type: toggle
+      key: audio_mute_1
+      label: Out 1 Mute
+    - type: toggle
+      key: audio_mute_2
+      label: Out 2 Mute
+    - type: slider
+      key: audio_volume_1
+      label: Out 1 Volume
+      min: 0
+      max: 15
+    - type: slider
+      key: audio_volume_2
+      label: Out 2 Volume
+      min: 0
+      max: 15
+    - type: toggle
+      key: analog_power_1
+      label: Out 1 Analog Power
+    - type: toggle
+      key: analog_power_2
+      label: Out 2 Analog Power
+
+  command_handlers:
+
+    # Identify, Reboot — no feedback per spec
+    - match: '^Identify\s*$'
+      handler: |
+        respond("")
+    - match: '^Reboot\s*$'
+      handler: |
+        respond("")
+
+    # Type
+    - match: '^Type\s*$'
+      handler: |
+        respond(f"{state['device_type']}\r\n")
+
+    # Version (optional argument ignored in sim)
+    - match: '^Version(?:\s+\S+)?\s*$'
+      handler: |
+        respond(f"Version {state['firmware']}\r\n")
+
+    # Temperature
+    - match: '^Temperature\s*$'
+      handler: |
+        c = state['temperature_c']
+        f = round(c * 9 / 5 + 32, 2)
+        respond(f"System temperature: {f} F ({c} C) Die temperature: {f + 33} F ({c + 18} C)\r\n")
+
+    # VideoInput<N> <stream>  (set route)
+    - match: '^VideoInput([12])\s+(\S+)\s*$'
+      handler: |
+        out = match.group(1)
+        stream = match.group(2)
+        if stream == "sta":
+            respond(f"VideoInput{out} {state.get('video_active_input_' + out, 'ip_input1')}\r\n")
+        else:
+            state[f"video_active_input_{out}"] = stream
+            state[f"video_active_status_{out}"] = "active"
+            respond(f"VideoInput{out} {stream} set\r\n")
+
+    # VideoActiveInput<N>, VideoActiveStatus<N>, AudioActiveInput<N>, AudioActiveStatus<N>
+    - match: '^VideoActiveInput([12])\s*$'
+      handler: |
+        out = match.group(1)
+        respond(f"VideoActiveInput{out} {state['video_active_input_' + out]}\r\n")
+    - match: '^VideoActiveStatus([12])\s*$'
+      handler: |
+        out = match.group(1)
+        respond(f"VideoActiveStatus{out} {state['video_active_status_' + out]}\r\n")
+    - match: '^AudioActiveInput([12])\s*$'
+      handler: |
+        out = match.group(1)
+        respond(f"AudioActiveInput{out} {state['audio_active_input_' + out]}\r\n")
+    - match: '^AudioActiveStatus([12])\s*$'
+      handler: |
+        out = match.group(1)
+        respond(f"AudioActiveStatus{out} {state['audio_active_status_' + out]}\r\n")
+
+    # AudioMute<N> on|off|sta
+    - match: '^AudioMute([12])\s+(on|off|sta)\s*$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        if val == "sta":
+            current = "on" if state[f'audio_mute_{out}'] else "off"
+            respond(f"AudioMute{out} {current}\r\n")
+        else:
+            state[f"audio_mute_{out}"] = (val == "on")
+            respond(f"AudioMute{out} {val} set\r\n")
+
+    # AudioVolume<N> <level>|sta
+    - match: '^AudioVolume([12])\s+(\S+)\s*$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        if val == "sta":
+            respond(f"AudioVolume{out} {state[f'audio_volume_{out}']}\r\n")
+        else:
+            try:
+                level = max(0, min(15, int(val)))
+                state[f"audio_volume_{out}"] = level
+                respond(f"AudioVolume{out} {level} set\r\n")
+            except ValueError:
+                respond("! Command not found\r\n")
+
+    # AudioInput<N> <input>|sta
+    - match: '^AudioInput([12])\s+(\S+)\s*$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        if val == "sta":
+            respond(f"AudioInput{out} {state[f'audio_active_input_{out}']}\r\n")
+        else:
+            state[f"audio_active_input_{out}"] = val
+            respond(f"AudioInput{out} {val} set\r\n")
+
+    # AudioSource<N> <src>
+    - match: '^AudioSource(\d+)\s+(\S+)\s*$'
+      handler: |
+        s = match.group(1)
+        v = match.group(2)
+        respond(f"AudioSource{s} {v} set\r\n")
+
+    # AudioEnable<N>, VideoEnable<N>
+    - match: '^(Audio|Video)Enable(\d+)\s+(on|off|sta)\s*$'
+      handler: |
+        kind = match.group(1)
+        s = match.group(2)
+        v = match.group(3)
+        if v == "sta":
+            respond(f"{kind}Enable{s} on\r\n")
+        else:
+            respond(f"{kind}Enable{s} {v} set\r\n")
+
+    # AudioToBackup, AudioToPrimary, VideoToBackup, VideoToPrimary
+    - match: '^(Audio|Video)To(Backup|Primary)([12])\s*$'
+      handler: |
+        kind = match.group(1)
+        which = match.group(2)
+        out = match.group(3)
+        respond(f"{kind}To{which}{out} set\r\n")
+
+    # AnalogPowerEnable<N> on|off|sta
+    - match: '^AnalogPowerEnable([12])\s+(on|off|sta)\s*$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        if val == "sta":
+            respond(f"AnalogPowerEnable{out} {'on' if state[f'analog_power_{out}'] else 'off'}\r\n")
+        else:
+            state[f"analog_power_{out}"] = (val == "on")
+            respond(f"AnalogPowerEnable{out} {val} set\r\n")
+
+    # AnalogPowerStatus<N>
+    - match: '^AnalogPowerStatus([12])\s*$'
+      handler: |
+        out = match.group(1)
+        respond(f"AnalogPowerStatus{out} {'active' if state[f'analog_power_{out}'] else 'inactive'}\r\n")
+
+    # HDCPSet HDMI<N> <ver>
+    - match: '^HDCPSet\s*(HDMI\d+|\d+)\s+(\S+)\s*$'
+      handler: |
+        port = match.group(1)
+        ver = match.group(2)
+        respond(f"HDCPSet {port} {ver} set\r\n")
+
+    # DisplayBtn<N> on|off|toggle
+    - match: '^DisplayBtn([12])\s+(on|off|toggle)\s*$'
+      handler: |
+        i = match.group(1)
+        v = match.group(2)
+        respond(f"DisplayBtn{i} {v} set\r\n")
+
+    # InputBtn 1|2|tog
+    - match: '^InputBtn\s+(1|2|tog)\s*$'
+      handler: |
+        v = match.group(1)
+        respond(f"InputBtn {v} set\r\n")
+
+    # VolumeBtn up|down
+    - match: '^VolumeBtn\s+(up|down)\s*$'
+      handler: |
+        d = match.group(1)
+        for out in (1, 2):
+            cur = state.get(f'audio_volume_{out}', 8)
+            state[f'audio_volume_{out}'] = max(0, min(15, cur + (1 if d == 'up' else -1)))
+        respond(f"VolumeBtn {d} set\r\n")
+
+    # TrigCEC<N> <cmd>
+    - match: '^TrigCEC([12])\s+(\S+)\s*$'
+      handler: |
+        out = match.group(1)
+        v = match.group(2)
+        respond(f"TrigCEC{out} {v} set\r\n")
+
+    # TrigRS232<N> <cmd>
+    - match: '^TrigRS232(\d+)\s+(\S+)\s*$'
+      handler: |
+        port = match.group(1)
+        v = match.group(2)
+        respond(f"TrigRS232{port} {v} set\r\n")
+
+    # Catch-all unknown command — must stay last
+    - match: '.+'
+      handler: |
+        respond("! Command not found\r\n")
+
+  error_modes:
+    communication_timeout:
+      description: "Device stops responding to commands"
+      behavior: no_response
+    auth_required:
+      description: "IPLogin enabled — device requires Telnet authentication"
+      behavior: no_response

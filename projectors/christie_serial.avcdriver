@@ -1,0 +1,696 @@
+# Christie Serial API Projector Driver
+#
+# Controls Christie commercial projectors that share the Christie Serial API
+# protocol over TCP. The protocol uses bracket-framed ASCII messages:
+#   SET     (CODE VALUE)\r          e.g. (PWR 1)\r
+#   QUERY   (CODE?)\r               e.g. (PWR?)\r
+#   REPLY   (CODE!VALUE)\r          e.g. (PWR!1)\r
+#   SUBCODE (CODE+SUB VALUE)\r      e.g. (FTB+SLCT 0)\r
+#
+# Push vs poll: POLL-ONLY. Christie's serial API is request/response. The
+# spec defines $/&/# acknowledgement modifiers but no subscription /
+# notification / event push for state changes. The driver issues
+# periodic queries for power, shutter, brightness, contrast, freeze,
+# orientation, hours, lamp mode and lamp intensity, FTB state, test
+# pattern, and pulls model + firmware once on connect.
+#
+# Auth: Christie Serial API has no per-connection authentication on
+# TCP 3002 by default. Some installations gate access via the
+# projector's admin user pin in the on-screen menu — that does not
+# affect the TCP control channel.
+#
+# Protocol reference: M Series Serial API Commands Technical Reference
+# 020-100224-11 (Christie Digital, 2016). The same command set is shared
+# in large part by the J, HS, H, GS, G, and E series.
+
+id: christie_serial
+name: Christie Projector
+manufacturer: Christie
+category: projector
+version: 1.0.0
+author: OpenAVC
+description: >-
+  Controls Christie commercial projectors using the Christie Serial API
+  on TCP 3002. Supports the M, J, HS, H, GS, G, and E series families
+  and their derivatives. Power, shutter, fade-to-black, input select,
+  test patterns, brightness/contrast, freeze, orientation, lamp mode,
+  lamp intensity, and lens focus. Polls for status; the projector also
+  reports model, firmware, and projector hours.
+
+source_url: https://www.christiedigital.com/globalassets/resources/public/020-100224-11-christie-lit-tech-ref-m-series-serial-commands.pdf
+tags: [projector, christie, serial-api, large-venue]
+verified: false
+simulated: true
+ports: [3002]
+min_platform_version: 0.6.0
+compatible_models:
+  - manufacturer: Christie
+    models:
+      - M Series HD
+      - M Series WUXGA
+      - M Series HD20K-J
+      - M Series WUXGA-J
+      - J Series
+      - HS Series
+      - H Series
+      - GS Series
+      - G Series
+      - E Series
+      - Roadie HD+30K
+      - Roadie HD+35K
+      - Roadie 4K35
+      - Roadie 4K45
+    confidence: untested
+    notes: >-
+      All series share the same (CODE) message format and the core power /
+      shutter / input / image controls. Series-specific features (e.g.
+      laser-light controls on HS, lens-shift codes on GS) are not exposed
+      here; use send_command with the series' published command list when
+      needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie
+      API and require a different driver — they are not covered here.
+
+transport: tcp
+delimiter: "\r"
+
+help:
+  overview: >-
+    Christie commercial projectors that speak the Christie Serial API
+    (M Series, J Series, HS / H Series, GS / G Series, E Series, Roadie).
+    Power, shutter, fade-to-black, input select, brightness, contrast,
+    freeze, orientation, test patterns, lamp mode, lamp intensity, and
+    lens focus. Polls every 30 seconds for status. For commands not
+    exposed here, use Send Raw Command — the full command list is in
+    the Christie Serial API Technical Reference for your projector
+    series.
+  setup: >-
+    1. Connect the projector to your network.
+    2. On the projector menu, enable Ethernet and note the IP address.
+    3. The Christie Serial API listens on TCP 3002 by default and does
+       not require authentication.
+    4. Set the projector's "Serial Mode" / "Serial API" to enabled if
+       it is not already on. (M Series MENU > Configuration >
+       Communications > Network Settings.)
+    5. The Input Select command takes a two-digit slot+input code
+       (e.g. 12 = slot 1 input 2). The slot/input map is on the back
+       panel of the projector.
+
+default_config:
+  host: ""
+  port: 3002
+  poll_interval: 30
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: Projector IP address (Configuration > Communications)
+  port:
+    type: integer
+    default: 3002
+    label: TCP Port
+    description: Default 3002 for the Christie Serial API
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+
+state_variables:
+  power_state:
+    type: integer
+    label: Power State
+    description: >-
+      0=Standby, 1=On, 10=Cooling, 11=Warming, 20-22=Auto-shutdown,
+      23=Emergency shutdown
+  shutter_state:
+    type: integer
+    label: Shutter
+    description: 0=Open, 1=Closed
+  fade_to_black:
+    type: integer
+    label: Fade to Black
+    description: 0=Image, 1=Black
+  selected_input:
+    type: string
+    label: Selected Input
+    description: Slot+input two-digit code (e.g. 12 = slot 1 input 2)
+  brightness:
+    type: integer
+    label: Brightness
+    description: -1000 to 1000
+  contrast:
+    type: integer
+    label: Contrast
+    description: -1000 to 1000
+  freeze_state:
+    type: integer
+    label: Freeze
+    description: 0=Live, 1=Frozen
+  orientation:
+    type: integer
+    label: Screen Orientation
+    description: 0=Front, 1=Rear, 2=Front-inverted, 3=Rear-inverted
+  test_pattern:
+    type: integer
+    label: Test Pattern
+    description: 0=Off, 1=Grid, 2=Grayscale16, 3=White, 4=FlatGrey, 5=Black, 6=Checker, 7=13Point, 8=ColorBars, 11=AspectRatio, 12=EdgeBlend, 14=Boresight
+  lamp_mode:
+    type: integer
+    label: Lamp Mode
+  lamp_intensity:
+    type: integer
+    label: Lamp Intensity
+  projector_hours:
+    type: integer
+    label: Projector Hours
+  health_state:
+    type: string
+    label: Projector Health
+    description: SST+HLTH descriptive payload
+  model_name:
+    type: string
+    label: Model
+  firmware_version:
+    type: string
+    label: Firmware Version
+
+commands:
+  # ── Power ──
+  power_on:
+    label: Power On
+    send: "(PWR 1)\r"
+
+  power_off:
+    label: Power Off (to Standby)
+    send: "(PWR 0)\r"
+
+  query_power:
+    label: Query Power
+    send: "(PWR?)\r"
+
+  # ── Shutter ──
+  shutter_open:
+    label: Open Shutter
+    send: "(SHU 0)\r"
+
+  shutter_close:
+    label: Close Shutter
+    send: "(SHU 1)\r"
+
+  query_shutter:
+    label: Query Shutter
+    send: "(SHU?)\r"
+
+  # ── Fade to Black ──
+  fade_to_black:
+    label: Fade to Black
+    send: "(FTB+SLCT 0)\r"
+
+  fade_back_to_image:
+    label: Fade Back to Image
+    send: "(FTB+SLCT 1)\r"
+
+  set_fade_time:
+    label: Set Fade Time (ms)
+    send: "(FTB+TIME {ms})\r"
+    params:
+      ms:
+        type: integer
+        label: Fade Time (milliseconds)
+        min: 0
+
+  # ── Input select ──
+  select_input:
+    label: Select Input
+    send: "(SIN {code})\r"
+    params:
+      code:
+        type: string
+        label: Slot+Input Code
+        description: >-
+          Two-digit slot+input code. e.g. 12 = slot 1 input 2,
+          45 = slot 4 input 5.
+
+  select_main_input:
+    label: Select Main Input
+    send: "(SIN+MAIN {code})\r"
+    params:
+      code:
+        type: string
+        label: Slot+Input Code
+
+  select_pip_input:
+    label: Select PIP Input
+    send: "(SIN+PIIP {code})\r"
+    params:
+      code:
+        type: string
+        label: Slot+Input Code
+
+  query_input:
+    label: Query Input
+    send: "(SIN?)\r"
+
+  # ── Image ──
+  set_brightness:
+    label: Set Brightness
+    send: "(BRT {value})\r"
+    params:
+      value:
+        type: integer
+        label: Brightness (-1000..1000)
+        min: -1000
+        max: 1000
+
+  set_contrast:
+    label: Set Contrast
+    send: "(CON {value})\r"
+    params:
+      value:
+        type: integer
+        label: Contrast (-1000..1000)
+        min: -1000
+        max: 1000
+
+  freeze:
+    label: Freeze Image
+    send: "(FRZ 1)\r"
+
+  unfreeze:
+    label: Unfreeze Image
+    send: "(FRZ 0)\r"
+
+  set_orientation:
+    label: Set Screen Orientation
+    send: "(SOR {value})\r"
+    params:
+      value:
+        type: integer
+        label: Orientation
+        description: 0=Front, 1=Rear, 2=Front-inverted, 3=Rear-inverted
+        min: 0
+        max: 3
+
+  show_test_pattern:
+    label: Show Test Pattern
+    send: "(ITP {value})\r"
+    params:
+      value:
+        type: integer
+        label: Test Pattern
+        description: 0=Off, 1=Grid, 2=Grayscale16, 3=White, 4=FlatGrey, 5=Black, 6=Checker, 7=13Point, 8=ColorBars, 11=AspectRatio, 12=EdgeBlend, 14=Boresight
+        min: 0
+
+  hide_test_pattern:
+    label: Hide Test Pattern
+    send: "(ITP 0)\r"
+
+  # ── Lamp ──
+  set_lamp_mode:
+    label: Set Lamp Mode
+    send: "(LPM {value})\r"
+    params:
+      value:
+        type: integer
+        label: Lamp Mode
+
+  set_lamp_intensity:
+    label: Set Lamp Intensity
+    send: "(LPI {value})\r"
+    params:
+      value:
+        type: integer
+        label: Lamp Intensity
+
+  query_lamp_mode:
+    label: Query Lamp Mode
+    send: "(LPM?)\r"
+
+  # ── Lens ──
+  set_lens_focus:
+    label: Set Lens Focus
+    send: "(FCS {value})\r"
+    params:
+      value:
+        type: integer
+        label: Focus Position
+
+  lens_move:
+    label: Lens Move (raw axis)
+    send: "(LMV+{axis} {value})\r"
+    params:
+      axis:
+        type: string
+        label: Axis Subcode
+        description: Common values - HOFS (horizontal offset), VOFS (vertical offset), SAVE (save position)
+      value:
+        type: integer
+        label: Position / direction value
+
+  # ── Status queries ──
+  query_health:
+    label: Query Health
+    send: "(SST+HLTH?)\r"
+
+  query_alarms:
+    label: Query Alarms
+    send: "(SST+ALRM?)\r"
+
+  query_temperature:
+    label: Query Temperature
+    send: "(SST+TEMP?)\r"
+
+  query_lamp:
+    label: Query Lamp Status
+    send: "(SST+LAMP?)\r"
+
+  query_versions:
+    label: Query Versions
+    send: "(SST+VERS?)\r"
+
+  query_config:
+    label: Query Configuration
+    send: "(SST+CONF?)\r"
+
+  query_hours:
+    label: Query Projector Hours
+    send: "(PJH?)\r"
+
+  # ── Raw escape hatch ──
+  send_command:
+    label: Send Raw Command
+    send: "{raw}\r"
+    params:
+      raw:
+        type: string
+        label: Raw Command
+        description: >-
+          Full Christie message including parentheses, e.g. "(PWR 1)" or
+          "(SST+HLTH?)". The driver appends the trailing carriage return.
+          Use this for series-specific commands not exposed elsewhere.
+
+# Christie's reply format is (CODE!VALUE) with various flavours. We
+# unwrap any leading "(" before matching since some firmware echoes the
+# request line first then the reply, and the line framing may include
+# both on the same delimiter.
+responses:
+  - match: '\(PWR!(-?\d+)\)'
+    set: { power_state: "$1" }
+
+  - match: '\(SHU!(-?\d+)\)'
+    set: { shutter_state: "$1" }
+
+  - match: '\(FTB\+SLCT!(-?\d+)\)'
+    set: { fade_to_black: "$1" }
+
+  - match: '\(SIN!(\S+)\)'
+    set: { selected_input: "$1" }
+
+  - match: '\(SIN\+MAIN!(\S+)\)'
+    set: { selected_input: "$1" }
+
+  - match: '\(BRT!(-?\d+)\)'
+    set: { brightness: "$1" }
+
+  - match: '\(BRT\+MAIN!(-?\d+)\)'
+    set: { brightness: "$1" }
+
+  - match: '\(CON!(-?\d+)\)'
+    set: { contrast: "$1" }
+
+  - match: '\(CON\+MAIN!(-?\d+)\)'
+    set: { contrast: "$1" }
+
+  - match: '\(FRZ!(-?\d+)\)'
+    set: { freeze_state: "$1" }
+
+  - match: '\(FRZ\+MAIN!(-?\d+)\)'
+    set: { freeze_state: "$1" }
+
+  - match: '\(SOR!(-?\d+)\)'
+    set: { orientation: "$1" }
+
+  - match: '\(ITP!(-?\d+)\)'
+    set: { test_pattern: "$1" }
+
+  - match: '\(LPM!(-?\d+)\)'
+    set: { lamp_mode: "$1" }
+
+  - match: '\(LPI!(-?\d+)\)'
+    set: { lamp_intensity: "$1" }
+
+  - match: '\(PJH!(-?\d+)\)'
+    set: { projector_hours: "$1" }
+
+  # SST+HLTH format: (SST+HLTH!P1 P2 "value" "description") — capture description
+  - match: '\(SST\+HLTH!(.+)\)'
+    set: { health_state: "$1" }
+
+  # SST+CONF format: (SST+CONF!"model" "serial" "build_date" ...)
+  - match: '\(SST\+CONF!"([^"]+)"'
+    set: { model_name: "$1" }
+
+  # SST+VERS first quoted field is firmware
+  - match: '\(SST\+VERS!"([^"]+)"'
+    set: { firmware_version: "$1" }
+
+polling:
+  interval: 30
+  queries:
+    - "(PWR?)\r"
+    - "(SHU?)\r"
+    - "(FTB+SLCT?)\r"
+    - "(SIN+MAIN?)\r"
+    - "(BRT+MAIN?)\r"
+    - "(CON+MAIN?)\r"
+    - "(FRZ+MAIN?)\r"
+    - "(SOR?)\r"
+    - "(ITP?)\r"
+    - "(LPM?)\r"
+    - "(LPI?)\r"
+    - "(PJH?)\r"
+    - "(SST+HLTH?)\r"
+
+# Pull model + firmware once on connect
+on_connect:
+  - "(SST+CONF?)\r"
+  - "(SST+VERS?)\r"
+
+# ── Simulator ──
+simulator:
+  initial_state:
+    power_state: 0
+    shutter_state: 1
+    fade_to_black: 0
+    selected_input: "11"
+    brightness: 0
+    contrast: 0
+    freeze_state: 0
+    orientation: 0
+    test_pattern: 0
+    lamp_mode: 0
+    lamp_intensity: 100
+    projector_hours: 1234
+    health_state: '000 000 "0" "OK"'
+    model_name: "M Series Sim"
+    firmware_version: "1.0.0"
+
+  # The Christie protocol is paren-framed with optional trailing \r.
+  # Strip the parens before regex-matching so each handler can write a
+  # clean pattern.
+  command_handlers:
+    # Power set: (PWR 0|1)
+    - match: '\(PWR\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["power_state"] = int(v)
+        respond("(PWR!" + str(v).zfill(3) + ")\r")
+
+    # Power query: (PWR?)
+    - match: '\(PWR\?\)'
+      handler: |
+        respond("(PWR!" + str(state["power_state"]).zfill(3) + ")\r")
+
+    # Shutter
+    - match: '\(SHU\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["shutter_state"] = int(v)
+        respond("(SHU!" + str(v) + ")\r")
+
+    - match: '\(SHU\?\)'
+      handler: |
+        respond("(SHU!" + str(state["shutter_state"]) + ")\r")
+
+    # Fade to black
+    - match: '\(FTB\+SLCT\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["fade_to_black"] = int(v)
+        respond("(FTB+SLCT!" + str(v) + ")\r")
+
+    - match: '\(FTB\+SLCT\?\)'
+      handler: |
+        respond("(FTB+SLCT!" + str(state["fade_to_black"]) + ")\r")
+
+    - match: '\(FTB\+TIME\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        respond("(FTB+TIME!" + str(v) + ")\r")
+
+    # Input select
+    - match: '\(SIN(?:\+MAIN)?\s+(\S+)\)'
+      handler: |
+        v = match.group(1)
+        state["selected_input"] = v
+        respond("(SIN+MAIN!" + v + ")\r")
+
+    - match: '\(SIN\+PIIP\s+(\S+)\)'
+      handler: |
+        v = match.group(1)
+        respond("(SIN+PIIP!" + v + ")\r")
+
+    - match: '\(SIN\?\)|\(SIN\+MAIN\?\)'
+      handler: |
+        respond("(SIN+MAIN!" + str(state["selected_input"]) + ")\r")
+
+    # Brightness / contrast
+    - match: '\(BRT(?:\+MAIN)?\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["brightness"] = int(v)
+        respond("(BRT+MAIN!" + str(v).zfill(4) + ")\r")
+
+    - match: '\(BRT\?\)|\(BRT\+MAIN\?\)'
+      handler: |
+        respond("(BRT+MAIN!" + str(state["brightness"]).zfill(4) + ")\r")
+
+    - match: '\(CON(?:\+MAIN)?\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["contrast"] = int(v)
+        respond("(CON+MAIN!" + str(v).zfill(4) + ")\r")
+
+    - match: '\(CON\?\)|\(CON\+MAIN\?\)'
+      handler: |
+        respond("(CON+MAIN!" + str(state["contrast"]).zfill(4) + ")\r")
+
+    # Freeze
+    - match: '\(FRZ(?:\+MAIN)?\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["freeze_state"] = int(v)
+        respond("(FRZ+MAIN!" + str(v) + ")\r")
+
+    - match: '\(FRZ\?\)|\(FRZ\+MAIN\?\)'
+      handler: |
+        respond("(FRZ+MAIN!" + str(state["freeze_state"]) + ")\r")
+
+    # Orientation
+    - match: '\(SOR\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["orientation"] = int(v)
+        respond("(SOR!" + str(v) + ")\r")
+
+    - match: '\(SOR\?\)'
+      handler: |
+        respond("(SOR!" + str(state["orientation"]) + ")\r")
+
+    # Test pattern
+    - match: '\(ITP\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["test_pattern"] = int(v)
+        respond("(ITP!" + str(v).zfill(3) + ")\r")
+
+    - match: '\(ITP\?\)'
+      handler: |
+        respond("(ITP!" + str(state["test_pattern"]).zfill(3) + ")\r")
+
+    # Lamp mode / intensity
+    - match: '\(LPM\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["lamp_mode"] = int(v)
+        respond("(LPM!" + str(v) + ")\r")
+
+    - match: '\(LPM\?\)'
+      handler: |
+        respond("(LPM!" + str(state["lamp_mode"]) + ")\r")
+
+    - match: '\(LPI\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        state["lamp_intensity"] = int(v)
+        respond("(LPI!" + str(v).zfill(3) + ")\r")
+
+    - match: '\(LPI\?\)'
+      handler: |
+        respond("(LPI!" + str(state["lamp_intensity"]).zfill(3) + ")\r")
+
+    # Lens
+    - match: '\(FCS\s+(-?\d+)\)'
+      handler: |
+        v = match.group(1)
+        respond("(FCS!" + str(v) + ")\r")
+
+    - match: '\(LMV\+(\w+)\s+(-?\d+)\)'
+      handler: |
+        sub = match.group(1)
+        v = match.group(2)
+        respond("(LMV+" + sub + "!" + str(v) + ")\r")
+
+    # Hours
+    - match: '\(PJH\?\)'
+      handler: |
+        respond("(PJH!" + str(state["projector_hours"]).zfill(6) + ")\r")
+
+    # SST family
+    - match: '\(SST\+HLTH\?\)'
+      handler: |
+        respond("(SST+HLTH!" + str(state["health_state"]) + ")\r")
+
+    - match: '\(SST\+CONF\?\)'
+      handler: |
+        respond('(SST+CONF!"' + str(state["model_name"]) + '" "SN-12345" "2024-01-15")\r')
+
+    - match: '\(SST\+VERS\?\)'
+      handler: |
+        respond('(SST+VERS!"' + str(state["firmware_version"]) + '" "BL-1.2" "FPGA-3.4")\r')
+
+    - match: '\(SST\+ALRM\?\)'
+      handler: |
+        respond('(SST+ALRM!000 000 "0" "No alarms")\r')
+
+    - match: '\(SST\+TEMP\?\)'
+      handler: |
+        respond('(SST+TEMP!000 000 "32.5" "Inlet")\r')
+
+    - match: '\(SST\+LAMP\?\)'
+      handler: |
+        respond('(SST+LAMP!000 000 "OK" "Lamp 1")\r')
+
+    - match: '\(SST\+COOL\?\)'
+      handler: |
+        respond('(SST+COOL!000 000 "OK" "Fans nominal")\r')
+
+    - match: '\(SST\+SIGN\?\)'
+      handler: |
+        respond('(SST+SIGN!000 000 "1080p60" "Stable")\r')
+
+    - match: '\(SST\+SYST\?\)'
+      handler: |
+        respond('(SST+SYST!000 000 "ON" "Operational")\r')
+
+    # Catch-all: ignore any other bracket-framed message and return nothing.
+    # Real projectors return an error; for the simulator, silence is fine.
+    - match: '\(.+\)'
+      handler: |
+        pass

@@ -1,13 +1,67 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T18:21:31+00:00",
+    "generated_at": "2026-04-30T19:31:11+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 1,
+    "total_drivers": 2,
     "shards": null,
     "category": "power"
   },
   "drivers": [
+    {
+      "id": "racklink_rlnk",
+      "name": "Middle Atlantic RackLink PDU",
+      "manufacturer": "Middle Atlantic",
+      "category": "power",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Middle Atlantic / Legrand RackLink RLNK power distribution units (Select, Premium, Premium+) over the RackLink Control Protocol on TCP port 60000. Outlet and dry-contact control, sequencing, naming, EPO, and live voltage / current / temperature / wattage telemetry. Premium models push unsolicited status changes; Select models fall back to polling.",
+      "source_url": "https://shop.exertis.no/sv-SE/Product/112284/Link/66906/RLNK-Series-Protocol.pdf",
+      "file": "power/racklink_rlnk.py",
+      "format": "python",
+      "ports": [
+        60000
+      ],
+      "protocols": [
+        "racklink-control-protocol"
+      ],
+      "simulated": true,
+      "tags": [
+        "pdu",
+        "power",
+        "outlet-control",
+        "rack",
+        "legrand"
+      ],
+      "help": {
+        "overview": "RackLink is the Middle Atlantic (now Legrand AV) family of network-controlled rack PDUs commonly installed in commercial AV racks. The driver speaks the binary RackLink Control Protocol so macros can switch outlets on / off, cycle outlets to power-cycle frozen gear, sequence the rack up / down, and (on Premium / Premium+ units) read live telemetry.",
+        "setup": "1. Connect the PDU to your network via Ethernet.\n2. Find the PDU's IP from the RackLink front panel or web UI.\n3. Log into the PDU's web UI as Administrator and set the passwords for Administrator, User, and Control Systems accounts. The control protocol is disabled until those passwords are set.\n4. On Premium+ models, enable the control protocol under Device Settings \u2192 Network Services \u2192 Control Protocol, and enter a username for an admin account that has the control protocol enabled.\n5. Enter the IP, port 60000, and credentials in the device config in OpenAVC. Default Select / Premium credentials are user / password (whatever was set in step 3)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Middle Atlantic",
+          "models": [
+            "RLNK-215",
+            "RLNK-415",
+            "RLNK-515",
+            "RLNK-915",
+            "RLNK-915R",
+            "RLNK-P415",
+            "RLNK-P420",
+            "RLNK-P420R",
+            "RLNK-P915",
+            "RLNK-P915R",
+            "RLNK-P920",
+            "RLNK-P920R",
+            "RLNK-P-DUO20",
+            "RLNK-P-DUO20HW"
+          ],
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
     {
       "id": "wattbox_ip",
       "name": "WattBox IP-Controlled PDU",

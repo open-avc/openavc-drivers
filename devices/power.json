@@ -1,13 +1,181 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T18:21:31+00:00",
+    "generated_at": "2026-04-30T19:31:11+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 10,
+    "total_devices": 24,
     "shards": null,
     "category": "power"
   },
   "devices": [
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-215",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-415",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-515",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-915",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-915R",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P-DUO20",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P-DUO20HW",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P415",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P420",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P420R",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P915",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P915R",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P920",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Middle Atlantic",
+      "model": "RLNK-P920R",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "racklink_rlnk",
+          "confidence": "untested",
+          "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
+        }
+      ]
+    },
     {
       "manufacturer": "WattBox",
       "model": "WB-300-IP-3",

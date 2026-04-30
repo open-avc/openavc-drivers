@@ -1,0 +1,144 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_devices": 12,
+    "shards": null,
+    "category": "camera"
+  },
+  "devices": [
+    {
+      "manufacturer": "BirdDog",
+      "model": "A200",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "A300",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "MAKI Ultra",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P100",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P110",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P120",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P200",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P240",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P400",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P4K",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "X1",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "X1 Ultra",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    }
+  ]
+}

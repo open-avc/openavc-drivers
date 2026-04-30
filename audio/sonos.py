@@ -156,12 +156,28 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers via the local UPnP API. "
             "Play/pause, volume, mute, track info, and transport control."
         ),
+        "source_url": "https://sonos.svrooij.io/services/",
+        "tags": ["speaker", "wireless-audio", "background-music", "upnp"],
+        "verified": True,
+        "simulated": True,
+        "ports": [1400],
+        "compatible_models": [
+            {
+                "manufacturer": "Sonos",
+                "models": [
+                    "Sonos S1 platform speakers",
+                    "Sonos S2 platform speakers",
+                ],
+                "confidence": "full",
+                "notes": "UPnP API stable across all Sonos models.",
+            },
+        ],
         "transport": "http",
         "help": {
             "overview": (

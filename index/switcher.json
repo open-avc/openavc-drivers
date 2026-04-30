@@ -1,0 +1,104 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 2,
+    "shards": null,
+    "category": "switcher"
+  },
+  "drivers": [
+    {
+      "id": "extron_sis",
+      "name": "Extron SIS Protocol",
+      "manufacturer": "Extron",
+      "category": "switcher",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
+      "source_url": "https://www.extron.com/article/sisseries",
+      "file": "switchers/extron_sis.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "extron_sis"
+      ],
+      "simulated": true,
+      "tags": [
+        "matrix-switcher",
+        "scaler",
+        "distribution-amplifier",
+        "sis",
+        "generic"
+      ],
+      "help": {
+        "overview": "Universal control for Extron products using the SIS protocol. Works with 200+ products including crosspoint matrix switchers, presentation switchers, scalers, distribution amplifiers, and DSPs.\n",
+        "setup": "1. Connect the Extron device to the network or via RS-232 (9600 8N1). 2. For TCP control, set the device's IP address and use port 23 (default). 3. Extron recommends a 100ms delay between commands (pre-configured).\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Extron",
+          "models": [
+            "DXP Series matrix switchers",
+            "CrossPoint Series matrix switchers",
+            "IN Series presentation switchers",
+            "DSC Series scalers",
+            "DVS Series scalers",
+            "DTP Series transmitters and receivers",
+            "DA Series distribution amplifiers",
+            "DMP Series DSPs"
+          ],
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "id": "kramer_p3000",
+      "name": "Kramer Protocol 3000",
+      "manufacturer": "Kramer",
+      "category": "switcher",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000). Covers matrix switchers (VS series), scalers (VP series), distribution amplifiers, and Via wireless presentation systems.\n",
+      "source_url": "https://www.kramerav.com/support/protocols",
+      "file": "switchers/kramer_p3000.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        5000,
+        23
+      ],
+      "protocols": [
+        "kramer_p3000"
+      ],
+      "simulated": true,
+      "tags": [
+        "matrix-switcher",
+        "scaler",
+        "wireless-presentation",
+        "generic"
+      ],
+      "help": {
+        "overview": "Controls Kramer matrix switchers, scalers, distribution amplifiers, and Via wireless presentation systems via Protocol 3000. Common in corporate AV, education, and houses of worship.\n",
+        "setup": "1. Connect the switcher to the network via Ethernet. 2. Set the IP address via the front panel menu or Kramer Network. 3. Enter the IP address and port 5000 (default) in the device config. 4. Machine number defaults to 01. Change it if multiple Kramer units\n   share the same port.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Kramer",
+          "models": [
+            "VS Series matrix switchers",
+            "VM Series distribution amplifiers",
+            "VP Series scalers",
+            "Via wireless presentation systems"
+          ],
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    }
+  ]
+}

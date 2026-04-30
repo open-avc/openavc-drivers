@@ -85,13 +85,26 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
             "Supports transitions, input switching, audio, overlays, "
             "recording, streaming, titles, replay, and PTZ."
         ),
+        "source_url": "https://www.vmix.com/help29/TCPAPI.html",
+        "tags": ["video-production", "streaming", "switcher", "software"],
+        "verified": False,
+        "simulated": True,
+        "ports": [8099],
+        "compatible_models": [
+            {
+                "manufacturer": "StudioCoast",
+                "models": ["vMix"],
+                "confidence": "untested",
+                "notes": "Any vMix edition. Requires TCP API enabled in vMix settings.",
+            },
+        ],
         "transport": "tcp",
         "help": {
             "overview": (

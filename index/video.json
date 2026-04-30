@@ -1,0 +1,133 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 3,
+    "shards": null,
+    "category": "video"
+  },
+  "drivers": [
+    {
+      "id": "birddog_codec",
+      "name": "BirdDog NDI Encoder/Decoder",
+      "manufacturer": "BirdDog",
+      "category": "video",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
+      "source_url": "https://birddog.tv/AV/API/index.html",
+      "file": "video/birddog_codec.py",
+      "format": "python",
+      "ports": [
+        8080
+      ],
+      "simulated": true,
+      "tags": [
+        "ndi",
+        "encoder",
+        "decoder",
+        "video-distribution"
+      ],
+      "help": {
+        "overview": "Controls BirdDog NDI encoders and decoders \u2014 Mini, Flex, 4K HDMI, 4K SDI, Studio NDI, PLAY, Quad, and similar models.\n\nFor decoders: select which NDI source to display, cycle through available sources, and monitor the active source.\n\nFor encoders: monitor input status and NDI source name.\n\nNo external software, SDK, or runtime required.",
+        "setup": "1. Enter the device's IP address (find it via BirdDog Central or your network's DHCP table).\n2. Default port is 8080.\n3. No authentication is required.\n4. For decoders, use 'select_source' with the full NDI source name (e.g., 'BIRDDOG-P200 (Camera)').\n5. Use 'refresh_sources' to update the available source list."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BirdDog",
+          "models": [
+            "Mini",
+            "Flex Encode",
+            "Flex Decode",
+            "4K HDMI",
+            "4K SDI",
+            "Studio NDI",
+            "PLAY",
+            "Quad"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "novastar_h_series",
+      "name": "Novastar H Series Video Wall Splicer",
+      "manufacturer": "Novastar",
+      "category": "video",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
+      "source_url": "https://oss.novastar.tech/uploads/2023/02/H-Series-Video-Wall-Splicers-User-Manual-V1.8.0.pdf",
+      "file": "video/novastar_h_series.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        6000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.5.13",
+      "tags": [
+        "videowall",
+        "splicer",
+        "led-wall",
+        "video-processing"
+      ],
+      "help": {
+        "overview": "Controls Novastar H series LED video wall splicers. These processors manage LED wall layouts, input routing, presets, and screen settings. Common in large-format LED installations including houses of worship, corporate lobbies, broadcast studios, and live event stages.\n",
+        "setup": "1. Connect the processor to the network via Ethernet. 2. Set the processor's IP address via the front panel or web interface. 3. Enter the IP address and port 6000 (default) in the device config. 4. Device ID defaults to 0. If using multiple processors, set the\n   device_id config field to match each unit's ID.\n5. Screen ID defaults to 0. Set screen_id for multi-screen setups.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Novastar",
+          "models": [
+            "H2",
+            "H5",
+            "H9",
+            "H15",
+            "H20"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "vmix",
+      "name": "vMix",
+      "manufacturer": "StudioCoast",
+      "category": "video",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
+      "source_url": "https://www.vmix.com/help29/TCPAPI.html",
+      "file": "video/vmix.py",
+      "format": "python",
+      "ports": [
+        8099
+      ],
+      "simulated": true,
+      "tags": [
+        "video-production",
+        "streaming",
+        "switcher",
+        "software"
+      ],
+      "help": {
+        "overview": "Full control of vMix video production software. Supports input switching, transitions, audio mixing, overlays, recording/streaming, titles, replay, and PTZ cameras.",
+        "setup": "1. Open vMix and go to Settings > Web Controller\n2. Ensure the TCP API is enabled (default port 8099)\n3. Enter the vMix PC's IP address and port below\n4. Tally subscription is enabled by default for real-time program/preview tracking"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "StudioCoast",
+          "models": [
+            "vMix"
+          ],
+          "confidence": "untested",
+          "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
+        }
+      ]
+    }
+  ]
+}

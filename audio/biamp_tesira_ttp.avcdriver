@@ -25,13 +25,34 @@ id: biamp_tesira_ttp
 name: Biamp Tesira TTP
 manufacturer: Biamp
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Biamp Tesira and TesiraFORTE DSPs via the TTP
   (Tesira Text Protocol) over TCP port 23. Supports level control,
   mute, and preset recall. Configure Instance Tags to match your
   Tesira design file.
+
+source_url: https://support.biamp.com
+tags: [dsp, tesira, ttp, ceiling-mic]
+verified: false
+simulated: true
+protocols: [biamp_tesira]
+ports: [23]
+compatible_models:
+  - manufacturer: Biamp
+    models:
+      - Tesira SERVER
+      - Tesira SERVER-IO
+      - TesiraFORTE AVB
+      - TesiraFORTE CI
+      - TesiraFORTE DAN
+      - TesiraFORTE TI
+      - TesiraFORTE VI
+      - TesiraFORTE VT
+      - TesiraFORTE X
+    confidence: partial
+    notes: Driver supports level, mute, and preset recall — typical conferencing use.
 
 transport: tcp
 delimiter: "\r\n"

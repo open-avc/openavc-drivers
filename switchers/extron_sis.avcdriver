@@ -26,13 +26,33 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.2.1
+version: 1.3.0
 author: OpenAVC
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
   Covers crosspoint matrix switchers (DXP, CrossPoint), presentation
   switchers (IN Series), scalers (DSC, DVS), distribution amplifiers,
   and DSP products. Works over TCP (port 23) or RS-232 (9600 8N1).
+
+source_url: https://www.extron.com/article/sisseries
+tags: [matrix-switcher, scaler, distribution-amplifier, sis, generic]
+verified: false
+simulated: true
+protocols: [extron_sis]
+ports: [23]
+compatible_models:
+  - manufacturer: Extron
+    models:
+      - DXP Series matrix switchers
+      - CrossPoint Series matrix switchers
+      - IN Series presentation switchers
+      - DSC Series scalers
+      - DVS Series scalers
+      - DTP Series transmitters and receivers
+      - DA Series distribution amplifiers
+      - DMP Series DSPs
+    confidence: untested
+    notes: Any Extron product implementing the SIS protocol (~200 products).
 
 transport: tcp
 delimiter: "\r\n"

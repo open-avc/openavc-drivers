@@ -111,13 +111,39 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
             "Pan, tilt, zoom, focus, presets, exposure, white balance, "
             "tally, and NDI encode settings."
         ),
+        "source_url": "https://birddog.tv/AV/API/index.html",
+        "tags": ["ptz", "ndi", "camera", "visca"],
+        "verified": False,
+        "simulated": True,
+        "protocols": ["visca"],
+        "ports": [8080, 52381],
+        "compatible_models": [
+            {
+                "manufacturer": "BirdDog",
+                "models": [
+                    "P100",
+                    "P110",
+                    "P120",
+                    "P200",
+                    "P240",
+                    "P400",
+                    "P4K",
+                    "A200",
+                    "A300",
+                    "X1",
+                    "X1 Ultra",
+                    "MAKI Ultra",
+                ],
+                "confidence": "untested",
+            },
+        ],
         "transport": "http",
         "help": {
             "overview": (

@@ -1,0 +1,57 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 2,
+    "shards": null,
+    "category": "utility"
+  },
+  "drivers": [
+    {
+      "id": "generic_http",
+      "name": "Generic HTTP/REST Device",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Template driver for HTTP/REST-controlled devices. Supports JSON APIs with configurable authentication (none, basic, bearer, API key, digest) and optional HTTPS with self-signed certificate support.\n",
+      "source_url": "https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md",
+      "file": "utility/generic_http.avcdriver",
+      "format": "avcdriver",
+      "tags": [
+        "template",
+        "rest",
+        "custom"
+      ],
+      "help": {
+        "overview": "Template driver for controlling any device with an HTTP or REST API. Install this driver and add your own commands, state variables, and polling using the Driver Builder. Many modern AV devices expose REST APIs alongside traditional serial or TCP protocols.\n",
+        "setup": "1. Enter the device's IP address and HTTP port. 2. Configure authentication if the device requires it (basic, bearer,\n   API key, or digest).\n3. Enable HTTPS if the device uses TLS. Disable certificate verification\n   for self-signed certs (common on AV equipment).\n4. Use the Driver Builder to add commands and state variables for\n   your specific device.\n"
+      }
+    },
+    {
+      "id": "wake_on_lan",
+      "name": "Wake-on-LAN",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
+      "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
+      "file": "utility/wake_on_lan.py",
+      "format": "python",
+      "tags": [
+        "wol",
+        "magic-packet",
+        "power-on",
+        "generic"
+      ],
+      "help": {
+        "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
+        "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
+      }
+    }
+  ]
+}

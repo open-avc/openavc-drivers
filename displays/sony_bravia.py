@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony Bravia TVs and professional displays via the "
@@ -177,6 +177,24 @@ class SonyBraviaDriver(BaseDriver):
             "volume, mute, navigation, media transport, app launch. "
             "Covers Android TV, Google TV, and Pro Bravia models."
         ),
+        "source_url": "https://pro-bravia.sony.net/develop/integrate/rest-api/spec/",
+        "tags": ["tv", "display", "professional", "bravia"],
+        "verified": True,
+        "simulated": True,
+        "protocols": ["sony_bravia_rest"],
+        "ports": [80],
+        "compatible_models": [
+            {
+                "manufacturer": "Sony",
+                "models": [
+                    "Bravia Android TV",
+                    "Bravia Google TV",
+                    "Bravia Professional Display",
+                ],
+                "confidence": "full",
+                "notes": "Verified on production hardware.",
+            },
+        ],
         "transport": "http",
         "help": {
             "overview": (

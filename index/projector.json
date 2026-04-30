@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 2,
+    "shards": null,
+    "category": "projector"
+  },
+  "drivers": [
+    {
+      "id": "pjlink_class1",
+      "name": "PJLink Class 1 Projector",
+      "manufacturer": "Generic",
+      "category": "projector",
+      "version": "2.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls any PJLink Class 1 compatible projector.",
+      "source_url": "https://pjlink.jbmia.or.jp/english/",
+      "file": "projectors/pjlink_class1.py",
+      "format": "python",
+      "ports": [
+        4352
+      ],
+      "protocols": [
+        "pjlink"
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "pjlink",
+        "projector",
+        "generic"
+      ],
+      "help": {
+        "overview": "Universal projector control via the PJLink Class 1 standard. Works with 100+ models from Epson, NEC, Panasonic, Sony, Christie, Hitachi, BenQ, Optoma, Canon, and Vivitek.",
+        "setup": "1. Enable network control on the projector (varies by manufacturer)\n2. Assign a static IP address to the projector\n3. If authentication is enabled, set the PJLink password\n4. Default port is 4352 (PJLink standard)"
+      }
+    },
+    {
+      "id": "sharp_nec_projector",
+      "name": "Sharp NEC Projector",
+      "manufacturer": "Sharp NEC",
+      "category": "projector",
+      "version": "2.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
+      "source_url": "https://assets.sharpnecdisplays.us/documents/miscellaneous/pj-control-command-codes.pdf",
+      "file": "projectors/sharp_nec_projector.py",
+      "format": "python",
+      "ports": [
+        7142
+      ],
+      "protocols": [
+        "nec_binary"
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "projector",
+        "binary-protocol"
+      ],
+      "help": {
+        "overview": "Full-featured Sharp NEC projector control using the proprietary binary protocol on TCP port 7142. Power, input selection, picture/sound/OSD mute, freeze, shutter, volume, brightness, contrast, sharpness, aspect ratio, eco mode, lens control (zoom/focus/shift), lens memory presets, lamp/laser hours, filter hours, and detailed error status.",
+        "setup": "1. Connect the projector to the network\n2. Enable LAN control in the projector's network settings\n3. Assign a static IP address to the projector\n4. Default control port is 7142\n5. This driver can coexist with PJLink (port 4352)\n6. Set Standby Mode to 'Network Standby' or 'Sleep' to allow power-on via network\n7. Input terminal codes vary by model \u2014 unsupported inputs are rejected gracefully"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sharp NEC",
+          "models": [
+            "NP-PE456USL"
+          ],
+          "confidence": "full",
+          "notes": "Verified on hardware."
+        },
+        {
+          "manufacturer": "Sharp NEC",
+          "models": [
+            "P series projectors",
+            "PA series projectors",
+            "PE series projectors",
+            "PV series projectors",
+            "PX series projectors",
+            "ME series projectors",
+            "M series projectors"
+          ],
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    }
+  ]
+}

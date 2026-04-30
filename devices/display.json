@@ -1,0 +1,148 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_devices": 12,
+    "shards": null,
+    "category": "display"
+  },
+  "devices": [
+    {
+      "manufacturer": "Crestron",
+      "model": "DM NVX series (encoders and decoders)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "crestron_nvx",
+          "confidence": "untested",
+          "notes": "Any Crestron DM NVX endpoint via REST API."
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "LED Commercial series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_sicp",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "OLED Commercial series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_sicp",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "webOS Signage displays",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_sicp",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "WebOS TVs (2016+)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_webos",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "LED Commercial series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "SMART Signage Platform",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "Smart Signage series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "The Wall series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "Bravia Android TV",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sony_bravia",
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "Bravia Google TV",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sony_bravia",
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "Bravia Professional Display",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sony_bravia",
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    }
+  ]
+}

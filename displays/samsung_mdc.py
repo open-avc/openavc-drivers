@@ -86,12 +86,30 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
             "Display Control) binary protocol over TCP."
         ),
+        "source_url": "https://github.com/vgavro/samsung-mdc",
+        "tags": ["display", "signage", "mdc"],
+        "verified": False,
+        "simulated": True,
+        "protocols": ["samsung_mdc"],
+        "ports": [1515],
+        "compatible_models": [
+            {
+                "manufacturer": "Samsung",
+                "models": [
+                    "Smart Signage series",
+                    "The Wall series",
+                    "LED Commercial series",
+                    "SMART Signage Platform",
+                ],
+                "confidence": "untested",
+            },
+        ],
         "transport": "tcp",
         "help": {
             "overview": (

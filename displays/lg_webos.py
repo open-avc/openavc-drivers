@@ -87,9 +87,20 @@ class LgWebosDriver(BaseDriver):
         "name":         "LG WebOS",
         "manufacturer": "LG",
         "category":     "display",
-        "version":      "3.0.0",
+        "version":      "3.1.0",
         "author":       "Keaton Stacks",
         "description":  "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
+        "source_url":   "https://github.com/hobbyquaker/lgtv2",
+        "tags":         ["tv", "consumer", "webos", "ssap"],
+        "verified":     False,
+        "ports":        [3001],
+        "compatible_models": [
+            {
+                "manufacturer": "LG",
+                "models":       ["WebOS TVs (2016+)"],
+                "confidence":   "untested",
+            },
+        ],
         "transport":    "tcp",
 
         "discovery": {

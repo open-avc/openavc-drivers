@@ -1,0 +1,1124 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_devices": 97,
+    "shards": null
+  },
+  "devices": [
+    {
+      "manufacturer": "Audinate",
+      "model": "Dante Director Professional",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "dante_ddm",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audinate",
+      "model": "Dante Domain Manager",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "dante_ddm",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATDM-0604",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atdm_0604",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATDM-1012",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atdm_1012",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATDM-1012DAN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atdm_1012",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Compact",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Core",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Producer",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Rack",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Tesira SERVER",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Tesira SERVER-IO",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE AVB",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE CI",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE DAN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE TI",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE VI",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE VT",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE X",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "4K HDMI",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "4K SDI",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "A200",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "A300",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Flex Decode",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Flex Encode",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "MAKI Ultra",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Mini",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P100",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P110",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P120",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P200",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P240",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P400",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "P4K",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "PLAY",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Quad",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Studio NDI",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "X1",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "X1 Ultra",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "birddog_ptz",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "DM NVX series (encoders and decoders)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "crestron_nvx",
+          "confidence": "untested",
+          "notes": "Any Crestron DM NVX endpoint via REST API."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "CrossPoint Series matrix switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DA Series distribution amplifiers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DMP Series DSPs",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DSC Series scalers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP Series transmitters and receivers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DVS Series scalers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DXP Series matrix switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN Series presentation switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "Via wireless presentation systems",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "VM Series distribution amplifiers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "VP Series scalers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "VS Series matrix switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "LED Commercial series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_sicp",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "OLED Commercial series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_sicp",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "webOS Signage displays",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_sicp",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LG",
+      "model": "WebOS TVs (2016+)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "lg_webos",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32 LIVE",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32C",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32R",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H15",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H2",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H20",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H5",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H9",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 110f",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 510i",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 610",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 8 Flex",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core Nano",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Q-SYS Core series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "LED Commercial series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "SMART Signage Platform",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "Smart Signage series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
+      "model": "The Wall series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "M series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "ME series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "NP-PE456USL",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "full",
+          "notes": "Verified on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "P series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PA series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PE series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PV series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PX series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ANI22",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ANI4IN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ANI4OUT",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA710",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA910",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA920",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "P300 IntelliMix",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SCM820",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonos",
+      "model": "Sonos S1 platform speakers",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonos",
+          "confidence": "full",
+          "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonos",
+      "model": "Sonos S2 platform speakers",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonos",
+          "confidence": "full",
+          "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "Bravia Android TV",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sony_bravia",
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "Bravia Google TV",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sony_bravia",
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "Bravia Professional Display",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sony_bravia",
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "StudioCoast",
+      "model": "vMix",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "vmix",
+          "confidence": "untested",
+          "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
+        }
+      ]
+    }
+  ]
+}

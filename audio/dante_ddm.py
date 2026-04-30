@@ -86,13 +86,28 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
             "Requires Dante Domain Manager or Dante Director Professional. "
             "Discover devices, route/unroute audio channels, monitor subscriptions."
         ),
+        "source_url": "https://www.getdante.com/products/network-management/dante-managed-api/",
+        "tags": ["dante", "audio-routing", "graphql"],
+        "verified": False,
+        "simulated": True,
+        "ports": [443],
+        "compatible_models": [
+            {
+                "manufacturer": "Audinate",
+                "models": [
+                    "Dante Domain Manager",
+                    "Dante Director Professional",
+                ],
+                "confidence": "untested",
+            },
+        ],
         "transport": "http",
         "help": {
             "overview": (

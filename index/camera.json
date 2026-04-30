@@ -1,0 +1,63 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 1,
+    "shards": null,
+    "category": "camera"
+  },
+  "drivers": [
+    {
+      "id": "birddog_ptz",
+      "name": "BirdDog PTZ Camera",
+      "manufacturer": "BirdDog",
+      "category": "camera",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
+      "source_url": "https://birddog.tv/AV/API/index.html",
+      "file": "cameras/birddog_ptz.py",
+      "format": "python",
+      "ports": [
+        8080,
+        52381
+      ],
+      "protocols": [
+        "visca"
+      ],
+      "simulated": true,
+      "tags": [
+        "ptz",
+        "ndi",
+        "camera",
+        "visca"
+      ],
+      "help": {
+        "overview": "Controls any BirdDog PTZ camera \u2014 P100, P200, P240, P400, A200, A300, X1, MAKI, and newer models. Uses the built-in REST API for configuration and VISCA-over-UDP for real-time PTZ movement.\n\nNo external software, SDK, or runtime required.",
+        "setup": "1. Enter the camera's IP address (find it via the camera's on-screen display or BirdDog Central).\n2. Default REST port is 8080, VISCA port is 52381.\n3. No authentication is required.\n4. Use 'recall_preset' and 'save_preset' with preset numbers (1-255 depending on model)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BirdDog",
+          "models": [
+            "P100",
+            "P110",
+            "P120",
+            "P200",
+            "P240",
+            "P400",
+            "P4K",
+            "A200",
+            "A300",
+            "X1",
+            "X1 Ultra",
+            "MAKI Ultra"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    }
+  ]
+}

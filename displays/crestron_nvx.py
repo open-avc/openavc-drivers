@@ -40,13 +40,27 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "display",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Crestron DM NVX AV-over-IP encoders and decoders via "
             "the REST API. Supports device status, video/audio source selection, "
             "stream routing, and AV I/O monitoring."
         ),
+        "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
+        "tags": ["av-over-ip", "encoder", "decoder", "rest-api"],
+        "verified": False,
+        "simulated": True,
+        "protocols": ["crestron_cip"],
+        "ports": [1688, 80, 443],
+        "compatible_models": [
+            {
+                "manufacturer": "Crestron",
+                "models": ["DM NVX series (encoders and decoders)"],
+                "confidence": "untested",
+                "notes": "Any Crestron DM NVX endpoint via REST API.",
+            },
+        ],
         "transport": "http",
         "default_config": {
             "host": "",

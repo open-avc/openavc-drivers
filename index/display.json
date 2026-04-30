@@ -1,0 +1,206 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 5,
+    "shards": null,
+    "category": "display"
+  },
+  "drivers": [
+    {
+      "id": "crestron_nvx",
+      "name": "Crestron DM NVX",
+      "manufacturer": "Crestron",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",
+      "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
+      "file": "displays/crestron_nvx.py",
+      "format": "python",
+      "ports": [
+        1688,
+        80,
+        443
+      ],
+      "protocols": [
+        "crestron_cip"
+      ],
+      "simulated": true,
+      "tags": [
+        "av-over-ip",
+        "encoder",
+        "decoder",
+        "rest-api"
+      ],
+      "compatible_models": [
+        {
+          "manufacturer": "Crestron",
+          "models": [
+            "DM NVX series (encoders and decoders)"
+          ],
+          "confidence": "untested",
+          "notes": "Any Crestron DM NVX endpoint via REST API."
+        }
+      ]
+    },
+    {
+      "id": "lg_sicp",
+      "name": "LG SICP Display",
+      "manufacturer": "LG",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
+      "source_url": "https://www.christiedigital.com/globalassets/resources/public/fhd552-xb-rs232-sicp-guide.pdf",
+      "file": "displays/lg_sicp.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        9761
+      ],
+      "simulated": true,
+      "tags": [
+        "display",
+        "signage",
+        "sicp"
+      ],
+      "help": {
+        "overview": "Controls LG commercial displays via the SICP protocol. Supports power, input selection, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
+        "setup": "1. Connect the LG display to the network. 2. Default control port is 9761. 3. Set the Display ID (01-99, or 00 for broadcast to all displays).\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "LG",
+          "models": [
+            "webOS Signage displays",
+            "LED Commercial series",
+            "OLED Commercial series"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "lg_webos",
+      "name": "LG WebOS",
+      "manufacturer": "LG",
+      "category": "display",
+      "version": "3.1.0",
+      "author": "Keaton Stacks",
+      "transport": "tcp",
+      "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
+      "source_url": "https://github.com/hobbyquaker/lgtv2",
+      "file": "displays/lg_webos.py",
+      "format": "python",
+      "ports": [
+        3001
+      ],
+      "tags": [
+        "tv",
+        "consumer",
+        "webos",
+        "ssap"
+      ],
+      "help": {
+        "overview": "Controls LG WebOS televisions using the SSAP protocol over a secure WebSocket connection on port 3001.  Supports power, volume, input switching, and app launching.",
+        "setup": "Enable 'LG Connect Apps' or network control in the TV's General settings. A pairing prompt will appear on the TV screen on first connect. If the prompt does not appear, use the 'Force Pair' command."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "LG",
+          "models": [
+            "WebOS TVs (2016+)"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "samsung_mdc",
+      "name": "Samsung MDC Display",
+      "manufacturer": "Samsung",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP.",
+      "source_url": "https://github.com/vgavro/samsung-mdc",
+      "file": "displays/samsung_mdc.py",
+      "format": "python",
+      "ports": [
+        1515
+      ],
+      "protocols": [
+        "samsung_mdc"
+      ],
+      "simulated": true,
+      "tags": [
+        "display",
+        "signage",
+        "mdc"
+      ],
+      "help": {
+        "overview": "Controls Samsung commercial displays using the MDC binary protocol. Covers Smart Signage, The Wall, LED, and SMART Signage Platform series.",
+        "setup": "1. Connect the display to the network\n2. Enable MDC protocol in the display's network settings\n3. Default port is 1515\n4. Set the Display ID to match the display's configuration (default 1)"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Samsung",
+          "models": [
+            "Smart Signage series",
+            "The Wall series",
+            "LED Commercial series",
+            "SMART Signage Platform"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "sony_bravia",
+      "name": "Sony Bravia Display",
+      "manufacturer": "Sony",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
+      "source_url": "https://pro-bravia.sony.net/develop/integrate/rest-api/spec/",
+      "file": "displays/sony_bravia.py",
+      "format": "python",
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "sony_bravia_rest"
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "tv",
+        "display",
+        "professional",
+        "bravia"
+      ],
+      "help": {
+        "overview": "Controls Sony Bravia displays using the built-in REST API and IRCC remote emulation. Works with Android TV, Google TV, and Pro Bravia series from ~2013 onwards (W, X, Z, A, XR models).",
+        "setup": "1. Connect the TV to the network.\n2. On the TV, go to Settings > Network > Home Network Setup > IP Control.\n3. Set Authentication to 'Normal and Pre-Shared Key'.\n4. Set a Pre-Shared Key (e.g., '1234').\n5. Set Simple IP Control to 'On' (enables power-on over network).\n6. Enter the TV's IP address and PSK in the driver config."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sony",
+          "models": [
+            "Bravia Android TV",
+            "Bravia Google TV",
+            "Bravia Professional Display"
+          ],
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_devices": 14,
+    "shards": null,
+    "category": "video"
+  },
+  "devices": [
+    {
+      "manufacturer": "BirdDog",
+      "model": "4K HDMI",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "4K SDI",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Flex Decode",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Flex Encode",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Mini",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "PLAY",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Quad",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BirdDog",
+      "model": "Studio NDI",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "birddog_codec",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H15",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H2",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H20",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H5",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Novastar",
+      "model": "H9",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "novastar_h_series",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "StudioCoast",
+      "model": "vMix",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "vmix",
+          "confidence": "untested",
+          "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
+        }
+      ]
+    }
+  ]
+}

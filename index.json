@@ -1,435 +1,929 @@
 {
-    "version": "1.9.0",
-    "updated": "2026-04-24",
-    "drivers": [
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 23,
+    "shards": null
+  },
+  "drivers": [
+    {
+      "id": "dante_ddm",
+      "name": "Dante DDM / Director",
+      "manufacturer": "Audinate",
+      "category": "audio",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Discover devices, route/unroute audio channels, monitor subscriptions.",
+      "source_url": "https://www.getdante.com/products/network-management/dante-managed-api/",
+      "file": "audio/dante_ddm.py",
+      "format": "python",
+      "ports": [
+        443
+      ],
+      "simulated": true,
+      "tags": [
+        "dante",
+        "audio-routing",
+        "graphql"
+      ],
+      "help": {
+        "overview": "This driver connects to a Dante Domain Manager (DDM) or Dante Director Professional instance to control audio routing across all Dante devices on the network. It does NOT connect to individual Dante devices \u2014 the DDM/Director acts as the central management point.\n\nYou can route any transmit (Tx) channel to any receive (Rx) channel, clear routes, and monitor subscription status.",
+        "setup": "1. You need Dante Domain Manager (on-premise) or Dante Director Professional (cloud) \u2014 the Standard tier does not include API access.\n2. Generate an API key in the DDM/Director web UI.\n3. Enter the DDM/Director URL (e.g., https://ddm.local or the Director cloud URL).\n4. Enter the API key.\n5. Enter the Dante domain name to manage (shown in DDM/Director).\n6. Use the 'refresh' command to discover devices and channels."
+      },
+      "compatible_models": [
         {
-            "id": "behringer_x32",
-            "name": "Behringer X32 Digital Mixer",
-            "file": "audio/behringer_x32.avcdriver",
-            "format": "avcdriver",
-            "category": "audio",
-            "manufacturer": "Behringer",
-            "version": "1.2.0",
-            "author": "OpenAVC",
-            "transport": "osc",
-            "verified": false,
-            "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.",
-            "protocols": [],
-            "ports": [10023],
-            "simulated": true,
-            "min_platform_version": "0.6.0"
-        },
-        {
-            "id": "sharp_nec_projector",
-            "name": "Sharp NEC Projector",
-            "file": "projectors/sharp_nec_projector.py",
-            "format": "python",
-            "category": "projector",
-            "manufacturer": "Sharp NEC",
-            "version": "2.0.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": true,
-            "description": "Full-featured Sharp NEC projector control via the NEC binary protocol. Power, inputs, mutes, freeze, shutter, volume, brightness, contrast, aspect, eco mode, lens control, lens memory, lamp hours, filter hours, error status, remote key emulation. Compatible with P, PA, PE, PV, PX, ME, M series.",
-            "protocols": [
-                "nec_binary"
-            ],
-            "ports": [
-                7142
-            ],
-            "simulated": true
-        },
-        {
-            "id": "pjlink_class1",
-            "name": "PJLink Class 1 Projector",
-            "file": "projectors/pjlink_class1.py",
-            "format": "python",
-            "category": "projector",
-            "manufacturer": "Generic",
-            "version": "2.0.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": true,
-            "description": "Controls any PJLink Class 1 compatible projector. Supports 100+ models from Epson, NEC, Panasonic, Sony, Christie, Hitachi, BenQ, Optoma, Canon, and Vivitek.",
-            "protocols": [
-                "pjlink"
-            ],
-            "ports": [
-                4352
-            ],
-            "simulated": true
-        },
-        {
-            "id": "samsung_mdc",
-            "name": "Samsung MDC Display",
-            "file": "displays/samsung_mdc.py",
-            "format": "python",
-            "category": "display",
-            "manufacturer": "Samsung",
-            "version": "1.1.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol. Covers Smart Signage, The Wall, and LED series.",
-            "protocols": [
-                "samsung_mdc"
-            ],
-            "ports": [
-                1515
-            ],
-            "simulated": true
-        },
-        {
-            "id": "wake_on_lan",
-            "name": "Wake-on-LAN",
-            "file": "utility/wake_on_lan.py",
-            "format": "python",
-            "category": "utility",
-            "manufacturer": "Generic",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "udp",
-            "verified": false,
-            "description": "Send Wake-on-LAN magic packets to wake any Ethernet device on the network.",
-            "protocols": [],
-            "ports": []
-        },
-        {
-            "id": "generic_http",
-            "name": "Generic HTTP/REST Device",
-            "file": "utility/generic_http.avcdriver",
-            "format": "avcdriver",
-            "category": "utility",
-            "manufacturer": "Generic",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "http",
-            "verified": false,
-            "description": "Template driver for HTTP/REST-controlled devices. Install and customize with your own commands and state variables using the Driver Builder."
-        },
-        {
-            "id": "extron_sis",
-            "name": "Extron SIS Protocol",
-            "file": "switchers/extron_sis.avcdriver",
-            "format": "avcdriver",
-            "category": "switcher",
-            "manufacturer": "Extron",
-            "version": "1.2.1",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers 200+ products: crosspoint matrix switchers, presentation switchers, scalers, distribution amplifiers, and DSPs.",
-            "protocols": [
-                "extron_sis"
-            ],
-            "ports": [
-                23
-            ],
-            "simulated": true
-        },
-        {
-            "id": "lg_sicp",
-            "name": "LG SICP Display",
-            "file": "displays/lg_sicp.avcdriver",
-            "format": "avcdriver",
-            "category": "display",
-            "manufacturer": "LG",
-            "version": "1.1.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls LG commercial displays via the SICP (Serial Interface Communication Protocol) over TCP. Covers webOS signage displays, LED, and OLED commercial series.",
-            "protocols": [],
-            "ports": [
-                9761
-            ],
-            "simulated": true
-        },
-        {
-            "id": "lg_webos",
-            "name": "LG WebOS",
-            "file": "displays/lg_webos.py",
-            "format": "python",
-            "category": "display",
-            "manufacturer": "LG",
-            "version": "3.0.0",
-            "author": "Keaton Stacks",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
-            "ports": [
-                3001
-            ]
-        },
-        {
-            "id": "kramer_p3000",
-            "name": "Kramer Protocol 3000",
-            "file": "switchers/kramer_p3000.avcdriver",
-            "format": "avcdriver",
-            "category": "switcher",
-            "manufacturer": "Kramer",
-            "version": "1.1.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls Kramer products via Protocol 3000. Covers matrix switchers, scalers, distribution amplifiers, and Via wireless presentation systems.",
-            "protocols": [
-                "kramer_p3000"
-            ],
-            "ports": [
-                5000,
-                23
-            ],
-            "simulated": true
-        },
-        {
-            "id": "biamp_tesira_ttp",
-            "name": "Biamp Tesira TTP",
-            "file": "audio/biamp_tesira_ttp.avcdriver",
-            "format": "avcdriver",
-            "category": "audio",
-            "manufacturer": "Biamp",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls Biamp Tesira and TesiraFORTE DSPs via the TTP (Tesira Text Protocol). Supports level, mute, preset recall, and logic state control.",
-            "protocols": [
-                "biamp_tesira"
-            ],
-            "ports": [
-                23
-            ],
-            "simulated": true
-        },
-        {
-            "id": "shure_network",
-            "name": "Shure Networked Devices",
-            "file": "audio/shure_network.avcdriver",
-            "format": "avcdriver",
-            "category": "audio",
-            "manufacturer": "Shure",
-            "version": "1.2.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls Shure networked audio devices via TCP command strings. Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix, and SCM820 mixers.",
-            "protocols": [
-                "shure_dcs"
-            ],
-            "ports": [
-                2202
-            ],
-            "simulated": true
-        },
-        {
-            "id": "qsc_qrc",
-            "name": "QSC Q-SYS QRC",
-            "file": "audio/qsc_qrc.avcdriver",
-            "format": "avcdriver",
-            "category": "audio",
-            "manufacturer": "QSC",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls QSC Q-SYS Core processors via the QRC (Q-SYS Remote Control) protocol. Supports named controls, snapshots, and component access across the entire Q-SYS ecosystem.",
-            "protocols": [
-                "qsc"
-            ],
-            "ports": [
-                1702,
-                52000
-            ],
-            "simulated": true
-        },
-        {
-            "id": "crestron_nvx",
-            "name": "Crestron DM NVX",
-            "file": "displays/crestron_nvx.py",
-            "format": "python",
-            "category": "display",
-            "manufacturer": "Crestron",
-            "version": "1.1.0",
-            "author": "OpenAVC",
-            "transport": "http",
-            "verified": false,
-            "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",
-            "protocols": [
-                "crestron_cip"
-            ],
-            "ports": [
-                1688,
-                80,
-                443
-            ],
-            "simulated": true
-        },
-        {
-            "id": "vmix",
-            "name": "vMix",
-            "file": "video/vmix.py",
-            "format": "python",
-            "category": "video",
-            "manufacturer": "StudioCoast",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio mixing, overlays, recording, streaming, titles, replay, and PTZ.",
-            "protocols": [],
-            "ports": [
-                8099
-            ],
-            "simulated": true
-        },
-        {
-            "id": "sonos",
-            "name": "Sonos Speaker",
-            "file": "audio/sonos.py",
-            "format": "python",
-            "category": "audio",
-            "manufacturer": "Sonos",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "http",
-            "verified": true,
-            "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, track info, and transport control. Works with all Sonos models (S1 and S2).",
-            "protocols": [],
-            "ports": [
-                1400
-            ],
-            "simulated": true
-        },
-        {
-            "id": "dante_ddm",
-            "name": "Dante DDM / Director",
-            "file": "audio/dante_ddm.py",
-            "format": "python",
-            "category": "audio",
-            "manufacturer": "Audinate",
-            "version": "1.2.0",
-            "author": "OpenAVC",
-            "transport": "http",
-            "verified": false,
-            "description": "Controls Dante audio routing via the Audinate Managed API (GraphQL). Requires Dante Domain Manager or Dante Director Professional. Discover devices, route/unroute channels, monitor subscriptions.",
-            "protocols": [],
-            "ports": [
-                443
-            ],
-            "simulated": true
-        },
-        {
-            "id": "at_atdm_0604",
-            "name": "Audio-Technica ATDM-0604",
-            "file": "audio/at_atdm_0604.avcdriver",
-            "format": "avcdriver",
-            "category": "audio",
-            "manufacturer": "Audio-Technica",
-            "version": "1.0.3",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer. 6-input, 4-output automatic mixer for conferencing. Input/output levels, output mute, SmartMix mode, presets.",
-            "ports": [
-                17300
-            ],
-            "simulated": true
-        },
-        {
-            "id": "at_atdm_1012",
-            "name": "Audio-Technica ATDM-1012",
-            "file": "audio/at_atdm_1012.avcdriver",
-            "format": "avcdriver",
-            "category": "audio",
-            "manufacturer": "Audio-Technica",
-            "version": "1.0.3",
-            "author": "OpenAVC",
-            "transport": "tcp",
-            "verified": false,
-            "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers. 10-input, 8-output automatic mixer with 12 buses, SmartMix groups, operator faders, and Dante (DAN variant).",
-            "ports": [
-                17300
-            ],
-            "simulated": true
-        },
-        {
-            "id": "birddog_ptz",
-            "name": "BirdDog PTZ Camera",
-            "file": "cameras/birddog_ptz.py",
-            "format": "python",
-            "category": "camera",
-            "manufacturer": "BirdDog",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "http",
-            "verified": false,
-            "description": "Controls BirdDog PTZ cameras via REST API and VISCA-over-UDP. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
-            "protocols": [
-                "visca"
-            ],
-            "ports": [
-                8080,
-                52381
-            ],
-            "simulated": true
-        },
-        {
-            "id": "novastar_h_series",
-            "name": "Novastar H Series Video Wall Splicer",
-            "file": "video/novastar_h_series.avcdriver",
-            "format": "avcdriver",
-            "category": "video",
-            "manufacturer": "Novastar",
-            "version": "1.0.2",
-            "author": "OpenAVC",
-            "transport": "udp",
-            "verified": false,
-            "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Layers, presets, input switching, brightness, freeze, volume, test patterns, OSD, and device management. Compatible with H2, H5, H9, H15, H20.",
-            "protocols": [],
-            "ports": [
-                6000
-            ],
-            "simulated": true,
-            "min_platform_version": "0.5.13"
-        },
-        {
-            "id": "birddog_codec",
-            "name": "BirdDog NDI Encoder/Decoder",
-            "file": "video/birddog_codec.py",
-            "format": "python",
-            "category": "video",
-            "manufacturer": "BirdDog",
-            "version": "1.0.0",
-            "author": "OpenAVC",
-            "transport": "http",
-            "verified": false,
-            "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, cycle through sources, reboot.",
-            "protocols": [],
-            "ports": [
-                8080
-            ],
-            "simulated": true
-        },
-        {
-            "id": "sony_bravia",
-            "name": "Sony Bravia Display",
-            "file": "displays/sony_bravia.py",
-            "format": "python",
-            "category": "display",
-            "manufacturer": "Sony",
-            "version": "1.1.0",
-            "author": "OpenAVC",
-            "transport": "http",
-            "verified": true,
-            "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
-            "protocols": [
-                "sony_bravia_rest"
-            ],
-            "ports": [
-                80
-            ],
-            "simulated": true
+          "manufacturer": "Audinate",
+          "models": [
+            "Dante Domain Manager",
+            "Dante Director Professional"
+          ],
+          "confidence": "untested"
         }
-    ]
+      ]
+    },
+    {
+      "id": "at_atdm_0604",
+      "name": "Audio-Technica ATDM-0604",
+      "manufacturer": "Audio-Technica",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP. Supports input/output level and mute control, preset recall, and SmartMix configuration.\n",
+      "source_url": "https://docs.audio-technica.com/us/atdm_0604_ip_control_protcol_specification_ver1_1_2_web_190626.pdf",
+      "file": "audio/at_atdm_0604.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        17300
+      ],
+      "simulated": true,
+      "tags": [
+        "mixer",
+        "smartmixer",
+        "conferencing",
+        "automixer"
+      ],
+      "help": {
+        "overview": "Controls Audio-Technica ATDM-0604 Digital SmartMixer. The ATDM-0604 is a 6-input, 4-output automatic mixer designed for conference and installed sound applications.\n",
+        "setup": "1. Connect the ATDM-0604 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Input channels: 1-6 (mic/line), ST (stereo). 5. Output channels: 1-4, ST (stereo).\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Audio-Technica",
+          "models": [
+            "ATDM-0604"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "at_atdm_1012",
+      "name": "Audio-Technica ATDM-1012",
+      "manufacturer": "Audio-Technica",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP. Supports input/output level and mute control, bus assign, SmartMix configuration, operator faders, and preset recall.\n",
+      "source_url": "https://docs.audio-technica.com/all/IP_Control_Protocol_Specification_-_ATDM-1012_ATDM-1012DAN.pdf",
+      "file": "audio/at_atdm_1012.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        17300
+      ],
+      "simulated": true,
+      "tags": [
+        "mixer",
+        "smartmixer",
+        "conferencing",
+        "automixer",
+        "dante"
+      ],
+      "help": {
+        "overview": "Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers. The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses, designed for conference rooms, courtrooms, and council chambers. The DAN variant adds Dante audio networking.\n",
+        "setup": "1. Connect the ATDM-1012 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8. 5. Output channels: 1-8, ST1, ST2. 6. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Audio-Technica",
+          "models": [
+            "ATDM-1012",
+            "ATDM-1012DAN"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "behringer_x32",
+      "name": "Behringer X32 Digital Mixer",
+      "manufacturer": "Behringer",
+      "category": "audio",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "osc",
+      "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.",
+      "source_url": "https://sites.google.com/site/patrickmaillot/x32",
+      "file": "audio/behringer_x32.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        10023
+      ],
+      "simulated": true,
+      "min_platform_version": "0.6.0",
+      "tags": [
+        "mixer",
+        "console",
+        "osc",
+        "midas"
+      ],
+      "help": {
+        "overview": "Controls a Behringer X32 or X32 Compact digital mixer over the network using the OSC (Open Sound Control) protocol. Full console coverage including all 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, and main stereo/mono outputs.",
+        "setup": "1. Connect the X32 to the same network as the OpenAVC server. 2. On the X32, go to Setup > Network and note the IP address. 3. Enter the IP address in the device config. The default port is 10023. 4. The driver will automatically subscribe to feedback and start\n   receiving fader/mute updates."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Behringer",
+          "models": [
+            "X32",
+            "X32 Compact",
+            "X32 Producer",
+            "X32 Rack",
+            "X32 Core"
+          ],
+          "confidence": "untested"
+        },
+        {
+          "manufacturer": "Midas",
+          "models": [
+            "M32",
+            "M32 LIVE",
+            "M32R",
+            "M32C"
+          ],
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "id": "biamp_tesira_ttp",
+      "name": "Biamp Tesira TTP",
+      "manufacturer": "Biamp",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Biamp Tesira and TesiraFORTE DSPs via the TTP (Tesira Text Protocol) over TCP port 23. Supports level control, mute, and preset recall. Configure Instance Tags to match your Tesira design file.\n",
+      "source_url": "https://support.biamp.com",
+      "file": "audio/biamp_tesira_ttp.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "biamp_tesira"
+      ],
+      "simulated": true,
+      "tags": [
+        "dsp",
+        "tesira",
+        "ttp",
+        "ceiling-mic"
+      ],
+      "help": {
+        "overview": "Controls Biamp Tesira and TesiraFORTE DSPs via the TTP protocol. Supports level control, mute, and preset recall. Configure Instance Tags to match your Tesira design file.\n",
+        "setup": "1. Connect the Tesira DSP to the network. 2. Default control port is 23 (Telnet). 3. Set the Instance Tags to match your Tesira design file\n   (e.g., \"PgmLevel\" for the program level fader).\n4. Instance Tags are user-assigned labels in the Biamp Tesira software.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Biamp",
+          "models": [
+            "Tesira SERVER",
+            "Tesira SERVER-IO",
+            "TesiraFORTE AVB",
+            "TesiraFORTE CI",
+            "TesiraFORTE DAN",
+            "TesiraFORTE TI",
+            "TesiraFORTE VI",
+            "TesiraFORTE VT",
+            "TesiraFORTE X"
+          ],
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "id": "birddog_codec",
+      "name": "BirdDog NDI Encoder/Decoder",
+      "manufacturer": "BirdDog",
+      "category": "video",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
+      "source_url": "https://birddog.tv/AV/API/index.html",
+      "file": "video/birddog_codec.py",
+      "format": "python",
+      "ports": [
+        8080
+      ],
+      "simulated": true,
+      "tags": [
+        "ndi",
+        "encoder",
+        "decoder",
+        "video-distribution"
+      ],
+      "help": {
+        "overview": "Controls BirdDog NDI encoders and decoders \u2014 Mini, Flex, 4K HDMI, 4K SDI, Studio NDI, PLAY, Quad, and similar models.\n\nFor decoders: select which NDI source to display, cycle through available sources, and monitor the active source.\n\nFor encoders: monitor input status and NDI source name.\n\nNo external software, SDK, or runtime required.",
+        "setup": "1. Enter the device's IP address (find it via BirdDog Central or your network's DHCP table).\n2. Default port is 8080.\n3. No authentication is required.\n4. For decoders, use 'select_source' with the full NDI source name (e.g., 'BIRDDOG-P200 (Camera)').\n5. Use 'refresh_sources' to update the available source list."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BirdDog",
+          "models": [
+            "Mini",
+            "Flex Encode",
+            "Flex Decode",
+            "4K HDMI",
+            "4K SDI",
+            "Studio NDI",
+            "PLAY",
+            "Quad"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "birddog_ptz",
+      "name": "BirdDog PTZ Camera",
+      "manufacturer": "BirdDog",
+      "category": "camera",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
+      "source_url": "https://birddog.tv/AV/API/index.html",
+      "file": "cameras/birddog_ptz.py",
+      "format": "python",
+      "ports": [
+        8080,
+        52381
+      ],
+      "protocols": [
+        "visca"
+      ],
+      "simulated": true,
+      "tags": [
+        "ptz",
+        "ndi",
+        "camera",
+        "visca"
+      ],
+      "help": {
+        "overview": "Controls any BirdDog PTZ camera \u2014 P100, P200, P240, P400, A200, A300, X1, MAKI, and newer models. Uses the built-in REST API for configuration and VISCA-over-UDP for real-time PTZ movement.\n\nNo external software, SDK, or runtime required.",
+        "setup": "1. Enter the camera's IP address (find it via the camera's on-screen display or BirdDog Central).\n2. Default REST port is 8080, VISCA port is 52381.\n3. No authentication is required.\n4. Use 'recall_preset' and 'save_preset' with preset numbers (1-255 depending on model)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BirdDog",
+          "models": [
+            "P100",
+            "P110",
+            "P120",
+            "P200",
+            "P240",
+            "P400",
+            "P4K",
+            "A200",
+            "A300",
+            "X1",
+            "X1 Ultra",
+            "MAKI Ultra"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "crestron_nvx",
+      "name": "Crestron DM NVX",
+      "manufacturer": "Crestron",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",
+      "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
+      "file": "displays/crestron_nvx.py",
+      "format": "python",
+      "ports": [
+        1688,
+        80,
+        443
+      ],
+      "protocols": [
+        "crestron_cip"
+      ],
+      "simulated": true,
+      "tags": [
+        "av-over-ip",
+        "encoder",
+        "decoder",
+        "rest-api"
+      ],
+      "compatible_models": [
+        {
+          "manufacturer": "Crestron",
+          "models": [
+            "DM NVX series (encoders and decoders)"
+          ],
+          "confidence": "untested",
+          "notes": "Any Crestron DM NVX endpoint via REST API."
+        }
+      ]
+    },
+    {
+      "id": "extron_sis",
+      "name": "Extron SIS Protocol",
+      "manufacturer": "Extron",
+      "category": "switcher",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
+      "source_url": "https://www.extron.com/article/sisseries",
+      "file": "switchers/extron_sis.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "extron_sis"
+      ],
+      "simulated": true,
+      "tags": [
+        "matrix-switcher",
+        "scaler",
+        "distribution-amplifier",
+        "sis",
+        "generic"
+      ],
+      "help": {
+        "overview": "Universal control for Extron products using the SIS protocol. Works with 200+ products including crosspoint matrix switchers, presentation switchers, scalers, distribution amplifiers, and DSPs.\n",
+        "setup": "1. Connect the Extron device to the network or via RS-232 (9600 8N1). 2. For TCP control, set the device's IP address and use port 23 (default). 3. Extron recommends a 100ms delay between commands (pre-configured).\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Extron",
+          "models": [
+            "DXP Series matrix switchers",
+            "CrossPoint Series matrix switchers",
+            "IN Series presentation switchers",
+            "DSC Series scalers",
+            "DVS Series scalers",
+            "DTP Series transmitters and receivers",
+            "DA Series distribution amplifiers",
+            "DMP Series DSPs"
+          ],
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "id": "generic_http",
+      "name": "Generic HTTP/REST Device",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Template driver for HTTP/REST-controlled devices. Supports JSON APIs with configurable authentication (none, basic, bearer, API key, digest) and optional HTTPS with self-signed certificate support.\n",
+      "source_url": "https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md",
+      "file": "utility/generic_http.avcdriver",
+      "format": "avcdriver",
+      "tags": [
+        "template",
+        "rest",
+        "custom"
+      ],
+      "help": {
+        "overview": "Template driver for controlling any device with an HTTP or REST API. Install this driver and add your own commands, state variables, and polling using the Driver Builder. Many modern AV devices expose REST APIs alongside traditional serial or TCP protocols.\n",
+        "setup": "1. Enter the device's IP address and HTTP port. 2. Configure authentication if the device requires it (basic, bearer,\n   API key, or digest).\n3. Enable HTTPS if the device uses TLS. Disable certificate verification\n   for self-signed certs (common on AV equipment).\n4. Use the Driver Builder to add commands and state variables for\n   your specific device.\n"
+      }
+    },
+    {
+      "id": "pjlink_class1",
+      "name": "PJLink Class 1 Projector",
+      "manufacturer": "Generic",
+      "category": "projector",
+      "version": "2.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls any PJLink Class 1 compatible projector.",
+      "source_url": "https://pjlink.jbmia.or.jp/english/",
+      "file": "projectors/pjlink_class1.py",
+      "format": "python",
+      "ports": [
+        4352
+      ],
+      "protocols": [
+        "pjlink"
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "pjlink",
+        "projector",
+        "generic"
+      ],
+      "help": {
+        "overview": "Universal projector control via the PJLink Class 1 standard. Works with 100+ models from Epson, NEC, Panasonic, Sony, Christie, Hitachi, BenQ, Optoma, Canon, and Vivitek.",
+        "setup": "1. Enable network control on the projector (varies by manufacturer)\n2. Assign a static IP address to the projector\n3. If authentication is enabled, set the PJLink password\n4. Default port is 4352 (PJLink standard)"
+      }
+    },
+    {
+      "id": "wake_on_lan",
+      "name": "Wake-on-LAN",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
+      "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
+      "file": "utility/wake_on_lan.py",
+      "format": "python",
+      "tags": [
+        "wol",
+        "magic-packet",
+        "power-on",
+        "generic"
+      ],
+      "help": {
+        "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
+        "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
+      }
+    },
+    {
+      "id": "kramer_p3000",
+      "name": "Kramer Protocol 3000",
+      "manufacturer": "Kramer",
+      "category": "switcher",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000). Covers matrix switchers (VS series), scalers (VP series), distribution amplifiers, and Via wireless presentation systems.\n",
+      "source_url": "https://www.kramerav.com/support/protocols",
+      "file": "switchers/kramer_p3000.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        5000,
+        23
+      ],
+      "protocols": [
+        "kramer_p3000"
+      ],
+      "simulated": true,
+      "tags": [
+        "matrix-switcher",
+        "scaler",
+        "wireless-presentation",
+        "generic"
+      ],
+      "help": {
+        "overview": "Controls Kramer matrix switchers, scalers, distribution amplifiers, and Via wireless presentation systems via Protocol 3000. Common in corporate AV, education, and houses of worship.\n",
+        "setup": "1. Connect the switcher to the network via Ethernet. 2. Set the IP address via the front panel menu or Kramer Network. 3. Enter the IP address and port 5000 (default) in the device config. 4. Machine number defaults to 01. Change it if multiple Kramer units\n   share the same port.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Kramer",
+          "models": [
+            "VS Series matrix switchers",
+            "VM Series distribution amplifiers",
+            "VP Series scalers",
+            "Via wireless presentation systems"
+          ],
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "id": "lg_sicp",
+      "name": "LG SICP Display",
+      "manufacturer": "LG",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
+      "source_url": "https://www.christiedigital.com/globalassets/resources/public/fhd552-xb-rs232-sicp-guide.pdf",
+      "file": "displays/lg_sicp.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        9761
+      ],
+      "simulated": true,
+      "tags": [
+        "display",
+        "signage",
+        "sicp"
+      ],
+      "help": {
+        "overview": "Controls LG commercial displays via the SICP protocol. Supports power, input selection, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
+        "setup": "1. Connect the LG display to the network. 2. Default control port is 9761. 3. Set the Display ID (01-99, or 00 for broadcast to all displays).\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "LG",
+          "models": [
+            "webOS Signage displays",
+            "LED Commercial series",
+            "OLED Commercial series"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "lg_webos",
+      "name": "LG WebOS",
+      "manufacturer": "LG",
+      "category": "display",
+      "version": "3.1.0",
+      "author": "Keaton Stacks",
+      "transport": "tcp",
+      "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
+      "source_url": "https://github.com/hobbyquaker/lgtv2",
+      "file": "displays/lg_webos.py",
+      "format": "python",
+      "ports": [
+        3001
+      ],
+      "tags": [
+        "tv",
+        "consumer",
+        "webos",
+        "ssap"
+      ],
+      "help": {
+        "overview": "Controls LG WebOS televisions using the SSAP protocol over a secure WebSocket connection on port 3001.  Supports power, volume, input switching, and app launching.",
+        "setup": "Enable 'LG Connect Apps' or network control in the TV's General settings. A pairing prompt will appear on the TV screen on first connect. If the prompt does not appear, use the 'Force Pair' command."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "LG",
+          "models": [
+            "WebOS TVs (2016+)"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "novastar_h_series",
+      "name": "Novastar H Series Video Wall Splicer",
+      "manufacturer": "Novastar",
+      "category": "video",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
+      "source_url": "https://oss.novastar.tech/uploads/2023/02/H-Series-Video-Wall-Splicers-User-Manual-V1.8.0.pdf",
+      "file": "video/novastar_h_series.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        6000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.5.13",
+      "tags": [
+        "videowall",
+        "splicer",
+        "led-wall",
+        "video-processing"
+      ],
+      "help": {
+        "overview": "Controls Novastar H series LED video wall splicers. These processors manage LED wall layouts, input routing, presets, and screen settings. Common in large-format LED installations including houses of worship, corporate lobbies, broadcast studios, and live event stages.\n",
+        "setup": "1. Connect the processor to the network via Ethernet. 2. Set the processor's IP address via the front panel or web interface. 3. Enter the IP address and port 6000 (default) in the device config. 4. Device ID defaults to 0. If using multiple processors, set the\n   device_id config field to match each unit's ID.\n5. Screen ID defaults to 0. Set screen_id for multi-screen setups.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Novastar",
+          "models": [
+            "H2",
+            "H5",
+            "H9",
+            "H15",
+            "H20"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "qsc_qrc",
+      "name": "QSC Q-SYS QRC",
+      "manufacturer": "QSC",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls QSC Q-SYS Core processors via the QRC (Q-SYS Remote Control) protocol over TCP port 1702. Supports named control values, positions, strings, and snapshot recall. Configure Named Control names to match your Q-SYS Designer file.\n",
+      "source_url": "https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm",
+      "file": "audio/qsc_qrc.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        1702,
+        52000
+      ],
+      "protocols": [
+        "qsc"
+      ],
+      "simulated": true,
+      "tags": [
+        "dsp",
+        "q-sys",
+        "qrc",
+        "ceiling-mic"
+      ],
+      "compatible_models": [
+        {
+          "manufacturer": "QSC",
+          "models": [
+            "Core 8 Flex",
+            "Core 110f",
+            "Core 510i",
+            "Core 610",
+            "Core Nano",
+            "Q-SYS Core series"
+          ],
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "id": "samsung_mdc",
+      "name": "Samsung MDC Display",
+      "manufacturer": "Samsung",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP.",
+      "source_url": "https://github.com/vgavro/samsung-mdc",
+      "file": "displays/samsung_mdc.py",
+      "format": "python",
+      "ports": [
+        1515
+      ],
+      "protocols": [
+        "samsung_mdc"
+      ],
+      "simulated": true,
+      "tags": [
+        "display",
+        "signage",
+        "mdc"
+      ],
+      "help": {
+        "overview": "Controls Samsung commercial displays using the MDC binary protocol. Covers Smart Signage, The Wall, LED, and SMART Signage Platform series.",
+        "setup": "1. Connect the display to the network\n2. Enable MDC protocol in the display's network settings\n3. Default port is 1515\n4. Set the Display ID to match the display's configuration (default 1)"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Samsung",
+          "models": [
+            "Smart Signage series",
+            "The Wall series",
+            "LED Commercial series",
+            "SMART Signage Platform"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "sharp_nec_projector",
+      "name": "Sharp NEC Projector",
+      "manufacturer": "Sharp NEC",
+      "category": "projector",
+      "version": "2.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
+      "source_url": "https://assets.sharpnecdisplays.us/documents/miscellaneous/pj-control-command-codes.pdf",
+      "file": "projectors/sharp_nec_projector.py",
+      "format": "python",
+      "ports": [
+        7142
+      ],
+      "protocols": [
+        "nec_binary"
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "projector",
+        "binary-protocol"
+      ],
+      "help": {
+        "overview": "Full-featured Sharp NEC projector control using the proprietary binary protocol on TCP port 7142. Power, input selection, picture/sound/OSD mute, freeze, shutter, volume, brightness, contrast, sharpness, aspect ratio, eco mode, lens control (zoom/focus/shift), lens memory presets, lamp/laser hours, filter hours, and detailed error status.",
+        "setup": "1. Connect the projector to the network\n2. Enable LAN control in the projector's network settings\n3. Assign a static IP address to the projector\n4. Default control port is 7142\n5. This driver can coexist with PJLink (port 4352)\n6. Set Standby Mode to 'Network Standby' or 'Sleep' to allow power-on via network\n7. Input terminal codes vary by model \u2014 unsupported inputs are rejected gracefully"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sharp NEC",
+          "models": [
+            "NP-PE456USL"
+          ],
+          "confidence": "full",
+          "notes": "Verified on hardware."
+        },
+        {
+          "manufacturer": "Sharp NEC",
+          "models": [
+            "P series projectors",
+            "PA series projectors",
+            "PE series projectors",
+            "PV series projectors",
+            "PX series projectors",
+            "ME series projectors",
+            "M series projectors"
+          ],
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "id": "shure_network",
+      "name": "Shure Networked Devices",
+      "manufacturer": "Shure",
+      "category": "audio",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
+      "source_url": "https://pubs.shure.com/guide/commandstrings",
+      "file": "audio/shure_network.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        2202
+      ],
+      "protocols": [
+        "shure_dcs"
+      ],
+      "simulated": true,
+      "tags": [
+        "ceiling-mic",
+        "wireless-mic",
+        "intellimix"
+      ],
+      "compatible_models": [
+        {
+          "manufacturer": "Shure",
+          "models": [
+            "MXA910",
+            "MXA920",
+            "MXA710",
+            "ANI22",
+            "ANI4IN",
+            "ANI4OUT",
+            "P300 IntelliMix",
+            "SCM820"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "sonos",
+      "name": "Sonos Speaker",
+      "manufacturer": "Sonos",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, track info, and transport control.",
+      "source_url": "https://sonos.svrooij.io/services/",
+      "file": "audio/sonos.py",
+      "format": "python",
+      "ports": [
+        1400
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "speaker",
+        "wireless-audio",
+        "background-music",
+        "upnp"
+      ],
+      "help": {
+        "overview": "Controls any Sonos speaker on the local network via UPnP. Works with all Sonos models including One, Five, Beam, Arc, Era, Move, Roam, Port, Amp, and legacy Play/Connect models. No cloud account or API key required.",
+        "setup": "1. Ensure the Sonos speaker is on the same network\n2. Enter the speaker's IP address (find it in the Sonos app under Settings > System > About)\n3. Default port is 1400 (do not change)\n4. UPnP control must be enabled on the speaker (on by default)"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sonos",
+          "models": [
+            "Sonos S1 platform speakers",
+            "Sonos S2 platform speakers"
+          ],
+          "confidence": "full",
+          "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    },
+    {
+      "id": "sony_bravia",
+      "name": "Sony Bravia Display",
+      "manufacturer": "Sony",
+      "category": "display",
+      "version": "1.2.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
+      "source_url": "https://pro-bravia.sony.net/develop/integrate/rest-api/spec/",
+      "file": "displays/sony_bravia.py",
+      "format": "python",
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "sony_bravia_rest"
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "tv",
+        "display",
+        "professional",
+        "bravia"
+      ],
+      "help": {
+        "overview": "Controls Sony Bravia displays using the built-in REST API and IRCC remote emulation. Works with Android TV, Google TV, and Pro Bravia series from ~2013 onwards (W, X, Z, A, XR models).",
+        "setup": "1. Connect the TV to the network.\n2. On the TV, go to Settings > Network > Home Network Setup > IP Control.\n3. Set Authentication to 'Normal and Pre-Shared Key'.\n4. Set a Pre-Shared Key (e.g., '1234').\n5. Set Simple IP Control to 'On' (enables power-on over network).\n6. Enter the TV's IP address and PSK in the driver config."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sony",
+          "models": [
+            "Bravia Android TV",
+            "Bravia Google TV",
+            "Bravia Professional Display"
+          ],
+          "confidence": "full",
+          "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "id": "vmix",
+      "name": "vMix",
+      "manufacturer": "StudioCoast",
+      "category": "video",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
+      "source_url": "https://www.vmix.com/help29/TCPAPI.html",
+      "file": "video/vmix.py",
+      "format": "python",
+      "ports": [
+        8099
+      ],
+      "simulated": true,
+      "tags": [
+        "video-production",
+        "streaming",
+        "switcher",
+        "software"
+      ],
+      "help": {
+        "overview": "Full control of vMix video production software. Supports input switching, transitions, audio mixing, overlays, recording/streaming, titles, replay, and PTZ cameras.",
+        "setup": "1. Open vMix and go to Settings > Web Controller\n2. Ensure the TCP API is enabled (default port 8099)\n3. Enter the vMix PC's IP address and port below\n4. Tally subscription is enabled by default for real-time program/preview tracking"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "StudioCoast",
+          "models": [
+            "vMix"
+          ],
+          "confidence": "untested",
+          "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
+        }
+      ]
+    }
+  ]
 }

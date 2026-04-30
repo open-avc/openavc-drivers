@@ -20,12 +20,28 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.2.0
+version: 1.3.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
   32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs,
   8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.
+
+source_url: https://sites.google.com/site/patrickmaillot/x32
+tags: [mixer, console, osc, midas]
+verified: false
+simulated: true
+ports: [10023]
+min_platform_version: 0.6.0
+compatible_models:
+  - manufacturer: Behringer
+    models: [X32, X32 Compact, X32 Producer, X32 Rack, X32 Core]
+    confidence: untested
+  - manufacturer: Midas
+    models: [M32, M32 LIVE, M32R, M32C]
+    confidence: untested
+    notes: Identical OSC protocol to X32.
+
 transport: osc
 
 help:

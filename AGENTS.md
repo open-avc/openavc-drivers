@@ -832,58 +832,73 @@ openavc-drivers/
 
 ---
 
-## 7. index.json Catalog Entry
+## 7. Driver Metadata (powers index.json and devices.json)
 
-Every driver must have an entry in `index.json`. The catalog is used by the Programmer IDE's "Browse Drivers" feature.
+**`index.json` and `devices.json` are generated artifacts. Do NOT edit them by hand.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file. CI verifies they're in sync.
 
-```json
-{
-    "id": "my_driver",
-    "name": "My Device",
-    "file": "category/my_driver.avcdriver",
-    "format": "avcdriver",
-    "category": "switcher",
-    "manufacturer": "Acme",
-    "version": "1.0.0",
-    "author": "Your Name",
-    "transport": "tcp",
-    "verified": false,
-    "description": "Controls Acme matrix switchers via TCP.",
-    "protocols": ["acme_protocol"],
-    "ports": [5000],
-    "simulated": true
-}
+Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. Run `python scripts/build_index.py` to regenerate the catalog.
+
+### Required fields
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | Lowercase alphanumeric + underscores. Unique across the repo. |
+| `name` | string | Human-readable display name. |
+| `manufacturer` | string | Must appear in `manufacturers.json`. Add new manufacturers there first. |
+| `category` | enum | One of: `projector`, `display`, `switcher`, `audio`, `camera`, `video`, `streaming`, `lighting`, `power`, `utility`. |
+| `version` | string | Semver (e.g., `1.0.0`). Bump on every change. |
+| `author` | string | Your name or GitHub handle. |
+| `transport` | enum | One of: `tcp`, `udp`, `http`, `osc`, `serial`. |
+| `description` | string | One paragraph for AV integrators. Plain language, no marketing fluff. |
+| `source_url` | URL | The protocol document or canonical implementation you built from. No driver ships without this. |
+
+### Optional fields
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `ports` | list[int] | Default network ports the device listens on (1-65535). |
+| `protocols` | list[string] | Protocol family identifiers (e.g., `["pjlink"]`). |
+| `simulated` | bool | `true` if a simulator covers this driver. |
+| `verified` | bool | `true` only after testing on real hardware. |
+| `min_platform_version` | string | Minimum OpenAVC version (semver). Omit when compatible with all platform versions. |
+| `tags` | list[string] | Lowercase, hyphen-separated keywords for Browse Drivers search. Examples: `["ndi", "ptz"]`, `["ceiling-mic"]`. |
+| `help` | object | `{ "overview": "...", "setup": "..." }`. Both strings non-empty. |
+| `deprecated` | bool | Mark superseded drivers. |
+| `replacement_id` | string | Required when `deprecated: true`. Must reference another driver's `id`. |
+| `compatible_models` | list | List of `{ manufacturer, models, confidence, notes? }` entries — see below. |
+
+### `compatible_models` entry shape
+
+```yaml
+compatible_models:
+  - manufacturer: Biamp                              # Must be in manufacturers.json
+    models: [TesiraFORTE AVB, TesiraFORTE CI]
+    confidence: full                                  # full | partial | untested
+    notes: AVB models lack analog I/O                 # optional, required when two drivers claim 'full' for the same model
 ```
 
-| Field | Required | Notes |
-|-------|----------|-------|
-| `id` | Yes | Must match driver's `id` field exactly. |
-| `name` | Yes | Must match driver's `name` field. |
-| `file` | Yes | Path relative to repo root. |
-| `format` | Yes | `"avcdriver"` or `"python"`. |
-| `category` | Yes | Must match driver's `category`. |
-| `manufacturer` | Yes | Must match driver's `manufacturer`. |
-| `version` | Yes | Must match driver's `version`. |
-| `author` | Yes | Must match driver's `author`. |
-| `transport` | Yes | Must match driver's `transport`. |
-| `verified` | Yes | Always `false` for community contributions. |
-| `description` | Yes | Must match driver's `description`. |
-| `protocols` | No | List of protocol names (from driver). |
-| `ports` | No | TCP ports the device listens on. |
-| `simulated` | No | `true` if the driver has simulator support. |
-| `min_platform_version` | No | Minimum OpenAVC version required (e.g., `"0.5.13"`). Set when the driver uses platform features not available in all releases. Older versions block installation with a clear error. |
+Confidence values:
+
+- `full` — driver controls every documented feature of these devices.
+- `partial` — driver controls common features only. Some advanced features unsupported.
+- `untested` — generic protocol driver expected to work but not specifically verified for these models.
+
+### How models become discoverable
+
+The build script reverse-indexes every `compatible_models` entry into `devices.json`, so a user searching "Epson EB-L1075U" in Browse Drivers finds the right driver. Generic protocol drivers (PJLink, SNMP, ONVIF, etc.) leave their own `compatible_models` mostly empty — their device coverage comes from `devices-extra.json` entries that point at them.
 
 ---
 
 ## 8. Validation
 
-Run the validation script before submitting:
+Run the build script before submitting. It validates the schema and regenerates `index.json` and `devices.json`:
 
 ```bash
-python validate.py                              # Validate all drivers
-python validate.py switchers/my_driver.avcdriver # Validate a specific driver
-python validate.py --check-index                 # Also validate index.json consistency
+python scripts/build_index.py            # Validate + regenerate
+python scripts/build_index.py --check    # Validate only (does not write outputs)
 ```
+
+CI runs `--check` and fails the PR if the generated artifacts differ from what's checked in.
 
 The validator checks:
 - Required fields present

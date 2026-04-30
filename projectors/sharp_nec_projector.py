@@ -235,13 +235,41 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
             "protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, "
             "and M series projectors."
         ),
+        "source_url": "https://assets.sharpnecdisplays.us/documents/miscellaneous/pj-control-command-codes.pdf",
+        "tags": ["projector", "binary-protocol"],
+        "verified": True,
+        "simulated": True,
+        "protocols": ["nec_binary"],
+        "ports": [7142],
+        "compatible_models": [
+            {
+                "manufacturer": "Sharp NEC",
+                "models": ["NP-PE456USL"],
+                "confidence": "full",
+                "notes": "Verified on hardware.",
+            },
+            {
+                "manufacturer": "Sharp NEC",
+                "models": [
+                    "P series projectors",
+                    "PA series projectors",
+                    "PE series projectors",
+                    "PV series projectors",
+                    "PX series projectors",
+                    "ME series projectors",
+                    "M series projectors",
+                ],
+                "confidence": "untested",
+                "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series.",
+            },
+        ],
         "transport": "tcp",
         "help": {
             "overview": (

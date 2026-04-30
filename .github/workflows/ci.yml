@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate:
-    name: Validate Drivers
+    name: Validate drivers and check generated catalog
     runs-on: ubuntu-latest
 
     steps:
@@ -19,8 +19,20 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install PyYAML
-        run: pip install pyyaml
+      - name: Install dependencies
+        run: pip install pyyaml pydantic pytest
 
-      - name: Validate driver files and index
-        run: python .github/scripts/validate_drivers.py
+      - name: Run build_index tests
+        run: python -m pytest tests/test_build_index.py -v
+
+      - name: Build index and devices catalogs
+        run: python scripts/build_index.py
+
+      - name: Verify generated catalog is in sync with checked-in files
+        run: |
+          if ! git diff --exit-code -- index.json devices.json index/ devices/; then
+            echo ""
+            echo "ERROR: Generated catalog files differ from what's checked in."
+            echo "Run 'python scripts/build_index.py' locally and commit the result."
+            exit 1
+          fi

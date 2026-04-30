@@ -48,13 +48,34 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
             "Select NDI sources on decoders, monitor input/output status, "
             "reboot, and refresh source lists."
         ),
+        "source_url": "https://birddog.tv/AV/API/index.html",
+        "tags": ["ndi", "encoder", "decoder", "video-distribution"],
+        "verified": False,
+        "simulated": True,
+        "ports": [8080],
+        "compatible_models": [
+            {
+                "manufacturer": "BirdDog",
+                "models": [
+                    "Mini",
+                    "Flex Encode",
+                    "Flex Decode",
+                    "4K HDMI",
+                    "4K SDI",
+                    "Studio NDI",
+                    "PLAY",
+                    "Quad",
+                ],
+                "confidence": "untested",
+            },
+        ],
         "transport": "http",
         "help": {
             "overview": (

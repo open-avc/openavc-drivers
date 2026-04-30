@@ -1,0 +1,156 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_devices": 12,
+    "shards": null,
+    "category": "switcher"
+  },
+  "devices": [
+    {
+      "manufacturer": "Extron",
+      "model": "CrossPoint Series matrix switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DA Series distribution amplifiers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DMP Series DSPs",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DSC Series scalers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DTP Series transmitters and receivers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DVS Series scalers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "DXP Series matrix switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "IN Series presentation switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_sis",
+          "confidence": "untested",
+          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "Via wireless presentation systems",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "VM Series distribution amplifiers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "VP Series scalers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Kramer",
+      "model": "VS Series matrix switchers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "kramer_p3000",
+          "confidence": "untested",
+          "notes": "Any Kramer product implementing Protocol 3000."
+        }
+      ]
+    }
+  ]
+}

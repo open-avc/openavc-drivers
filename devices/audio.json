@@ -1,0 +1,462 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_devices": 39,
+    "shards": null,
+    "category": "audio"
+  },
+  "devices": [
+    {
+      "manufacturer": "Audinate",
+      "model": "Dante Director Professional",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "dante_ddm",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audinate",
+      "model": "Dante Domain Manager",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "dante_ddm",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATDM-0604",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atdm_0604",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATDM-1012",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atdm_1012",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATDM-1012DAN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atdm_1012",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Compact",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Core",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Producer",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Behringer",
+      "model": "X32 Rack",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Tesira SERVER",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Tesira SERVER-IO",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE AVB",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE CI",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE DAN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE TI",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE VI",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE VT",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORTE X",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32 LIVE",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32C",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Midas",
+      "model": "M32R",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "behringer_x32",
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 110f",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 510i",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 610",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 8 Flex",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core Nano",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Q-SYS Core series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ANI22",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ANI4IN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ANI4OUT",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA710",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA910",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXA920",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "P300 IntelliMix",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SCM820",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_network",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonos",
+      "model": "Sonos S1 platform speakers",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonos",
+          "confidence": "full",
+          "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sonos",
+      "model": "Sonos S2 platform speakers",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sonos",
+          "confidence": "full",
+          "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    }
+  ]
+}

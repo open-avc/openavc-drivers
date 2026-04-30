@@ -20,12 +20,28 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 description: >
   Controls Kramer products via Protocol 3000 over TCP (port 5000).
   Covers matrix switchers (VS series), scalers (VP series),
   distribution amplifiers, and Via wireless presentation systems.
+
+source_url: https://www.kramerav.com/support/protocols
+tags: [matrix-switcher, scaler, wireless-presentation, generic]
+verified: false
+simulated: true
+protocols: [kramer_p3000]
+ports: [5000, 23]
+compatible_models:
+  - manufacturer: Kramer
+    models:
+      - VS Series matrix switchers
+      - VM Series distribution amplifiers
+      - VP Series scalers
+      - Via wireless presentation systems
+    confidence: untested
+    notes: Any Kramer product implementing Protocol 3000.
 
 transport: tcp
 delimiter: "\r\n"

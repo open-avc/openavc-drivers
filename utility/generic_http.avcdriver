@@ -21,12 +21,17 @@ id: generic_http
 name: Generic HTTP/REST Device
 manufacturer: Generic
 category: utility
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Template driver for HTTP/REST-controlled devices. Supports JSON APIs
   with configurable authentication (none, basic, bearer, API key, digest)
   and optional HTTPS with self-signed certificate support.
+
+source_url: https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md
+tags: [template, rest, custom]
+verified: false
+
 transport: http
 
 help:

@@ -25,12 +25,22 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 1.0.3
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP.
   Supports input/output level and mute control, preset recall,
   and SmartMix configuration.
+
+source_url: https://docs.audio-technica.com/us/atdm_0604_ip_control_protcol_specification_ver1_1_2_web_190626.pdf
+tags: [mixer, smartmixer, conferencing, automixer]
+verified: false
+simulated: true
+ports: [17300]
+compatible_models:
+  - manufacturer: Audio-Technica
+    models: [ATDM-0604]
+    confidence: untested
 
 transport: tcp
 delimiter: "\r"

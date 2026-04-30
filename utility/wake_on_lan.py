@@ -55,12 +55,15 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Send Wake-on-LAN magic packets to wake devices on the network. "
             "No persistent connection required."
         ),
+        "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
+        "tags": ["wol", "magic-packet", "power-on", "generic"],
+        "verified": False,
         "transport": "udp",
         "help": {
             "overview": (

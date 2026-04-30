@@ -27,13 +27,31 @@ id: qsc_qrc
 name: QSC Q-SYS QRC
 manufacturer: QSC
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls QSC Q-SYS Core processors via the QRC (Q-SYS Remote Control)
   protocol over TCP port 1702. Supports named control values, positions,
   strings, and snapshot recall. Configure Named Control names to match
   your Q-SYS Designer file.
+
+source_url: https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm
+tags: [dsp, q-sys, qrc, ceiling-mic]
+verified: false
+simulated: true
+protocols: [qsc]
+ports: [1702, 52000]
+compatible_models:
+  - manufacturer: QSC
+    models:
+      - Core 8 Flex
+      - Core 110f
+      - Core 510i
+      - Core 610
+      - Core Nano
+      - Q-SYS Core series
+    confidence: untested
+    notes: Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer.
 
 transport: tcp
 delimiter: "\r\n"

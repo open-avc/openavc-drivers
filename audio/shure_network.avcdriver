@@ -20,12 +20,31 @@ id: shure_network
 name: Shure Networked Devices
 manufacturer: Shure
 category: audio
-version: 1.2.0
+version: 1.3.0
 author: OpenAVC
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
   Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces,
   P300 IntelliMix processor, and SCM820 automixer.
+
+source_url: https://pubs.shure.com/guide/commandstrings
+tags: [ceiling-mic, wireless-mic, intellimix]
+verified: false
+simulated: true
+protocols: [shure_dcs]
+ports: [2202]
+compatible_models:
+  - manufacturer: Shure
+    models:
+      - MXA910
+      - MXA920
+      - MXA710
+      - ANI22
+      - ANI4IN
+      - ANI4OUT
+      - P300 IntelliMix
+      - SCM820
+    confidence: untested
 
 transport: tcp
 delimiter: ">"

@@ -1,0 +1,344 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_drivers": 8,
+    "shards": null,
+    "category": "audio"
+  },
+  "drivers": [
+    {
+      "id": "dante_ddm",
+      "name": "Dante DDM / Director",
+      "manufacturer": "Audinate",
+      "category": "audio",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Discover devices, route/unroute audio channels, monitor subscriptions.",
+      "source_url": "https://www.getdante.com/products/network-management/dante-managed-api/",
+      "file": "audio/dante_ddm.py",
+      "format": "python",
+      "ports": [
+        443
+      ],
+      "simulated": true,
+      "tags": [
+        "dante",
+        "audio-routing",
+        "graphql"
+      ],
+      "help": {
+        "overview": "This driver connects to a Dante Domain Manager (DDM) or Dante Director Professional instance to control audio routing across all Dante devices on the network. It does NOT connect to individual Dante devices \u2014 the DDM/Director acts as the central management point.\n\nYou can route any transmit (Tx) channel to any receive (Rx) channel, clear routes, and monitor subscription status.",
+        "setup": "1. You need Dante Domain Manager (on-premise) or Dante Director Professional (cloud) \u2014 the Standard tier does not include API access.\n2. Generate an API key in the DDM/Director web UI.\n3. Enter the DDM/Director URL (e.g., https://ddm.local or the Director cloud URL).\n4. Enter the API key.\n5. Enter the Dante domain name to manage (shown in DDM/Director).\n6. Use the 'refresh' command to discover devices and channels."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Audinate",
+          "models": [
+            "Dante Domain Manager",
+            "Dante Director Professional"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "at_atdm_0604",
+      "name": "Audio-Technica ATDM-0604",
+      "manufacturer": "Audio-Technica",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP. Supports input/output level and mute control, preset recall, and SmartMix configuration.\n",
+      "source_url": "https://docs.audio-technica.com/us/atdm_0604_ip_control_protcol_specification_ver1_1_2_web_190626.pdf",
+      "file": "audio/at_atdm_0604.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        17300
+      ],
+      "simulated": true,
+      "tags": [
+        "mixer",
+        "smartmixer",
+        "conferencing",
+        "automixer"
+      ],
+      "help": {
+        "overview": "Controls Audio-Technica ATDM-0604 Digital SmartMixer. The ATDM-0604 is a 6-input, 4-output automatic mixer designed for conference and installed sound applications.\n",
+        "setup": "1. Connect the ATDM-0604 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Input channels: 1-6 (mic/line), ST (stereo). 5. Output channels: 1-4, ST (stereo).\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Audio-Technica",
+          "models": [
+            "ATDM-0604"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "at_atdm_1012",
+      "name": "Audio-Technica ATDM-1012",
+      "manufacturer": "Audio-Technica",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP. Supports input/output level and mute control, bus assign, SmartMix configuration, operator faders, and preset recall.\n",
+      "source_url": "https://docs.audio-technica.com/all/IP_Control_Protocol_Specification_-_ATDM-1012_ATDM-1012DAN.pdf",
+      "file": "audio/at_atdm_1012.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        17300
+      ],
+      "simulated": true,
+      "tags": [
+        "mixer",
+        "smartmixer",
+        "conferencing",
+        "automixer",
+        "dante"
+      ],
+      "help": {
+        "overview": "Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers. The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses, designed for conference rooms, courtrooms, and council chambers. The DAN variant adds Dante audio networking.\n",
+        "setup": "1. Connect the ATDM-1012 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8. 5. Output channels: 1-8, ST1, ST2. 6. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Audio-Technica",
+          "models": [
+            "ATDM-1012",
+            "ATDM-1012DAN"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "behringer_x32",
+      "name": "Behringer X32 Digital Mixer",
+      "manufacturer": "Behringer",
+      "category": "audio",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "osc",
+      "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.",
+      "source_url": "https://sites.google.com/site/patrickmaillot/x32",
+      "file": "audio/behringer_x32.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        10023
+      ],
+      "simulated": true,
+      "min_platform_version": "0.6.0",
+      "tags": [
+        "mixer",
+        "console",
+        "osc",
+        "midas"
+      ],
+      "help": {
+        "overview": "Controls a Behringer X32 or X32 Compact digital mixer over the network using the OSC (Open Sound Control) protocol. Full console coverage including all 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, and main stereo/mono outputs.",
+        "setup": "1. Connect the X32 to the same network as the OpenAVC server. 2. On the X32, go to Setup > Network and note the IP address. 3. Enter the IP address in the device config. The default port is 10023. 4. The driver will automatically subscribe to feedback and start\n   receiving fader/mute updates."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Behringer",
+          "models": [
+            "X32",
+            "X32 Compact",
+            "X32 Producer",
+            "X32 Rack",
+            "X32 Core"
+          ],
+          "confidence": "untested"
+        },
+        {
+          "manufacturer": "Midas",
+          "models": [
+            "M32",
+            "M32 LIVE",
+            "M32R",
+            "M32C"
+          ],
+          "confidence": "untested",
+          "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "id": "biamp_tesira_ttp",
+      "name": "Biamp Tesira TTP",
+      "manufacturer": "Biamp",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Biamp Tesira and TesiraFORTE DSPs via the TTP (Tesira Text Protocol) over TCP port 23. Supports level control, mute, and preset recall. Configure Instance Tags to match your Tesira design file.\n",
+      "source_url": "https://support.biamp.com",
+      "file": "audio/biamp_tesira_ttp.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "biamp_tesira"
+      ],
+      "simulated": true,
+      "tags": [
+        "dsp",
+        "tesira",
+        "ttp",
+        "ceiling-mic"
+      ],
+      "help": {
+        "overview": "Controls Biamp Tesira and TesiraFORTE DSPs via the TTP protocol. Supports level control, mute, and preset recall. Configure Instance Tags to match your Tesira design file.\n",
+        "setup": "1. Connect the Tesira DSP to the network. 2. Default control port is 23 (Telnet). 3. Set the Instance Tags to match your Tesira design file\n   (e.g., \"PgmLevel\" for the program level fader).\n4. Instance Tags are user-assigned labels in the Biamp Tesira software.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Biamp",
+          "models": [
+            "Tesira SERVER",
+            "Tesira SERVER-IO",
+            "TesiraFORTE AVB",
+            "TesiraFORTE CI",
+            "TesiraFORTE DAN",
+            "TesiraFORTE TI",
+            "TesiraFORTE VI",
+            "TesiraFORTE VT",
+            "TesiraFORTE X"
+          ],
+          "confidence": "partial",
+          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+        }
+      ]
+    },
+    {
+      "id": "qsc_qrc",
+      "name": "QSC Q-SYS QRC",
+      "manufacturer": "QSC",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls QSC Q-SYS Core processors via the QRC (Q-SYS Remote Control) protocol over TCP port 1702. Supports named control values, positions, strings, and snapshot recall. Configure Named Control names to match your Q-SYS Designer file.\n",
+      "source_url": "https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm",
+      "file": "audio/qsc_qrc.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        1702,
+        52000
+      ],
+      "protocols": [
+        "qsc"
+      ],
+      "simulated": true,
+      "tags": [
+        "dsp",
+        "q-sys",
+        "qrc",
+        "ceiling-mic"
+      ],
+      "compatible_models": [
+        {
+          "manufacturer": "QSC",
+          "models": [
+            "Core 8 Flex",
+            "Core 110f",
+            "Core 510i",
+            "Core 610",
+            "Core Nano",
+            "Q-SYS Core series"
+          ],
+          "confidence": "untested",
+          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+        }
+      ]
+    },
+    {
+      "id": "shure_network",
+      "name": "Shure Networked Devices",
+      "manufacturer": "Shure",
+      "category": "audio",
+      "version": "1.3.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
+      "source_url": "https://pubs.shure.com/guide/commandstrings",
+      "file": "audio/shure_network.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        2202
+      ],
+      "protocols": [
+        "shure_dcs"
+      ],
+      "simulated": true,
+      "tags": [
+        "ceiling-mic",
+        "wireless-mic",
+        "intellimix"
+      ],
+      "compatible_models": [
+        {
+          "manufacturer": "Shure",
+          "models": [
+            "MXA910",
+            "MXA920",
+            "MXA710",
+            "ANI22",
+            "ANI4IN",
+            "ANI4OUT",
+            "P300 IntelliMix",
+            "SCM820"
+          ],
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "sonos",
+      "name": "Sonos Speaker",
+      "manufacturer": "Sonos",
+      "category": "audio",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, track info, and transport control.",
+      "source_url": "https://sonos.svrooij.io/services/",
+      "file": "audio/sonos.py",
+      "format": "python",
+      "ports": [
+        1400
+      ],
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "speaker",
+        "wireless-audio",
+        "background-music",
+        "upnp"
+      ],
+      "help": {
+        "overview": "Controls any Sonos speaker on the local network via UPnP. Works with all Sonos models including One, Five, Beam, Arc, Era, Move, Roam, Port, Amp, and legacy Play/Connect models. No cloud account or API key required.",
+        "setup": "1. Ensure the Sonos speaker is on the same network\n2. Enter the speaker's IP address (find it in the Sonos app under Settings > System > About)\n3. Default port is 1400 (do not change)\n4. UPnP control must be enabled on the speaker (on by default)"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sonos",
+          "models": [
+            "Sonos S1 platform speakers",
+            "Sonos S2 platform speakers"
+          ],
+          "confidence": "full",
+          "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    }
+  ]
+}

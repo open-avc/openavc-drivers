@@ -1,0 +1,108 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-29T23:57:53+00:00",
+    "generator_version": "1.0.0",
+    "schema_version": "1",
+    "total_devices": 8,
+    "shards": null,
+    "category": "projector"
+  },
+  "devices": [
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "M series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "ME series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "NP-PE456USL",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "full",
+          "notes": "Verified on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "P series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PA series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PE series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PV series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PX series projectors",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sharp_nec_projector",
+          "confidence": "untested",
+          "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    }
+  ]
+}

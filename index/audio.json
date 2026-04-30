@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T19:31:11+00:00",
+    "generated_at": "2026-04-30T19:53:28+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 9,
+    "total_drivers": 10,
     "shards": null,
     "category": "audio"
   },
@@ -382,6 +382,61 @@
           ],
           "confidence": "full",
           "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    },
+    {
+      "id": "symetrix_composer",
+      "name": "Symetrix Composer DSP",
+      "manufacturer": "Symetrix",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, Prism, Solus NX, and xControl DSPs via the Composer Control Protocol on TCP port 48631. Generic controller model: assign controller numbers (1\u201310000) in Composer to faders, mutes, selectors, and meters; this driver reads / writes those numbers and subscribes to push-enabled value changes.",
+      "source_url": "https://audiobrains.com/data/symetrix/others/Composer-Control-Protocol-v7.0-080918.pdf",
+      "file": "audio/symetrix_composer.py",
+      "format": "python",
+      "ports": [
+        48631
+      ],
+      "protocols": [
+        "symetrix-composer"
+      ],
+      "simulated": true,
+      "tags": [
+        "dsp",
+        "symetrix",
+        "composer",
+        "ceiling-mic"
+      ],
+      "help": {
+        "overview": "Symetrix DSPs use a generic external-control model: the AV integrator wires controller numbers to specific DSP elements in Composer (Tools \u2192 Controller Manager) with the 'Enable Push' setting active. This driver speaks that protocol, so macros can move controllers, recall presets, and react to DSP state changes without writing custom protocol code.",
+        "setup": "1. In Composer, open Tools \u2192 Controller Manager and assign controller numbers (1\u201310000) to the faders, mutes, selectors, and meters you want to control from OpenAVC. Make sure the 'Push' checkbox is enabled for each.\n2. Compile and push the design to the unit.\n3. Note the unit's IP address (System Manager).\n4. Enter the IP, port 48631, and num_controllers (set to the highest controller number you assigned, rounded up \u2014 default 64 covers most installations) in the device config in OpenAVC.\n5. Connect. The driver enables global push and issues Push Refresh on connect, so all current values populate immediately."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Symetrix",
+          "models": [
+            "Edge",
+            "Radius",
+            "Radius 12x8 EX",
+            "Radius AEC",
+            "Radius NX 4x4",
+            "Radius NX 12x8",
+            "Radius NX 12x12",
+            "Prism 0x0",
+            "Prism 4x4",
+            "Prism 8x8",
+            "Prism 12x12",
+            "Prism 16x16",
+            "Solus NX 4",
+            "Solus NX 8",
+            "Solus NX 16",
+            "xControl"
+          ],
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
         }
       ]
     }

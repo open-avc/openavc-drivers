@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T19:31:11+00:00",
+    "generated_at": "2026-04-30T19:53:28+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 43,
+    "total_devices": 59,
     "shards": null,
     "category": "audio"
   },
@@ -503,6 +503,198 @@
           "id": "sonos",
           "confidence": "full",
           "notes": "UPnP API stable across all Sonos models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Edge",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Prism 0x0",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Prism 12x12",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Prism 16x16",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Prism 4x4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Prism 8x8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Radius",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Radius 12x8 EX",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Radius AEC",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Radius NX 12x12",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Radius NX 12x8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Radius NX 4x4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Solus NX 16",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Solus NX 4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "Solus NX 8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Symetrix",
+      "model": "xControl",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "symetrix_composer",
+          "confidence": "untested",
+          "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
         }
       ]
     }

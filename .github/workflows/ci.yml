@@ -29,8 +29,10 @@ jobs:
         run: python scripts/build_index.py
 
       - name: Verify generated catalog is in sync with checked-in files
+        # `-I` ignores hunks where every change matches the regex — the only
+        # field that legitimately changes between runs is generated_at.
         run: |
-          if ! git diff --exit-code -- index.json devices.json index/ devices/; then
+          if ! git diff --exit-code -I '"generated_at":' -- index.json devices.json index/ devices/; then
             echo ""
             echo "ERROR: Generated catalog files differ from what's checked in."
             echo "Run 'python scripts/build_index.py' locally and commit the result."

@@ -1,0 +1,1300 @@
+# Yamaha MTX/MRX/XMV/EXi8/EXo8 Driver
+#
+# Controls Yamaha MTX3, MTX5-D, MRX7-D matrix processors and the XMV / EXi8 /
+# EXo8 expansion devices over the Yamaha Remote Control Protocol (RCP).
+#
+# Transport: TCP, port 49280, line-based ASCII, LF-terminated.
+# Source:    "MTX3, MTX5-D, MRX7-D, XMV Series, EXi8, EXo8 Remote Control
+#            Protocol Specifications V4.0.0 rev14" (Yamaha, 2020-03-30)
+# https://usa.yamaha.com/files/download/other_assets/5/1343735/200330_mtx_mrx_xmv_ex_rcps_v400_rev14_en.pdf
+#
+# ----------------------------------------------------------------------------
+# Push vs poll (per protocol spec):
+#   The protocol is push-capable. The device automatically sends NOTIFY
+#   messages on parameter changes, preset/snapshot recalls, run-mode changes,
+#   sample-rate changes, etc. NO explicit "subscribe" command is needed -
+#   NOTIFY is unsolicited and global. The driver listens for NOTIFY lines and
+#   updates state immediately. Polling is a refresh backstop for liveness
+#   detection (devstatus runmode) and to backfill state at connect.
+#
+# Address model:
+#   MRX7-D parameters are addressed by an "Index" assigned in the Remote
+#   Control Setup List (configured in MTX-MRX Editor). The integrator wires
+#   their faders / mutes / selectors to Index 1..N, then this driver controls
+#   them by Index number - the Symetrix Composer "controller number" model.
+#   This driver exposes Index 1..32 (covers typical installations).
+#
+#   MTX3 / MTX5-D / XMV / EXi8 / EXo8 use full parameter paths
+#   (MTX:mem_MemNo/UniqueId/ElmNo/Xpos/Ypos/PrmNo/IndexNo). The driver exposes
+#   generic set_param / get_param / inc_param commands for those devices, and
+#   surfaces the most-recent response in last_param_* state vars.
+#
+#   Both addressing modes coexist on the wire; an integrator can mix them in
+#   one project by binding panel controls to either Index commands or raw
+#   set_param commands.
+#
+# Authentication:
+#   The protocol has no authentication. RCP must be enabled in MTX-MRX Editor
+#   (System -> Remote Control). Up to 8 simultaneous network sessions per
+#   device.
+#
+# Keepalive:
+#   The protocol supports an optional keepalive timeout (scpmode keepalive).
+#   Disabled by default in the device. Most installations don't need it; if
+#   enabled, the device closes the connection if no command/heart-beat arrives
+#   within the configured timeout. Driver default leaves it off.
+
+
+id: yamaha_mtx_mrx
+name: Yamaha MTX/MRX/XMV
+manufacturer: Yamaha
+category: audio
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the
+  XMV power amps + EXi8 / EXo8 audio expanders over the Remote Control
+  Protocol (RCP) on TCP port 49280. Push-capable: NOTIFY messages from the
+  device drive state immediately; polling backstops liveness and refresh.
+  MRX7-D parameters are addressed via Remote Control Setup List Index numbers
+  (1..32); MTX/XMV use full parameter paths via generic set_param / get_param.
+
+source_url: https://usa.yamaha.com/files/download/other_assets/5/1343735/200330_mtx_mrx_xmv_ex_rcps_v400_rev14_en.pdf
+tags: [dsp, install-audio, matrix-processor, dante, paging, ducking, zone-mixer, rcp]
+verified: false
+simulated: true
+protocols: [yamaha_rcp]
+ports: [49280]
+compatible_models:
+  - manufacturer: Yamaha
+    models:
+      - MTX3
+      - MTX5-D
+      - MRX7-D
+    confidence: untested
+    notes: >
+      Matrix processors. MRX7-D requires a Remote Control Setup List in
+      MTX-MRX Editor that maps user faders / mutes / selectors to Index
+      numbers; this driver controls them by Index. MTX3 / MTX5-D use
+      full parameter addresses via the generic set_param command.
+  - manufacturer: Yamaha
+    models:
+      - XMV4140
+      - XMV4140-D
+      - XMV4280
+      - XMV4280-D
+      - XMV8140
+      - XMV8140-D
+      - XMV8280
+      - XMV8280-D
+      - XMV16140
+    confidence: untested
+    notes: >
+      XMV power amps. Controlled via full parameter paths (set_param /
+      get_param). RCP control is independent of any MTX/MRX in the system.
+  - manufacturer: Yamaha
+    models:
+      - EXi8
+      - EXo8
+    confidence: untested
+    notes: >
+      Audio I/O expanders. Same RCP address model as XMV.
+
+transport: tcp
+delimiter: "\n"
+
+help:
+  overview: >
+    Yamaha RCP is the unified ASCII control protocol used across the MTX,
+    MRX, XMV, EXi8, and EXo8 product family. The protocol is push-capable -
+    the device sends a NOTIFY message whenever a parameter changes, whether
+    from this controller, the front panel, another remote controller, or a
+    preset/snapshot recall.
+
+    For MRX7-D, integrators define a Remote Control Setup List in MTX-MRX
+    Editor that maps each panel control (fader, mute, selector) to an Index
+    number. This driver exposes 32 Index slots; bind your panel UI to the
+    set_index / inc_index / query_index commands.
+
+    For MTX3 / MTX5-D / XMV / EXi8 / EXo8, addresses look like
+    MTX:mem_512/60000/0/0/0/0/0 - the seven-element path identifies a
+    specific channel/parameter. Look up addresses in section 7 ("Parameter
+    List") of the RCP specification, then use set_param / get_param /
+    inc_param.
+  setup: >
+    1. Connect the Yamaha device(s) to the network via Ethernet.
+    2. In MTX-MRX Editor (or ProVisionaire Edit for newer firmware), open
+       System -> Remote Control. Enable network remote control on TCP port
+       49280. The device supports up to 8 simultaneous remote sessions.
+    3. (MRX7-D only) In MTX-MRX Editor, open Remote Control Setup List.
+       Assign each panel control to an Index number 1..32. Synchronize the
+       project to the device.
+    4. Enter the device's IP address in the OpenAVC device config. Leave
+       port at 49280.
+    5. Optional: set keepalive_timeout > 0 to enable RCP keepalive for
+       unreliable networks. The device will drop the connection if no
+       command arrives within the configured timeout.
+
+discovery:
+  ports: [49280]
+  mac_prefixes:
+    - "00:a0:de"  # Yamaha Corporation
+
+default_config:
+  host: ""
+  port: 49280
+  poll_interval: 30
+  inter_command_delay: 0.05
+  keepalive_timeout: 0
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 49280
+    label: TCP Port
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (sec)
+    description: "Refresh backstop. Set to 0 to rely entirely on push notifications."
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+  keepalive_timeout:
+    type: integer
+    default: 0
+    min: 0
+    label: Keepalive Timeout (ms)
+    description: "0 disables. Recommended only for unreliable networks. The device will drop the connection if no command arrives within this window."
+
+state_variables:
+  device_runmode:
+    type: string
+    label: Run Mode
+  device_error:
+    type: string
+    label: Last Alert
+  device_fs:
+    type: string
+    label: Sample Rate
+  device_lockstatus:
+    type: string
+    label: Word Clock Status
+  protocol_version:
+    type: string
+    label: RCP Protocol Version
+  firmware_version:
+    type: string
+    label: Firmware Version
+  product_name:
+    type: string
+    label: Product Name
+  serial_number:
+    type: string
+    label: Serial Number
+  device_id:
+    type: string
+    label: Unit ID
+  device_name:
+    type: string
+    label: Device Name
+  current_preset:
+    type: number
+    label: Current Preset Index
+  current_snapshot:
+    type: number
+    label: Current Snapshot Index (MRX7-D)
+  scheduler_enabled:
+    type: boolean
+    label: Scheduler Enabled
+  last_param_address:
+    type: string
+    label: Last Raw Parameter Address
+  last_param_value:
+    type: string
+    label: Last Raw Parameter Value
+  last_param_string:
+    type: string
+    label: Last Raw Parameter String
+
+  index_1:
+    type: number
+    label: "Index 1 \u2014 Raw Value"
+  index_1_string:
+    type: string
+    label: "Index 1 \u2014 Display Value"
+  index_2:
+    type: number
+    label: "Index 2 \u2014 Raw Value"
+  index_2_string:
+    type: string
+    label: "Index 2 \u2014 Display Value"
+  index_3:
+    type: number
+    label: "Index 3 \u2014 Raw Value"
+  index_3_string:
+    type: string
+    label: "Index 3 \u2014 Display Value"
+  index_4:
+    type: number
+    label: "Index 4 \u2014 Raw Value"
+  index_4_string:
+    type: string
+    label: "Index 4 \u2014 Display Value"
+  index_5:
+    type: number
+    label: "Index 5 \u2014 Raw Value"
+  index_5_string:
+    type: string
+    label: "Index 5 \u2014 Display Value"
+  index_6:
+    type: number
+    label: "Index 6 \u2014 Raw Value"
+  index_6_string:
+    type: string
+    label: "Index 6 \u2014 Display Value"
+  index_7:
+    type: number
+    label: "Index 7 \u2014 Raw Value"
+  index_7_string:
+    type: string
+    label: "Index 7 \u2014 Display Value"
+  index_8:
+    type: number
+    label: "Index 8 \u2014 Raw Value"
+  index_8_string:
+    type: string
+    label: "Index 8 \u2014 Display Value"
+  index_9:
+    type: number
+    label: "Index 9 \u2014 Raw Value"
+  index_9_string:
+    type: string
+    label: "Index 9 \u2014 Display Value"
+  index_10:
+    type: number
+    label: "Index 10 \u2014 Raw Value"
+  index_10_string:
+    type: string
+    label: "Index 10 \u2014 Display Value"
+  index_11:
+    type: number
+    label: "Index 11 \u2014 Raw Value"
+  index_11_string:
+    type: string
+    label: "Index 11 \u2014 Display Value"
+  index_12:
+    type: number
+    label: "Index 12 \u2014 Raw Value"
+  index_12_string:
+    type: string
+    label: "Index 12 \u2014 Display Value"
+  index_13:
+    type: number
+    label: "Index 13 \u2014 Raw Value"
+  index_13_string:
+    type: string
+    label: "Index 13 \u2014 Display Value"
+  index_14:
+    type: number
+    label: "Index 14 \u2014 Raw Value"
+  index_14_string:
+    type: string
+    label: "Index 14 \u2014 Display Value"
+  index_15:
+    type: number
+    label: "Index 15 \u2014 Raw Value"
+  index_15_string:
+    type: string
+    label: "Index 15 \u2014 Display Value"
+  index_16:
+    type: number
+    label: "Index 16 \u2014 Raw Value"
+  index_16_string:
+    type: string
+    label: "Index 16 \u2014 Display Value"
+  index_17:
+    type: number
+    label: "Index 17 \u2014 Raw Value"
+  index_17_string:
+    type: string
+    label: "Index 17 \u2014 Display Value"
+  index_18:
+    type: number
+    label: "Index 18 \u2014 Raw Value"
+  index_18_string:
+    type: string
+    label: "Index 18 \u2014 Display Value"
+  index_19:
+    type: number
+    label: "Index 19 \u2014 Raw Value"
+  index_19_string:
+    type: string
+    label: "Index 19 \u2014 Display Value"
+  index_20:
+    type: number
+    label: "Index 20 \u2014 Raw Value"
+  index_20_string:
+    type: string
+    label: "Index 20 \u2014 Display Value"
+  index_21:
+    type: number
+    label: "Index 21 \u2014 Raw Value"
+  index_21_string:
+    type: string
+    label: "Index 21 \u2014 Display Value"
+  index_22:
+    type: number
+    label: "Index 22 \u2014 Raw Value"
+  index_22_string:
+    type: string
+    label: "Index 22 \u2014 Display Value"
+  index_23:
+    type: number
+    label: "Index 23 \u2014 Raw Value"
+  index_23_string:
+    type: string
+    label: "Index 23 \u2014 Display Value"
+  index_24:
+    type: number
+    label: "Index 24 \u2014 Raw Value"
+  index_24_string:
+    type: string
+    label: "Index 24 \u2014 Display Value"
+  index_25:
+    type: number
+    label: "Index 25 \u2014 Raw Value"
+  index_25_string:
+    type: string
+    label: "Index 25 \u2014 Display Value"
+  index_26:
+    type: number
+    label: "Index 26 \u2014 Raw Value"
+  index_26_string:
+    type: string
+    label: "Index 26 \u2014 Display Value"
+  index_27:
+    type: number
+    label: "Index 27 \u2014 Raw Value"
+  index_27_string:
+    type: string
+    label: "Index 27 \u2014 Display Value"
+  index_28:
+    type: number
+    label: "Index 28 \u2014 Raw Value"
+  index_28_string:
+    type: string
+    label: "Index 28 \u2014 Display Value"
+  index_29:
+    type: number
+    label: "Index 29 \u2014 Raw Value"
+  index_29_string:
+    type: string
+    label: "Index 29 \u2014 Display Value"
+  index_30:
+    type: number
+    label: "Index 30 \u2014 Raw Value"
+  index_30_string:
+    type: string
+    label: "Index 30 \u2014 Display Value"
+  index_31:
+    type: number
+    label: "Index 31 \u2014 Raw Value"
+  index_31_string:
+    type: string
+    label: "Index 31 \u2014 Display Value"
+  index_32:
+    type: number
+    label: "Index 32 \u2014 Raw Value"
+  index_32_string:
+    type: string
+    label: "Index 32 \u2014 Display Value"
+
+on_connect:
+  - "devstatus runmode\n"
+  - "devinfo protocolver\n"
+  - "devinfo version\n"
+  - "devinfo productname\n"
+  - "devinfo serialno\n"
+  - "devinfo deviceid\n"
+  - "devinfo devicename\n"
+  - "sscurrent\n"
+
+
+commands:
+
+  # ── System / device info ──
+
+  query_runmode:
+    label: Query Run Mode
+    send: "devstatus runmode\n"
+    help: "Query whether the device is in normal, emergency, or update mode."
+
+  query_protocol_version:
+    label: Query Protocol Version
+    send: "devinfo protocolver\n"
+
+  query_firmware_version:
+    label: Query Firmware Version
+    send: "devinfo version\n"
+
+  query_product_name:
+    label: Query Product Name
+    send: "devinfo productname\n"
+
+  query_serial_number:
+    label: Query Serial Number
+    send: "devinfo serialno\n"
+
+  query_device_id:
+    label: Query Unit ID
+    send: "devinfo deviceid\n"
+
+  query_device_name:
+    label: Query Device Name
+    send: "devinfo devicename\n"
+
+  set_normal_mode:
+    label: Set Normal Run Mode
+    send: "devmode normal\n"
+    help: "Exit emergency mode (MTX3 / MTX5-D / MRX7-D only)."
+
+  set_emergency_mode:
+    label: Set Emergency Run Mode
+    send: "devmode emergency\n"
+    help: "Activate the device's emergency-broadcast mode (MTX3 / MTX5-D / MRX7-D only). Invalid on XMV / EXi8 / EXo8."
+
+  heart_beat:
+    label: Heart Beat (Keepalive)
+    send: "\n"
+    help: "Send a bare LF as a heart-beat. Required only when keepalive is enabled on the device (scpmode keepalive)."
+
+  enable_keepalive:
+    label: Enable Keepalive
+    send: "scpmode keepalive {timeout_ms}\n"
+    help: "Enable RCP-level keepalive on the device. The device will drop the connection if no command/heart-beat arrives within the timeout (msec)."
+    params:
+      timeout_ms:
+        type: integer
+        required: true
+        default: 5000
+        min: 1000
+        label: Timeout (ms)
+
+  set_value_mode_raw:
+    label: Use Raw Values for Notifications
+    send: "scpmode valuetype raw\n"
+
+  set_value_mode_normalized:
+    label: Use Normalized Values for Notifications
+    send: "scpmode valuetype normalized\n"
+
+  # ── Preset / Snapshot ──
+
+  query_current_preset:
+    label: Query Current Preset
+    send: "sscurrent\n"
+
+  recall_preset:
+    label: Recall Preset
+    send: "ssrecall {index}\n"
+    help: "Recall the preset at the given index (1..50, MTX/MRX only)."
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        max: 50
+        label: Preset Index
+
+  query_preset_count:
+    label: Query Preset Count
+    send: "ssnum\n"
+
+  query_preset_info:
+    label: Query Nth Preset Info
+    send: "ssinfo {index}\n"
+    help: "Get title and attribute of preset at the given index."
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        label: Preset Index
+
+  recall_snapshot:
+    label: Recall Snapshot (MRX7-D)
+    send: "ssrecall_ex list {index}\n"
+    help: "Recall a Snapshot or SnapshotGroup assigned to the given index in the Remote Control Setup List. MRX7-D only."
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        label: Snapshot Index
+
+  # ── Index-based parameter control (MRX7-D Remote Control Setup List) ──
+
+  set_index:
+    label: Set Index Value (Raw)
+    send: "set MTX:Index_{index} 0 0 {value}\n"
+    help: "Set parameter assigned to Index N in the Remote Control Setup List using a raw value. Faders are in 0.01 dB units (e.g. -7760 = -77.60 dB)."
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        max: 32
+        label: Index
+      value:
+        type: integer
+        required: true
+        label: Raw Value
+
+  set_index_normalized:
+    label: Set Index Value (Normalized)
+    send: "setn MTX:Index_{index} 0 0 {value}\n"
+    help: "Set parameter assigned to Index N using a normalized value (0..1000, default resolution)."
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        max: 32
+        label: Index
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 1023
+        label: Normalized Value
+
+  inc_index:
+    label: Increment Index Value (Relative)
+    send: "setr MTX:Index_{index} 0 0 {step}\n"
+    help: "Adjust the parameter by a relative step (positive or negative). Fader-type parameters only. Range 0..1023; e.g. step=64 yields 16 level steps."
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        max: 32
+        label: Index
+      step:
+        type: integer
+        required: true
+        label: Step (signed)
+
+  query_index:
+    label: Query Index Value (Raw)
+    send: "get MTX:Index_{index} 0 0\n"
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        max: 32
+        label: Index
+
+  query_index_normalized:
+    label: Query Index Value (Normalized)
+    send: "getn MTX:Index_{index} 0 0\n"
+    params:
+      index:
+        type: integer
+        required: true
+        min: 1
+        max: 32
+        label: Index
+
+  # ── Generic full-address parameter control (MTX3/MTX5-D/XMV/EXi8/EXo8) ──
+
+  set_param:
+    label: Set Parameter (Full Address)
+    send: "set {address} 0 0 {value}\n"
+    help: "Set a parameter using its full address (MTX:mem_MemNo/UniqueId/ElmNo/Xpos/Ypos/PrmNo/IndexNo). Look up in section 7 of the RCP spec."
+    params:
+      address:
+        type: string
+        required: true
+        label: Parameter Address
+        description: "e.g. MTX:mem_512/60000/0/0/0/0/0"
+      value:
+        type: integer
+        required: true
+        label: Raw Value
+
+  set_param_normalized:
+    label: Set Parameter (Normalized)
+    send: "setn {address} 0 0 {value}\n"
+    params:
+      address:
+        type: string
+        required: true
+        label: Parameter Address
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 1023
+        label: Normalized Value
+
+  inc_param:
+    label: Increment Parameter (Relative)
+    send: "setr {address} 0 0 {step}\n"
+    params:
+      address:
+        type: string
+        required: true
+        label: Parameter Address
+      step:
+        type: integer
+        required: true
+        label: Step (signed)
+
+  query_param:
+    label: Query Parameter (Raw)
+    send: "get {address} 0 0\n"
+    params:
+      address:
+        type: string
+        required: true
+        label: Parameter Address
+
+  query_param_normalized:
+    label: Query Parameter (Normalized)
+    send: "getn {address} 0 0\n"
+    params:
+      address:
+        type: string
+        required: true
+        label: Parameter Address
+
+  # ── Scheduler ──
+
+  enable_scheduler:
+    label: Enable Scheduler
+    send: "set MTX:EvntScd_On 0 0 1\n"
+
+  disable_scheduler:
+    label: Disable Scheduler
+    send: "set MTX:EvntScd_On 0 0 0\n"
+
+  query_scheduler_status:
+    label: Query Scheduler Status
+    send: "get MTX:EvntScd_On 0 0\n"
+
+  # ── Meter control ──
+
+  start_meter:
+    label: Start Meter Stream
+    send: "mtrstart {address} {interval_ms}\n"
+    help: "Begin meter data transmission for the given meter address. Meter pushes auto-stop after 10 seconds; re-issue periodically to keep them flowing."
+    params:
+      address:
+        type: string
+        required: true
+        label: Meter Address
+        description: "e.g. MTX:mtr_512/20020/meter, or MTX:Index_2 (MRX7-D)"
+      interval_ms:
+        type: integer
+        required: true
+        default: 1000
+        min: 100
+        label: Interval (ms)
+
+  stop_meter:
+    label: Stop Meter Stream
+    send: "mtrstop {address}\n"
+    params:
+      address:
+        type: string
+        required: true
+        label: Meter Address
+
+  # ── Raw escape hatch ──
+
+  raw_rcp:
+    label: Send Raw RCP Command
+    send: "{command}\n"
+    help: "Send an arbitrary RCP command exactly as written. The trailing LF is added automatically. Useful for parameter addresses or commands not modeled above."
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+
+responses:
+
+  # ── Device status notifications ──
+
+  - match: '(?:NOTIFY|OK) devstatus runmode "([^"]*)"'
+    set: { device_runmode: "$1" }
+
+  - match: '(?:NOTIFY|OK) devstatus error "([^"]*)"'
+    set: { device_error: "$1" }
+
+  - match: '(?:NOTIFY|OK) devstatus fs "([^"]*)"'
+    set: { device_fs: "$1" }
+
+  - match: '(?:NOTIFY|OK) devstatus lockstatus "([^"]*)"'
+    set: { device_lockstatus: "$1" }
+
+  # ── Device info ──
+
+  - match: 'OK devinfo protocolver "([^"]*)"'
+    set: { protocol_version: "$1" }
+
+  - match: 'OK devinfo version "([^"]*)"'
+    set: { firmware_version: "$1" }
+
+  - match: 'OK devinfo productname "([^"]*)"'
+    set: { product_name: "$1" }
+
+  - match: 'OK devinfo serialno "([^"]*)"'
+    set: { serial_number: "$1" }
+
+  - match: 'OK devinfo deviceid "([^"]*)"'
+    set: { device_id: "$1" }
+
+  - match: 'OK devinfo devicename "([^"]*)"'
+    set: { device_name: "$1" }
+
+  # ── Preset / Snapshot ──
+
+  - match: '(?:NOTIFY|OK) sscurrent (\d+)'
+    set: { current_preset: "$1" }
+
+  - match: '(?:NOTIFY|OK) ssrecall (\d+)'
+    set: { current_preset: "$1" }
+
+  - match: '(?:NOTIFY|OK) sscurrent_ex list (\d+)'
+    set: { current_snapshot: "$1" }
+
+  - match: '(?:NOTIFY|OK) ssrecall_ex list (\d+)'
+    set: { current_snapshot: "$1" }
+
+  # ── Scheduler ──
+  # Use a regex capture so the value passes through type coercion (boolean).
+  - match: '(?:NOTIFY set|OK set|OK get) MTX:EvntScd_On 0 0 (\d+)'
+    set: { scheduler_enabled: "$1" }
+
+  # ── Generic raw-address parameter responses (MTX/XMV/EXi8/EXo8) ──
+  # Fall-through patterns that record the most recent parameter response so
+  # integrators using set_param / query_param can see the value reflected
+  # in state. Index_N responses also match these but are overridden by the
+  # per-index patterns below.
+
+  - match: 'OK get (MTX:mem_\S+) 0 0 (-?\d+)'
+    set: { last_param_address: "$1", last_param_value: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr) (MTX:mem_\S+) 0 0 (-?\d+) "([^"]*)"'
+    set: { last_param_address: "$1", last_param_value: "$2", last_param_string: "$3" }
+
+  # ── Index-based parameter responses (MRX7-D) ──
+
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_1 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_1: "$1", index_1_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_2 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_2: "$1", index_2_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_3 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_3: "$1", index_3_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_4 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_4: "$1", index_4_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_5 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_5: "$1", index_5_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_6 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_6: "$1", index_6_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_7 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_7: "$1", index_7_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_8 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_8: "$1", index_8_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_9 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_9: "$1", index_9_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_10 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_10: "$1", index_10_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_11 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_11: "$1", index_11_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_12 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_12: "$1", index_12_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_13 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_13: "$1", index_13_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_14 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_14: "$1", index_14_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_15 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_15: "$1", index_15_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_16 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_16: "$1", index_16_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_17 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_17: "$1", index_17_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_18 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_18: "$1", index_18_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_19 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_19: "$1", index_19_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_20 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_20: "$1", index_20_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_21 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_21: "$1", index_21_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_22 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_22: "$1", index_22_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_23 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_23: "$1", index_23_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_24 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_24: "$1", index_24_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_25 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_25: "$1", index_25_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_26 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_26: "$1", index_26_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_27 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_27: "$1", index_27_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_28 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_28: "$1", index_28_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_29 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_29: "$1", index_29_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_30 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_30: "$1", index_30_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_31 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_31: "$1", index_31_string: "$2" }
+  - match: '(?:NOTIFY set|OK set|OK setr|OK setn|OKm setn|OKm setr|OK get|OK getn) MTX:Index_32 0 0 (-?\d+)(?: "([^"]*)")?'
+    set: { index_32: "$1", index_32_string: "$2" }
+
+polling:
+  interval: 30
+  queries:
+    - "devstatus runmode\n"
+    - "devstatus error\n"
+    - "devstatus fs\n"
+    - "devstatus lockstatus\n"
+    - "sscurrent\n"
+
+    - "get MTX:Index_1 0 0\n"
+    - "get MTX:Index_2 0 0\n"
+    - "get MTX:Index_3 0 0\n"
+    - "get MTX:Index_4 0 0\n"
+    - "get MTX:Index_5 0 0\n"
+    - "get MTX:Index_6 0 0\n"
+    - "get MTX:Index_7 0 0\n"
+    - "get MTX:Index_8 0 0\n"
+    - "get MTX:Index_9 0 0\n"
+    - "get MTX:Index_10 0 0\n"
+    - "get MTX:Index_11 0 0\n"
+    - "get MTX:Index_12 0 0\n"
+    - "get MTX:Index_13 0 0\n"
+    - "get MTX:Index_14 0 0\n"
+    - "get MTX:Index_15 0 0\n"
+    - "get MTX:Index_16 0 0\n"
+    - "get MTX:Index_17 0 0\n"
+    - "get MTX:Index_18 0 0\n"
+    - "get MTX:Index_19 0 0\n"
+    - "get MTX:Index_20 0 0\n"
+    - "get MTX:Index_21 0 0\n"
+    - "get MTX:Index_22 0 0\n"
+    - "get MTX:Index_23 0 0\n"
+    - "get MTX:Index_24 0 0\n"
+    - "get MTX:Index_25 0 0\n"
+    - "get MTX:Index_26 0 0\n"
+    - "get MTX:Index_27 0 0\n"
+    - "get MTX:Index_28 0 0\n"
+    - "get MTX:Index_29 0 0\n"
+    - "get MTX:Index_30 0 0\n"
+    - "get MTX:Index_31 0 0\n"
+    - "get MTX:Index_32 0 0\n"
+
+# ── SIMULATOR DEFINITION ──
+
+simulator:
+  push_state: false  # We push manually via explicit handlers (NOTIFY format).
+
+  initial_state:
+    device_runmode: "normal"
+    device_error: "none"
+    device_fs: "48kHz"
+    device_lockstatus: "lock"
+    protocol_version: "4.0.0"
+    firmware_version: "4.10"
+    product_name: "MRX7-D"
+    serial_number: "ZA01234567"
+    device_id: "001"
+    device_name: "MRX7-D"
+    current_preset: 1
+    current_snapshot: 1
+    scheduler_enabled: false
+    last_param_address: ""
+    last_param_value: ""
+    last_param_string: ""
+
+    index_1: 0
+    index_1_string: "0.00"
+    index_2: 0
+    index_2_string: "0.00"
+    index_3: 0
+    index_3_string: "0.00"
+    index_4: 0
+    index_4_string: "0.00"
+    index_5: 0
+    index_5_string: "0.00"
+    index_6: 0
+    index_6_string: "0.00"
+    index_7: 0
+    index_7_string: "0.00"
+    index_8: 0
+    index_8_string: "0.00"
+    index_9: 0
+    index_9_string: "0.00"
+    index_10: 0
+    index_10_string: "0.00"
+    index_11: 0
+    index_11_string: "0.00"
+    index_12: 0
+    index_12_string: "0.00"
+    index_13: 0
+    index_13_string: "0.00"
+    index_14: 0
+    index_14_string: "0.00"
+    index_15: 0
+    index_15_string: "0.00"
+    index_16: 0
+    index_16_string: "0.00"
+    index_17: 0
+    index_17_string: "0.00"
+    index_18: 0
+    index_18_string: "0.00"
+    index_19: 0
+    index_19_string: "0.00"
+    index_20: 0
+    index_20_string: "0.00"
+    index_21: 0
+    index_21_string: "0.00"
+    index_22: 0
+    index_22_string: "0.00"
+    index_23: 0
+    index_23_string: "0.00"
+    index_24: 0
+    index_24_string: "0.00"
+    index_25: 0
+    index_25_string: "0.00"
+    index_26: 0
+    index_26_string: "0.00"
+    index_27: 0
+    index_27_string: "0.00"
+    index_28: 0
+    index_28_string: "0.00"
+    index_29: 0
+    index_29_string: "0.00"
+    index_30: 0
+    index_30_string: "0.00"
+    index_31: 0
+    index_31_string: "0.00"
+    index_32: 0
+    index_32_string: "0.00"
+
+  delays:
+    command_response: 0.01
+
+  controls:
+    - type: indicator
+      key: device_runmode
+      label: Run Mode
+    - type: indicator
+      key: product_name
+      label: Product
+    - type: indicator
+      key: firmware_version
+      label: Firmware
+    - type: indicator
+      key: current_preset
+      label: Current Preset
+    - type: indicator
+      key: current_snapshot
+      label: Current Snapshot (MRX7-D)
+    - type: slider
+      key: index_1
+      label: Index 1 (Raw)
+      min: -13801
+      max: 1000
+      step: 1
+    - type: slider
+      key: index_2
+      label: Index 2 (Raw)
+      min: -13801
+      max: 1000
+      step: 1
+    - type: slider
+      key: index_3
+      label: Index 3 (Raw)
+      min: -13801
+      max: 1000
+      step: 1
+
+
+  command_handlers:
+
+    # devstatus runmode
+    - match: '^devstatus runmode$'
+      handler: |
+        respond(f'OK devstatus runmode "{state["device_runmode"]}"\n')
+
+    # devstatus error
+    - match: '^devstatus error$'
+      handler: |
+        respond(f'OK devstatus error "{state["device_error"]}"\n')
+
+    # devstatus fs
+    - match: '^devstatus fs$'
+      handler: |
+        respond(f'OK devstatus fs "{state["device_fs"]}"\n')
+
+    # devstatus lockstatus
+    - match: '^devstatus lockstatus$'
+      handler: |
+        respond(f'OK devstatus lockstatus "{state["device_lockstatus"]}"\n')
+
+    # devmode normal | emergency
+    - match: '^devmode (normal|emergency|update)$'
+      handler: |
+        mode = match.group(1)
+        state["device_runmode"] = mode
+        # Real device sends both the OK ack and a NOTIFY push. The simulator's
+        # script handler only returns a single response; concatenate them so
+        # the driver's line parser sees both events.
+        respond(f'OK devmode {mode}\nNOTIFY devstatus runmode "{mode}"\n')
+
+    # devinfo queries
+    - match: '^devinfo (protocolver|version|productname|serialno|deviceid|devicename|paramsetver)$'
+      handler: |
+        key = match.group(1)
+        m = {
+            "protocolver": ("protocol_version", state["protocol_version"]),
+            "version": ("firmware_version", state["firmware_version"]),
+            "productname": ("product_name", state["product_name"]),
+            "serialno": ("serial_number", state["serial_number"]),
+            "deviceid": ("device_id", state["device_id"]),
+            "devicename": ("device_name", state["device_name"]),
+            "paramsetver": (None, "MTX:1.2.0"),
+        }
+        _, value = m[key]
+        respond(f'OK devinfo {key} "{value}"\n')
+
+    # scpmode (encoding | valuetype | resolution | keepalive)
+    - match: '^scpmode (encoding|valuetype|resolution|keepalive) (\S.*)$'
+      handler: |
+        kind = match.group(1)
+        arg = match.group(2)
+        respond(f'OK scpmode {kind} {arg}\n')
+
+    # sscurrent (no args) — return current preset
+    - match: '^sscurrent$'
+      handler: |
+        respond(f'OK sscurrent {int(state["current_preset"])} unmodified\n')
+
+    # ssrecall <index> — recall preset, push notification + sscurrent
+    - match: '^ssrecall (\d+)$'
+      handler: |
+        idx = int(match.group(1))
+        state["current_preset"] = idx
+        respond(f'OK ssrecall {idx}\nNOTIFY sscurrent {idx}\n')
+
+    # ssrecall_ex list <index> — MRX7-D snapshot
+    - match: '^ssrecall_ex list (\d+)$'
+      handler: |
+        idx = int(match.group(1))
+        state["current_snapshot"] = idx
+        respond(f'OK ssrecall_ex list {idx}\nNOTIFY sscurrent_ex list {idx}\n')
+
+    # ssnum
+    - match: '^ssnum$'
+      handler: |
+        respond('OK ssnum 50\n')
+
+    # ssinfo <index>
+    - match: '^ssinfo (\d+)$'
+      handler: |
+        idx = int(match.group(1))
+        respond(f'OK ssinfo {idx} "{idx}" user "Preset {idx}" ""\n')
+
+    # set MTX:Index_N 0 0 <value>
+    - match: '^set MTX:Index_(\d+) 0 0 (-?\d+)$'
+      handler: |
+        idx = int(match.group(1))
+        val = int(match.group(2))
+        # Clamp fader values to the documented -INFINITY..+10dB range.
+        if val < -13801:
+            val = -13801
+        if val > 1000:
+            val = 1000
+        key = f"index_{idx}"
+        skey = f"index_{idx}_string"
+        if key in state:
+            state[key] = val
+            # Format: -7760 -> "-77.60", 1000 -> "10.00", -13801 -> "-INFINITY"
+            if val <= -13801:
+                disp = "-INFINITY"
+            else:
+                disp = f"{val/100:.2f}"
+            state[skey] = disp
+            respond(f'OK set MTX:Index_{idx} 0 0 {val} "{disp}"\n')
+        else:
+            respond(f'NOTIFY error "Index_{idx} out of range"\n')
+
+    # setn MTX:Index_N 0 0 <normalized>
+    - match: '^setn MTX:Index_(\d+) 0 0 (-?\d+)$'
+      handler: |
+        idx = int(match.group(1))
+        nval = int(match.group(2))
+        if nval < 0: nval = 0
+        if nval > 1023: nval = 1023
+        # Map normalized 0..1000 onto fader range -INFINITY (raw -13801)..+10dB (raw 1000).
+        # Spec: 0 -> -INF, 500 -> -inflection, 804 -> 0dB, 1000 -> +10dB.
+        # Simplified linear mapping for simulator: 0 -> -13801, 1000 -> 1000.
+        raw = int(round(-13801 + (nval / 1000.0) * (1000 - (-13801))))
+        key = f"index_{idx}"
+        skey = f"index_{idx}_string"
+        if key in state:
+            state[key] = raw
+            if raw <= -13801:
+                disp = "-INFINITY"
+            else:
+                disp = f"{raw/100:.2f}"
+            state[skey] = disp
+            tag = "OKm" if (nval == 1023) else "OK"
+            respond(f'{tag} setn MTX:Index_{idx} 0 0 {nval} "{disp}"\n')
+        else:
+            respond(f'NOTIFY error "Index_{idx} out of range"\n')
+
+    # setr MTX:Index_N 0 0 <step>
+    - match: '^setr MTX:Index_(\d+) 0 0 (-?\d+)$'
+      handler: |
+        idx = int(match.group(1))
+        step = int(match.group(2))
+        key = f"index_{idx}"
+        skey = f"index_{idx}_string"
+        if key in state:
+            cur = int(state[key])
+            new = cur + step
+            clamped = False
+            if new < -13801:
+                new = -13801
+                clamped = True
+            if new > 1000:
+                new = 1000
+                clamped = True
+            state[key] = new
+            if new <= -13801:
+                disp = "-INFINITY"
+            else:
+                disp = f"{new/100:.2f}"
+            state[skey] = disp
+            tag = "OKm" if clamped else "OK"
+            respond(f'{tag} setr MTX:Index_{idx} 0 0 {new}\n')
+        else:
+            respond(f'NOTIFY error "Index_{idx} out of range"\n')
+
+    # get MTX:Index_N 0 0
+    - match: '^get MTX:Index_(\d+) 0 0$'
+      handler: |
+        idx = int(match.group(1))
+        key = f"index_{idx}"
+        if key in state:
+            respond(f'OK get MTX:Index_{idx} 0 0 {int(state[key])}\n')
+        else:
+            respond(f'NOTIFY error "Index_{idx} out of range"\n')
+
+    # getn MTX:Index_N 0 0
+    - match: '^getn MTX:Index_(\d+) 0 0$'
+      handler: |
+        idx = int(match.group(1))
+        key = f"index_{idx}"
+        if key in state:
+            raw = int(state[key])
+            # Reverse-map raw -13801..1000 -> normalized 0..1000.
+            nval = int(round((raw - (-13801)) / (1000 - (-13801)) * 1000))
+            if nval < 0: nval = 0
+            if nval > 1000: nval = 1000
+            respond(f'OK getn MTX:Index_{idx} 0 0 {nval}\n')
+        else:
+            respond(f'NOTIFY error "Index_{idx} out of range"\n')
+
+    # set/get for MTX:EvntScd_On (scheduler)
+    - match: '^set MTX:EvntScd_On 0 0 (\d+)$'
+      handler: |
+        v = int(match.group(1))
+        state["scheduler_enabled"] = bool(v)
+        respond(f'OK set MTX:EvntScd_On 0 0 {v} "{v}"\n')
+    - match: '^get MTX:EvntScd_On 0 0$'
+      handler: |
+        v = 1 if state["scheduler_enabled"] else 0
+        respond(f'OK get MTX:EvntScd_On 0 0 {v}\n')
+
+    # Generic raw-address parameter set/get for the MTX/XMV side.
+    # The simulator doesn't model the full MTX/XMV parameter space; it just
+    # echoes a plausible response. Drivers using set_param / query_param can
+    # round-trip and see last_param_* state vars updated.
+    - match: '^set (MTX:mem_\S+) 0 0 (-?\d+)$'
+      handler: |
+        addr = match.group(1)
+        val = int(match.group(2))
+        respond(f'OK set {addr} 0 0 {val} "{val/100:.2f}"\n')
+    - match: '^get (MTX:mem_\S+) 0 0$'
+      handler: |
+        addr = match.group(1)
+        respond(f'OK get {addr} 0 0 0\n')
+    - match: '^setn (MTX:mem_\S+) 0 0 (-?\d+)$'
+      handler: |
+        addr = match.group(1)
+        val = int(match.group(2))
+        respond(f'OK setn {addr} 0 0 {val} "0.00"\n')
+    - match: '^getn (MTX:mem_\S+) 0 0$'
+      handler: |
+        addr = match.group(1)
+        respond(f'OK getn {addr} 0 0 0\n')
+    - match: '^setr (MTX:mem_\S+) 0 0 (-?\d+)$'
+      handler: |
+        addr = match.group(1)
+        step = int(match.group(2))
+        respond(f'OK setr {addr} 0 0 {step}\n')
+
+    # mtrstart / mtrstop — acknowledge but don't actually push meter values
+    # (meter stream isn't useful in the simulator UI).
+    - match: '^mtrstart (\S+) (\d+)$'
+      handler: |
+        addr = match.group(1)
+        respond(f'OK mtrstart {addr}\n')
+    - match: '^mtrstop (\S+)$'
+      handler: |
+        addr = match.group(1)
+        respond(f'OK mtrstop {addr}\n')
+
+    # event-based commands (time, DST, audio player) — minimal stubs.
+    - match: '^event (MTX:[\w\d]+) "([^"]*)"$'
+      handler: |
+        ev = match.group(1)
+        arg = match.group(2)
+        respond(f'OK event {ev} "caught"\n')
+
+    # Heart-beat (bare LF after stripping the delimiter is an empty string)
+    - match: '^$'
+      handler: |
+        # No response to heart-beat per spec.
+        pass
+
+    # Catch-all — log and don't respond. Real device responds with NG <line>.
+    - match: '.+'
+      handler: |
+        # Optional: emit an NG line for completely unrecognized commands.
+        # Real device returns "ERROR Generic Error" or similar. Stay quiet.
+        pass
+
+  error_modes:
+    communication_timeout:
+      behavior: no_response
+      description: "Device stops responding (network drop, processor crash, or RCP keepalive timeout)."
+    runmode_emergency:
+      behavior: custom
+      description: "Device in emergency mode — only emergency-related commands accepted."
+

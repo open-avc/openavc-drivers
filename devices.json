@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T20:24:47+00:00",
+    "generated_at": "2026-04-30T22:37:12+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 190,
+    "total_devices": 204,
     "shards": null
   },
   "devices": [
@@ -2233,6 +2233,174 @@
           "id": "wattbox_ip",
           "confidence": "untested",
           "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "EXi8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "Audio I/O expanders. Same RCP address model as XMV.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "EXo8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "Audio I/O expanders. Same RCP address model as XMV.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "MRX7-D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "Matrix processors. MRX7-D requires a Remote Control Setup List in MTX-MRX Editor that maps user faders / mutes / selectors to Index numbers; this driver controls them by Index. MTX3 / MTX5-D use full parameter addresses via the generic set_param command.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "MTX3",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "Matrix processors. MRX7-D requires a Remote Control Setup List in MTX-MRX Editor that maps user faders / mutes / selectors to Index numbers; this driver controls them by Index. MTX3 / MTX5-D use full parameter addresses via the generic set_param command.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "MTX5-D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "Matrix processors. MRX7-D requires a Remote Control Setup List in MTX-MRX Editor that maps user faders / mutes / selectors to Index numbers; this driver controls them by Index. MTX3 / MTX5-D use full parameter addresses via the generic set_param command.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV16140",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV4140",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV4140-D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV4280",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV4280-D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV8140",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV8140-D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV8280",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Yamaha",
+      "model": "XMV8280-D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "yamaha_mtx_mrx",
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
         }
       ]
     }

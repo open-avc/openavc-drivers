@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T20:24:47+00:00",
+    "generated_at": "2026-04-30T22:37:12+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 10,
+    "total_drivers": 11,
     "shards": null,
     "category": "audio"
   },
@@ -437,6 +437,77 @@
           ],
           "confidence": "untested",
           "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "id": "yamaha_mtx_mrx",
+      "name": "Yamaha MTX/MRX/XMV",
+      "manufacturer": "Yamaha",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the XMV power amps + EXi8 / EXo8 audio expanders over the Remote Control Protocol (RCP) on TCP port 49280. Push-capable: NOTIFY messages from the device drive state immediately; polling backstops liveness and refresh. MRX7-D parameters are addressed via Remote Control Setup List Index numbers (1..32); MTX/XMV use full parameter paths via generic set_param / get_param.\n",
+      "source_url": "https://usa.yamaha.com/files/download/other_assets/5/1343735/200330_mtx_mrx_xmv_ex_rcps_v400_rev14_en.pdf",
+      "file": "audio/yamaha_mtx_mrx.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        49280
+      ],
+      "protocols": [
+        "yamaha_rcp"
+      ],
+      "simulated": true,
+      "tags": [
+        "dsp",
+        "install-audio",
+        "matrix-processor",
+        "dante",
+        "paging",
+        "ducking",
+        "zone-mixer",
+        "rcp"
+      ],
+      "help": {
+        "overview": "Yamaha RCP is the unified ASCII control protocol used across the MTX, MRX, XMV, EXi8, and EXo8 product family. The protocol is push-capable - the device sends a NOTIFY message whenever a parameter changes, whether from this controller, the front panel, another remote controller, or a preset/snapshot recall.\nFor MRX7-D, integrators define a Remote Control Setup List in MTX-MRX Editor that maps each panel control (fader, mute, selector) to an Index number. This driver exposes 32 Index slots; bind your panel UI to the set_index / inc_index / query_index commands.\nFor MTX3 / MTX5-D / XMV / EXi8 / EXo8, addresses look like MTX:mem_512/60000/0/0/0/0/0 - the seven-element path identifies a specific channel/parameter. Look up addresses in section 7 (\"Parameter List\") of the RCP specification, then use set_param / get_param / inc_param.\n",
+        "setup": "1. Connect the Yamaha device(s) to the network via Ethernet. 2. In MTX-MRX Editor (or ProVisionaire Edit for newer firmware), open\n   System -> Remote Control. Enable network remote control on TCP port\n   49280. The device supports up to 8 simultaneous remote sessions.\n3. (MRX7-D only) In MTX-MRX Editor, open Remote Control Setup List.\n   Assign each panel control to an Index number 1..32. Synchronize the\n   project to the device.\n4. Enter the device's IP address in the OpenAVC device config. Leave\n   port at 49280.\n5. Optional: set keepalive_timeout > 0 to enable RCP keepalive for\n   unreliable networks. The device will drop the connection if no\n   command arrives within the configured timeout.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Yamaha",
+          "models": [
+            "MTX3",
+            "MTX5-D",
+            "MRX7-D"
+          ],
+          "confidence": "untested",
+          "notes": "Matrix processors. MRX7-D requires a Remote Control Setup List in MTX-MRX Editor that maps user faders / mutes / selectors to Index numbers; this driver controls them by Index. MTX3 / MTX5-D use full parameter addresses via the generic set_param command.\n"
+        },
+        {
+          "manufacturer": "Yamaha",
+          "models": [
+            "XMV4140",
+            "XMV4140-D",
+            "XMV4280",
+            "XMV4280-D",
+            "XMV8140",
+            "XMV8140-D",
+            "XMV8280",
+            "XMV8280-D",
+            "XMV16140"
+          ],
+          "confidence": "untested",
+          "notes": "XMV power amps. Controlled via full parameter paths (set_param / get_param). RCP control is independent of any MTX/MRX in the system.\n"
+        },
+        {
+          "manufacturer": "Yamaha",
+          "models": [
+            "EXi8",
+            "EXo8"
+          ],
+          "confidence": "untested",
+          "notes": "Audio I/O expanders. Same RCP address model as XMV.\n"
         }
       ]
     }

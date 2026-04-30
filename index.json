@@ -1,12 +1,57 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T12:59:27+00:00",
+    "generated_at": "2026-04-30T15:47:00+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 27,
+    "total_drivers": 28,
     "shards": null
   },
   "drivers": [
+    {
+      "id": "atlasied_atmosphere",
+      "name": "AtlasIED Atmosphere",
+      "manufacturer": "AtlasIED",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Covers source / zone / mix / group gain and mute, zone source select, group combine, message and routine and scene playback, GPO state, and today's bell schedule. Subscribes for state updates on connect.",
+      "source_url": "https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf",
+      "file": "audio/atlasied_atmosphere.py",
+      "format": "python",
+      "ports": [
+        5321
+      ],
+      "protocols": [
+        "atlasied-atmosphere-thirdparty"
+      ],
+      "simulated": true,
+      "tags": [
+        "atmosphere",
+        "azm4",
+        "azm8",
+        "paging",
+        "install-amp",
+        "json-rpc"
+      ],
+      "help": {
+        "overview": "AtlasIED Atmosphere is a configurable audio DSP / mixer / paging system widely deployed in restaurants, retail, fitness, and house-of-worship installs. This driver speaks the third-party JSON-RPC protocol on TCP port 5321. It subscribes to entity state on connect, so updates push live as users change settings on the front panel or in the web UI.\n\nParameter names are assigned during device configuration (via the Atmosphere web UI). The driver addresses entities by zero-based index \u2014 Source 0, Zone 0, etc. Use the Atmosphere web UI's Settings \u2192 Third Party Control \u2192 Message Table to map names to indices.",
+        "setup": "1. In the Atmosphere web UI, go to Settings \u2192 Third Party Control \u2192 General and toggle 'Enable' on for the third-party control API.\n2. Confirm the Atmosphere has a static IP (or DHCP reservation).\n3. In OpenAVC, enter the IP. Port 5321 is fixed.\n4. Set the entity counts (zones, sources, mixes, groups) to match the device configuration. Counts default to AZM8 sizing; over-sizing is harmless but bigger than needed clutters the state list.\n5. After connecting, confirm the source / zone / mix / group names from the Atmosphere config show up in the device state."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AtlasIED",
+          "models": [
+            "AZM4",
+            "AZM8",
+            "AZMP4",
+            "AZMP8"
+          ],
+          "confidence": "untested",
+          "notes": "AZM4 / AZM8 are the standalone DSPs; AZMP4 / AZMP8 add internal amplification but share the same third-party control surface."
+        }
+      ]
+    },
     {
       "id": "atlona_omnistream",
       "name": "Atlona OmniStream",

@@ -52,8 +52,8 @@ DRIVER_TRANSPORTS = ("tcp", "udp", "http", "osc", "serial")
 CONFIDENCE_VALUES = ("full", "partial", "untested")
 
 DRIVER_DIRS = (
-    "audio", "cameras", "displays", "lighting",
-    "projectors", "switchers", "utility", "video",
+    "audio", "cameras", "displays", "lighting", "power",
+    "projectors", "streaming", "switchers", "utility", "video",
 )
 
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[\-+][\w.\-]+)?$")

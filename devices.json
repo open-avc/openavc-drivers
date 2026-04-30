@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T11:48:26+00:00",
+    "generated_at": "2026-04-30T12:59:27+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 127,
+    "total_devices": 137,
     "shards": null
   },
   "devices": [
@@ -1477,6 +1477,126 @@
           "id": "vmix",
           "confidence": "untested",
           "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-300-IP-3",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-300-IP-MV-3",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-700-IPV-12",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-700-IPV-12B",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-700-IPVM-IN-NM",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800-IPVM-12",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800-IPVM-18",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800-IPVM-IN-NM",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800VS-IPVM-12",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WattBox",
+      "model": "WB-800VS-IPVM-18",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "wattbox_ip",
+          "confidence": "untested",
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
         }
       ]
     }

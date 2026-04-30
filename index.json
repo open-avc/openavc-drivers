@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T22:37:12+00:00",
+    "generated_at": "2026-04-30T23:01:07+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 33,
+    "total_drivers": 34,
     "shards": null
   },
   "drivers": [
@@ -491,6 +491,64 @@
           ],
           "confidence": "untested",
           "notes": "Any Crestron DM NVX endpoint via REST API."
+        }
+      ]
+    },
+    {
+      "id": "etc_eos",
+      "name": "ETC Eos Family Console",
+      "manufacturer": "ETC",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "osc",
+      "description": "Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2, Nomad/Eos PC) via OSC. Fire cues, fire macros, recall snapshots and presets, fire palettes, set channel/group/submaster levels, send raw command-line strings, press hardkeys/softkeys. Status pushed by Eos: current/pending cue text, command line, Live/Blind state, active cue progress.",
+      "source_url": "https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/23_Show_Control/08_OSC/Using_OSC_with_Eos/OSC_Eos_Control.htm",
+      "file": "lighting/etc_eos.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        8000,
+        8001
+      ],
+      "simulated": true,
+      "min_platform_version": "0.6.0",
+      "tags": [
+        "osc",
+        "lighting",
+        "console",
+        "theatrical",
+        "show-control",
+        "cue"
+      ],
+      "help": {
+        "overview": "Controls an ETC Eos family lighting console (Apex, Ti, Gio, Ion Xe, Element 2, Nomad, Eos PC) over OSC (Open Sound Control) via UDP. Fire cues, fire macros, recall snapshots and presets, fire palettes, set channel/group/submaster levels, send raw command-line strings, or press any hardkey/softkey. Eos pushes the current command line, active cue text, pending cue text, Live/Blind state, and active cue progress percentage automatically.",
+        "setup": "1. On the console: Setup > System > Show Control > OSC.\n   Enable both OSC RX and OSC TX. Set OSC UDP RX to 8000 and OSC UDP\n   TX to 8001 (or any pair you prefer, then mirror the values in\n   this driver's config).\n2. Set OSC TX IP to the OpenAVC server's IP address. Eos will send\n   all /eos/out/... status to that address on the OSC TX port.\n3. In OpenAVC: enter the console's IP address as Host. Leave Port\n   at 8000 and Listen Port at 8001 unless you changed them on the\n   console.\n4. Hardkey names for the press_key command match the labels printed\n   on the console face panel, in lowercase, with spaces replaced\n   by underscores (e.g. \"go\", \"stop\", \"go_to_cue\", \"live\", \"blind\",\n   \"select_last\", \"clear_cmd_line\"). The full list lives in the\n   Eos Family Online Help under \"OSC Key Names\"."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "ETC",
+          "models": [
+            "Eos Apex 5",
+            "Eos Apex 10",
+            "Eos Apex 20",
+            "Eos Ti",
+            "Gio",
+            "Gio @5",
+            "Ion Xe",
+            "Ion Xe 20",
+            "Ion",
+            "Element 2",
+            "Element",
+            "Eos Programming Wing",
+            "Ion Xe RPU",
+            "Eos RPU",
+            "Nomad",
+            "Eos PC",
+            "Eos Family Fader Wing",
+            "ColorSource AV"
+          ],
+          "confidence": "untested",
+          "notes": "All Eos-family consoles share the same OSC dictionary documented in the Eos Family Online Help. ColorSource AV exposes a subset of the same /eos OSC namespace."
         }
       ]
     },

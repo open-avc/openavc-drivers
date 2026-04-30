@@ -1,0 +1,721 @@
+# ETC Eos Family Console — OSC Driver
+#
+# Controls ETC Eos family lighting consoles (Eos Apex, Ti, Gio, Ion, Ion Xe,
+# Element 2, Nomad/Eos PC) over OSC (Open Sound Control) via UDP.
+#
+# Push vs poll: PUSH-ONLY. Eos sends /eos/out/... messages continuously
+# whenever Show Control > OSC TX is enabled. There is no per-message
+# subscription handshake — the driver simply listens. Active cue
+# updates are sent once per second by Eos.
+#
+# Default ports follow ETC's recommended UDP layout: send commands to
+# Eos on port 8000 (Eos OSC RX), and listen for status on port 8001
+# (Eos OSC TX). Both are user-configurable on the console under
+# Setup > System > Show Control > OSC. TCP transport (Eos prefers
+# port 3032, OSC 1.0 length-headers; or 3037 OSC 1.1 SLIP) is
+# intentionally not exposed — the OpenAVC OSC transport is UDP-only.
+# UDP works fine on a switched LAN; if you need OSC-over-TCP, file an
+# issue and we'll add a TCP-OSC transport.
+#
+# Reference: ETC Eos Family Online Help — OSC Eos Control + Eos OSC Setup
+# https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/23_Show_Control/08_OSC/Using_OSC_with_Eos/OSC_Eos_Control.htm
+# https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/23_Show_Control/08_OSC/Using_OSC_with_Eos/Eos_OSC_Setup.htm
+
+id: etc_eos
+name: ETC Eos Family Console
+manufacturer: ETC
+category: lighting
+version: 1.0.0
+author: OpenAVC
+description: >-
+  Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2,
+  Nomad/Eos PC) via OSC. Fire cues, fire macros, recall snapshots and
+  presets, fire palettes, set channel/group/submaster levels, send raw
+  command-line strings, press hardkeys/softkeys. Status pushed by Eos:
+  current/pending cue text, command line, Live/Blind state, active cue
+  progress.
+
+source_url: https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/23_Show_Control/08_OSC/Using_OSC_with_Eos/OSC_Eos_Control.htm
+tags: [osc, lighting, console, theatrical, show-control, cue]
+verified: false
+simulated: true
+ports: [8000, 8001]
+min_platform_version: 0.6.0
+compatible_models:
+  - manufacturer: ETC
+    models:
+      - Eos Apex 5
+      - Eos Apex 10
+      - Eos Apex 20
+      - Eos Ti
+      - Gio
+      - Gio @5
+      - Ion Xe
+      - Ion Xe 20
+      - Ion
+      - Element 2
+      - Element
+      - Eos Programming Wing
+      - Ion Xe RPU
+      - Eos RPU
+      - Nomad
+      - Eos PC
+      - Eos Family Fader Wing
+      - ColorSource AV
+    confidence: untested
+    notes: >-
+      All Eos-family consoles share the same OSC dictionary documented in
+      the Eos Family Online Help. ColorSource AV exposes a subset of the
+      same /eos OSC namespace.
+
+transport: osc
+
+help:
+  overview: >-
+    Controls an ETC Eos family lighting console (Apex, Ti, Gio, Ion Xe,
+    Element 2, Nomad, Eos PC) over OSC (Open Sound Control) via UDP.
+    Fire cues, fire macros, recall snapshots and presets, fire palettes,
+    set channel/group/submaster levels, send raw command-line strings,
+    or press any hardkey/softkey. Eos pushes the current command line,
+    active cue text, pending cue text, Live/Blind state, and active cue
+    progress percentage automatically.
+  setup: >-
+    1. On the console: Setup > System > Show Control > OSC.
+       Enable both OSC RX and OSC TX. Set OSC UDP RX to 8000 and OSC UDP
+       TX to 8001 (or any pair you prefer, then mirror the values in
+       this driver's config).
+    2. Set OSC TX IP to the OpenAVC server's IP address. Eos will send
+       all /eos/out/... status to that address on the OSC TX port.
+    3. In OpenAVC: enter the console's IP address as Host. Leave Port
+       at 8000 and Listen Port at 8001 unless you changed them on the
+       console.
+    4. Hardkey names for the press_key command match the labels printed
+       on the console face panel, in lowercase, with spaces replaced
+       by underscores (e.g. "go", "stop", "go_to_cue", "live", "blind",
+       "select_last", "clear_cmd_line"). The full list lives in the
+       Eos Family Online Help under "OSC Key Names".
+
+default_config:
+  host: ""
+  port: 8000
+  listen_port: 8001
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: Console IP Address
+    description: IP address shown on the console under Setup > Network
+  port:
+    type: integer
+    default: 8000
+    label: OSC Send Port
+    description: >-
+      UDP port the console listens on for incoming OSC. Match Setup >
+      System > Show Control > OSC > OSC UDP RX.
+  listen_port:
+    type: integer
+    default: 8001
+    label: OSC Receive Port
+    description: >-
+      UDP port OpenAVC listens on for /eos/out/... status from the
+      console. Match Setup > System > Show Control > OSC > OSC UDP TX.
+
+state_variables:
+  show_state:
+    type: integer
+    label: Live / Blind
+    description: 1 = Live, 0 = Blind
+  command_line:
+    type: string
+    label: Command Line
+    description: Current command-line text on the console
+  active_cue_text:
+    type: string
+    label: Active Cue
+    description: Description of the currently running cue
+  pending_cue_text:
+    type: string
+    label: Pending Cue
+    description: Description of the next cue
+  active_cue_percent:
+    type: number
+    label: Active Cue Progress
+    description: 0.0 to 1.0, fraction of the active cue's fade time elapsed
+  wheel_mode:
+    type: number
+    label: Wheel Mode
+    description: 0 = coarse, 1 = fine
+
+commands:
+  # ── Raw command line (most powerful — covers everything) ──
+  send_command:
+    label: Send Command Line
+    address: "/eos/cmd"
+    args:
+      - type: s
+        value: "{text}"
+    params:
+      text:
+        type: string
+        label: Command Text
+        description: >-
+          Eos command syntax. Append # for Enter (e.g. "Cue 1 Go#",
+          "Group 1 At 50#", "Macro 5 Enter#"). Without # the text is
+          left on the command line for the next operator action.
+
+  send_event:
+    label: Send Event
+    address: "/eos/event"
+    args:
+      - type: s
+        value: "{text}"
+    params:
+      text:
+        type: string
+        label: Event Text
+        description: >-
+          Same as Send Command but treated as a console event by Eos
+          (logged differently, useful for triggers/macros that filter
+          on event sources).
+
+  clear_command_line:
+    label: Clear Command Line
+    address: "/eos/newcmd"
+    args:
+      - type: s
+        value: ""
+
+  # ── Hardkeys & softkeys ──
+  press_key:
+    label: Press Hardkey
+    address: "/eos/key/{key_name}"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      key_name:
+        type: string
+        label: Hardkey Name
+        description: >-
+          Lowercase hardkey label with spaces as underscores. Common keys:
+          go, stop, back, resume, blackout, live, blind, select_last,
+          select_active, clear_cmd_line, escape, enter, full, out, sneak,
+          park, cue, group, macro, sub, preset.
+
+  release_key:
+    label: Release Hardkey
+    address: "/eos/key/{key_name}"
+    args:
+      - type: f
+        value: "0.0"
+    params:
+      key_name:
+        type: string
+        label: Hardkey Name
+
+  press_softkey:
+    label: Press Softkey
+    address: "/eos/softkey/{index}"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      index:
+        type: integer
+        label: Softkey Index (1-12)
+        min: 1
+        max: 12
+
+  go:
+    label: Go
+    address: "/eos/key/go"
+    args:
+      - type: f
+        value: "1.0"
+
+  stop_back:
+    label: Stop / Back
+    address: "/eos/key/stop"
+    args:
+      - type: f
+        value: "1.0"
+
+  resume:
+    label: Resume
+    address: "/eos/key/resume"
+    args:
+      - type: f
+        value: "1.0"
+
+  go_to_blind:
+    label: Switch to Blind
+    address: "/eos/key/blind"
+    args:
+      - type: f
+        value: "1.0"
+
+  go_to_live:
+    label: Switch to Live
+    address: "/eos/key/live"
+    args:
+      - type: f
+        value: "1.0"
+
+  # ── Cues ──
+  fire_cue:
+    label: Fire Cue
+    address: "/eos/cue/{list}/{cue}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      list:
+        type: integer
+        label: Cue List Number
+        min: 1
+      cue:
+        type: number
+        label: Cue Number
+        description: Supports decimals (e.g. 1.5)
+
+  select_cue:
+    label: Select Cue (no fire)
+    address: "/eos/cue/{list}/{cue}"
+    params:
+      list:
+        type: integer
+        label: Cue List Number
+        min: 1
+      cue:
+        type: number
+        label: Cue Number
+
+  # ── Macros ──
+  fire_macro:
+    label: Fire Macro
+    address: "/eos/macro/{number}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      number:
+        type: integer
+        label: Macro Number
+        min: 1
+
+  # ── Snapshots ──
+  recall_snapshot:
+    label: Recall Snapshot
+    address: "/eos/snap"
+    args:
+      - type: i
+        value: "{number}"
+    params:
+      number:
+        type: integer
+        label: Snapshot Number
+        min: 1
+
+  # ── Presets ──
+  fire_preset:
+    label: Fire Preset
+    address: "/eos/preset/{number}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      number:
+        type: integer
+        label: Preset Number
+        min: 1
+
+  # ── Palettes (Intensity, Focus, Color, Beam) ──
+  fire_intensity_palette:
+    label: Fire Intensity Palette
+    address: "/eos/ip/{number}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      number:
+        type: integer
+        label: Intensity Palette Number
+        min: 1
+
+  fire_focus_palette:
+    label: Fire Focus Palette
+    address: "/eos/fp/{number}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      number:
+        type: integer
+        label: Focus Palette Number
+        min: 1
+
+  fire_color_palette:
+    label: Fire Color Palette
+    address: "/eos/cp/{number}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      number:
+        type: integer
+        label: Color Palette Number
+        min: 1
+
+  fire_beam_palette:
+    label: Fire Beam Palette
+    address: "/eos/bp/{number}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      number:
+        type: integer
+        label: Beam Palette Number
+        min: 1
+
+  # ── Channel / group / submaster levels ──
+  set_chan_level:
+    label: Set Channel Level
+    address: "/eos/chan/{channel}"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      channel:
+        type: integer
+        label: Channel Number
+        min: 1
+      level:
+        type: number
+        label: Level (0-100)
+        min: 0
+        max: 100
+
+  chan_home:
+    label: Channel Home
+    address: "/eos/chan/{channel}/home"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      channel:
+        type: integer
+        label: Channel Number
+        min: 1
+
+  chan_out:
+    label: Channel Out
+    address: "/eos/chan/{channel}/out"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      channel:
+        type: integer
+        label: Channel Number
+        min: 1
+
+  set_group_level:
+    label: Set Group Level
+    address: "/eos/group/{group}"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      group:
+        type: integer
+        label: Group Number
+        min: 1
+      level:
+        type: number
+        label: Level (0-100)
+        min: 0
+        max: 100
+
+  set_sub_level:
+    label: Set Submaster Level
+    address: "/eos/sub/{sub}"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      sub:
+        type: integer
+        label: Submaster Number
+        min: 1
+      level:
+        type: number
+        label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+
+  bump_sub:
+    label: Bump Submaster
+    address: "/eos/sub/{sub}/fire"
+    args:
+      - type: f
+        value: "1.0"
+    params:
+      sub:
+        type: integer
+        label: Submaster Number
+        min: 1
+
+  unbump_sub:
+    label: Release Submaster Bump
+    address: "/eos/sub/{sub}/fire"
+    args:
+      - type: f
+        value: "0.0"
+    params:
+      sub:
+        type: integer
+        label: Submaster Number
+        min: 1
+
+  # ── Reset / housekeeping ──
+  reset:
+    label: Reset OSC
+    address: "/eos/reset"
+
+  query_setup:
+    label: Query Default Cue Times
+    address: "/eos/get/setup"
+
+# ── Push from Eos: /eos/out/... ──
+# Eos sends these unsolicited whenever OSC TX is enabled in Show Control.
+responses:
+  - address: "/eos/out/event/state"
+    mappings:
+      - arg: 0
+        state: show_state
+        type: integer
+
+  - address: "/eos/out/cmd"
+    mappings:
+      - arg: 0
+        state: command_line
+        type: string
+
+  - address: "/eos/out/active/cue/text"
+    mappings:
+      - arg: 0
+        state: active_cue_text
+        type: string
+
+  - address: "/eos/out/pending/cue/text"
+    mappings:
+      - arg: 0
+        state: pending_cue_text
+        type: string
+
+  - address: "/eos/out/active/cue"
+    mappings:
+      - arg: 0
+        state: active_cue_percent
+        type: float
+
+  - address: "/eos/out/wheel"
+    mappings:
+      - arg: 0
+        state: wheel_mode
+        type: float
+
+# ── Simulator: react to fires by pushing /eos/out/... back ──
+simulator:
+  initial_state:
+    show_state: 1
+    command_line: "LIVE: "
+    active_cue_text: "1/0 Cue 0  0.0  0.0"
+    pending_cue_text: "1/1 Cue 1 Walk-In  3.0  3.0"
+    active_cue_percent: 1.0
+    wheel_mode: 0.0
+
+  command_handlers:
+    # Fire a specific cue: push active/pending back as text
+    - address: "/eos/cue/*/*/fire"
+      handler: |
+        # address format: /eos/cue/<list>/<cue>/fire
+        parts = address.split("/")
+        if len(parts) >= 5:
+          cue_list = parts[3]
+          cue_num = parts[4]
+          new_text = "{0}/{1} Cue {1}  3.0  3.0".format(cue_list, cue_num)
+          state["active_cue_text"] = new_text
+          state["pending_cue_text"] = "{0}/{1} Cue {1} Pending  3.0  3.0".format(cue_list, str(int(float(cue_num)) + 1))
+          state["active_cue_percent"] = 0.0
+          state["command_line"] = "LIVE: Cue {0} Go".format(cue_num)
+          respond("/eos/out/active/cue/text", [("s", state["active_cue_text"])])
+          respond("/eos/out/pending/cue/text", [("s", state["pending_cue_text"])])
+          respond("/eos/out/active/cue", [("f", 0.0)])
+          respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Press the Go hardkey: advance to the pending cue
+    - address: "/eos/key/go"
+      handler: |
+        if args and args[0][1] == 0.0:
+          # button release — no-op
+          pass
+        else:
+          # Pretend Go advances pending → active
+          state["active_cue_text"] = state["pending_cue_text"]
+          state["active_cue_percent"] = 0.0
+          state["command_line"] = "LIVE: Go"
+          respond("/eos/out/active/cue/text", [("s", state["active_cue_text"])])
+          respond("/eos/out/active/cue", [("f", 0.0)])
+          respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/key/stop"
+      handler: |
+        state["command_line"] = "LIVE: Stop/Back"
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/key/blind"
+      handler: |
+        state["show_state"] = 0
+        state["command_line"] = "BLIND: "
+        respond("/eos/out/event/state", [("i", 0)])
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/key/live"
+      handler: |
+        state["show_state"] = 1
+        state["command_line"] = "LIVE: "
+        respond("/eos/out/event/state", [("i", 1)])
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Generic press/release for any other hardkey
+    - address: "/eos/key/*"
+      handler: |
+        parts = address.split("/")
+        key = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: " + key.replace("_", " ").title()
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Softkey: just bounce the command line
+    - address: "/eos/softkey/*"
+      handler: |
+        parts = address.split("/")
+        idx = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: SK" + str(idx)
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Macros, presets, palettes, snapshots — bounce command line
+    - address: "/eos/macro/*/fire"
+      handler: |
+        parts = address.split("/")
+        n = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: Macro " + str(n) + " Fire"
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/preset/*/fire"
+      handler: |
+        parts = address.split("/")
+        n = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: Preset " + str(n) + " Fire"
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Intensity / Focus / Color / Beam palettes
+    - address: "/eos/ip/*/fire"
+      handler: |
+        parts = address.split("/")
+        n = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: IP " + str(n) + " Fire"
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/fp/*/fire"
+      handler: |
+        parts = address.split("/")
+        n = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: FP " + str(n) + " Fire"
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/cp/*/fire"
+      handler: |
+        parts = address.split("/")
+        n = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: CP " + str(n) + " Fire"
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/bp/*/fire"
+      handler: |
+        parts = address.split("/")
+        n = parts[3] if len(parts) > 3 else "?"
+        state["command_line"] = "LIVE: BP " + str(n) + " Fire"
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/snap"
+      handler: |
+        n = args[0][1] if args else "?"
+        state["command_line"] = "LIVE: Snapshot " + str(n)
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Channel / group / sub levels — update command line, no state mirror
+    # (per-channel state would mean 10000+ vars; users who need that
+    # query Eos via OSC directly)
+    - address: "/eos/chan/*"
+      handler: |
+        parts = address.split("/")
+        ch = parts[3] if len(parts) > 3 else "?"
+        if len(parts) > 4:
+          # /eos/chan/N/home, /eos/chan/N/out, etc.
+          act = parts[4]
+          state["command_line"] = "LIVE: Chan " + str(ch) + " " + act.title()
+        elif args:
+          lvl = args[0][1]
+          state["command_line"] = "LIVE: Chan " + str(ch) + " At " + str(int(round(float(lvl))))
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/group/*"
+      handler: |
+        parts = address.split("/")
+        g = parts[3] if len(parts) > 3 else "?"
+        if args:
+          lvl = args[0][1]
+          state["command_line"] = "LIVE: Group " + str(g) + " At " + str(int(round(float(lvl))))
+          respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/sub/*"
+      handler: |
+        parts = address.split("/")
+        s = parts[3] if len(parts) > 3 else "?"
+        if args:
+          lvl = args[0][1]
+          state["command_line"] = "LIVE: Sub " + str(s) + " At " + str(round(float(lvl), 2))
+          respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Raw command-line strings
+    - address: "/eos/cmd"
+      handler: |
+        text = args[0][1] if args else ""
+        state["command_line"] = "LIVE: " + str(text).rstrip("#")
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/newcmd"
+      handler: |
+        state["command_line"] = "LIVE: "
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/event"
+      handler: |
+        text = args[0][1] if args else ""
+        state["command_line"] = "LIVE: " + str(text).rstrip("#")
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/reset"
+      handler: |
+        state["command_line"] = "LIVE: "
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    - address: "/eos/get/setup"
+      handler: |
+        # Eos answers /eos/get/setup with several /eos/out/ messages.
+        # Bounce the most useful one back: current command line + show state.
+        respond("/eos/out/cmd", [("s", state["command_line"])])
+        respond("/eos/out/event/state", [("i", state["show_state"])])

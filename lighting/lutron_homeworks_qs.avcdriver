@@ -1,0 +1,653 @@
+# Lutron HomeWorks QS Driver
+#
+# Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over the
+# Lutron Integration Protocol (LIP) ASCII command set, on Telnet port 23.
+#
+# Models covered (HomeWorks QS only):
+#   HQP6-2     HomeWorks QS Processor (8 link, 99 zones)
+#   HQP7       HomeWorks QS Processor (newer revision)
+#
+# This driver does NOT cover Lutron RadioRA 3 (different protocol surface
+# via LEAP/SmartBridge), Caseta SB Pro (LIP exists but Lutron classifies
+# it as approved-third-party-only), or Athena. Use a separate driver for
+# those families.
+#
+# Protocol reference: Lutron Integration Protocol (LIP)
+# https://assets.lutron.com/a/documents/040249.pdf
+#
+# Connection:
+#   - Telnet, port 23
+#   - Login prompt:    "login: "
+#   - Password prompt: "password: "
+#   - Greeting prompt: "GNET> "  (becomes the command prompt)
+#   - Default integration credentials: lutron / integration
+#     (Logins are configurable in the HomeWorks QS Design software;
+#     ask the integrator for the credentials assigned to this controller.)
+#
+# Command format: <op><type>,<integration_id>,<action_number>[,<parameters>]<CR><LF>
+#   op = '#' (set), '?' (get), '~' (response from processor)
+#   types covered here: OUTPUT, DEVICE, AREA, SHADEGRP
+#
+# Selected commands (full set in the LIP PDF):
+#   #OUTPUT,<id>,1,<level>[,<fade>[,<delay>]]   set zone level (0-100)
+#   ?OUTPUT,<id>,1                              query zone level
+#   #DEVICE,<id>,<comp>,3                       press keypad/phantom button
+#   #DEVICE,<id>,<comp>,4                       release button
+#   #DEVICE,<id>,<comp>,9,<state>               set keypad LED state (0-3)
+#   ?DEVICE,<id>,<comp>,9                       query LED state
+#   ?AREA,<id>,8                                query area occupancy
+#   #SHADEGRP,<id>,1,<level>                    set shade group level
+#   #SHADEGRP,<id>,6,<preset>                   recall shade group preset
+#
+# Notes:
+#   - Integration IDs are user-assigned in the HomeWorks QS Design
+#     software (Integration Tab). The integrator must provide them.
+#   - HomeWorks QS scene activation is done via #DEVICE on a phantom
+#     keypad button mapped to the scene, not via #AREA action 6.
+#   - LIP enables push monitoring by default for buttons, LEDs, zones,
+#     occupancy, and scenes. Unsolicited ~OUTPUT/~DEVICE/~AREA responses
+#     are parsed into last_* state variables — useful for triggers.
+
+id: lutron_homeworks_qs
+name: Lutron HomeWorks QS
+manufacturer: Lutron
+category: lighting
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet
+  using the Lutron Integration Protocol (LIP). Supports zone level
+  control (OUTPUT), keypad/phantom button presses and LED control
+  (DEVICE), area occupancy queries (AREA), and shade group control
+  (SHADEGRP). Use phantom keypad button presses to activate scenes.
+
+source_url: https://assets.lutron.com/a/documents/040249.pdf
+tags: [lighting, lutron, homeworks-qs, lip, telnet, scenes, shades, keypads]
+verified: false
+simulated: true
+protocols: [lutron_lip]
+ports: [23]
+compatible_models:
+  - manufacturer: Lutron
+    models:
+      - HQP6-2
+      - HQP7
+    confidence: untested
+    notes: >
+      HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems
+      (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related
+      but distinct protocol surfaces and are not covered by this driver.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Lutron HomeWorks QS is a residential and small-commercial lighting,
+    shade, and HVAC control system. The HomeWorks QS Processor exposes
+    a Telnet integration protocol (LIP) on port 23 that lets external
+    controllers raise/lower lights and shades, press phantom keypad
+    buttons (which activate scenes programmed in the Lutron design
+    software), and monitor occupancy.
+  setup: >
+    1. Confirm the HomeWorks QS Processor's IP address (set a static
+       reservation on the network).
+    2. In the HomeWorks QS Design software, on the Integration tab,
+       assign Integration IDs to the outputs, devices (keypads), areas,
+       and shade groups you want to control. Note them down — you'll
+       reference them in macros and triggers.
+    3. Confirm a Telnet login exists for integration use. Defaults are
+       "lutron" / "integration" but the integrator may have changed
+       them in the design software. Enter the username and password
+       in the device config below.
+    4. To activate a scene: program a phantom keypad in the design
+       software, assign each button to a scene, then use the
+       "Press Button" command with that keypad's Integration ID and
+       the button's Component Number.
+    5. Zone (OUTPUT) levels are 0-100 percent. Fade and Delay times
+       are optional and accept SS.ss, SS, MM:SS, or HH:MM:SS formats.
+
+discovery:
+  ports: [23]
+  mac_prefixes: ["00:1f:c1", "08:80:01"]
+
+default_config:
+  host: ""
+  port: 23
+  username: "lutron"
+  password: "integration"
+  poll_interval: 0
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Telnet Port
+  username:
+    type: string
+    default: "lutron"
+    label: Username
+    description: "Integration login name (default 'lutron'). Configure in HomeWorks QS Design software."
+  password:
+    type: string
+    default: "integration"
+    label: Password
+    secret: true
+    description: "Integration login password (default 'integration')."
+  poll_interval:
+    type: integer
+    default: 0
+    min: 0
+    label: Poll Interval (sec)
+    description: >
+      0 disables polling. The HomeWorks QS Processor pushes button,
+      LED, zone, occupancy, and scene events automatically when those
+      monitor types are enabled (default for the integration login).
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+
+auth:
+  type: telnet_login
+  username_prompt: "login: "
+  password_prompt: "password: "
+  success_pattern: "GNET> "
+  username_field: username
+  password_field: password
+  skip_if_empty: false
+  timeout_seconds: 10
+  line_ending: "\r\n"
+
+state_variables:
+  last_output_id:
+    type: integer
+    label: Last Output ID
+    help: Integration ID of the most recent ~OUTPUT response.
+  last_output_level:
+    type: number
+    label: Last Output Level (%)
+  last_device_id:
+    type: integer
+    label: Last Device ID
+    help: Integration ID of the most recent ~DEVICE event.
+  last_device_component:
+    type: integer
+    label: Last Device Component
+    help: Component (button or LED) number from the most recent ~DEVICE event.
+  last_device_action:
+    type: integer
+    label: Last Device Action
+    help: Action number — 3=press, 4=release, 5=hold, 6=double-tap, 9=LED state.
+  last_led_state:
+    type: integer
+    label: Last LED State
+    help: LED state from the most recent ~DEVICE,_,_,9 event (0=off, 1=on, 2=normal flash, 3=rapid flash).
+  last_area_id:
+    type: integer
+    label: Last Area ID
+  last_area_occupancy:
+    type: enum
+    values: ["unknown", "inactive", "occupied", "unoccupied"]
+    label: Last Area Occupancy
+  last_shadegrp_id:
+    type: integer
+    label: Last Shade Group ID
+  last_shadegrp_level:
+    type: number
+    label: Last Shade Group Level (%)
+  last_shadegrp_preset:
+    type: integer
+    label: Last Shade Group Preset
+
+commands:
+
+  # ── OUTPUT (lighting zones, single shades, contact-closure outputs) ──
+
+  set_output_level:
+    label: Set Output Level
+    send: "#OUTPUT,{integration_id},1,{level}\r\n"
+    help: "Set a zone, shade, or contact-closure output to a level (0-100)."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Integration ID
+      level:
+        type: number
+        required: true
+        min: 0
+        max: 100
+        label: Level (%)
+
+  set_output_level_with_fade:
+    label: Set Output Level with Fade
+    send: "#OUTPUT,{integration_id},1,{level},{fade}\r\n"
+    help: "Set output level with a fade time (seconds). Uses zero delay."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Integration ID
+      level:
+        type: number
+        required: true
+        min: 0
+        max: 100
+        label: Level (%)
+      fade:
+        type: number
+        required: true
+        min: 0
+        label: Fade Time (sec)
+
+  raise_output:
+    label: Start Raising Output
+    send: "#OUTPUT,{integration_id},2\r\n"
+    help: "Begin raising an output toward 100%. Send Stop to halt."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Integration ID
+
+  lower_output:
+    label: Start Lowering Output
+    send: "#OUTPUT,{integration_id},3\r\n"
+    help: "Begin lowering an output toward 0%. Send Stop to halt."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Integration ID
+
+  stop_output:
+    label: Stop Raising or Lowering Output
+    send: "#OUTPUT,{integration_id},4\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Integration ID
+
+  query_output_level:
+    label: Query Output Level
+    send: "?OUTPUT,{integration_id},1\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Integration ID
+
+  # ── DEVICE (keypad buttons, phantom keypad scenes, LEDs) ──
+
+  press_button:
+    label: Press Button
+    send: "#DEVICE,{integration_id},{component},3\r\n"
+    help: >
+      Press a physical or phantom keypad button. To activate a scene,
+      use the Integration ID of the phantom keypad and the Component
+      Number of the button programmed to that scene.
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Keypad Integration ID
+      component:
+        type: integer
+        required: true
+        label: Button Component Number
+
+  release_button:
+    label: Release Button
+    send: "#DEVICE,{integration_id},{component},4\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Keypad Integration ID
+      component:
+        type: integer
+        required: true
+        label: Button Component Number
+
+  hold_button:
+    label: Hold Button
+    send: "#DEVICE,{integration_id},{component},5\r\n"
+    help: "Send a button hold event. Not supported in RadioRA 2 (HomeWorks QS only)."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Keypad Integration ID
+      component:
+        type: integer
+        required: true
+        label: Button Component Number
+
+  double_tap_button:
+    label: Double-Tap Button
+    send: "#DEVICE,{integration_id},{component},6\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Keypad Integration ID
+      component:
+        type: integer
+        required: true
+        label: Button Component Number
+
+  set_led_state:
+    label: Set Keypad LED State
+    send: "#DEVICE,{integration_id},{component},9,{state}\r\n"
+    help: "Set a keypad button LED. 0=Off, 1=On, 2=Normal Flash, 3=Rapid Flash."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Keypad Integration ID
+      component:
+        type: integer
+        required: true
+        label: LED Component Number
+      state:
+        type: integer
+        required: true
+        min: 0
+        max: 3
+        label: LED State
+
+  query_led_state:
+    label: Query Keypad LED State
+    send: "?DEVICE,{integration_id},{component},9\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Keypad Integration ID
+      component:
+        type: integer
+        required: true
+        label: LED Component Number
+
+  # ── AREA (occupancy) ──
+
+  query_area_occupancy:
+    label: Query Area Occupancy
+    send: "?AREA,{integration_id},8\r\n"
+    help: "Query whether an area is currently occupied or unoccupied."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Area Integration ID
+
+  # ── SHADEGRP (shade groups) ──
+
+  set_shadegrp_level:
+    label: Set Shade Group Level
+    send: "#SHADEGRP,{integration_id},1,{level}\r\n"
+    help: "Set a shade group level (0=closed, 100=open)."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Shade Group Integration ID
+      level:
+        type: number
+        required: true
+        min: 0
+        max: 100
+        label: Level (%)
+
+  raise_shadegrp:
+    label: Start Raising Shade Group
+    send: "#SHADEGRP,{integration_id},2\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Shade Group Integration ID
+
+  lower_shadegrp:
+    label: Start Lowering Shade Group
+    send: "#SHADEGRP,{integration_id},3\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Shade Group Integration ID
+
+  stop_shadegrp:
+    label: Stop Shade Group
+    send: "#SHADEGRP,{integration_id},4\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Shade Group Integration ID
+
+  recall_shadegrp_preset:
+    label: Recall Shade Group Preset
+    send: "#SHADEGRP,{integration_id},6,{preset}\r\n"
+    help: "Recall a shade group preset. Preset 0 is fully open, 30 is fully closed."
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Shade Group Integration ID
+      preset:
+        type: integer
+        required: true
+        min: 0
+        max: 30
+        label: Preset Number
+
+  query_shadegrp_level:
+    label: Query Shade Group Level
+    send: "?SHADEGRP,{integration_id},1\r\n"
+    params:
+      integration_id:
+        type: integer
+        required: true
+        label: Shade Group Integration ID
+
+responses:
+
+  # ~OUTPUT,<id>,1,<level>
+  - match: '^~OUTPUT,(\d+),1,([\d.]+)'
+    set:
+      last_output_id: "$1"
+      last_output_level: "$2"
+
+  # ~DEVICE,<id>,<comp>,9,<led_state> — LED state event (must precede generic action match)
+  - match: '^~DEVICE,(\d+),(\d+),9,(\d+)'
+    set:
+      last_device_id: "$1"
+      last_device_component: "$2"
+      last_device_action: "9"
+      last_led_state: "$3"
+
+  # ~DEVICE,<id>,<comp>,<action> — button press/release/hold/double-tap
+  - match: '^~DEVICE,(\d+),(\d+),(\d+)'
+    set:
+      last_device_id: "$1"
+      last_device_component: "$2"
+      last_device_action: "$3"
+
+  # ~AREA,<id>,8,<state> — occupancy: 1=unknown, 2=inactive, 3=occupied, 4=unoccupied
+  - match: '^~AREA,(\d+),8,1'
+    set:
+      last_area_id: "$1"
+      last_area_occupancy: "unknown"
+  - match: '^~AREA,(\d+),8,2'
+    set:
+      last_area_id: "$1"
+      last_area_occupancy: "inactive"
+  - match: '^~AREA,(\d+),8,3'
+    set:
+      last_area_id: "$1"
+      last_area_occupancy: "occupied"
+  - match: '^~AREA,(\d+),8,4'
+    set:
+      last_area_id: "$1"
+      last_area_occupancy: "unoccupied"
+
+  # ~SHADEGRP,<id>,1,<level>
+  - match: '^~SHADEGRP,(\d+),1,([\d.]+)'
+    set:
+      last_shadegrp_id: "$1"
+      last_shadegrp_level: "$2"
+
+  # ~SHADEGRP,<id>,6,<preset>
+  - match: '^~SHADEGRP,(\d+),6,(\d+)'
+    set:
+      last_shadegrp_id: "$1"
+      last_shadegrp_preset: "$2"
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  push_state: false
+  initial_state:
+    last_output_id: 0
+    last_output_level: 0
+    last_device_id: 0
+    last_device_component: 0
+    last_device_action: 0
+    last_led_state: 0
+    last_area_id: 0
+    last_area_occupancy: "unknown"
+    last_shadegrp_id: 0
+    last_shadegrp_level: 0
+    last_shadegrp_preset: 0
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: indicator
+      key: last_output_id
+      label: Last Output ID
+    - type: indicator
+      key: last_output_level
+      label: Last Output Level
+    - type: indicator
+      key: last_device_id
+      label: Last Device ID
+    - type: indicator
+      key: last_device_component
+      label: Last Component
+    - type: indicator
+      key: last_device_action
+      label: Last Action
+    - type: indicator
+      key: last_area_occupancy
+      label: Last Area Occupancy
+    - type: indicator
+      key: last_shadegrp_level
+      label: Last Shade Group Level
+
+  command_handlers:
+
+    # #OUTPUT,<id>,1,<level>[,<fade>[,<delay>]]
+    - match: '^#OUTPUT,(\d+),1,([\d.]+)(?:,[\d:.]+)?(?:,[\d:.]+)?\s*$'
+      handler: |
+        oid = int(match.group(1))
+        lvl = float(match.group(2))
+        state['last_output_id'] = oid
+        state['last_output_level'] = lvl
+        respond(f"~OUTPUT,{oid},1,{lvl:.2f}\r\n")
+
+    # #OUTPUT,<id>,2 / 3 / 4 (raise/lower/stop) — no response per spec
+    - match: '^#OUTPUT,(\d+),(2|3|4)\s*$'
+      handler: |
+        respond("")
+
+    # ?OUTPUT,<id>,1
+    - match: '^\?OUTPUT,(\d+),1\s*$'
+      handler: |
+        oid = int(match.group(1))
+        lvl = state.get('last_output_level', 0) if state.get('last_output_id') == oid else 0
+        respond(f"~OUTPUT,{oid},1,{lvl:.2f}\r\n")
+
+    # #DEVICE,<id>,<comp>,9,<state> (set LED) — handle BEFORE the generic action handler
+    - match: '^#DEVICE,(\d+),(\d+),9,(\d+)\s*$'
+      handler: |
+        did = int(match.group(1))
+        comp = int(match.group(2))
+        led = int(match.group(3))
+        state['last_device_id'] = did
+        state['last_device_component'] = comp
+        state['last_device_action'] = 9
+        state['last_led_state'] = led
+        respond(f"~DEVICE,{did},{comp},9,{led}\r\n")
+
+    # #DEVICE,<id>,<comp>,<action> (press/release/hold/double-tap, no params)
+    - match: '^#DEVICE,(\d+),(\d+),(3|4|5|6)\s*$'
+      handler: |
+        did = int(match.group(1))
+        comp = int(match.group(2))
+        action = int(match.group(3))
+        state['last_device_id'] = did
+        state['last_device_component'] = comp
+        state['last_device_action'] = action
+        respond(f"~DEVICE,{did},{comp},{action}\r\n")
+
+    # ?DEVICE,<id>,<comp>,9 (query LED)
+    - match: '^\?DEVICE,(\d+),(\d+),9\s*$'
+      handler: |
+        did = int(match.group(1))
+        comp = int(match.group(2))
+        if state.get('last_device_id') == did and state.get('last_device_component') == comp:
+            led = state.get('last_led_state', 0)
+        else:
+            led = 0
+        respond(f"~DEVICE,{did},{comp},9,{led}\r\n")
+
+    # ?AREA,<id>,8 (query occupancy)
+    - match: '^\?AREA,(\d+),8\s*$'
+      handler: |
+        aid = int(match.group(1))
+        # Sim returns "occupied" by default for any queried area
+        respond(f"~AREA,{aid},8,3\r\n")
+
+    # #SHADEGRP,<id>,1,<level>
+    - match: '^#SHADEGRP,(\d+),1,([\d.]+)\s*$'
+      handler: |
+        sid = int(match.group(1))
+        lvl = float(match.group(2))
+        state['last_shadegrp_id'] = sid
+        state['last_shadegrp_level'] = lvl
+        respond(f"~SHADEGRP,{sid},1,{lvl:.2f}\r\n")
+
+    # #SHADEGRP,<id>,6,<preset>
+    - match: '^#SHADEGRP,(\d+),6,(\d+)\s*$'
+      handler: |
+        sid = int(match.group(1))
+        preset = int(match.group(2))
+        state['last_shadegrp_id'] = sid
+        state['last_shadegrp_preset'] = preset
+        respond(f"~SHADEGRP,{sid},6,{preset}\r\n")
+
+    # #SHADEGRP,<id>,2|3|4 (raise/lower/stop) — no response
+    - match: '^#SHADEGRP,(\d+),(2|3|4)\s*$'
+      handler: |
+        respond("")
+
+    # ?SHADEGRP,<id>,1
+    - match: '^\?SHADEGRP,(\d+),1\s*$'
+      handler: |
+        sid = int(match.group(1))
+        lvl = state.get('last_shadegrp_level', 0) if state.get('last_shadegrp_id') == sid else 0
+        respond(f"~SHADEGRP,{sid},1,{lvl:.2f}\r\n")
+
+    # Catch-all — must stay last
+    - match: '.+'
+      handler: |
+        respond("~ERROR,1\r\n")

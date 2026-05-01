@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T13:36:31+00:00",
+    "generated_at": "2026-05-01T15:53:50+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 1,
+    "total_drivers": 2,
     "shards": null,
     "category": "lighting"
   },
@@ -63,6 +63,51 @@
           ],
           "confidence": "untested",
           "notes": "All Eos-family consoles share the same OSC dictionary documented in the Eos Family Online Help. ColorSource AV exposes a subset of the same /eos OSC namespace."
+        }
+      ]
+    },
+    {
+      "id": "lutron_homeworks_qs",
+      "name": "Lutron HomeWorks QS",
+      "manufacturer": "Lutron",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet using the Lutron Integration Protocol (LIP). Supports zone level control (OUTPUT), keypad/phantom button presses and LED control (DEVICE), area occupancy queries (AREA), and shade group control (SHADEGRP). Use phantom keypad button presses to activate scenes.\n",
+      "source_url": "https://assets.lutron.com/a/documents/040249.pdf",
+      "file": "lighting/lutron_homeworks_qs.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "lutron_lip"
+      ],
+      "simulated": true,
+      "tags": [
+        "lighting",
+        "lutron",
+        "homeworks-qs",
+        "lip",
+        "telnet",
+        "scenes",
+        "shades",
+        "keypads"
+      ],
+      "help": {
+        "overview": "Lutron HomeWorks QS is a residential and small-commercial lighting, shade, and HVAC control system. The HomeWorks QS Processor exposes a Telnet integration protocol (LIP) on port 23 that lets external controllers raise/lower lights and shades, press phantom keypad buttons (which activate scenes programmed in the Lutron design software), and monitor occupancy.\n",
+        "setup": "1. Confirm the HomeWorks QS Processor's IP address (set a static\n   reservation on the network).\n2. In the HomeWorks QS Design software, on the Integration tab,\n   assign Integration IDs to the outputs, devices (keypads), areas,\n   and shade groups you want to control. Note them down \u2014 you'll\n   reference them in macros and triggers.\n3. Confirm a Telnet login exists for integration use. Defaults are\n   \"lutron\" / \"integration\" but the integrator may have changed\n   them in the design software. Enter the username and password\n   in the device config below.\n4. To activate a scene: program a phantom keypad in the design\n   software, assign each button to a scene, then use the\n   \"Press Button\" command with that keypad's Integration ID and\n   the button's Component Number.\n5. Zone (OUTPUT) levels are 0-100 percent. Fade and Delay times\n   are optional and accept SS.ss, SS, MM:SS, or HH:MM:SS formats.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Lutron",
+          "models": [
+            "HQP6-2",
+            "HQP7"
+          ],
+          "confidence": "untested",
+          "notes": "HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related but distinct protocol surfaces and are not covered by this driver.\n"
         }
       ]
     }

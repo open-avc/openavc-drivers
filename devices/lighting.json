@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T13:36:31+00:00",
+    "generated_at": "2026-05-01T15:53:50+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 18,
+    "total_devices": 20,
     "shards": null,
     "category": "lighting"
   },
@@ -221,6 +221,30 @@
           "id": "etc_eos",
           "confidence": "untested",
           "notes": "All Eos-family consoles share the same OSC dictionary documented in the Eos Family Online Help. ColorSource AV exposes a subset of the same /eos OSC namespace."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lutron",
+      "model": "HQP6-2",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lutron_homeworks_qs",
+          "confidence": "untested",
+          "notes": "HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related but distinct protocol surfaces and are not covered by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Lutron",
+      "model": "HQP7",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "lutron_homeworks_qs",
+          "confidence": "untested",
+          "notes": "HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related but distinct protocol surfaces and are not covered by this driver.\n"
         }
       ]
     }

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T22:31:21+00:00",
+    "generated_at": "2026-05-01T23:55:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 22,
+    "total_devices": 51,
     "shards": null,
     "category": "projector"
   },
@@ -269,6 +269,354 @@
           "id": "sharp_nec_projector",
           "confidence": "untested",
           "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-CWZ10",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FH30",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FH35",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FH60",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FH65",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ120",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ50",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ55",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ57",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ58",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ60",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ65",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ70",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ75",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ90",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FW41",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FW60",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FWZ60",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FWZ65",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FX35",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FX37",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FX40",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-PHZ50",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-PHZ60",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-PWZ10",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-VW1100ES",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-VW325ES",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-VW675ES",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-VW885ES",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sony_vpl",
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
         }
       ]
     }

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T22:31:21+00:00",
+    "generated_at": "2026-05-01T23:55:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 40,
+    "total_drivers": 41,
     "shards": null
   },
   "drivers": [
@@ -1569,6 +1569,75 @@
           ],
           "confidence": "full",
           "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "id": "sony_vpl",
+      "name": "Sony VPL Projector (ADCP)",
+      "manufacturer": "Sony",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Sony VPL professional installation projectors over Sony's Advanced Display Control Protocol (ADCP) on TCP port 53595. Power, input, blank, freeze, picture mode, aspect ratio, image-quality (contrast / brightness / colour / sharpness), and the universal remote-key set. Supports SHA-256 challenge-response authentication so the projector can keep its default auth-on web setting.",
+      "source_url": "https://pro.sony/s3/2018/07/03140912/Sony_Protocol-Manual_1st-Edition-Revised-2.pdf",
+      "file": "projectors/sony_vpl.py",
+      "format": "python",
+      "ports": [
+        53595
+      ],
+      "protocols": [
+        "adcp"
+      ],
+      "simulated": true,
+      "tags": [
+        "projector",
+        "sony",
+        "adcp",
+        "vpl",
+        "installation"
+      ],
+      "help": {
+        "overview": "ADCP is Sony's text-based control protocol for professional VPL projectors. It runs on TCP 53595 with optional SHA-256 challenge-response authentication. The driver covers the universal command surface (power, input, blank, freeze, picture mode, image quality, aspect, remote keys) and surfaces the projector's reported power and error state.",
+        "setup": "1. Connect the projector to the network via its LAN or HDBaseT terminal and assign it a static IP.\n2. In the projector's main menu, set Standby Mode = Standard so the projector responds to network commands while powered down.\n3. Open the projector's web setup page. The default ADCP password is ``Projector`` \u2014 change it to something private.\n4. In OpenAVC, enter the projector's IP and the ADCP password. Leave port at 53595."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sony",
+          "models": [
+            "VPL-FHZ120",
+            "VPL-FHZ90",
+            "VPL-FHZ75",
+            "VPL-FHZ70",
+            "VPL-FHZ65",
+            "VPL-FHZ60",
+            "VPL-FHZ58",
+            "VPL-FHZ57",
+            "VPL-FHZ55",
+            "VPL-FHZ50",
+            "VPL-FWZ65",
+            "VPL-FWZ60",
+            "VPL-FX35",
+            "VPL-FX37",
+            "VPL-FX40",
+            "VPL-FH65",
+            "VPL-FH60",
+            "VPL-FH35",
+            "VPL-FH30",
+            "VPL-FW60",
+            "VPL-FW41",
+            "VPL-PHZ60",
+            "VPL-PHZ50",
+            "VPL-PWZ10",
+            "VPL-CWZ10",
+            "VPL-VW1100ES",
+            "VPL-VW885ES",
+            "VPL-VW675ES",
+            "VPL-VW325ES"
+          ],
+          "confidence": "untested",
+          "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
         }
       ]
     },

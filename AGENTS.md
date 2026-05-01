@@ -20,7 +20,8 @@ This file is a self-contained reference for LLM-based coding agents helping user
 7. [index.json Catalog Entry](#7-indexjson-catalog-entry)
 8. [Validation](#8-validation)
 9. [Complete Examples](#9-complete-examples)
-10. [Common Mistakes](#10-common-mistakes)
+10. [Runtime and Simulator Mechanics (Gotchas)](#10-runtime-and-simulator-mechanics-gotchas)
+11. [Common Mistakes](#11-common-mistakes)
 
 ---
 
@@ -1378,7 +1379,42 @@ class AcmeBinaryDriver(BaseDriver):
 
 ---
 
-## 10. Common Mistakes
+## 10. Runtime and Simulator Mechanics (Gotchas)
+
+These are behaviors of the runtime and the auto-simulator that aren't obvious from the schema. Each one has caused a silent driver bug at least once.
+
+### Simulator handler dispatch order
+
+`command_handlers:` entries in your `simulator:` section are sorted into two lists by shape:
+
+- `match: + respond:` (or `match: + set_state:`) — explicit handlers, tried **first**.
+- `match: + handler:` (inline Python) — script handlers, tried **second**.
+
+Anything not matched by those falls through to handlers auto-generated from your `commands:` block. A catch-all (`match: '.+'`) belongs **last** — but if you write it as `match: + respond:` it ends up in the explicit list and intercepts everything ahead of more specific entries written below it. Write catch-alls and other "always last" entries as `match: + handler:` so they sit in the script-handler list, which preserves YAML order.
+
+### Simulator `match:` patterns are anchored to the full line
+
+Every simulator `match:` is compiled as `^{pattern}$` — the pattern must match the **entire** synthesized command line, not a prefix. For HTTP simulators the wire format is `GET /path?query` or `POST /path|<body>`. So a pattern like `^POST /putxml\|<Command><Standby><Activate` will **not** match `POST /putxml|<Command><Standby><Activate/></Standby></Command>` — there's body left over and `$` requires end-of-string. End HTTP `match:` patterns with `.*` (or another consumer) so trailing bytes don't sink the match. Symptom: handler returns `None`, simulator emits 404.
+
+### Response dispatch returns after the first match
+
+Your `responses:` list is tried in order; the first regex that matches the response wins, the rest are skipped. To pull multiple values out of one response line, use **one** regex with multiple capture groups and **one** `set:` block with multiple keys — not two separate response entries.
+
+### Multi-line responses fan out per line
+
+Some protocols answer a single bulk query with one key/value per line. The TCP/Telnet `delimiter` framing splits incoming bytes into one frame per line **before** response matching, so each line is matched independently against `responses:`. Write one `responses:` entry per key (`^iris\s+(\d+)$`, `^gain\s+(\d+)$`, ...) and one bulk query populates many state vars from one round-trip. Don't try to match the whole multi-line block as a single regex with `[\s\S]+` — that fights the per-line dispatch.
+
+### HTTP body Content-Type behavior
+
+When you set `body:` on an HTTP command, the runtime tries to parse it as JSON. If parsing succeeds, the request goes out as `Content-Type: application/json` with that JSON body. If parsing fails (e.g. XML, plain text), the body is sent as raw bytes with **no** `Content-Type` header. If your device strictly checks Content-Type for non-JSON bodies, set the right one explicitly via the `headers:` field documented in section 2.6.
+
+### Don't fabricate state from outgoing commands
+
+If the protocol has no query for a value, don't synthesize that state by tracking the last command you sent. The "state" you'd be reporting wouldn't reflect the actual device — it'd reflect the last command issued, which diverges the moment another control surface (front panel, IR remote, scheduled task) acts. Mirror only what the device tells you. If users want a "last sent" value, that belongs in macros / variables on the project side, not in the driver's state surface.
+
+---
+
+## 11. Common Mistakes
 
 These are common errors that produce drivers that fail validation or don't work at runtime.
 

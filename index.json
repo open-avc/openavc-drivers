@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T16:52:04+00:00",
+    "generated_at": "2026-05-01T19:12:42+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 37,
+    "total_drivers": 38,
     "shards": null
   },
   "drivers": [
@@ -1374,6 +1374,50 @@
             "SCM820"
           ],
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "philips_hue",
+      "name": "Philips Hue Bridge",
+      "manufacturer": "Signify",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Philips Hue lights, rooms, zones, and scenes via the local REST API V1 on a Hue Bridge (HTTP, port 80). Recall scenes, on/off whole rooms, set brightness / color / color-temperature on groups or individual lights. Polling-based \u2014 the V1 API does not push.\n",
+      "source_url": "https://github.com/home-assistant-libs/aiohue/tree/master/aiohue/v1",
+      "file": "lighting/philips_hue.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "hue_v1"
+      ],
+      "simulated": true,
+      "tags": [
+        "hue",
+        "philips",
+        "signify",
+        "lighting",
+        "residential",
+        "bridge",
+        "scenes"
+      ],
+      "help": {
+        "overview": "Philips Hue is the most widely deployed residential and small-commercial smart-lighting platform. The bridge sits on the LAN and bridges Zigbee bulbs / fixtures to a local REST API. AV integrators commonly use it for accent lighting in boardrooms, hospitality spaces, and houses of worship \u2014 recall a \"Presentation\" scene when the projector turns on, fade up \"Q&A\" lighting when the session ends.\n",
+        "setup": "1. Set a static IP (or DHCP reservation) on the Hue Bridge in your\n   router. Default discovery is via mDNS (_hue._tcp) or the Signify\n   cloud at https://discovery.meethue.com.\n2. Press the round link button on top of the bridge. 3. Within 30 seconds, run the \"Create User (Pair)\" command from this\n   device's Commands tab. The response will contain a username string\n   like \"abc123XYZ...\". Copy that into the App Key field below.\n4. Find the IDs of your lights, groups (rooms / zones), and scenes.\n   The easiest way is to run the \"Query All Lights\", \"Query All\n   Groups\", or \"Query All Scenes\" commands and read the IDs from the\n   response. Light and group IDs are short numeric strings (\"1\", \"2\",\n   \"10\"). Scene IDs are longer alphanumeric strings (\"AB-cdef-12gh\").\n5. Use the light_* / group_* / recall_scene commands with those IDs.\n   Group ID 0 is the special \"all lights\" group.\n6. Polling is set to 30 seconds by default and only refreshes bridge\n   metadata. Light / group state is not mirrored \u2014 read it on demand\n   via the query_* commands.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Signify",
+          "models": [
+            "Hue Bridge V2 (BSB002)",
+            "Hue Bridge V1 (BSB001)"
+          ],
+          "confidence": "untested",
+          "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional.\n"
         }
       ]
     },

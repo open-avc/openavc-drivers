@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T16:52:04+00:00",
+    "generated_at": "2026-05-01T19:12:42+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 20,
+    "total_devices": 22,
     "shards": null,
     "category": "lighting"
   },
@@ -245,6 +245,30 @@
           "id": "lutron_homeworks_qs",
           "confidence": "untested",
           "notes": "HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related but distinct protocol surfaces and are not covered by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Signify",
+      "model": "Hue Bridge V1 (BSB001)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "philips_hue",
+          "confidence": "untested",
+          "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Signify",
+      "model": "Hue Bridge V2 (BSB002)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "philips_hue",
+          "confidence": "untested",
+          "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional.\n"
         }
       ]
     }

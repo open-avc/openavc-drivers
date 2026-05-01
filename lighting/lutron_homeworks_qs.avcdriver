@@ -52,8 +52,9 @@ id: lutron_homeworks_qs
 name: Lutron HomeWorks QS
 manufacturer: Lutron
 category: lighting
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
+min_platform_version: "0.8.3"
 description: >
   Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet
   using the Lutron Integration Protocol (LIP). Supports zone level

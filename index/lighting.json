@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T15:53:50+00:00",
+    "generated_at": "2026-05-01T16:42:39+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 2,
@@ -71,7 +71,7 @@
       "name": "Lutron HomeWorks QS",
       "manufacturer": "Lutron",
       "category": "lighting",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet using the Lutron Integration Protocol (LIP). Supports zone level control (OUTPUT), keypad/phantom button presses and LED control (DEVICE), area occupancy queries (AREA), and shade group control (SHADEGRP). Use phantom keypad button presses to activate scenes.\n",
@@ -85,6 +85,7 @@
         "lutron_lip"
       ],
       "simulated": true,
+      "min_platform_version": "0.8.3",
       "tags": [
         "lighting",
         "lutron",

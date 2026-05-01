@@ -1,0 +1,840 @@
+# Vaddio RoboSHOT / ConferenceShot Driver (Telnet Serial Command API)
+#
+# Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras via
+# the Telnet Serial Command API on port 23. The protocol is an ASCII /
+# VT100 command line interpreter shared across the entire RoboSHOT family;
+# one driver covers HDBT, HD-SDI, NDI, IW, and USB variants.
+#
+# Models covered (RoboSHOT family — same Telnet API across all):
+#   RoboSHOT 12, 12E, 12 HDBT, 12 HD-SDI, 12E NDI
+#   RoboSHOT 20 UHD, 30, 30 HDBT, 30 HD-SDI, 30E NDI, 40 UHD
+#   RoboSHOT IW (in-wall) variants
+#   RoboSHOT USB / UHD-USB
+#   ConferenceShot 10 / AV / FX (older firmware — same command shape)
+#
+# Protocol reference:
+#   "Integrator's Complete Guide to RoboSHOT 12 HDBT / 30 HDBT" (Vaddio)
+#   https://res.cloudinary.com/iwh/image/upload/q_auto,g_center/assets/1/26/vaddio_RoboSHOT_12_Integrators_Complete_Guide.pdf
+#   §"Telnet Serial Command API" (pp. 42-54). The same command set appears
+#   in every other RoboSHOT integrator manual — the surface is shared.
+#
+# Push vs. poll:
+#   The Telnet API is request/response only — no push/subscription primitive.
+#   This driver polls `camera ccu get all`, `camera focus mode get`,
+#   `camera standby get`, and `version` periodically to mirror state.
+#
+# Authentication:
+#   Telnet sessions require admin credentials (default username `admin`,
+#   default password `password` — Vaddio strongly recommends changing it
+#   in the camera's web interface). The bridge prompts:
+#       login:
+#       Password:
+#   followed by `Welcome <username>` and the `>` command prompt. Handled
+#   declaratively via the platform's `auth: telnet_login` handshake.
+#
+# Scope:
+#   Pan / tilt / zoom drive + stop, focus drive + auto/manual mode, 16
+#   pan/tilt/zoom presets with optional Tri-Synchronous Motion, all 9 CCU
+#   (color/lighting) parameters, factory & custom CCU scenes, standby,
+#   firmware/model identification. Streaming, network, and audio settings
+#   are install-time configuration left to the camera's web UI.
+
+id: vaddio_roboshot
+name: Vaddio RoboSHOT / ConferenceShot
+manufacturer: Vaddio
+category: camera
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.9.0"
+description: >
+  Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras
+  via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom,
+  focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris /
+  gain / detail / white-balance) controls, factory & custom CCU scenes,
+  and standby. One driver covers the entire RoboSHOT family —
+  HDBT, HD-SDI, NDI, IW, USB.
+
+source_url: https://res.cloudinary.com/iwh/image/upload/q_auto,g_center/assets/1/26/vaddio_RoboSHOT_12_Integrators_Complete_Guide.pdf
+tags: [ptz, camera, broadcast, conferencing, vaddio, legrand, roboshot, telnet]
+verified: false
+simulated: true
+protocols: [vaddio_telnet]
+ports: [23]
+
+compatible_models:
+  - manufacturer: Vaddio
+    models:
+      - RoboSHOT 12
+      - RoboSHOT 12E
+      - RoboSHOT 12 HDBT
+      - RoboSHOT 12 HD-SDI
+      - RoboSHOT 12E NDI
+      - RoboSHOT 20 UHD
+      - RoboSHOT 30
+      - RoboSHOT 30 HDBT
+      - RoboSHOT 30 HD-SDI
+      - RoboSHOT 30E NDI
+      - RoboSHOT 40 UHD
+      - RoboSHOT IW
+      - RoboSHOT USB
+      - RoboSHOT UHD-USB
+      - ConferenceShot 10
+      - ConferenceShot AV
+      - ConferenceShot FX
+    confidence: untested
+    notes: >
+      The full RoboSHOT family shares one Telnet API. Vaddio is now part
+      of Legrand AV — older boxes still ship as "Vaddio". ConferenceShot
+      models predate the rename and use an older firmware revision but
+      the same command shape. Speed ranges (pan 1-24, tilt 1-20,
+      zoom 1-7, focus 1-8) and CCU value ranges are consistent across
+      the family.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    The Vaddio (Legrand AV) RoboSHOT family is one of the most widely
+    deployed PTZ camera lines in commercial AV — boardrooms, lecture
+    capture, courtrooms, broadcast. The Telnet Serial Command API on
+    port 23 lets external controllers drive pan/tilt/zoom, recall the
+    16 onboard presets (with optional Tri-Synchronous Motion for
+    cinematic moves), tweak iris / gain / white balance, and put the
+    camera in standby. The same commands work across every RoboSHOT and
+    ConferenceShot model.
+  setup: >
+    1. Set a static IP on the camera in its web interface, or set a
+       DHCP reservation in your router.
+    2. In the camera's web interface, on the Security page, confirm
+       (or change) the admin password. The default is "password" —
+       Vaddio strongly recommends changing it.
+    3. Enter the camera's IP address, the username (default `admin`),
+       and the password below. Telnet sessions reuse the same admin
+       credentials as the web UI.
+    4. Pan / tilt / zoom commands are drive-style — they keep moving
+       until you send the matching stop. Use the per-axis "stop"
+       commands or the per-axis variable-speed drive commands with
+       speed=0 to halt.
+    5. The 16 pan/tilt/zoom presets (camera preset recall N) are
+       saved in the camera. Use Tri-Synchronous Motion (the optional
+       `tri-sync` speed parameter on store) for smooth simultaneous
+       pan/tilt/zoom moves between presets.
+    6. CCU (color / lighting) values follow Vaddio's documented ranges:
+       iris 0-11, gain 0-11, detail 0-15, chroma 0-14, red_gain and
+       blue_gain 0-255. red/blue gain are only writable when auto white
+       balance is off; iris and gain are only writable when auto-iris
+       is off; backlight compensation conflicts with wide dynamic range.
+
+discovery:
+  ports: [23]
+  mac_prefixes: ["00:1e:c0", "08:00:6b"]   # Vaddio / Legrand AV
+
+default_config:
+  host: ""
+  port: 23
+  username: "admin"
+  password: ""
+  poll_interval: 30
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Telnet Port
+  username:
+    type: string
+    default: "admin"
+    label: Username
+    description: "Admin account on the camera. Default 'admin'."
+  password:
+    type: string
+    default: ""
+    required: true
+    label: Password
+    secret: true
+    description: "Admin password. Default 'password' on factory-new units — change it in the camera's web UI."
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    label: Poll Interval (sec)
+    description: "How often to refresh CCU / focus / standby state."
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+
+auth:
+  type: telnet_login
+  username_prompt: "login: "
+  password_prompt: "Password: "
+  success_pattern: "Welcome "
+  username_field: username
+  password_field: password
+  skip_if_empty: false
+  timeout_seconds: 10
+  line_ending: "\r\n"
+
+state_variables:
+  model_name:
+    type: string
+    label: Model
+    help: Model string parsed from the version banner (e.g. "RoboSHOT 12 HDBT").
+  firmware_version:
+    type: string
+    label: Firmware Version
+  standby:
+    type: enum
+    values: ["on", "off"]
+    label: Standby
+  focus_auto:
+    type: enum
+    values: ["on", "off"]
+    label: Auto Focus
+  auto_iris:
+    type: enum
+    values: ["on", "off"]
+    label: Auto Iris
+  auto_white_balance:
+    type: enum
+    values: ["on", "off"]
+    label: Auto White Balance
+  backlight_compensation:
+    type: enum
+    values: ["on", "off"]
+    label: Backlight Compensation
+  wide_dynamic_range:
+    type: enum
+    values: ["on", "off"]
+    label: Wide Dynamic Range
+  iris:
+    type: integer
+    label: Iris (0-11)
+  gain:
+    type: integer
+    label: Gain (0-11)
+  detail:
+    type: integer
+    label: Detail (0-15)
+  chroma:
+    type: integer
+    label: Chroma (0-14)
+  red_gain:
+    type: integer
+    label: Red Gain (0-255)
+  blue_gain:
+    type: integer
+    label: Blue Gain (0-255)
+
+on_connect:
+  - version
+  - camera ccu get all
+  - camera focus mode get
+  - camera standby get
+
+commands:
+
+  # ── Pan / tilt / zoom drive (continuous) ──
+
+  pan_left:
+    label: Pan Left
+    send: "camera pan left {speed}\r\n"
+    help: "Pan left at the given speed (1-24). Send Pan Stop to halt."
+    params:
+      speed:
+        type: integer
+        default: 12
+        min: 1
+        max: 24
+        label: Speed (1-24)
+
+  pan_right:
+    label: Pan Right
+    send: "camera pan right {speed}\r\n"
+    help: "Pan right at the given speed (1-24). Send Pan Stop to halt."
+    params:
+      speed:
+        type: integer
+        default: 12
+        min: 1
+        max: 24
+        label: Speed (1-24)
+
+  pan_stop:
+    label: Pan Stop
+    send: "camera pan stop\r\n"
+
+  tilt_up:
+    label: Tilt Up
+    send: "camera tilt up {speed}\r\n"
+    help: "Tilt up at the given speed (1-20). Send Tilt Stop to halt."
+    params:
+      speed:
+        type: integer
+        default: 10
+        min: 1
+        max: 20
+        label: Speed (1-20)
+
+  tilt_down:
+    label: Tilt Down
+    send: "camera tilt down {speed}\r\n"
+    help: "Tilt down at the given speed (1-20). Send Tilt Stop to halt."
+    params:
+      speed:
+        type: integer
+        default: 10
+        min: 1
+        max: 20
+        label: Speed (1-20)
+
+  tilt_stop:
+    label: Tilt Stop
+    send: "camera tilt stop\r\n"
+
+  zoom_in:
+    label: Zoom In
+    send: "camera zoom in {speed}\r\n"
+    help: "Zoom in (toward subject) at the given speed (1-7). Send Zoom Stop to halt."
+    params:
+      speed:
+        type: integer
+        default: 3
+        min: 1
+        max: 7
+        label: Speed (1-7)
+
+  zoom_out:
+    label: Zoom Out
+    send: "camera zoom out {speed}\r\n"
+    help: "Zoom out at the given speed (1-7). Send Zoom Stop to halt."
+    params:
+      speed:
+        type: integer
+        default: 3
+        min: 1
+        max: 7
+        label: Speed (1-7)
+
+  zoom_stop:
+    label: Zoom Stop
+    send: "camera zoom stop\r\n"
+
+  # ── Home ──
+
+  home:
+    label: Home
+    send: "camera home\r\n"
+    help: "Move the camera to its home position."
+
+  # ── Focus ──
+
+  focus_near:
+    label: Focus Near
+    send: "camera focus near {speed}\r\n"
+    help: "Manual focus near at the given speed (1-8). Auto Focus must be off."
+    params:
+      speed:
+        type: integer
+        default: 4
+        min: 1
+        max: 8
+        label: Speed (1-8)
+
+  focus_far:
+    label: Focus Far
+    send: "camera focus far {speed}\r\n"
+    help: "Manual focus far at the given speed (1-8). Auto Focus must be off."
+    params:
+      speed:
+        type: integer
+        default: 4
+        min: 1
+        max: 8
+        label: Speed (1-8)
+
+  focus_stop:
+    label: Focus Stop
+    send: "camera focus stop\r\n"
+
+  focus_auto_on:
+    label: Auto Focus On
+    send: "camera focus mode auto\r\n"
+
+  focus_auto_off:
+    label: Auto Focus Off (Manual)
+    send: "camera focus mode manual\r\n"
+
+  query_focus_mode:
+    label: Query Focus Mode
+    send: "camera focus mode get\r\n"
+
+  # ── Presets ──
+
+  preset_recall:
+    label: Preset Recall
+    send: "camera preset recall {preset}\r\n"
+    help: "Recall preset 1-16. If the preset was stored with Tri-Sync, it's used automatically."
+    params:
+      preset:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 16
+        label: Preset (1-16)
+
+  preset_store:
+    label: Preset Store
+    send: "camera preset store {preset}\r\n"
+    help: "Store the current pan/tilt/zoom position as preset 1-16."
+    params:
+      preset:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 16
+        label: Preset (1-16)
+
+  preset_store_trisync:
+    label: Preset Store with Tri-Sync
+    send: "camera preset store {preset} tri-sync {speed}\r\n"
+    help: >
+      Store the current position as preset 1-16 with Tri-Synchronous
+      Motion enabled at the given speed (1-24). Recalling this preset
+      will use a smooth simultaneous pan/tilt/zoom move.
+    params:
+      preset:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 16
+        label: Preset (1-16)
+      speed:
+        type: integer
+        required: true
+        default: 12
+        min: 1
+        max: 24
+        label: Tri-Sync Speed (1-24)
+
+  preset_store_with_ccu:
+    label: Preset Store with CCU
+    send: "camera preset store {preset} save-ccu\r\n"
+    help: "Store the current position AND the current CCU (color) settings as preset 1-16."
+    params:
+      preset:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 16
+        label: Preset (1-16)
+
+  # ── CCU (color / lighting) ──
+
+  ccu_set_auto_iris:
+    label: Set Auto Iris
+    send: "camera ccu set auto_iris {value}\r\n"
+    params:
+      value:
+        type: enum
+        values: ["on", "off"]
+        default: "on"
+        required: true
+        label: Auto Iris
+
+  ccu_set_iris:
+    label: Set Iris
+    send: "camera ccu set iris {value}\r\n"
+    help: "Iris value 0-11. Auto Iris must be off."
+    params:
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 11
+        label: Iris (0-11)
+
+  ccu_set_gain:
+    label: Set Gain
+    send: "camera ccu set gain {value}\r\n"
+    help: "Gain value 0-11. Auto Iris must be off."
+    params:
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 11
+        label: Gain (0-11)
+
+  ccu_set_auto_white_balance:
+    label: Set Auto White Balance
+    send: "camera ccu set auto_white_balance {value}\r\n"
+    params:
+      value:
+        type: enum
+        values: ["on", "off"]
+        default: "on"
+        required: true
+        label: Auto White Balance
+
+  ccu_set_red_gain:
+    label: Set Red Gain
+    send: "camera ccu set red_gain {value}\r\n"
+    help: "Red gain 0-255. Auto White Balance must be off."
+    params:
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 255
+        label: Red Gain (0-255)
+
+  ccu_set_blue_gain:
+    label: Set Blue Gain
+    send: "camera ccu set blue_gain {value}\r\n"
+    help: "Blue gain 0-255. Auto White Balance must be off."
+    params:
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 255
+        label: Blue Gain (0-255)
+
+  ccu_set_backlight_compensation:
+    label: Set Backlight Compensation
+    send: "camera ccu set backlight_compensation {value}\r\n"
+    help: "Wide Dynamic Range must be off."
+    params:
+      value:
+        type: enum
+        values: ["on", "off"]
+        default: "off"
+        required: true
+        label: Backlight Compensation
+
+  ccu_set_wide_dynamic_range:
+    label: Set Wide Dynamic Range
+    send: "camera ccu set wide_dynamic_range {value}\r\n"
+    help: "Backlight Compensation must be off."
+    params:
+      value:
+        type: enum
+        values: ["on", "off"]
+        default: "off"
+        required: true
+        label: Wide Dynamic Range
+
+  ccu_set_detail:
+    label: Set Detail
+    send: "camera ccu set detail {value}\r\n"
+    params:
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 15
+        label: Detail (0-15)
+
+  ccu_set_chroma:
+    label: Set Chroma
+    send: "camera ccu set chroma {value}\r\n"
+    params:
+      value:
+        type: integer
+        required: true
+        min: 0
+        max: 14
+        label: Chroma (0-14)
+
+  ccu_get_all:
+    label: Query All CCU
+    send: "camera ccu get all\r\n"
+
+  # ── CCU scenes ──
+
+  ccu_scene_recall_factory:
+    label: Recall Factory CCU Scene
+    send: "camera ccu scene recall factory {scene}\r\n"
+    help: "Factory CCU scenes 1-6 are preset lighting profiles tuned by Vaddio."
+    params:
+      scene:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 6
+        label: Factory Scene (1-6)
+
+  ccu_scene_recall_custom:
+    label: Recall Custom CCU Scene
+    send: "camera ccu scene recall custom {scene}\r\n"
+    params:
+      scene:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 3
+        label: Custom Scene (1-3)
+
+  ccu_scene_store_custom:
+    label: Store Custom CCU Scene
+    send: "camera ccu scene store custom {scene}\r\n"
+    help: "Save the current CCU values as Custom Scene 1-3."
+    params:
+      scene:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 3
+        label: Custom Scene (1-3)
+
+  # ── Standby / power ──
+
+  standby_on:
+    label: Standby On
+    send: "camera standby on\r\n"
+
+  standby_off:
+    label: Standby Off (Wake)
+    send: "camera standby off\r\n"
+
+  standby_toggle:
+    label: Toggle Standby
+    send: "camera standby toggle\r\n"
+
+  query_standby:
+    label: Query Standby
+    send: "camera standby get\r\n"
+
+  # ── Identification ──
+
+  query_version:
+    label: Query Version
+    send: "version\r\n"
+
+# Response patterns. Vaddio echoes the command, then emits one or more
+# data lines, then "OK", then ">" prompt. Each data line lands here as
+# a separate frame thanks to the "\r\n" delimiter.
+responses:
+  - match: '^auto_focus:\s+(on|off)$'
+    set: { focus_auto: "$1" }
+  - match: '^standby:\s+(on|off)$'
+    set: { standby: "$1" }
+
+  # camera ccu get all — each line is "<key><spaces><value>".
+  - match: '^auto_iris\s+(on|off)\s*$'
+    set: { auto_iris: "$1" }
+  - match: '^auto_white_balance\s+(on|off)\s*$'
+    set: { auto_white_balance: "$1" }
+  - match: '^backlight_compensation\s+(on|off)\s*$'
+    set: { backlight_compensation: "$1" }
+  - match: '^wide_dynamic_range\s+(on|off)\s*$'
+    set: { wide_dynamic_range: "$1" }
+  - match: '^red_gain\s+(\d+)\s*$'
+    set: { red_gain: "$1" }
+  - match: '^blue_gain\s+(\d+)\s*$'
+    set: { blue_gain: "$1" }
+  - match: '^iris\s+(\d+)\s*$'
+    set: { iris: "$1" }
+  - match: '^gain\s+(\d+)\s*$'
+    set: { gain: "$1" }
+  - match: '^detail\s+(\d+)\s*$'
+    set: { detail: "$1" }
+  - match: '^chroma\s+(\d+)\s*$'
+    set: { chroma: "$1" }
+
+  # version banner: "System Version  RoboSHOT 12 HDBT 2.4.0"
+  - match: '^System Version\s+(.+?)\s+(\d+\.\d+\.\d+)\s*$'
+    set:
+      model_name: "$1"
+      firmware_version: "$2"
+
+polling:
+  interval: 30
+  queries:
+    - ccu_get_all
+    - query_focus_mode
+    - query_standby
+    - query_version
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  push_state: false
+  initial_state:
+    model_name: "RoboSHOT 12 HDBT"
+    firmware_version: "2.4.0"
+    standby: "off"
+    focus_auto: "on"
+    auto_iris: "on"
+    auto_white_balance: "on"
+    backlight_compensation: "off"
+    wide_dynamic_range: "off"
+    iris: 6
+    gain: 3
+    detail: 8
+    chroma: 7
+    red_gain: 200
+    blue_gain: 195
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: indicator
+      key: model_name
+      label: Model
+    - type: indicator
+      key: firmware_version
+      label: Firmware
+    - type: toggle
+      key: standby
+      label: Standby
+    - type: toggle
+      key: focus_auto
+      label: Auto Focus
+    - type: toggle
+      key: auto_iris
+      label: Auto Iris
+    - type: toggle
+      key: auto_white_balance
+      label: Auto WB
+    - type: toggle
+      key: backlight_compensation
+      label: Backlight Comp
+    - type: toggle
+      key: wide_dynamic_range
+      label: WDR
+    - type: indicator
+      key: iris
+      label: Iris
+    - type: indicator
+      key: gain
+      label: Gain
+    - type: indicator
+      key: detail
+      label: Detail
+    - type: indicator
+      key: chroma
+      label: Chroma
+    - type: indicator
+      key: red_gain
+      label: Red Gain
+    - type: indicator
+      key: blue_gain
+      label: Blue Gain
+
+  command_handlers:
+
+    # ── Drive commands (no data response, just OK) ──
+    - match: '^camera (pan|tilt|zoom|focus) (left|right|up|down|in|out|near|far) \d+\s*$'
+      handler: |
+        respond("OK\r\n")
+    - match: '^camera (pan|tilt|zoom|focus) stop\s*$'
+      handler: |
+        respond("OK\r\n")
+    - match: '^camera home\s*$'
+      handler: |
+        respond("OK\r\n")
+
+    # ── Focus mode ──
+    - match: '^camera focus mode (auto|manual)\s*$'
+      handler: |
+        state['focus_auto'] = 'on' if match.group(1) == 'auto' else 'off'
+        respond("OK\r\n")
+    - match: '^camera focus mode get\s*$'
+      handler: |
+        respond(f"auto_focus: {state['focus_auto']}\r\nOK\r\n")
+
+    # ── Presets ──
+    - match: '^camera preset (recall|store) \d+(?: tri-sync \d+)?(?: save-ccu)?\s*$'
+      handler: |
+        respond("OK\r\n")
+
+    # ── CCU set (specific keys before generic) ──
+    - match: '^camera ccu set auto_iris (on|off)\s*$'
+      handler: |
+        state['auto_iris'] = match.group(1)
+        respond("OK\r\n")
+    - match: '^camera ccu set auto_white_balance (on|off)\s*$'
+      handler: |
+        state['auto_white_balance'] = match.group(1)
+        respond("OK\r\n")
+    - match: '^camera ccu set backlight_compensation (on|off)\s*$'
+      handler: |
+        state['backlight_compensation'] = match.group(1)
+        respond("OK\r\n")
+    - match: '^camera ccu set wide_dynamic_range (on|off)\s*$'
+      handler: |
+        state['wide_dynamic_range'] = match.group(1)
+        respond("OK\r\n")
+    - match: '^camera ccu set (iris|gain|detail|chroma|red_gain|blue_gain) (\d+)\s*$'
+      handler: |
+        state[match.group(1)] = int(match.group(2))
+        respond("OK\r\n")
+
+    # ── CCU get all — multi-line response ──
+    - match: '^camera ccu get all\s*$'
+      handler: |
+        lines = [
+          f"auto_iris                    {state['auto_iris']}",
+          f"auto_white_balance           {state['auto_white_balance']}",
+          f"backlight_compensation {state['backlight_compensation']}",
+          f"blue_gain                    {state['blue_gain']}",
+          f"chroma                       {state['chroma']}",
+          f"detail                       {state['detail']}",
+          f"gain                         {state['gain']}",
+          f"iris                         {state['iris']}",
+          f"red_gain                     {state['red_gain']}",
+          f"wide_dynamic_range           {state['wide_dynamic_range']}",
+          "OK",
+        ]
+        respond("\r\n".join(lines) + "\r\n")
+
+    # ── CCU get single ──
+    - match: '^camera ccu get (auto_iris|auto_white_balance|backlight_compensation|wide_dynamic_range)\s*$'
+      handler: |
+        k = match.group(1)
+        respond(f"{k}                    {state[k]}\r\nOK\r\n")
+    - match: '^camera ccu get (iris|gain|detail|chroma|red_gain|blue_gain)\s*$'
+      handler: |
+        k = match.group(1)
+        respond(f"{k} {state[k]}\r\nOK\r\n")
+
+    # ── CCU scenes ──
+    - match: '^camera ccu scene (recall|store) (factory|custom) \d+\s*$'
+      handler: |
+        respond("OK\r\n")
+
+    # ── Standby ──
+    - match: '^camera standby (on|off)\s*$'
+      handler: |
+        state['standby'] = match.group(1)
+        respond("OK\r\n")
+    - match: '^camera standby toggle\s*$'
+      handler: |
+        state['standby'] = 'off' if state['standby'] == 'on' else 'on'
+        respond("OK\r\n")
+    - match: '^camera standby get\s*$'
+      handler: |
+        respond(f"standby: {state['standby']}\r\nOK\r\n")
+
+    # ── Version ──
+    - match: '^version\s*$'
+      handler: |
+        respond(
+          f"System Version    {state['model_name']} {state['firmware_version']}\r\n"
+          "OK\r\n"
+        )

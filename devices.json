@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T19:12:42+00:00",
+    "generated_at": "2026-05-01T19:58:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 263,
+    "total_devices": 280,
     "shards": null
   },
   "devices": [
@@ -2821,6 +2821,210 @@
           "id": "symetrix_composer",
           "confidence": "untested",
           "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "ConferenceShot 10",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "ConferenceShot AV",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "ConferenceShot FX",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 12",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 12 HD-SDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 12 HDBT",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 12E",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 12E NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 20 UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 30",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 30 HD-SDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 30 HDBT",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 30E NDI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT 40 UHD",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT IW",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT UHD-USB",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vaddio",
+      "model": "RoboSHOT USB",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "vaddio_roboshot",
+          "confidence": "untested",
+          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
         }
       ]
     },

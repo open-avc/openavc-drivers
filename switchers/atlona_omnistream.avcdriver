@@ -32,15 +32,16 @@
 #   - This driver covers runtime control. Install-time setup (IP config,
 #     multicast addresses, EDID, encoder bit rate, FEC, scrambling) is
 #     left to the device's web UI by design.
-#   - If IPLogin is enabled on the device, this driver will not authenticate.
-#     Disable IPLogin in the device's web UI, or wait for a future driver
-#     revision that handles the Telnet login handshake.
+#   - When IPLogin is enabled, the device prompts "Login: " then "Password: "
+#     before accepting commands. The driver handles this via the auth: block
+#     below — supply Username and Password in the Add Device dialog. Leave
+#     them blank to skip the handshake (when IPLogin is disabled on the unit).
 
 id: atlona_omnistream
 name: Atlona OmniStream
 manufacturer: Atlona
 category: switcher
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP
@@ -83,8 +84,10 @@ help:
     stream each decoder receives (the VideoInput command).
   setup: >
     1. Set a static IP on the OmniStream unit via its web UI.
-    2. In the web UI, disable Telnet login authentication (IPLogin) so
-       this driver can connect without credentials.
+    2. If Telnet login authentication (IPLogin) is enabled on the device,
+       enter the unit's Username and Password in this driver's config —
+       the driver will handle the "Login:" / "Password:" handshake. Leave
+       both blank if IPLogin is disabled.
     3. Configure encoder sessions (multicast addresses, video format)
        and decoder IP inputs in the web UI before driver use.
     4. Connect this driver to port 23. The HDMI output index ranges
@@ -101,6 +104,8 @@ discovery:
 default_config:
   host: ""
   port: 23
+  username: ""
+  password: ""
   poll_interval: 30
   inter_command_delay: 0.5
 
@@ -114,6 +119,17 @@ config_schema:
     default: 23
     label: Telnet Port
     description: "23 (with NVT), 2323 (without NVT). SSH (22) not supported by this driver."
+  username:
+    type: string
+    default: ""
+    label: Username
+    description: "Telnet username when IPLogin is enabled. Leave blank if IPLogin is disabled."
+  password:
+    type: string
+    default: ""
+    label: Password
+    secret: true
+    description: "Telnet password when IPLogin is enabled."
   poll_interval:
     type: integer
     default: 30
@@ -126,6 +142,16 @@ config_schema:
     min: 0.5
     label: Inter-Command Delay (sec)
     description: "Atlona requires at least 500 ms between commands."
+
+auth:
+  type: telnet_login
+  username_prompt: "Login: "
+  password_prompt: "Password: "
+  username_field: username
+  password_field: password
+  skip_if_empty: true
+  timeout_seconds: 10
+  line_ending: "\r\n"
 
 state_variables:
   device_type:

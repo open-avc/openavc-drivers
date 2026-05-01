@@ -30,8 +30,8 @@ OpenAVC supports two driver formats. Both produce identical runtime behavior.
 
 | Format | Extension | Best For |
 |--------|-----------|----------|
-| YAML definition | `.avcdriver` | Text-based and OSC protocols (TCP, serial, HTTP, OSC). No code needed. |
-| Python class | `.py` | Binary protocols, authentication handshakes, UDP, complex state logic. |
+| YAML definition | `.avcdriver` | Text-based and OSC protocols (TCP, serial, HTTP, OSC). No code needed. Includes Telnet-style login handshake support. |
+| Python class | `.py` | Binary protocols, UDP, custom auth schemes (non-prompt), complex state logic. |
 
 **Decision guide:**
 
@@ -39,7 +39,8 @@ OpenAVC supports two driver formats. Both produce identical runtime behavior.
 - HTTP/REST API? Use `.avcdriver` with `transport: http`.
 - Binary protocol with checksums or length headers? Use Python.
 - UDP broadcast/multicast? Use Python.
-- Authentication handshake before commands? Use Python (custom `connect()`).
+- Telnet-style `Username:` / `Password:` prompt handshake? Use `.avcdriver` with the `auth:` block (see §2.8).
+- Other auth schemes (LOGIN command, JSON-RPC `login` method, OAuth, challenge-response)? Use Python.
 
 ---
 
@@ -300,9 +301,33 @@ The `{level_instance_tag}` is replaced with the device's config value when the d
 
 **Important:** The first matching pattern wins. Order your patterns from most specific to most general.
 
-### 2.8 on_connect
+### 2.8 auth
 
-Commands sent once immediately after connection, before polling starts. Use for enabling feedback/verbose mode or requesting initial state.
+Login handshake for Telnet-style devices that present `Username:` / `Password:` prompts before accepting commands. Runs after the TCP connection is established and before `on_connect` commands are sent.
+
+```yaml
+auth:
+  type: telnet_login                      # only type supported today
+  username_prompt: "login: "              # regex matched against incoming bytes
+  password_prompt: "Password: "           # regex matched against incoming bytes
+  success_pattern: "GNET> "               # optional regex; if omitted, success is assumed
+  failure_pattern: "Login incorrect"      # optional regex; matches => fail fast
+  username_field: username                # config field holding the username (default: "username")
+  password_field: password                # config field holding the password (default: "password")
+  skip_if_empty: true                     # if true and username is blank, the handshake is skipped (default: true)
+  timeout_seconds: 10                     # per-prompt timeout (default: 10)
+  line_ending: "\r\n"                     # appended after username/password (default: "\r\n")
+```
+
+Add `username` and `password` fields to `default_config` and `config_schema` so they show up in the Add Device dialog (mark `password` with `secret: true`).
+
+The framework drops the transport's frame parser to raw mode for the duration of the handshake so partial prompts (e.g., `Login: ` without trailing newline) are visible. Each prompt is a regex matched against the buffered bytes, decoded as UTF-8 with replacement. The original parser is restored before `on_connect` runs.
+
+If the device's auth scheme is not prompt-and-response Telnet (e.g., `LOGIN <password>` command, JSON-RPC `login` method, OAuth, challenge-response), `type: telnet_login` does not fit — use a Python driver. New auth types may be added as the framework grows; declare the new `type:` value in your driver and check `server/drivers/configurable.py` for support.
+
+### 2.9 on_connect
+
+Commands sent once immediately after connection (and after the `auth:` handshake completes, if any), before polling starts. Use for enabling feedback/verbose mode or requesting initial state.
 
 ```yaml
 on_connect:
@@ -312,7 +337,7 @@ on_connect:
 
 This enables real-time push notifications from devices that support it. Without `on_connect`, the driver relies entirely on polling.
 
-### 2.9 polling
+### 2.10 polling
 
 Periodic status queries sent to the device.
 
@@ -330,7 +355,7 @@ polling:
     - "/api/status"              # GET request to this path; response matched against patterns
 ```
 
-### 2.9 device_settings
+### 2.11 device_settings
 
 Configurable values that live on the device hardware (not in the project file). These are writable and polled. The system queues writes for offline devices and sends them when the device reconnects.
 
@@ -366,7 +391,7 @@ device_settings:
       body: '{"name": "{value}"}'
 ```
 
-### 2.10 frame_parser (Advanced)
+### 2.12 frame_parser (Advanced)
 
 For binary protocols that don't use text delimiters. Overrides the default delimiter-based framing.
 

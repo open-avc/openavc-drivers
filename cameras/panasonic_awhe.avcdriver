@@ -1,0 +1,932 @@
+# Panasonic AW-HE / AW-UE / AW-UN Series PTZ Camera Driver
+#
+# Controls Panasonic professional PTZ cameras over HTTP CGI (port 80).
+#
+# Models covered (master spec, AW-HE/UE/UN families on firmware 4.x+):
+#   AW-HE40, AW-HE42, AW-HE48, AW-HE50, AW-HE58, AW-HE60, AW-HE65,
+#   AW-HE68, AW-HE70, AW-HE75, AW-HE120, AW-HE130, AW-HR140,
+#   AW-UE40, AW-UE50, AW-UE65, AW-UE70, AW-UE80, AW-UE100, AW-UE150,
+#   AW-UE155, AW-UN70, AW-UN145, AK-UB300 (limited — many commands unsupported)
+#
+# Protocol reference: HD/4K Integrated Camera Interface Specifications v1.12
+#                     (Apr 2020), Panasonic Pro AV
+# https://eww.pass.panasonic.co.jp/pro-av/support/content/guide/DEF/HE50_120_IP/HDIntegratedCamera_InterfaceSpecifications-E.pdf
+#
+# Command format: HTTP GET to /cgi-bin/aw_ptz?cmd=<command>&res=1
+#                 The leading "#" of each command must be URL-encoded as %23.
+# Response:       Body contains a short response token, e.g. "p1" for power on,
+#                 "aPC<pan><tilt>" for an absolute position query.
+# Restrictions:   - Minimum 130 ms gap between commands
+#                 - Max 72 simultaneous HTTP sessions per camera
+#                 - HTTP keep-alive not supported (one TCP connect per request)
+#                 - Don't poll setting-change commands (EEPROM wear)
+#
+# Push notifications:
+#   The cameras ALSO support unsolicited TCP push notifications: the driver
+#   registers with /cgi-bin/event?connect=start&my_port=<port>&uid=0, and the
+#   camera then dials OUT to <port> on the OpenAVC server and pushes binary
+#   frames on every state change. This driver currently uses polling only —
+#   push support is deferred until the platform inbound-TCP-listener primitive
+#   lands (openavc-backlog.md §18). When that primitive exists, this driver
+#   will be retrofitted to subscribe and react to pushes instead of polling.
+#
+# Scope:
+#   Runtime PTZ control surface only (aw_ptz CGI). Image-quality controls
+#   (gain, white balance, scene files, gamma, knee, color matrix — the
+#   aw_cam CGI) are install-time setup and live in the camera's web UI.
+#   This matches the convention used by the ptzoptics driver.
+
+id: panasonic_awhe
+name: Panasonic AW-HE/UE/UN PTZ Camera
+manufacturer: Panasonic
+category: camera
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras
+  via the documented HTTP CGI protocol (port 80). Covers power, pan/tilt
+  drive and absolute positioning, zoom, focus (auto/manual), iris (auto/
+  manual), 100 presets, tally, wireless remote enable, and zoom-linked
+  pan/tilt speed. Image-quality controls (gain, white balance, scene files,
+  gamma) are install-time setup left to the camera's web UI.
+
+source_url: https://eww.pass.panasonic.co.jp/pro-av/support/content/guide/DEF/HE50_120_IP/HDIntegratedCamera_InterfaceSpecifications-E.pdf
+tags: [ptz, camera, broadcast, panasonic, awhe, awue, awun]
+verified: false
+simulated: true
+protocols: [panasonic_awhe]
+ports: [80]
+
+compatible_models:
+  - manufacturer: Panasonic
+    models:
+      - AW-HE40
+      - AW-HE42
+      - AW-HE48
+      - AW-HE50
+      - AW-HE58
+      - AW-HE60
+      - AW-HE65
+      - AW-HE68
+      - AW-HE70
+      - AW-HE75
+      - AW-HE120
+      - AW-HE130
+      - AW-HR140
+      - AW-UE40
+      - AW-UE50
+      - AW-UE65
+      - AW-UE70
+      - AW-UE80
+      - AW-UE100
+      - AW-UE150
+      - AW-UE155
+      - AW-UN70
+      - AW-UN145
+    confidence: untested
+    notes: >
+      All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300
+      (box camera) is in the same protocol family but does not support most
+      pan/tilt/zoom commands — it returns errors for unsupported operations
+      which the driver simply ignores.
+
+transport: http
+
+help:
+  overview: >
+    Panasonic AW-HE/UE/UN are professional PTZ cameras commonly used in
+    broadcast, houses of worship, lecture capture, and corporate AV. The
+    cameras are controlled over HTTP using a small CGI command set. This
+    driver exposes the full pan/tilt/zoom/focus/iris/preset/tally surface
+    needed for live room control. Image quality settings (color, gain,
+    white balance, scene files) are configured in the camera's web UI.
+  setup: >
+    1. Set a static IP on the camera via its web UI (default credentials
+       are typically admin / 12345 — change them).
+    2. Enter the camera's IP address below. Default port is 80.
+    3. If you've enabled HTTP authentication on the camera, set Auth Type
+       to "basic" and enter the username and password.
+    4. Pan/tilt drive uses speed values 01..99 per axis (50 = stop, 50/50
+       both stop). The home position is APC8000/8000.
+    5. Presets are numbered 1..100 in the UI; the protocol uses 0..99
+       internally, but the driver exposes the 1..100 numbering.
+    6. Polling is set to 10 seconds by default. Keep this at or above 5 s
+       — the cameras throttle aggressive polling and have a 130 ms minimum
+       inter-command gap.
+
+discovery:
+  ports: [80]
+  mac_prefixes: ["00:80:45", "70:1d:7c", "00:60:b0"]
+
+default_config:
+  host: ""
+  port: 80
+  ssl: false
+  verify_ssl: false
+  auth_type: "none"
+  username: ""
+  password: ""
+  timeout: 5.0
+  poll_interval: 10
+  inter_command_delay: 0.13   # 130 ms min per spec
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address / Hostname
+  port:
+    type: integer
+    default: 80
+    label: HTTP Port
+  ssl:
+    type: boolean
+    default: false
+    label: Use HTTPS
+    description: "Most AW-HE/UE cameras use HTTP only. Enable only if your model and firmware support HTTPS."
+  verify_ssl:
+    type: boolean
+    default: false
+    label: Verify SSL Certificate
+  auth_type:
+    type: enum
+    values: ["none", "basic"]
+    default: "none"
+    label: Authentication Type
+    description: "Set to 'basic' if HTTP authentication is enabled on the camera."
+  username:
+    type: string
+    default: ""
+    label: Username
+  password:
+    type: string
+    default: ""
+    label: Password
+    secret: true
+  poll_interval:
+    type: integer
+    default: 10
+    min: 5
+    label: Poll Interval (sec)
+    description: "How often to refresh state. Keep at 5 s or higher — the camera throttles aggressive polling."
+
+state_variables:
+  power:
+    type: integer
+    label: Power
+    description: "0 = standby, 1 = on, 3 = transitioning"
+  pan_position:
+    type: string
+    label: Pan Position (hex)
+    description: "0000h = ccw limit, 8000h = center, FFFFh = cw limit (4-char uppercase hex)"
+  tilt_position:
+    type: string
+    label: Tilt Position (hex)
+    description: "0000h = up limit, 8000h = center, FFFFh = down limit (4-char uppercase hex)"
+  zoom_position:
+    type: string
+    label: Zoom Position (hex)
+    description: "555h = wide, FFFh = tele (3-char uppercase hex)"
+  focus_position:
+    type: string
+    label: Focus Position (hex)
+    description: "555h = near, FFFh = far (3-char uppercase hex)"
+  focus_auto:
+    type: boolean
+    label: Auto Focus
+  iris_position:
+    type: string
+    label: Iris Position (hex)
+    description: "555h = closed, FFFh = open (3-char uppercase hex)"
+  iris_auto:
+    type: boolean
+    label: Auto Iris
+  preset_last:
+    type: integer
+    label: Last Preset Recalled (1..100)
+  preset_speed:
+    type: integer
+    label: Preset Speed (250..999 / 1..63)
+    description: "AW-HE40/50/60/70/120/130/HR140: 250 = slowest, 999 = fastest. AW-UE150 in time mode: 1..63 seconds."
+  r_tally:
+    type: boolean
+    label: Red Tally
+  tally_input_enabled:
+    type: boolean
+    label: Tally Input Enable
+  wireless_remote_enabled:
+    type: boolean
+    label: Wireless Remote Enable
+  zoom_linked_pt_speed:
+    type: boolean
+    label: Zoom-Linked PT Speed
+
+# All commands are HTTP GET to /cgi-bin/aw_ptz?cmd=<cmd>&res=1.
+# The leading "#" of each command is URL-encoded as %23.
+commands:
+
+  # ── Power ──
+
+  power_on:
+    label: Power On
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23O1&res=1"
+    help: "Wake the camera from standby."
+
+  power_standby:
+    label: Power Standby
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23O0&res=1"
+    help: "Put the camera into standby."
+
+  query_power:
+    label: Query Power
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23O&res=1"
+
+  # ── Pan / Tilt drive (variable-speed) ──
+
+  pan_tilt_drive:
+    label: Pan/Tilt Drive
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23PTS{pan_speed}{tilt_speed}&res=1"
+    help: >
+      Drive pan and tilt at the specified speeds. Each axis is two digits
+      (01..99): 01 = max one direction, 50 = stop, 99 = max other direction.
+      Send 5050 to stop both axes.
+    params:
+      pan_speed:
+        type: string
+        required: true
+        default: "50"
+        label: Pan Speed (01..99, 50 = stop)
+        description: "Two-digit. 01 = max left, 50 = stop, 99 = max right."
+      tilt_speed:
+        type: string
+        required: true
+        default: "50"
+        label: Tilt Speed (01..99, 50 = stop)
+        description: "Two-digit. 01 = max down, 50 = stop, 99 = max up."
+
+  pan_drive:
+    label: Pan Drive (axis only)
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23P{speed}&res=1"
+    params:
+      speed:
+        type: string
+        required: true
+        default: "50"
+        label: Pan Speed (01..99, 50 = stop)
+
+  tilt_drive:
+    label: Tilt Drive (axis only)
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23T{speed}&res=1"
+    params:
+      speed:
+        type: string
+        required: true
+        default: "50"
+        label: Tilt Speed (01..99, 50 = stop)
+
+  pan_tilt_stop:
+    label: Pan/Tilt Stop
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23PTS5050&res=1"
+
+  # ── Pan / Tilt absolute position ──
+
+  pan_tilt_position:
+    label: Pan/Tilt Absolute Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23APC{pan}{tilt}&res=1"
+    help: >
+      Move to absolute pan/tilt position. Each axis is 4-char uppercase hex:
+      0000 = one limit, 8000 = center, FFFF = other limit. The home position
+      is 8000/8000.
+    params:
+      pan:
+        type: string
+        required: true
+        default: "8000"
+        label: Pan (0000..FFFF hex)
+      tilt:
+        type: string
+        required: true
+        default: "8000"
+        label: Tilt (0000..FFFF hex)
+
+  pan_tilt_position_speed:
+    label: Pan/Tilt Absolute Position with Speed
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23APS{pan}{tilt}{speed}{table}&res=1"
+    help: >
+      Move to absolute pan/tilt position with explicit speed. Pan and tilt
+      are 4-char hex, speed is 2-char hex (00..1D = 1..30), table selects
+      speed mode (0 = SLOW, 1 = MID, 2 = FAST).
+    params:
+      pan:
+        type: string
+        required: true
+        default: "8000"
+        label: Pan (0000..FFFF hex)
+      tilt:
+        type: string
+        required: true
+        default: "8000"
+        label: Tilt (0000..FFFF hex)
+      speed:
+        type: string
+        required: true
+        default: "1D"
+        label: Preset Speed (00..1D hex = 1..30)
+      table:
+        type: string
+        required: true
+        default: "2"
+        choices: ["0", "1", "2"]
+        label: Speed Table (0 = SLOW, 1 = MID, 2 = FAST)
+
+  pan_tilt_home:
+    label: Pan/Tilt Home
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23APC80008000&res=1"
+
+  query_pan_tilt_position:
+    label: Query Pan/Tilt Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23APC&res=1"
+
+  # ── Zoom ──
+
+  zoom_drive:
+    label: Zoom Drive
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23Z{speed}&res=1"
+    help: >
+      Drive zoom at variable speed. 01 = max wide, 50 = stop, 99 = max tele.
+    params:
+      speed:
+        type: string
+        required: true
+        default: "50"
+        label: Zoom Speed (01..99, 50 = stop)
+
+  zoom_position:
+    label: Zoom Absolute Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23AXZ{value}&res=1"
+    help: "Move zoom to absolute position. 555 = wide, FFF = tele (3-char hex)."
+    params:
+      value:
+        type: string
+        required: true
+        default: "555"
+        label: Zoom (555..FFF hex)
+
+  zoom_stop:
+    label: Zoom Stop
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23Z50&res=1"
+
+  query_zoom_position:
+    label: Query Zoom Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23GZ&res=1"
+
+  # ── Focus ──
+
+  focus_drive:
+    label: Focus Drive
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23F{speed}&res=1"
+    help: >
+      Drive focus at variable speed. 01 = max near, 50 = stop, 99 = max far.
+      Invalid when auto focus is on.
+    params:
+      speed:
+        type: string
+        required: true
+        default: "50"
+        label: Focus Speed (01..99, 50 = stop)
+
+  focus_position:
+    label: Focus Absolute Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23AXF{value}&res=1"
+    help: "Move focus to absolute position. 555 = near, FFF = far (3-char hex)."
+    params:
+      value:
+        type: string
+        required: true
+        default: "555"
+        label: Focus (555..FFF hex)
+
+  focus_stop:
+    label: Focus Stop
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23F50&res=1"
+
+  focus_auto_on:
+    label: Auto Focus On
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23D11&res=1"
+
+  focus_auto_off:
+    label: Auto Focus Off
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23D10&res=1"
+
+  query_focus_position:
+    label: Query Focus Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23GF&res=1"
+
+  query_focus_auto:
+    label: Query Auto Focus Mode
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23D1&res=1"
+
+  # ── Iris ──
+
+  iris_drive:
+    label: Iris Drive
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23I{speed}&res=1"
+    help: >
+      Drive iris at variable speed. 01 = max close, 50 = stop, 99 = max open.
+      Invalid when auto iris is on.
+    params:
+      speed:
+        type: string
+        required: true
+        default: "50"
+        label: Iris Speed (01..99, 50 = stop)
+
+  iris_position:
+    label: Iris Absolute Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23AXI{value}&res=1"
+    help: "Move iris to absolute position. 555 = closed, FFF = open (3-char hex)."
+    params:
+      value:
+        type: string
+        required: true
+        default: "AAA"
+        label: Iris (555..FFF hex)
+
+  iris_auto_on:
+    label: Auto Iris On
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23D31&res=1"
+
+  iris_auto_off:
+    label: Auto Iris Off
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23D30&res=1"
+
+  query_iris_position:
+    label: Query Iris Position
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23GI&res=1"
+
+  query_iris_auto:
+    label: Query Auto Iris Mode
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23D3&res=1"
+
+  # ── Presets ──
+
+  preset_register:
+    label: Preset Register
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23M{preset}&res=1"
+    help: "Register the current pan/tilt/zoom/focus position to a preset (1..100)."
+    params:
+      preset:
+        type: string
+        required: true
+        default: "00"
+        label: Preset (00..99 = preset 1..100, 2-digit)
+
+  preset_recall:
+    label: Preset Recall
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23R{preset}&res=1"
+    help: "Recall a preset (00..99 = preset 1..100, 2-digit)."
+    params:
+      preset:
+        type: string
+        required: true
+        default: "00"
+        label: Preset (00..99 = preset 1..100, 2-digit)
+
+  preset_delete:
+    label: Preset Delete
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23C{preset}&res=1"
+    params:
+      preset:
+        type: string
+        required: true
+        default: "00"
+        label: Preset (00..99 = preset 1..100, 2-digit)
+
+  preset_speed_set:
+    label: Set Preset Speed
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23UPVS{value}&res=1"
+    help: >
+      Set the speed used when recalling presets. AW-HE40/50/60/70/120/130/
+      HR140: 250 = slowest, 999 = fastest. AW-UE150 in time mode: 1..63
+      seconds.
+    params:
+      value:
+        type: string
+        required: true
+        default: "999"
+        label: Preset Speed (3-digit, 000..999)
+
+  query_last_preset:
+    label: Query Last Preset Recalled
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23S&res=1"
+
+  query_preset_speed:
+    label: Query Preset Speed
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23UPVS&res=1"
+
+  # ── Tally ──
+
+  tally_input_enable:
+    label: Tally Input Enable
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23TAE1&res=1"
+
+  tally_input_disable:
+    label: Tally Input Disable
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23TAE0&res=1"
+
+  query_tally_input:
+    label: Query Tally Input Enable
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23TAE&res=1"
+
+  r_tally_on:
+    label: Red Tally On
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23DA1&res=1"
+
+  r_tally_off:
+    label: Red Tally Off
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23DA0&res=1"
+
+  query_r_tally:
+    label: Query Red Tally
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23DA&res=1"
+
+  # ── Misc ──
+
+  wireless_remote_enable:
+    label: Wireless Remote Enable
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23WLC1&res=1"
+
+  wireless_remote_disable:
+    label: Wireless Remote Disable
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23WLC0&res=1"
+
+  query_wireless_remote:
+    label: Query Wireless Remote Enable
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23WLC&res=1"
+
+  zoom_linked_pt_speed_on:
+    label: Zoom-Linked PT Speed On
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23SWZ1&res=1"
+
+  zoom_linked_pt_speed_off:
+    label: Zoom-Linked PT Speed Off
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23SWZ0&res=1"
+
+  query_zoom_linked_pt_speed:
+    label: Query Zoom-Linked PT Speed
+    method: GET
+    path: "/cgi-bin/aw_ptz?cmd=%23SWZ&res=1"
+
+# Response patterns (matched against HTTP body text).
+responses:
+
+  # Power: "p0" / "p1" / "p3"
+  - match: '^p([013])$'
+    set: { power: "$1" }
+
+  # Pan/Tilt absolute position: "aPCXXXXYYYY" — 4-char hex per axis
+  - match: '^aPC([0-9A-Fa-f]{4})([0-9A-Fa-f]{4})$'
+    set:
+      pan_position: "$1"
+      tilt_position: "$2"
+
+  # Zoom absolute position: "axzNNN" or "gzNNN"
+  - match: '^(?:axz|gz)([0-9A-Fa-f]{3})$'
+    set: { zoom_position: "$1" }
+
+  # Focus absolute position: "axfNNN" or "gfNNN"
+  - match: '^(?:axf|gf)([0-9A-Fa-f]{3})$'
+    set: { focus_position: "$1" }
+
+  # Auto focus mode: "d10" / "d11"
+  - match: '^d1([01])$'
+    set: { focus_auto: "$1" }
+
+  # Iris absolute position: "axiNNN" or "giNNN"
+  - match: '^(?:axi|gi)([0-9A-Fa-f]{3})$'
+    set: { iris_position: "$1" }
+
+  # Auto iris mode: "d30" / "d31"
+  - match: '^d3([01])$'
+    set: { iris_auto: "$1" }
+
+  # Preset register/recall/delete/last: "sNN" — convert 00..99 to 1..100 in display
+  # Stored as raw 0..99 (display layer can offset). Keep raw to match protocol.
+  - match: '^s([0-9]{2})$'
+    set: { preset_last: "$1" }
+
+  # Preset speed: "uPVSNNN"
+  - match: '^uPVS([0-9]{3})$'
+    set: { preset_speed: "$1" }
+
+  # Tally input enable: "tAE0" / "tAE1"
+  - match: '^tAE([01])$'
+    set: { tally_input_enabled: "$1" }
+
+  # Red tally: "dA0" / "dA1"
+  - match: '^dA([01])$'
+    set: { r_tally: "$1" }
+
+  # Wireless remote: "wLC0" / "wLC1"
+  - match: '^wLC([01])$'
+    set: { wireless_remote_enabled: "$1" }
+
+  # Zoom-linked PT speed: "sWZ0" / "sWZ1"
+  - match: '^sWZ([01])$'
+    set: { zoom_linked_pt_speed: "$1" }
+
+# Polling — refresh state at the configured interval.
+polling:
+  interval: 10
+  queries:
+    - query_power
+    - query_pan_tilt_position
+    - query_zoom_position
+    - query_focus_position
+    - query_focus_auto
+    - query_iris_position
+    - query_iris_auto
+    - query_last_preset
+    - query_preset_speed
+    - query_r_tally
+    - query_tally_input
+    - query_wireless_remote
+    - query_zoom_linked_pt_speed
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  initial_state:
+    power: 1
+    pan_position: "8000"
+    tilt_position: "8000"
+    zoom_position: "555"
+    focus_position: "AAA"
+    focus_auto: true
+    iris_position: "AAA"
+    iris_auto: true
+    preset_last: 0
+    preset_speed: 999
+    r_tally: false
+    tally_input_enabled: true
+    wireless_remote_enabled: true
+    zoom_linked_pt_speed: false
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: power
+      key: power
+    - type: indicator
+      key: pan_position
+      label: Pan (hex)
+    - type: indicator
+      key: tilt_position
+      label: Tilt (hex)
+    - type: indicator
+      key: zoom_position
+      label: Zoom (hex)
+    - type: indicator
+      key: focus_position
+      label: Focus (hex)
+    - type: toggle
+      key: focus_auto
+      label: Auto Focus
+    - type: indicator
+      key: iris_position
+      label: Iris (hex)
+    - type: toggle
+      key: iris_auto
+      label: Auto Iris
+    - type: indicator
+      key: preset_last
+      label: Last Preset
+    - type: toggle
+      key: r_tally
+      label: Red Tally
+    - type: toggle
+      key: tally_input_enabled
+      label: Tally Input Enable
+    - type: toggle
+      key: wireless_remote_enabled
+      label: Wireless Remote Enable
+    - type: toggle
+      key: zoom_linked_pt_speed
+      label: Zoom-Linked PT Speed
+
+  command_handlers:
+
+    # ── Power ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#O([01])&res=1$'
+      handler: |
+        state['power'] = int(match.group(1))
+        respond(f"p{match.group(1)}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#O&res=1$'
+      handler: |
+        respond(f"p{state['power']}")
+
+    # ── Pan/Tilt drive ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#PTS(\d{2})(\d{2})&res=1$'
+      handler: |
+        respond(f"pTS{match.group(1)}{match.group(2)}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#P(\d{2})&res=1$'
+      handler: |
+        respond(f"pS{match.group(1)}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#T(\d{2})&res=1$'
+      handler: |
+        respond(f"tS{match.group(1)}")
+
+    # ── Pan/Tilt absolute position ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#APC([0-9A-Fa-f]{4})([0-9A-Fa-f]{4})&res=1$'
+      handler: |
+        pan = match.group(1).upper()
+        tilt = match.group(2).upper()
+        state['pan_position'] = pan
+        state['tilt_position'] = tilt
+        respond(f"aPC{pan}{tilt}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#APS([0-9A-Fa-f]{4})([0-9A-Fa-f]{4})([0-9A-Fa-f]{2})([012])&res=1$'
+      handler: |
+        pan = match.group(1).upper()
+        tilt = match.group(2).upper()
+        speed = match.group(3).upper()
+        table = match.group(4)
+        state['pan_position'] = pan
+        state['tilt_position'] = tilt
+        respond(f"aPS{pan}{tilt}{speed}{table}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#APC&res=1$'
+      handler: |
+        respond(f"aPC{state['pan_position']}{state['tilt_position']}")
+
+    # ── Zoom ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#AXZ([0-9A-Fa-f]{3})&res=1$'
+      handler: |
+        v = match.group(1).upper()
+        state['zoom_position'] = v
+        respond(f"axz{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#Z(\d{2})&res=1$'
+      handler: |
+        respond(f"zS{match.group(1)}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#GZ&res=1$'
+      handler: |
+        respond(f"gz{state['zoom_position']}")
+
+    # ── Focus ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#AXF([0-9A-Fa-f]{3})&res=1$'
+      handler: |
+        if state['focus_auto']:
+          respond("ER3")
+        else:
+          v = match.group(1).upper()
+          state['focus_position'] = v
+          respond(f"axf{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#F(\d{2})&res=1$'
+      handler: |
+        if state['focus_auto']:
+          respond("ER3")
+        else:
+          respond(f"fS{match.group(1)}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#D1([01])&res=1$'
+      handler: |
+        v = match.group(1)
+        state['focus_auto'] = (v == "1")
+        respond(f"d1{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#GF&res=1$'
+      handler: |
+        respond(f"gf{state['focus_position']}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#D1&res=1$'
+      handler: |
+        respond(f"d1{1 if state['focus_auto'] else 0}")
+
+    # ── Iris ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#AXI([0-9A-Fa-f]{3})&res=1$'
+      handler: |
+        if state['iris_auto']:
+          respond("ER3")
+        else:
+          v = match.group(1).upper()
+          state['iris_position'] = v
+          respond(f"axi{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#I(\d{2})&res=1$'
+      handler: |
+        if state['iris_auto']:
+          respond("ER3")
+        else:
+          respond(f"iC{match.group(1)}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#D3([01])&res=1$'
+      handler: |
+        v = match.group(1)
+        state['iris_auto'] = (v == "1")
+        respond(f"d3{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#GI&res=1$'
+      handler: |
+        respond(f"gi{state['iris_position']}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#D3&res=1$'
+      handler: |
+        respond(f"d3{1 if state['iris_auto'] else 0}")
+
+    # ── Presets ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#M(\d{2})&res=1$'
+      handler: |
+        n = match.group(1)
+        state['preset_last'] = int(n)
+        respond(f"s{n}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#R(\d{2})&res=1$'
+      handler: |
+        n = match.group(1)
+        state['preset_last'] = int(n)
+        respond(f"s{n}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#C(\d{2})&res=1$'
+      handler: |
+        respond(f"s{match.group(1)}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#S&res=1$'
+      handler: |
+        respond(f"s{state['preset_last']:02d}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#UPVS(\d{3})&res=1$'
+      handler: |
+        v = match.group(1)
+        state['preset_speed'] = int(v)
+        respond(f"uPVS{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#UPVS&res=1$'
+      handler: |
+        respond(f"uPVS{state['preset_speed']:03d}")
+
+    # ── Tally ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#TAE([01])&res=1$'
+      handler: |
+        v = match.group(1)
+        state['tally_input_enabled'] = (v == "1")
+        respond(f"tAE{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#TAE&res=1$'
+      handler: |
+        respond(f"tAE{1 if state['tally_input_enabled'] else 0}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#DA([01])&res=1$'
+      handler: |
+        v = match.group(1)
+        state['r_tally'] = (v == "1")
+        respond(f"dA{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#DA&res=1$'
+      handler: |
+        respond(f"dA{1 if state['r_tally'] else 0}")
+
+    # ── Misc ──
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#WLC([01])&res=1$'
+      handler: |
+        v = match.group(1)
+        state['wireless_remote_enabled'] = (v == "1")
+        respond(f"wLC{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#WLC&res=1$'
+      handler: |
+        respond(f"wLC{1 if state['wireless_remote_enabled'] else 0}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#SWZ([01])&res=1$'
+      handler: |
+        v = match.group(1)
+        state['zoom_linked_pt_speed'] = (v == "1")
+        respond(f"sWZ{v}")
+    - match: '^GET /cgi-bin/aw_ptz\?cmd=#SWZ&res=1$'
+      handler: |
+        respond(f"sWZ{1 if state['zoom_linked_pt_speed'] else 0}")

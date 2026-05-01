@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T23:21:47+00:00",
+    "generated_at": "2026-05-01T01:08:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 2,
+    "total_drivers": 3,
     "shards": null,
     "category": "camera"
   },
@@ -56,6 +56,71 @@
             "MAKI Ultra"
           ],
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "panasonic_awhe",
+      "name": "Panasonic AW-HE/UE/UN PTZ Camera",
+      "manufacturer": "Panasonic",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras via the documented HTTP CGI protocol (port 80). Covers power, pan/tilt drive and absolute positioning, zoom, focus (auto/manual), iris (auto/ manual), 100 presets, tally, wireless remote enable, and zoom-linked pan/tilt speed. Image-quality controls (gain, white balance, scene files, gamma) are install-time setup left to the camera's web UI.\n",
+      "source_url": "https://eww.pass.panasonic.co.jp/pro-av/support/content/guide/DEF/HE50_120_IP/HDIntegratedCamera_InterfaceSpecifications-E.pdf",
+      "file": "cameras/panasonic_awhe.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        80
+      ],
+      "protocols": [
+        "panasonic_awhe"
+      ],
+      "simulated": true,
+      "tags": [
+        "ptz",
+        "camera",
+        "broadcast",
+        "panasonic",
+        "awhe",
+        "awue",
+        "awun"
+      ],
+      "help": {
+        "overview": "Panasonic AW-HE/UE/UN are professional PTZ cameras commonly used in broadcast, houses of worship, lecture capture, and corporate AV. The cameras are controlled over HTTP using a small CGI command set. This driver exposes the full pan/tilt/zoom/focus/iris/preset/tally surface needed for live room control. Image quality settings (color, gain, white balance, scene files) are configured in the camera's web UI.\n",
+        "setup": "1. Set a static IP on the camera via its web UI (default credentials\n   are typically admin / 12345 \u2014 change them).\n2. Enter the camera's IP address below. Default port is 80. 3. If you've enabled HTTP authentication on the camera, set Auth Type\n   to \"basic\" and enter the username and password.\n4. Pan/tilt drive uses speed values 01..99 per axis (50 = stop, 50/50\n   both stop). The home position is APC8000/8000.\n5. Presets are numbered 1..100 in the UI; the protocol uses 0..99\n   internally, but the driver exposes the 1..100 numbering.\n6. Polling is set to 10 seconds by default. Keep this at or above 5 s\n   \u2014 the cameras throttle aggressive polling and have a 130 ms minimum\n   inter-command gap.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Panasonic",
+          "models": [
+            "AW-HE40",
+            "AW-HE42",
+            "AW-HE48",
+            "AW-HE50",
+            "AW-HE58",
+            "AW-HE60",
+            "AW-HE65",
+            "AW-HE68",
+            "AW-HE70",
+            "AW-HE75",
+            "AW-HE120",
+            "AW-HE130",
+            "AW-HR140",
+            "AW-UE40",
+            "AW-UE50",
+            "AW-UE65",
+            "AW-UE70",
+            "AW-UE80",
+            "AW-UE100",
+            "AW-UE150",
+            "AW-UE155",
+            "AW-UN70",
+            "AW-UN145"
+          ],
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
         }
       ]
     },

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-04-30T23:21:47+00:00",
+    "generated_at": "2026-05-01T01:08:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 236,
+    "total_devices": 259,
     "shards": null
   },
   "devices": [
@@ -1765,6 +1765,282 @@
         {
           "id": "novastar_h_series",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE120",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE130",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE40",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE42",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE48",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE50",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE58",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE60",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE65",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE68",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE70",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HE75",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-HR140",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE100",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE150",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE155",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE40",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE50",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE65",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE70",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UE80",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UN145",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "AW-UN70",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "untested",
+          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
         }
       ]
     },

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T19:58:35+00:00",
+    "generated_at": "2026-05-01T22:31:21+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 14,
+    "total_devices": 37,
     "shards": null,
     "category": "video"
   },
@@ -93,6 +93,282 @@
         {
           "id": "birddog_codec",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Board Pro 55",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Board Pro 75",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Board Pro G2",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Codec EQ",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Codec Plus",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Codec Pro",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Desk",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Desk Mini",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Desk Pro",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room 55",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room 55 Dual",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room 70",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room 70 Dual G2",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room 70 G2",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room 70 Panorama",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room 70 Single G2",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room Bar",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room Bar Pro",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room Kit",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room Kit EQ",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room Kit EQX",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room Kit Mini",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Cisco",
+      "model": "Room Panorama",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "cisco_roomos_xapi",
+          "confidence": "untested",
+          "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
         }
       ]
     },

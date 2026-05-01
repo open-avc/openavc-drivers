@@ -1,0 +1,1064 @@
+# Cisco RoomOS xAPI Driver (HTTPS /putxml + /getxml)
+#
+# Controls Cisco Webex video-conferencing endpoints over the RoomOS xAPI.
+# Standby, audio, microphones, dial / hangup, do-not-disturb, presentation,
+# camera presets, on-screen messaging, and reboot — the AV-integrator
+# essentials surface, not a wrap of the entire xAPI.
+#
+# Models covered:
+#   The xAPI is identical across the entire current Webex / RoomOS family —
+#   one driver covers all of:
+#     - Codec Pro, Codec Plus, Codec EQ
+#     - Room Bar, Room Bar Pro
+#     - Room Kit, Room Kit Mini, Room Kit EQ, Room Kit EQX
+#     - Room 55, Room 55 Dual, Room 70, Room 70 G2, Room 70 Single G2,
+#       Room 70 Dual G2, Room Panorama, Room 70 Panorama
+#     - Board Pro 55 / 75, Board Pro G2
+#     - Desk, Desk Mini, Desk Pro
+#
+# Protocol reference:
+#   Cisco RoomOS xAPI over HTTP — https://roomos.cisco.com/print/TechDocs/HttpApi
+#   Two HTTPS endpoints on port 443:
+#     GET  /getxml?location=/Status/...     — read xStatus / xConfiguration tree
+#     POST /putxml  (Content-Type: text/xml) — execute xCommand or set
+#                                              xConfiguration via XML body
+#   Authentication: HTTP Basic (any local user with at least Integrator role).
+#
+# Push vs. poll:
+#   The codec supports HttpFeedback — it can dial OUT to a registered URL and
+#   POST xEvent / xStatus updates as they happen. That requires an inbound
+#   HTTP listener on the controller, which OpenAVC doesn't yet expose to YAML
+#   drivers (tracked in openavc-backlog.md §18 — Inbound TCP Listener Primitive,
+#   alongside panasonic_awhe). This driver therefore polls for now; when the
+#   listener primitive lands we'll add HttpFeedback subscriptions and switch to
+#   push for the same state surface.
+#
+# Authentication:
+#   Username and password are supplied in the Add Device dialog. The codec's
+#   Integrator-level user is sufficient for everything in this driver. Admin
+#   role is only needed for xConfiguration writes, which this driver does not
+#   include (settings live in the Cisco web UI, not the AV control surface).
+
+id: cisco_roomos_xapi
+name: Cisco Webex Codec / Room Series (xAPI)
+manufacturer: Cisco
+category: video
+version: 1.0.0
+author: OpenAVC
+description: >
+  Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
+  Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via
+  the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND,
+  presentation, camera presets, on-screen messaging, reboot. Polling-based —
+  HttpFeedback push deferred until the platform's inbound-listener primitive
+  lands.
+
+source_url: https://roomos.cisco.com/print/TechDocs/HttpApi
+tags: [cisco, webex, roomos, xapi, codec, room, board, desk, video-conferencing, vc]
+verified: false
+simulated: true
+protocols: [xapi_http]
+ports: [443]
+min_platform_version: "0.9.1"
+
+compatible_models:
+  - manufacturer: Cisco
+    models:
+      - Codec Pro
+      - Codec Plus
+      - Codec EQ
+      - Room Bar
+      - Room Bar Pro
+      - Room Kit
+      - Room Kit Mini
+      - Room Kit EQ
+      - Room Kit EQX
+      - Room 55
+      - Room 55 Dual
+      - Room 70
+      - Room 70 Single G2
+      - Room 70 Dual G2
+      - Room 70 G2
+      - Room Panorama
+      - Room 70 Panorama
+      - Board Pro 55
+      - Board Pro 75
+      - Board Pro G2
+      - Desk
+      - Desk Mini
+      - Desk Pro
+    confidence: untested
+    notes: >
+      All models share the same RoomOS xAPI surface; one driver covers the
+      whole family. Verified against the xAPI documentation; no live-hardware
+      verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 /
+      12 — minor command additions but the core surface used here predates CE9.
+
+transport: http
+
+help:
+  overview: >
+    Cisco Webex video-conferencing endpoints — the Codec Pro / Plus, Room Kit
+    family, Room 55 / 70 series, Board Pro, and Desk Pro — all expose the
+    same xAPI over HTTPS. This driver covers the controls an AV integrator
+    actually wires to a touch panel: standby on / off, volume, mute, dial,
+    hangup, do-not-disturb, presentation start / stop, camera presets, and
+    on-screen messages. xConfiguration writes are intentionally NOT included —
+    settings belong in the Cisco web UI at install time, not on a control
+    surface where they can be changed by accident.
+  setup: >
+    1. Set a static IP (or DHCP reservation) on the codec.
+    2. In the codec's web UI (https://<codec-ip>) go to Users and create
+       (or note) a local user with at least the "Integrator" role. The
+       default "admin" user works too. This driver uses HTTP Basic auth —
+       SSO / single-sign-on users will not work.
+    3. Confirm xAPI over HTTPS is enabled. In the web UI: Settings ->
+       Configurations -> NetworkServices -> HTTP Mode. Default is
+       HTTP+HTTPS, which is fine. (HTTP-only is also supported by toggling
+       the Use HTTPS field on this device.)
+    4. Add the codec in OpenAVC: enter the IP, leave port 443 / HTTPS on,
+       enter the username and password from step 2.
+    5. Polling refreshes system info, standby, audio, DND, presentation,
+       and people-presence every 30 seconds. Adjust the Poll Interval if
+       you want faster touch-panel feedback.
+
+discovery:
+  ports: [443]
+
+default_config:
+  host: ""
+  port: 443
+  ssl: true
+  verify_ssl: false
+  auth_type: "basic"
+  username: "admin"
+  password: ""
+  timeout: 10.0
+  poll_interval: 30
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: Codec IP Address
+    description: "IP address of the codec. Set a DHCP reservation on your network."
+  port:
+    type: integer
+    default: 443
+    label: HTTPS Port
+    description: "443 by default. Use 80 if the codec is set to HTTP-only mode."
+  ssl:
+    type: boolean
+    default: true
+    label: Use HTTPS
+    description: "Leave on. Disable only if the codec is in HTTP-only mode."
+  verify_ssl:
+    type: boolean
+    default: false
+    label: Verify SSL Certificate
+    description: "Codecs ship with self-signed certificates — leave off."
+  username:
+    type: string
+    default: "admin"
+    required: true
+    label: Username
+    description: "A local codec user with at least Integrator role."
+  password:
+    type: string
+    default: ""
+    required: true
+    label: Password
+    description: "Password for the user above."
+    secret: true
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    label: Poll Interval (sec)
+    description: "How often to refresh status. 30s is fine for room control; lower for snappier touch panels."
+  timeout:
+    type: number
+    default: 10.0
+    label: Request Timeout (sec)
+
+state_variables:
+  product_id:
+    type: string
+    label: Product ID
+    description: "Marketing name reported by the codec (e.g. 'Cisco Webex Codec Pro')."
+  product_platform:
+    type: string
+    label: Product Platform
+    description: "Hardware platform (e.g. 'Codec Pro', 'Room Kit', 'Desk Pro')."
+  software_version:
+    type: string
+    label: Software Version
+    description: "RoomOS / CE software build, e.g. 'ce11.27.1.7'."
+  serial_number:
+    type: string
+    label: Serial Number
+  uptime_seconds:
+    type: integer
+    label: Uptime (sec)
+  standby_state:
+    type: string
+    label: Standby State
+    description: "Off / Standby / EnteringStandby / Halfwake."
+  audio_volume:
+    type: integer
+    label: Volume (0-100)
+  audio_volume_mute:
+    type: string
+    label: Output Mute
+    description: "On / Off."
+  microphones_mute:
+    type: string
+    label: Microphone Mute
+    description: "On / Off."
+  dnd_state:
+    type: string
+    label: Do Not Disturb
+    description: "Active / Inactive."
+  presentation_mode:
+    type: string
+    label: Presentation Mode
+    description: "Sending / Receiving / Off."
+  people_presence:
+    type: string
+    label: Room Occupied
+    description: "Yes / No / Unknown."
+  people_count:
+    type: integer
+    label: People Count
+    description: "Headcount from the camera analytics. -1 when unsupported / no signal."
+
+# Headers used by every POST /putxml command. The /putxml endpoint requires
+# Content-Type: text/xml — without it the codec rejects the body.
+commands:
+
+  # ── Pairing / metadata ──────────────────────────────────────────────────
+
+  query_system_unit:
+    label: Query System Info
+    method: GET
+    path: "/getxml"
+    query_params:
+      location: "/Status/SystemUnit"
+    help: "Refreshes product, platform, software version, serial, uptime."
+
+  # ── Standby ─────────────────────────────────────────────────────────────
+
+  query_standby:
+    label: Query Standby State
+    method: GET
+    path: "/getxml"
+    query_params:
+      location: "/Status/Standby"
+
+  standby_activate:
+    label: Standby On
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Standby><Activate/></Standby></Command>"
+    help: "Put the codec to sleep."
+
+  standby_deactivate:
+    label: Standby Off (Wake)
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Standby><Deactivate/></Standby></Command>"
+    help: "Wake the codec from standby."
+
+  standby_halfwake:
+    label: Standby Halfwake
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Standby><Halfwake/></Standby></Command>"
+    help: "Drop the codec to half-wake (logo + welcome screen, instant resume)."
+
+  # ── Audio: speaker volume + output mute ─────────────────────────────────
+
+  query_audio:
+    label: Query Audio Status
+    method: GET
+    path: "/getxml"
+    query_params:
+      location: "/Status/Audio"
+    help: "Refreshes volume, output mute, and microphone mute."
+
+  audio_volume_set:
+    label: Set Volume
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Volume><Set><Level>{level}</Level></Set></Volume></Audio></Command>"
+    params:
+      level:
+        type: integer
+        required: true
+        default: 50
+        min: 0
+        max: 100
+        label: Level (0-100)
+
+  audio_volume_increase:
+    label: Volume +5
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Volume><Increase/></Volume></Audio></Command>"
+
+  audio_volume_decrease:
+    label: Volume -5
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Volume><Decrease/></Volume></Audio></Command>"
+
+  audio_volume_mute:
+    label: Output Mute On
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Volume><Mute/></Volume></Audio></Command>"
+
+  audio_volume_unmute:
+    label: Output Mute Off
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Volume><Unmute/></Volume></Audio></Command>"
+
+  audio_volume_mute_toggle:
+    label: Output Mute Toggle
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Volume><ToggleMute/></Volume></Audio></Command>"
+
+  # ── Audio: microphone mute ──────────────────────────────────────────────
+
+  audio_microphones_mute:
+    label: Mic Mute On
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Microphones><Mute/></Microphones></Audio></Command>"
+
+  audio_microphones_unmute:
+    label: Mic Mute Off
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Microphones><Unmute/></Microphones></Audio></Command>"
+
+  audio_microphones_mute_toggle:
+    label: Mic Mute Toggle
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Microphones><ToggleMute/></Microphones></Audio></Command>"
+
+  # ── Call control ────────────────────────────────────────────────────────
+
+  query_call:
+    label: Query Active Call
+    method: GET
+    path: "/getxml"
+    query_params:
+      location: "/Status/Call"
+    help: "Returns the active-call status block. Empty if there are no active calls."
+
+  dial:
+    label: Dial
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Dial><Number>{number}</Number></Dial></Command>"
+    help: >
+      Dial a SIP URI (user@domain), H.323 alias, Webex meeting URL, or a Cisco
+      Spark / Webex room. The codec decides protocol from the format of the
+      number string.
+    params:
+      number:
+        type: string
+        required: true
+        label: Number / SIP URI
+
+  call_accept:
+    label: Accept Incoming Call
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Call><Accept><CallId>{call_id}</CallId></Accept></Call></Command>"
+    params:
+      call_id:
+        type: string
+        required: true
+        default: "1"
+        label: Call ID
+        description: "Numeric call ID. Use Query Active Call to find current IDs."
+
+  call_reject:
+    label: Reject Incoming Call
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Call><Reject><CallId>{call_id}</CallId></Reject></Call></Command>"
+    params:
+      call_id:
+        type: string
+        required: true
+        default: "1"
+        label: Call ID
+
+  call_disconnect:
+    label: Hang Up Call
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Call><Disconnect><CallId>{call_id}</CallId></Disconnect></Call></Command>"
+    help: "Disconnect a specific call by CallId. Default '1' covers the common single-call case."
+    params:
+      call_id:
+        type: string
+        required: true
+        default: "1"
+        label: Call ID
+
+  call_hold:
+    label: Hold Call
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Call><Hold><CallId>{call_id}</CallId></Hold></Call></Command>"
+    params:
+      call_id:
+        type: string
+        required: true
+        default: "1"
+        label: Call ID
+
+  call_resume:
+    label: Resume Call
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Call><Resume><CallId>{call_id}</CallId></Resume></Call></Command>"
+    params:
+      call_id:
+        type: string
+        required: true
+        default: "1"
+        label: Call ID
+
+  # ── Conference: do not disturb ──────────────────────────────────────────
+
+  query_conference:
+    label: Query Conference Status
+    method: GET
+    path: "/getxml"
+    query_params:
+      location: "/Status/Conference"
+    help: "Refreshes DND and presentation state."
+
+  dnd_activate:
+    label: Do Not Disturb On
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Conference><DoNotDisturb><Activate><Timeout>{timeout}</Timeout></Activate></DoNotDisturb></Conference></Command>"
+    help: "Block incoming calls and notifications for N minutes (1-1440)."
+    params:
+      timeout:
+        type: integer
+        required: true
+        default: 60
+        min: 1
+        max: 1440
+        label: Timeout (minutes)
+
+  dnd_deactivate:
+    label: Do Not Disturb Off
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Conference><DoNotDisturb><Deactivate/></DoNotDisturb></Conference></Command>"
+
+  # ── Presentation ────────────────────────────────────────────────────────
+
+  presentation_start:
+    label: Start Presentation (Share)
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Presentation><Start><PresentationSource>{source}</PresentationSource><SendingMode>{sending_mode}</SendingMode></Start></Presentation></Command>"
+    help: >
+      Share a connector (HDMI / USB-C input) into the call. PresentationSource
+      is the connector ID (1, 2, 3 — match your codec's hardware). SendingMode
+      'LocalRemote' shares to both far-end and local screen, 'LocalOnly' shows
+      it on the local screen only.
+    params:
+      source:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 5
+        label: Source Connector ID
+      sending_mode:
+        type: enum
+        values: ["LocalRemote", "LocalOnly"]
+        default: "LocalRemote"
+        required: true
+        label: Sending Mode
+
+  presentation_stop:
+    label: Stop Presentation
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Presentation><Stop/></Presentation></Command>"
+
+  # ── Camera ──────────────────────────────────────────────────────────────
+
+  camera_preset_activate:
+    label: Recall Camera Preset
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Camera><Preset><Activate><PresetId>{preset_id}</PresetId></Activate></Preset></Camera></Command>"
+    params:
+      preset_id:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 35
+        label: Preset ID (1-35)
+
+  camera_preset_store:
+    label: Save Camera Preset
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Camera><Preset><Store><PresetId>{preset_id}</PresetId><CameraId>{camera_id}</CameraId><Name>{name}</Name><TakeSnapshot>True</TakeSnapshot></Store></Preset></Camera></Command>"
+    help: "Save the current pan / tilt / zoom of the named camera as a preset."
+    params:
+      preset_id:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 35
+        label: Preset ID
+      camera_id:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 7
+        label: Camera ID
+      name:
+        type: string
+        required: true
+        default: "Preset"
+        label: Preset Name
+
+  camera_position_set:
+    label: Set Camera PTZ (Absolute)
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Camera><PositionSet><CameraId>{camera_id}</CameraId><Pan>{pan}</Pan><Tilt>{tilt}</Tilt><Zoom>{zoom}</Zoom></PositionSet></Camera></Command>"
+    help: "Move the camera to absolute pan / tilt / zoom values. Ranges depend on the camera model."
+    params:
+      camera_id:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 7
+        label: Camera ID
+      pan:
+        type: integer
+        required: true
+        default: 0
+        label: Pan
+      tilt:
+        type: integer
+        required: true
+        default: 0
+        label: Tilt
+      zoom:
+        type: integer
+        required: true
+        default: 0
+        label: Zoom
+
+  camera_ramp:
+    label: Camera Ramp (Continuous)
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Camera><Ramp><CameraId>{camera_id}</CameraId><Pan>{pan}</Pan><Tilt>{tilt}</Tilt><Zoom>{zoom}</Zoom></Ramp></Camera></Command>"
+    help: >
+      Start moving the camera continuously. Pan: Left / Right / Stop.
+      Tilt: Up / Down / Stop. Zoom: In / Out / Stop. Always send Stop to
+      halt motion (or use Camera Ramp Stop).
+    params:
+      camera_id:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 7
+        label: Camera ID
+      pan:
+        type: enum
+        values: ["Stop", "Left", "Right"]
+        default: "Stop"
+        required: true
+        label: Pan
+      tilt:
+        type: enum
+        values: ["Stop", "Up", "Down"]
+        default: "Stop"
+        required: true
+        label: Tilt
+      zoom:
+        type: enum
+        values: ["Stop", "In", "Out"]
+        default: "Stop"
+        required: true
+        label: Zoom
+
+  camera_ramp_stop:
+    label: Camera Ramp Stop
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Camera><Ramp><CameraId>{camera_id}</CameraId><Pan>Stop</Pan><Tilt>Stop</Tilt><Zoom>Stop</Zoom></Ramp></Camera></Command>"
+    help: "Stop all camera motion. Send when releasing a press-and-hold panel button."
+    params:
+      camera_id:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        max: 7
+        label: Camera ID
+
+  # ── Room analytics (occupancy) ──────────────────────────────────────────
+
+  query_room_analytics:
+    label: Query Room Analytics
+    method: GET
+    path: "/getxml"
+    query_params:
+      location: "/Status/RoomAnalytics"
+    help: "Refreshes room-occupancy presence and head count."
+
+  # ── On-screen messaging ─────────────────────────────────────────────────
+
+  ui_alert_display:
+    label: Show On-Screen Alert
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><UserInterface><Message><Alert><Display><Title>{title}</Title><Text>{text}</Text><Duration>{duration}</Duration></Display></Alert></Message></UserInterface></Command>"
+    help: "Pop up a centered alert banner on the codec's screens. Duration in seconds (0 = until cleared)."
+    params:
+      title:
+        type: string
+        required: true
+        default: "Notice"
+        label: Title
+      text:
+        type: string
+        required: true
+        default: ""
+        label: Message Text
+      duration:
+        type: integer
+        required: true
+        default: 10
+        min: 0
+        max: 3600
+        label: Duration (sec)
+
+  ui_alert_clear:
+    label: Clear On-Screen Alert
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><UserInterface><Message><Alert><Clear/></Alert></Message></UserInterface></Command>"
+
+  ui_textline_display:
+    label: Show On-Screen Text Line
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><UserInterface><Message><TextLine><Display><Text>{text}</Text><Duration>{duration}</Duration></Display></TextLine></Message></UserInterface></Command>"
+    help: "Tickertape-style text line. Useful for room-status feedback."
+    params:
+      text:
+        type: string
+        required: true
+        default: ""
+        label: Text
+      duration:
+        type: integer
+        required: true
+        default: 10
+        min: 0
+        max: 3600
+        label: Duration (sec)
+
+  ui_textline_clear:
+    label: Clear On-Screen Text Line
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><UserInterface><Message><TextLine><Clear/></TextLine></Message></UserInterface></Command>"
+
+  # ── System ──────────────────────────────────────────────────────────────
+
+  system_reboot:
+    label: Reboot Codec
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><SystemUnit><Boot><Action>Restart</Action></Boot></SystemUnit></Command>"
+    help: "Restart the codec. Takes 60-120 seconds to come back."
+
+# Response patterns. xAPI returns XML with nested elements. Use \s* to span
+# whitespace between tags. Each line below targets one state variable.
+responses:
+
+  # SystemUnit
+  - match: '<ProductId>([^<]+)</ProductId>'
+    set: { product_id: "$1" }
+  - match: '<ProductPlatform>([^<]+)</ProductPlatform>'
+    set: { product_platform: "$1" }
+  - match: '<Software>\s*<Version>([^<]+)</Version>'
+    set: { software_version: "$1" }
+  - match: '<SerialNumber>([^<]+)</SerialNumber>'
+    set: { serial_number: "$1" }
+  - match: '<Uptime>(\d+)</Uptime>'
+    set: { uptime_seconds: "$1" }
+
+  # Standby
+  - match: '<Standby[^>]*>\s*<State>(\w+)</State>'
+    set: { standby_state: "$1" }
+
+  # Audio
+  - match: '<Volume>(\d+)</Volume>'
+    set: { audio_volume: "$1" }
+  - match: '<VolumeMute>(\w+)</VolumeMute>'
+    set: { audio_volume_mute: "$1" }
+  - match: '<Microphones[^>]*>\s*<Mute>(\w+)</Mute>'
+    set: { microphones_mute: "$1" }
+
+  # Conference
+  - match: '<DoNotDisturb[^>]*>(\w+)</DoNotDisturb>'
+    set: { dnd_state: "$1" }
+  - match: '<Presentation[^>]*>\s*<Mode>(\w+)</Mode>'
+    set: { presentation_mode: "$1" }
+
+  # Room analytics
+  - match: '<PeoplePresence>(\w+)</PeoplePresence>'
+    set: { people_presence: "$1" }
+  - match: '<PeopleCount[^>]*>\s*<Current>(-?\d+)</Current>'
+    set: { people_count: "$1" }
+
+polling:
+  interval: 30
+  queries:
+    - query_system_unit
+    - query_standby
+    - query_audio
+    - query_conference
+    - query_room_analytics
+
+on_connect:
+  - query_system_unit
+  - query_standby
+  - query_audio
+  - query_conference
+  - query_room_analytics
+
+# ── SIMULATOR DEFINITION ──────────────────────────────────────────────────
+# The auto-simulator answers GET /getxml?location=... and POST /putxml. Body
+# is appended after a "|" delimiter so the handlers can match it. The XML we
+# emit mirrors the shapes the driver's response patterns expect.
+simulator:
+  initial_state:
+    product_id: "Cisco Webex Codec Pro"
+    product_platform: "Codec Pro"
+    software_version: "ce11.27.1.7"
+    serial_number: "FCH99999SIM"
+    uptime_seconds: 432000
+    standby_state: "Off"
+    audio_volume: 50
+    audio_volume_mute: "Off"
+    microphones_mute: "Off"
+    dnd_state: "Inactive"
+    presentation_mode: "Off"
+    people_presence: "No"
+    people_count: 0
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: indicator
+      key: product_id
+      label: Product
+    - type: indicator
+      key: product_platform
+      label: Platform
+    - type: indicator
+      key: software_version
+      label: Software
+    - type: indicator
+      key: serial_number
+      label: Serial
+    - type: number
+      key: uptime_seconds
+      label: Uptime (sec)
+      min: 0
+      max: 9999999
+    - type: select
+      key: standby_state
+      label: Standby
+      options: ["Off", "Standby", "EnteringStandby", "Halfwake"]
+    - type: number
+      key: audio_volume
+      label: Volume
+      min: 0
+      max: 100
+    - type: select
+      key: audio_volume_mute
+      label: Output Mute
+      options: ["Off", "On"]
+    - type: select
+      key: microphones_mute
+      label: Mic Mute
+      options: ["Off", "On"]
+    - type: select
+      key: dnd_state
+      label: DND
+      options: ["Inactive", "Active"]
+    - type: select
+      key: presentation_mode
+      label: Presentation
+      options: ["Off", "Sending", "Receiving"]
+    - type: select
+      key: people_presence
+      label: Occupied
+      options: ["Yes", "No", "Unknown"]
+    - type: number
+      key: people_count
+      label: People Count
+      min: -1
+      max: 50
+
+  command_handlers:
+
+    # ── GET /getxml?location=... ─────────────────────────────────────────
+
+    - match: '^GET /getxml\?location=/?Status/SystemUnit\b.*'
+      handler: |
+        body = (
+          '<?xml version="1.0"?>'
+          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
+          '<SystemUnit>'
+          f'<ProductId>{state["product_id"]}</ProductId>'
+          f'<ProductPlatform>{state["product_platform"]}</ProductPlatform>'
+          f'<Uptime>{state["uptime_seconds"]}</Uptime>'
+          '<Software>'
+          f'<Version>{state["software_version"]}</Version>'
+          f'<DisplayName>RoomOS {state["software_version"]}</DisplayName>'
+          '</Software>'
+          '<Hardware><Module>'
+          f'<SerialNumber>{state["serial_number"]}</SerialNumber>'
+          '</Module></Hardware>'
+          '</SystemUnit></Status>'
+        )
+        respond(body)
+
+    - match: '^GET /getxml\?location=/?Status/Standby\b.*'
+      handler: |
+        body = (
+          '<?xml version="1.0"?>'
+          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
+          f'<Standby><State>{state["standby_state"]}</State></Standby>'
+          '</Status>'
+        )
+        respond(body)
+
+    - match: '^GET /getxml\?location=/?Status/Audio\b.*'
+      handler: |
+        body = (
+          '<?xml version="1.0"?>'
+          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
+          '<Audio>'
+          f'<Microphones><Mute>{state["microphones_mute"]}</Mute></Microphones>'
+          f'<Volume>{state["audio_volume"]}</Volume>'
+          f'<VolumeMute>{state["audio_volume_mute"]}</VolumeMute>'
+          '</Audio></Status>'
+        )
+        respond(body)
+
+    - match: '^GET /getxml\?location=/?Status/Conference\b.*'
+      handler: |
+        body = (
+          '<?xml version="1.0"?>'
+          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
+          '<Conference>'
+          f'<DoNotDisturb>{state["dnd_state"]}</DoNotDisturb>'
+          f'<Presentation><Mode>{state["presentation_mode"]}</Mode></Presentation>'
+          '</Conference></Status>'
+        )
+        respond(body)
+
+    - match: '^GET /getxml\?location=/?Status/RoomAnalytics\b.*'
+      handler: |
+        body = (
+          '<?xml version="1.0"?>'
+          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
+          '<RoomAnalytics>'
+          f'<PeoplePresence>{state["people_presence"]}</PeoplePresence>'
+          f'<PeopleCount><Current>{state["people_count"]}</Current></PeopleCount>'
+          '</RoomAnalytics></Status>'
+        )
+        respond(body)
+
+    - match: '^GET /getxml\?location=/?Status/Call\b.*'
+      handler: |
+        respond(
+          '<?xml version="1.0"?>'
+          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
+          '</Status>'
+        )
+
+    # ── POST /putxml — xCommand handlers ─────────────────────────────────
+
+    # Standby
+    - match: '^POST /putxml\|<Command><Standby><Activate.*'
+      handler: |
+        state["standby_state"] = "Standby"
+        respond('<?xml version="1.0"?><Command><StandbyActivateResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Standby><Deactivate.*'
+      handler: |
+        state["standby_state"] = "Off"
+        respond('<?xml version="1.0"?><Command><StandbyDeactivateResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Standby><Halfwake.*'
+      handler: |
+        state["standby_state"] = "Halfwake"
+        respond('<?xml version="1.0"?><Command><StandbyHalfwakeResult status="OK"/></Command>')
+
+    # Audio volume
+    - match: '^POST /putxml\|<Command><Audio><Volume><Set><Level>(\d+)</Level>.*'
+      handler: |
+        level = max(0, min(100, int(match.group(1))))
+        state["audio_volume"] = level
+        respond('<?xml version="1.0"?><Command><VolumeSetResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Audio><Volume><Increase.*'
+      handler: |
+        state["audio_volume"] = min(100, int(state["audio_volume"]) + 5)
+        respond('<?xml version="1.0"?><Command><VolumeIncreaseResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Audio><Volume><Decrease.*'
+      handler: |
+        state["audio_volume"] = max(0, int(state["audio_volume"]) - 5)
+        respond('<?xml version="1.0"?><Command><VolumeDecreaseResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Audio><Volume><Mute.*'
+      handler: |
+        state["audio_volume_mute"] = "On"
+        respond('<?xml version="1.0"?><Command><VolumeMuteResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Audio><Volume><Unmute.*'
+      handler: |
+        state["audio_volume_mute"] = "Off"
+        respond('<?xml version="1.0"?><Command><VolumeUnmuteResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Audio><Volume><ToggleMute.*'
+      handler: |
+        state["audio_volume_mute"] = "Off" if state["audio_volume_mute"] == "On" else "On"
+        respond('<?xml version="1.0"?><Command><VolumeToggleMuteResult status="OK"/></Command>')
+
+    # Microphone mute
+    - match: '^POST /putxml\|<Command><Audio><Microphones><Mute.*'
+      handler: |
+        state["microphones_mute"] = "On"
+        respond('<?xml version="1.0"?><Command><MicrophonesMuteResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Audio><Microphones><Unmute.*'
+      handler: |
+        state["microphones_mute"] = "Off"
+        respond('<?xml version="1.0"?><Command><MicrophonesUnmuteResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Audio><Microphones><ToggleMute.*'
+      handler: |
+        state["microphones_mute"] = "Off" if state["microphones_mute"] == "On" else "On"
+        respond('<?xml version="1.0"?><Command><MicrophonesToggleMuteResult status="OK"/></Command>')
+
+    # Call control — sim acks every variant; no call-state machine
+    - match: '^POST /putxml\|<Command><Dial>.*'
+      handler: |
+        respond('<?xml version="1.0"?><Command><DialResult status="OK"><CallId>1</CallId></DialResult></Command>')
+
+    - match: '^POST /putxml\|<Command><Call><(?:Accept|Reject|Disconnect|Hold|Resume)>.*'
+      handler: |
+        respond('<?xml version="1.0"?><Command><CallResult status="OK"/></Command>')
+
+    # Conference
+    - match: '^POST /putxml\|<Command><Conference><DoNotDisturb><Activate.*'
+      handler: |
+        state["dnd_state"] = "Active"
+        respond('<?xml version="1.0"?><Command><DoNotDisturbActivateResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Conference><DoNotDisturb><Deactivate.*'
+      handler: |
+        state["dnd_state"] = "Inactive"
+        respond('<?xml version="1.0"?><Command><DoNotDisturbDeactivateResult status="OK"/></Command>')
+
+    # Presentation
+    - match: '^POST /putxml\|<Command><Presentation><Start>.*'
+      handler: |
+        state["presentation_mode"] = "Sending"
+        respond('<?xml version="1.0"?><Command><PresentationStartResult status="OK"/></Command>')
+
+    - match: '^POST /putxml\|<Command><Presentation><Stop.*'
+      handler: |
+        state["presentation_mode"] = "Off"
+        respond('<?xml version="1.0"?><Command><PresentationStopResult status="OK"/></Command>')
+
+    # Camera — sim acks; no PTZ state mirrored
+    - match: '^POST /putxml\|<Command><Camera>.*'
+      handler: |
+        respond('<?xml version="1.0"?><Command><CameraResult status="OK"/></Command>')
+
+    # User interface messaging — sim acks
+    - match: '^POST /putxml\|<Command><UserInterface>.*'
+      handler: |
+        respond('<?xml version="1.0"?><Command><UserInterfaceResult status="OK"/></Command>')
+
+    # Reboot — sim acks (does not actually go offline)
+    - match: '^POST /putxml\|<Command><SystemUnit><Boot>.*'
+      handler: |
+        respond('<?xml version="1.0"?><Command><BootResult status="OK"/></Command>')
+
+    # Catch-all for any other xCommand we did not enumerate
+    - match: '^POST /putxml\|<Command>.*'
+      handler: |
+        respond('<?xml version="1.0"?><Command><Result status="OK"/></Command>')

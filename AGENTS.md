@@ -249,7 +249,22 @@ commands:
 
 HTTP commands also support `query_params` (a dict of URL query parameters with `{param}` substitution) and the config field `api_key_header` (default: `"X-API-Key"`) for customizing the API key auth header name.
 
-**Config substitution:** `{config_key}` placeholders (e.g., `{display_id}`) are replaced with the device's config values. This works in `send` strings, HTTP `path`/`body`/`query_params` fields.
+**Custom request headers:** HTTP commands accept an optional `headers:` map. Use it when the device requires a specific `Content-Type` (e.g. `text/xml` for SOAP / Cisco RoomOS xAPI), or any other custom header — `Accept`, `X-Device-Auth`, etc. Values support `{param}` substitution like the rest of the command. Headers declared on the command merge with (and override) any defaults the transport layer sets.
+
+```yaml
+commands:
+  putxml_command:
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: "<Command><Audio><Volume><Set><Level>{level}</Level></Set></Volume></Audio></Command>"
+    params:
+      level: { type: integer, required: true, default: 50, min: 0, max: 100 }
+```
+
+If you don't declare `headers:`, the transport sets `Content-Type: application/json` for JSON bodies (i.e. ones that parse cleanly as JSON) and sends raw bodies (e.g. XML, plain text) with no `Content-Type` header at all — fine for many devices, but not for ones that strictly check the header. The `headers:` field is also valid on `device_settings` write definitions.
+
+**Config substitution:** `{config_key}` placeholders (e.g., `{display_id}`) are replaced with the device's config values. This works in `send` strings, HTTP `path`/`body`/`query_params`/`headers` fields.
 
 ### 2.7 responses
 

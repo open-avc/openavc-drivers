@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T15:15:23+00:00",
+    "generated_at": "2026-05-02T17:17:43+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 47,
@@ -873,7 +873,7 @@
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
@@ -906,10 +906,104 @@
         {
           "manufacturer": "Generic",
           "models": [
-            "Art-Net Node / Gateway / Fixture (any vendor)"
+            "Art-Net Node / Gateway / Fixture (any conforming vendor)"
           ],
           "confidence": "untested",
-          "notes": "Art-Net is an open published standard. This driver speaks the controller half (sends ArtDmx) and works with any conforming node \u2014 ETC Response Mk2, Pathway Path-Port, Enttec ODE / DIN, Elation E-Node, ADJ Net4, Chauvet Net-X, Madrix-driven LED controllers, Color Kinetics PDS gateways, GrandMA Net Processing units, Resolume / TouchDesigner / Madrix as Art-Net inputs, etc."
+          "notes": "Art-Net is an open published standard maintained by Artistic Licence. This driver sends ArtDmx and works with any conforming Art-Net receiver. Brand-specific entries below name the major node / gateway / fixture vendors confirmed by their published product literature."
+        },
+        {
+          "manufacturer": "ETC",
+          "models": [
+            "Response Mk2 Gateway",
+            "Net3 Gateway",
+            "Net3 Show Control Gateway",
+            "Net3 4-port Gateway"
+          ],
+          "confidence": "untested",
+          "notes": "ETC's Response and Net3 gateway families translate Art-Net (and sACN) to physical DMX outputs. ETC's Eos console is also covered by the dedicated `etc_eos` OSC driver, which is the right choice when controlling cues directly rather than driving fixtures."
+        },
+        {
+          "manufacturer": "Pathway Connectivity",
+          "models": [
+            "Pathport Octo",
+            "Pathport Quattro",
+            "Pathport Q42",
+            "VIA 12 / VIA 24"
+          ],
+          "confidence": "untested",
+          "notes": "Pathway Pathport gateways translate Art-Net and sACN to DMX. Common in pro AV and theatrical installs."
+        },
+        {
+          "manufacturer": "Enttec",
+          "models": [
+            "ODE Mk2 / Mk3",
+            "DIN-ODE",
+            "S-Play Mini",
+            "DMX Storm 8",
+            "Storm 24"
+          ],
+          "confidence": "untested",
+          "notes": "Enttec ODE family converts Art-Net to DMX. ODE Mk3 also speaks sACN. The smaller-footprint DIN-ODE fits a DIN rail in install racks."
+        },
+        {
+          "manufacturer": "Elation",
+          "models": [
+            "E-Node 2",
+            "E-Node 4",
+            "E-Node 8"
+          ],
+          "confidence": "untested",
+          "notes": "Elation E-Node series Art-Net / sACN to DMX gateways."
+        },
+        {
+          "manufacturer": "Chauvet",
+          "models": [
+            "Net-X II",
+            "DataStream 4"
+          ],
+          "confidence": "untested",
+          "notes": "Chauvet Professional network nodes for entertainment lighting."
+        },
+        {
+          "manufacturer": "ADJ",
+          "models": [
+            "Net4",
+            "Net8"
+          ],
+          "confidence": "untested",
+          "notes": "American DJ network DMX gateways."
+        },
+        {
+          "manufacturer": "Color Kinetics",
+          "models": [
+            "Data Enabler Pro",
+            "Antumbra Touch",
+            "iColor Player",
+            "PDS-150e / PDS-200e"
+          ],
+          "confidence": "untested",
+          "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks Art-Net to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        },
+        {
+          "manufacturer": "MA Lighting",
+          "models": [
+            "grandMA3 onPC",
+            "grandMA3 NPU",
+            "MA NPU (legacy)",
+            "grandMA2 NPU (legacy)"
+          ],
+          "confidence": "untested",
+          "notes": "MA Lighting Network Processing Units translate console output to Art-Net and sACN for downstream gateways. Useful for tracking backup or for sending Art-Net into an MA console for visualizer / pre-program workflows."
+        },
+        {
+          "manufacturer": "Madrix",
+          "models": [
+            "Madrix 5 Software",
+            "Madrix Aura Ethernet-DMX Bridge",
+            "Madrix Plexus"
+          ],
+          "confidence": "untested",
+          "notes": "Madrix is primarily an Art-Net source for LED video pixel-mapping, but its Aura and Plexus hardware bridges accept Art-Net input and convert to DMX or playback stored shows."
         }
       ]
     },
@@ -940,7 +1034,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -961,9 +1055,157 @@
         "generic"
       ],
       "help": {
-        "overview": "Universal projector control via the PJLink Class 1 standard. Works with 100+ models from Epson, NEC, Panasonic, Sony, Christie, Hitachi, BenQ, Optoma, Canon, and Vivitek.",
+        "overview": "Universal projector control via the PJLink Class 1 standard. Works with 100+ models from Epson, NEC, Panasonic, Sony, Christie, Hitachi, BenQ, Optoma, Canon, Barco, Fujifilm, and Vivitek. Where a brand has its own dedicated driver in the catalog (Panasonic PT, Sharp NEC, Sony VPL, Epson ES/VP, Barco Pulse), prefer that driver \u2014 it generally exposes more capability than PJLink's universal subset.",
         "setup": "1. Enable network control on the projector (varies by manufacturer)\n2. Assign a static IP address to the projector\n3. If authentication is enabled, set the PJLink password\n4. Default port is 4352 (PJLink standard)"
-      }
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Generic",
+          "models": [
+            "Any PJLink Class 1 compatible projector"
+          ],
+          "confidence": "untested",
+          "notes": "PJLink is a JBMIA cross-vendor standard. Any projector advertising PJLink Class 1 (or Class 2) support in its datasheet should work with this driver. Brand-specific drivers (when available) generally expose more \u2014 lamp diagnostics, vendor-specific picture modes, faster polling, extended status \u2014 and should be preferred over PJLink."
+        },
+        {
+          "manufacturer": "Panasonic",
+          "models": [
+            "PT-MZ Series (MZ16K, MZ20K, MZ13K, MZ10K)",
+            "PT-RZ Series (RZ31K, RZ660, RZ570)",
+            "PT-DZ Series (DZ21K2)",
+            "PT-FRZ Series",
+            "PT-EZ Series"
+          ],
+          "confidence": "untested",
+          "notes": "Panasonic commercial PT- series. Datasheets confirm Class 1 + 2. The dedicated `panasonic_pt` driver covers more (NTCONTROL Protocol 2 with md5 session auth, lamp/laser diagnostics) \u2014 prefer it when available for the same model."
+        },
+        {
+          "manufacturer": "Sharp NEC",
+          "models": [
+            "PA Series (PA1705UL, PA1505UL, PA803UL, PA653UL)",
+            "PX Series (PX1004UL)",
+            "PH Series (PH3501QL, PH2601QL)",
+            "ME Series",
+            "M Series",
+            "NP Series",
+            "Sharp XP Series (XP-P701U, XP-P621U, XP-X171Q, XP-V series)"
+          ],
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
+        },
+        {
+          "manufacturer": "Sony",
+          "models": [
+            "VPL-PHZ Series (PHZ61, PHZ51)",
+            "VPL-FHZ Series",
+            "VPL-XW Series (XW7000, XW6000, XW5000)",
+            "VPL-FX Series (FX52)",
+            "VPL-CX Series (CX61)"
+          ],
+          "confidence": "untested",
+          "notes": "Sony VPL data projectors. Configure via Web Advanced Menu \u2192 PJLINK. Up to 3 controllers can connect simultaneously. The dedicated `sony_vpl` driver (ADCP / SDAP) covers more (SHA-256 challenge-response auth, native lens controls)."
+        },
+        {
+          "manufacturer": "Epson",
+          "models": [
+            "EH-QS100 Series",
+            "EH-QL3000 / EH-QL7000",
+            "EH-QB1000",
+            "EB-PQ Series (PQ2000, PQ2200)",
+            "EB-L Series (L730G)",
+            "CB-PQ Series"
+          ],
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
+        },
+        {
+          "manufacturer": "BenQ",
+          "models": [
+            "LU Series (LU960UST, LU951ST, LU935ST)",
+            "LK Series",
+            "LH Series",
+            "MH Series",
+            "MX Series"
+          ],
+          "confidence": "untested",
+          "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        },
+        {
+          "manufacturer": "Optoma",
+          "models": [
+            "UHZ Series",
+            "ZH Series (ZH551)",
+            "ZK Series",
+            "Professional J-Series (JEV, JSV, JNV, JWV, JTV, JCV, JPV)",
+            "Wave 335RK"
+          ],
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        },
+        {
+          "manufacturer": "Christie",
+          "models": [
+            "DHD/DWU Series (850, 1075, 1100)",
+            "GS Series (D13WU-HS, D16WU-HS)",
+            "Boxer Series",
+            "M-RGB Series"
+          ],
+          "confidence": "untested",
+          "notes": "Christie commercial laser and lamp projectors. PJLink alongside Christie's native serial / IP API. Some models require enabling network IP control before PJLink will respond."
+        },
+        {
+          "manufacturer": "Barco",
+          "models": [
+            "F50 Series",
+            "F70 Series",
+            "F80 Series",
+            "F90 Series",
+            "Loop II Series"
+          ],
+          "confidence": "untested",
+          "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        },
+        {
+          "manufacturer": "Hitachi",
+          "models": [
+            "CP-X Series",
+            "CP-WX Series",
+            "CP-WU Series",
+            "LP Series"
+          ],
+          "confidence": "untested",
+          "notes": "Hitachi commercial projectors with the network/LAN module fitted. Not all Hitachi models include networking \u2014 check the datasheet."
+        },
+        {
+          "manufacturer": "Canon",
+          "models": [
+            "XEED 4K6020Z",
+            "XEED LX-MU800Z / LX-MU500Z",
+            "XEED WUX450ST / WX450ST",
+            "XEED SX series"
+          ],
+          "confidence": "untested",
+          "notes": "Canon XEED commercial install projectors. Canon's product literature lists PJLink as a supported network control method."
+        },
+        {
+          "manufacturer": "Fujifilm",
+          "models": [
+            "FP-Z series (FP-Z5000, FP-Z6000, FP-ZUH6000)"
+          ],
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Fujifilm folded-light-path ultra-short-throw commercial projectors."
+        },
+        {
+          "manufacturer": "Vivitek",
+          "models": [
+            "DK Series",
+            "DU Series",
+            "DH Series"
+          ],
+          "confidence": "untested",
+          "notes": "Vivitek (Delta Electronics) commercial install projectors with the network function. Confirm PJLink in the model's datasheet."
+        }
+      ]
     },
     {
       "id": "wake_on_lan",

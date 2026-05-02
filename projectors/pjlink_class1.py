@@ -40,7 +40,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.1.0",
+        "version": "2.2.0",
         "author": "OpenAVC",
         "description": "Controls any PJLink Class 1 compatible projector.",
         "source_url": "https://pjlink.jbmia.or.jp/english/",
@@ -53,11 +53,215 @@ class PJLinkDriver(BaseDriver):
         "discovery": {
             "ports": [4352],
         },
+        "compatible_models": [
+            {
+                "manufacturer": "Generic",
+                "models": ["Any PJLink Class 1 compatible projector"],
+                "confidence": "untested",
+                "notes": (
+                    "PJLink is a JBMIA cross-vendor standard. Any projector "
+                    "advertising PJLink Class 1 (or Class 2) support in its "
+                    "datasheet should work with this driver. Brand-specific "
+                    "drivers (when available) generally expose more — lamp "
+                    "diagnostics, vendor-specific picture modes, faster polling, "
+                    "extended status — and should be preferred over PJLink."
+                ),
+            },
+            {
+                "manufacturer": "Panasonic",
+                "models": [
+                    "PT-MZ Series (MZ16K, MZ20K, MZ13K, MZ10K)",
+                    "PT-RZ Series (RZ31K, RZ660, RZ570)",
+                    "PT-DZ Series (DZ21K2)",
+                    "PT-FRZ Series",
+                    "PT-EZ Series",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Panasonic commercial PT- series. Datasheets confirm Class 1 + 2. "
+                    "The dedicated `panasonic_pt` driver covers more (NTCONTROL Protocol 2 "
+                    "with md5 session auth, lamp/laser diagnostics) — prefer it when "
+                    "available for the same model."
+                ),
+            },
+            {
+                "manufacturer": "Sharp NEC",
+                "models": [
+                    "PA Series (PA1705UL, PA1505UL, PA803UL, PA653UL)",
+                    "PX Series (PX1004UL)",
+                    "PH Series (PH3501QL, PH2601QL)",
+                    "ME Series",
+                    "M Series",
+                    "NP Series",
+                    "Sharp XP Series (XP-P701U, XP-P621U, XP-X171Q, XP-V series)",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Combined Sharp NEC Display Solutions lineup (post-2020 merger). "
+                    "Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered "
+                    "for Sharp XP models. NaViSet Administrator is the vendor's own "
+                    "richer control software; PJLink is the open cross-vendor fallback. "
+                    "The dedicated `sharp_nec_projector` driver covers more (NEC native "
+                    "command set, lens/zoom/shift control)."
+                ),
+            },
+            {
+                "manufacturer": "Sony",
+                "models": [
+                    "VPL-PHZ Series (PHZ61, PHZ51)",
+                    "VPL-FHZ Series",
+                    "VPL-XW Series (XW7000, XW6000, XW5000)",
+                    "VPL-FX Series (FX52)",
+                    "VPL-CX Series (CX61)",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Sony VPL data projectors. Configure via Web Advanced Menu → "
+                    "PJLINK. Up to 3 controllers can connect simultaneously. "
+                    "The dedicated `sony_vpl` driver (ADCP / SDAP) covers more "
+                    "(SHA-256 challenge-response auth, native lens controls)."
+                ),
+            },
+            {
+                "manufacturer": "Epson",
+                "models": [
+                    "EH-QS100 Series",
+                    "EH-QL3000 / EH-QL7000",
+                    "EH-QB1000",
+                    "EB-PQ Series (PQ2000, PQ2200)",
+                    "EB-L Series (L730G)",
+                    "CB-PQ Series",
+                ],
+                "confidence": "full",
+                "notes": (
+                    "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp "
+                    "models. The dedicated `epson_escvp` driver covers more (ESC/VP "
+                    "command set, faster, brand-specific picture modes)."
+                ),
+            },
+            {
+                "manufacturer": "BenQ",
+                "models": [
+                    "LU Series (LU960UST, LU951ST, LU935ST)",
+                    "LK Series",
+                    "LH Series",
+                    "MH Series",
+                    "MX Series",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "BenQ commercial install projectors with the network function "
+                    "enabled. Activated via the Network setting on the projector menu."
+                ),
+            },
+            {
+                "manufacturer": "Optoma",
+                "models": [
+                    "UHZ Series",
+                    "ZH Series (ZH551)",
+                    "ZK Series",
+                    "Professional J-Series (JEV, JSV, JNV, JWV, JTV, JCV, JPV)",
+                    "Wave 335RK",
+                ],
+                "confidence": "full",
+                "notes": (
+                    "JBMIA-registered as Class 2. Optoma commercial / professional "
+                    "install projectors."
+                ),
+            },
+            {
+                "manufacturer": "Christie",
+                "models": [
+                    "DHD/DWU Series (850, 1075, 1100)",
+                    "GS Series (D13WU-HS, D16WU-HS)",
+                    "Boxer Series",
+                    "M-RGB Series",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Christie commercial laser and lamp projectors. PJLink alongside "
+                    "Christie's native serial / IP API. Some models require enabling "
+                    "network IP control before PJLink will respond."
+                ),
+            },
+            {
+                "manufacturer": "Barco",
+                "models": [
+                    "F50 Series",
+                    "F70 Series",
+                    "F80 Series",
+                    "F90 Series",
+                    "Loop II Series",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Barco F-series and Loop projectors. PJLink is a fallback to "
+                    "Barco's native Pulse REST API which exposes more capability."
+                ),
+            },
+            {
+                "manufacturer": "Hitachi",
+                "models": [
+                    "CP-X Series",
+                    "CP-WX Series",
+                    "CP-WU Series",
+                    "LP Series",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Hitachi commercial projectors with the network/LAN module "
+                    "fitted. Not all Hitachi models include networking — check "
+                    "the datasheet."
+                ),
+            },
+            {
+                "manufacturer": "Canon",
+                "models": [
+                    "XEED 4K6020Z",
+                    "XEED LX-MU800Z / LX-MU500Z",
+                    "XEED WUX450ST / WX450ST",
+                    "XEED SX series",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Canon XEED commercial install projectors. Canon's product "
+                    "literature lists PJLink as a supported network control method."
+                ),
+            },
+            {
+                "manufacturer": "Fujifilm",
+                "models": [
+                    "FP-Z series (FP-Z5000, FP-Z6000, FP-ZUH6000)",
+                ],
+                "confidence": "full",
+                "notes": (
+                    "JBMIA-registered as Class 2. Fujifilm folded-light-path "
+                    "ultra-short-throw commercial projectors."
+                ),
+            },
+            {
+                "manufacturer": "Vivitek",
+                "models": [
+                    "DK Series",
+                    "DU Series",
+                    "DH Series",
+                ],
+                "confidence": "untested",
+                "notes": (
+                    "Vivitek (Delta Electronics) commercial install projectors with "
+                    "the network function. Confirm PJLink in the model's datasheet."
+                ),
+            },
+        ],
         "help": {
             "overview": (
                 "Universal projector control via the PJLink Class 1 standard. "
                 "Works with 100+ models from Epson, NEC, Panasonic, Sony, Christie, "
-                "Hitachi, BenQ, Optoma, Canon, and Vivitek."
+                "Hitachi, BenQ, Optoma, Canon, Barco, Fujifilm, and Vivitek. Where "
+                "a brand has its own dedicated driver in the catalog (Panasonic PT, "
+                "Sharp NEC, Sony VPL, Epson ES/VP, Barco Pulse), prefer that driver "
+                "— it generally exposes more capability than PJLink's universal "
+                "subset."
             ),
             "setup": (
                 "1. Enable network control on the projector (varies by manufacturer)\n"

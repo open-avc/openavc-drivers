@@ -1,13 +1,205 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T15:15:23+00:00",
+    "generated_at": "2026-05-02T17:17:43+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 23,
+    "total_devices": 54,
     "shards": null,
     "category": "lighting"
   },
   "devices": [
+    {
+      "manufacturer": "ADJ",
+      "model": "Net4",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "American DJ network DMX gateways."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ADJ",
+      "model": "Net8",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "American DJ network DMX gateways."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Chauvet",
+      "model": "DataStream 4",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Chauvet Professional network nodes for entertainment lighting."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Chauvet",
+      "model": "Net-X II",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Chauvet Professional network nodes for entertainment lighting."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Color Kinetics",
+      "model": "Antumbra Touch",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks Art-Net to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Color Kinetics",
+      "model": "Data Enabler Pro",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks Art-Net to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Color Kinetics",
+      "model": "iColor Player",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks Art-Net to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Color Kinetics",
+      "model": "PDS-150e / PDS-200e",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks Art-Net to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Elation",
+      "model": "E-Node 2",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Elation E-Node series Art-Net / sACN to DMX gateways."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Elation",
+      "model": "E-Node 4",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Elation E-Node series Art-Net / sACN to DMX gateways."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Elation",
+      "model": "E-Node 8",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Elation E-Node series Art-Net / sACN to DMX gateways."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Enttec",
+      "model": "DIN-ODE",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Enttec ODE family converts Art-Net to DMX. ODE Mk3 also speaks sACN. The smaller-footprint DIN-ODE fits a DIN rail in install racks."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Enttec",
+      "model": "DMX Storm 8",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Enttec ODE family converts Art-Net to DMX. ODE Mk3 also speaks sACN. The smaller-footprint DIN-ODE fits a DIN rail in install racks."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Enttec",
+      "model": "ODE Mk2 / Mk3",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Enttec ODE family converts Art-Net to DMX. ODE Mk3 also speaks sACN. The smaller-footprint DIN-ODE fits a DIN rail in install racks."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Enttec",
+      "model": "S-Play Mini",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Enttec ODE family converts Art-Net to DMX. ODE Mk3 also speaks sACN. The smaller-footprint DIN-ODE fits a DIN rail in install racks."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Enttec",
+      "model": "Storm 24",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Enttec ODE family converts Art-Net to DMX. ODE Mk3 also speaks sACN. The smaller-footprint DIN-ODE fits a DIN rail in install racks."
+        }
+      ]
+    },
     {
       "manufacturer": "ETC",
       "model": "ColorSource AV",
@@ -214,6 +406,42 @@
     },
     {
       "manufacturer": "ETC",
+      "model": "Net3 4-port Gateway",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "ETC's Response and Net3 gateway families translate Art-Net (and sACN) to physical DMX outputs. ETC's Eos console is also covered by the dedicated `etc_eos` OSC driver, which is the right choice when controlling cues directly rather than driving fixtures."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ETC",
+      "model": "Net3 Gateway",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "ETC's Response and Net3 gateway families translate Art-Net (and sACN) to physical DMX outputs. ETC's Eos console is also covered by the dedicated `etc_eos` OSC driver, which is the right choice when controlling cues directly rather than driving fixtures."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ETC",
+      "model": "Net3 Show Control Gateway",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "ETC's Response and Net3 gateway families translate Art-Net (and sACN) to physical DMX outputs. ETC's Eos console is also covered by the dedicated `etc_eos` OSC driver, which is the right choice when controlling cues directly rather than driving fixtures."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ETC",
       "model": "Nomad",
       "category": "lighting",
       "drivers": [
@@ -225,14 +453,26 @@
       ]
     },
     {
-      "manufacturer": "Generic",
-      "model": "Art-Net Node / Gateway / Fixture (any vendor)",
+      "manufacturer": "ETC",
+      "model": "Response Mk2 Gateway",
       "category": "lighting",
       "drivers": [
         {
           "id": "artnet_dmx",
           "confidence": "untested",
-          "notes": "Art-Net is an open published standard. This driver speaks the controller half (sends ArtDmx) and works with any conforming node \u2014 ETC Response Mk2, Pathway Path-Port, Enttec ODE / DIN, Elation E-Node, ADJ Net4, Chauvet Net-X, Madrix-driven LED controllers, Color Kinetics PDS gateways, GrandMA Net Processing units, Resolume / TouchDesigner / Madrix as Art-Net inputs, etc."
+          "notes": "ETC's Response and Net3 gateway families translate Art-Net (and sACN) to physical DMX outputs. ETC's Eos console is also covered by the dedicated `etc_eos` OSC driver, which is the right choice when controlling cues directly rather than driving fixtures."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Generic",
+      "model": "Art-Net Node / Gateway / Fixture (any conforming vendor)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Art-Net is an open published standard maintained by Artistic Licence. This driver sends ArtDmx and works with any conforming Art-Net receiver. Brand-specific entries below name the major node / gateway / fixture vendors confirmed by their published product literature."
         }
       ]
     },
@@ -257,6 +497,138 @@
           "id": "lutron_homeworks_qs",
           "confidence": "untested",
           "notes": "HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related but distinct protocol surfaces and are not covered by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "MA Lighting",
+      "model": "grandMA2 NPU (legacy)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "MA Lighting Network Processing Units translate console output to Art-Net and sACN for downstream gateways. Useful for tracking backup or for sending Art-Net into an MA console for visualizer / pre-program workflows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "MA Lighting",
+      "model": "grandMA3 NPU",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "MA Lighting Network Processing Units translate console output to Art-Net and sACN for downstream gateways. Useful for tracking backup or for sending Art-Net into an MA console for visualizer / pre-program workflows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "MA Lighting",
+      "model": "grandMA3 onPC",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "MA Lighting Network Processing Units translate console output to Art-Net and sACN for downstream gateways. Useful for tracking backup or for sending Art-Net into an MA console for visualizer / pre-program workflows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "MA Lighting",
+      "model": "MA NPU (legacy)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "MA Lighting Network Processing Units translate console output to Art-Net and sACN for downstream gateways. Useful for tracking backup or for sending Art-Net into an MA console for visualizer / pre-program workflows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Madrix",
+      "model": "Madrix 5 Software",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Madrix is primarily an Art-Net source for LED video pixel-mapping, but its Aura and Plexus hardware bridges accept Art-Net input and convert to DMX or playback stored shows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Madrix",
+      "model": "Madrix Aura Ethernet-DMX Bridge",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Madrix is primarily an Art-Net source for LED video pixel-mapping, but its Aura and Plexus hardware bridges accept Art-Net input and convert to DMX or playback stored shows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Madrix",
+      "model": "Madrix Plexus",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Madrix is primarily an Art-Net source for LED video pixel-mapping, but its Aura and Plexus hardware bridges accept Art-Net input and convert to DMX or playback stored shows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pathway Connectivity",
+      "model": "Pathport Octo",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Pathway Pathport gateways translate Art-Net and sACN to DMX. Common in pro AV and theatrical installs."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pathway Connectivity",
+      "model": "Pathport Q42",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Pathway Pathport gateways translate Art-Net and sACN to DMX. Common in pro AV and theatrical installs."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pathway Connectivity",
+      "model": "Pathport Quattro",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Pathway Pathport gateways translate Art-Net and sACN to DMX. Common in pro AV and theatrical installs."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pathway Connectivity",
+      "model": "VIA 12 / VIA 24",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Pathway Pathport gateways translate Art-Net and sACN to DMX. Common in pro AV and theatrical installs."
         }
       ]
     },

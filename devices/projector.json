@@ -1,13 +1,205 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T15:15:23+00:00",
+    "generated_at": "2026-05-02T17:17:43+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 93,
+    "total_devices": 148,
     "shards": null,
     "category": "projector"
   },
   "devices": [
+    {
+      "manufacturer": "Barco",
+      "model": "F50 Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "F70 Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "F80 Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "F90 Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "Loop II Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LH Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LK Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU Series (LU960UST, LU951ST, LU935ST)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "MH Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "MX Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Canon",
+      "model": "XEED 4K6020Z",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Canon XEED commercial install projectors. Canon's product literature lists PJLink as a supported network control method."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Canon",
+      "model": "XEED LX-MU800Z / LX-MU500Z",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Canon XEED commercial install projectors. Canon's product literature lists PJLink as a supported network control method."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Canon",
+      "model": "XEED SX series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Canon XEED commercial install projectors. Canon's product literature lists PJLink as a supported network control method."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Canon",
+      "model": "XEED WUX450ST / WX450ST",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Canon XEED commercial install projectors. Canon's product literature lists PJLink as a supported network control method."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Christie",
+      "model": "Boxer Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Christie commercial laser and lamp projectors. PJLink alongside Christie's native serial / IP API. Some models require enabling network IP control before PJLink will respond."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Christie",
+      "model": "DHD/DWU Series (850, 1075, 1100)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Christie commercial laser and lamp projectors. PJLink alongside Christie's native serial / IP API. Some models require enabling network IP control before PJLink will respond."
+        }
+      ]
+    },
     {
       "manufacturer": "Christie",
       "model": "E Series",
@@ -41,6 +233,18 @@
           "id": "christie_serial",
           "confidence": "untested",
           "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Christie",
+      "model": "GS Series (D13WU-HS, D16WU-HS)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Christie commercial laser and lamp projectors. PJLink alongside Christie's native serial / IP API. Some models require enabling network IP control before PJLink will respond."
         }
       ]
     },
@@ -130,6 +334,18 @@
     },
     {
       "manufacturer": "Christie",
+      "model": "M-RGB Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Christie commercial laser and lamp projectors. PJLink alongside Christie's native serial / IP API. Some models require enabling network IP control before PJLink will respond."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Christie",
       "model": "Roadie 4K35",
       "category": "projector",
       "drivers": [
@@ -178,6 +394,18 @@
     },
     {
       "manufacturer": "Epson",
+      "model": "CB-PQ Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
       "model": "EB-L Series (EB-L200X, EB-L520W, EB-L630U, EB-L1075U, EB-L1100U)",
       "category": "projector",
       "drivers": [
@@ -190,6 +418,30 @@
     },
     {
       "manufacturer": "Epson",
+      "model": "EB-L Series (L730G)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "EB-PQ Series (PQ2000, PQ2200)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
       "model": "EB-Pro Series (EB-G7905U, EB-G7000W)",
       "category": "projector",
       "drivers": [
@@ -197,6 +449,42 @@
           "id": "epson_escvp",
           "confidence": "untested",
           "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "EH-QB1000",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "EH-QL3000 / EH-QL7000",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "EH-QS100 Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Modern Epson commercial laser/lamp models. The dedicated `epson_escvp` driver covers more (ESC/VP command set, faster, brand-specific picture modes)."
         }
       ]
     },
@@ -269,6 +557,186 @@
           "id": "epson_escvp",
           "confidence": "untested",
           "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Fujifilm",
+      "model": "FP-Z series (FP-Z5000, FP-Z6000, FP-ZUH6000)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Fujifilm folded-light-path ultra-short-throw commercial projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Generic",
+      "model": "Any PJLink Class 1 compatible projector",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "PJLink is a JBMIA cross-vendor standard. Any projector advertising PJLink Class 1 (or Class 2) support in its datasheet should work with this driver. Brand-specific drivers (when available) generally expose more \u2014 lamp diagnostics, vendor-specific picture modes, faster polling, extended status \u2014 and should be preferred over PJLink."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hitachi",
+      "model": "CP-WU Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Hitachi commercial projectors with the network/LAN module fitted. Not all Hitachi models include networking \u2014 check the datasheet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hitachi",
+      "model": "CP-WX Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Hitachi commercial projectors with the network/LAN module fitted. Not all Hitachi models include networking \u2014 check the datasheet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hitachi",
+      "model": "CP-X Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Hitachi commercial projectors with the network/LAN module fitted. Not all Hitachi models include networking \u2014 check the datasheet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hitachi",
+      "model": "LP Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Hitachi commercial projectors with the network/LAN module fitted. Not all Hitachi models include networking \u2014 check the datasheet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "Professional J-Series (JEV, JSV, JNV, JWV, JTV, JCV, JPV)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "UHZ Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "Wave 335RK",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "ZH Series (ZH551)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "ZK Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "full",
+          "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-DZ Series (DZ21K2)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Panasonic commercial PT- series. Datasheets confirm Class 1 + 2. The dedicated `panasonic_pt` driver covers more (NTCONTROL Protocol 2 with md5 session auth, lamp/laser diagnostics) \u2014 prefer it when available for the same model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-EZ Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Panasonic commercial PT- series. Datasheets confirm Class 1 + 2. The dedicated `panasonic_pt` driver covers more (NTCONTROL Protocol 2 with md5 session auth, lamp/laser diagnostics) \u2014 prefer it when available for the same model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-FRZ Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Panasonic commercial PT- series. Datasheets confirm Class 1 + 2. The dedicated `panasonic_pt` driver covers more (NTCONTROL Protocol 2 with md5 session auth, lamp/laser diagnostics) \u2014 prefer it when available for the same model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ Series (MZ16K, MZ20K, MZ13K, MZ10K)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Panasonic commercial PT- series. Datasheets confirm Class 1 + 2. The dedicated `panasonic_pt` driver covers more (NTCONTROL Protocol 2 with md5 session auth, lamp/laser diagnostics) \u2014 prefer it when available for the same model."
         }
       ]
     },
@@ -495,6 +963,18 @@
     },
     {
       "manufacturer": "Panasonic",
+      "model": "PT-RZ Series (RZ31K, RZ660, RZ570)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Panasonic commercial PT- series. Datasheets confirm Class 1 + 2. The dedicated `panasonic_pt` driver covers more (NTCONTROL Protocol 2 with md5 session auth, lamp/laser diagnostics) \u2014 prefer it when available for the same model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
       "model": "PT-RZ12K",
       "category": "projector",
       "drivers": [
@@ -687,6 +1167,18 @@
     },
     {
       "manufacturer": "Sharp NEC",
+      "model": "M Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
       "model": "M series projectors",
       "category": "projector",
       "drivers": [
@@ -699,6 +1191,18 @@
     },
     {
       "manufacturer": "Sharp NEC",
+      "model": "ME Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
       "model": "ME series projectors",
       "category": "projector",
       "drivers": [
@@ -706,6 +1210,18 @@
           "id": "sharp_nec_projector",
           "confidence": "untested",
           "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "NP Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
         }
       ]
     },
@@ -735,6 +1251,18 @@
     },
     {
       "manufacturer": "Sharp NEC",
+      "model": "PA Series (PA1705UL, PA1505UL, PA803UL, PA653UL)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
       "model": "PA series projectors",
       "category": "projector",
       "drivers": [
@@ -759,6 +1287,18 @@
     },
     {
       "manufacturer": "Sharp NEC",
+      "model": "PH Series (PH3501QL, PH2601QL)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
       "model": "PV series projectors",
       "category": "projector",
       "drivers": [
@@ -766,6 +1306,18 @@
           "id": "sharp_nec_projector",
           "confidence": "untested",
           "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "PX Series (PX1004UL)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
         }
       ]
     },
@@ -782,6 +1334,18 @@
       ]
     },
     {
+      "manufacturer": "Sharp NEC",
+      "model": "Sharp XP Series (XP-P701U, XP-P621U, XP-X171Q, XP-V series)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Combined Sharp NEC Display Solutions lineup (post-2020 merger). Sharp XP series and NEC PA/PX/PH/ME/M/NP series. JBMIA-registered for Sharp XP models. NaViSet Administrator is the vendor's own richer control software; PJLink is the open cross-vendor fallback. The dedicated `sharp_nec_projector` driver covers more (NEC native command set, lens/zoom/shift control)."
+        }
+      ]
+    },
+    {
       "manufacturer": "Sony",
       "model": "VPL-CWZ10",
       "category": "projector",
@@ -790,6 +1354,18 @@
           "id": "sony_vpl",
           "confidence": "untested",
           "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-CX Series (CX61)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Sony VPL data projectors. Configure via Web Advanced Menu \u2192 PJLINK. Up to 3 controllers can connect simultaneously. The dedicated `sony_vpl` driver (ADCP / SDAP) covers more (SHA-256 challenge-response auth, native lens controls)."
         }
       ]
     },
@@ -838,6 +1414,18 @@
           "id": "sony_vpl",
           "confidence": "untested",
           "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-FHZ Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Sony VPL data projectors. Configure via Web Advanced Menu \u2192 PJLINK. Up to 3 controllers can connect simultaneously. The dedicated `sony_vpl` driver (ADCP / SDAP) covers more (SHA-256 challenge-response auth, native lens controls)."
         }
       ]
     },
@@ -1011,6 +1599,18 @@
     },
     {
       "manufacturer": "Sony",
+      "model": "VPL-FX Series (FX52)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Sony VPL data projectors. Configure via Web Advanced Menu \u2192 PJLINK. Up to 3 controllers can connect simultaneously. The dedicated `sony_vpl` driver (ADCP / SDAP) covers more (SHA-256 challenge-response auth, native lens controls)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
       "model": "VPL-FX35",
       "category": "projector",
       "drivers": [
@@ -1042,6 +1642,18 @@
           "id": "sony_vpl",
           "confidence": "untested",
           "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-PHZ Series (PHZ61, PHZ51)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Sony VPL data projectors. Configure via Web Advanced Menu \u2192 PJLINK. Up to 3 controllers can connect simultaneously. The dedicated `sony_vpl` driver (ADCP / SDAP) covers more (SHA-256 challenge-response auth, native lens controls)."
         }
       ]
     },
@@ -1126,6 +1738,54 @@
           "id": "sony_vpl",
           "confidence": "untested",
           "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "VPL-XW Series (XW7000, XW6000, XW5000)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Sony VPL data projectors. Configure via Web Advanced Menu \u2192 PJLINK. Up to 3 controllers can connect simultaneously. The dedicated `sony_vpl` driver (ADCP / SDAP) covers more (SHA-256 challenge-response auth, native lens controls)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vivitek",
+      "model": "DH Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Vivitek (Delta Electronics) commercial install projectors with the network function. Confirm PJLink in the model's datasheet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vivitek",
+      "model": "DK Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Vivitek (Delta Electronics) commercial install projectors with the network function. Confirm PJLink in the model's datasheet."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Vivitek",
+      "model": "DU Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "pjlink_class1",
+          "confidence": "untested",
+          "notes": "Vivitek (Delta Electronics) commercial install projectors with the network function. Confirm PJLink in the model's datasheet."
         }
       ]
     }

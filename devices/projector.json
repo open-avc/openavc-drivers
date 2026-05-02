@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T00:48:35+00:00",
+    "generated_at": "2026-05-02T01:32:15+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 51,
+    "total_devices": 59,
     "shards": null,
     "category": "projector"
   },
@@ -173,6 +173,102 @@
           "id": "christie_serial",
           "confidence": "untested",
           "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "EB-L Series (EB-L200X, EB-L520W, EB-L630U, EB-L1075U, EB-L1100U)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "EB-Pro Series (EB-G7905U, EB-G7000W)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "Home Cinema 5050UB / 6050UB / LS12000",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "PowerLite L Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "PowerLite Pro Z Series (Z8000WU, Z8050W)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "Pro G6800NL / G7905U / G7000W",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "Pro L1100U / L1200U / L1300U / L1405U / L1490U / L1505U / L1715S",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epson",
+      "model": "Pro L25000U / L30000U / L30002U",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "epson_escvp",
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
         }
       ]
     },

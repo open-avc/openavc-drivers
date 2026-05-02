@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T00:48:35+00:00",
+    "generated_at": "2026-05-02T01:32:15+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 4,
+    "total_drivers": 5,
     "shards": null,
     "category": "projector"
   },
@@ -56,6 +56,55 @@
           ],
           "confidence": "untested",
           "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
+        }
+      ]
+    },
+    {
+      "id": "epson_escvp",
+      "name": "Epson Projector (ESC/VP21)",
+      "manufacturer": "Epson",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Epson business and installation projectors over ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, input, A/V mute, freeze, aspect ratio, color mode, lamp hours, and remote-key passthrough.",
+      "source_url": "https://files.support.epson.com/pdf/pl600p/pl600pcm.pdf",
+      "file": "projectors/epson_escvp.py",
+      "format": "python",
+      "ports": [
+        3629
+      ],
+      "protocols": [
+        "esc_vp_net"
+      ],
+      "simulated": true,
+      "tags": [
+        "projector",
+        "epson",
+        "esc-vp21",
+        "esc-vp-net",
+        "pro-l",
+        "eb"
+      ],
+      "help": {
+        "overview": "ESC/VP21 is Epson's text-based projector control protocol. Over the network it runs inside ESC/VP.net on TCP port 3629 \u2014 the driver handles the binary handshake transparently. Most modern Epson projectors respond to PJLink as well, but the native ESC/VP21 surface gives access to color mode, aspect ratio, freeze, image-quality numerics, and the full virtual remote keypad \u2014 none of which PJLink covers.",
+        "setup": "1. Connect the projector to the network and assign a static IP.\n2. In the projector's network menu, enable 'Network Standby' (or 'Standby Mode = Communication On' on older units) so the projector responds to network commands while powered off.\n3. Confirm 'Control Communications' (some menus call this 'PJLink' or 'ESC/VP.net') is enabled.\n4. Optional: if the projector has an ESC/VP.net password set in the web setup, this driver does not currently send a password \u2014 disable it for control use, or use the device's web UI for one-off setup."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Epson",
+          "models": [
+            "Pro L1100U / L1200U / L1300U / L1405U / L1490U / L1505U / L1715S",
+            "Pro L25000U / L30000U / L30002U",
+            "EB-L Series (EB-L200X, EB-L520W, EB-L630U, EB-L1075U, EB-L1100U)",
+            "EB-Pro Series (EB-G7905U, EB-G7000W)",
+            "Pro G6800NL / G7905U / G7000W",
+            "Home Cinema 5050UB / 6050UB / LS12000",
+            "PowerLite L Series",
+            "PowerLite Pro Z Series (Z8000WU, Z8050W)"
+          ],
+          "confidence": "untested",
+          "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
         }
       ]
     },

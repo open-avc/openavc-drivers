@@ -1,0 +1,860 @@
+# Atlona AT-OME-PS62 Driver
+#
+# Controls the Atlona AT-OME-PS62 6x2 matrix presentation switcher over Telnet
+# (port 23). One product — distinct from the Display:Matrix:Set syntax used by
+# the AT-OME-MS42 / MS52 / MS52W family, which needs its own driver.
+#
+# Inputs (1-6):  HDMI 1, HDMI 2, HDMI 3, USB-C, HDBaseT IN 1, HDBaseT IN 2
+# Outputs (1-2): HDBaseT OUT, HDMI OUT
+# Audio zones (1-4): HDBaseT OUT, HDMI OUT, Analog OUT 1 (Aux 1), Analog OUT 2 (Aux 2)
+# Analog audio source routing: independent of video — HDBaseT / HDMI / AUX1-3
+# USB host: 6 sources, three follow modes (Follow USB / Manual / Follow Video)
+#
+# Protocol reference: AT-OME-PS62 Application Programming Interface (rev 5, Jun 2023)
+# https://atlona.com/pdf/AT-OME-PS62_API.pdf
+#
+# Wire format:
+#   Each command is terminated with a carriage-return (0x0d).
+#   Each feedback line is terminated with carriage-return + line-feed.
+#   Commands are case-sensitive.
+#   Failed commands return "Command FAILED".
+#
+# Routing:
+#   xXAVxY      route input X (1-6) to output Y (1-2)
+#   xXAll       route input X to both outputs
+#   All#        reset to 1->1, 2->2
+#   Status      one-line dump: "x1AVx1, x2AVx2"
+#
+# Audio (per zone 1-4):
+#   VOUTX Y       set zone X volume — Y is integer dB (-90..10), '+' / '-' to bump, or 'sta'
+#   VOUTMuteX Y   mute zone X — on / off / sta
+#   AUDX Y        analog output X (1-2) source — HDBaseT, HDMI, AUX1, AUX2, AUX3
+#   SetMonoX Y    stereo (off) / mono (on) per analog output
+#
+# USB switching:
+#   UsbMode X     0 = Follow USB (host follows USB hub), 1 = Manual, 2 = Follow Video
+#   UsbRoute X    USB host port: 1-2 local, 3 HDBaseT OUT, 4 USB-C, 5-6 HDBaseT IN 1/2
+#
+# Auth (default: optional):
+#   PS62 supports a "Telnet Login Mode" toggle in the web UI. When ON, the
+#   device prompts "Login: " then "Password: " before commands. When OFF,
+#   commands are accepted immediately. The driver handles both via the
+#   auth: block with skip_if_empty: true — leave Username/Password blank if
+#   Telnet Login Mode is disabled on the unit. Same prompt strings as
+#   atlona_uhd_pro3 / atlona_omnistream.
+#
+# State coverage limitation:
+#   The Status response is a single line with both outputs comma-separated
+#   ("x3AVx1, x2AVx2"). YAML response dispatch returns on the first matching
+#   pattern, so we use one combined regex with two capture groups to fan the
+#   single line into route_1 + route_2. See rules.md "YAML response dispatch".
+
+id: atlona_ome_ps62
+name: Atlona AT-OME-PS62 Matrix Switcher
+manufacturer: Atlona
+category: switcher
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.9.0"
+description: >
+  Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher
+  over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT)
+  to two outputs (HDBaseT and HDMI). Independent four-zone audio with
+  per-zone volume and mute, analog audio source routing, USB host switching,
+  front-panel lock, and identify (POWER LED blink).
+
+source_url: https://atlona.com/pdf/AT-OME-PS62_API.pdf
+tags: [matrix-switcher, presentation, hdbaset, usb-c, atlona, ome, telnet]
+verified: false
+simulated: true
+protocols: [atlona_ome_ps62]
+ports: [23]
+compatible_models:
+  - manufacturer: Atlona
+    models:
+      - AT-OME-PS62
+    confidence: untested
+    notes: >
+      6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52
+      / MS52W family in the OME line uses a completely different command
+      syntax (Display:Matrix:Set...) and is covered by a separate driver.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    The PS62 routes six HDMI / USB-C / HDBaseT sources to a HDBaseT and a
+    HDMI output. Audio is independent: each of the two video outputs and
+    two analog audio outputs has its own volume and mute. Analog audio can
+    follow the HDBaseT or HDMI feed, or pull from one of three auxiliary
+    inputs.
+  setup: >
+    1. Set a static IP on the matrix via its web UI (or DHCP reservation).
+    2. If Telnet Login Mode is ON in the matrix's web UI, enter the same
+       Username / Password used for the web GUI in this driver's config.
+       Leave both blank if Telnet Login Mode is OFF.
+    3. Atlona requires a 500 ms minimum delay between commands; the driver
+       is pre-configured for this.
+
+discovery:
+  ports: [23]
+  mac_prefixes: ["b8:98:b0", "00:1b:c5"]
+
+default_config:
+  host: ""
+  port: 23
+  username: ""
+  password: ""
+  poll_interval: 30
+  inter_command_delay: 0.5
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Telnet Port
+  username:
+    type: string
+    default: ""
+    label: Username
+    description: "Telnet login. Required only when Telnet Login Mode is enabled in the matrix's web UI."
+  password:
+    type: string
+    default: ""
+    label: Password
+    secret: true
+    description: "Telnet password. Same credentials as the matrix web GUI."
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (sec)
+    description: "Set to 0 to disable polling."
+  inter_command_delay:
+    type: number
+    default: 0.5
+    min: 0.5
+    label: Inter-Command Delay (sec)
+    description: "Atlona requires at least 500 ms between commands."
+
+auth:
+  type: telnet_login
+  username_prompt: "Login: "
+  password_prompt: "Password: "
+  username_field: username
+  password_field: password
+  skip_if_empty: true
+  timeout_seconds: 10
+  line_ending: "\r\n"
+
+state_variables:
+  model:
+    type: string
+    label: Model
+  firmware:
+    type: string
+    label: Firmware Version
+  front_panel_locked:
+    type: boolean
+    label: Front Panel Locked
+  route_1:
+    type: integer
+    label: Output 1 (HDBaseT) — Source
+  route_2:
+    type: integer
+    label: Output 2 (HDMI) — Source
+  audio_1:
+    type: enum
+    values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
+    label: Analog Out 1 — Audio Source
+  audio_2:
+    type: enum
+    values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
+    label: Analog Out 2 — Audio Source
+  volume_1:
+    type: integer
+    label: Zone 1 (HDBaseT Out) — Volume (dB)
+  volume_2:
+    type: integer
+    label: Zone 2 (HDMI Out) — Volume (dB)
+  volume_3:
+    type: integer
+    label: Zone 3 (Analog Out 1) — Volume (dB)
+  volume_4:
+    type: integer
+    label: Zone 4 (Analog Out 2) — Volume (dB)
+  mute_1:
+    type: boolean
+    label: Zone 1 (HDBaseT Out) — Mute
+  mute_2:
+    type: boolean
+    label: Zone 2 (HDMI Out) — Mute
+  mute_3:
+    type: boolean
+    label: Zone 3 (Analog Out 1) — Mute
+  mute_4:
+    type: boolean
+    label: Zone 4 (Analog Out 2) — Mute
+  mono_1:
+    type: boolean
+    label: Analog Out 1 — Mono
+  mono_2:
+    type: boolean
+    label: Analog Out 2 — Mono
+  input_signal_1:
+    type: boolean
+    label: Input 1 — Signal
+  input_signal_2:
+    type: boolean
+    label: Input 2 — Signal
+  input_signal_3:
+    type: boolean
+    label: Input 3 — Signal
+  input_signal_4:
+    type: boolean
+    label: Input 4 — Signal
+  input_signal_5:
+    type: boolean
+    label: Input 5 — Signal
+  input_signal_6:
+    type: boolean
+    label: Input 6 — Signal
+  usb_mode:
+    type: integer
+    label: USB Mode (0=Follow USB, 1=Manual, 2=Follow Video)
+  usb_route:
+    type: integer
+    label: USB Host Source
+
+commands:
+
+  # ── Routing ──
+
+  route:
+    label: Route Input to Output
+    send: "x{input}AVx{output}\r"
+    help: "Route a single input (1-6) to a single output (1=HDBaseT, 2=HDMI)."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 6
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 2
+
+  route_all:
+    label: Route Input to All Outputs
+    send: "x{input}All\r"
+    help: "Route a single input to both outputs simultaneously."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 6
+
+  route_reset:
+    label: Reset Routing (1-to-1)
+    send: "All#\r"
+    help: "Route input 1 to output 1 and input 2 to output 2."
+
+  query_routing:
+    label: Query Routing (Status)
+    send: "Status\r"
+    help: "Refresh route_1 and route_2 from the matrix."
+
+  # ── Analog audio source routing ──
+
+  set_audio_source:
+    label: Set Analog Audio Source
+    send: "AUD{output} {source}\r"
+    help: "Pick the audio source feeding an analog output."
+    params:
+      output:
+        type: integer
+        required: true
+        label: Analog Output
+        min: 1
+        max: 2
+      source:
+        type: enum
+        required: true
+        label: Audio Source
+        values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
+
+  # ── Volume (per zone 1-4) ──
+
+  set_volume:
+    label: Set Zone Volume
+    send: "VOUT{zone} {level}\r"
+    help: "Set the volume on a zone in dB. Range -90 to +10."
+    params:
+      zone:
+        type: integer
+        required: true
+        label: Zone
+        min: 1
+        max: 4
+      level:
+        type: integer
+        required: true
+        label: Volume (dB)
+        min: -90
+        max: 10
+
+  volume_up:
+    label: Volume Up (1 dB)
+    send: "VOUT{zone} +\r"
+    params:
+      zone:
+        type: integer
+        required: true
+        label: Zone
+        min: 1
+        max: 4
+
+  volume_down:
+    label: Volume Down (1 dB)
+    send: "VOUT{zone} -\r"
+    params:
+      zone:
+        type: integer
+        required: true
+        label: Zone
+        min: 1
+        max: 4
+
+  query_volume:
+    label: Query Zone Volume
+    send: "VOUT{zone} sta\r"
+    params:
+      zone:
+        type: integer
+        required: true
+        label: Zone
+        min: 1
+        max: 4
+
+  # ── Mute (per zone 1-4) ──
+
+  mute_on:
+    label: Mute Zone
+    send: "VOUTMute{zone} on\r"
+    params:
+      zone:
+        type: integer
+        required: true
+        label: Zone
+        min: 1
+        max: 4
+
+  mute_off:
+    label: Unmute Zone
+    send: "VOUTMute{zone} off\r"
+    params:
+      zone:
+        type: integer
+        required: true
+        label: Zone
+        min: 1
+        max: 4
+
+  query_mute:
+    label: Query Zone Mute
+    send: "VOUTMute{zone} sta\r"
+    params:
+      zone:
+        type: integer
+        required: true
+        label: Zone
+        min: 1
+        max: 4
+
+  # ── Mono / Stereo (analog only) ──
+
+  mono_on:
+    label: Set Analog Output Mono
+    send: "SetMono{output} on\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Analog Output
+        min: 1
+        max: 2
+
+  mono_off:
+    label: Set Analog Output Stereo
+    send: "SetMono{output} off\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Analog Output
+        min: 1
+        max: 2
+
+  # ── Input signal detection ──
+
+  query_input_signal:
+    label: Query Input Signal Status
+    send: "InputStatus{input}\r"
+    help: "Check whether a source is presenting signal on the specified input (1-6)."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 6
+
+  # ── USB switching ──
+
+  set_usb_mode:
+    label: Set USB Switching Mode
+    send: "UsbMode {mode}\r"
+    help: "0 = Follow USB, 1 = Manual, 2 = Follow Video."
+    params:
+      mode:
+        type: integer
+        required: true
+        label: Mode
+        min: 0
+        max: 2
+
+  set_usb_route:
+    label: Set USB Host Source
+    send: "UsbRoute {source}\r"
+    help: "USB host port: 1-2 local, 3 HDBaseT Out, 4 USB-C, 5-6 HDBaseT In 1/2."
+    params:
+      source:
+        type: integer
+        required: true
+        label: USB Source
+        min: 1
+        max: 6
+
+  # ── Front panel ──
+
+  lock_panel:
+    label: Lock Front Panel
+    send: "Lock\r"
+    help: "Disables the front-panel buttons."
+
+  unlock_panel:
+    label: Unlock Front Panel
+    send: "Unlock\r"
+
+  blink_on:
+    label: Blink (Identify) — On
+    send: "Blink on\r"
+    help: "Flash the front-panel POWER LED to physically locate this unit."
+
+  blink_off:
+    label: Blink (Identify) — Off
+    send: "Blink off\r"
+
+  # ── System ──
+
+  query_model:
+    label: Query Model
+    send: "Type\r"
+
+  query_firmware:
+    label: Query Firmware
+    send: "Version\r"
+
+  factory_reset:
+    label: Factory Reset
+    send: "Mreset\r"
+    help: "WARNING: resets all settings to default and reboots. There is no feedback during the reboot."
+
+responses:
+
+  # Routing — Status returns "x?AVx1, x?AVx2" on a single line. The combined
+  # regex must come first so first-match-wins captures both outputs in one
+  # entry. Per-output forms below cover individual command echoes.
+  - match: '^x(\d+)AVx1,\s*x(\d+)AVx2$'
+    set: { route_1: "$1", route_2: "$2" }
+  - match: '^x(\d+)AVx1$'
+    set: { route_1: "$1" }
+  - match: '^x(\d+)AVx2$'
+    set: { route_2: "$1" }
+
+  # Audio source routing: "AUD1 HDMI", "AUD2 AUX3"
+  - match: '^AUD1\s+(\S+)$'
+    set: { audio_1: "$1" }
+  - match: '^AUD2\s+(\S+)$'
+    set: { audio_2: "$1" }
+
+  # Volume: "VOUT1 -20" (echoed after set, +/-, or sta)
+  - match: '^VOUT1\s+(-?\d+)$'
+    set: { volume_1: "$1" }
+  - match: '^VOUT2\s+(-?\d+)$'
+    set: { volume_2: "$1" }
+  - match: '^VOUT3\s+(-?\d+)$'
+    set: { volume_3: "$1" }
+  - match: '^VOUT4\s+(-?\d+)$'
+    set: { volume_4: "$1" }
+
+  # Mute: "VOUTMute1 on" / "VOUTMute1 off"
+  - match: '^VOUTMute1\s+on$'
+    set: { mute_1: "true" }
+  - match: '^VOUTMute1\s+off$'
+    set: { mute_1: "false" }
+  - match: '^VOUTMute2\s+on$'
+    set: { mute_2: "true" }
+  - match: '^VOUTMute2\s+off$'
+    set: { mute_2: "false" }
+  - match: '^VOUTMute3\s+on$'
+    set: { mute_3: "true" }
+  - match: '^VOUTMute3\s+off$'
+    set: { mute_3: "false" }
+  - match: '^VOUTMute4\s+on$'
+    set: { mute_4: "true" }
+  - match: '^VOUTMute4\s+off$'
+    set: { mute_4: "false" }
+
+  # Mono / stereo
+  - match: '^SetMono1\s+on$'
+    set: { mono_1: "true" }
+  - match: '^SetMono1\s+off$'
+    set: { mono_1: "false" }
+  - match: '^SetMono2\s+on$'
+    set: { mono_2: "true" }
+  - match: '^SetMono2\s+off$'
+    set: { mono_2: "false" }
+
+  # InputStatus N — feedback "InputStatus<N> 1" (signal) or " 0" (no signal).
+  - match: '^InputStatus1\s+1$'
+    set: { input_signal_1: "true" }
+  - match: '^InputStatus1\s+0$'
+    set: { input_signal_1: "false" }
+  - match: '^InputStatus2\s+1$'
+    set: { input_signal_2: "true" }
+  - match: '^InputStatus2\s+0$'
+    set: { input_signal_2: "false" }
+  - match: '^InputStatus3\s+1$'
+    set: { input_signal_3: "true" }
+  - match: '^InputStatus3\s+0$'
+    set: { input_signal_3: "false" }
+  - match: '^InputStatus4\s+1$'
+    set: { input_signal_4: "true" }
+  - match: '^InputStatus4\s+0$'
+    set: { input_signal_4: "false" }
+  - match: '^InputStatus5\s+1$'
+    set: { input_signal_5: "true" }
+  - match: '^InputStatus5\s+0$'
+    set: { input_signal_5: "false" }
+  - match: '^InputStatus6\s+1$'
+    set: { input_signal_6: "true" }
+  - match: '^InputStatus6\s+0$'
+    set: { input_signal_6: "false" }
+
+  # USB
+  - match: '^UsbMode\s+(\d+)$'
+    set: { usb_mode: "$1" }
+  - match: '^UsbRoute\s+(\d+)$'
+    set: { usb_route: "$1" }
+
+  # Front panel lock state — Lock and Unlock echo their own command.
+  - match: '^Lock$'
+    set: { front_panel_locked: "true" }
+  - match: '^Unlock$'
+    set: { front_panel_locked: "false" }
+
+  # Type → "AT-OME-PS62"
+  - match: '^(AT-OME-\S+)$'
+    set: { model: "$1" }
+
+  # Version → "1.0.00"
+  - match: '^(\d+\.\d+\.\d+)$'
+    set: { firmware: "$1" }
+
+polling:
+  interval: 30
+  queries:
+    - "Status\r"
+    - "Type\r"
+    - "Version\r"
+    - "AUD1 sta\r"
+    - "AUD2 sta\r"
+    - "VOUT1 sta\r"
+    - "VOUT2 sta\r"
+    - "VOUT3 sta\r"
+    - "VOUT4 sta\r"
+    - "VOUTMute1 sta\r"
+    - "VOUTMute2 sta\r"
+    - "VOUTMute3 sta\r"
+    - "VOUTMute4 sta\r"
+    - "InputStatus1\r"
+    - "InputStatus2\r"
+    - "InputStatus3\r"
+    - "InputStatus4\r"
+    - "InputStatus5\r"
+    - "InputStatus6\r"
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  push_state: false
+  initial_state:
+    model: "AT-OME-PS62"
+    firmware: "1.2.1"
+    front_panel_locked: false
+    route_1: 1
+    route_2: 2
+    audio_1: "HDBaseT"
+    audio_2: "HDMI"
+    volume_1: 0
+    volume_2: 0
+    volume_3: -10
+    volume_4: -10
+    mute_1: false
+    mute_2: false
+    mute_3: false
+    mute_4: false
+    mono_1: false
+    mono_2: false
+    input_signal_1: true
+    input_signal_2: true
+    input_signal_3: false
+    input_signal_4: false
+    input_signal_5: false
+    input_signal_6: false
+    usb_mode: 0
+    usb_route: 1
+
+  delays:
+    command_response: 0.05
+
+  controls:
+    - type: matrix
+      label: Video Routing
+      inputs: 6
+      outputs: 2
+      state_pattern: "route_{output}"
+    - type: indicator
+      key: model
+      label: Model
+    - type: indicator
+      key: firmware
+      label: Firmware
+    - type: toggle
+      key: front_panel_locked
+      label: Panel Lock
+    - type: slider
+      key: volume_1
+      label: Zone 1 Volume
+      min: -90
+      max: 10
+    - type: slider
+      key: volume_3
+      label: Zone 3 (Analog 1) Volume
+      min: -90
+      max: 10
+    - type: toggle
+      key: mute_1
+      label: Zone 1 Mute
+    - type: toggle
+      key: mute_3
+      label: Zone 3 Mute
+    - type: indicator
+      key: input_signal_1
+      label: In 1 Signal
+    - type: indicator
+      key: input_signal_5
+      label: In 5 Signal
+
+  command_handlers:
+
+    # ── Routing: xNAVxM (single output) ──
+    - match: '^x(\d+)AVx(\d+)$'
+      handler: |
+        inp = int(match.group(1))
+        out = int(match.group(2))
+        if 1 <= inp <= 6 and 1 <= out <= 2:
+            state[f"route_{out}"] = inp
+            respond(f"x{inp}AVx{out}\r\n")
+        else:
+            respond("Command FAILED\r\n")
+
+    # ── Routing: xNAll ──
+    - match: '^x(\d+)All$'
+      handler: |
+        inp = int(match.group(1))
+        if 1 <= inp <= 6:
+            state["route_1"] = inp
+            state["route_2"] = inp
+            respond(f"x{inp}AVx1, x{inp}AVx2\r\n")
+        else:
+            respond("Command FAILED\r\n")
+
+    # ── Reset to 1-to-1 ──
+    - match: '^All#$'
+      handler: |
+        state["route_1"] = 1
+        state["route_2"] = 2
+        respond("x1AVx1, x2AVx2\r\n")
+
+    # ── Status (full dump) ──
+    - match: '^Status$'
+      handler: |
+        r1 = state.get("route_1", 1)
+        r2 = state.get("route_2", 2)
+        respond(f"x{r1}AVx1, x{r2}AVx2\r\n")
+
+    # ── Audio source routing: AUDX Y ──
+    - match: '^AUD([12])\s+(HDBaseT|HDMI|AUX[123])$'
+      handler: |
+        out = match.group(1)
+        src = match.group(2)
+        state[f"audio_{out}"] = src
+        respond(f"AUD{out} {src}\r\n")
+    - match: '^AUD([12])\s+sta$'
+      handler: |
+        out = match.group(1)
+        cur = state.get(f"audio_{out}", "HDBaseT")
+        respond(f"AUD{out} {cur}\r\n")
+
+    # ── Volume: VOUTX Y ──
+    - match: '^VOUT([1234])\s+(\S+)$'
+      handler: |
+        zone = match.group(1)
+        val = match.group(2)
+        key = f"volume_{zone}"
+        cur = state.get(key, 0)
+        if val == "sta":
+            respond(f"VOUT{zone} {cur}\r\n")
+        elif val in ("+", "-"):
+            new = max(-90, min(10, cur + (1 if val == "+" else -1)))
+            state[key] = new
+            respond(f"VOUT{zone} {new}\r\n")
+        else:
+            try:
+                level = max(-90, min(10, int(val)))
+                state[key] = level
+                respond(f"VOUT{zone} {level}\r\n")
+            except ValueError:
+                respond("Command FAILED\r\n")
+
+    # ── Mute: VOUTMuteX Y ──
+    - match: '^VOUTMute([1234])\s+(on|off|sta)$'
+      handler: |
+        zone = match.group(1)
+        val = match.group(2)
+        key = f"mute_{zone}"
+        if val == "sta":
+            cur = "on" if state.get(key, False) else "off"
+            respond(f"VOUTMute{zone} {cur}\r\n")
+        else:
+            state[key] = (val == "on")
+            respond(f"VOUTMute{zone} {val}\r\n")
+
+    # ── Mono / Stereo ──
+    - match: '^SetMono([12])\s+(on|off|sta)$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        key = f"mono_{out}"
+        if val == "sta":
+            cur = "on" if state.get(key, False) else "off"
+            respond(f"SetMono{out} {cur}\r\n")
+        else:
+            state[key] = (val == "on")
+            respond(f"SetMono{out} {val}\r\n")
+
+    # ── InputStatus N (signal detection) ──
+    - match: '^InputStatus([1-6])$'
+      handler: |
+        inp = match.group(1)
+        cur = state.get(f"input_signal_{inp}", False)
+        respond(f"InputStatus{inp} {1 if cur else 0}\r\n")
+    - match: '^InputStatus$'
+      handler: |
+        # All-input rollup: doc shows "InputStatus 01" — pad to six digits.
+        bits = "".join("1" if state.get(f"input_signal_{i}", False) else "0" for i in range(1, 7))
+        respond(f"InputStatus {bits}\r\n")
+
+    # ── USB ──
+    - match: '^UsbMode\s+([012])$'
+      handler: |
+        m = int(match.group(1))
+        state["usb_mode"] = m
+        respond(f"UsbMode {m}\r\n")
+    - match: '^UsbMode\s+sta$'
+      handler: |
+        respond(f"UsbMode {state.get('usb_mode', 0)}\r\n")
+    - match: '^UsbRoute\s+([1-6])$'
+      handler: |
+        r = int(match.group(1))
+        state["usb_route"] = r
+        respond(f"UsbRoute {r}\r\n")
+    - match: '^UsbRoute\s+sta$'
+      handler: |
+        respond(f"UsbRoute {state.get('usb_route', 1)}\r\n")
+
+    # ── Front panel lock ──
+    - match: '^Lock$'
+      handler: |
+        state["front_panel_locked"] = True
+        respond("Lock\r\n")
+    - match: '^Unlock$'
+      handler: |
+        state["front_panel_locked"] = False
+        respond("Unlock\r\n")
+
+    # ── Blink (POWER LED identify) ──
+    - match: '^Blink\s+(on|off|sta)$'
+      handler: |
+        respond(f"Blink {match.group(1)}\r\n")
+
+    # ── Type / Version ──
+    - match: '^Type$'
+      handler: |
+        respond(f"{state.get('model', 'AT-OME-PS62')}\r\n")
+    - match: '^Version$'
+      handler: |
+        respond(f"{state.get('firmware', '1.2.1')}\r\n")
+
+    # ── Factory reset (no feedback per doc) ──
+    - match: '^Mreset$'
+      handler: |
+        # In the simulator, just acknowledge silently — the doc says no feedback.
+        pass
+
+    # ── IPCFG (multi-line response — best-effort) ──
+    - match: '^IPCFG$'
+      handler: |
+        respond("IP Addr 192.168.11.196\r\nNetmask 255.255.255.0\r\nGateway 192.168.11.1\r\ntelnet Port 23\r\nssh Port: 22\r\n")
+
+    # ── CommaWait / Blink sta / RepeatCmd / RS232para / IPDHCP / IPStatic
+    #     — return a benign echo so polling doesn't trip. ──
+    - match: '^(CommaWait|RepeatCmd|RepCmdTime|IPDHCP)\s+(on|off|sta|\d+)$'
+      handler: |
+        respond(f"{match.group(1)} {match.group(2)}\r\n")
+
+    # Catch-all — must stay last (script form so it sits in _script_handlers
+    # after the specific entries above; see rules.md).
+    - match: '.+'
+      handler: |
+        respond("Command FAILED\r\n")
+
+  error_modes:
+    communication_timeout:
+      description: "Device stops responding to commands"
+      behavior: no_response
+    auth_required:
+      description: "Telnet Login Mode is enabled and credentials were not supplied"
+      behavior: no_response

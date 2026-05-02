@@ -1,13 +1,25 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T18:24:24+00:00",
+    "generated_at": "2026-05-02T20:45:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 46,
+    "total_devices": 47,
     "shards": null,
     "category": "switcher"
   },
   "devices": [
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OME-PS62",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_ome_ps62",
+          "confidence": "untested",
+          "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52 / MS52W family in the OME line uses a completely different command syntax (Display:Matrix:Set...) and is covered by a separate driver.\n"
+        }
+      ]
+    },
     {
       "manufacturer": "Atlona",
       "model": "AT-OMNI-111",

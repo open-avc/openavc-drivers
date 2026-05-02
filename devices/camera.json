@@ -1,22 +1,22 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T18:24:24+00:00",
+    "generated_at": "2026-05-02T20:45:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 81,
+    "total_devices": 90,
     "shards": null,
     "category": "camera"
   },
   "devices": [
     {
       "manufacturer": "AVer",
-      "model": "CAM520 Pro / Pro2",
+      "model": "CAM520 Pro / Pro2 / Pro3",
       "category": "camera",
       "drivers": [
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
         }
       ]
     },
@@ -28,7 +28,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
         }
       ]
     },
@@ -40,7 +40,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
         }
       ]
     },
@@ -52,7 +52,19 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "FONE700",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
         }
       ]
     },
@@ -64,7 +76,79 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "PTZ310",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_ptz",
+          "confidence": "untested",
+          "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "PTZ310N",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_ptz",
+          "confidence": "untested",
+          "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "PTZ310W",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_ptz",
+          "confidence": "untested",
+          "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "PTZ330",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_ptz",
+          "confidence": "untested",
+          "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "PTZ330N",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_ptz",
+          "confidence": "untested",
+          "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "PTZ330W",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "aver_ptz",
+          "confidence": "untested",
+          "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
         }
       ]
     },
@@ -76,7 +160,31 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "VB342+ / VB342 Pro / VB350",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "VC520 Pro / Pro2 / Pro3",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
         }
       ]
     },

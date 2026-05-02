@@ -1,13 +1,57 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T18:24:24+00:00",
+    "generated_at": "2026-05-02T20:45:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 6,
+    "total_drivers": 7,
     "shards": null,
     "category": "switcher"
   },
   "drivers": [
+    {
+      "id": "atlona_ome_ps62",
+      "name": "Atlona AT-OME-PS62 Matrix Switcher",
+      "manufacturer": "Atlona",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
+      "source_url": "https://atlona.com/pdf/AT-OME-PS62_API.pdf",
+      "file": "switchers/atlona_ome_ps62.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "atlona_ome_ps62"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.9.0",
+      "tags": [
+        "matrix-switcher",
+        "presentation",
+        "hdbaset",
+        "usb-c",
+        "atlona",
+        "ome",
+        "telnet"
+      ],
+      "help": {
+        "overview": "The PS62 routes six HDMI / USB-C / HDBaseT sources to a HDBaseT and a HDMI output. Audio is independent: each of the two video outputs and two analog audio outputs has its own volume and mute. Analog audio can follow the HDBaseT or HDMI feed, or pull from one of three auxiliary inputs.\n",
+        "setup": "1. Set a static IP on the matrix via its web UI (or DHCP reservation). 2. If Telnet Login Mode is ON in the matrix's web UI, enter the same\n   Username / Password used for the web GUI in this driver's config.\n   Leave both blank if Telnet Login Mode is OFF.\n3. Atlona requires a 500 ms minimum delay between commands; the driver\n   is pre-configured for this.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Atlona",
+          "models": [
+            "AT-OME-PS62"
+          ],
+          "confidence": "untested",
+          "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52 / MS52W family in the OME line uses a completely different command syntax (Display:Matrix:Set...) and is covered by a separate driver.\n"
+        }
+      ]
+    },
     {
       "id": "atlona_uhd_pro3",
       "name": "Atlona AT-UHD-PRO3 Matrix",

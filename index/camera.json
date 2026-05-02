@@ -1,13 +1,62 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T18:24:24+00:00",
+    "generated_at": "2026-05-02T20:45:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 6,
+    "total_drivers": 7,
     "shards": null,
     "category": "camera"
   },
   "drivers": [
+    {
+      "id": "aver_ptz",
+      "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
+      "manufacturer": "AVer",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
+      "source_url": "https://www.averusa.com/pro-av/downloads/control-codes/PTZ310330_CGI_Commands.pdf",
+      "file": "cameras/aver_ptz.py",
+      "format": "python",
+      "ports": [
+        80,
+        52381
+      ],
+      "protocols": [
+        "visca-ip",
+        "aver-cgi"
+      ],
+      "simulated": true,
+      "tags": [
+        "ptz",
+        "camera",
+        "aver",
+        "visca",
+        "visca-ip",
+        "broadcast"
+      ],
+      "help": {
+        "overview": "AVer PTZ310 / PTZ330 broadcast PTZ cameras. Common in houses of worship, lecture capture, courtroom recording, and corporate AV. Image quality (gain, iris, shutter, white balance, color temperature, sharpness, mirror/flip) and AVer's SmartShoot / SmartFraming AI features are controlled over HTTP. Power, pan/tilt/zoom motion, and position inquiries use VISCA-over-IP.",
+        "setup": "1. Set the camera to a static IP and place it on a routable VLAN to the OpenAVC server.\n2. The driver opens TWO connections: VISCA-over-IP on UDP 52381 and HTTP on TCP 80. Both must be reachable.\n3. Most CGI commands require no authentication. The Reboot and Factory Reset commands require Basic auth and only work on the PTZ-S310 / PTZ-S330 SKUs \u2014 fill in the username/password fields if you need them.\n4. VISCA-over-IP supports multiple controllers per camera, so OpenAVC can co-exist with a hardware joystick or other control surface."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AVer",
+          "models": [
+            "PTZ310",
+            "PTZ310N",
+            "PTZ310W",
+            "PTZ330",
+            "PTZ330N",
+            "PTZ330W"
+          ],
+          "confidence": "untested",
+          "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
+        }
+      ]
+    },
     {
       "id": "birddog_ptz",
       "name": "BirdDog PTZ Camera",
@@ -64,7 +113,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -110,15 +159,18 @@
         {
           "manufacturer": "AVer",
           "models": [
-            "CAM520 Pro / Pro2",
+            "CAM520 Pro / Pro2 / Pro3",
             "CAM530",
             "CAM540 / 550",
             "CAM570",
             "PTC500S",
-            "TR313 / TR315 / TR320 / TR530"
+            "TR313 / TR315 / TR320 / TR530",
+            "VC520 Pro / Pro2 / Pro3",
+            "VB342+ / VB342 Pro / VB350",
+            "FONE700"
           ],
           "confidence": "untested",
-          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
         },
         {
           "manufacturer": "Marshall",

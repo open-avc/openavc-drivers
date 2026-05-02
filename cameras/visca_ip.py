@@ -169,7 +169,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Generic Sony-specification VISCA-over-IP driver (UDP port "
@@ -209,18 +209,18 @@ class VISCAIPDriver(BaseDriver):
             {
                 "manufacturer": "Sony",
                 "models": [
-                    "SRG-X400 / X402 / 201M2",
-                    "SRG-X120 / HD1M2",
-                    "BRC-X400 / X401",
-                    "BRC-H800 / H900",
                     "EVI-H100V / H100S",
                 ],
                 "confidence": "untested",
                 "notes": (
-                    "Source documentation is Sony's own VISCA Command List for "
-                    "this exact lineup. A dedicated Sony driver would add image "
-                    "presets, picture profile switching, and lens-specific "
-                    "commands -- not yet shipped."
+                    "Older Sony EVI cameras that speak Sony-spec VISCA-IP but "
+                    "predate the BRC/SRG picture-profile / PRESET MODE / PTZ "
+                    "TRACE / tally surface. For SRG-X400/X402/201M2, "
+                    "SRG-X120/HD1M2, and BRC-X400/X401/H800/H900 use the "
+                    "dedicated `sony_visca` driver instead -- it adds picture "
+                    "profiles, R/B gain, color matrix, defog, PRESET MODE, "
+                    "PTZ TRACE, tally, IR correction, AF mode, AE speed, "
+                    "min/max shutter, high sensitivity, and OSD."
                 ),
             },
             {

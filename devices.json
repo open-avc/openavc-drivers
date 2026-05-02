@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T17:33:39+00:00",
+    "generated_at": "2026-05-02T18:24:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_devices": 496,
@@ -4719,9 +4719,9 @@
       "category": "camera",
       "drivers": [
         {
-          "id": "visca_ip",
+          "id": "sony_visca",
           "confidence": "untested",
-          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+          "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format."
         }
       ]
     },
@@ -4731,9 +4731,9 @@
       "category": "camera",
       "drivers": [
         {
-          "id": "visca_ip",
+          "id": "sony_visca",
           "confidence": "untested",
-          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+          "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format."
         }
       ]
     },
@@ -4745,7 +4745,7 @@
         {
           "id": "visca_ip",
           "confidence": "untested",
-          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+          "notes": "Older Sony EVI cameras that speak Sony-spec VISCA-IP but predate the BRC/SRG picture-profile / PRESET MODE / PTZ TRACE / tally surface. For SRG-X400/X402/201M2, SRG-X120/HD1M2, and BRC-X400/X401/H800/H900 use the dedicated `sony_visca` driver instead -- it adds picture profiles, R/B gain, color matrix, defog, PRESET MODE, PTZ TRACE, tally, IR correction, AF mode, AE speed, min/max shutter, high sensitivity, and OSD."
         }
       ]
     },
@@ -4755,9 +4755,9 @@
       "category": "camera",
       "drivers": [
         {
-          "id": "visca_ip",
+          "id": "sony_visca",
           "confidence": "untested",
-          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+          "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format."
         }
       ]
     },
@@ -4767,9 +4767,9 @@
       "category": "camera",
       "drivers": [
         {
-          "id": "visca_ip",
+          "id": "sony_visca",
           "confidence": "untested",
-          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+          "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format."
         }
       ]
     },

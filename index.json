@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T02:14:49+00:00",
+    "generated_at": "2026-05-02T02:34:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 45,
+    "total_drivers": 46,
     "shards": null
   },
   "drivers": [
@@ -812,6 +812,51 @@
           ],
           "confidence": "untested",
           "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+        }
+      ]
+    },
+    {
+      "id": "artnet_dmx",
+      "name": "Art-Net DMX (Generic)",
+      "manufacturer": "Generic",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
+      "source_url": "https://art-net.org.uk/downloads/art-net.pdf",
+      "file": "lighting/artnet_dmx.py",
+      "format": "python",
+      "ports": [
+        6454
+      ],
+      "protocols": [
+        "artnet"
+      ],
+      "simulated": true,
+      "tags": [
+        "artnet",
+        "dmx",
+        "dmx512",
+        "lighting",
+        "generic",
+        "etc",
+        "ma",
+        "chamsys",
+        "enttec"
+      ],
+      "help": {
+        "overview": "Art-Net is the de-facto Ethernet protocol for DMX512 lighting. Controllers send ArtDmx packets to nodes (Art-Net to DMX gateways), or directly to network-native fixtures. The driver maintains a 512-channel buffer for each universe it controls and re-broadcasts on a 900 ms keep-alive cadence so the receiver doesn't drop the universe.",
+        "setup": "1. Set the target node's IP to a static address and put it on the same VLAN as the OpenAVC server. Art-Net traditionally uses the 2.x.x.x or 10.x.x.x range, but any reachable IP works.\n2. Confirm the node's universe number \u2014 Art-Net calls it the Port-Address (0..32767). Most consoles and fixtures expose it as a Net + Subnet + Universe trio (7 + 4 + 4 bits); enter the combined 15-bit value here. Universe 0 is a common default.\n3. To broadcast (one transmit reaches all nodes on the subnet), use the broadcast IP for your subnet. Unicast to a node's IP is preferred per the Art-Net 4 spec.\n4. Run the ``set_channel`` or ``blackout`` command. The driver starts re-broadcasting automatically; no separate ``start`` is needed."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Generic",
+          "models": [
+            "Art-Net Node / Gateway / Fixture (any vendor)"
+          ],
+          "confidence": "untested",
+          "notes": "Art-Net is an open published standard. This driver speaks the controller half (sends ArtDmx) and works with any conforming node \u2014 ETC Response Mk2, Pathway Path-Port, Enttec ODE / DIN, Elation E-Node, ADJ Net4, Chauvet Net-X, Madrix-driven LED controllers, Color Kinetics PDS gateways, GrandMA Net Processing units, Resolume / TouchDesigner / Madrix as Art-Net inputs, etc."
         }
       ]
     },

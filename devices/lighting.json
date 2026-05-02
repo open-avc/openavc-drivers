@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T02:14:49+00:00",
+    "generated_at": "2026-05-02T02:34:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 22,
+    "total_devices": 23,
     "shards": null,
     "category": "lighting"
   },
@@ -221,6 +221,18 @@
           "id": "etc_eos",
           "confidence": "untested",
           "notes": "All Eos-family consoles share the same OSC dictionary documented in the Eos Family Online Help. ColorSource AV exposes a subset of the same /eos OSC namespace."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Generic",
+      "model": "Art-Net Node / Gateway / Fixture (any vendor)",
+      "category": "lighting",
+      "drivers": [
+        {
+          "id": "artnet_dmx",
+          "confidence": "untested",
+          "notes": "Art-Net is an open published standard. This driver speaks the controller half (sends ArtDmx) and works with any conforming node \u2014 ETC Response Mk2, Pathway Path-Port, Enttec ODE / DIN, Elation E-Node, ADJ Net4, Chauvet Net-X, Madrix-driven LED controllers, Color Kinetics PDS gateways, GrandMA Net Processing units, Resolume / TouchDesigner / Madrix as Art-Net inputs, etc."
         }
       ]
     },

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T17:17:43+00:00",
+    "generated_at": "2026-05-02T17:33:39+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 4,
+    "total_drivers": 5,
     "shards": null,
     "category": "camera"
   },
@@ -56,6 +56,83 @@
             "MAKI Ultra"
           ],
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "visca_ip",
+      "name": "Generic VISCA-IP PTZ Camera",
+      "manufacturer": "Generic",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
+      "source_url": "https://shop.ccisolutions.com/StoreFront/jsp/pdf/SON-SRGX400_visca_commandList.pdf",
+      "file": "cameras/visca_ip.py",
+      "format": "python",
+      "ports": [
+        52381
+      ],
+      "protocols": [
+        "visca-ip"
+      ],
+      "simulated": true,
+      "tags": [
+        "visca",
+        "visca-ip",
+        "ptz",
+        "camera",
+        "generic",
+        "sony"
+      ],
+      "help": {
+        "overview": "Generic Sony-specification VISCA-over-IP PTZ control on UDP port 52381. Supports the universal pan/tilt/zoom/focus + preset + AE/WB command surface. Where a brand-specific driver exists in the catalog, that driver covers more and is preferred.",
+        "setup": "1. Set the camera to a static IP and place it on a routable VLAN to the OpenAVC server.\n2. Enable VISCA over IP on the camera (often labeled 'VISCA over IP' or 'IP CONTROL' in the network menu). The default port 52381 should not need to change.\n3. Confirm the camera is set to UDP \u2014 not TCP. Some cameras let you choose; this driver speaks UDP only.\n4. Note: VISCA over IP supports up to 5 simultaneous controllers per camera, so multiple control surfaces (OpenAVC + a hardware joystick + a Bitfocus Companion page, etc.) can co-exist."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Generic",
+          "models": [
+            "Any Sony-spec VISCA-over-IP PTZ camera (UDP 52381)"
+          ],
+          "confidence": "untested",
+          "notes": "Sony's VISCA-over-IP wire format is the de-facto cross-vendor standard for pro PTZ cameras. Brand-specific drivers expose more (vendor-specific image presets, preset-name strings, OSD/menu, lens controls) and should be preferred when available."
+        },
+        {
+          "manufacturer": "Sony",
+          "models": [
+            "SRG-X400 / X402 / 201M2",
+            "SRG-X120 / HD1M2",
+            "BRC-X400 / X401",
+            "BRC-H800 / H900",
+            "EVI-H100V / H100S"
+          ],
+          "confidence": "untested",
+          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+        },
+        {
+          "manufacturer": "AVer",
+          "models": [
+            "CAM520 Pro / Pro2",
+            "CAM530",
+            "CAM540 / 550",
+            "CAM570",
+            "PTC500S",
+            "TR313 / TR315 / TR320 / TR530"
+          ],
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+        },
+        {
+          "manufacturer": "Marshall",
+          "models": [
+            "CV620-NDI / CV620-IP / CV620-BI",
+            "CV730-NDI / CV730-IP",
+            "CV730-BHN / BHN-7"
+          ],
+          "confidence": "untested",
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
         }
       ]
     },

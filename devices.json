@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T17:17:43+00:00",
+    "generated_at": "2026-05-02T17:33:39+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 481,
+    "total_devices": 496,
     "shards": null
   },
   "devices": [
@@ -263,6 +263,78 @@
         {
           "id": "at_atdm_1012",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "CAM520 Pro / Pro2",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "CAM530",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "CAM540 / 550",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "CAM570",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "PTC500S",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVer",
+      "model": "TR313 / TR315 / TR320 / TR530",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's Pro-AV control codes PDF). A dedicated AVer driver would add their HTTP /ptz/getstatus query, picture profile presets, and product-specific extensions -- not yet shipped."
         }
       ]
     },
@@ -2307,6 +2379,18 @@
     },
     {
       "manufacturer": "Generic",
+      "model": "Any Sony-spec VISCA-over-IP PTZ camera (UDP 52381)",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Sony's VISCA-over-IP wire format is the de-facto cross-vendor standard for pro PTZ cameras. Brand-specific drivers expose more (vendor-specific image presets, preset-name strings, OSD/menu, lens controls) and should be preferred when available."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Generic",
       "model": "Art-Net Node / Gateway / Fixture (any conforming vendor)",
       "category": "lighting",
       "drivers": [
@@ -2706,6 +2790,42 @@
           "id": "artnet_dmx",
           "confidence": "untested",
           "notes": "Madrix is primarily an Art-Net source for LED video pixel-mapping, but its Aura and Plexus hardware bridges accept Art-Net input and convert to DMX or playback stored shows."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV620-NDI / CV620-IP / CV620-BI",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV730-BHN / BHN-7",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Marshall",
+      "model": "CV730-NDI / CV730-IP",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
         }
       ]
     },
@@ -4590,6 +4710,66 @@
           "id": "sony_bravia",
           "confidence": "full",
           "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "BRC-H800 / H900",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "BRC-X400 / X401",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "EVI-H100V / H100S",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "SRG-X120 / HD1M2",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "model": "SRG-X400 / X402 / 201M2",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "visca_ip",
+          "confidence": "untested",
+          "notes": "Source documentation is Sony's own VISCA Command List for this exact lineup. A dedicated Sony driver would add image presets, picture profile switching, and lens-specific commands -- not yet shipped."
         }
       ]
     },

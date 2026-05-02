@@ -1,0 +1,844 @@
+# Atlona AT-UHD-PRO3 Series Driver
+#
+# Controls the Atlona PRO3 family of HDBaseT matrix switchers over Telnet
+# (port 23). One driver covers the 4x4, 6x6, 8x8, and 16x16 models.
+#
+# Models covered:
+#   AT-UHD-PRO3-44M     4x4  HDMI to HDBaseT matrix
+#   AT-UHD-PRO3-66M     6x6  HDMI to HDBaseT matrix
+#   AT-UHD-PRO3-88M     8x8  HDMI to HDBaseT matrix (8 HDBaseT + 2 HDMI mirrors)
+#   AT-UHD-PRO3-1616M   16x16 HDMI to HDBaseT matrix (discontinued, still in field)
+#
+# Protocol reference: Atlona AT-UHD-PRO3-88M API (and equivalent docs for 44M/66M/1616M)
+# https://atlona.com/pdf/AT-UHD-PRO3-88M_API.pdf
+#
+# Wire format:
+#   Each command is terminated with a carriage-return (0x0d).
+#   Each feedback line is terminated with carriage-return + line-feed (0x0a).
+#   Commands are case-sensitive.
+#   Failed commands return "Command FAILED" (benign for unsupported commands
+#   on smaller models — e.g. Statusx 12 on a 44M).
+#
+# Routing:
+#   xXAVxY      route input X to output Y
+#   xXAVxY,xZ   route input X to outputs Y and Z (multi-output, comma-separated, no spaces)
+#   xXAll       route input X to all outputs
+#   Status      one-line dump: "x1AVx1,x2AVx2,..." (not parsed for state — see below)
+#   Statusx X   query routing for a single output → "xYAVxX" (parsed for state)
+#
+# Why per-output Statusx for polling instead of Status:
+#   The transport delimiter ("\r\n") splits incoming bytes into one frame per
+#   line. Status returns the entire matrix as a single comma-separated line
+#   ("x1AVx1,x2AVx2,..."), and YAML response dispatch returns after the FIRST
+#   matching pattern — so we'd only ever capture the first output. Using
+#   Statusx X per output keeps each response to one frame and lets the
+#   per-output regexes fan state out cleanly. See rules.md ("Multi-line
+#   response fan-out").
+#
+# Audio (HDBaseT zone audio, where present):
+#   VOUTX Y       set output X volume (-79..15 dB, or +/- to bump)
+#   VOUTMuteX Y   mute output X (on/off/sta)
+#
+# Power:
+#   PWON / PWOFF / PWSTA
+#
+# Auth (default: enabled — IPLogin defaults to "on"):
+#   The PRO3 prompts "Login: " then "Password: " before accepting commands
+#   when IPLogin is "on" (factory default). Driver handles this via the
+#   auth: block; supply Username and Password in the Add Device dialog.
+#   Leave both blank if IPLogin has been disabled on the unit (KB01392).
+#   Prompt strings match the openHAB Atlona PRO3 binding (RSP_LOGIN /
+#   RSP_PASSWORD) and the AT-UHD-PRO3-88M prompts observed in field
+#   reports. The pattern is consistent with other Atlona Telnet shells
+#   (see atlona_omnistream).
+
+id: atlona_uhd_pro3
+name: Atlona AT-UHD-PRO3 Matrix
+manufacturer: Atlona
+category: switcher
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.9.0"
+description: >
+  Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers
+  (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source
+  routing (per output, all outputs, multi-output), per-output volume and
+  mute, power, presets (save / recall / clear), front-panel lock, and
+  identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M
+  outputs 11-18 are routable but not state-mirrored).
+
+source_url: https://atlona.com/pdf/AT-UHD-PRO3-88M_API.pdf
+tags: [matrix-switcher, hdbaset, atlona, pro3, telnet]
+verified: false
+simulated: true
+protocols: [atlona_pro3]
+ports: [23]
+compatible_models:
+  - manufacturer: Atlona
+    models:
+      - AT-UHD-PRO3-44M
+      - AT-UHD-PRO3-66M
+      - AT-UHD-PRO3-88M
+      - AT-UHD-PRO3-1616M
+    confidence: untested
+    notes: >
+      AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges
+      vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10
+      HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs
+      1-10. Larger 1616M outputs (11-18) accept routing commands but
+      don't update state. Send a "Mreset" or "All#" to recover from
+      surprising routing if a manual front-panel change happens.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Atlona PRO3 matrices route HDMI sources to HDBaseT extender outputs
+    over a Cat5e/6 link to remote receivers. Use the Route command to
+    send a source to a specific output, the Route to All command to send
+    one source everywhere, and per-output volume / mute for HDBaseT zone
+    audio. Save up to 50 routing presets.
+  setup: >
+    1. Set a static IP on the matrix via its web UI (or DHCP reservation).
+    2. If IPLogin is enabled (factory default), enter the Username and
+       Password configured on the matrix in this driver's config — the
+       driver handles the "Login:" / "Password:" handshake automatically.
+       Leave both blank if you've turned IPLogin off (per KB01392).
+    3. Atlona requires a 500 ms minimum delay between commands; the
+       driver sends commands at that rate by default.
+    4. To activate a routing preset from a macro: configure the routing
+       you want via individual Route commands, then send the Save Preset
+       command with a preset number. Recall later with Recall Preset.
+
+discovery:
+  ports: [23]
+  mac_prefixes: ["b8:98:b0", "00:1b:c5"]
+
+default_config:
+  host: ""
+  port: 23
+  username: ""
+  password: ""
+  poll_interval: 30
+  inter_command_delay: 0.5
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Telnet Port
+  username:
+    type: string
+    default: ""
+    label: Username
+    description: "Telnet login. Required when IPLogin is enabled (factory default). Leave blank if IPLogin is off."
+  password:
+    type: string
+    default: ""
+    label: Password
+    secret: true
+    description: "Telnet password. Same credentials as the matrix web GUI."
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (sec)
+    description: "Set to 0 to disable polling. Polling refreshes routing for outputs 1-10 plus power state."
+  inter_command_delay:
+    type: number
+    default: 0.5
+    min: 0.5
+    label: Inter-Command Delay (sec)
+    description: "Atlona requires at least 500 ms between commands."
+
+auth:
+  type: telnet_login
+  username_prompt: "Login: "
+  password_prompt: "Password: "
+  username_field: username
+  password_field: password
+  skip_if_empty: true
+  timeout_seconds: 10
+  line_ending: "\r\n"
+
+state_variables:
+  power:
+    type: enum
+    values: ["on", "off"]
+    label: Power
+  firmware:
+    type: string
+    label: Firmware Version
+  model:
+    type: string
+    label: Model
+  front_panel_locked:
+    type: boolean
+    label: Front Panel Locked
+  route_1:
+    type: integer
+    label: Output 1 — Source
+  route_2:
+    type: integer
+    label: Output 2 — Source
+  route_3:
+    type: integer
+    label: Output 3 — Source
+  route_4:
+    type: integer
+    label: Output 4 — Source
+  route_5:
+    type: integer
+    label: Output 5 — Source
+  route_6:
+    type: integer
+    label: Output 6 — Source
+  route_7:
+    type: integer
+    label: Output 7 — Source
+  route_8:
+    type: integer
+    label: Output 8 — Source
+  route_9:
+    type: integer
+    label: Output 9 — Source
+  route_10:
+    type: integer
+    label: Output 10 — Source
+  volume_1:
+    type: integer
+    label: Output 1 — Volume (dB)
+  volume_2:
+    type: integer
+    label: Output 2 — Volume (dB)
+  volume_3:
+    type: integer
+    label: Output 3 — Volume (dB)
+  volume_4:
+    type: integer
+    label: Output 4 — Volume (dB)
+  volume_5:
+    type: integer
+    label: Output 5 — Volume (dB)
+  volume_6:
+    type: integer
+    label: Output 6 — Volume (dB)
+  volume_7:
+    type: integer
+    label: Output 7 — Volume (dB)
+  volume_9:
+    type: integer
+    label: Output 9 — Volume (dB)
+  mute_1:
+    type: boolean
+    label: Output 1 — Mute
+  mute_2:
+    type: boolean
+    label: Output 2 — Mute
+  mute_3:
+    type: boolean
+    label: Output 3 — Mute
+  mute_4:
+    type: boolean
+    label: Output 4 — Mute
+  mute_5:
+    type: boolean
+    label: Output 5 — Mute
+  mute_6:
+    type: boolean
+    label: Output 6 — Mute
+  mute_7:
+    type: boolean
+    label: Output 7 — Mute
+  mute_9:
+    type: boolean
+    label: Output 9 — Mute
+
+commands:
+
+  # ── Power ──
+
+  power_on:
+    label: Power On
+    send: "PWON\r"
+
+  power_off:
+    label: Power Off (Standby)
+    send: "PWOFF\r"
+
+  query_power:
+    label: Query Power State
+    send: "PWSTA\r"
+
+  # ── Routing ──
+
+  route:
+    label: Route Input to Output
+    send: "x{input}AVx{output}\r"
+    help: "Route a single input to a single output (HDBaseT or HDMI mirror)."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 16
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 18
+
+  route_all:
+    label: Route Input to All Outputs
+    send: "x{input}All\r"
+    help: "Route a single input to every output on the matrix."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 16
+
+  route_reset:
+    label: Reset Routing (1-to-1)
+    send: "All#\r"
+    help: "Reset routing to one-to-one (Input 1 → Output 1, Input 2 → Output 2, etc.). Other settings unchanged."
+
+  query_routing:
+    label: Query Routing (Full Status)
+    send: "Status\r"
+    help: "Request the full routing dump. Note: state is updated by per-output Statusx polling, not by this command."
+
+  query_output_routing:
+    label: Query Routing for One Output
+    send: "Statusx{output}\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 18
+
+  # ── Output enable (zone on/off) ──
+
+  output_on:
+    label: Enable Output
+    send: "x{output}$ on\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 10
+
+  output_off:
+    label: Disable Output
+    send: "x{output}$ off\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 10
+
+  # ── Audio (HDBaseT zone audio) ──
+
+  set_volume:
+    label: Set Output Volume
+    send: "VOUT{output} {level}\r"
+    help: "Set output volume in decibels. Range -79 to +15 dB."
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 9
+      level:
+        type: integer
+        required: true
+        label: Volume (dB)
+        min: -79
+        max: 15
+
+  volume_up:
+    label: Volume Up (1 dB)
+    send: "VOUT{output} +\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 9
+
+  volume_down:
+    label: Volume Down (1 dB)
+    send: "VOUT{output} -\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 9
+
+  query_volume:
+    label: Query Output Volume
+    send: "VOUT{output} sta\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 9
+
+  mute_on:
+    label: Mute Output
+    send: "VOUTMute{output} on\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 9
+
+  mute_off:
+    label: Unmute Output
+    send: "VOUTMute{output} off\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 9
+
+  query_mute:
+    label: Query Output Mute
+    send: "VOUTMute{output} sta\r"
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 9
+
+  # ── Presets (1-50) ──
+
+  save_preset:
+    label: Save Preset
+    send: "Save{preset}\r"
+    help: "Save the current routing state to a preset slot (1-50)."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 50
+
+  recall_preset:
+    label: Recall Preset
+    send: "Recall{preset}\r"
+    help: "Load a saved routing preset (1-50)."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 50
+
+  clear_preset:
+    label: Clear Preset
+    send: "Clear{preset}\r"
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 50
+
+  # ── Front panel ──
+
+  lock_panel:
+    label: Lock Front Panel
+    send: "Lock\r"
+    help: "Disables the front-panel buttons. Useful for rack installs."
+
+  unlock_panel:
+    label: Unlock Front Panel
+    send: "Unlock\r"
+
+  blink_on:
+    label: Blink (Identify) — On
+    send: "Blink on\r"
+    help: "Flash the POWER LED to physically locate this unit on a rack."
+
+  blink_off:
+    label: Blink (Identify) — Off
+    send: "Blink off\r"
+
+  # ── System ──
+
+  query_model:
+    label: Query Model
+    send: "Type\r"
+
+  query_firmware:
+    label: Query Firmware
+    send: "Version\r"
+
+responses:
+
+  # Power state — the device echoes "PWON" or "PWOFF" after PWON/PWOFF/PWSTA.
+  - match: '^PWON$'
+    set: { power: "on" }
+  - match: '^PWOFF$'
+    set: { power: "off" }
+
+  # Firmware: "Firmware 16.1.0" (Version query response).
+  - match: '^Firmware\s+(\S+)'
+    set: { firmware: "$1" }
+
+  # Type query: "AT-UHD-PRO3-88M" (or 44M/66M/1616M).
+  - match: '^(AT-UHD-PRO3-\S+)'
+    set: { model: "$1" }
+
+  # Lock / Unlock echo.
+  - match: '^Lock$'
+    set: { front_panel_locked: "true" }
+  - match: '^Unlock$'
+    set: { front_panel_locked: "false" }
+
+  # Routing per output: "xYAVxN" where Y is input and N is output.
+  # One regex per output so the captured input lands in the right state key.
+  - match: '^x(\d+)AVx1$'
+    set: { route_1: "$1" }
+  - match: '^x(\d+)AVx2$'
+    set: { route_2: "$1" }
+  - match: '^x(\d+)AVx3$'
+    set: { route_3: "$1" }
+  - match: '^x(\d+)AVx4$'
+    set: { route_4: "$1" }
+  - match: '^x(\d+)AVx5$'
+    set: { route_5: "$1" }
+  - match: '^x(\d+)AVx6$'
+    set: { route_6: "$1" }
+  - match: '^x(\d+)AVx7$'
+    set: { route_7: "$1" }
+  - match: '^x(\d+)AVx8$'
+    set: { route_8: "$1" }
+  - match: '^x(\d+)AVx9$'
+    set: { route_9: "$1" }
+  - match: '^x(\d+)AVx10$'
+    set: { route_10: "$1" }
+
+  # Volume: "VOUT2 -20" (after set or sta).
+  - match: '^VOUT1\s+(-?\d+)'
+    set: { volume_1: "$1" }
+  - match: '^VOUT2\s+(-?\d+)'
+    set: { volume_2: "$1" }
+  - match: '^VOUT3\s+(-?\d+)'
+    set: { volume_3: "$1" }
+  - match: '^VOUT4\s+(-?\d+)'
+    set: { volume_4: "$1" }
+  - match: '^VOUT5\s+(-?\d+)'
+    set: { volume_5: "$1" }
+  - match: '^VOUT6\s+(-?\d+)'
+    set: { volume_6: "$1" }
+  - match: '^VOUT7\s+(-?\d+)'
+    set: { volume_7: "$1" }
+  - match: '^VOUT9\s+(-?\d+)'
+    set: { volume_9: "$1" }
+
+  # Mute: "VOUTMute2 on" / "VOUTMute2 off"
+  - match: '^VOUTMute1\s+on'
+    set: { mute_1: "true" }
+  - match: '^VOUTMute1\s+off'
+    set: { mute_1: "false" }
+  - match: '^VOUTMute2\s+on'
+    set: { mute_2: "true" }
+  - match: '^VOUTMute2\s+off'
+    set: { mute_2: "false" }
+  - match: '^VOUTMute3\s+on'
+    set: { mute_3: "true" }
+  - match: '^VOUTMute3\s+off'
+    set: { mute_3: "false" }
+  - match: '^VOUTMute4\s+on'
+    set: { mute_4: "true" }
+  - match: '^VOUTMute4\s+off'
+    set: { mute_4: "false" }
+  - match: '^VOUTMute5\s+on'
+    set: { mute_5: "true" }
+  - match: '^VOUTMute5\s+off'
+    set: { mute_5: "false" }
+  - match: '^VOUTMute6\s+on'
+    set: { mute_6: "true" }
+  - match: '^VOUTMute6\s+off'
+    set: { mute_6: "false" }
+  - match: '^VOUTMute7\s+on'
+    set: { mute_7: "true" }
+  - match: '^VOUTMute7\s+off'
+    set: { mute_7: "false" }
+  - match: '^VOUTMute9\s+on'
+    set: { mute_9: "true" }
+  - match: '^VOUTMute9\s+off'
+    set: { mute_9: "false" }
+
+polling:
+  interval: 30
+  queries:
+    - "PWSTA\r"
+    - "Type\r"
+    - "Version\r"
+    - "Statusx1\r"
+    - "Statusx2\r"
+    - "Statusx3\r"
+    - "Statusx4\r"
+    - "Statusx5\r"
+    - "Statusx6\r"
+    - "Statusx7\r"
+    - "Statusx8\r"
+    - "Statusx9\r"
+    - "Statusx10\r"
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  push_state: false
+  initial_state:
+    power: "on"
+    firmware: "16.1.0"
+    model: "AT-UHD-PRO3-88M"
+    front_panel_locked: false
+    route_1: 1
+    route_2: 2
+    route_3: 3
+    route_4: 4
+    route_5: 5
+    route_6: 6
+    route_7: 7
+    route_8: 7   # 88M output 8 mirrors a HDBaseT output by default
+    route_9: 8
+    route_10: 8  # 88M output 10 mirrors a HDBaseT output by default
+    volume_1: 0
+    volume_2: 0
+    volume_3: 0
+    volume_4: 0
+    volume_5: 0
+    volume_6: 0
+    volume_7: 0
+    volume_9: 0
+    mute_1: false
+    mute_2: false
+    mute_3: false
+    mute_4: false
+    mute_5: false
+    mute_6: false
+    mute_7: false
+    mute_9: false
+
+  delays:
+    command_response: 0.05
+
+  controls:
+    - type: matrix
+      label: Video Routing
+      inputs: 8
+      outputs: 10
+      state_pattern: "route_{output}"
+    - type: indicator
+      key: power
+      label: Power
+    - type: indicator
+      key: model
+      label: Model
+    - type: indicator
+      key: firmware
+      label: Firmware
+    - type: toggle
+      key: front_panel_locked
+      label: Panel Lock
+    - type: slider
+      key: volume_1
+      label: Out 1 Volume
+      min: -79
+      max: 15
+    - type: slider
+      key: volume_9
+      label: Out 9 Volume
+      min: -79
+      max: 15
+    - type: toggle
+      key: mute_1
+      label: Out 1 Mute
+    - type: toggle
+      key: mute_9
+      label: Out 9 Mute
+
+  command_handlers:
+
+    # ── Power ──
+    - match: '^PWON$'
+      handler: |
+        state['power'] = 'on'
+        respond("PWON\r\n")
+    - match: '^PWOFF$'
+      handler: |
+        state['power'] = 'off'
+        respond("PWOFF\r\n")
+    - match: '^PWSTA$'
+      handler: |
+        val = "PWON" if state['power'] == 'on' else "PWOFF"
+        respond(f"{val}\r\n")
+
+    # ── Routing: xXAVxY[,xZ,...] (single or multi-output) ──
+    # The command "x3AVx2,x4,x7" routes input 3 to outputs 2, 4, 7.
+    # Feedback echoes the same line.
+    - match: '^x(\d+)AVx(\d+(?:,x\d+)*)$'
+      handler: |
+        inp = int(match.group(1))
+        outs = [int(o.lstrip('x')) for o in match.group(2).split(',')]
+        for o in outs:
+            key = f"route_{o}"
+            if key in state:
+                state[key] = inp
+        body = ",".join(f"x{o}" for o in outs)
+        respond(f"x{inp}AV{body}\r\n")
+
+    # ── Routing: xXAll ──
+    - match: '^x(\d+)All$'
+      handler: |
+        inp = int(match.group(1))
+        for o in range(1, 11):
+            state[f"route_{o}"] = inp
+        respond(f"x{inp}All\r\n")
+
+    # ── Routing reset ──
+    - match: '^All#$'
+      handler: |
+        for o in range(1, 11):
+            state[f"route_{o}"] = o if o <= 8 else 8
+        respond("All#\r\n")
+
+    # ── Status (full dump) ──
+    - match: '^Status$'
+      handler: |
+        parts = [f"x{state.get(f'route_{o}', o)}AVx{o}" for o in range(1, 11)]
+        respond(",".join(parts) + "\r\n")
+
+    # ── Statusx X (single output) ──
+    - match: '^Statusx(\d+)$'
+      handler: |
+        out = int(match.group(1))
+        if out < 1 or out > 10:
+            respond("Command FAILED\r\n")
+        else:
+            inp = state.get(f"route_{out}", out)
+            respond(f"x{inp}AVx{out}\r\n")
+
+    # ── Output enable: x?$ on/off/sta ──
+    - match: '^x(\d+)\$\s+(on|off|sta)$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        respond(f"x{out}$ {val}\r\n")
+
+    # ── Volume: VOUT<N> <level> ──
+    - match: '^VOUT(\d+)\s+(\S+)$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        key = f"volume_{out}"
+        if val == "sta":
+            cur = state.get(key, 0)
+            respond(f"VOUT{out} {cur}\r\n")
+        elif val in ("+", "-"):
+            cur = state.get(key, 0)
+            new = max(-79, min(15, cur + (1 if val == "+" else -1)))
+            if key in state:
+                state[key] = new
+            respond(f"VOUT{out} {new}\r\n")
+        else:
+            try:
+                level = max(-79, min(15, int(val)))
+                if key in state:
+                    state[key] = level
+                respond(f"VOUT{out} {level}\r\n")
+            except ValueError:
+                respond("Command FAILED\r\n")
+
+    # ── Mute: VOUTMute<N> on/off/sta ──
+    - match: '^VOUTMute(\d+)\s+(on|off|sta)$'
+      handler: |
+        out = match.group(1)
+        val = match.group(2)
+        key = f"mute_{out}"
+        if val == "sta":
+            cur = "on" if state.get(key, False) else "off"
+            respond(f"VOUTMute{out} {cur}\r\n")
+        else:
+            if key in state:
+                state[key] = (val == "on")
+            respond(f"VOUTMute{out} {val}\r\n")
+
+    # ── Lock / Unlock / Blink ──
+    - match: '^Lock$'
+      handler: |
+        state['front_panel_locked'] = True
+        respond("Lock\r\n")
+    - match: '^Unlock$'
+      handler: |
+        state['front_panel_locked'] = False
+        respond("Unlock\r\n")
+    - match: '^Blink\s+(on|off|sta)$'
+      handler: |
+        respond(f"Blink {match.group(1)}\r\n")
+
+    # ── Presets ──
+    - match: '^Save(\d+)$'
+      handler: |
+        respond(f"Save{match.group(1)}\r\n")
+    - match: '^Recall(\d+)$'
+      handler: |
+        respond(f"Recall{match.group(1)}\r\n")
+    - match: '^Clear(\d+)$'
+      handler: |
+        respond(f"Clear{match.group(1)}\r\n")
+
+    # ── System ──
+    - match: '^Type(?:\s+full)?$'
+      handler: |
+        respond(f"{state['model']}\r\n")
+    - match: '^Version$'
+      handler: |
+        respond(f"Firmware {state['firmware']}\r\n")
+
+    # Catch-all — must stay last (script form so it runs after specific entries).
+    - match: '.+'
+      handler: |
+        respond("Command FAILED\r\n")
+
+  error_modes:
+    communication_timeout:
+      description: "Device stops responding to commands"
+      behavior: no_response
+    auth_required:
+      description: "IPLogin enabled — device requires Telnet authentication"
+      behavior: no_response

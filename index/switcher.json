@@ -1,13 +1,58 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T23:55:24+00:00",
+    "generated_at": "2026-05-02T00:48:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 5,
+    "total_drivers": 6,
     "shards": null,
     "category": "switcher"
   },
   "drivers": [
+    {
+      "id": "atlona_uhd_pro3",
+      "name": "Atlona AT-UHD-PRO3 Matrix",
+      "manufacturer": "Atlona",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source routing (per output, all outputs, multi-output), per-output volume and mute, power, presets (save / recall / clear), front-panel lock, and identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M outputs 11-18 are routable but not state-mirrored).\n",
+      "source_url": "https://atlona.com/pdf/AT-UHD-PRO3-88M_API.pdf",
+      "file": "switchers/atlona_uhd_pro3.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "atlona_pro3"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.9.0",
+      "tags": [
+        "matrix-switcher",
+        "hdbaset",
+        "atlona",
+        "pro3",
+        "telnet"
+      ],
+      "help": {
+        "overview": "Atlona PRO3 matrices route HDMI sources to HDBaseT extender outputs over a Cat5e/6 link to remote receivers. Use the Route command to send a source to a specific output, the Route to All command to send one source everywhere, and per-output volume / mute for HDBaseT zone audio. Save up to 50 routing presets.\n",
+        "setup": "1. Set a static IP on the matrix via its web UI (or DHCP reservation). 2. If IPLogin is enabled (factory default), enter the Username and\n   Password configured on the matrix in this driver's config \u2014 the\n   driver handles the \"Login:\" / \"Password:\" handshake automatically.\n   Leave both blank if you've turned IPLogin off (per KB01392).\n3. Atlona requires a 500 ms minimum delay between commands; the\n   driver sends commands at that rate by default.\n4. To activate a routing preset from a macro: configure the routing\n   you want via individual Route commands, then send the Save Preset\n   command with a preset number. Recall later with Recall Preset.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Atlona",
+          "models": [
+            "AT-UHD-PRO3-44M",
+            "AT-UHD-PRO3-66M",
+            "AT-UHD-PRO3-88M",
+            "AT-UHD-PRO3-1616M"
+          ],
+          "confidence": "untested",
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+        }
+      ]
+    },
     {
       "id": "atlona_omnistream",
       "name": "Atlona OmniStream",

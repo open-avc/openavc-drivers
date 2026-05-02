@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-01T23:55:24+00:00",
+    "generated_at": "2026-05-02T00:48:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 332,
+    "total_devices": 336,
     "shards": null
   },
   "devices": [
@@ -136,6 +136,54 @@
           "id": "atlona_omnistream",
           "confidence": "untested",
           "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-UHD-PRO3-1616M",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_uhd_pro3",
+          "confidence": "untested",
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-UHD-PRO3-44M",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_uhd_pro3",
+          "confidence": "untested",
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-UHD-PRO3-66M",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_uhd_pro3",
+          "confidence": "untested",
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-UHD-PRO3-88M",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_uhd_pro3",
+          "confidence": "untested",
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
       ]
     },

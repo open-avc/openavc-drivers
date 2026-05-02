@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T01:57:35+00:00",
+    "generated_at": "2026-05-02T02:14:49+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 378,
+    "total_devices": 383,
     "shards": null
   },
   "devices": [
@@ -2898,6 +2898,66 @@
           "id": "panasonic_pt",
           "confidence": "untested",
           "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "G7500",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "poly_studio",
+          "confidence": "untested",
+          "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Studio E70",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "poly_studio",
+          "confidence": "untested",
+          "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Studio X30",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "poly_studio",
+          "confidence": "untested",
+          "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Studio X50",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "poly_studio",
+          "confidence": "untested",
+          "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Poly",
+      "model": "Studio X70",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "poly_studio",
+          "confidence": "untested",
+          "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
         }
       ]
     },

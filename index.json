@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T01:57:35+00:00",
+    "generated_at": "2026-05-02T02:14:49+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 44,
+    "total_drivers": 45,
     "shards": null
   },
   "drivers": [
@@ -1381,6 +1381,55 @@
           ],
           "confidence": "untested",
           "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "id": "poly_studio",
+      "name": "Poly Studio (VideoOS)",
+      "manufacturer": "Poly",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
+      "source_url": "https://kaas.hpcloud.hp.com/pdf-public/pdf_9122216_en-US-1.pdf",
+      "file": "video/poly_studio.py",
+      "format": "python",
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "poly_videoos"
+      ],
+      "simulated": true,
+      "tags": [
+        "poly",
+        "hp",
+        "videoconferencing",
+        "studio",
+        "x30",
+        "x50",
+        "x70",
+        "g7500",
+        "rest"
+      ],
+      "help": {
+        "overview": "Poly VideoOS exposes a documented REST API on HTTPS 443 for control of audio mute, volume, privacy / video mute, camera control and presets, active call hangup, and system reboot. The driver uses session-cookie authentication \u2014 log in once with the device's admin credentials and the session is reused for the lifetime of the connection.",
+        "setup": "1. Connect the Poly bar to the network and assign a static IP.\n2. From the bar's web UI (https://<ip>) sign in as Admin and confirm the API is enabled. The factory default password is the device's serial number on first boot \u2014 change it immediately to a site-specific password.\n3. In OpenAVC, enter the bar's IP, the admin username (default ``admin``), and the password. Leave the port at 443."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Poly",
+          "models": [
+            "Studio X30",
+            "Studio X50",
+            "Studio X70",
+            "Studio E70",
+            "G7500"
+          ],
+          "confidence": "untested",
+          "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
         }
       ]
     },

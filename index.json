@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T01:32:15+00:00",
+    "generated_at": "2026-05-02T01:57:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 43,
+    "total_drivers": 44,
     "shards": null
   },
   "drivers": [
@@ -1306,6 +1306,81 @@
           ],
           "confidence": "untested",
           "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+        }
+      ]
+    },
+    {
+      "id": "panasonic_pt",
+      "name": "Panasonic PT-MZ / PT-RZ Projector",
+      "manufacturer": "Panasonic",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) professional installation projectors via the NTCONTROL TCP protocol (Protocol 2). Power, input, shutter / AV mute, freeze, and operating-hours readout. Supports Panasonic's MD5 session-challenge authentication so the projector keeps its default Web Control admin password.",
+      "source_url": "https://docs.connect.panasonic.com/prodisplays/support/download/pdf/LAN_Protocol_exp.pdf",
+      "file": "projectors/panasonic_pt.py",
+      "format": "python",
+      "ports": [
+        1024
+      ],
+      "protocols": [
+        "ntcontrol"
+      ],
+      "simulated": true,
+      "tags": [
+        "projector",
+        "panasonic",
+        "ntcontrol",
+        "pt",
+        "installation"
+      ],
+      "help": {
+        "overview": "Panasonic NTCONTROL (Protocol 2) is the TCP control channel shared across all Panasonic professional projectors. It runs on TCP 1024 by default with optional MD5 challenge-response authentication tied to the projector's Web Control admin account.",
+        "setup": "1. Connect the projector to the network and assign a static IP.\n2. In the projector's main menu, set [Network] -> [Network Control] -> [Command Control] = ON. The default command port is 1024.\n3. Open the projector's Web Control page in a browser. Set or change the Administrator-Authorized password (default username is ``admin1``, default password is ``panasonic``).\n4. In OpenAVC, enter the projector's IP and the Web Control admin username and password. If you left the password blank in the projector's web UI (non-protected mode), leave the password field empty here too."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Panasonic",
+          "models": [
+            "PT-MZ20K",
+            "PT-SMZ20KC",
+            "PT-MZ17K",
+            "PT-SMZ17KC",
+            "PT-MZ14K",
+            "PT-MZ11K",
+            "PT-SMZ11KC",
+            "PT-MZ16K",
+            "PT-MZ13K",
+            "PT-MZ10K",
+            "PT-MZ880",
+            "PT-MZ780",
+            "PT-MZ680",
+            "PT-MZ770",
+            "PT-MZ670",
+            "PT-MZ570",
+            "PT-MZ16K",
+            "PT-RZ990",
+            "PT-RZ970",
+            "PT-RW930",
+            "PT-RX110",
+            "PT-RZ690",
+            "PT-RZ660",
+            "PT-RW620",
+            "PT-RZ570",
+            "PT-RZ575",
+            "PT-RZ475",
+            "PT-RZ34K",
+            "PT-RZ31K",
+            "PT-RZ24K",
+            "PT-RZ21K",
+            "PT-RZ16K",
+            "PT-RZ12K",
+            "PT-RCQ10",
+            "PT-RCQ80"
+          ],
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
         }
       ]
     },

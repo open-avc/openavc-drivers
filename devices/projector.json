@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T01:32:15+00:00",
+    "generated_at": "2026-05-02T01:57:35+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 59,
+    "total_devices": 93,
     "shards": null,
     "category": "projector"
   },
@@ -269,6 +269,419 @@
           "id": "epson_escvp",
           "confidence": "untested",
           "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ10K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ11K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ13K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ14K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ16K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        },
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ17K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ20K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ570",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ670",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ680",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ770",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ780",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-MZ880",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RCQ10",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RCQ80",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RW620",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RW930",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RX110",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ12K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ16K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ21K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ24K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ31K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ34K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ475",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ570",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ575",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ660",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ690",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ970",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-RZ990",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-SMZ11KC",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-SMZ17KC",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "PT-SMZ20KC",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "panasonic_pt",
+          "confidence": "untested",
+          "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
         }
       ]
     },

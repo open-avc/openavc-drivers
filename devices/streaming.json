@@ -1,13 +1,145 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T02:34:24+00:00",
+    "generated_at": "2026-05-02T15:15:23+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 5,
+    "total_devices": 16,
     "shards": null,
     "category": "streaming"
   },
   "devices": [
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare C-10",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare C-10A",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare C-5",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CB-Core",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CB-Pro",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CX-20",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CX-20 Gen2",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CX-30",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CX-30 Gen2",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CX-50",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "ClickShare CX-50 Gen2",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "barco_clickshare_cx",
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
     {
       "manufacturer": "Mersive",
       "model": "Solstice Pod Gen1",

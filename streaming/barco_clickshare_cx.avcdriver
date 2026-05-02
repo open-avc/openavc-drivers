@@ -1,0 +1,763 @@
+# Barco ClickShare CX Driver (REST API V2)
+#
+# Controls Barco ClickShare CX-series Base Units over the local REST API V2
+# (HTTPS, port 4003). ClickShare is a wireless presentation system — laptops
+# and mobile devices share content to the Base Unit, which composes it onto
+# a connected display.
+#
+# Models covered (CX / C / CB-series):
+#   - CX-20, CX-30, CX-50 (Gen1 + Gen2)
+#   - C-5, C-10, C-10A
+#   - CB-Core, CB-Pro
+# All run the same V2 REST API on the same TCP port. The doc is identical
+# across the family — feature differences (number of buttons, video outputs,
+# UVC pass-through availability) are reported by the Base Unit at runtime
+# via the `supportedOutputs`, `supportedModes`, etc. arrays.
+#
+# Protocol reference:
+#   Barco "ClickShare REST API — Reference manual", R5915531 /12 (2025-10-29).
+#   Available from Barco's product documentation portal alongside the firmware.
+#   In-Base-Unit OpenAPI explorer: https://<base-unit>:4003/api-docs
+#   Version listing endpoints: /supportedVersions, /currentVersion (no auth).
+#
+# Authentication:
+#   HTTP Basic. Default credentials are integrator/integrator. They are
+#   changed in the Base Unit's web Configurator; supply whatever the site
+#   uses in this device's config.
+#
+# TLS:
+#   The Base Unit ships a self-signed certificate. `verify_ssl: false` by
+#   default — the integrator can replace the cert with a trusted one and
+#   flip verify_ssl to true. There is no plain-HTTP endpoint.
+#
+# Push vs poll:
+#   The V2 API supports SSE subscriptions (Accept: text/event-stream keeps
+#   the connection open and pushes updates) per §1.1 of the spec. The
+#   platform's HTTP transport is request/response only today, so this
+#   driver polls. The endpoints we poll are cheap and the cadence is 30 s
+#   by default — fast enough for "is anyone presenting right now?" use
+#   cases. Subscription support is a future platform improvement (tracked
+#   alongside other push-deferred drivers).
+#
+# Scope:
+#   Universal AV-integrator runtime control surface — system status (in_use
+#   / sharing / uptime / errors), standby + wake + reboot, audio enable /
+#   output selection, video mode (Extended/Clone) + CEC toggle, wallpaper
+#   selection, paired-button readback, power-management settings.
+#   Install-time configuration (network, wireless, ClickShare app config,
+#   peripherals, certificates, signage, Flexible Room System pairing) is
+#   intentionally NOT exposed — those belong in the web Configurator and
+#   Barco's XMS fleet management product.
+
+id: barco_clickshare_cx
+name: Barco ClickShare CX
+manufacturer: Barco
+category: streaming
+version: 1.0.0
+author: OpenAVC
+description: >
+  Wireless presentation Base Unit control via local REST API V2 (HTTPS,
+  port 4003). System status, standby / wake / reboot, audio + video +
+  wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50,
+  C-5 / C-10 / C-10A, CB-Core / CB-Pro.
+
+source_url: https://www.barco.com/services/website/en/TdeFiles/Download?FileNumber=R5915531&TdeType=3&MajorVersion=12
+tags: [barco, clickshare, wireless-presentation, byod, cx, c-series, cb-series]
+verified: false
+simulated: true
+protocols: [clickshare_v2]
+ports: [4003]
+
+compatible_models:
+  - manufacturer: Barco
+    models:
+      - ClickShare CX-20
+      - ClickShare CX-20 Gen2
+      - ClickShare CX-30
+      - ClickShare CX-30 Gen2
+      - ClickShare CX-50
+      - ClickShare CX-50 Gen2
+      - ClickShare C-5
+      - ClickShare C-10
+      - ClickShare C-10A
+      - ClickShare CB-Core
+      - ClickShare CB-Pro
+    confidence: untested
+    notes: >
+      Same V2 REST API across the entire CX / C / CB family. Feature
+      differences (number of paired buttons, dual video outputs on CX-50
+      Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported
+      by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`,
+      `supportedPowerModes`, etc. arrays — the driver doesn't need to know
+      the model. Older CSE / CSC ClickShare units use a different (legacy)
+      API and are NOT covered.
+
+transport: http
+
+help:
+  overview: >
+    The ClickShare Base Unit exposes a local REST API on port 4003 (HTTPS).
+    Use this driver to mirror runtime status (is anyone sharing?), force
+    the Base Unit into / out of standby, reboot, and switch audio output /
+    wallpaper / video mode under macro control. Typical room logic: when
+    the room shutdown macro fires, send `standby`; when the room comes up,
+    send `wakeup` (or rely on the Base Unit's auto-wake on first share).
+  setup: >
+    1. Set a static IP (or DHCP reservation) on the Base Unit — its
+       Ethernet MAC is on the bottom label. Leave port 4003 open between
+       the OpenAVC server and the Base Unit.
+    2. In the Base Unit's web Configurator (https://<base-unit>), open
+       Security → Pin Code / API and confirm the API is enabled. Default
+       credentials are integrator / integrator. Change them and supply
+       the new ones below.
+    3. (Recommended) Replace the self-signed HTTPS certificate with one
+       trusted by the OpenAVC host, then flip "Verify SSL Certificate"
+       on. The driver works either way; verifying is just defense in
+       depth.
+    4. Click Save. The driver polls every 30 seconds by default — drop
+       to 10 s if you need faster sharing-state updates (the Base Unit
+       can handle it; ClickShare's own integrations poll more frequently).
+
+discovery:
+  ports: [4003]
+  mac_prefixes: ["00:04:A5"]   # Barco OUI
+
+default_config:
+  host: ""
+  port: 4003
+  ssl: true
+  verify_ssl: false
+  auth_type: "basic"
+  username: "integrator"
+  password: "integrator"
+  timeout: 5.0
+  poll_interval: 30
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: Base Unit IP Address
+    description: "IP address (or hostname) of the ClickShare Base Unit."
+  port:
+    type: integer
+    default: 4003
+    label: HTTPS Port
+    description: "REST API V2 port. Default 4003. The API is HTTPS only."
+  username:
+    type: string
+    default: "integrator"
+    required: true
+    label: API Username
+    description: "Default is 'integrator'. Change in the Base Unit's web Configurator under Security."
+  password:
+    type: string
+    default: "integrator"
+    required: true
+    label: API Password
+    description: "Default is 'integrator'. Change in the Base Unit's web Configurator."
+    secret: true
+  verify_ssl:
+    type: boolean
+    default: false
+    label: Verify SSL Certificate
+    description: >
+      Off by default — the Base Unit ships with a self-signed certificate
+      that won't verify. Replace the cert via Configurator → Security →
+      HTTPS and turn this on for full TLS validation.
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    label: Poll Interval (sec)
+    description: "How often to refresh sharing / power / audio / video / wallpaper state."
+  timeout:
+    type: number
+    default: 5.0
+    label: Request Timeout (sec)
+
+state_variables:
+
+  # ── System status (configuration/system/status) ──
+  in_use:
+    type: boolean
+    label: In Use
+    description: "True when at least one source (Button / App) is connected to the Base Unit."
+  sharing:
+    type: boolean
+    label: Sharing
+    description: "True when at least one connected source is currently sharing content on the display."
+  current_uptime:
+    type: integer
+    label: Current Uptime (sec)
+    description: "Seconds since the Base Unit was last booted."
+  total_uptime:
+    type: integer
+    label: Total Uptime (sec)
+    description: "Total seconds the Base Unit has run across its lifetime."
+  error_code:
+    type: integer
+    label: Error Code
+    description: "Health code. 0 = Ok. Non-zero means errorMessage will explain."
+  error_message:
+    type: string
+    label: Error Message
+    description: "Health message. Empty when the Base Unit is healthy."
+
+  # ── Power management (configuration/system/power-management) ──
+  system_status:
+    type: string
+    label: System Status
+    description: "On / Standby. Reflects the Base Unit's display-output power state."
+  power_mode:
+    type: string
+    label: Power Mode
+    description: "EcoStandby / NetworkedStandby / DeepStandby. Set via set_power_mode."
+  standby_timeout:
+    type: string
+    label: Standby Timeout (min)
+    description: "Inactivity timeout before standby. 'Infinite' or a numeric string of minutes."
+
+  # ── Device identity (configuration/system/device-identity) ──
+  product_name:
+    type: string
+    label: Product
+    description: "User-facing model, e.g. CX-30."
+  model_name:
+    type: string
+    label: Platform
+    description: "Internal platform name, e.g. C3010S."
+  serial_number:
+    type: string
+    label: Serial Number
+  article_number:
+    type: string
+    label: Article Number
+    description: "Barco SKU, e.g. R9861511EU."
+
+  # ── Audio (configuration/audio) ──
+  audio_enabled:
+    type: boolean
+    label: Audio Enabled
+  audio_output:
+    type: string
+    label: Audio Output
+    description: "Selected output: DisplayPort / Jack / HDMI / SPDIF (Base Unit-dependent)."
+
+  # ── Video (configuration/video) ──
+  video_mode:
+    type: string
+    label: Video Mode
+    description: "Extended / Clone — only meaningful on dual-output Base Units."
+  cec_enabled:
+    type: boolean
+    label: CEC Enabled
+    description: "When on, the Base Unit reacts to CEC signals from connected displays."
+
+  # ── Wallpaper (configuration/wallpapers/selected) ──
+  selected_wallpaper_id:
+    type: integer
+    label: Wallpaper ID
+  selected_wallpaper_name:
+    type: string
+    label: Wallpaper Name
+
+commands:
+
+  # ── Operations (operations/...) ──
+
+  standby:
+    label: Standby
+    method: POST
+    path: "/v2/operations/standby"
+    help: "Put the Base Unit into standby. Display output disabled; behavior depends on power_mode."
+
+  wakeup:
+    label: Wake Up
+    method: POST
+    path: "/v2/operations/wakeup"
+    help: "Wake the Base Unit from standby. Available since API 2.9."
+
+  reboot:
+    label: Reboot
+    method: POST
+    path: "/v2/operations/reboot"
+    help: "Reboot the Base Unit. Briefly drops the API connection."
+
+  # ── Status / identity queries ──
+
+  query_status:
+    label: Query System Status
+    method: GET
+    path: "/v2/configuration/system/status"
+    help: "Refreshes in_use, sharing, uptime, error state."
+
+  query_power:
+    label: Query Power Management
+    method: GET
+    path: "/v2/configuration/system/power-management"
+    help: "Refreshes system_status (On/Standby), power_mode, standby_timeout."
+
+  query_identity:
+    label: Query Device Identity
+    method: GET
+    path: "/v2/configuration/system/device-identity"
+    help: "Refreshes product_name, model_name, serial_number, article_number. Static — runs once at connect."
+
+  query_audio:
+    label: Query Audio Settings
+    method: GET
+    path: "/v2/configuration/audio"
+    help: "Refreshes audio_enabled, audio_output."
+
+  query_video:
+    label: Query Video Settings
+    method: GET
+    path: "/v2/configuration/video"
+    help: "Refreshes video_mode, cec_enabled."
+
+  query_wallpaper_selected:
+    label: Query Selected Wallpaper
+    method: GET
+    path: "/v2/configuration/wallpapers/selected"
+    help: "Refreshes selected_wallpaper_id, selected_wallpaper_name."
+
+  query_wallpapers:
+    label: List All Wallpapers
+    method: GET
+    path: "/v2/configuration/wallpapers"
+    help: "Returns the wallpaper catalog as a JSON array — read the response to find IDs to use with select_wallpaper."
+
+  query_buttons:
+    label: List Paired Buttons
+    method: GET
+    path: "/v2/configuration/buttons"
+    help: "Returns the array of paired ClickShare Buttons — connection state, IP, MAC, firmware, status."
+
+  # ── Audio control (configuration/audio) ──
+
+  audio_enable:
+    label: Audio Enable
+    method: PATCH
+    path: "/v2/configuration/audio"
+    body: '{"enabled": true}'
+    help: "Enable the Base Unit's audio output. After flipping this, paired Buttons must be re-paired before the change takes effect."
+
+  audio_disable:
+    label: Audio Disable
+    method: PATCH
+    path: "/v2/configuration/audio"
+    body: '{"enabled": false}'
+
+  set_audio_output:
+    label: Set Audio Output
+    method: PATCH
+    path: "/v2/configuration/audio"
+    body: '{"output": "{output}"}'
+    help: "Select the audio output. Only outputs in the Base Unit's supportedOutputs are valid; others return an error."
+    params:
+      output:
+        type: enum
+        values: ["DisplayPort", "Jack", "HDMI", "SPDIF"]
+        default: "HDMI"
+        required: true
+        label: Output
+
+  # ── Video control (configuration/video) ──
+
+  set_video_mode:
+    label: Set Video Mode
+    method: PATCH
+    path: "/v2/configuration/video"
+    body: '{"mode": "{mode}"}'
+    help: "Dual-output Base Units only. Extended = independent screens, Clone = mirrored."
+    params:
+      mode:
+        type: enum
+        values: ["Extended", "Clone"]
+        default: "Extended"
+        required: true
+        label: Mode
+
+  cec_enable:
+    label: CEC Enable
+    method: PATCH
+    path: "/v2/configuration/video"
+    body: '{"cecEnabled": true}'
+    help: "Allow the Base Unit to react to CEC signals from the connected display. Requires cecConfigurable=true on the Base Unit (API 2.19+)."
+
+  cec_disable:
+    label: CEC Disable
+    method: PATCH
+    path: "/v2/configuration/video"
+    body: '{"cecEnabled": false}'
+
+  # ── Wallpaper control ──
+
+  select_wallpaper:
+    label: Select Wallpaper
+    method: PATCH
+    path: "/v2/configuration/wallpapers/selected"
+    body: '{"id": {id}}'
+    help: "Switch the active wallpaper. Run query_wallpapers first to get IDs."
+    params:
+      id:
+        type: integer
+        required: true
+        default: 1
+        min: 1
+        label: Wallpaper ID
+
+  # ── Power management ──
+
+  set_power_mode:
+    label: Set Power Mode
+    method: PATCH
+    path: "/v2/configuration/system/power-management"
+    body: '{"powerMode": "{mode}"}'
+    help: "EcoStandby = lowest power, no LAN wake. NetworkedStandby = LAN-wakeable. DeepStandby = deepest sleep."
+    params:
+      mode:
+        type: enum
+        values: ["EcoStandby", "NetworkedStandby", "DeepStandby"]
+        default: "NetworkedStandby"
+        required: true
+        label: Power Mode
+
+  set_standby_timeout:
+    label: Set Standby Timeout
+    method: PATCH
+    path: "/v2/configuration/system/power-management"
+    body: '{"standbyTimeout": "{timeout}"}'
+    help: "Minutes of inactivity before standby, or 'Infinite' to disable auto-standby. Valid values are reported in supportedStandbyTimeouts."
+    params:
+      timeout:
+        type: enum
+        values: ["Infinite", "1", "5", "10", "15", "30", "45", "60"]
+        default: "30"
+        required: true
+        label: Timeout (min)
+
+# Response patterns. The V2 API returns JSON objects — match by field name.
+# Field names are unique enough across the endpoints we poll that simple
+# per-key regexes don't cross-fire. Notable choices:
+#   - `"status":"(On|Standby)"` (anchored on the two valid values) only
+#     matches the power-management response; per-button "status" values
+#     are Ok / Error / Warning and don't alternate-match.
+#   - `"output":"(DisplayPort|Jack|HDMI|SPDIF)"` is anchored on the audio
+#     output enum so it doesn't capture stray "output" keys elsewhere.
+#   - The wallpaper response is `{"id":N,"md5":"...","name":"..."}` — match
+#     id and name in one regex with two captures so we set both atomically.
+responses:
+
+  # System status
+  - match: '"currentUptime":\s*(\d+)'
+    set: { current_uptime: "$1" }
+  - match: '"totalUptime":\s*(\d+)'
+    set: { total_uptime: "$1" }
+  - match: '"errorCode":\s*(\d+)'
+    set: { error_code: "$1" }
+  - match: '"errorMessage":"([^"]*)"'
+    set: { error_message: "$1" }
+  - match: '"inUse":(true|false)'
+    set: { in_use: "$1" }
+  - match: '"sharing":(true|false)'
+    set: { sharing: "$1" }
+
+  # Power management
+  - match: '"powerMode":"([^"]+)"'
+    set: { power_mode: "$1" }
+  - match: '"standbyTimeout":"([^"]+)"'
+    set: { standby_timeout: "$1" }
+  - match: '"status":"(On|Standby)"'
+    set: { system_status: "$1" }
+
+  # Device identity
+  - match: '"articleNumber":"([^"]+)"'
+    set: { article_number: "$1" }
+  - match: '"modelName":"([^"]+)"'
+    set: { model_name: "$1" }
+  - match: '"productName":"([^"]+)"'
+    set: { product_name: "$1" }
+  - match: '"serialNumber":"([^"]+)"'
+    set: { serial_number: "$1" }
+
+  # Audio
+  - match: '"enabled":(true|false),"output":"(DisplayPort|Jack|HDMI|SPDIF)"'
+    set: { audio_enabled: "$1", audio_output: "$2" }
+  - match: '"output":"(DisplayPort|Jack|HDMI|SPDIF)"'
+    set: { audio_output: "$1" }
+
+  # Video — `mode` is unique to the video endpoint among polled responses.
+  # `cecEnabled` is anchored to its own field name.
+  - match: '"cecEnabled":(true|false)'
+    set: { cec_enabled: "$1" }
+  - match: '"mode":"(Extended|Clone)"'
+    set: { video_mode: "$1" }
+
+  # Wallpaper selected — capture id + name in one shot.
+  - match: '"id":\s*(\d+),"md5":"[^"]*","name":"([^"]+)"'
+    set: { selected_wallpaper_id: "$1", selected_wallpaper_name: "$2" }
+
+on_connect:
+  - query_identity
+  - query_status
+  - query_power
+  - query_audio
+  - query_video
+  - query_wallpaper_selected
+
+polling:
+  interval: 30
+  queries:
+    - query_status
+    - query_power
+    - query_audio
+    - query_video
+    - query_wallpaper_selected
+
+# ── SIMULATOR DEFINITION ──
+simulator:
+  initial_state:
+    in_use: false
+    sharing: false
+    current_uptime: 12345
+    total_uptime: 6543210
+    error_code: 0
+    error_message: ""
+    system_status: "On"
+    power_mode: "NetworkedStandby"
+    standby_timeout: "30"
+    product_name: "CX-30"
+    model_name: "C3010S"
+    serial_number: "1860000001"
+    article_number: "R9861511EU"
+    audio_enabled: true
+    audio_output: "HDMI"
+    video_mode: "Extended"
+    cec_enabled: false
+    selected_wallpaper_id: 1
+    selected_wallpaper_name: "barco.jpg"
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: indicator
+      key: product_name
+      label: Product
+    - type: indicator
+      key: serial_number
+      label: Serial Number
+    - type: toggle
+      key: in_use
+      label: In Use
+    - type: toggle
+      key: sharing
+      label: Sharing
+    - type: indicator
+      key: current_uptime
+      label: Current Uptime (s)
+    - type: indicator
+      key: system_status
+      label: System Status
+    - type: indicator
+      key: power_mode
+      label: Power Mode
+    - type: indicator
+      key: standby_timeout
+      label: Standby Timeout
+    - type: toggle
+      key: audio_enabled
+      label: Audio Enabled
+    - type: indicator
+      key: audio_output
+      label: Audio Output
+    - type: indicator
+      key: video_mode
+      label: Video Mode
+    - type: toggle
+      key: cec_enabled
+      label: CEC Enabled
+    - type: indicator
+      key: selected_wallpaper_id
+      label: Wallpaper ID
+    - type: indicator
+      key: selected_wallpaper_name
+      label: Wallpaper Name
+
+  command_handlers:
+
+    # GET /v2/configuration/system/status
+    - match: '^GET /v2/configuration/system/status$'
+      handler: |
+        body = (
+          '{'
+          f'"currentUptime":{state["current_uptime"]},'
+          f'"errorCode":{state["error_code"]},'
+          f'"errorMessage":"{state["error_message"]}",'
+          '"firstUsed":"2023-01-15 12:00:00",'
+          f'"inUse":{"true" if state["in_use"] else "false"},'
+          f'"sharing":{"true" if state["sharing"] else "false"},'
+          f'"totalUptime":{state["total_uptime"]}'
+          '}'
+        )
+        respond(body)
+
+    # GET /v2/configuration/system/power-management
+    - match: '^GET /v2/configuration/system/power-management$'
+      handler: |
+        body = (
+          '{'
+          f'"powerMode":"{state["power_mode"]}",'
+          f'"standbyTimeout":"{state["standby_timeout"]}",'
+          f'"status":"{state["system_status"]}",'
+          '"supportedPowerModes":["EcoStandby","NetworkedStandby","DeepStandby"],'
+          '"supportedStandbyTimeouts":["Infinite","1","5","10","15","30","45","60"],'
+          '"supportedStatuses":["On","Standby"]'
+          '}'
+        )
+        respond(body)
+
+    # GET /v2/configuration/system/device-identity
+    - match: '^GET /v2/configuration/system/device-identity$'
+      handler: |
+        body = (
+          '{'
+          f'"articleNumber":"{state["article_number"]}",'
+          '"hardwareVersion":"2.0",'
+          f'"modelName":"{state["model_name"]}",'
+          f'"productName":"{state["product_name"]}",'
+          f'"serialNumber":"{state["serial_number"]}"'
+          '}'
+        )
+        respond(body)
+
+    # GET /v2/configuration/audio
+    - match: '^GET /v2/configuration/audio$'
+      handler: |
+        body = (
+          '{'
+          f'"enabled":{"true" if state["audio_enabled"] else "false"},'
+          f'"output":"{state["audio_output"]}",'
+          '"supportedOutputs":["DisplayPort","Jack","HDMI","SPDIF"]'
+          '}'
+        )
+        respond(body)
+
+    # PATCH /v2/configuration/audio  — body may be {"enabled":...} or {"output":...}
+    - match: '^PATCH /v2/configuration/audio\|(.*)$'
+      handler: |
+        body = match.group(1)
+        if '"enabled": true' in body or '"enabled":true' in body:
+          state["audio_enabled"] = True
+        elif '"enabled": false' in body or '"enabled":false' in body:
+          state["audio_enabled"] = False
+        m = re.search(r'"output":\s*"([^"]+)"', body)
+        if m:
+          state["audio_output"] = m.group(1)
+        respond('{}')
+
+    # GET /v2/configuration/video
+    - match: '^GET /v2/configuration/video$'
+      handler: |
+        body = (
+          '{'
+          '"autoDetect":true,'
+          '"cecConfigurable":true,'
+          f'"cecEnabled":{"true" if state["cec_enabled"] else "false"},'
+          f'"mode":"{state["video_mode"]}",'
+          '"supportedModes":["Extended","Clone"]'
+          '}'
+        )
+        respond(body)
+
+    # PATCH /v2/configuration/video
+    - match: '^PATCH /v2/configuration/video\|(.*)$'
+      handler: |
+        body = match.group(1)
+        if '"cecEnabled": true' in body or '"cecEnabled":true' in body:
+          state["cec_enabled"] = True
+        elif '"cecEnabled": false' in body or '"cecEnabled":false' in body:
+          state["cec_enabled"] = False
+        m = re.search(r'"mode":\s*"([^"]+)"', body)
+        if m:
+          state["video_mode"] = m.group(1)
+        respond('{}')
+
+    # PATCH /v2/configuration/system/power-management
+    - match: '^PATCH /v2/configuration/system/power-management\|(.*)$'
+      handler: |
+        body = match.group(1)
+        m = re.search(r'"powerMode":\s*"([^"]+)"', body)
+        if m:
+          state["power_mode"] = m.group(1)
+        m = re.search(r'"standbyTimeout":\s*"([^"]+)"', body)
+        if m:
+          state["standby_timeout"] = m.group(1)
+        respond('{}')
+
+    # GET /v2/configuration/wallpapers/selected
+    - match: '^GET /v2/configuration/wallpapers/selected$'
+      handler: |
+        body = (
+          '{'
+          f'"id":{state["selected_wallpaper_id"]},'
+          '"md5":"6f34fedd3c91a130fde57b7c76ab44f5",'
+          f'"name":"{state["selected_wallpaper_name"]}"'
+          '}'
+        )
+        respond(body)
+
+    # PATCH /v2/configuration/wallpapers/selected
+    - match: '^PATCH /v2/configuration/wallpapers/selected\|(.*)$'
+      handler: |
+        body = match.group(1)
+        m = re.search(r'"id":\s*(\d+)', body)
+        if m:
+          new_id = int(m.group(1))
+          state["selected_wallpaper_id"] = new_id
+          state["selected_wallpaper_name"] = f"wallpaper_{new_id}.jpg"
+        respond('{}')
+
+    # GET /v2/configuration/wallpapers — return a small catalog.
+    - match: '^GET /v2/configuration/wallpapers$'
+      handler: |
+        respond(
+          '['
+          '{"id":1,"md5":"6f34fedd3c91a130fde57b7c76ab44f5","name":"barco.jpg"},'
+          '{"id":2,"md5":"3d8644944f358d3ef2d466c683255328","name":"meeting.jpg"}'
+          ']'
+        )
+
+    # GET /v2/configuration/buttons — single fake paired Button.
+    - match: '^GET /v2/configuration/buttons$'
+      handler: |
+        respond(
+          '['
+          '{"connected":false,"connectionCount":42,"firmwareVersion":"04.05.00",'
+          '"id":1,"ipAddress":"192.168.2.10","lastConnected":"2024-01-10 10:00:00",'
+          '"lastPaired":"2023-09-01 14:00:00","macAddress":"00:11:22:33:44:55",'
+          '"modelInfo":"GEN4.0","productId":"0x0114","serialNumber":"1860000099",'
+          '"status":"Ok","supportedUsbIdentifierModes":["Default","Room"],'
+          '"usbIdentifierMode":"Default","vendorId":"0x2EBD"}'
+          ']'
+        )
+
+    # POST /v2/operations/standby
+    - match: '^POST /v2/operations/standby(\|.*)?$'
+      handler: |
+        state["system_status"] = "Standby"
+        respond('')
+
+    # POST /v2/operations/wakeup
+    - match: '^POST /v2/operations/wakeup(\|.*)?$'
+      handler: |
+        state["system_status"] = "On"
+        respond('')
+
+    # POST /v2/operations/reboot
+    - match: '^POST /v2/operations/reboot(\|.*)?$'
+      handler: |
+        state["current_uptime"] = 0
+        respond('')

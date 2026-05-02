@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T02:34:24+00:00",
+    "generated_at": "2026-05-02T15:15:23+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 46,
+    "total_drivers": 47,
     "shards": null
   },
   "drivers": [
@@ -254,6 +254,59 @@
             "ATDM-1012DAN"
           ],
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "id": "barco_clickshare_cx",
+      "name": "Barco ClickShare CX",
+      "manufacturer": "Barco",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Wireless presentation Base Unit control via local REST API V2 (HTTPS, port 4003). System status, standby / wake / reboot, audio + video + wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50, C-5 / C-10 / C-10A, CB-Core / CB-Pro.\n",
+      "source_url": "https://www.barco.com/services/website/en/TdeFiles/Download?FileNumber=R5915531&TdeType=3&MajorVersion=12",
+      "file": "streaming/barco_clickshare_cx.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        4003
+      ],
+      "protocols": [
+        "clickshare_v2"
+      ],
+      "simulated": true,
+      "tags": [
+        "barco",
+        "clickshare",
+        "wireless-presentation",
+        "byod",
+        "cx",
+        "c-series",
+        "cb-series"
+      ],
+      "help": {
+        "overview": "The ClickShare Base Unit exposes a local REST API on port 4003 (HTTPS). Use this driver to mirror runtime status (is anyone sharing?), force the Base Unit into / out of standby, reboot, and switch audio output / wallpaper / video mode under macro control. Typical room logic: when the room shutdown macro fires, send `standby`; when the room comes up, send `wakeup` (or rely on the Base Unit's auto-wake on first share).\n",
+        "setup": "1. Set a static IP (or DHCP reservation) on the Base Unit \u2014 its\n   Ethernet MAC is on the bottom label. Leave port 4003 open between\n   the OpenAVC server and the Base Unit.\n2. In the Base Unit's web Configurator (https://<base-unit>), open\n   Security \u2192 Pin Code / API and confirm the API is enabled. Default\n   credentials are integrator / integrator. Change them and supply\n   the new ones below.\n3. (Recommended) Replace the self-signed HTTPS certificate with one\n   trusted by the OpenAVC host, then flip \"Verify SSL Certificate\"\n   on. The driver works either way; verifying is just defense in\n   depth.\n4. Click Save. The driver polls every 30 seconds by default \u2014 drop\n   to 10 s if you need faster sharing-state updates (the Base Unit\n   can handle it; ClickShare's own integrations poll more frequently).\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Barco",
+          "models": [
+            "ClickShare CX-20",
+            "ClickShare CX-20 Gen2",
+            "ClickShare CX-30",
+            "ClickShare CX-30 Gen2",
+            "ClickShare CX-50",
+            "ClickShare CX-50 Gen2",
+            "ClickShare C-5",
+            "ClickShare C-10",
+            "ClickShare C-10A",
+            "ClickShare CB-Core",
+            "ClickShare CB-Pro"
+          ],
+          "confidence": "untested",
+          "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
         }
       ]
     },

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-02T20:45:35+00:00",
+    "generated_at": "2026-05-02T21:18:52+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 506,
+    "total_devices": 511,
     "shards": null
   },
   "devices": [
@@ -76,6 +76,66 @@
           "id": "atlasied_atmosphere",
           "confidence": "untested",
           "notes": "AZM4 / AZM8 are the standalone DSPs; AZMP4 / AZMP8 add internal amplification but share the same third-party control surface."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OME-MS42",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_ome_ms",
+          "confidence": "untested",
+          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OME-MS42-HDBT",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_ome_ms",
+          "confidence": "untested",
+          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OME-MS52",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_ome_ms",
+          "confidence": "untested",
+          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OME-MS52W",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_ome_ms",
+          "confidence": "untested",
+          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Atlona",
+      "model": "AT-OME-MS52W-EU",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "atlona_ome_ms",
+          "confidence": "untested",
+          "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
         }
       ]
     },

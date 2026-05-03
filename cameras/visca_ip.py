@@ -169,7 +169,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": (
             "Generic Sony-specification VISCA-over-IP driver (UDP port "
@@ -226,20 +226,26 @@ class VISCAIPDriver(BaseDriver):
             {
                 "manufacturer": "AVer",
                 "models": [
-                    "CAM520 Pro / Pro2",
+                    "CAM520 Pro / Pro2 / Pro3",
                     "CAM530",
                     "CAM540 / 550",
                     "CAM570",
                     "PTC500S",
                     "TR313 / TR315 / TR320 / TR530",
+                    "VC520 Pro / Pro2 / Pro3",
+                    "VB342+ / VB342 Pro / VB350",
+                    "FONE700",
                 ],
                 "confidence": "untested",
                 "notes": (
                     "AVer's published 'VISCA over IP' protocol guide uses UDP "
                     "52381 with the Sony 8-byte header (verified against AVer's "
-                    "Pro-AV control codes PDF). A dedicated AVer driver would add "
-                    "their HTTP /ptz/getstatus query, picture profile presets, "
-                    "and product-specific extensions -- not yet shipped."
+                    "VISCA Specification 3.3). For the PTZ310 / PTZ330 family "
+                    "use the dedicated `aver_ptz` driver instead -- it adds "
+                    "AVer's HTTP CGI surface (image quality, SmartShoot, "
+                    "SmartFraming, RTMP, bulk status) on top of the VISCA-IP "
+                    "wire format. Other AVer cameras don't have a comparably "
+                    "documented HTTP CGI guide and continue here."
                 ),
             },
             {

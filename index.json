@@ -1,12 +1,56 @@
 {
   "_meta": {
-    "generated_at": "2026-05-03T01:59:05+00:00",
+    "generated_at": "2026-05-03T15:37:51+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 52,
+    "total_drivers": 53,
     "shards": null
   },
   "drivers": [
+    {
+      "id": "allenheath_sq",
+      "name": "Allen & Heath SQ Digital Mixer",
+      "manufacturer": "Allen & Heath",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Full mute / level / pan / assignment control across all 48 inputs, 12 groups, 12 aux outs, 3 matrix outs, 4 FX sends, 8 FX returns, 8 DCAs, and 8 mute groups. Scene recall (1-300), 1 dB increment/decrement, SoftKey triggers, and bidirectional state \u2014 console-side moves push back into OpenAVC state.",
+      "source_url": "https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf",
+      "file": "audio/allenheath_sq.py",
+      "format": "python",
+      "ports": [
+        51325
+      ],
+      "protocols": [
+        "midi-over-tcp"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.6.0",
+      "tags": [
+        "mixer",
+        "console",
+        "midi",
+        "nrpn",
+        "allen-heath"
+      ],
+      "help": {
+        "overview": "Controls an Allen & Heath SQ digital mixing console over the network using MIDI over TCP/IP. Full mute, level, pan and assignment control plus scene recall and SoftKey triggers. Console-side moves push back into OpenAVC state so faders and mute LEDs on a touch panel stay in sync.",
+        "setup": "1. Connect the SQ to the same network as the OpenAVC server.\n2. On the SQ, go to Utility \u2192 General \u2192 Network and note the IP address.\n3. Go to Utility \u2192 General \u2192 MIDI and note the MIDI Channel.\n4. Enter the IP address and matching MIDI channel in the device config. The default port (51325) is correct.\n5. The driver subscribes to console-side updates automatically; no further setup is required."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "SQ-5",
+            "SQ-6",
+            "SQ-7"
+          ],
+          "confidence": "untested",
+          "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+        }
+      ]
+    },
     {
       "id": "atlasied_atmosphere",
       "name": "AtlasIED Atmosphere",

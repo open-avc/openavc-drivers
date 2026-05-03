@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-03T01:59:05+00:00",
+    "generated_at": "2026-05-03T15:37:51+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 511,
+    "total_devices": 514,
     "shards": null
   },
   "devices": [
@@ -28,6 +28,42 @@
           "id": "artnet_dmx",
           "confidence": "untested",
           "notes": "American DJ network DMX gateways."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "SQ-5",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_sq",
+          "confidence": "untested",
+          "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "SQ-6",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_sq",
+          "confidence": "untested",
+          "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "SQ-7",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_sq",
+          "confidence": "untested",
+          "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
         }
       ]
     },

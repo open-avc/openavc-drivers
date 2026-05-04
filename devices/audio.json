@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-03T23:55:10+00:00",
+    "generated_at": "2026-05-04T01:34:27+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 78,
+    "total_devices": 88,
     "shards": null,
     "category": "audio"
   },
@@ -29,6 +29,126 @@
           "id": "allenheath_avantis",
           "confidence": "untested",
           "notes": "Same MIDI command surface across the Avantis family. Requires console firmware V2.0 or later for TCP/IP control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "dLive C1500",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "dLive C2500",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "dLive C3500",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "dLive S3000",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "dLive S5000",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "dLive S7000",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "DM0",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "DM32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "DM48",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "DM64",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_dlive",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
         }
       ]
     },

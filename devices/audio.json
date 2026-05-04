@@ -1,13 +1,37 @@
 {
   "_meta": {
-    "generated_at": "2026-05-03T15:37:51+00:00",
+    "generated_at": "2026-05-03T23:55:10+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 76,
+    "total_devices": 78,
     "shards": null,
     "category": "audio"
   },
   "devices": [
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Avantis",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_avantis",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the Avantis family. Requires console firmware V2.0 or later for TCP/IP control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Avantis Solo",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_avantis",
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the Avantis family. Requires console firmware V2.0 or later for TCP/IP control."
+        }
+      ]
+    },
     {
       "manufacturer": "Allen & Heath",
       "model": "SQ-5",

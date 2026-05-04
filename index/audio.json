@@ -1,13 +1,57 @@
 {
   "_meta": {
-    "generated_at": "2026-05-03T15:37:51+00:00",
+    "generated_at": "2026-05-03T23:55:10+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 12,
+    "total_drivers": 13,
     "shards": null,
     "category": "audio"
   },
   "drivers": [
+    {
+      "id": "allenheath_avantis",
+      "name": "Allen & Heath Avantis Digital Mixer",
+      "manufacturer": "Allen & Heath",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Allen & Heath Avantis digital mixing consoles via MIDI over TCP/IP on port 51325. Mute / fader / send level / assign control across all 96 inputs, 54 mono and 27 stereo groups, 54 mono and 27 stereo aux outs, 54 mono and 27 stereo matrix outs, 12 mono and 12 stereo FX sends, 12 FX returns, 3 mains, 16 DCAs, 8 mute groups, plus 8 stereo UFX sends and returns. Scene recall (1-500), channel name and colour set, MIDI Machine Control transport, UFX global key and scale, and bidirectional state from console-side change echoes.",
+      "source_url": "https://help.allen-heath.com/hc/en-us/articles/4423402911377-Avantis-MIDI-Protocol",
+      "file": "audio/allenheath_avantis.py",
+      "format": "python",
+      "ports": [
+        51325
+      ],
+      "protocols": [
+        "midi-over-tcp"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.6.0",
+      "tags": [
+        "mixer",
+        "console",
+        "midi",
+        "nrpn",
+        "sysex",
+        "allen-heath"
+      ],
+      "help": {
+        "overview": "Controls an Allen & Heath Avantis digital mixing console over the network using MIDI over TCP/IP. Full mute, fader, send-level and assign control plus scene recall, MIDI Machine Control, channel name and colour, and UFX global key and scale. Console-side moves push back into OpenAVC state so faders and mute LEDs on a touch panel stay in sync.",
+        "setup": "1. Confirm the console is running firmware V2.0 or later. TCP/IP control is unavailable on earlier firmware.\n2. Connect the Avantis to the same network as the OpenAVC server.\n3. On the Avantis, go to Utility / Network and note the IP address.\n4. Go to Utility / Control / MIDI and note the base MIDI channel (default 12). The console reserves the next four channels above the base for output buses, so the base cannot exceed 12.\n5. Enter the IP address and matching base MIDI channel in the device config. The default port (51325) is correct.\n6. The driver listens for console-side push automatically; no further setup is required."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "Avantis",
+            "Avantis Solo"
+          ],
+          "confidence": "untested",
+          "notes": "Same MIDI command surface across the Avantis family. Requires console firmware V2.0 or later for TCP/IP control."
+        }
+      ]
+    },
     {
       "id": "allenheath_sq",
       "name": "Allen & Heath SQ Digital Mixer",

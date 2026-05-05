@@ -164,7 +164,7 @@ class SonyVPLDriver(BaseDriver):
         "name": "Sony VPL Projector (ADCP)",
         "manufacturer": "Sony",
         "category": "projector",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony VPL professional installation projectors "
@@ -183,7 +183,7 @@ class SonyVPLDriver(BaseDriver):
         "protocols": ["adcp"],
         "ports": [53595],
         "transport": "tcp",
-        "discovery": {"ports": [53595]},
+        "discovery": {"manual_only": True},
         "compatible_models": [
             {
                 "manufacturer": "Sony",

@@ -20,7 +20,7 @@ id: shure_network
 name: Shure Networked Devices
 manufacturer: Shure
 category: audio
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
@@ -50,8 +50,14 @@ transport: tcp
 delimiter: ">"
 
 discovery:
-  ports: [2202]
-  mac_prefixes: ["00:0e:dd"]
+  # Shure SMG / P300 / MXA family use a vendor TCP protocol on 2202
+  # rather than the legacy DCS Telnet probe. No verified Tier 1/2/3
+  # signal in core today (the documented mDNS service type and the
+  # SMG broadcast probe are still unverified per the redesign plan),
+  # so discovery surfaces this driver as a soft OUI candidate only.
+  manual_only: true
+  oui_prefixes:
+    - "00:0e:dd"
 
 default_config:
   host: ""

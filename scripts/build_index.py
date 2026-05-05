@@ -281,14 +281,20 @@ def extract_python_driver_info(filepath: Path) -> dict[str, Any]:
 
 
 def _extract_index_fields(node: ast.Dict, *, file: Path) -> dict[str, Any]:
-    """Pull only INDEX_FIELDS out of a DRIVER_INFO dict literal."""
+    """Pull INDEX_FIELDS plus the ``discovery`` block out of a DRIVER_INFO dict literal.
+
+    ``discovery`` is not part of INDEX_FIELDS (it does not ship in
+    index.json) but the discovery validator needs it; AST extraction
+    keeps it as a literal so cross-driver collision checks can run.
+    """
     result: dict[str, Any] = {}
+    extras = {"discovery"}
     for k, v in zip(node.keys, node.values):
         if not isinstance(k, ast.Constant) or not isinstance(k.value, str):
             raise ExtractError(
                 f"{file.name}: DRIVER_INFO keys must be string literals"
             )
-        if k.value not in INDEX_FIELDS:
+        if k.value not in INDEX_FIELDS and k.value not in extras:
             continue  # Runtime field — leave alone, runtime parses it
         result[k.value] = ast_to_python(v, file=file)
     return result
@@ -324,6 +330,202 @@ def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
             elif filepath.suffix == ".py" and not filepath.name.endswith("_sim.py"):
                 raw.append((filepath, extract_python_driver_info(filepath)))
     return raw
+
+
+# --- Discovery block validation ---------------------------------------------
+
+# Mirrors the platform's allow-lists in `openavc/server/discovery/hints.py`.
+# Keep these in sync — drivers built off this catalog rely on the platform
+# accepting the same probe IDs.
+_ALLOWED_BROADCAST_PROBES = frozenset({
+    "pjlink_class2", "crestron_cip", "onvif", "hiqnet", "symetrix",
+})
+_ALLOWED_ACTIVE_PROBES = frozenset({
+    "pjlink_class1", "extron_sis", "tesira_ttp", "qrc", "kramer_p3000",
+    "shure_dcs", "samsung_mdc", "visca", "crestron_cip_tcp", "yamaha_rcp",
+})
+
+
+def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
+    """Return (errors, normalized_discovery) for one driver.
+
+    Mirrors ``parse_driver_discovery`` in the platform. Drivers whose IDs
+    start with ``generic_`` are exempt from the strong-signal requirement.
+    """
+    errors: list[str] = []
+    normalized: dict[str, Any] = {}
+    driver_id = str(raw.get("id") or "")
+    if any(driver_id.startswith(p) for p in ("generic_",)):
+        return errors, normalized
+
+    discovery = raw.get("discovery") or {}
+    if not isinstance(discovery, dict):
+        errors.append(f"{file}: discovery: must be a mapping")
+        return errors, normalized
+
+    manual_only = bool(discovery.get("manual_only", False))
+    normalized["manual_only"] = manual_only
+
+    mdns = discovery.get("mdns_services") or []
+    if not isinstance(mdns, list):
+        errors.append(f"{file}: discovery.mdns_services must be a list")
+        mdns = []
+    normalized_mdns: list[dict[str, Any]] = []
+    for entry in mdns:
+        if isinstance(entry, str):
+            normalized_mdns.append({"service": entry, "txt_match": {}})
+        elif isinstance(entry, dict) and isinstance(entry.get("service"), str):
+            normalized_mdns.append({
+                "service": entry["service"],
+                "txt_match": {str(k): str(v) for k, v in (entry.get("txt_match") or {}).items()},
+            })
+        else:
+            errors.append(
+                f"{file}: discovery.mdns_services entries must be strings or "
+                f"{{service, txt_match}} mappings"
+            )
+    normalized["mdns_services"] = normalized_mdns
+
+    ssdp = discovery.get("ssdp_device_types") or []
+    if not isinstance(ssdp, list) or not all(isinstance(s, str) for s in ssdp):
+        errors.append(f"{file}: discovery.ssdp_device_types must be a list of strings")
+        ssdp = []
+    normalized["ssdp_device_types"] = list(ssdp)
+
+    amx = discovery.get("amx_ddp")
+    if amx is not None:
+        if not isinstance(amx, dict) or not isinstance(amx.get("make"), str) or not amx["make"]:
+            errors.append(f"{file}: discovery.amx_ddp.make is required")
+            amx = None
+        else:
+            amx = {"make": amx["make"], "model_pattern": str(amx.get("model_pattern", "*"))}
+    normalized["amx_ddp"] = amx
+
+    broadcast: list[tuple[str, str | None]] = []
+    if discovery.get("pjlink_class2"):
+        broadcast.append(("pjlink_class2", None))
+    if discovery.get("crestron_cip"):
+        broadcast.append(("crestron_cip", None))
+    if "onvif" in discovery:
+        onvif_block = discovery["onvif"]
+        if onvif_block is True:
+            broadcast.append(("onvif", None))
+        elif isinstance(onvif_block, dict):
+            mfg = onvif_block.get("manufacturer")
+            broadcast.append(("onvif", str(mfg) if mfg else None))
+        elif onvif_block is not False and onvif_block is not None:
+            errors.append(f"{file}: discovery.onvif must be a bool or {{manufacturer: ...}} mapping")
+    if discovery.get("hiqnet"):
+        broadcast.append(("hiqnet", None))
+    if discovery.get("symetrix"):
+        broadcast.append(("symetrix", None))
+    for probe_id, _ in broadcast:
+        if probe_id not in _ALLOWED_BROADCAST_PROBES:
+            errors.append(
+                f"{file}: unknown Tier 2 broadcast probe {probe_id!r}; "
+                f"allowed: {sorted(_ALLOWED_BROADCAST_PROBES)}"
+            )
+    normalized["broadcast"] = broadcast
+
+    active: list[str] = []
+    raw_probes = discovery.get("active_probes") or []
+    if not isinstance(raw_probes, list):
+        errors.append(f"{file}: discovery.active_probes must be a list")
+        raw_probes = []
+    for entry in raw_probes:
+        if isinstance(entry, str):
+            probe_id = entry
+        elif isinstance(entry, dict) and isinstance(entry.get("probe"), str):
+            probe_id = entry["probe"]
+        else:
+            errors.append(f"{file}: discovery.active_probes entry malformed")
+            continue
+        if probe_id not in _ALLOWED_ACTIVE_PROBES:
+            errors.append(
+                f"{file}: unknown Tier 3 active probe {probe_id!r}; "
+                f"allowed: {sorted(_ALLOWED_ACTIVE_PROBES)}"
+            )
+            continue
+        active.append(probe_id)
+    normalized["active_probes"] = active
+
+    if "snmp_pen" in discovery:
+        pen = discovery["snmp_pen"]
+        if not isinstance(pen, int) or isinstance(pen, bool) or pen < 1:
+            errors.append(f"{file}: discovery.snmp_pen must be a positive integer")
+
+    has_strong = (
+        bool(normalized_mdns)
+        or bool(ssdp)
+        or amx is not None
+        or bool(broadcast)
+        or bool(active)
+    )
+    if not manual_only and not has_strong:
+        errors.append(
+            f"{file}: discovery block declares no strong signal and is not "
+            "marked manual_only: true"
+        )
+    return errors, normalized
+
+
+def _validate_no_signal_collisions(
+    per_driver: list[tuple[str, str, dict[str, Any]]],
+) -> list[str]:
+    """Cross-driver: refuse two drivers claiming the same strong signal."""
+    errors: list[str] = []
+    # (kind, source_id) -> list[(driver_id, file, txt_filter)]
+    bucket: dict[tuple[str, str], list[tuple[str, str, frozenset]]] = {}
+
+    def claim(kind: str, source_id: str, driver_id: str, file: str, txt_filter: dict[str, str] | None) -> None:
+        key = (kind, source_id)
+        existing = bucket.setdefault(key, [])
+        filter_set = frozenset((k.lower(), str(v)) for k, v in (txt_filter or {}).items())
+        for prior_driver, prior_file, prior_filter in existing:
+            if prior_driver == driver_id:
+                return  # Same driver re-claim is harmless.
+            if prior_filter == filter_set:
+                errors.append(
+                    f"Signal collision: {kind}:{source_id} claimed by "
+                    f"both {prior_driver!r} ({prior_file}) and "
+                    f"{driver_id!r} ({file})"
+                )
+                return
+            if not prior_filter and filter_set:
+                errors.append(
+                    f"Signal collision: {kind}:{source_id} — {prior_driver!r} "
+                    f"({prior_file}) claims it without a TXT filter, which "
+                    f"would shadow {driver_id!r}'s filtered claim ({file})"
+                )
+                return
+            if prior_filter and not filter_set:
+                errors.append(
+                    f"Signal collision: {kind}:{source_id} — {driver_id!r} "
+                    f"({file}) claims it without a TXT filter, which would "
+                    f"shadow {prior_driver!r}'s filtered claim ({prior_file})"
+                )
+                return
+        existing.append((driver_id, file, filter_set))
+
+    for driver_id, file, normalized in per_driver:
+        if normalized.get("manual_only"):
+            continue
+        for entry in normalized.get("mdns_services", []):
+            claim("mdns", entry["service"].lower().rstrip(".") + ".",
+                  driver_id, file, entry.get("txt_match"))
+        for st in normalized.get("ssdp_device_types", []):
+            claim("ssdp", st, driver_id, file, None)
+        amx = normalized.get("amx_ddp")
+        if amx:
+            claim("amx_ddp", f"{amx['make']}/{amx['model_pattern']}",
+                  driver_id, file, None)
+        for probe_id, mfg in normalized.get("broadcast", []):
+            claim("broadcast", probe_id, driver_id, file,
+                  {"manufacturer": mfg} if mfg else None)
+        for probe_id in normalized.get("active_probes", []):
+            claim("probe", probe_id, driver_id, file, None)
+
+    return errors
 
 
 # --- Index field selection --------------------------------------------------
@@ -612,6 +814,7 @@ def main(argv: list[str] | None = None) -> int:
 
     entries: list[DriverEntry] = []
     errors: list[str] = []
+    discovery_per_driver: list[tuple[str, str, dict[str, Any]]] = []
     for filepath, data in raw:
         rel = filepath.relative_to(repo_root).as_posix()
         try:
@@ -621,8 +824,14 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             errors.append(f"{rel}: {e}")
 
+        disc_errors, normalized = _validate_discovery_block(rel, data)
+        errors.extend(disc_errors)
+        if normalized:
+            discovery_per_driver.append((str(data.get("id") or ""), rel, normalized))
+
     if entries:
         errors.extend(cross_validate(entries, manufacturers))
+    errors.extend(_validate_no_signal_collisions(discovery_per_driver))
 
     if errors:
         print(f"\nFAILED: {len(errors)} validation error(s):\n", file=sys.stderr)

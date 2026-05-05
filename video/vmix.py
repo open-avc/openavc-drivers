@@ -85,7 +85,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
@@ -97,6 +97,11 @@ class VMixDriver(BaseDriver):
         "verified": False,
         "simulated": True,
         "ports": [8099],
+        "discovery": {
+            # vMix runs on a Windows host with no standardized
+            # broadcast announcement. Add manually using the host IP.
+            "manual_only": True,
+        },
         "compatible_models": [
             {
                 "manufacturer": "StudioCoast",

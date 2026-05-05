@@ -109,7 +109,7 @@ class PTZOpticsDriver(BaseDriver):
         "name": "PTZOptics Camera",
         "manufacturer": "PTZOptics",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls PTZOptics PTZ cameras over the VISCA-over-IP "
@@ -131,7 +131,7 @@ class PTZOpticsDriver(BaseDriver):
         "ports": [5678],
         "transport": "tcp",
         "discovery": {
-            "ports": [5678],
+            "onvif": {"manufacturer": "PTZOptics"},
         },
         "compatible_models": [
             {

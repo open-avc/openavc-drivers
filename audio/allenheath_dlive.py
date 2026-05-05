@@ -847,7 +847,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "
@@ -872,7 +872,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "protocols": ["midi-over-tcp"],
         "ports": [51325],
         "transport": "tcp",
-        "discovery": {"ports": [51325]},
+        "discovery": {"manual_only": True},
         "min_platform_version": "0.6.0",
         "compatible_models": [
             {

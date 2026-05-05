@@ -123,7 +123,7 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Sends DMX512 lighting data over Art-Net (UDP 6454) to "
@@ -151,6 +151,11 @@ class ArtNetDMXDriver(BaseDriver):
         "protocols": ["artnet"],
         "ports": [6454],
         "transport": "udp",
+        "discovery": {
+            # Art-Net poll responses (ArtPollReply on UDP 6454) are not yet
+            # parsed by the discovery engine; nodes are added manually.
+            "manual_only": True,
+        },
         "compatible_models": [
             {
                 "manufacturer": "Generic",

@@ -75,16 +75,67 @@ YAML driver definitions are interpreted at runtime by the `ConfigurableDriver` c
 
 ### 2.2 discovery
 
-Optional hints that help the discovery engine match detected devices to this driver.
+Required block. Every driver must either declare at least one strong
+(Tier 1/2/3) signal or set `manual_only: true`. The discovery engine is
+deterministic — it does not score; either a rule fires or it does not.
+CI rejects any driver with no signal and no `manual_only` flag, and any
+two drivers that claim the same strong signal without a disambiguating
+filter.
 
 ```yaml
 discovery:
-  ports: [23, 9761]                      # TCP ports the device listens on
-  mac_prefixes: ["00:05:a6", "00:e0:91"] # IEEE OUI prefixes
-  mdns_services: ["_pjlink._tcp.local."] # mDNS/Bonjour service types
-  upnp_types: ["urn:schemas-upnp-org:device:MediaServer:1"]
-  hostname_patterns: ["^DTP-.*", "^NEC-.*"]  # Regex patterns for hostnames
+  # --- Tier 1: passive listeners (zero packets sent) ---
+  mdns_services:
+    - "_pjlink._tcp.local."
+    # Use a TXT-record filter when the service type is generic so two
+    # drivers on the same service (e.g. _http._tcp) don't collide:
+    - service: "_http._tcp.local."
+      txt_match: { manufacturer: "Shure" }
+  ssdp_device_types:
+    - "urn:schemas-upnp-org:device:MediaRenderer:1"
+  amx_ddp:
+    make: "Polycom"
+    model_pattern: "SoundStructure*"   # optional, defaults to "*"
+
+  # --- Tier 2: vendor broadcast probes (opt-in, one packet per scan) ---
+  pjlink_class2: true     # responds to %2SRCH on UDP 4352
+  crestron_cip: true      # responds to UDP 41794 probe
+  onvif:                  # ONVIF cameras; manufacturer disambiguates
+    manufacturer: "Axis"
+  hiqnet: true            # HARMAN HiQnet on UDP 3804 (deferred until validated)
+  symetrix: true          # ControlNet on UDP 49216 (deferred until validated)
+
+  # --- Tier 3: targeted active probes (only on hosts that didn't self-announce) ---
+  # Allowed probe IDs:
+  #   pjlink_class1, extron_sis, tesira_ttp, qrc, kramer_p3000,
+  #   shure_dcs, samsung_mdc, visca, crestron_cip_tcp, yamaha_rcp
+  active_probes:
+    - extron_sis
+
+  # --- Tier 4: enrichment hints (soft signals, never produce identified state alone) ---
+  snmp_pen: 17049                  # IANA Private Enterprise Number
+  oui_prefixes: ["00:05:a6"]       # used for vendor display + possible-state candidates
+  hostname_patterns:
+    - "^(QSC|qsys)-"
+
+  # --- Opt out of automatic discovery ---
+  # Set when the device has no deterministic fingerprint we can match
+  # safely (OSC consoles, custom UDP discovery formats not in core).
+  # The driver is still installable manually.
+  manual_only: false
 ```
+
+**Validation rules (enforced at load time):**
+
+1. At least one strong signal (`mdns_services`, `ssdp_device_types`,
+   `amx_ddp`, `pjlink_class2`, `crestron_cip`, `onvif`, `hiqnet`,
+   `symetrix`, `active_probes`) **or** `manual_only: true`.
+2. Tier 4 hints alone (`snmp_pen`, `oui_prefixes`, `hostname_patterns`)
+   are not sufficient — they only contribute to the *possible* state.
+3. Two drivers cannot claim the same Tier 1/2/3 signal without
+   distinct TXT filters. CI fails on collision.
+4. `active_probes` and broadcast probe IDs must come from the allow-lists
+   above. Adding a new probe means landing it in the platform first.
 
 ### 2.3 default_config
 

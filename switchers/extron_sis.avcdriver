@@ -26,7 +26,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
@@ -68,8 +68,10 @@ help:
     3. Extron recommends a 100ms delay between commands (pre-configured).
 
 discovery:
-  ports: [23]
-  mac_prefixes: ["00:05:a6"]
+  active_probes:
+    - extron_sis
+  oui_prefixes:
+    - "00:05:a6"
 
 default_config:
   host: ""

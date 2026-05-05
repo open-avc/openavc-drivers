@@ -104,7 +104,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls SnapAV WattBox IP-controlled power distribution units "
@@ -120,9 +120,7 @@ class WattBoxIPDriver(BaseDriver):
         "protocols": ["wattbox-integration-v1.7"],
         "ports": [23],
         "transport": "tcp",
-        "discovery": {
-            "ports": [23],
-        },
+        "discovery": {"manual_only": True},
         "compatible_models": [
             {
                 "manufacturer": "WattBox",

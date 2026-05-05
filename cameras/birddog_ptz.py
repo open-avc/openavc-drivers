@@ -111,7 +111,7 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
@@ -428,7 +428,10 @@ class BirdDogPTZDriver(BaseDriver):
             },
         },
         "discovery": {
-            "ports": [8080],
+            # BirdDog PTZs broadcast NDI (`_ndi._tcp`); that signal goes
+            # to the generic ndi_source driver. Add the BirdDog driver
+            # manually after picking the IP off NDI Studio Monitor.
+            "manual_only": True,
         },
     }
 

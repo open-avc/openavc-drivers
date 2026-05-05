@@ -48,7 +48,7 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
@@ -211,9 +211,7 @@ class BirdDogCodecDriver(BaseDriver):
                 "setup": False,
             },
         },
-        "discovery": {
-            "ports": [8080],
-        },
+        "discovery": {"manual_only": True},
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

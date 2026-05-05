@@ -40,7 +40,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "author": "OpenAVC",
         "description": "Controls any PJLink Class 1 compatible projector.",
         "source_url": "https://pjlink.jbmia.or.jp/english/",
@@ -51,7 +51,11 @@ class PJLinkDriver(BaseDriver):
         "ports": [4352],
         "transport": "tcp",
         "discovery": {
-            "ports": [4352],
+            # PJLink Class 1 = the deterministic fallback for the broadcast
+            # SRCH probe (Class 2). Drivers for specific projector families
+            # may layer more-specific Tier 1/2 signals on top.
+            "active_probes": ["pjlink_class1"],
+            "pjlink_class2": True,
         },
         "compatible_models": [
             {

@@ -1092,7 +1092,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "2.0.2",
+        "version": "2.1.0",
         "min_platform_version": "0.11.0",
         "author": "OpenAVC",
         "description": (
@@ -1114,9 +1114,8 @@ class BiampTesiraTTPDriver(BaseDriver):
         "ports": [23],
         "transport": "tcp",
         "discovery": {
-            "ports": [23],
-            "mac_prefixes": ["00:90:5e"],
-            "mdns_services": ["_tesira._tcp.local."],
+            "active_probes": ["tesira_ttp"],
+            "oui_prefixes": ["00:90:5e"],
         },
         "compatible_models": [
             {

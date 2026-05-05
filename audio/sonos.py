@@ -156,7 +156,7 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers via the local UPnP API. "
@@ -285,7 +285,9 @@ class SonosDriver(BaseDriver):
             },
         },
         "discovery": {
-            "ports": [1400],
+            "ssdp_device_types": [
+                "urn:schemas-upnp-org:device:ZonePlayer:1",
+            ],
         },
     }
 

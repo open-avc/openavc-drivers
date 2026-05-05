@@ -63,7 +63,7 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "
@@ -408,9 +408,7 @@ class SolsticeDriver(BaseDriver):
                 "default": False,
             },
         },
-        "discovery": {
-            "ports": [80, 443],
-        },
+        "discovery": {"manual_only": True},
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

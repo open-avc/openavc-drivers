@@ -25,7 +25,7 @@ id: etc_eos
 name: ETC Eos Family Console
 manufacturer: ETC
 category: lighting
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >-
   Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2,
@@ -94,6 +94,12 @@ help:
        by underscores (e.g. "go", "stop", "go_to_cue", "live", "blind",
        "select_last", "clear_cmd_line"). The full list lives in the
        Eos Family Online Help under "OSC Key Names".
+
+discovery:
+  # Eos consoles speak OSC over UDP only. There is no deterministic
+  # broadcast or active-probe fingerprint we can send safely; add the
+  # console manually after picking the IP off Setup > Network.
+  manual_only: true
 
 default_config:
   host: ""

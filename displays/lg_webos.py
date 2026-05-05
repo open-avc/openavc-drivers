@@ -87,7 +87,7 @@ class LgWebosDriver(BaseDriver):
         "name":         "LG WebOS",
         "manufacturer": "LG",
         "category":     "display",
-        "version":      "3.1.0",
+        "version":      "3.2.0",
         "author":       "Keaton Stacks",
         "description":  "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
         "source_url":   "https://github.com/hobbyquaker/lgtv2",
@@ -104,7 +104,10 @@ class LgWebosDriver(BaseDriver):
         "transport":    "tcp",
 
         "discovery": {
-            "ports": [3001],
+            # LG WebOS TVs announce via SSDP using a vendor-specific URN.
+            "ssdp_device_types": [
+                "urn:lge-com:service:webos-second-screen:1",
+            ],
         },
 
         "help": {

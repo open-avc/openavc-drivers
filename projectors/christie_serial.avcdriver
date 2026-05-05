@@ -27,7 +27,7 @@ id: christie_serial
 name: Christie Projector
 manufacturer: Christie
 category: projector
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >-
   Controls Christie commercial projectors using the Christie Serial API
@@ -93,6 +93,12 @@ help:
     5. The Input Select command takes a two-digit slot+input code
        (e.g. 12 = slot 1 input 2). The slot/input map is on the back
        panel of the projector.
+
+discovery:
+  # Christie Serial API on TCP 3002 has no documented broadcast or
+  # mDNS announcement. Add manually after picking the IP off the
+  # projector's web UI or front panel.
+  manual_only: true
 
 default_config:
   host: ""

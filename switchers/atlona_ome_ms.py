@@ -119,7 +119,7 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls the Atlona AT-OME-MS family of 4K/UHD matrix "
@@ -140,8 +140,8 @@ class AtlonaOmeMsDriver(BaseDriver):
         "ports": [23],
         "transport": "tcp",
         "discovery": {
-            "ports": [23],
-            "mac_prefixes": ["b8:98:b0", "00:1b:c5"],
+            "manual_only": True,
+            "oui_prefixes": ["b8:98:b0", "00:1b:c5"],
         },
         "compatible_models": [
             {

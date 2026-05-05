@@ -221,7 +221,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port "
@@ -242,7 +242,10 @@ class SonyVISCADriver(BaseDriver):
         "ports": [52381],
         "transport": "udp",
         "discovery": {
-            "ports": [52381],
+            # Sony PTZ cameras advertise via ONVIF when enabled in the
+            # camera menu; the VISCA-over-IP control port (UDP 52381)
+            # has no Tier 3 probe in core.
+            "onvif": {"manufacturer": "Sony"},
         },
         "compatible_models": [
             {

@@ -77,7 +77,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Blackmagic Design Videohub routers over the Videohub "
@@ -93,8 +93,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         "ports": [9990],
         "transport": "tcp",
         "discovery": {
-            "ports": [9990],
-            "mdns_service": "_blackmagic._tcp.local.",
+            "mdns_services": ["_blackmagic._tcp.local."],
         },
         "compatible_models": [
             {

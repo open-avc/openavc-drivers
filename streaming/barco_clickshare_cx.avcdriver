@@ -53,7 +53,7 @@ id: barco_clickshare_cx
 name: Barco ClickShare CX
 manufacturer: Barco
 category: streaming
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Wireless presentation Base Unit control via local REST API V2 (HTTPS,
@@ -119,8 +119,12 @@ help:
        can handle it; ClickShare's own integrations poll more frequently).
 
 discovery:
-  ports: [4003]
-  mac_prefixes: ["00:04:A5"]   # Barco OUI
+  # ClickShare CX Base Units run a UPnP / SSDP service alongside the
+  # ShareLink REST API. ONVIF is unavailable; use the soft OUI hint
+  # plus manual_only until we wire up SSDP filtering.
+  manual_only: true
+  oui_prefixes:
+    - "00:04:a5"
 
 default_config:
   host: ""

@@ -159,7 +159,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP "
@@ -182,7 +182,9 @@ class AVerPTZDriver(BaseDriver):
         "ports": [80, 52381],
         "transport": "http",
         "discovery": {
-            "ports": [80, 52381],
+            # AVer Pro-AV PTZ cameras advertise ONVIF when the camera
+            # menu's network feature is enabled.
+            "onvif": {"manufacturer": "AVer"},
         },
         "compatible_models": [
             {

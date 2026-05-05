@@ -40,7 +40,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "display",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Crestron DM NVX AV-over-IP encoders and decoders via "
@@ -53,6 +53,13 @@ class CrestronNVXDriver(BaseDriver):
         "simulated": True,
         "protocols": ["crestron_cip"],
         "ports": [1688, 80, 443],
+        "discovery": {
+            # DM NVX endpoints answer Crestron's CIP UDP/41794 probe with
+            # a different payload than 3-Series controllers; the parser
+            # work to disambiguate variants is on the deferred-captures
+            # list, so for now NVX is added manually.
+            "manual_only": True,
+        },
         "compatible_models": [
             {
                 "manufacturer": "Crestron",

@@ -25,7 +25,7 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP.
@@ -58,8 +58,9 @@ help:
     5. Output channels: 1-4, ST (stereo).
 
 discovery:
-  ports: [17300]
-  mac_prefixes: ["00:0a:45"]
+  manual_only: true
+  oui_prefixes:
+    - "00:0a:45"
 
 default_config:
   host: ""

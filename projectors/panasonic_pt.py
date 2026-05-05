@@ -123,7 +123,7 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) "
@@ -140,7 +140,7 @@ class PanasonicPTDriver(BaseDriver):
         "protocols": ["ntcontrol"],
         "ports": [1024],
         "transport": "tcp",
-        "discovery": {"ports": [1024]},
+        "discovery": {"manual_only": True},
         "compatible_models": [
             {
                 "manufacturer": "Panasonic",

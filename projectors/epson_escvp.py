@@ -166,7 +166,7 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Epson business and installation projectors over "
@@ -181,7 +181,13 @@ class EpsonEscVpDriver(BaseDriver):
         "protocols": ["esc_vp_net"],
         "ports": [3629],
         "transport": "tcp",
-        "discovery": {"ports": [3629]},
+        "discovery": {
+            # Epson projectors also support PJLink Class 2 for vendor-
+            # neutral discovery; the generic pjlink_class1 driver claims
+            # that signal. Add the brand-specific Epson driver manually
+            # for the extra ESC/VP commands.
+            "manual_only": True,
+        },
         "compatible_models": [
             {
                 "manufacturer": "Epson",

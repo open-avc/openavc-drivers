@@ -40,7 +40,7 @@ id: panasonic_awhe
 name: Panasonic AW-HE/UE/UN PTZ Camera
 manufacturer: Panasonic
 category: camera
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras
@@ -115,8 +115,15 @@ help:
        inter-command gap.
 
 discovery:
-  ports: [80]
-  mac_prefixes: ["00:80:45", "70:1d:7c", "00:60:b0"]
+  # Panasonic AW-HE/UE/UN cameras advertise via ONVIF when enabled in
+  # the camera menu. Default-on opt-in for the WS-Discovery probe;
+  # discovery surfaces the OUI-only candidate when ONVIF is disabled.
+  onvif:
+    manufacturer: "Panasonic"
+  oui_prefixes:
+    - "00:80:45"
+    - "70:1d:7c"
+    - "00:60:b0"
 
 default_config:
   host: ""

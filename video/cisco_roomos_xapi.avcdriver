@@ -43,7 +43,7 @@ id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -123,7 +123,10 @@ help:
        you want faster touch-panel feedback.
 
 discovery:
-  ports: [443]
+  # Cisco Webex / RoomOS endpoints announce on `_cisco-phone._tcp` and
+  # also expose Webex device discovery, but neither has been verified
+  # against current firmware. Add manually for now.
+  manual_only: true
 
 default_config:
   host: ""

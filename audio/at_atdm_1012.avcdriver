@@ -35,7 +35,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
@@ -70,8 +70,9 @@ help:
     6. The ATDM-1012DAN uses the same protocol with added Dante settings.
 
 discovery:
-  ports: [17300]
-  mac_prefixes: ["00:0a:45"]
+  manual_only: true
+  oui_prefixes:
+    - "00:0a:45"
 
 default_config:
   host: ""

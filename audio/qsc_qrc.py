@@ -945,7 +945,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "3.0.0",
+        "version": "3.1.0",
         "min_platform_version": "0.11.0",
         "author": "OpenAVC",
         "description": (
@@ -971,8 +971,8 @@ class QSCQRCDriver(BaseDriver):
         "ports": [1710],
         "transport": "tcp",
         "discovery": {
-            "ports": [1710],
-            "mac_prefixes": ["00:0c:4d", "7c:2e:0d"],
+            "active_probes": ["qrc"],
+            "oui_prefixes": ["00:0c:4d", "7c:2e:0d"],
         },
         "compatible_models": [
             {

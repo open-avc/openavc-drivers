@@ -20,7 +20,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -56,6 +56,11 @@ help:
     3. Enter the IP address in the device config. The default port is 10023.
     4. The driver will automatically subscribe to feedback and start
        receiving fader/mute updates.
+
+discovery:
+  # X32 / M32 announce via OSC; no deterministic Tier 1/2/3 fingerprint
+  # in core today. Add manually after picking the IP off the console.
+  manual_only: true
 
 default_config:
   host: ""

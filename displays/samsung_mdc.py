@@ -86,7 +86,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
@@ -124,16 +124,16 @@ class SamsungMDCDriver(BaseDriver):
             ),
         },
         "discovery": {
-            "ports": [1515],
-            "mac_prefixes": [
-                "00:07:ab",  # Samsung Electronics
-                "00:e0:64",  # Samsung Electronics
-                "14:49:e0",  # Samsung Electronics
-                "34:c3:d2",  # Samsung Electronics
-                "64:b5:c6",  # Samsung Electronics
-                "8c:71:f8",  # Samsung Electronics
-                "b4:79:a7",  # Samsung Electronics
-                "d0:03:4b",  # Samsung Electronics
+            "active_probes": ["samsung_mdc"],
+            "oui_prefixes": [
+                "00:07:ab",
+                "00:e0:64",
+                "14:49:e0",
+                "34:c3:d2",
+                "64:b5:c6",
+                "8c:71:f8",
+                "b4:79:a7",
+                "d0:03:4b",
             ],
         },
         "default_config": {

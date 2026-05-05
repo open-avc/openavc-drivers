@@ -49,7 +49,7 @@ id: yamaha_mtx_mrx
 name: Yamaha MTX/MRX/XMV
 manufacturer: Yamaha
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >
   Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the
@@ -136,9 +136,10 @@ help:
        command arrives within the configured timeout.
 
 discovery:
-  ports: [49280]
-  mac_prefixes:
-    - "00:a0:de"  # Yamaha Corporation
+  active_probes:
+    - yamaha_rcp
+  oui_prefixes:
+    - "00:a0:de"   # Yamaha Corporation
 
 default_config:
   host: ""

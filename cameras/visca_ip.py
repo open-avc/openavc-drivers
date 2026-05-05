@@ -169,7 +169,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.0.2",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Generic Sony-specification VISCA-over-IP driver (UDP port "
@@ -191,7 +191,9 @@ class VISCAIPDriver(BaseDriver):
         "ports": [52381],
         "transport": "udp",
         "discovery": {
-            "ports": [52381],
+            # Generic VISCA-over-IP. Brand-specific drivers claim ONVIF;
+            # the generic driver is a manual fallback.
+            "manual_only": True,
         },
         "compatible_models": [
             {

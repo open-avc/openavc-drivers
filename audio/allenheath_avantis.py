@@ -699,7 +699,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "
@@ -721,7 +721,11 @@ class AllenHeathAvantisDriver(BaseDriver):
         "protocols": ["midi-over-tcp"],
         "ports": [51325],
         "transport": "tcp",
-        "discovery": {"ports": [51325]},
+        "discovery": {
+            # A&H AHNet broadcast (UDP 51320) is deferred until we have a
+            # capture; the mixer's MIDI-over-TCP port has no fingerprint.
+            "manual_only": True,
+        },
         "min_platform_version": "0.6.0",
         "compatible_models": [
             {

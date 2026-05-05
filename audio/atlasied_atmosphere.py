@@ -189,7 +189,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing "
@@ -206,9 +206,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "protocols": ["atlasied-atmosphere-thirdparty"],
         "ports": [5321],
         "transport": "tcp",
-        "discovery": {
-            "ports": [5321],
-        },
+        "discovery": {"manual_only": True},
         "compatible_models": [
             {
                 "manufacturer": "AtlasIED",

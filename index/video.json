@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -49,7 +49,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "cisco_roomos_xapi",
@@ -118,7 +121,10 @@
           "confidence": "untested",
           "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "novastar_h_series",
@@ -159,7 +165,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "poly_studio",
@@ -208,7 +217,10 @@
           "confidence": "untested",
           "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "vmix",
@@ -245,7 +257,10 @@
           "confidence": "untested",
           "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     }
   ]
 }

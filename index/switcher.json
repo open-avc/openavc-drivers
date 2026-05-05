@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 8,
@@ -52,7 +52,14 @@
           "confidence": "untested",
           "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "atlona_ome_ps62",
@@ -96,7 +103,14 @@
           "confidence": "untested",
           "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52 / MS52W family in the OME line uses a completely different command syntax (Display:Matrix:Set...) and is covered by a separate driver.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "atlona_uhd_pro3",
@@ -141,7 +155,14 @@
           "confidence": "untested",
           "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "atlona_omnistream",
@@ -191,7 +212,14 @@
           "confidence": "untested",
           "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "blackmagic_videohub",
@@ -242,7 +270,12 @@
           "confidence": "untested",
           "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
         }
-      ]
+      ],
+      "discovery": {
+        "mdns_services": [
+          "_blackmagic._tcp.local."
+        ]
+      }
     },
     {
       "id": "extron_sis",
@@ -290,7 +323,15 @@
           "confidence": "untested",
           "notes": "Any Extron product implementing the SIS protocol (~200 products)."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "extron_sis"
+        ],
+        "oui_prefixes": [
+          "00:05:a6"
+        ]
+      }
     },
     {
       "id": "kramer_p3000",
@@ -334,7 +375,15 @@
           "confidence": "untested",
           "notes": "Any Kramer product implementing Protocol 3000."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "kramer_p3000"
+        ],
+        "oui_prefixes": [
+          "00:0a:9a"
+        ]
+      }
     },
     {
       "id": "lightware_lw3",
@@ -388,7 +437,13 @@
           "confidence": "untested",
           "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "d0:73:7f"
+        ]
+      }
     }
   ]
 }

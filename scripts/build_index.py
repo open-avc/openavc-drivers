@@ -127,6 +127,10 @@ class DriverEntry(BaseModel):
     deprecated: bool = False
     replacement_id: str | None = None
     compatible_models: list[CompatibleModelsEntry] = Field(default_factory=list)
+    # Phase 6 deterministic discovery hints. Carried through to index.json
+    # so on-device discovery can match catalog entries before they're
+    # installed — that's discovery's whole job.
+    discovery: dict[str, Any] | None = None
 
     @field_validator("id")
     @classmethod
@@ -538,6 +542,7 @@ INDEX_FIELDS = frozenset({
     "transport", "description", "source_url",
     "ports", "protocols", "simulated", "verified", "min_platform_version",
     "tags", "help", "deprecated", "replacement_id", "compatible_models",
+    "discovery",
 })
 
 

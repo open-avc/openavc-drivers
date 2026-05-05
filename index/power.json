@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 2,
@@ -60,7 +60,10 @@
           "confidence": "untested",
           "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "wattbox_ip",
@@ -110,7 +113,10 @@
           "confidence": "untested",
           "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     }
   ]
 }

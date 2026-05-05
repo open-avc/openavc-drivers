@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -44,7 +44,10 @@
           "confidence": "untested",
           "notes": "Any Crestron DM NVX endpoint via REST API."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "lg_sicp",
@@ -81,7 +84,22 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:05:c9",
+          "00:e0:91",
+          "10:68:3f",
+          "2c:54:cf",
+          "34:4d:f7",
+          "38:8c:50",
+          "58:a2:b5",
+          "64:99:5d",
+          "a8:23:fe",
+          "bc:f1:71"
+        ]
+      }
     },
     {
       "id": "lg_webos",
@@ -116,7 +134,12 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "ssdp_device_types": [
+          "urn:lge-com:service:webos-second-screen:1"
+        ]
+      }
     },
     {
       "id": "samsung_mdc",
@@ -157,7 +180,22 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "samsung_mdc"
+        ],
+        "oui_prefixes": [
+          "00:07:ab",
+          "00:e0:64",
+          "14:49:e0",
+          "34:c3:d2",
+          "64:b5:c6",
+          "8c:71:f8",
+          "b4:79:a7",
+          "d0:03:4b"
+        ]
+      }
     },
     {
       "id": "sony_bravia",
@@ -200,7 +238,25 @@
           "confidence": "full",
           "notes": "Verified on production hardware."
         }
-      ]
+      ],
+      "discovery": {
+        "ssdp_device_types": [
+          "urn:schemas-sony-com:service:ScalarWebAPI:1"
+        ],
+        "oui_prefixes": [
+          "00:01:4a",
+          "00:0a:d9",
+          "00:0e:07",
+          "00:13:a9",
+          "00:1a:80",
+          "04:5d:4b",
+          "40:b8:9a",
+          "54:42:49",
+          "a8:93:4a",
+          "ac:9b:0a",
+          "fc:f1:52"
+        ]
+      }
     }
   ]
 }

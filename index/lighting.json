@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 4,
@@ -64,7 +64,10 @@
           "confidence": "untested",
           "notes": "All Eos-family consoles share the same OSC dictionary documented in the Eos Family Online Help. ColorSource AV exposes a subset of the same /eos OSC namespace."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "artnet_dmx",
@@ -203,7 +206,10 @@
           "confidence": "untested",
           "notes": "Madrix is primarily an Art-Net source for LED video pixel-mapping, but its Aura and Plexus hardware bridges accept Art-Net input and convert to DMX or playback stored shows."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "lutron_homeworks_qs",
@@ -249,7 +255,14 @@
           "confidence": "untested",
           "notes": "HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related but distinct protocol surfaces and are not covered by this driver.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:1f:c1",
+          "08:80:01"
+        ]
+      }
     },
     {
       "id": "philips_hue",
@@ -293,7 +306,17 @@
           "confidence": "untested",
           "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "mdns_services": [
+          "_hue._tcp.local."
+        ],
+        "oui_prefixes": [
+          "00:17:88",
+          "ec:b5:fa",
+          "1c:53:f9"
+        ]
+      }
     }
   ]
 }

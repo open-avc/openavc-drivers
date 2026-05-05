@@ -57,6 +57,10 @@ def _write_yaml_driver(
         "transport": "tcp",
         "description": "Fixture driver for tests.",
         "source_url": "https://example.com/test-protocol",
+        # Phase 6 schema requires every driver to either declare a strong
+        # discovery signal or set manual_only:true. Default fixtures are
+        # manual_only so individual tests focus on the field under test.
+        "discovery": {"manual_only": True},
     }
     if overrides:
         data.update(overrides)
@@ -87,6 +91,7 @@ def _write_python_driver(
         "transport": "tcp",
         "description": "Python fixture.",
         "source_url": "https://example.com/test-protocol",
+        "discovery": {"manual_only": True},
     }
     if info_overrides:
         info.update(info_overrides)
@@ -96,7 +101,9 @@ def _write_python_driver(
     if raw_class_body is not None:
         body = raw_class_body
     else:
-        info_repr = json.dumps(info, indent=4)
+        # Use Python repr (not JSON) so True/False/None become valid
+        # Python literal nodes that the AST extractor accepts.
+        info_repr = repr(info)
         body = f"    DRIVER_INFO = {info_repr}\n"
     fp.write_text(
         "class TestDriver:\n"

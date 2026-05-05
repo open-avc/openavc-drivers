@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 6,
@@ -57,7 +57,10 @@
           "confidence": "untested",
           "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "epson_escvp",
@@ -106,7 +109,10 @@
           "confidence": "untested",
           "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "pjlink_class1",
@@ -284,7 +290,13 @@
           "confidence": "untested",
           "notes": "Vivitek (Delta Electronics) commercial install projectors with the network function. Confirm PJLink in the model's datasheet."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "pjlink_class1"
+        ],
+        "pjlink_class2": true
+      }
     },
     {
       "id": "panasonic_pt",
@@ -359,7 +371,10 @@
           "confidence": "untested",
           "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "sharp_nec_projector",
@@ -412,7 +427,15 @@
           "confidence": "untested",
           "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:e0:63",
+          "00:c2:c6",
+          "00:30:13"
+        ]
+      }
     },
     {
       "id": "sony_vpl",
@@ -481,7 +504,10 @@
           "confidence": "untested",
           "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     }
   ]
 }

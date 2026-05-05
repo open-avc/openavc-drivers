@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 7,
@@ -55,7 +55,12 @@
           "confidence": "untested",
           "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "AVer"
+        }
+      }
     },
     {
       "id": "birddog_ptz",
@@ -106,7 +111,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "visca_ip",
@@ -182,7 +190,10 @@
           "confidence": "untested",
           "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "panasonic_awhe",
@@ -247,7 +258,17 @@
           "confidence": "untested",
           "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "Panasonic"
+        },
+        "oui_prefixes": [
+          "00:80:45",
+          "70:1d:7c",
+          "00:60:b0"
+        ]
+      }
     },
     {
       "id": "ptzoptics",
@@ -301,7 +322,12 @@
           "confidence": "untested",
           "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "PTZOptics"
+        }
+      }
     },
     {
       "id": "sony_visca",
@@ -345,7 +371,12 @@
           "confidence": "untested",
           "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format."
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "Sony"
+        }
+      }
     },
     {
       "id": "vaddio_roboshot",
@@ -406,7 +437,14 @@
           "confidence": "untested",
           "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:1e:c0",
+          "08:00:6b"
+        ]
+      }
     }
   ]
 }

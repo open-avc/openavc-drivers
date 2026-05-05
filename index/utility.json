@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 2,
@@ -51,6 +51,9 @@
       "help": {
         "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
         "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
+      },
+      "discovery": {
+        "manual_only": true
       }
     }
   ]

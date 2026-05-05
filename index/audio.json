@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -50,7 +50,10 @@
           "confidence": "untested",
           "notes": "Same MIDI command surface across the Avantis family. Requires console firmware V2.0 or later for TCP/IP control."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "allenheath_dlive",
@@ -102,7 +105,10 @@
           "confidence": "untested",
           "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "allenheath_sq",
@@ -146,7 +152,10 @@
           "confidence": "untested",
           "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "atlasied_atmosphere",
@@ -191,7 +200,10 @@
           "confidence": "untested",
           "notes": "AZM4 / AZM8 are the standalone DSPs; AZMP4 / AZMP8 add internal amplification but share the same third-party control surface."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "dante_ddm",
@@ -227,7 +239,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "at_atdm_0604",
@@ -263,7 +278,13 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:0a:45"
+        ]
+      }
     },
     {
       "id": "at_atdm_1012",
@@ -301,7 +322,13 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:0a:45"
+        ]
+      }
     },
     {
       "id": "behringer_x32",
@@ -353,7 +380,10 @@
           "confidence": "untested",
           "notes": "Identical OSC protocol to X32."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "biamp_tesira_ttp",
@@ -411,7 +441,15 @@
           "confidence": "untested",
           "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "tesira_ttp"
+        ],
+        "oui_prefixes": [
+          "00:90:5e"
+        ]
+      }
     },
     {
       "id": "qsc_qrc",
@@ -460,7 +498,16 @@
           "confidence": "untested",
           "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "qrc"
+        ],
+        "oui_prefixes": [
+          "00:0c:4d",
+          "7c:2e:0d"
+        ]
+      }
     },
     {
       "id": "shure_network",
@@ -501,7 +548,13 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:0e:dd"
+        ]
+      }
     },
     {
       "id": "sonos",
@@ -540,7 +593,12 @@
           "confidence": "full",
           "notes": "UPnP API stable across all Sonos models."
         }
-      ]
+      ],
+      "discovery": {
+        "ssdp_device_types": [
+          "urn:schemas-upnp-org:device:ZonePlayer:1"
+        ]
+      }
     },
     {
       "id": "symetrix_composer",
@@ -595,7 +653,10 @@
           "confidence": "untested",
           "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "yamaha_mtx_mrx",
@@ -666,7 +727,15 @@
           "confidence": "untested",
           "notes": "Audio I/O expanders. Same RCP address model as XMV.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "yamaha_rcp"
+        ],
+        "oui_prefixes": [
+          "00:a0:de"
+        ]
+      }
     }
   ]
 }

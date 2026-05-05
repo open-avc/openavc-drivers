@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -49,7 +49,10 @@
           "confidence": "untested",
           "notes": "Same MIDI command surface across the Avantis family. Requires console firmware V2.0 or later for TCP/IP control."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "allenheath_dlive",
@@ -101,7 +104,10 @@
           "confidence": "untested",
           "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "allenheath_sq",
@@ -145,7 +151,10 @@
           "confidence": "untested",
           "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "atlasied_atmosphere",
@@ -190,7 +199,10 @@
           "confidence": "untested",
           "notes": "AZM4 / AZM8 are the standalone DSPs; AZMP4 / AZMP8 add internal amplification but share the same third-party control surface."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "atlona_ome_ms",
@@ -236,7 +248,14 @@
           "confidence": "untested",
           "notes": "All MS-series presentation matrices share the dotted Display:Matrix:Set / Audio:Volume:Set command vocabulary. MS42 (4x2) inputs 0-3, MS52/MS52W (5x2) inputs 0-4. The MS52W adds a 4 = BYOD wireless-link input. Outputs are always 0=HDBaseT, 1=HDMI. The driver advertises the 0-4 input range; the device rejects anything it doesn't have."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "atlona_ome_ps62",
@@ -280,7 +299,14 @@
           "confidence": "untested",
           "notes": "6x2 4K/UHD matrix presentation switcher with USB hub. The MS42 / MS52 / MS52W family in the OME line uses a completely different command syntax (Display:Matrix:Set...) and is covered by a separate driver.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "atlona_uhd_pro3",
@@ -325,7 +351,14 @@
           "confidence": "untested",
           "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "atlona_omnistream",
@@ -375,7 +408,14 @@
           "confidence": "untested",
           "notes": "All OmniStream Pro, R-Type, and Wallplate models on firmware 2.0+. Some audio commands (mute, volume, AudioInput, AnalogPower, DisplayBtn, VolumeBtn, InputBtn) are Pro-only and silently no-op on R-Type units.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "b8:98:b0",
+          "00:1b:c5"
+        ]
+      }
     },
     {
       "id": "dante_ddm",
@@ -411,7 +451,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "at_atdm_0604",
@@ -447,7 +490,13 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:0a:45"
+        ]
+      }
     },
     {
       "id": "at_atdm_1012",
@@ -485,7 +534,13 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:0a:45"
+        ]
+      }
     },
     {
       "id": "aver_ptz",
@@ -534,7 +589,12 @@
           "confidence": "untested",
           "notes": "Verified against AVer's VISCA Specification 3.3 (April 2025) and the PTZ310/330 HTTP CGI Commands document (June 2022). Both transports use the same camera IP. Reboot and Factory Reset require Basic auth on PTZ-S310/S330 SKUs; configure a username/password on those models."
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "AVer"
+        }
+      }
     },
     {
       "id": "barco_clickshare_cx",
@@ -587,7 +647,13 @@
           "confidence": "untested",
           "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:04:a5"
+        ]
+      }
     },
     {
       "id": "behringer_x32",
@@ -639,7 +705,10 @@
           "confidence": "untested",
           "notes": "Identical OSC protocol to X32."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "biamp_tesira_ttp",
@@ -697,7 +766,15 @@
           "confidence": "untested",
           "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "tesira_ttp"
+        ],
+        "oui_prefixes": [
+          "00:90:5e"
+        ]
+      }
     },
     {
       "id": "birddog_codec",
@@ -740,7 +817,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "birddog_ptz",
@@ -791,7 +871,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "blackmagic_videohub",
@@ -842,7 +925,12 @@
           "confidence": "untested",
           "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
         }
-      ]
+      ],
+      "discovery": {
+        "mdns_services": [
+          "_blackmagic._tcp.local."
+        ]
+      }
     },
     {
       "id": "christie_serial",
@@ -893,7 +981,10 @@
           "confidence": "untested",
           "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "cisco_roomos_xapi",
@@ -962,7 +1053,10 @@
           "confidence": "untested",
           "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "crestron_nvx",
@@ -1000,7 +1094,10 @@
           "confidence": "untested",
           "notes": "Any Crestron DM NVX endpoint via REST API."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "epson_escvp",
@@ -1049,7 +1146,10 @@
           "confidence": "untested",
           "notes": "ESC/VP21 is shared across Epson's business and installation projector lines. Per-model variation is in which input codes the projector actually accepts (e.g. older units have no HDBaseT input). The driver lets the user pick from the union of all common codes; unsupported codes return ERR on the projector, which the driver logs at debug."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "etc_eos",
@@ -1107,7 +1207,10 @@
           "confidence": "untested",
           "notes": "All Eos-family consoles share the same OSC dictionary documented in the Eos Family Online Help. ColorSource AV exposes a subset of the same /eos OSC namespace."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "extron_sis",
@@ -1155,7 +1258,15 @@
           "confidence": "untested",
           "notes": "Any Extron product implementing the SIS protocol (~200 products)."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "extron_sis"
+        ],
+        "oui_prefixes": [
+          "00:05:a6"
+        ]
+      }
     },
     {
       "id": "artnet_dmx",
@@ -1294,7 +1405,10 @@
           "confidence": "untested",
           "notes": "Madrix is primarily an Art-Net source for LED video pixel-mapping, but its Aura and Plexus hardware bridges accept Art-Net input and convert to DMX or playback stored shows."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "generic_http",
@@ -1392,7 +1506,10 @@
           "confidence": "untested",
           "notes": "Marshall's CV-series broadcast PTZ cameras list VISCA over IP as a control method in their installation manuals."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "pjlink_class1",
@@ -1570,7 +1687,13 @@
           "confidence": "untested",
           "notes": "Vivitek (Delta Electronics) commercial install projectors with the network function. Confirm PJLink in the model's datasheet."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "pjlink_class1"
+        ],
+        "pjlink_class2": true
+      }
     },
     {
       "id": "wake_on_lan",
@@ -1593,6 +1716,9 @@
       "help": {
         "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
         "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
+      },
+      "discovery": {
+        "manual_only": true
       }
     },
     {
@@ -1637,7 +1763,15 @@
           "confidence": "untested",
           "notes": "Any Kramer product implementing Protocol 3000."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "kramer_p3000"
+        ],
+        "oui_prefixes": [
+          "00:0a:9a"
+        ]
+      }
     },
     {
       "id": "lg_sicp",
@@ -1674,7 +1808,22 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:05:c9",
+          "00:e0:91",
+          "10:68:3f",
+          "2c:54:cf",
+          "34:4d:f7",
+          "38:8c:50",
+          "58:a2:b5",
+          "64:99:5d",
+          "a8:23:fe",
+          "bc:f1:71"
+        ]
+      }
     },
     {
       "id": "lg_webos",
@@ -1709,7 +1858,12 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "ssdp_device_types": [
+          "urn:lge-com:service:webos-second-screen:1"
+        ]
+      }
     },
     {
       "id": "lightware_lw3",
@@ -1763,7 +1917,13 @@
           "confidence": "untested",
           "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "d0:73:7f"
+        ]
+      }
     },
     {
       "id": "lutron_homeworks_qs",
@@ -1809,7 +1969,14 @@
           "confidence": "untested",
           "notes": "HomeWorks QS Processor (HQP6-2 and HQP7). Other Lutron systems (RadioRA 3, Caseta SB Pro, Athena, QS Standalone) speak related but distinct protocol surfaces and are not covered by this driver.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:1f:c1",
+          "08:80:01"
+        ]
+      }
     },
     {
       "id": "mersive_solstice",
@@ -1852,7 +2019,10 @@
           "confidence": "untested",
           "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "racklink_rlnk",
@@ -1906,7 +2076,10 @@
           "confidence": "untested",
           "notes": "All RackLink series share the Control Protocol on TCP 60000. Select models support outlet control, naming, sequencing, and dry contacts. Premium and Premium+ add per-system telemetry (voltage, current, wattage, temperature, surge state, occupancy), EPO, and pushed status updates."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "novastar_h_series",
@@ -1947,7 +2120,10 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "panasonic_awhe",
@@ -2012,7 +2188,17 @@
           "confidence": "untested",
           "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "Panasonic"
+        },
+        "oui_prefixes": [
+          "00:80:45",
+          "70:1d:7c",
+          "00:60:b0"
+        ]
+      }
     },
     {
       "id": "panasonic_pt",
@@ -2087,7 +2273,10 @@
           "confidence": "untested",
           "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "poly_studio",
@@ -2136,7 +2325,10 @@
           "confidence": "untested",
           "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "ptzoptics",
@@ -2190,7 +2382,12 @@
           "confidence": "untested",
           "notes": "All PTZOptics cameras share the same VISCA-over-IP command set on TCP 5678. Older models may not support every command (the camera ignores unknown ones). 12X-USB needs PTZOptics' IP/serial bridge for network control."
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "PTZOptics"
+        }
+      }
     },
     {
       "id": "qsc_qrc",
@@ -2239,7 +2436,16 @@
           "confidence": "untested",
           "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "qrc"
+        ],
+        "oui_prefixes": [
+          "00:0c:4d",
+          "7c:2e:0d"
+        ]
+      }
     },
     {
       "id": "samsung_mdc",
@@ -2280,7 +2486,22 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "samsung_mdc"
+        ],
+        "oui_prefixes": [
+          "00:07:ab",
+          "00:e0:64",
+          "14:49:e0",
+          "34:c3:d2",
+          "64:b5:c6",
+          "8c:71:f8",
+          "b4:79:a7",
+          "d0:03:4b"
+        ]
+      }
     },
     {
       "id": "sharp_nec_projector",
@@ -2333,7 +2554,15 @@
           "confidence": "untested",
           "notes": "Per NEC protocol manual. Specific models like NP-P506QL fall under P series."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:e0:63",
+          "00:c2:c6",
+          "00:30:13"
+        ]
+      }
     },
     {
       "id": "shure_network",
@@ -2374,7 +2603,13 @@
           ],
           "confidence": "untested"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:0e:dd"
+        ]
+      }
     },
     {
       "id": "philips_hue",
@@ -2418,7 +2653,17 @@
           "confidence": "untested",
           "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "mdns_services": [
+          "_hue._tcp.local."
+        ],
+        "oui_prefixes": [
+          "00:17:88",
+          "ec:b5:fa",
+          "1c:53:f9"
+        ]
+      }
     },
     {
       "id": "sonos",
@@ -2457,7 +2702,12 @@
           "confidence": "full",
           "notes": "UPnP API stable across all Sonos models."
         }
-      ]
+      ],
+      "discovery": {
+        "ssdp_device_types": [
+          "urn:schemas-upnp-org:device:ZonePlayer:1"
+        ]
+      }
     },
     {
       "id": "sony_bravia",
@@ -2500,7 +2750,25 @@
           "confidence": "full",
           "notes": "Verified on production hardware."
         }
-      ]
+      ],
+      "discovery": {
+        "ssdp_device_types": [
+          "urn:schemas-sony-com:service:ScalarWebAPI:1"
+        ],
+        "oui_prefixes": [
+          "00:01:4a",
+          "00:0a:d9",
+          "00:0e:07",
+          "00:13:a9",
+          "00:1a:80",
+          "04:5d:4b",
+          "40:b8:9a",
+          "54:42:49",
+          "a8:93:4a",
+          "ac:9b:0a",
+          "fc:f1:52"
+        ]
+      }
     },
     {
       "id": "sony_visca",
@@ -2544,7 +2812,12 @@
           "confidence": "untested",
           "notes": "BRC-X400 / X401 expose the full feature set (picture profiles, color matrix, defog, PRESET MODE, PTZ TRACE, tally). SRG-X400/X402/201M2 and SRG-X120/HD1M2 share the picture profile / R-B gain / chroma suppress / IR correction surface but lack PRESET MODE, PTZ TRACE, tally, color matrix and defog (commands return error harmlessly). BRC-H800 / H900 are older but speak the same Command List wire format."
         }
-      ]
+      ],
+      "discovery": {
+        "onvif": {
+          "manufacturer": "Sony"
+        }
+      }
     },
     {
       "id": "sony_vpl",
@@ -2613,7 +2886,10 @@
           "confidence": "untested",
           "notes": "ADCP is the same on every VPL professional / installation projector \u2014 the command surface is consistent, the variation is which inputs and picture modes a given chassis exposes. The driver lets the user pick from the union of all inputs / modes; unsupported values return err_val on the projector, which the driver logs but does not raise."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "vmix",
@@ -2650,7 +2926,10 @@
           "confidence": "untested",
           "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "symetrix_composer",
@@ -2705,7 +2984,10 @@
           "confidence": "untested",
           "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "vaddio_roboshot",
@@ -2766,7 +3048,14 @@
           "confidence": "untested",
           "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:1e:c0",
+          "08:00:6b"
+        ]
+      }
     },
     {
       "id": "wattbox_ip",
@@ -2816,7 +3105,10 @@
           "confidence": "untested",
           "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     },
     {
       "id": "yamaha_mtx_mrx",
@@ -2887,7 +3179,15 @@
           "confidence": "untested",
           "notes": "Audio I/O expanders. Same RCP address model as XMV.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "active_probes": [
+          "yamaha_rcp"
+        ],
+        "oui_prefixes": [
+          "00:a0:de"
+        ]
+      }
     }
   ]
 }

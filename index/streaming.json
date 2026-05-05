@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T17:05:06+00:00",
+    "generated_at": "2026-05-05T19:04:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 2,
@@ -59,7 +59,13 @@
           "confidence": "untested",
           "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true,
+        "oui_prefixes": [
+          "00:04:a5"
+        ]
+      }
     },
     {
       "id": "mersive_solstice",
@@ -102,7 +108,10 @@
           "confidence": "untested",
           "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
         }
-      ]
+      ],
+      "discovery": {
+        "manual_only": true
+      }
     }
   ]
 }

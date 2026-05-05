@@ -92,17 +92,30 @@ Generic protocol drivers (PJLink, SNMP, ONVIF, Modbus, etc.) leave their own `co
 
 ## Discovery Hints
 
-If your driver targets a specific device family, add a `discovery` section to the `.avcdriver` file to help OpenAVC's network scanner identify devices and suggest your driver:
+The `discovery:` block is **required**. Every driver declares at least one strong (Tier 1, 2, or 3) signal that deterministically identifies the device on the network — or sets `manual_only: true` if the device has no verifiable announcement and must be added by hand. CI rejects drivers that declare neither.
 
 ```yaml
 discovery:
-  ports: [23]
-  mac_prefixes: ["00:05:a6"]
+  # Best: a deterministic Tier 3 active probe that's already in core
+  active_probes:
+    - extron_sis
+  # Soft enrichment hints (never produce identified alone)
+  oui_prefixes:
+    - "00:05:a6"
 ```
 
-See the [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) guide for the full list of discovery hint fields (ports, MAC prefixes, mDNS services, hostname patterns).
+Or for a device with no fingerprint we can match safely:
 
-Even without explicit discovery hints, the driver's `manufacturer`, `category`, and `default_config.port` are used as basic matching signals. Adding hints makes discovery noticeably more accurate.
+```yaml
+discovery:
+  manual_only: true
+  oui_prefixes:
+    - "00:0a:45"
+```
+
+The matcher is deterministic — there is no scoring. A signal either fires (the device is identified) or it does not. See the [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) guide for the full schema (Tier 1 mDNS / SSDP / AMX DDP, Tier 2 broadcast probes, Tier 3 active probe allow-list, Tier 4 enrichment hints).
+
+If your device announces itself on the network but the wire format isn't yet supported in core, ship the driver as `manual_only: true` and open an issue describing the protocol — or contribute the listener / probe upstream.
 
 ## Help Text
 

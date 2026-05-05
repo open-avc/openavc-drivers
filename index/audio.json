@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T00:28:48+00:00",
+    "generated_at": "2026-05-05T01:21:31+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -418,27 +418,32 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "3.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls QSC Q-SYS Core processors via the QRC (Q-SYS Remote Control) protocol over TCP port 1702. Supports named control values, positions, strings, and snapshot recall. Configure Named Control names to match your Q-SYS Designer file.\n",
-      "source_url": "https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm",
-      "file": "audio/qsc_qrc.avcdriver",
-      "format": "avcdriver",
+      "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. QRC is QSC's modern control protocol; ECP (port 1702) is legacy. Supports Named Controls, Component gain/mute, Mixer (per-input, per-output, crosspoint), Audio Router, Snapshot recall / save, Loop Player, and PA Router page submission. Uses Change Groups with auto-poll for push-style state updates instead of polling. Declare your Q-SYS blocks once in the device config \u2014 the driver expands per-block state variables and commands automatically.",
+      "source_url": "https://q-syshelp.qsc.com/Content/External_Control_APIs/QRC/QRC_Commands.htm",
+      "file": "audio/qsc_qrc.py",
+      "format": "python",
       "ports": [
-        1702,
-        52000
+        1710
       ],
       "protocols": [
-        "qsc"
+        "qsc_qrc"
       ],
       "simulated": true,
+      "min_platform_version": "0.11.0",
       "tags": [
         "dsp",
         "q-sys",
         "qrc",
-        "ceiling-mic"
+        "ceiling-mic",
+        "conferencing"
       ],
+      "help": {
+        "overview": "Comprehensive QSC Q-SYS control over QRC (JSON-RPC 2.0 on TCP 1710). The driver subscribes to every declared block via a Change Group with auto-poll \u2014 UI bindings update in real-time without polling. Declare every Q-SYS block you want to monitor or control in the 'Q-SYS Block List' field below; the driver expands one state variable per typed control and surfaces typed commands named after each block.",
+        "setup": "STEP 1 \u2014 Make sure QRC is reachable.\nQRC is enabled by default on Q-SYS Cores running a design in Run mode. The default port is 1710. If your Core has admin authentication enabled (Users \u2192 Administrator), enter Username and Password below; otherwise leave them blank.\n\nSTEP 2 \u2014 Find your Code Names.\nOpen the Q-SYS design (.qsys file) for this Core in Q-SYS Designer. Each block (Gain, Mute, Mixer, Router, Snapshot Bank, Loop Player, etc.) has a Code Name on its Properties pane \u2014 that's the name QRC uses to address it. Right-click any block \u2192 Properties \u2192 'Code Name'. Code names are case-sensitive: 'PgmGain' and 'pgmgain' are NOT the same.\n\nNamed Controls live in the Named Controls pane (Tools \u2192 Show Named Controls). The 'Name' column is what you declare here.\n\nSTEP 3 \u2014 Enter the Core's IP address above.\n\nSTEP 4 \u2014 Declare your blocks in the 'Q-SYS Block List' field below.\nFormat: one block per line, whitespace-separated\n    <CODE_NAME> <TYPE> [SPEC]\n\nExamples (typical conferencing room):\n    PgmGain     gain                # program gain block\n    RoomMute    mute                # whole-room mute\n    PgmRouter   router    4         # 4-output source router\n    RoomScenes  snapshot  8         # 8-snapshot bank\n    BgmLoop     loop_player         # background-music loop\n    Volume      named_control number   # volume Named Control\n    Mute        named_control boolean  # mute Named Control\n    DoorBell    named_control trigger  # trigger button\n    PgmMix      mixer     8x4       # 8 inputs x 4 outputs\n    LobbyZone   pa_zone             # PA Router zone\n\nNotes on the syntax:\n    \u2022 SPEC is type-dependent \u2014 'NxM' for mixers, the output count for routers, the snapshot count for snapshot banks, the value type for named_control.\n    \u2022 named_control type can be number / boolean / string / trigger. Default: number.\n    \u2022 Lines starting with '#' or ';' are comments.\n    \u2022 The pre-filled textarea has a complete syntax guide.\n\nSTEP 5 \u2014 Save.\nWithin seconds the device should show 'Connected'. The Core's status (Active / Idle / Standby), platform model, design name, and design code populate core_state, core_platform, etc. automatically. Open Variables \u2192 Devices and you'll see one state variable per typed control on each declared block \u2014 e.g. 'PgmGain_gain' (dB), 'PgmGain_mute' (boolean), 'PgmMix_xpoint_gain_3_2' (dB). Bind those state keys to UI elements, or use the auto-named per-block commands ('PgmGain: Set Gain (dB)') in macros and panel buttons.\n\nTroubleshooting:\n    \u2022 'Connection refused' on port 1710 \u2014 verify the Core is in Run mode and that QRC isn't blocked by a VLAN ACL.\n    \u2022 'Logon required' errors \u2014 set Username and Password above to match a user defined under Q-SYS Administrator.\n    \u2022 Some controls don't appear \u2014 check that the Code Names match exactly (case matters), and that the block exists in the currently-running design.\n    \u2022 Need a block type the driver doesn't handle? Use 'set_component_control' or 'send_raw_jsonrpc' \u2014 anything QRC supports will work."
+      },
       "compatible_models": [
         {
           "manufacturer": "QSC",
@@ -448,10 +453,12 @@
             "Core 510i",
             "Core 610",
             "Core Nano",
+            "NV-32-H",
+            "NV-21-HU",
             "Q-SYS Core series"
           ],
           "confidence": "untested",
-          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
       ]
     },

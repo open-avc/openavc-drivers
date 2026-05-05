@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T00:28:48+00:00",
+    "generated_at": "2026-05-05T01:21:31+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 95,
+    "total_devices": 97,
     "shards": null,
     "category": "audio"
   },
@@ -594,7 +594,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
       ]
     },
@@ -606,7 +606,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
       ]
     },
@@ -618,7 +618,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
       ]
     },
@@ -630,7 +630,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
       ]
     },
@@ -642,7 +642,31 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "NV-21-HU",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "NV-32-H",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "untested",
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
       ]
     },
@@ -654,7 +678,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Any Q-SYS Core via QRC. Requires Named Controls in Q-SYS Designer."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
         }
       ]
     },

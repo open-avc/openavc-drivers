@@ -122,7 +122,7 @@ Defines the fields shown in the Add Device dialog. Each key is a config field na
 ```yaml
 config_schema:
   host:
-    type: string             # string | integer | number | boolean | enum | object
+    type: string             # string | text | integer | number | boolean | enum | object
     required: true
     default: ""
     label: "IP Address"
@@ -151,6 +151,14 @@ config_schema:
     type: string
     label: "Password"
     secret: true             # Masks the value in the UI
+  blocks:
+    type: text               # Multi-line textarea — for declarative block lists,
+                             # channel maps, scripted patterns. The Add Device
+                             # dialog renders a 6-row monospace textarea. The
+                             # raw string is preserved (no JSON / number coercion
+                             # on save). Driver parses the string at __init__.
+    label: "DSP Block List"
+    description: "One block per line: <TAG> <TYPE> [CHANNELS]"
 ```
 
 ### 2.5 state_variables

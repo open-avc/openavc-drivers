@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-04T01:34:27+00:00",
+    "generated_at": "2026-05-05T00:28:48+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 88,
+    "total_devices": 95,
     "shards": null,
     "category": "audio"
   },
@@ -348,13 +348,61 @@
     },
     {
       "manufacturer": "Biamp",
+      "model": "Tesira EX-AEC",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Tesira EX-IN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Tesira EX-MOD",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "Tesira EX-OUT",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
       "model": "Tesira SERVER",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
@@ -365,92 +413,128 @@
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
     {
       "manufacturer": "Biamp",
-      "model": "TesiraFORTE AVB",
+      "model": "TesiraFORT\u00c9 AVB",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
     {
       "manufacturer": "Biamp",
-      "model": "TesiraFORTE CI",
+      "model": "TesiraFORT\u00c9 CI",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
     {
       "manufacturer": "Biamp",
-      "model": "TesiraFORTE DAN",
+      "model": "TesiraFORT\u00c9 DAN",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
     {
       "manufacturer": "Biamp",
-      "model": "TesiraFORTE TI",
+      "model": "TesiraFORT\u00c9 TI",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
     {
       "manufacturer": "Biamp",
-      "model": "TesiraFORTE VI",
+      "model": "TesiraFORT\u00c9 VI",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
     {
       "manufacturer": "Biamp",
-      "model": "TesiraFORTE VT",
+      "model": "TesiraFORT\u00c9 VT",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },
     {
       "manufacturer": "Biamp",
-      "model": "TesiraFORTE X",
+      "model": "TesiraFORT\u00c9 X 1600",
       "category": "audio",
       "drivers": [
         {
           "id": "biamp_tesira_ttp",
-          "confidence": "partial",
-          "notes": "Driver supports level, mute, and preset recall \u2014 typical conferencing use."
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORT\u00c9 X 400",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraFORT\u00c9 X 800",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Biamp",
+      "model": "TesiraLUX",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "biamp_tesira_ttp",
+          "confidence": "untested",
+          "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
         }
       ]
     },

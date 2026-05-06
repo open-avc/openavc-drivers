@@ -235,7 +235,7 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.2.2",
+        "version": "2.2.3",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
@@ -300,6 +300,7 @@ class SharpNECProjectorDriver(BaseDriver):
             "oui_prefixes": [
                 "00:30:13",   # NEC Corporation (Fuchu — display/PC division)
                 "00:60:b9",   # NEC Platforms (Kawasaki — display platforms)
+                "8c:52:19",   # Sharp Corporation (post-merger Sharp NEC PE/PA series)
             ],
         },
         "default_config": {

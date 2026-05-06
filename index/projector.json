@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T14:15:31+00:00",
+    "generated_at": "2026-05-06T19:27:34+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 6,
@@ -383,7 +383,7 @@
       "name": "Sharp NEC Projector",
       "manufacturer": "Sharp NEC",
       "category": "projector",
-      "version": "2.2.2",
+      "version": "2.2.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
@@ -433,7 +433,8 @@
       "discovery": {
         "oui_prefixes": [
           "00:30:13",
-          "00:60:b9"
+          "00:60:b9",
+          "8c:52:19"
         ]
       }
     },

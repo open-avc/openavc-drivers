@@ -56,7 +56,7 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.1.0
+version: 1.1.1
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -112,7 +112,6 @@ help:
        command with a preset number. Recall later with Recall Preset.
 
 discovery:
-  manual_only: true
   oui_prefixes:
     - "b8:98:b0"
     - "00:1b:c5"

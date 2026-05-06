@@ -43,7 +43,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.1.0
+version: 1.1.1
 author: OpenAVC
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
@@ -103,7 +103,6 @@ help:
        routing commands on any valid port number.
 
 discovery:
-  manual_only: true
   oui_prefixes:
     - "d0:73:7f"
 

@@ -485,17 +485,27 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
                 f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
             )
 
-    has_strong = (
+    # Phase 8 Task 8.3: any combination of strong + soft signals is valid.
+    # Declaring no signals at all is a no-op (the matcher silently ignores
+    # the driver) but no longer a hard error. We surface it as a warning
+    # via stderr so contributors notice, while letting CI succeed.
+    has_any_signal = (
         bool(normalized_mdns)
         or bool(ssdp)
         or amx is not None
         or bool(broadcast)
         or bool(active)
+        or "snmp_pen" in discovery
+        or bool(discovery.get("oui_prefixes"))
+        or bool(discovery.get("hostname_patterns"))
+        or bool(raw_ports)
     )
-    if not manual_only and not has_strong:
-        errors.append(
-            f"{file}: discovery block declares no strong signal and is not "
-            "marked manual_only: true"
+    if not has_any_signal and not manual_only:
+        sys.stderr.write(
+            f"warning: {file}: discovery block declares no signals "
+            "(strong or soft); this driver will never participate in "
+            "matching. Add oui_prefixes, hostname_patterns, open_ports, "
+            "or a Tier 1/2/3 signal — or set manual_only: true.\n"
         )
     return errors, normalized
 

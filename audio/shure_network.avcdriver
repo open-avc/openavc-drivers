@@ -20,7 +20,7 @@ id: shure_network
 name: Shure Networked Devices
 manufacturer: Shure
 category: audio
-version: 1.4.0
+version: 1.4.1
 author: OpenAVC
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
@@ -55,7 +55,6 @@ discovery:
   # signal in core today (the documented mDNS service type and the
   # SMG broadcast probe are still unverified per the redesign plan),
   # so discovery surfaces this driver as a soft OUI candidate only.
-  manual_only: true
   oui_prefixes:
     - "00:0e:dd"
 

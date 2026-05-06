@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T19:04:20+00:00",
+    "generated_at": "2026-05-06T02:26:23+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 8,
@@ -13,7 +13,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
@@ -54,7 +54,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -66,7 +65,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -105,7 +104,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -117,7 +115,7 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source routing (per output, all outputs, multi-output), per-output volume and mute, power, presets (save / recall / clear), front-panel lock, and identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M outputs 11-18 are routable but not state-mirrored).\n",
@@ -157,7 +155,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -169,7 +166,7 @@
       "name": "Atlona OmniStream",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP encoders and decoders via the Telnet CLI (port 23). Supports source routing, audio mute/volume, video enable, HDCP, analog speaker power, and CEC/RS-232 display triggers. Runtime control surface only \u2014 install-time setup is configured in the device's web UI.\n",
@@ -214,7 +211,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -390,7 +386,7 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides video and audio crosspoint switching, mute, lock, HDCP, output 5V, embedded- audio mute, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
@@ -439,7 +435,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "d0:73:7f"
         ]

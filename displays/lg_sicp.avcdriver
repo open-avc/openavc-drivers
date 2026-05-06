@@ -19,7 +19,7 @@ id: lg_sicp
 name: LG SICP Display
 manufacturer: LG
 category: display
-version: 1.3.0
+version: 1.3.1
 author: OpenAVC
 description: >
   Controls LG commercial displays via SICP over TCP (port 9761).
@@ -55,7 +55,6 @@ help:
 discovery:
   # LG commercial displays don't expose a verified Tier 1/2/3 signal
   # for the SICP control protocol; surface via soft OUI candidacy.
-  manual_only: true
   oui_prefixes:
     - "00:05:c9"
     - "00:e0:91"

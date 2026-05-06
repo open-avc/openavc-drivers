@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-05T19:04:20+00:00",
+    "generated_at": "2026-05-06T02:26:23+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -209,7 +209,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
@@ -250,7 +250,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -262,7 +261,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -301,7 +300,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -313,7 +311,7 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source routing (per output, all outputs, multi-output), per-output volume and mute, power, presets (save / recall / clear), front-panel lock, and identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M outputs 11-18 are routable but not state-mirrored).\n",
@@ -353,7 +351,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -365,7 +362,7 @@
       "name": "Atlona OmniStream",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP encoders and decoders via the Telnet CLI (port 23). Supports source routing, audio mute/volume, video enable, HDCP, analog speaker power, and CEC/RS-232 display triggers. Runtime control surface only \u2014 install-time setup is configured in the device's web UI.\n",
@@ -410,7 +407,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "b8:98:b0",
           "00:1b:c5"
@@ -461,7 +457,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP. Supports input/output level and mute control, preset recall, and SmartMix configuration.\n",
@@ -492,7 +488,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:0a:45"
         ]
@@ -503,7 +498,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP. Supports input/output level and mute control, bus assign, SmartMix configuration, operator faders, and preset recall.\n",
@@ -536,7 +531,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:0a:45"
         ]
@@ -601,7 +595,7 @@
       "name": "Barco ClickShare CX",
       "manufacturer": "Barco",
       "category": "streaming",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Wireless presentation Base Unit control via local REST API V2 (HTTPS, port 4003). System status, standby / wake / reboot, audio + video + wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50, C-5 / C-10 / C-10A, CB-Core / CB-Pro.\n",
@@ -649,7 +643,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:04:a5"
         ]
@@ -1778,7 +1771,7 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
@@ -1810,7 +1803,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:05:c9",
           "00:e0:91",
@@ -1870,7 +1862,7 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides video and audio crosspoint switching, mute, lock, HDCP, output 5V, embedded- audio mute, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
@@ -1919,7 +1911,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "d0:73:7f"
         ]
@@ -1930,7 +1921,7 @@
       "name": "Lutron HomeWorks QS",
       "manufacturer": "Lutron",
       "category": "lighting",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet using the Lutron Integration Protocol (LIP). Supports zone level control (OUTPUT), keypad/phantom button presses and LED control (DEVICE), area occupancy queries (AREA), and shade group control (SHADEGRP). Use phantom keypad button presses to activate scenes.\n",
@@ -1971,7 +1962,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:1f:c1",
           "08:80:01"
@@ -2508,7 +2498,7 @@
       "name": "Sharp NEC Projector",
       "manufacturer": "Sharp NEC",
       "category": "projector",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
@@ -2556,7 +2546,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:e0:63",
           "00:c2:c6",
@@ -2569,7 +2558,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
@@ -2605,7 +2594,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:0e:dd"
         ]
@@ -2994,7 +2982,7 @@
       "name": "Vaddio RoboSHOT / ConferenceShot",
       "manufacturer": "Vaddio",
       "category": "camera",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom, focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris / gain / detail / white-balance) controls, factory & custom CCU scenes, and standby. One driver covers the entire RoboSHOT family \u2014 HDBT, HD-SDI, NDI, IW, USB.\n",
@@ -3050,7 +3038,6 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
         "oui_prefixes": [
           "00:1e:c0",
           "08:00:6b"

@@ -75,12 +75,14 @@ YAML driver definitions are interpreted at runtime by the `ConfigurableDriver` c
 
 ### 2.2 discovery
 
-Required block. Every driver must either declare at least one strong
-(Tier 1/2/3) signal or set `manual_only: true`. The discovery engine is
-deterministic — it does not score; either a rule fires or it does not.
-CI rejects any driver with no signal and no `manual_only` flag, and any
-two drivers that claim the same strong signal without a disambiguating
-filter.
+The `discovery:` block declares which network signals point at this
+driver. Strong signals (Tier 1/2/3) produce `identified`; soft signals
+(Tier 4 — OUI, hostname, open port, SNMP PEN) produce `possible` with a
+candidate driver list. Any combination is valid. Declaring no signals
+at all logs a warning at build time but isn't a CI failure. The matcher
+is deterministic — it does not score; either a rule fires or it does not.
+CI rejects two drivers that claim the same strong signal without a
+disambiguating filter.
 
 ```yaml
 discovery:
@@ -129,18 +131,20 @@ discovery:
 
 **Validation rules (enforced at load time):**
 
-1. At least one strong signal (`mdns_services`, `ssdp_device_types`,
-   `amx_ddp`, `pjlink_class2`, `crestron_cip`, `onvif`, `hiqnet`,
-   `symetrix`, `active_probes`) **or** `manual_only: true`.
-2. Tier 4 hints alone (`snmp_pen`, `oui_prefixes`, `hostname_patterns`,
-   `open_ports`) are not sufficient on their own — they only contribute
-   to the *possible* state. They DO register on `manual_only` drivers
-   too, surfacing devices as `possible (candidate: ...)` from soft
-   signals even without a confirmed wire format.
+1. Any combination of strong + soft signals is valid. A driver may
+   declare strong signals only, soft signals only, both, or none.
+   Declaring nothing logs a warning but doesn't reject the driver.
+2. Tier 4 hints (`snmp_pen`, `oui_prefixes`, `hostname_patterns`,
+   `open_ports`) only contribute to the *possible* state, never
+   *identified* on their own. They DO register on `manual_only` drivers
+   too — `manual_only` is now a documentation hint about manual IP
+   entry, not a matcher filter.
 3. Two drivers cannot claim the same Tier 1/2/3 signal without
-   distinct TXT filters. CI fails on collision.
+   distinct TXT filters. CI fails on collision. Tier 4 signals
+   deliberately allow overlap (that's what produces the candidate list).
 4. `active_probes` and broadcast probe IDs must come from the allow-lists
    above. Adding a new probe means landing it in the platform first.
+5. `open_ports` rejects `{22, 80, 443}` and any port outside `[1, 65535]`.
 
 ### 2.3 default_config
 

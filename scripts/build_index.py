@@ -338,16 +338,10 @@ def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
 
 # --- Discovery block validation ---------------------------------------------
 
-# Mirrors the platform's allow-lists in `openavc/server/discovery/hints.py`.
-# Keep these in sync — drivers built off this catalog rely on the platform
-# accepting the same probe IDs.
-_ALLOWED_BROADCAST_PROBES = frozenset({
-    "pjlink_class2", "crestron_cip", "onvif", "hiqnet", "symetrix",
-})
-_ALLOWED_ACTIVE_PROBES = frozenset({
-    "pjlink_class1", "extron_sis", "tesira_ttp", "qrc", "kramer_p3000",
-    "shure_dcs", "samsung_mdc", "visca", "crestron_cip_tcp", "yamaha_rcp",
-})
+# Phase 9 dropped the broadcast / active-probe allow-lists: the platform
+# accepts unknown probe IDs as silent no-ops at runtime and driver-
+# declared probes carry the wire format directly via ``udp_broadcast_probe:``
+# / ``tcp_active_probe:``. CI no longer has a registry to gate against.
 
 # Ports too generic to use as a Tier 4 soft enrichment signal — every web /
 # admin / SSH device on the network would match. AV-specific ports are fine.
@@ -630,12 +624,6 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         broadcast.append(("hiqnet", None))
     if discovery.get("symetrix"):
         broadcast.append(("symetrix", None))
-    for probe_id, _ in broadcast:
-        if probe_id not in _ALLOWED_BROADCAST_PROBES:
-            errors.append(
-                f"{file}: unknown Tier 2 broadcast probe {probe_id!r}; "
-                f"allowed: {sorted(_ALLOWED_BROADCAST_PROBES)}"
-            )
     normalized["broadcast"] = broadcast
 
     active: list[str] = []
@@ -650,12 +638,6 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
             probe_id = entry["probe"]
         else:
             errors.append(f"{file}: discovery.active_probes entry malformed")
-            continue
-        if probe_id not in _ALLOWED_ACTIVE_PROBES:
-            errors.append(
-                f"{file}: unknown Tier 3 active probe {probe_id!r}; "
-                f"allowed: {sorted(_ALLOWED_ACTIVE_PROBES)}"
-            )
             continue
         active.append(probe_id)
     normalized["active_probes"] = active

@@ -354,6 +354,208 @@ _ALLOWED_ACTIVE_PROBES = frozenset({
 # Mirrors `DISALLOWED_OPEN_PORTS` in the platform's hints.py.
 _DISALLOWED_OPEN_PORTS = frozenset({22, 80, 443})
 
+# Phase 9: ports owned by built-in handlers — drivers declaring a
+# ``udp_broadcast_probe`` / ``tcp_active_probe`` cannot collide on them.
+# Mirrors `DISALLOWED_UDP_BROADCAST_PROBE_PORTS` /
+# `DISALLOWED_TCP_ACTIVE_PROBE_PORTS` in the platform's hints.py.
+_DISALLOWED_UDP_BROADCAST_PROBE_PORTS = frozenset({
+    1900, 3702, 4352, 5353, 9131, 41794,
+})
+_DISALLOWED_TCP_ACTIVE_PROBE_PORTS = frozenset({
+    23, 1515, 1688, 1710, 4352, 10500, 49280,
+})
+_MAX_PROBE_TIMEOUT_MS = 10000
+
+
+def _validate_send_block(file: str, kind: str, raw: Any) -> list[str]:
+    """Return validation errors for a probe ``send:`` block."""
+    errors: list[str] = []
+    if not isinstance(raw, dict):
+        errors.append(
+            f"{file}: discovery.{kind}.send must be a mapping with exactly "
+            "one of 'hex' or 'ascii'"
+        )
+        return errors
+    has_hex = "hex" in raw and raw["hex"] is not None
+    has_ascii = "ascii" in raw and raw["ascii"] is not None
+    if has_hex and has_ascii:
+        errors.append(
+            f"{file}: discovery.{kind}.send must declare exactly one of "
+            "'hex' or 'ascii', not both"
+        )
+    if not has_hex and not has_ascii:
+        errors.append(
+            f"{file}: discovery.{kind}.send must declare one of 'hex' or 'ascii'"
+        )
+    if has_hex:
+        h = raw["hex"]
+        if not isinstance(h, str):
+            errors.append(f"{file}: discovery.{kind}.send.hex must be a string")
+        else:
+            try:
+                bytes.fromhex(h.replace(" ", "").replace(":", ""))
+            except ValueError as exc:
+                errors.append(
+                    f"{file}: discovery.{kind}.send.hex is not valid hex: {exc}"
+                )
+    if has_ascii and not isinstance(raw["ascii"], str):
+        errors.append(f"{file}: discovery.{kind}.send.ascii must be a string")
+    return errors
+
+
+def _validate_response_match_block(file: str, kind: str, raw: Any) -> list[str]:
+    """Return validation errors for a ``response_match:`` block."""
+    errors: list[str] = []
+    if not isinstance(raw, dict):
+        errors.append(
+            f"{file}: discovery.{kind}.response_match must be a mapping (at "
+            "least one of starts_with_hex, contains, regex)"
+        )
+        return errors
+    have_any = False
+    if "starts_with_hex" in raw and raw["starts_with_hex"] is not None:
+        s = raw["starts_with_hex"]
+        if not isinstance(s, str):
+            errors.append(
+                f"{file}: discovery.{kind}.response_match.starts_with_hex "
+                "must be a string"
+            )
+        else:
+            have_any = True
+            try:
+                bytes.fromhex(s.replace(" ", "").replace(":", ""))
+            except ValueError as exc:
+                errors.append(
+                    f"{file}: discovery.{kind}.response_match.starts_with_hex "
+                    f"is not valid hex: {exc}"
+                )
+    if "contains" in raw and raw["contains"] is not None:
+        c = raw["contains"]
+        if not isinstance(c, str) or not c:
+            errors.append(
+                f"{file}: discovery.{kind}.response_match.contains must be a "
+                "non-empty string"
+            )
+        else:
+            have_any = True
+    if "regex" in raw and raw["regex"] is not None:
+        r = raw["regex"]
+        if not isinstance(r, str) or not r:
+            errors.append(
+                f"{file}: discovery.{kind}.response_match.regex must be a "
+                "non-empty string"
+            )
+        else:
+            have_any = True
+            try:
+                re.compile(r)
+            except re.error as exc:
+                errors.append(
+                    f"{file}: discovery.{kind}.response_match.regex failed "
+                    f"to compile: {exc}"
+                )
+    if not have_any:
+        errors.append(
+            f"{file}: discovery.{kind}.response_match needs at least one of "
+            "starts_with_hex, contains, regex"
+        )
+    return errors
+
+
+def _validate_extract_block(file: str, kind: str, raw: Any) -> list[str]:
+    """Return validation errors for an ``extract:`` block."""
+    errors: list[str] = []
+    if raw is None:
+        return errors
+    if not isinstance(raw, dict):
+        errors.append(
+            f"{file}: discovery.{kind}.extract must be a mapping of field "
+            "name to literal string or {regex, group} mapping"
+        )
+        return errors
+    for name, spec in raw.items():
+        if not isinstance(name, str) or not name:
+            errors.append(
+                f"{file}: discovery.{kind}.extract field names must be "
+                "non-empty strings"
+            )
+            continue
+        if isinstance(spec, str):
+            continue
+        if isinstance(spec, dict):
+            pat = spec.get("regex")
+            if not isinstance(pat, str) or not pat:
+                errors.append(
+                    f"{file}: discovery.{kind}.extract.{name} mapping requires "
+                    "a non-empty 'regex' string"
+                )
+            else:
+                try:
+                    re.compile(pat)
+                except re.error as exc:
+                    errors.append(
+                        f"{file}: discovery.{kind}.extract.{name}.regex failed "
+                        f"to compile: {exc}"
+                    )
+            grp = spec.get("group", 1)
+            if not isinstance(grp, int) or isinstance(grp, bool) or grp < 0:
+                errors.append(
+                    f"{file}: discovery.{kind}.extract.{name}.group must be a "
+                    "non-negative integer"
+                )
+            continue
+        errors.append(
+            f"{file}: discovery.{kind}.extract.{name} must be a literal "
+            "string or a {regex, group} mapping"
+        )
+    return errors
+
+
+def _validate_custom_probe_block(
+    file: str,
+    kind: str,                      # "udp_broadcast_probe" | "tcp_active_probe"
+    raw: Any,
+    disallowed_ports: frozenset[int],
+) -> list[str]:
+    """Return validation errors for one custom probe block."""
+    errors: list[str] = []
+    if not isinstance(raw, dict):
+        errors.append(f"{file}: discovery.{kind} must be a mapping")
+        return errors
+
+    port = raw.get("port")
+    if not isinstance(port, int) or isinstance(port, bool) or port < 1 or port > 65535:
+        errors.append(
+            f"{file}: discovery.{kind}.port must be an integer in [1, 65535]"
+        )
+    elif port in disallowed_ports:
+        errors.append(
+            f"{file}: discovery.{kind}.port {port} is reserved for a built-in "
+            f"handler. Use the named opt-in instead. "
+            f"Disallowed: {sorted(disallowed_ports)}"
+        )
+
+    errors.extend(_validate_send_block(file, kind, raw.get("send")))
+    errors.extend(_validate_response_match_block(file, kind, raw.get("response_match")))
+    errors.extend(_validate_extract_block(file, kind, raw.get("extract")))
+
+    timeout_ms = raw.get("timeout_ms")
+    if timeout_ms is not None:
+        if not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool) or timeout_ms < 1:
+            errors.append(
+                f"{file}: discovery.{kind}.timeout_ms must be a positive integer"
+            )
+        elif timeout_ms > _MAX_PROBE_TIMEOUT_MS:
+            errors.append(
+                f"{file}: discovery.{kind}.timeout_ms exceeds the max of "
+                f"{_MAX_PROBE_TIMEOUT_MS} ms"
+            )
+
+    if "generic" in raw and not isinstance(raw["generic"], bool):
+        errors.append(f"{file}: discovery.{kind}.generic must be a bool")
+
+    return errors
+
 
 def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
     """Return (errors, normalized_discovery) for one driver.
@@ -458,6 +660,28 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         active.append(probe_id)
     normalized["active_probes"] = active
 
+    # Phase 9: driver-declared probe blocks. Both optional.
+    has_udp_probe = False
+    has_tcp_probe = False
+    if "udp_broadcast_probe" in discovery:
+        errors.extend(_validate_custom_probe_block(
+            file,
+            "udp_broadcast_probe",
+            discovery["udp_broadcast_probe"],
+            _DISALLOWED_UDP_BROADCAST_PROBE_PORTS,
+        ))
+        has_udp_probe = True
+    if "tcp_active_probe" in discovery:
+        errors.extend(_validate_custom_probe_block(
+            file,
+            "tcp_active_probe",
+            discovery["tcp_active_probe"],
+            _DISALLOWED_TCP_ACTIVE_PROBE_PORTS,
+        ))
+        has_tcp_probe = True
+    normalized["has_udp_broadcast_probe"] = has_udp_probe
+    normalized["has_tcp_active_probe"] = has_tcp_probe
+
     if "snmp_pen" in discovery:
         pen = discovery["snmp_pen"]
         if not isinstance(pen, int) or isinstance(pen, bool) or pen < 1:
@@ -513,6 +737,8 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         or amx is not None
         or bool(broadcast)
         or bool(active)
+        or has_udp_probe
+        or has_tcp_probe
         or "snmp_pen" in discovery
         or bool(discovery.get("oui_prefixes"))
         or bool(discovery.get("hostname_patterns"))

@@ -121,6 +121,10 @@ discovery:
     - "^(QSC|qsys)-"
   open_ports: [1710, 4352]         # AV-specific ports the device leaves open;
                                    # 22 / 80 / 443 are disallowed (too generic)
+  vendor_aliases: ["NEC", "Sharp NEC", "Sharp"]
+                                   # manufacturer strings the device returns in
+                                   # generic-probe responses (PJLink %1MNFR?,
+                                   # ONVIF Manufacturer, etc.). See §2.2.1.
 
   # --- Opt out of automatic discovery ---
   # Set when the device has no deterministic fingerprint we can match
@@ -145,6 +149,33 @@ discovery:
 4. `active_probes` and broadcast probe IDs must come from the allow-lists
    above. Adding a new probe means landing it in the platform first.
 5. `open_ports` rejects `{22, 80, 443}` and any port outside `[1, 65535]`.
+6. `vendor_aliases` entries must be non-empty strings; whitespace is
+   stripped and matching is case-insensitive. Multiple drivers may
+   claim the same alias — same overlap rules as `oui_prefixes`.
+
+### 2.2.1 Best-driver-first matching (vendor_aliases + alternatives)
+
+When a device responds to a *generic* strong-tier probe (PJLink Class
+1/2, unfiltered ONVIF), the matcher consults Tier 4 soft signals to
+pick the *best-fit* driver. If a vendor-specific driver matched on
+OUI, hostname, open port, or `vendor_aliases`, it becomes the primary
+identification and the generic driver demotes to an alternative
+(surfaced via `IdentificationMatch.alternatives` and the dropdown on
+the Discovery card).
+
+If your driver targets a device that also responds to PJLink, ONVIF,
+or another standards-based protocol, **declare every brand name the
+firmware actually emits**. PJLink projectors return the manufacturer
+in `%1MNFR?` — the exact string varies by vendor and model. List
+every variant you've seen (e.g. `["NEC", "Sharp NEC", "Sharp"]`,
+`["EPSON", "Seiko Epson"]`). You don't need to opt into the generic
+probe yourself — the platform-shipped probe handles that, and your
+`vendor_aliases` is what makes your driver win the "best fit" pick.
+
+Same applies to `oui_prefixes`: list every OUI block the manufacturer
+ships under. Vendor-specific drivers that share an OUI with another
+vendor driver (e.g. Sharp/NEC post-merger) can both claim the prefix
+— they'll appear together in the alternatives list.
 
 ### 2.3 default_config
 

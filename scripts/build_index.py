@@ -349,6 +349,11 @@ _ALLOWED_ACTIVE_PROBES = frozenset({
     "shure_dcs", "samsung_mdc", "visca", "crestron_cip_tcp", "yamaha_rcp",
 })
 
+# Ports too generic to use as a Tier 4 soft enrichment signal — every web /
+# admin / SSH device on the network would match. AV-specific ports are fine.
+# Mirrors `DISALLOWED_OPEN_PORTS` in the platform's hints.py.
+_DISALLOWED_OPEN_PORTS = frozenset({22, 80, 443})
+
 
 def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
     """Return (errors, normalized_discovery) for one driver.
@@ -457,6 +462,28 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         pen = discovery["snmp_pen"]
         if not isinstance(pen, int) or isinstance(pen, bool) or pen < 1:
             errors.append(f"{file}: discovery.snmp_pen must be a positive integer")
+
+    raw_ports = discovery.get("open_ports") or []
+    if not isinstance(raw_ports, list):
+        errors.append(f"{file}: discovery.open_ports must be a list")
+        raw_ports = []
+    for port in raw_ports:
+        if not isinstance(port, int) or isinstance(port, bool):
+            errors.append(
+                f"{file}: discovery.open_ports entries must be integers, got {port!r}"
+            )
+            continue
+        if port < 1 or port > 65535:
+            errors.append(
+                f"{file}: discovery.open_ports entry {port} out of range [1, 65535]"
+            )
+            continue
+        if port in _DISALLOWED_OPEN_PORTS:
+            errors.append(
+                f"{file}: discovery.open_ports entry {port} is disallowed "
+                f"(too generic — would match every web/SSH device). "
+                f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
+            )
 
     has_strong = (
         bool(normalized_mdns)

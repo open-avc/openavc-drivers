@@ -117,6 +117,8 @@ discovery:
   oui_prefixes: ["00:05:a6"]       # used for vendor display + possible-state candidates
   hostname_patterns:
     - "^(QSC|qsys)-"
+  open_ports: [1710, 4352]         # AV-specific ports the device leaves open;
+                                   # 22 / 80 / 443 are disallowed (too generic)
 
   # --- Opt out of automatic discovery ---
   # Set when the device has no deterministic fingerprint we can match
@@ -130,8 +132,11 @@ discovery:
 1. At least one strong signal (`mdns_services`, `ssdp_device_types`,
    `amx_ddp`, `pjlink_class2`, `crestron_cip`, `onvif`, `hiqnet`,
    `symetrix`, `active_probes`) **or** `manual_only: true`.
-2. Tier 4 hints alone (`snmp_pen`, `oui_prefixes`, `hostname_patterns`)
-   are not sufficient — they only contribute to the *possible* state.
+2. Tier 4 hints alone (`snmp_pen`, `oui_prefixes`, `hostname_patterns`,
+   `open_ports`) are not sufficient on their own — they only contribute
+   to the *possible* state. They DO register on `manual_only` drivers
+   too, surfacing devices as `possible (candidate: ...)` from soft
+   signals even without a confirmed wire format.
 3. Two drivers cannot claim the same Tier 1/2/3 signal without
    distinct TXT filters. CI fails on collision.
 4. `active_probes` and broadcast probe IDs must come from the allow-lists
@@ -1035,7 +1040,7 @@ help:
   setup: Connect via Ethernet to port 5000. No authentication required.
 
 discovery:
-  ports: [5000]
+  open_ports: [5000]
   hostname_patterns: ["^ACME-"]
 
 default_config:

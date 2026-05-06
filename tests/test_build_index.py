@@ -290,6 +290,61 @@ def test_ports_must_be_in_range(tmp_path: Path) -> None:
     assert "65535" in err
 
 
+def test_discovery_open_ports_must_be_list(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"manual_only": True, "open_ports": "1710"}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "open_ports must be a list" in err
+
+
+def test_discovery_open_ports_must_be_int(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"manual_only": True, "open_ports": ["1710"]}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "must be integers" in err
+
+
+def test_discovery_open_ports_out_of_range(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"manual_only": True, "open_ports": [70000]}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "out of range" in err
+
+
+@pytest.mark.parametrize("port", [22, 80, 443])
+def test_discovery_open_ports_disallowed(tmp_path: Path, port: int) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"manual_only": True, "open_ports": [port]}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "disallowed" in err
+
+
+def test_discovery_open_ports_valid_pass(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"manual_only": True, "open_ports": [1710, 4352]}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+
 # --- Cross-driver validation -----------------------------------------------
 
 

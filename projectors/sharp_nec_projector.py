@@ -235,7 +235,7 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.2.3",
+        "version": "2.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
@@ -302,6 +302,11 @@ class SharpNECProjectorDriver(BaseDriver):
                 "00:60:b9",   # NEC Platforms (Kawasaki — display platforms)
                 "8c:52:19",   # Sharp Corporation (post-merger Sharp NEC PE/PA series)
             ],
+            # Manufacturer strings the projector returns to PJLink
+            # ``%1MNFR?`` (and similar generic-probe responses). Lets the
+            # matcher prefer this driver over plain pjlink_class1 even
+            # when the device's OUI isn't catalogued.
+            "vendor_aliases": ["NEC", "Sharp NEC", "Sharp"],
         },
         "default_config": {
             "host": "",

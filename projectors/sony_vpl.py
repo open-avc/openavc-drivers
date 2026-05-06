@@ -164,7 +164,7 @@ class SonyVPLDriver(BaseDriver):
         "name": "Sony VPL Projector (ADCP)",
         "manufacturer": "Sony",
         "category": "projector",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony VPL professional installation projectors "
@@ -183,7 +183,12 @@ class SonyVPLDriver(BaseDriver):
         "protocols": ["adcp"],
         "ports": [53595],
         "transport": "tcp",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            # Sony VPL projectors also support PJLink. Surface this
+            # ADCP-specific driver as a soft candidate when the PJLink
+            # response identifies the device as Sony.
+            "vendor_aliases": ["Sony"],
+        },
         "compatible_models": [
             {
                 "manufacturer": "Sony",

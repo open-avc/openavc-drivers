@@ -485,6 +485,24 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
                 f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
             )
 
+    # Phase 8.6: vendor_aliases are manufacturer/make strings the driver
+    # claims when a strong-tier probe response carries that field.
+    raw_aliases = discovery.get("vendor_aliases") or []
+    if not isinstance(raw_aliases, list):
+        errors.append(f"{file}: discovery.vendor_aliases must be a list")
+        raw_aliases = []
+    for alias in raw_aliases:
+        if not isinstance(alias, str):
+            errors.append(
+                f"{file}: discovery.vendor_aliases entries must be strings, "
+                f"got {alias!r}"
+            )
+            continue
+        if not alias.strip():
+            errors.append(
+                f"{file}: discovery.vendor_aliases entries must be non-empty"
+            )
+
     # Phase 8 Task 8.3: any combination of strong + soft signals is valid.
     # Declaring no signals at all is a no-op (the matcher silently ignores
     # the driver) but no longer a hard error. We surface it as a warning
@@ -499,13 +517,15 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         or bool(discovery.get("oui_prefixes"))
         or bool(discovery.get("hostname_patterns"))
         or bool(raw_ports)
+        or bool(raw_aliases)
     )
     if not has_any_signal and not manual_only:
         sys.stderr.write(
             f"warning: {file}: discovery block declares no signals "
             "(strong or soft); this driver will never participate in "
             "matching. Add oui_prefixes, hostname_patterns, open_ports, "
-            "or a Tier 1/2/3 signal — or set manual_only: true.\n"
+            "vendor_aliases, or a Tier 1/2/3 signal — or set "
+            "manual_only: true.\n"
         )
     return errors, normalized
 

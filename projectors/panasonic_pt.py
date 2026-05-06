@@ -123,7 +123,7 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) "
@@ -140,7 +140,13 @@ class PanasonicPTDriver(BaseDriver):
         "protocols": ["ntcontrol"],
         "ports": [1024],
         "transport": "tcp",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            # Panasonic PT projectors also speak PJLink Class 1/2 — generic
+            # detection routes there. Surface this brand-specific driver as
+            # a soft candidate when the PJLink response carries
+            # ``%1MNFR? -> Panasonic``.
+            "vendor_aliases": ["Panasonic"],
+        },
         "compatible_models": [
             {
                 "manufacturer": "Panasonic",

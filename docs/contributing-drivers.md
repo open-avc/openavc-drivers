@@ -113,9 +113,19 @@ discovery:
     - "00:0a:45"
 ```
 
-The matcher is deterministic — there is no scoring. A signal either fires (the device is identified) or it does not. See the [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) guide for the full schema (Tier 1 mDNS / SSDP / AMX DDP, Tier 2 broadcast probes, Tier 3 active probe allow-list, Tier 4 enrichment hints).
+The matcher is deterministic — there is no scoring. A signal either fires (the device is identified) or it does not. See the [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) guide for the full schema (Tier 1 mDNS / SSDP / AMX DDP, Tier 2 broadcast probes, Tier 3 active probes, Tier 4 enrichment hints).
 
-If your device announces itself on the network but the wire format isn't yet supported in core, ship the driver as `manual_only: true` and open an issue describing the protocol — or contribute the listener / probe upstream.
+### Adding discovery support
+
+If your device announces itself on the network and the wire format isn't covered by a built-in opt-in, you have two options before falling back to `manual_only: true`:
+
+1. **Declarative probe** — for "send these bytes, look for this in the response" protocols, declare a `udp_broadcast_probe:` or `tcp_active_probe:` block directly in the `.avcdriver`. Parameters: `port`, `send: {hex|ascii}`, `response_match: {starts_with_hex, contains, regex}`, optional `timeout_ms` (≤10000), `generic` flag, and `extract:` rules. Reserved extract keys `manufacturer` / `make` feed the Tier 4 vendor_string path so peer drivers can claim the device by `vendor_aliases`. Built-in handler ports are reserved (mDNS/SSDP/PJLink/Crestron CIP/ONVIF/AMX DDP for UDP; the active-probe handler ports for TCP).
+
+2. **Python companion** — for multi-step handshakes, encrypted payloads, or framing too dynamic for the declarative block, ship a sibling `<driver_id>_discovery.py` next to the `.avcdriver`. It exposes `async def probe(ctx)`; `ctx.source_ip` is the binding the companion **must** use, and `ctx.emit_broadcast / emit_active / emit_oui` produce evidence routed back to the right device record. Hard wall-clock timeout enforced by the platform (default 10s, capped at 30s).
+
+When you adopt either Phase 9 schema, bump the driver's `min_platform_version` in `index.json` so older OpenAVC instances don't try to match against fields they can't parse.
+
+When the device's protocol fits neither pattern, ship `manual_only: true` and open an issue describing the wire format — or contribute the listener / probe upstream.
 
 ## Help Text
 

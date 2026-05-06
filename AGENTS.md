@@ -108,11 +108,48 @@ discovery:
   symetrix: true          # ControlNet on UDP 49216 (deferred until validated)
 
   # --- Tier 3: targeted active probes (only on hosts that didn't self-announce) ---
-  # Allowed probe IDs:
-  #   pjlink_class1, extron_sis, tesira_ttp, qrc, kramer_p3000,
-  #   shure_dcs, samsung_mdc, visca, crestron_cip_tcp, yamaha_rcp
+  # Built-in named probe IDs (these run handlers shipped in the
+  # platform): pjlink_class1, extron_sis, tesira_ttp, qrc,
+  # kramer_p3000, shure_dcs, samsung_mdc, visca, crestron_cip_tcp,
+  # yamaha_rcp. Unknown IDs are accepted at parse time but no probe
+  # fires for them — for vendor-specific wire formats use the
+  # tcp_active_probe block below instead.
   active_probes:
     - extron_sis
+
+  # --- Phase 9: driver-declared probes (vendor-specific wire formats) ---
+  # Use these when the device's discovery protocol isn't covered by a
+  # built-in opt-in. Each block produces a `custom_<driver_id>_(udp|tcp)`
+  # signal id and runs alongside the named probes. A successful probe
+  # match emits Tier 2 (UDP) or Tier 3 (TCP) evidence.
+  udp_broadcast_probe:
+    port: 6000                       # 1900/3702/4352/5353/9131/41794 reserved
+    send:
+      hex: "00010203"                # OR ascii: "DISCOVER\r\n" — exactly one
+    response_match:
+      # All matchers AND together; at least one is required.
+      starts_with_hex: "AA55"        # optional, first N bytes hex
+      contains: "NovaStar"           # optional, substring on bytes-or-text
+      regex: "^NS-([A-Z0-9]+)"       # optional, regex on latin-1 decoded text
+    timeout_ms: 2000                 # optional, default 2000, max 10000
+    generic: false                   # see "generic flag" below
+    extract:                         # optional — populates evidence fields
+      manufacturer: "NovaStar"       # RESERVED key — feeds Tier 4 vendor_string
+      model:                         # other keys go under response/txt
+        regex: "model=([^,]+)"
+        group: 1
+  tcp_active_probe:
+    port: 6107                       # 23/1515/1688/1710/4352/10500/49280 reserved
+    send:
+      ascii: "GET /sys/version\r\n"
+    response_match:
+      contains: "Lightware"
+    timeout_ms: 3000
+    extract:
+      manufacturer: "Lightware"
+      version:
+        regex: "version=([0-9.]+)"
+        group: 1
 
   # --- Tier 4: enrichment hints (soft signals, never produce identified state alone) ---
   snmp_pen: 17049                  # IANA Private Enterprise Number
@@ -146,12 +183,35 @@ discovery:
 3. Two drivers cannot claim the same Tier 1/2/3 signal without
    distinct TXT filters. CI fails on collision. Tier 4 signals
    deliberately allow overlap (that's what produces the candidate list).
-4. `active_probes` and broadcast probe IDs must come from the allow-lists
-   above. Adding a new probe means landing it in the platform first.
-5. `open_ports` rejects `{22, 80, 443}` and any port outside `[1, 65535]`.
-6. `vendor_aliases` entries must be non-empty strings; whitespace is
-   stripped and matching is case-insensitive. Multiple drivers may
-   claim the same alias — same overlap rules as `oui_prefixes`.
+4. The named built-in opt-ins above (`pjlink_class2`, `crestron_cip`,
+   `onvif`, `hiqnet`, `symetrix`, named `active_probes`) are the way
+   to participate in shared standards. Vendor-specific wire formats
+   use the Phase 9 `udp_broadcast_probe` / `tcp_active_probe` blocks
+   or, when those don't fit, a `_discovery.py` companion module.
+5. `udp_broadcast_probe.port` cannot collide with built-in handler
+   ports (mDNS 5353, SSDP 1900, AMX DDP 9131, PJLink 4352, Crestron
+   CIP 41794, ONVIF 3702). `tcp_active_probe.port` cannot collide
+   with active-probe handler ports (23, 1515, 1688, 1710, 4352,
+   10500, 49280). `timeout_ms` capped at 10000.
+6. `udp_broadcast_probe.send` and `tcp_active_probe.send` must declare
+   exactly one of `hex` / `ascii`. `response_match` must declare at
+   least one of `starts_with_hex` / `contains` / `regex`. Regex is
+   compiled at load time — invalid patterns fail validation.
+7. `extract` keys named `manufacturer` or `make` are reserved: the
+   runner lifts their values to the top of the evidence response/txt
+   dict where `extract_vendor_strings` finds them, so a peer driver
+   can claim the device via `vendor_aliases`. Other extract keys are
+   recorded as evidence metadata.
+8. `generic: true` (Phase 9) marks a probe that matches every device
+   speaking some standard. The matcher then consults Tier 4 soft
+   signals and demotes the generic driver to an alternative when a
+   vendor-specific driver fits better — same Phase 8.5 best-driver-
+   first logic that runs for built-in generic probes (PJLink,
+   unfiltered ONVIF). Default `false`.
+9. `open_ports` rejects `{22, 80, 443}` and any port outside `[1, 65535]`.
+10. `vendor_aliases` entries must be non-empty strings; whitespace is
+    stripped and matching is case-insensitive. Multiple drivers may
+    claim the same alias — same overlap rules as `oui_prefixes`.
 
 ### 2.2.1 Best-driver-first matching (vendor_aliases + alternatives)
 
@@ -176,6 +236,56 @@ Same applies to `oui_prefixes`: list every OUI block the manufacturer
 ships under. Vendor-specific drivers that share an OUI with another
 vendor driver (e.g. Sharp/NEC post-merger) can both claim the prefix
 — they'll appear together in the alternatives list.
+
+### 2.2.2 Python `_discovery.py` companion (Phase 9)
+
+When the wire format genuinely can't be expressed declaratively
+(multi-step handshakes, encrypted payloads, big-endian bitfield
+framing — HiQnet is the canonical example), ship a sibling Python
+file alongside the driver:
+
+```
+audio/bss_soundweb.avcdriver
+audio/bss_soundweb_discovery.py   # filename = <driver_id>_discovery.py
+```
+
+The companion exposes a single async function:
+
+```python
+# bss_soundweb_discovery.py
+from server.discovery.companion import ProbeContext
+
+
+async def probe(ctx: ProbeContext) -> None:
+    """Run discovery for this driver. Emit evidence via ctx."""
+    # ctx.source_ip       — control adapter IP; bind every socket to it.
+    # ctx.target_subnets  — tuple of CIDR strings the engine is scanning.
+    # ctx.timeout_seconds — overall budget (capped at 30s by the runner).
+    # ctx.log             — logger.
+
+    # Emit evidence for any host that responds:
+    await ctx.emit_broadcast(
+        "custom_bss_soundweb_companion",
+        host="10.0.0.42",
+        txt={"manufacturer": "BSS"},     # 'manufacturer' is reserved
+    )                                     # — feeds vendor_string Tier 4
+```
+
+The companion **must** bind every socket to `ctx.source_ip`. The
+runner doesn't sandbox Python, but the API takes `source_ip`
+explicitly so the contract is impossible to miss. A hard wall-clock
+timeout (default 10s, capped at 30s) bounds runtime via
+`asyncio.wait_for`; a hung companion is logged and cut off.
+
+Probes emitted via `ctx.emit_broadcast` produce Tier 2 evidence;
+`ctx.emit_active` produces Tier 3; `ctx.emit_oui` produces Tier 4.
+All three accept a `host` argument so the engine can route the
+evidence to the right device record.
+
+When the companion ships alongside the YAML driver, bump the
+driver's `min_platform_version` in `index.json` to the OpenAVC
+release that contains Phase 9 (older platforms ignore the file but
+the catalog should grey out the driver for them).
 
 ### 2.3 default_config
 

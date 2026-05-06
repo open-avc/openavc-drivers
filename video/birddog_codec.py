@@ -48,7 +48,7 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
@@ -211,7 +211,12 @@ class BirdDogCodecDriver(BaseDriver):
                 "setup": False,
             },
         },
-        "discovery": {"manual_only": True},
+        "discovery": {
+            "manual_only": True,
+            # Factory default hostname is `birddog-<xxxxx>` (last 5 hex
+            # digits of serial), per BirdDog Eyes P200 / BirdUI manuals.
+            "hostname_patterns": ["^birddog-"],
+        },
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

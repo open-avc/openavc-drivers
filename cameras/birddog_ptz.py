@@ -111,7 +111,7 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
@@ -432,6 +432,10 @@ class BirdDogPTZDriver(BaseDriver):
             # to the generic ndi_source driver. Add the BirdDog driver
             # manually after picking the IP off NDI Studio Monitor.
             "manual_only": True,
+            # Factory default hostname is `birddog-<xxxxx>` (last 5 hex
+            # digits of serial), per BirdDog Eyes P200 / BirdUI manuals.
+            # Surfaces as `possible` candidate when reverse-DNS resolves.
+            "hostname_patterns": ["^birddog-"],
         },
     }
 

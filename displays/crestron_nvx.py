@@ -40,7 +40,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "display",
-        "version": "1.3.1",
+        "version": "1.3.2",
         "author": "OpenAVC",
         "description": (
             "Controls Crestron DM NVX AV-over-IP encoders and decoders via "
@@ -57,8 +57,12 @@ class CrestronNVXDriver(BaseDriver):
             # DM NVX endpoints answer Crestron's CIP UDP/41794 probe with
             # a different payload than 3-Series controllers; the parser
             # work to disambiguate variants is on the deferred-captures
-            # list, so today NVX surfaces only via OUI soft signal.
+            # list, so today NVX surfaces via OUI + factory hostname.
             "oui_prefixes": ["00:10:7f", "c4:42:68"],
+            # Factory default hostname is `<model>-<MAC>` (Crestron NVX
+            # docs: e.g. `DM-NVX-D10-00107FF4071B`, `DM-NVX-360-C44268…`,
+            # `DM-NVX-DIR2-908D6E94C18F`).
+            "hostname_patterns": ["^DM-NVX-"],
         },
         "compatible_models": [
             {

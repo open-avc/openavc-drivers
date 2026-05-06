@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T13:40:45+00:00",
+    "generated_at": "2026-05-06T14:15:31+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 2,
@@ -13,7 +13,7 @@
       "name": "Barco ClickShare CX",
       "manufacturer": "Barco",
       "category": "streaming",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Wireless presentation Base Unit control via local REST API V2 (HTTPS, port 4003). System status, standby / wake / reboot, audio + video + wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50, C-5 / C-10 / C-10A, CB-Core / CB-Pro.\n",
@@ -63,6 +63,9 @@
       "discovery": {
         "oui_prefixes": [
           "00:04:a5"
+        ],
+        "hostname_patterns": [
+          "^clickshare-"
         ]
       }
     },

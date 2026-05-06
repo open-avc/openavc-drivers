@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T02:26:23+00:00",
+    "generated_at": "2026-05-06T13:40:45+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -59,7 +59,7 @@
       "name": "Cisco Webex Codec / Room Series (xAPI)",
       "manufacturer": "Cisco",
       "category": "video",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ, Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND, presentation, camera presets, on-screen messaging, reboot. Polling-based \u2014 HttpFeedback push deferred until the platform's inbound-listener primitive lands.\n",
@@ -123,7 +123,9 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "oui_prefixes": [
+          "00:50:60"
+        ]
       }
     },
     {
@@ -131,7 +133,7 @@
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
       "category": "video",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
@@ -167,7 +169,9 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "oui_prefixes": [
+          "54:b5:6c"
+        ]
       }
     },
     {
@@ -175,7 +179,7 @@
       "name": "Poly Studio (VideoOS)",
       "manufacturer": "Poly",
       "category": "video",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
@@ -219,7 +223,11 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "oui_prefixes": [
+          "00:04:f2",
+          "64:16:7f",
+          "48:25:67"
+        ]
       }
     },
     {

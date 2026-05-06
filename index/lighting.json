@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T02:26:23+00:00",
+    "generated_at": "2026-05-06T13:40:45+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 4,
@@ -13,7 +13,7 @@
       "name": "ETC Eos Family Console",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2, Nomad/Eos PC) via OSC. Fire cues, fire macros, recall snapshots and presets, fire palettes, set channel/group/submaster levels, send raw command-line strings, press hardkeys/softkeys. Status pushed by Eos: current/pending cue text, command line, Live/Blind state, active cue progress.",
@@ -66,7 +66,9 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "oui_prefixes": [
+          "00:c0:16"
+        ]
       }
     },
     {
@@ -216,7 +218,7 @@
       "name": "Lutron HomeWorks QS",
       "manufacturer": "Lutron",
       "category": "lighting",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet using the Lutron Integration Protocol (LIP). Supports zone level control (OUTPUT), keypad/phantom button presses and LED control (DEVICE), area occupancy queries (AREA), and shade group control (SHADEGRP). Use phantom keypad button presses to activate scenes.\n",
@@ -258,8 +260,7 @@
       ],
       "discovery": {
         "oui_prefixes": [
-          "00:1f:c1",
-          "08:80:01"
+          "00:0f:e7"
         ]
       }
     },

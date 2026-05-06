@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T02:26:23+00:00",
+    "generated_at": "2026-05-06T13:40:45+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 6,
@@ -13,7 +13,7 @@
       "name": "Christie Projector",
       "manufacturer": "Christie",
       "category": "projector",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Christie commercial projectors using the Christie Serial API on TCP 3002. Supports the M, J, HS, H, GS, G, and E series families and their derivatives. Power, shutter, fade-to-black, input select, test patterns, brightness/contrast, freeze, orientation, lamp mode, lamp intensity, and lens focus. Polls for status; the projector also reports model, firmware, and projector hours.",
@@ -59,7 +59,9 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "oui_prefixes": [
+          "00:1a:d7"
+        ]
       }
     },
     {
@@ -381,7 +383,7 @@
       "name": "Sharp NEC Projector",
       "manufacturer": "Sharp NEC",
       "category": "projector",
-      "version": "2.2.1",
+      "version": "2.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
@@ -430,9 +432,8 @@
       ],
       "discovery": {
         "oui_prefixes": [
-          "00:e0:63",
-          "00:c2:c6",
-          "00:30:13"
+          "00:30:13",
+          "00:60:b9"
         ]
       }
     },

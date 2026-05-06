@@ -86,7 +86,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "
@@ -102,7 +102,10 @@ class PolyStudioDriver(BaseDriver):
         "protocols": ["poly_videoos"],
         "ports": [443],
         "transport": "http",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            # Polycom / Poly room-system OUIs.
+            "oui_prefixes": ["00:04:f2", "64:16:7f", "48:25:67"],
+        },
         "compatible_models": [
             {
                 "manufacturer": "Poly",

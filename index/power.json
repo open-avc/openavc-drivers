@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T02:26:23+00:00",
+    "generated_at": "2026-05-06T13:40:45+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 2,
@@ -13,7 +13,7 @@
       "name": "Middle Atlantic RackLink PDU",
       "manufacturer": "Middle Atlantic",
       "category": "power",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Middle Atlantic / Legrand RackLink RLNK power distribution units (Select, Premium, Premium+) over the RackLink Control Protocol on TCP port 60000. Outlet and dry-contact control, sequencing, naming, EPO, and live voltage / current / temperature / wattage telemetry. Premium models push unsolicited status changes; Select models fall back to polling.",
@@ -62,7 +62,9 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "oui_prefixes": [
+          "00:1e:c5"
+        ]
       }
     },
     {
@@ -70,7 +72,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Supports outlet on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
@@ -115,7 +117,10 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "oui_prefixes": [
+          "d4:6a:91",
+          "14:3f:c3"
+        ]
       }
     }
   ]

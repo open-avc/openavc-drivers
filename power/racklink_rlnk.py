@@ -220,7 +220,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Middle Atlantic / Legrand RackLink RLNK power "
@@ -238,7 +238,9 @@ class RackLinkRLNKDriver(BaseDriver):
         "protocols": ["racklink-control-protocol"],
         "ports": [60000],
         "transport": "tcp",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            "oui_prefixes": ["00:1e:c5"],   # Middle Atlantic Products Inc
+        },
         "compatible_models": [
             {
                 "manufacturer": "Middle Atlantic",

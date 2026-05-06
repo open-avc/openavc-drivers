@@ -56,7 +56,7 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.1.1
+version: 1.1.2
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -114,7 +114,6 @@ help:
 discovery:
   oui_prefixes:
     - "b8:98:b0"
-    - "00:1b:c5"
 
 default_config:
   host: ""

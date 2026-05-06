@@ -20,7 +20,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.4.0
+version: 1.4.1
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -59,8 +59,10 @@ help:
 
 discovery:
   # X32 / M32 announce via OSC; no deterministic Tier 1/2/3 fingerprint
-  # in core today. Add manually after picking the IP off the console.
-  manual_only: true
+  # in core today. Surface via the registered Behringer Spezielle
+  # Studiotechnik OUI as a soft candidate.
+  oui_prefixes:
+    - "00:15:64"
 
 default_config:
   host: ""

@@ -43,7 +43,7 @@ id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.1.0
+version: 1.1.1
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -125,8 +125,10 @@ help:
 discovery:
   # Cisco Webex / RoomOS endpoints announce on `_cisco-phone._tcp` and
   # also expose Webex device discovery, but neither has been verified
-  # against current firmware. Add manually for now.
-  manual_only: true
+  # against current firmware. Surface via the legacy Tandberg OUI
+  # (Cisco acquired Tandberg in 2009; codec endpoints inherited it).
+  oui_prefixes:
+    - "00:50:60"   # Tandberg Telecom AS — now Cisco Collaboration
 
 default_config:
   host: ""

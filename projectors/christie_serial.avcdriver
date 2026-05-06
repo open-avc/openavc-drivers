@@ -27,7 +27,7 @@ id: christie_serial
 name: Christie Projector
 manufacturer: Christie
 category: projector
-version: 1.1.0
+version: 1.1.1
 author: OpenAVC
 description: >-
   Controls Christie commercial projectors using the Christie Serial API
@@ -96,9 +96,10 @@ help:
 
 discovery:
   # Christie Serial API on TCP 3002 has no documented broadcast or
-  # mDNS announcement. Add manually after picking the IP off the
-  # projector's web UI or front panel.
-  manual_only: true
+  # mDNS announcement; surface via the registered Christie Digital
+  # Systems OUI as a soft candidate.
+  oui_prefixes:
+    - "00:1a:d7"
 
 default_config:
   host: ""

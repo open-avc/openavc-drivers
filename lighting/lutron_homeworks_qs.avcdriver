@@ -52,7 +52,7 @@ id: lutron_homeworks_qs
 name: Lutron HomeWorks QS
 manufacturer: Lutron
 category: lighting
-version: 1.1.1
+version: 1.1.2
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -113,8 +113,7 @@ discovery:
   # the LEAP mDNS service that newer Lutron HomeWorks/Caseta gear
   # advertises (`_leap._tcp`). Surface as soft OUI candidate.
   oui_prefixes:
-    - "00:1f:c1"
-    - "08:80:01"
+    - "00:0f:e7"
 
 default_config:
   host: ""

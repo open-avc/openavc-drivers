@@ -235,7 +235,7 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.2.1",
+        "version": "2.2.2",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
@@ -298,9 +298,8 @@ class SharpNECProjectorDriver(BaseDriver):
             # surfaces as a soft OUI candidate for the extra NEC PJ-Net
             # commands.
             "oui_prefixes": [
-                "00:e0:63",
-                "00:c2:c6",
-                "00:30:13",
+                "00:30:13",   # NEC Corporation (Fuchu — display/PC division)
+                "00:60:b9",   # NEC Platforms (Kawasaki — display platforms)
             ],
         },
         "default_config": {

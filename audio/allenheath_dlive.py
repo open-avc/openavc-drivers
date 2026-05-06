@@ -847,7 +847,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "
@@ -872,7 +872,10 @@ class AllenHeathDLiveDriver(BaseDriver):
         "protocols": ["midi-over-tcp"],
         "ports": [51325],
         "transport": "tcp",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            # Audiotonix Group OUI — shared across A&H, Midas, DiGiCo, SSL.
+            "oui_prefixes": ["00:04:c4"],
+        },
         "min_platform_version": "0.6.0",
         "compatible_models": [
             {

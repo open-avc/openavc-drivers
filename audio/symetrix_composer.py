@@ -69,7 +69,7 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, "
@@ -87,7 +87,9 @@ class SymetrixComposerDriver(BaseDriver):
         "protocols": ["symetrix-composer"],
         "ports": [48631],
         "transport": "tcp",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            "oui_prefixes": ["00:0c:d0"],
+        },
         "compatible_models": [
             {
                 "manufacturer": "Symetrix",

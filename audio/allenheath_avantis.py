@@ -699,7 +699,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "
@@ -724,7 +724,9 @@ class AllenHeathAvantisDriver(BaseDriver):
         "discovery": {
             # A&H AHNet broadcast (UDP 51320) is deferred until we have a
             # capture; the mixer's MIDI-over-TCP port has no fingerprint.
-            "manual_only": True,
+            # The Audiotonix Group OUI is shared across A&H, Midas,
+            # DiGiCo, and SSL — surfaces multiple `possible` candidates.
+            "oui_prefixes": ["00:04:c4"],
         },
         "min_platform_version": "0.6.0",
         "compatible_models": [

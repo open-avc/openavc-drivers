@@ -104,7 +104,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls SnapAV WattBox IP-controlled power distribution units "
@@ -120,7 +120,11 @@ class WattBoxIPDriver(BaseDriver):
         "protocols": ["wattbox-integration-v1.7"],
         "ports": [23],
         "transport": "tcp",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            # SnapAV / Snap One OUIs — shared across WattBox, Araknis,
+            # Pakedge, Wirepath, and Binary product lines.
+            "oui_prefixes": ["d4:6a:91", "14:3f:c3"],
+        },
         "compatible_models": [
             {
                 "manufacturer": "WattBox",

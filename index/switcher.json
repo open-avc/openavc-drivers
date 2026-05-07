@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T20:16:57+00:00",
+    "generated_at": "2026-05-07T00:31:28+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 8,
@@ -64,7 +64,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.1.2",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -78,7 +78,7 @@
         "atlona_ome_ps62"
       ],
       "simulated": true,
-      "min_platform_version": "0.9.0",
+      "min_platform_version": "0.10.3",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -105,6 +105,9 @@
       "discovery": {
         "oui_prefixes": [
           "b8:98:b0"
+        ],
+        "vendor_aliases": [
+          "atlona"
         ]
       }
     },

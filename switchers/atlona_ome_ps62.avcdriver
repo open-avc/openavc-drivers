@@ -53,9 +53,9 @@ id: atlona_ome_ps62
 name: Atlona AT-OME-PS62 Matrix Switcher
 manufacturer: Atlona
 category: switcher
-version: 1.1.2
+version: 1.2.0
 author: OpenAVC
-min_platform_version: "0.9.0"
+min_platform_version: "0.10.3"
 description: >
   Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher
   over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT)
@@ -98,8 +98,15 @@ help:
        is pre-configured for this.
 
 discovery:
+  # Atlona KB01625 confirms OME / SW-510W / MS52W announce on mDNS
+  # (UDP 5353), but the literal `_atlona-ome._tcp` PTR string is NOT
+  # published in any vendor doc, KB article, or OEM integrator
+  # module — Velocity / AMS auto-discover by browsing rather than by
+  # a fixed string. Soft-only via OUI + the Atlona vendor alias.
   oui_prefixes:
     - "b8:98:b0"
+  vendor_aliases:
+    - "atlona"
 
 default_config:
   host: ""

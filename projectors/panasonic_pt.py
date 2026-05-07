@@ -123,8 +123,9 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) "
             "professional installation projectors via the NTCONTROL "

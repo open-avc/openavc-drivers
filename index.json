@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:38:20+00:00",
+    "generated_at": "2026-05-07T00:39:04+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -2020,7 +2020,7 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.1.2",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides video and audio crosspoint switching, mute, lock, HDCP, output 5V, embedded- audio mute, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
@@ -2034,6 +2034,7 @@
         "lightware_lw3"
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -2071,6 +2072,13 @@
       "discovery": {
         "oui_prefixes": [
           "a8:d2:36"
+        ],
+        "open_ports": [
+          6107
+        ],
+        "vendor_aliases": [
+          "lightware",
+          "lightware visual engineering"
         ]
       }
     },

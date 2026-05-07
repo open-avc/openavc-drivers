@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T20:16:57+00:00",
+    "generated_at": "2026-05-07T00:37:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 2,
@@ -13,7 +13,7 @@
       "name": "Middle Atlantic RackLink PDU",
       "manufacturer": "Middle Atlantic",
       "category": "power",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Middle Atlantic / Legrand RackLink RLNK power distribution units (Select, Premium, Premium+) over the RackLink Control Protocol on TCP port 60000. Outlet and dry-contact control, sequencing, naming, EPO, and live voltage / current / temperature / wattage telemetry. Premium models push unsolicited status changes; Select models fall back to polling.",
@@ -27,6 +27,7 @@
         "racklink-control-protocol"
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "pdu",
         "power",
@@ -64,6 +65,15 @@
       "discovery": {
         "oui_prefixes": [
           "00:1e:c5"
+        ],
+        "open_ports": [
+          60000
+        ],
+        "vendor_aliases": [
+          "middle atlantic",
+          "middle atlantic products",
+          "legrand",
+          "racklink"
         ]
       }
     },

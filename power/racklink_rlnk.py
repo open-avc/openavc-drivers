@@ -220,8 +220,9 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls Middle Atlantic / Legrand RackLink RLNK power "
             "distribution units (Select, Premium, Premium+) over the "
@@ -239,7 +240,24 @@ class RackLinkRLNKDriver(BaseDriver):
         "ports": [60000],
         "transport": "tcp",
         "discovery": {
+            # RackLink Control Protocol on TCP 60000 is a strong soft
+            # signal — no other AV gear listens there. The RackLink
+            # SNMP MIB is downloadable from the unit's web UI but the
+            # IANA PEN isn't published in any third-party LibreNMS /
+            # PRTG / Zabbix template I could find — leave snmp_pen
+            # unset rather than guess. Legrand SA's PEN 28382 is the
+            # parent group, but RackLink predates the Legrand
+            # acquisition and historically shipped its own MIB.
+            #   Refs:
+            #     manualslib.com Middle Atlantic Premium+ RLNK-P420 manual (SNMP chapter)
+            #     RLNK-Series-Protocol.pdf (TCP 60000 framing)
+            #     github.com/mckay115/homeassistant-middleatlantic-racklink
             "oui_prefixes": ["00:1e:c5"],   # Middle Atlantic Products Inc
+            "open_ports": [60000],
+            "vendor_aliases": [
+                "middle atlantic", "middle atlantic products",
+                "legrand", "racklink",
+            ],
         },
         "compatible_models": [
             {

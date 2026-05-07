@@ -55,7 +55,6 @@ manufacturer: Barco
 category: streaming
 version: 1.2.0
 author: OpenAVC
-min_platform_version: "0.10.3"
 description: >
   Wireless presentation Base Unit control via local REST API V2 (HTTPS,
   port 4003). System status, standby / wake / reboot, audio + video +

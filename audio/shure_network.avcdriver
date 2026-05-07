@@ -22,7 +22,6 @@ manufacturer: Shure
 category: audio
 version: 1.5.0
 author: OpenAVC
-min_platform_version: "0.10.3"
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
   Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces,

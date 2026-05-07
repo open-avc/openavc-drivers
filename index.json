@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:49:34+00:00",
+    "generated_at": "2026-05-07T01:27:54+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -26,7 +26,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -85,7 +85,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -152,7 +152,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -211,7 +211,6 @@
         "atlasied-atmosphere-thirdparty"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "atmosphere",
         "azm4",
@@ -267,7 +266,6 @@
         "atlona_ome_ms"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -322,7 +320,7 @@
         "atlona_ome_ps62"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.0",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -374,7 +372,7 @@
         "atlona_pro3"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -429,7 +427,7 @@
         "atlona_omnistream"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.0",
       "tags": [
         "av-over-ip",
         "encoder",
@@ -483,7 +481,6 @@
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "dante",
         "audio-routing",
@@ -527,7 +524,6 @@
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "smartmixer",
@@ -577,7 +573,6 @@
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "smartmixer",
@@ -689,7 +684,6 @@
         "clickshare_v2"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "barco",
         "clickshare",
@@ -752,7 +746,7 @@
         10023
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -883,7 +877,6 @@
         8080
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "ndi",
         "encoder",
@@ -948,7 +941,6 @@
         "visca"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "ptz",
         "ndi",
@@ -1069,7 +1061,7 @@
         3002
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "projector",
         "christie",
@@ -1135,7 +1127,7 @@
         "xapi_http"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.1",
       "tags": [
         "cisco",
         "webex",
@@ -1217,7 +1209,6 @@
         "crestron_cip"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "av-over-ip",
         "encoder",
@@ -1270,7 +1261,6 @@
         "esc_vp_net"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "projector",
         "epson",
@@ -1324,7 +1314,7 @@
         8001
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "osc",
         "lighting",
@@ -1639,7 +1629,6 @@
         "visca-ip"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "visca",
         "visca-ip",
@@ -1903,7 +1892,6 @@
       "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
       "file": "utility/wake_on_lan.py",
       "format": "python",
-      "min_platform_version": "0.10.3",
       "tags": [
         "wol",
         "magic-packet",
@@ -1986,7 +1974,6 @@
         9761
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "display",
         "signage",
@@ -2088,7 +2075,6 @@
         "lightware_lw3"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -2155,7 +2141,7 @@
         "lutron_lip"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.0",
       "tags": [
         "lighting",
         "lutron",
@@ -2212,7 +2198,6 @@
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "wireless-presentation",
         "byod",
@@ -2274,7 +2259,6 @@
         "racklink-control-protocol"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "pdu",
         "power",
@@ -2340,7 +2324,7 @@
         6000
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.5.13",
       "tags": [
         "videowall",
         "splicer",
@@ -2468,7 +2452,6 @@
         "ntcontrol"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "projector",
         "panasonic",
@@ -2549,7 +2532,6 @@
         "poly_videoos"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "poly",
         "hp",
@@ -2788,7 +2770,6 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "projector",
         "binary-protocol"
@@ -2853,7 +2834,6 @@
         "shure_dcs"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "ceiling-mic",
         "wireless-mic",
@@ -3125,7 +3105,6 @@
         "adcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "projector",
         "sony",
@@ -3197,7 +3176,6 @@
         8099
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "video-production",
         "streaming",
@@ -3248,7 +3226,6 @@
         "symetrix-composer"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "dsp",
         "symetrix",
@@ -3315,7 +3292,7 @@
         "vaddio_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.0",
       "tags": [
         "ptz",
         "camera",
@@ -3392,7 +3369,6 @@
         "wattbox-integration-v1.7"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "pdu",
         "power",

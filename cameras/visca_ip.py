@@ -171,7 +171,6 @@ class VISCAIPDriver(BaseDriver):
         "category": "camera",
         "version": "1.2.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Generic Sony-specification VISCA-over-IP driver (UDP port "
             "52381). Pan/tilt/zoom/focus, presets, auto-exposure, white "

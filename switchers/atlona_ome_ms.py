@@ -121,7 +121,6 @@ class AtlonaOmeMsDriver(BaseDriver):
         "category": "switcher",
         "version": "1.2.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls the Atlona AT-OME-MS family of 4K/UHD matrix "
             "presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / "

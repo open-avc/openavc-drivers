@@ -32,7 +32,7 @@ tags: [mixer, console, osc, midas]
 verified: false
 simulated: true
 ports: [10023]
-min_platform_version: 0.10.3
+min_platform_version: 0.6.0
 compatible_models:
   - manufacturer: Behringer
     models: [X32, X32 Compact, X32 Producer, X32 Rack, X32 Core]

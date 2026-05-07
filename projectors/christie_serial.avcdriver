@@ -42,7 +42,7 @@ tags: [projector, christie, serial-api, large-venue]
 verified: false
 simulated: true
 ports: [3002]
-min_platform_version: 0.10.3
+min_platform_version: 0.6.0
 compatible_models:
   - manufacturer: Christie
     models:

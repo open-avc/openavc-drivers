@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:49:34+00:00",
+    "generated_at": "2026-05-07T01:27:54+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -27,7 +27,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -86,7 +86,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -153,7 +153,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -212,7 +212,6 @@
         "atlasied-atmosphere-thirdparty"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "atmosphere",
         "azm4",
@@ -265,7 +264,6 @@
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "dante",
         "audio-routing",
@@ -309,7 +307,6 @@
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "smartmixer",
@@ -359,7 +356,6 @@
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "smartmixer",
@@ -411,7 +407,7 @@
         10023
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.6.0",
       "tags": [
         "mixer",
         "console",
@@ -602,7 +598,6 @@
         "shure_dcs"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "ceiling-mic",
         "wireless-mic",
@@ -710,7 +705,6 @@
         "symetrix-composer"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "dsp",
         "symetrix",

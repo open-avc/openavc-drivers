@@ -88,7 +88,6 @@ class PolyStudioDriver(BaseDriver):
         "category": "video",
         "version": "1.2.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "
             "G7500 video collaboration bars via the public VideoOS "

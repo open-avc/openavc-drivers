@@ -86,7 +86,6 @@ class VMixDriver(BaseDriver):
         "manufacturer": "StudioCoast",
         "category": "video",
         "version": "1.3.0",
-        "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "

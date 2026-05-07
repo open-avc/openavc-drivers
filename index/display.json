@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:45:46+00:00",
+    "generated_at": "2026-05-07T01:27:54+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -29,7 +29,6 @@
         "crestron_cip"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "av-over-ip",
         "encoder",
@@ -79,7 +78,6 @@
         9761
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "display",
         "signage",

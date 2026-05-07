@@ -42,7 +42,6 @@ class CrestronNVXDriver(BaseDriver):
         "category": "display",
         "version": "1.3.3",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls Crestron DM NVX AV-over-IP encoders and decoders via "
             "the REST API. Supports device status, video/audio source selection, "

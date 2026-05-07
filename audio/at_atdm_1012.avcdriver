@@ -36,7 +36,6 @@ name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
 version: 1.3.0
-min_platform_version: "0.10.3"
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers

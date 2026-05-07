@@ -59,7 +59,7 @@ verified: false
 simulated: true
 protocols: [xapi_http]
 ports: [443]
-min_platform_version: "0.10.3"
+min_platform_version: "0.9.1"
 
 compatible_models:
   - manufacturer: Cisco

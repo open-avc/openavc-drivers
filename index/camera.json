@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:43:57+00:00",
+    "generated_at": "2026-05-07T01:27:54+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 7,
@@ -85,7 +85,6 @@
         "visca"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "ptz",
         "ndi",
@@ -153,7 +152,6 @@
         "visca-ip"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "visca",
         "visca-ip",
@@ -423,7 +421,7 @@
         "vaddio_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.0",
       "tags": [
         "ptz",
         "camera",

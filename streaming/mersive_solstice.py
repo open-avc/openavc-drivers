@@ -64,7 +64,6 @@ class SolsticeDriver(BaseDriver):
         "manufacturer": "Mersive",
         "category": "streaming",
         "version": "1.2.0",
-        "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "

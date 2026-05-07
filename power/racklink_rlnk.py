@@ -222,7 +222,6 @@ class RackLinkRLNKDriver(BaseDriver):
         "category": "power",
         "version": "1.2.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls Middle Atlantic / Legrand RackLink RLNK power "
             "distribution units (Select, Premium, Premium+) over the "

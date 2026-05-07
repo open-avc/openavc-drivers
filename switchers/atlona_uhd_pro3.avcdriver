@@ -58,7 +58,7 @@ manufacturer: Atlona
 category: switcher
 version: 1.2.0
 author: OpenAVC
-min_platform_version: "0.10.3"
+min_platform_version: "0.9.0"
 description: >
   Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers
   (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source

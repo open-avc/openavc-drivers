@@ -71,7 +71,6 @@ class SymetrixComposerDriver(BaseDriver):
         "category": "audio",
         "version": "1.2.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, "
             "Prism, Solus NX, and xControl DSPs via the Composer "

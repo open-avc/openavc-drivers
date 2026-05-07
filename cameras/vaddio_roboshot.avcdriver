@@ -45,7 +45,7 @@ manufacturer: Vaddio
 category: camera
 version: 1.2.0
 author: OpenAVC
-min_platform_version: "0.10.3"
+min_platform_version: "0.9.0"
 description: >
   Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras
   via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom,

@@ -50,7 +50,6 @@ class BirdDogCodecDriver(BaseDriver):
         "category": "video",
         "version": "1.3.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
             "Select NDI sources on decoders, monitor input/output status, "

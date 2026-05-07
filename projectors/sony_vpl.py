@@ -166,7 +166,6 @@ class SonyVPLDriver(BaseDriver):
         "category": "projector",
         "version": "1.3.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls Sony VPL professional installation projectors "
             "over Sony's Advanced Display Control Protocol (ADCP) on "

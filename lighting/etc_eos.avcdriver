@@ -40,7 +40,7 @@ tags: [osc, lighting, console, theatrical, show-control, cue]
 verified: false
 simulated: true
 ports: [8000, 8001]
-min_platform_version: 0.10.3
+min_platform_version: 0.6.0
 compatible_models:
   - manufacturer: ETC
     models:

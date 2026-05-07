@@ -883,7 +883,7 @@ class AllenHeathDLiveDriver(BaseDriver):
                 "allen-heath", "audiotonix",
             ],
         },
-        "min_platform_version": "0.10.3",
+        "min_platform_version": "0.6.0",
         "compatible_models": [
             {
                 "manufacturer": "Allen & Heath",

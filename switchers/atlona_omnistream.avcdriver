@@ -43,7 +43,7 @@ manufacturer: Atlona
 category: switcher
 version: 1.3.0
 author: OpenAVC
-min_platform_version: "0.10.3"
+min_platform_version: "0.9.0"
 description: >
   Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP
   encoders and decoders via the Telnet CLI (port 23). Supports source

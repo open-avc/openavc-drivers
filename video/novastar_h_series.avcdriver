@@ -37,7 +37,7 @@ tags: [videowall, splicer, led-wall, video-processing]
 verified: false
 simulated: true
 ports: [6000]
-min_platform_version: 0.10.3
+min_platform_version: 0.5.13
 compatible_models:
   - manufacturer: Novastar
     models: [H2, H5, H9, H15, H20]

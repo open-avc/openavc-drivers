@@ -113,7 +113,6 @@ class BirdDogPTZDriver(BaseDriver):
         "category": "camera",
         "version": "1.3.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
             "Pan, tilt, zoom, focus, presets, exposure, white balance, "

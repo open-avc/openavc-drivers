@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:44:42+00:00",
+    "generated_at": "2026-05-07T01:27:54+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -24,7 +24,6 @@
         8080
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "ndi",
         "encoder",
@@ -88,7 +87,7 @@
         "xapi_http"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.9.1",
       "tags": [
         "cisco",
         "webex",
@@ -165,7 +164,7 @@
         6000
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.5.13",
       "tags": [
         "videowall",
         "splicer",
@@ -218,7 +217,6 @@
         "poly_videoos"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "poly",
         "hp",
@@ -281,7 +279,6 @@
         8099
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
       "tags": [
         "video-production",
         "streaming",

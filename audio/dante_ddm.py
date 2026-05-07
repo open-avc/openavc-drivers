@@ -87,7 +87,6 @@ class DanteDDMDriver(BaseDriver):
         "manufacturer": "Audinate",
         "category": "audio",
         "version": "1.5.0",
-        "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "

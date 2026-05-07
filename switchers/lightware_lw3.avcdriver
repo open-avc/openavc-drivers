@@ -45,7 +45,6 @@ manufacturer: Lightware
 category: switcher
 version: 1.2.0
 author: OpenAVC
-min_platform_version: "0.10.3"
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
   TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides

@@ -106,7 +106,6 @@ class WattBoxIPDriver(BaseDriver):
         "category": "power",
         "version": "1.2.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls SnapAV WattBox IP-controlled power distribution units "
             "over the WattBox Integration Protocol (Telnet, port 23). "

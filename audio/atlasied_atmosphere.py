@@ -191,7 +191,6 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "category": "audio",
         "version": "1.2.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing "
             "and control systems over the third-party JSON-RPC protocol "

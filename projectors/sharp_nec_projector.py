@@ -237,7 +237,6 @@ class SharpNECProjectorDriver(BaseDriver):
         "category": "projector",
         "version": "2.4.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.10.3",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
             "protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, "

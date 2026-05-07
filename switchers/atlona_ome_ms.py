@@ -119,8 +119,9 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.1.2",
+        "version": "1.2.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls the Atlona AT-OME-MS family of 4K/UHD matrix "
             "presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / "
@@ -140,7 +141,11 @@ class AtlonaOmeMsDriver(BaseDriver):
         "ports": [23],
         "transport": "tcp",
         "discovery": {
+            # Same Atlona soft-only situation as the other OME drivers —
+            # KB01625 confirms mDNS use but the exact PTR string isn't
+            # public. Soft-only via OUI + vendor_aliases.
             "oui_prefixes": ["b8:98:b0"],
+            "vendor_aliases": ["atlona"],
         },
         "compatible_models": [
             {

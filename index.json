@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:42:05+00:00",
+    "generated_at": "2026-05-07T00:42:39+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -1288,7 +1288,7 @@
       "name": "ETC Eos Family Console",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2, Nomad/Eos PC) via OSC. Fire cues, fire macros, recall snapshots and presets, fire palettes, set channel/group/submaster levels, send raw command-line strings, press hardkeys/softkeys. Status pushed by Eos: current/pending cue text, command line, Live/Blind state, active cue progress.",
@@ -1300,7 +1300,7 @@
         8001
       ],
       "simulated": true,
-      "min_platform_version": "0.6.0",
+      "min_platform_version": "0.10.3",
       "tags": [
         "osc",
         "lighting",
@@ -1343,6 +1343,11 @@
       "discovery": {
         "oui_prefixes": [
           "00:c0:16"
+        ],
+        "vendor_aliases": [
+          "etc",
+          "electronic theatre controls",
+          "eos"
         ]
       }
     },

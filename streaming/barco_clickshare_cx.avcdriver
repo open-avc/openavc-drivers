@@ -53,8 +53,9 @@ id: barco_clickshare_cx
 name: Barco ClickShare CX
 manufacturer: Barco
 category: streaming
-version: 1.1.2
+version: 1.2.0
 author: OpenAVC
+min_platform_version: "0.10.3"
 description: >
   Wireless presentation Base Unit control via local REST API V2 (HTTPS,
   port 4003). System status, standby / wake / reboot, audio + video +
@@ -119,15 +120,23 @@ help:
        can handle it; ClickShare's own integrations poll more frequently).
 
 discovery:
-  # ClickShare CX Base Units run a UPnP / SSDP service alongside the
-  # ShareLink REST API. ONVIF is unavailable; surface as soft OUI +
-  # hostname candidate until we wire up SSDP service-type filtering.
+  # ClickShare Base Units do not advertise a Barco-specific SSDP URN.
+  # Barco KB7525 ("Order and precedence of ClickShare App discovery")
+  # describes SSDP/mDNS as the transport but never quotes a
+  # `urn:barco-...` device-type — every public deployment writeup and
+  # third-party module addresses Base Units by IP/hostname, not by
+  # URN match. The `_mirrorop2upc._tcp` mDNS string is documented in
+  # Barco KB3896 but it's a wePresent/ClickShare family service and
+  # too generic to claim as a positive signal alone.
+  # Soft-only via OUI + factory hostname pattern (case-insensitive
+  # to catch both `clickshare-…` and `ClickShare-…`).
   oui_prefixes:
     - "00:04:a5"
-  # Factory default hostname is `clickshare-<serial>` per Barco CX-20
-  # Gen 2 / CX-50 installation manuals (Factory Defaults section).
   hostname_patterns:
-    - "^clickshare-"
+    - "^[Cc]lick[Ss]hare-"
+  vendor_aliases:
+    - "barco"
+    - "clickshare"
 
 default_config:
   host: ""

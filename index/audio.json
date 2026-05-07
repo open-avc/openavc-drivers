@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:34:41+00:00",
+    "generated_at": "2026-05-07T00:35:06+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -139,7 +139,7 @@
       "name": "Allen & Heath SQ Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Full mute / level / pan / assignment control across all 48 inputs, 12 groups, 12 aux outs, 3 matrix outs, 4 FX sends, 8 FX returns, 8 DCAs, and 8 mute groups. Scene recall (1-300), 1 dB increment/decrement, SoftKey triggers, and bidirectional state \u2014 console-side moves push back into OpenAVC state.",
@@ -153,7 +153,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.6.0",
+      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "console",
@@ -180,6 +180,16 @@
       "discovery": {
         "oui_prefixes": [
           "00:04:c4"
+        ],
+        "open_ports": [
+          51325
+        ],
+        "vendor_aliases": [
+          "allen & heath",
+          "allen and heath",
+          "a&h",
+          "allen-heath",
+          "audiotonix"
         ]
       }
     },

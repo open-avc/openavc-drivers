@@ -109,7 +109,7 @@ class PTZOpticsDriver(BaseDriver):
         "name": "PTZOptics Camera",
         "manufacturer": "PTZOptics",
         "category": "camera",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls PTZOptics PTZ cameras over the VISCA-over-IP "
@@ -131,7 +131,15 @@ class PTZOpticsDriver(BaseDriver):
         "ports": [5678],
         "transport": "tcp",
         "discovery": {
+            # PTZOptics cameras advertise via ONVIF when ONVIF is enabled
+            # in the camera menu — but not every model ships with ONVIF
+            # on by default, and ONVIF can be disabled by integrators.
+            # Soft fallback signals catch the camera even when ONVIF
+            # isn't running.
             "onvif": {"manufacturer": "PTZOptics"},
+            "open_ports": [5678],
+            "hostname_patterns": ["^PTZOptics", "^ptz-"],
+            "vendor_aliases": ["ptzoptics", "ptz optics", "ptz-optics"],
         },
         "compatible_models": [
             {

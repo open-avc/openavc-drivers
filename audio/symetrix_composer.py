@@ -69,8 +69,9 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, "
             "Prism, Solus NX, and xControl DSPs via the Composer "
@@ -88,7 +89,22 @@ class SymetrixComposerDriver(BaseDriver):
         "ports": [48631],
         "transport": "tcp",
         "discovery": {
+            # Symetrix ControlNet Discovery on UDP 49216 IS documented
+            # at the transport level (Composer "Locate Hardware" tool
+            # broadcasts there and devices reply with name + IP), but
+            # the request/reply byte layout is NOT in any publicly
+            # accessible Symetrix doc, the Composer Control Protocol
+            # v7.0 PDF, or the open-source CommLink-Integration
+            # symetrix-control Node.js client. A declarative probe
+            # block needs a PCAP from real Radius / Edge hardware to
+            # lock down. Soft-only via OUI + open Composer port +
+            # vendor_aliases.
+            #   Refs:
+            #     symetrix.co/knowledge/symetrix-control-network-considerations/
+            #     symetrix.co/wp-content/uploads/2024/04/Composer-Control-Protocol-v7.0-080918.pdf
             "oui_prefixes": ["00:0c:d0"],
+            "open_ports": [48631],
+            "vendor_aliases": ["symetrix"],
         },
         "compatible_models": [
             {

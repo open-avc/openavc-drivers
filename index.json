@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T01:49:50+00:00",
+    "generated_at": "2026-05-07T01:50:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -3090,7 +3090,7 @@
       "name": "Sony VISCA-IP PTZ Camera",
       "manufacturer": "Sony",
       "category": "camera",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port 52381). Adds Sony picture profiles, R/B gain, color matrix, defog, visibility enhancer, low-light, chroma suppress, PRESET MODE + PTZ TRACE (BRC-X400/X401), tally, IR correction, ICR, AF mode, AE speed, min/max shutter, high sensitivity, and OSD on/off \u2014 on top of the standard PTZ + AE/WB command set.",
@@ -3131,7 +3131,15 @@
       "discovery": {
         "onvif": {
           "manufacturer": "Sony"
-        }
+        },
+        "vendor_aliases": [
+          "sony"
+        ],
+        "hostname_patterns": [
+          "^SRG-",
+          "^BRC-",
+          "^EVI-"
+        ]
       }
     },
     {

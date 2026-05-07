@@ -221,7 +221,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port "
@@ -243,9 +243,17 @@ class SonyVISCADriver(BaseDriver):
         "transport": "udp",
         "discovery": {
             # Sony PTZ cameras advertise via ONVIF when enabled in the
-            # camera menu; the VISCA-over-IP control port (UDP 52381)
-            # has no Tier 3 probe in core.
+            # camera menu; VISCA-over-IP runs on UDP 52381 (open_ports
+            # only matches TCP, so we can't surface that here).
+            # Skip oui_prefixes — Sony has dozens of OUI blocks across
+            # consumer / pro / mobile / appliance gear, declaring them
+            # would surface every Sony PlayStation as a "possible PTZ."
+            # Vendor narrowing via vendor_aliases catches the camera
+            # when discovery captures `manufacturer: Sony` from any
+            # source (mDNS, ONVIF GetDeviceInformation, banner).
             "onvif": {"manufacturer": "Sony"},
+            "vendor_aliases": ["sony"],
+            "hostname_patterns": ["^SRG-", "^BRC-", "^EVI-"],
         },
         "compatible_models": [
             {

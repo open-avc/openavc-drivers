@@ -1,13 +1,69 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T13:21:17+00:00",
+    "generated_at": "2026-05-07T15:44:08+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 2,
+    "total_drivers": 3,
     "shards": null,
     "category": "utility"
   },
   "drivers": [
+    {
+      "id": "crestron_cip",
+      "name": "Crestron Device (CIP discovery)",
+      "manufacturer": "Crestron",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Discovery-only anchor for Crestron devices that answer the CIP probe on UDP 41794. Surfaces hostname, model, and firmware through discovery so vendor-specific Crestron drivers (DM NVX, future 3-Series / TSW) can claim the device as primary; otherwise the user gets a placeholder they can swap for a control driver later.\n",
+      "source_url": "https://github.com/open-avc/openavc-drivers",
+      "file": "utility/crestron_cip.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        41794
+      ],
+      "protocols": [
+        "crestron_cip"
+      ],
+      "tags": [
+        "discovery-anchor",
+        "crestron",
+        "cip"
+      ],
+      "help": {
+        "overview": "Crestron 3-Series control systems, DIN-AP processors, TSW touch panels, and DM NVX endpoints answer a UDP probe on port 41794 with their hostname, model, and firmware version. This driver hosts that probe so the device shows up in OpenAVC's discovery panel \u2014 but it offers no control surface. To actually drive a Crestron device, install the matching specific driver (DM NVX for video endpoints; specific 3-Series / TSW drivers as they land in the catalog) and swap this entry for it on the device card.\n",
+        "setup": "1. Run a network scan from the discovery panel. 2. Crestron devices that answer the CIP probe surface with\n   hostname / model / firmware populated.\n3. If a more specific Crestron driver matches the device's OUI\n   or vendor alias, that driver wins primary identification and\n   this anchor demotes to an alternative on the dropdown.\n4. If no specific driver matches, add this anchor \u2014 you'll get\n   a placeholder device entry. Install / build the right\n   Crestron control driver next, then swap it in.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Crestron",
+          "models": [
+            "Any Crestron device that answers the CIP probe (3-Series, MC4, CP3, RMC4, DIN-AP, TSW, DM NVX)"
+          ],
+          "confidence": "untested",
+          "notes": "Discovery-only entry. For control, use the matching specific Crestron driver (e.g. crestron_nvx for AV-over-IP endpoints).\n"
+        }
+      ],
+      "discovery": {
+        "companion": {
+          "generic": true
+        },
+        "oui_prefixes": [
+          "00:10:7f",
+          "00:0e:80",
+          "00:1f:5d",
+          "c4:42:68"
+        ],
+        "hostname_patterns": [
+          "^(MC4|CP3|RMC4|TSW|DIN-AP|DM-NVX)-"
+        ],
+        "vendor_aliases": [
+          "crestron",
+          "crestron electronics"
+        ]
+      }
+    },
     {
       "id": "generic_http",
       "name": "Generic HTTP/REST Device",

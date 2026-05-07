@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T13:21:17+00:00",
+    "generated_at": "2026-05-07T15:44:08+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 6,
@@ -131,7 +131,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -304,10 +304,12 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "pjlink_class1"
-        ],
-        "pjlink_class2": true
+        "companion": {
+          "generic": true
+        },
+        "open_ports": [
+          4352
+        ]
       }
     },
     {

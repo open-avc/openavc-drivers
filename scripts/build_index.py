@@ -322,7 +322,12 @@ def extract_yaml_driver_info(filepath: Path) -> dict[str, Any]:
 
 
 def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
-    """Walk driver dirs and extract raw metadata. Does not validate."""
+    """Walk driver dirs and extract raw metadata. Does not validate.
+
+    ``*_sim.py`` (Python simulator companions) and ``*_discovery.py``
+    (Phase 9.7 discovery companions) are sibling helper files, not
+    drivers — skipped here.
+    """
     raw: list[tuple[Path, dict[str, Any]]] = []
     for dir_name in DRIVER_DIRS:
         dir_path = repo_root / dir_name
@@ -331,7 +336,10 @@ def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
         for filepath in sorted(dir_path.iterdir()):
             if filepath.suffix == ".avcdriver":
                 raw.append((filepath, extract_yaml_driver_info(filepath)))
-            elif filepath.suffix == ".py" and not filepath.name.endswith("_sim.py"):
+            elif filepath.suffix == ".py" and not (
+                filepath.name.endswith("_sim.py")
+                or filepath.name.endswith("_discovery.py")
+            ):
                 raw.append((filepath, extract_python_driver_info(filepath)))
     return raw
 
@@ -607,10 +615,9 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
     normalized["amx_ddp"] = amx
 
     broadcast: list[tuple[str, str | None]] = []
-    if discovery.get("pjlink_class2"):
-        broadcast.append(("pjlink_class2", None))
-    if discovery.get("crestron_cip"):
-        broadcast.append(("crestron_cip", None))
+    # ONVIF is the only remaining built-in Tier 2 named opt-in. PJLink
+    # Class 2 + Crestron CIP discovery now ship as ``_discovery.py``
+    # companions on their respective drivers (Phase 9.7).
     if "onvif" in discovery:
         onvif_block = discovery["onvif"]
         if onvif_block is True:
@@ -659,6 +666,34 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         has_tcp_probe = True
     normalized["has_udp_broadcast_probe"] = has_udp_probe
     normalized["has_tcp_active_probe"] = has_tcp_probe
+
+    # Phase 9.7: companion declaration. Mirrors parse_driver_discovery.
+    has_companion = False
+    companion_generic = False
+    if "companion" in discovery:
+        comp_block = discovery["companion"]
+        if not isinstance(comp_block, dict):
+            errors.append(
+                f"{file}: discovery.companion must be a mapping "
+                f"(use ``companion: {{generic: bool}}``)"
+            )
+        else:
+            unknown = set(comp_block.keys()) - {"generic"}
+            if unknown:
+                errors.append(
+                    f"{file}: discovery.companion has unknown keys: "
+                    f"{sorted(unknown)}. Only ``generic`` is supported."
+                )
+            generic_raw = comp_block.get("generic", False)
+            if not isinstance(generic_raw, bool):
+                errors.append(
+                    f"{file}: discovery.companion.generic must be a bool"
+                )
+            else:
+                has_companion = True
+                companion_generic = generic_raw
+    normalized["has_companion"] = has_companion
+    normalized["companion_generic"] = companion_generic
 
     if "snmp_pen" in discovery:
         pen = discovery["snmp_pen"]
@@ -753,6 +788,7 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         or bool(active)
         or has_udp_probe
         or has_tcp_probe
+        or has_companion
         or "snmp_pen" in discovery
         or bool(discovery.get("oui_prefixes"))
         or bool(discovery.get("hostname_patterns"))

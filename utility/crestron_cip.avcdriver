@@ -1,0 +1,124 @@
+# OpenAVC Crestron CIP Discovery Anchor
+#
+# Discovery-only driver for any Crestron device that responds to the
+# CIP discovery probe (UDP 41794) — 3-Series control systems, DIN-AP,
+# TSW touch panels, DM-NVX endpoints, MC4, RMC4, and similar gear.
+#
+# This is the "discovery anchor driver" pattern documented in
+# OpenAVC-Discovery-Spec.md §11. The driver itself ships no control
+# surface; it exists to host the sibling crestron_cip_discovery.py
+# companion and its `companion: {generic: true}` declaration. The
+# companion does the 0x14 UDP probe + 0x15 binary parse and emits
+# Tier 2 + Tier 3 evidence. The matcher's best-driver-first logic
+# then demotes this anchor to an alternative when a vendor-specific
+# Crestron driver (crestron_nvx for video endpoints, future 3-Series
+# / TSW drivers) matches the same device via vendor_aliases / OUI.
+#
+# Adding this driver to a project gives the user a placeholder that
+# surfaces device hostname / model / firmware via discovery; for
+# actual control they should swap to the more specific Crestron
+# driver once it lands in the catalog.
+
+id: crestron_cip
+name: Crestron Device (CIP discovery)
+manufacturer: Crestron
+category: utility
+version: 1.0.0
+author: OpenAVC
+description: >
+  Discovery-only anchor for Crestron devices that answer the CIP
+  probe on UDP 41794. Surfaces hostname, model, and firmware through
+  discovery so vendor-specific Crestron drivers (DM NVX, future
+  3-Series / TSW) can claim the device as primary; otherwise the
+  user gets a placeholder they can swap for a control driver later.
+source_url: https://github.com/open-avc/openavc-drivers
+tags:
+  - discovery-anchor
+  - crestron
+  - cip
+verified: false
+simulated: false
+protocols:
+  - crestron_cip
+ports:
+  - 41794
+transport: tcp
+
+help:
+  overview: >
+    Crestron 3-Series control systems, DIN-AP processors, TSW touch
+    panels, and DM NVX endpoints answer a UDP probe on port 41794
+    with their hostname, model, and firmware version. This driver
+    hosts that probe so the device shows up in OpenAVC's discovery
+    panel — but it offers no control surface. To actually drive a
+    Crestron device, install the matching specific driver (DM NVX
+    for video endpoints; specific 3-Series / TSW drivers as they
+    land in the catalog) and swap this entry for it on the device
+    card.
+  setup: >
+    1. Run a network scan from the discovery panel.
+    2. Crestron devices that answer the CIP probe surface with
+       hostname / model / firmware populated.
+    3. If a more specific Crestron driver matches the device's OUI
+       or vendor alias, that driver wins primary identification and
+       this anchor demotes to an alternative on the dropdown.
+    4. If no specific driver matches, add this anchor — you'll get
+       a placeholder device entry. Install / build the right
+       Crestron control driver next, then swap it in.
+
+# Minimal connection schema. This driver doesn't connect or poll —
+# it exists for discovery + as a placeholder device entry. Both
+# fields are present so the Add Device dialog can surface IP /
+# port from the discovery card.
+default_config:
+  host: ""
+  port: 41794
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 41794
+    label: Port
+
+# No commands. No state polling. This driver is a discovery anchor.
+commands: {}
+
+discovery:
+  # Phase 9.7 companion declaration. The sibling crestron_cip_discovery.py
+  # emits Tier 2 + Tier 3 evidence under
+  # `custom_crestron_cip_companion_(udp|tcp)`; build_signal_index
+  # auto-registers matching SignalRules. `generic: true` marks this as
+  # a cross-vendor anchor so vendor-specific peer drivers (crestron_nvx
+  # and future Crestron control drivers) demote this entry to an
+  # alternative whenever they match via vendor_aliases or OUI.
+  companion:
+    generic: true
+  # Soft-tier fallbacks: when no specific Crestron driver is installed,
+  # the OUI/hostname/vendor evidence still surfaces this anchor as a
+  # `possible` candidate. The OUIs cover modern Crestron gear (00:10:7f
+  # is Crestron's IAB block; 00:0e:80 and 00:1f:5d are the older fully
+  # registered prefixes; c4:42:68 covers a recent block).
+  oui_prefixes:
+    - "00:10:7f"
+    - "00:0e:80"
+    - "00:1f:5d"
+    - "c4:42:68"
+  hostname_patterns:
+    # Common Crestron hostname conventions: <MODEL>-<MAC>, MC4-...,
+    # CP3-..., TSW-..., DM-NVX-..., DIN-AP-... etc.
+    - "^(MC4|CP3|RMC4|TSW|DIN-AP|DM-NVX)-"
+  vendor_aliases:
+    - "crestron"
+    - "crestron electronics"
+
+compatible_models:
+  - manufacturer: Crestron
+    models:
+      - "Any Crestron device that answers the CIP probe (3-Series, MC4, CP3, RMC4, DIN-AP, TSW, DM NVX)"
+    confidence: untested
+    notes: >
+      Discovery-only entry. For control, use the matching specific
+      Crestron driver (e.g. crestron_nvx for AV-over-IP endpoints).

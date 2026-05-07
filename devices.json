@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T13:21:17+00:00",
+    "generated_at": "2026-05-07T15:44:08+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 535,
+    "total_devices": 536,
     "shards": null
   },
   "devices": [
@@ -2158,6 +2158,18 @@
           "id": "artnet_dmx",
           "confidence": "untested",
           "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks Art-Net to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Crestron",
+      "model": "Any Crestron device that answers the CIP probe (3-Series, MC4, CP3, RMC4, DIN-AP, TSW, DM NVX)",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "crestron_cip",
+          "confidence": "untested",
+          "notes": "Discovery-only entry. For control, use the matching specific Crestron driver (e.g. crestron_nvx for AV-over-IP endpoints).\n"
         }
       ]
     },

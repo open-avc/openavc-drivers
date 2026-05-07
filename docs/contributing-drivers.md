@@ -101,8 +101,8 @@ Required minimum for every driver with a strong signal:
 ```yaml
 discovery:
   # Strong signal (any one of mdns_services / ssdp_device_types /
-  # amx_ddp / pjlink_class2 / crestron_cip / onvif / active_probes /
-  # udp_broadcast_probe / tcp_active_probe).
+  # amx_ddp / onvif / active_probes / udp_broadcast_probe /
+  # tcp_active_probe / companion).
   ssdp_device_types: ["urn:schemas-upnp-org:device:ZonePlayer:1"]
 
   # Soft fallback — REQUIRED alongside any strong signal:
@@ -135,9 +135,11 @@ If your device announces itself on the network and the wire format isn't covered
 
 1. **Declarative probe** — for "send these bytes, look for this in the response" protocols, declare a `udp_broadcast_probe:` or `tcp_active_probe:` block directly in the `.avcdriver`. Parameters: `port`, `send: {hex|ascii}`, `response_match: {starts_with_hex, contains, regex}`, optional `timeout_ms` (≤10000), `generic` flag, and `extract:` rules. Reserved extract keys `manufacturer` / `make` feed the Tier 4 vendor_string path so peer drivers can claim the device by `vendor_aliases`. Built-in handler ports are reserved (mDNS/SSDP/PJLink/Crestron CIP/ONVIF/AMX DDP for UDP; the active-probe handler ports for TCP).
 
-2. **Python companion** — for multi-step handshakes, encrypted payloads, or framing too dynamic for the declarative block, ship a sibling `<driver_id>_discovery.py` next to the `.avcdriver`. It exposes `async def probe(ctx)`; `ctx.source_ip` is the binding the companion **must** use, and `ctx.emit_broadcast / emit_active / emit_oui` produce evidence routed back to the right device record. Hard wall-clock timeout enforced by the platform (default 10s, capped at 30s).
+2. **Python companion** — for multi-step handshakes, binary parsers, or broadcast-then-per-host TCP follow-ups too dynamic for the declarative block, ship a sibling `<driver_id>_discovery.py` next to the `.avcdriver` *and* declare `discovery.companion: {generic: bool}` in the driver. The schema declaration auto-registers two synthetic probe IDs (`custom_<driver_id>_companion_(udp|tcp)`) so the matcher binds companion-emitted evidence back to your driver — without it, the evidence won't drive identification. The companion exposes `async def probe(ctx)`; `ctx.source_ip` is the binding the companion **must** use, and `ctx.emit_broadcast / emit_active / emit_oui` produce evidence routed back to the right device record. Hard wall-clock timeout enforced by the platform (default 10s, capped at 30s).
 
-When you adopt either Phase 9 schema, bump the driver's `min_platform_version` in `index.json` so older OpenAVC instances don't try to match against fields they can't parse.
+   Set `companion.generic: true` for cross-vendor anchor drivers (PJLink, Crestron CIP, etc.) — this lets the matcher demote the anchor to an alternative when a vendor-specific peer driver matches via `vendor_aliases` / OUI / hostname soft signals. See `projectors/pjlink_class1_discovery.py` and `utility/crestron_cip_discovery.py` for canonical examples.
+
+When you adopt either Phase 9 / 9.7 schema, bump the driver's `min_platform_version` in `index.json` so older OpenAVC instances don't try to match against fields they can't parse.
 
 When the device's protocol fits neither pattern, ship `manual_only: true` and open an issue describing the wire format — or contribute the listener / probe upstream.
 

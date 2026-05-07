@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:26:33+00:00",
+    "generated_at": "2026-05-07T00:43:57+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 7,
@@ -139,7 +139,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -153,6 +153,7 @@
         "visca-ip"
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "visca",
         "visca-ip",
@@ -210,7 +211,14 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "manual_only": true,
+        "vendor_aliases": [
+          "sony",
+          "aver",
+          "marshall",
+          "lumens",
+          "visca"
+        ]
       }
     },
     {

@@ -169,8 +169,9 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Generic Sony-specification VISCA-over-IP driver (UDP port "
             "52381). Pan/tilt/zoom/focus, presets, auto-exposure, white "
@@ -191,9 +192,16 @@ class VISCAIPDriver(BaseDriver):
         "ports": [52381],
         "transport": "udp",
         "discovery": {
-            # Generic VISCA-over-IP. Brand-specific drivers claim ONVIF;
-            # the generic driver is a manual fallback.
+            # Generic VISCA-over-IP fallback. Brand-specific drivers
+            # (sony_visca, ptzoptics, panasonic_awhe, etc.) claim ONVIF
+            # or vendor-specific signals — this driver intentionally
+            # stays manual_only as the catch-all for cameras that
+            # speak Sony's wire format but don't have a dedicated
+            # driver. Vendor aliases match the broad family.
             "manual_only": True,
+            "vendor_aliases": [
+                "sony", "aver", "marshall", "lumens", "visca",
+            ],
         },
         "compatible_models": [
             {

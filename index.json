@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:42:39+00:00",
+    "generated_at": "2026-05-07T00:43:22+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -472,7 +472,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Discover devices, route/unroute audio channels, monitor subscriptions.",
@@ -483,6 +483,7 @@
         443
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "dante",
         "audio-routing",
@@ -503,7 +504,11 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "manual_only": true,
+        "vendor_aliases": [
+          "audinate",
+          "dante"
+        ]
       }
     },
     {

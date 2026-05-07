@@ -847,7 +847,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "
@@ -873,10 +873,17 @@ class AllenHeathDLiveDriver(BaseDriver):
         "ports": [51325],
         "transport": "tcp",
         "discovery": {
-            # Audiotonix Group OUI — shared across A&H, Midas, DiGiCo, SSL.
+            # AHNet UDP 51320 announce protocol — wire format not public.
+            # Same situation as allenheath_avantis: soft-only via the
+            # Audiotonix Group OUI + TCP control port + vendor_aliases.
             "oui_prefixes": ["00:04:c4"],
+            "open_ports": [51325],
+            "vendor_aliases": [
+                "allen & heath", "allen and heath", "a&h",
+                "allen-heath", "audiotonix",
+            ],
         },
-        "min_platform_version": "0.6.0",
+        "min_platform_version": "0.10.3",
         "compatible_models": [
             {
                 "manufacturer": "Allen & Heath",

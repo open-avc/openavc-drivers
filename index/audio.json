@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:33:29+00:00",
+    "generated_at": "2026-05-07T00:34:41+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -72,7 +72,7 @@
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Mute / fader / send level / send assign / channel assign across 128 inputs, 62 mono and 31 stereo groups, 62 mono and 31 stereo aux outs, 62 mono and 31 stereo matrix outs, 16 mono and 16 stereo FX sends, 16 FX returns, 6 mains, 24 DCAs, 8 mute groups, 8 stereo UFX sends, 8 stereo UFX returns. Adds dLive-specific surface: 128 socket preamps (gain via Pitchbend, Pad, 48V), per-channel HPF, Cue List Recall (Surface, 1-2000), Scene Recall (MixRack, 1-500), channel name and colour set, MMC transport, UFX global key and scale, plus bidirectional state from console-side echoes.",
@@ -86,7 +86,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.6.0",
+      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "console",
@@ -121,6 +121,16 @@
       "discovery": {
         "oui_prefixes": [
           "00:04:c4"
+        ],
+        "open_ports": [
+          51325
+        ],
+        "vendor_aliases": [
+          "allen & heath",
+          "allen and heath",
+          "a&h",
+          "allen-heath",
+          "audiotonix"
         ]
       }
     },

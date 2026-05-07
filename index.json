@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:40:52+00:00",
+    "generated_at": "2026-05-07T00:42:05+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -718,7 +718,7 @@
       "name": "Behringer X32 Digital Mixer",
       "manufacturer": "Behringer",
       "category": "audio",
-      "version": "1.4.1",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.",
@@ -729,7 +729,7 @@
         10023
       ],
       "simulated": true,
-      "min_platform_version": "0.6.0",
+      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "console",
@@ -767,6 +767,14 @@
       "discovery": {
         "oui_prefixes": [
           "00:15:64"
+        ],
+        "open_ports": [
+          10023
+        ],
+        "vendor_aliases": [
+          "behringer",
+          "music tribe",
+          "midas"
         ]
       }
     },

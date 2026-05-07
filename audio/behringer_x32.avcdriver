@@ -20,7 +20,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.4.1
+version: 1.5.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -32,7 +32,7 @@ tags: [mixer, console, osc, midas]
 verified: false
 simulated: true
 ports: [10023]
-min_platform_version: 0.6.0
+min_platform_version: 0.10.3
 compatible_models:
   - manufacturer: Behringer
     models: [X32, X32 Compact, X32 Producer, X32 Rack, X32 Core]
@@ -58,11 +58,19 @@ help:
        receiving fader/mute updates.
 
 discovery:
-  # X32 / M32 announce via OSC; no deterministic Tier 1/2/3 fingerprint
-  # in core today. Surface via the registered Behringer Spezielle
-  # Studiotechnik OUI as a soft candidate.
+  # X32 / M32 speak OSC and do NOT advertise on the network — the OSC
+  # spec is push-from-controller only. Phase 10 confirmation: stays
+  # soft-only by design (Behringer's protocol manual has no announce
+  # message, and X32 doesn't dial out either). Match by Behringer
+  # Spezielle Studiotechnik OUI + OSC port + vendor_aliases.
   oui_prefixes:
     - "00:15:64"
+  open_ports:
+    - 10023
+  vendor_aliases:
+    - "behringer"
+    - "music tribe"
+    - "midas"
 
 default_config:
   host: ""

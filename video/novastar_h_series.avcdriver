@@ -23,7 +23,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.2.1
+version: 1.3.0
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -37,7 +37,7 @@ tags: [videowall, splicer, led-wall, video-processing]
 verified: false
 simulated: true
 ports: [6000]
-min_platform_version: 0.5.13
+min_platform_version: 0.10.3
 compatible_models:
   - manufacturer: Novastar
     models: [H2, H5, H9, H15, H20]
@@ -47,10 +47,22 @@ transport: udp
 
 discovery:
   # NovaStar H-series splicers run a custom UDP control protocol on
-  # 6000 with no standardized discovery announcement; surface via the
-  # registered Xi'an NovaStar OUI as a soft candidate.
+  # port 6000 (JSON `[{...},{...}]` framing per the H Series Control
+  # Protocol V1.0.7). The protocol has NO documented discovery
+  # broadcast — VX/MCTRL/M-series gear uses the `rqProMI:` UDP/3800
+  # daemon probe (different driver), but H-series only accepts
+  # unicast control to a known IP. A `tcp_active_probe` to 6000 is
+  # not viable (UDP-only protocol), and no probe currently fits the
+  # UDP-control-port shape. Soft-only via OUI + open UDP port +
+  # vendor_aliases.
+  #   Refs:
+  #     ezledvisual.com/storage/file/20240926/1727345521650113.pdf (V1.0.7)
+  #     bitfocus.io/connections/novastar-h-series
   oui_prefixes:
     - "54:b5:6c"
+  vendor_aliases:
+    - "novastar"
+    - "xi'an novastar"
 
 help:
   overview: >

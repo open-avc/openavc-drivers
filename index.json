@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:09:55+00:00",
+    "generated_at": "2026-05-07T00:19:38+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -2036,7 +2036,7 @@
       "name": "Mersive Solstice Pod",
       "manufacturer": "Mersive",
       "category": "streaming",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
@@ -2048,6 +2048,7 @@
         443
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "wireless-presentation",
         "byod",
@@ -2074,7 +2075,20 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "open_ports": [
+          53200,
+          53201,
+          53202,
+          7236
+        ],
+        "hostname_patterns": [
+          "^solstice",
+          "^Pod-"
+        ],
+        "vendor_aliases": [
+          "mersive",
+          "solstice"
+        ]
       }
     },
     {

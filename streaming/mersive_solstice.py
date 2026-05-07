@@ -63,7 +63,8 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.1.0",
+        "version": "1.2.0",
+        "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "
@@ -408,7 +409,22 @@ class SolsticeDriver(BaseDriver):
                 "default": False,
             },
         },
-        "discovery": {"manual_only": True},
+        "discovery": {
+            # Solstice Pods do not advertise via mDNS, SSDP, or any
+            # vendor-specific Bonjour service (Mersive Network Requirements
+            # documents UDP 5353 only when Miracast OEN or AirPlay is
+            # enabled, and those are non-exclusive third-party services).
+            # The only OpenAVC-relevant signals are the open TCP ports
+            # the Pod listens on for SDS coordination + Miracast control;
+            # match by those + hostname pattern. No Mersive-registered
+            # IEEE OUI exists — Pods run on Intel NUC-class hardware so
+            # OUI matching would false-positive across the office.
+            #   Network Requirements: documentation.mersive.com/en/network-requirements.html
+            #   SDS Guide: documentation.mersive.com/content/pdf/solsticediscoveryserviceguide.pdf
+            "open_ports": [53200, 53201, 53202, 7236],
+            "hostname_patterns": ["^solstice", "^Pod-"],
+            "vendor_aliases": ["mersive", "solstice"],
+        },
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

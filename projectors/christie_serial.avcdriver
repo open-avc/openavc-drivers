@@ -27,7 +27,7 @@ id: christie_serial
 name: Christie Projector
 manufacturer: Christie
 category: projector
-version: 1.1.1
+version: 1.2.0
 author: OpenAVC
 description: >-
   Controls Christie commercial projectors using the Christie Serial API
@@ -42,7 +42,7 @@ tags: [projector, christie, serial-api, large-venue]
 verified: false
 simulated: true
 ports: [3002]
-min_platform_version: 0.6.0
+min_platform_version: 0.10.3
 compatible_models:
   - manufacturer: Christie
     models:
@@ -96,10 +96,21 @@ help:
 
 discovery:
   # Christie Serial API on TCP 3002 has no documented broadcast or
-  # mDNS announcement; surface via the registered Christie Digital
-  # Systems OUI as a soft candidate.
+  # mDNS announcement, and PJLink Class 2 support is per-model and
+  # per-firmware (the M / J / HS / H / GS / G / E series families
+  # don't blanket-implement it — declaring `pjlink_class2: true`
+  # here would false-claim devices). Soft-only via the registered
+  # Christie Digital Systems OUI plus open TCP 3002 + vendor alias.
+  #   Refs:
+  #     maclookup.app/vendors/christie-digital-systems-inc
+  #     manualslib.com Christie DWU1052 PJLink table (per-model)
   oui_prefixes:
     - "00:1a:d7"
+  open_ports:
+    - 3002
+  vendor_aliases:
+    - "christie"
+    - "christie digital"
 
 default_config:
   host: ""

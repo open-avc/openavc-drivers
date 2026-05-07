@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:23:53+00:00",
+    "generated_at": "2026-05-07T00:26:33+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -3119,7 +3119,7 @@
       "name": "Vaddio RoboSHOT / ConferenceShot",
       "manufacturer": "Vaddio",
       "category": "camera",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom, focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris / gain / detail / white-balance) controls, factory & custom CCU scenes, and standby. One driver covers the entire RoboSHOT family \u2014 HDBT, HD-SDI, NDI, IW, USB.\n",
@@ -3133,7 +3133,7 @@
         "vaddio_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.9.0",
+      "min_platform_version": "0.10.3",
       "tags": [
         "ptz",
         "camera",
@@ -3178,6 +3178,16 @@
         "oui_prefixes": [
           "00:1e:c0",
           "08:00:6b"
+        ],
+        "hostname_patterns": [
+          "^vaddio-",
+          "^Vaddio-",
+          "^roboshot"
+        ],
+        "vendor_aliases": [
+          "vaddio",
+          "legrand",
+          "legrand av"
         ]
       }
     },

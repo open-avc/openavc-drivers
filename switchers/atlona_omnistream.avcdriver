@@ -41,9 +41,9 @@ id: atlona_omnistream
 name: Atlona OmniStream
 manufacturer: Atlona
 category: switcher
-version: 1.2.2
+version: 1.3.0
 author: OpenAVC
-min_platform_version: "0.9.0"
+min_platform_version: "0.10.3"
 description: >
   Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP
   encoders and decoders via the Telnet CLI (port 23). Supports source
@@ -99,8 +99,17 @@ help:
        on the decoder's web UI.
 
 discovery:
+  # Atlona OmniStream encoders/decoders use mDNS for AMS auto-
+  # discovery (KB01143 confirms UDP 5353), but the literal service
+  # type PTR string is not published in OmniStream's IT Deployment
+  # Guide or any third-party integrator module. RTI / khimo modules
+  # address devices by IP, not service browse. Soft-only via OUI +
+  # vendor_aliases.
   oui_prefixes:
     - "b8:98:b0"
+  vendor_aliases:
+    - "atlona"
+    - "omnistream"
 
 default_config:
   host: ""

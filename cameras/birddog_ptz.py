@@ -111,8 +111,9 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
             "Pan, tilt, zoom, focus, presets, exposure, white balance, "
@@ -428,14 +429,21 @@ class BirdDogPTZDriver(BaseDriver):
             },
         },
         "discovery": {
-            # BirdDog PTZs broadcast NDI (`_ndi._tcp`); that signal goes
-            # to the generic ndi_source driver. Add the BirdDog driver
-            # manually after picking the IP off NDI Studio Monitor.
-            "manual_only": True,
-            # Factory default hostname is `birddog-<xxxxx>` (last 5 hex
-            # digits of serial), per BirdDog Eyes P200 / BirdUI manuals.
-            # Surfaces as `possible` candidate when reverse-DNS resolves.
-            "hostname_patterns": ["^birddog-"],
+            # BirdDog devices advertise NDI on `_ndi._tcp` (claimed by
+            # the generic ndi_source driver). They also expose a public
+            # REST API on TCP 8080 (BirdDog API v2.0; `GET /about`,
+            # `GET /version`). The `_birddog._tcp` / `_bdctl._tcp`
+            # candidates aren't documented anywhere — soft-only here
+            # until a Wireshark capture confirms a vendor-specific
+            # service type. OUI D4:20:00 is BirdDog Australia's MA-M
+            # block (registered 2023-03-10). Factory default hostname
+            # is `birddog-<xxxxx>` per the Eyes P200 / BirdUI manuals.
+            #   API: birddog.tv/AV/API/index.html
+            #   OUI: maclookup.app/macaddress/d42000a (MA-M scope D4:20:00:A*)
+            "oui_prefixes": ["d4:20:00"],
+            "hostname_patterns": ["^birddog-", "^BirdDog-"],
+            "open_ports": [8080],
+            "vendor_aliases": ["birddog", "bird-dog", "bird dog"],
         },
     }
 

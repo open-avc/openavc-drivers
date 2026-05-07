@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T01:27:54+00:00",
+    "generated_at": "2026-05-07T01:48:07+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -647,7 +647,7 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, track info, and transport control.",
@@ -683,6 +683,21 @@
       "discovery": {
         "ssdp_device_types": [
           "urn:schemas-upnp-org:device:ZonePlayer:1"
+        ],
+        "oui_prefixes": [
+          "54:2a:1b",
+          "b8:e9:37",
+          "78:28:ca"
+        ],
+        "hostname_patterns": [
+          "^Sonos-",
+          "^sonos"
+        ],
+        "open_ports": [
+          1400
+        ],
+        "vendor_aliases": [
+          "sonos"
         ]
       }
     },

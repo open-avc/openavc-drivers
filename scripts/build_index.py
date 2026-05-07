@@ -620,10 +620,6 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
             broadcast.append(("onvif", str(mfg) if mfg else None))
         elif onvif_block is not False and onvif_block is not None:
             errors.append(f"{file}: discovery.onvif must be a bool or {{manufacturer: ...}} mapping")
-    if discovery.get("hiqnet"):
-        broadcast.append(("hiqnet", None))
-    if discovery.get("symetrix"):
-        broadcast.append(("symetrix", None))
     normalized["broadcast"] = broadcast
 
     active: list[str] = []
@@ -689,6 +685,42 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
                 f"{file}: discovery.open_ports entry {port} is disallowed "
                 f"(too generic — would match every web/SSH device). "
                 f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
+            )
+
+    # oui_prefixes: list of non-empty strings. Mirrors platform's
+    # parse_driver_discovery validation in hints.py.
+    raw_oui = discovery.get("oui_prefixes") or []
+    if not isinstance(raw_oui, list):
+        errors.append(f"{file}: discovery.oui_prefixes must be a list")
+        raw_oui = []
+    for prefix in raw_oui:
+        if not isinstance(prefix, str) or not prefix:
+            errors.append(
+                f"{file}: discovery.oui_prefixes entries must be non-empty "
+                f"strings, got {prefix!r}"
+            )
+
+    # hostname_patterns: list of non-empty strings, each must compile as
+    # a regex (platform's SignalIndex.add_rule compiles with re.IGNORECASE
+    # and raises ValueError on failure — mirror that here so a bad regex
+    # fails CI, not the platform at load time).
+    raw_host = discovery.get("hostname_patterns") or []
+    if not isinstance(raw_host, list):
+        errors.append(f"{file}: discovery.hostname_patterns must be a list")
+        raw_host = []
+    for pattern in raw_host:
+        if not isinstance(pattern, str) or not pattern:
+            errors.append(
+                f"{file}: discovery.hostname_patterns entries must be "
+                f"non-empty strings, got {pattern!r}"
+            )
+            continue
+        try:
+            re.compile(pattern, re.IGNORECASE)
+        except re.error as exc:
+            errors.append(
+                f"{file}: discovery.hostname_patterns entry {pattern!r} "
+                f"failed to compile: {exc}"
             )
 
     # Phase 8.6: vendor_aliases are manufacturer/make strings the driver

@@ -25,7 +25,8 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 1.2.1
+version: 1.3.0
+min_platform_version: "0.10.3"
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP.
@@ -58,8 +59,19 @@ help:
     5. Output channels: 1-4, ST (stereo).
 
 discovery:
+  # ATDM-0604 is the non-Dante variant — no network announcement
+  # exists for the bare control protocol on TCP 17300, and no
+  # Dante mDNS service is advertised since the 0604 doesn't have a
+  # Dante card. Stays soft-only via Audio-Technica OUI + control
+  # port + vendor_aliases.
   oui_prefixes:
     - "00:0a:45"
+  open_ports:
+    - 17300
+  vendor_aliases:
+    - "audio-technica"
+    - "audio technica"
+    - "at"
 
 default_config:
   host: ""

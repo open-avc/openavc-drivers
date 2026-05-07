@@ -45,7 +45,7 @@ index.json           # Driver catalog (used by the Browse Drivers UI)
 1. Create your driver using the **Driver Builder** in the Programmer IDE (exports `.avcdriver`) or write a Python driver
 2. Test it against real hardware or a simulator
 3. Fork this repo, add your driver to the appropriate category folder
-4. Update `index.json` with your driver's metadata
+4. Run `python scripts/build_index.py` to regenerate `index.json` and `devices.json` (these are generated artifacts — do not edit them by hand)
 5. Submit a pull request
 
 See the [Contributing Guide](docs/contributing-drivers.md) for the full checklist, and the [Driver Creation Guide](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) in the main repo for complete documentation on YAML and Python driver formats.

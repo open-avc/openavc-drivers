@@ -118,8 +118,13 @@ discovery:
   crestron_cip: true      # responds to UDP 41794 probe
   onvif:                  # ONVIF cameras; manufacturer disambiguates
     manufacturer: "Axis"
-  hiqnet: true            # HARMAN HiQnet on UDP 3804 (deferred until validated)
-  symetrix: true          # ControlNet on UDP 49216 (deferred until validated)
+  hiqnet: true            # HARMAN HiQnet on UDP 3804 — schema accepts the
+                          # opt-in but the engine does not currently fire
+                          # this probe. Declaring it registers signal-index
+                          # rules but produces no Tier 2 evidence today.
+  symetrix: true          # Symetrix ControlNet on UDP 49216 — same story:
+                          # accepted by the schema, not yet wired into the
+                          # engine's Tier 2 broadcasts.
 
   # --- Tier 3: targeted active probes (only on hosts that didn't self-announce) ---
   # Built-in named probe IDs (these run handlers shipped in the

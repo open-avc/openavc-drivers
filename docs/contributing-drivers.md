@@ -92,7 +92,7 @@ Generic protocol drivers (PJLink, SNMP, ONVIF, Modbus, etc.) leave their own `co
 
 ## Discovery Hints
 
-The `discovery:` block is **required**. Every driver declares at least one strong (Tier 1, 2, or 3) signal that deterministically identifies the device on the network — or sets `manual_only: true` if the device has no verifiable announcement and must be added by hand. CI rejects drivers that declare neither.
+Every driver should declare a `discovery:` block. A driver with no signals at all will silently never match anything; CI emits a warning at build time so you notice. Set `manual_only: true` to document that the device expects manual IP entry — that flag is documentation, not a matcher filter, so you should still declare any soft signals (OUI, hostname, vendor aliases) the device exposes.
 
 **Always declare soft signals alongside any strong signal.** A strong signal alone is fragile: if the SSDP scanner misses the device's NOTIFY, if mDNS multicast is filtered between VLANs, if ONVIF is disabled in the camera menu, the strong signal never fires and the driver claims nothing — even when the discovery scan has the device's manufacturer string, hostname, and MAC address in hand. Soft signals (`oui_prefixes`, `vendor_aliases`, `hostname_patterns`, `open_ports`) are the safety net that makes the driver claim the device regardless of which scanner found it.
 

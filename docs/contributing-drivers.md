@@ -94,14 +94,24 @@ Generic protocol drivers (PJLink, SNMP, ONVIF, Modbus, etc.) leave their own `co
 
 The `discovery:` block is **required**. Every driver declares at least one strong (Tier 1, 2, or 3) signal that deterministically identifies the device on the network — or sets `manual_only: true` if the device has no verifiable announcement and must be added by hand. CI rejects drivers that declare neither.
 
+**Always declare soft signals alongside any strong signal.** A strong signal alone is fragile: if the SSDP scanner misses the device's NOTIFY, if mDNS multicast is filtered between VLANs, if ONVIF is disabled in the camera menu, the strong signal never fires and the driver claims nothing — even when the discovery scan has the device's manufacturer string, hostname, and MAC address in hand. Soft signals (`oui_prefixes`, `vendor_aliases`, `hostname_patterns`, `open_ports`) are the safety net that makes the driver claim the device regardless of which scanner found it.
+
+Required minimum for every driver with a strong signal:
+
 ```yaml
 discovery:
-  # Best: a deterministic Tier 3 active probe that's already in core
-  active_probes:
-    - extron_sis
-  # Soft enrichment hints (never produce identified alone)
-  oui_prefixes:
-    - "00:05:a6"
+  # Strong signal (any one of mdns_services / ssdp_device_types /
+  # amx_ddp / pjlink_class2 / crestron_cip / onvif / active_probes /
+  # udp_broadcast_probe / tcp_active_probe).
+  ssdp_device_types: ["urn:schemas-upnp-org:device:ZonePlayer:1"]
+
+  # Soft fallback — REQUIRED alongside any strong signal:
+  oui_prefixes: ["54:2a:1b", "b8:e9:37"]      # vendor's IEEE OUI blocks
+  hostname_patterns: ["^Sonos-"]               # default factory hostname
+  open_ports: [1400]                           # control port (TCP only)
+  vendor_aliases: ["sonos"]                    # narrows when discovery
+                                               # captures manufacturer
+                                               # string from any source
 ```
 
 Or for a device with no fingerprint we can match safely:
@@ -111,9 +121,13 @@ discovery:
   manual_only: true
   oui_prefixes:
     - "00:0a:45"
+  vendor_aliases:
+    - "audio-technica"
 ```
 
-The matcher is deterministic — there is no scoring. A signal either fires (the device is identified) or it does not. See the [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) guide for the full schema (Tier 1 mDNS / SSDP / AMX DDP, Tier 2 broadcast probes, Tier 3 active probes, Tier 4 enrichment hints).
+**Why soft signals matter for "I already have a strong signal" drivers:** the same Sonos speaker can show up in a discovery scan via SSDP NOTIFY, mDNS `_spotify-connect._tcp.local`, mDNS `_sonos._tcp.local`, banner-grab on TCP 1400, or just an ARP-table sweep that captures the OUI. A driver declaring only the SSDP URN matches one of those five paths and silently misses the rest. A driver declaring SSDP plus OUI plus hostname plus port matches all five.
+
+The matcher is deterministic — there is no scoring. A signal either fires (the device is identified) or it does not. Soft signals never produce `identified` on their own; they produce `possible (candidate: X)` which is strictly better than `unknown` because the user gets a one-click choice. See the [Creating Drivers](https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md) guide for the full schema (Tier 1 mDNS / SSDP / AMX DDP, Tier 2 broadcast probes, Tier 3 active probes, Tier 4 enrichment hints).
 
 ### Adding discovery support
 

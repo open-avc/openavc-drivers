@@ -77,12 +77,26 @@ YAML driver definitions are interpreted at runtime by the `ConfigurableDriver` c
 
 The `discovery:` block declares which network signals point at this
 driver. Strong signals (Tier 1/2/3) produce `identified`; soft signals
-(Tier 4 — OUI, hostname, open port, SNMP PEN) produce `possible` with a
-candidate driver list. Any combination is valid. Declaring no signals
-at all logs a warning at build time but isn't a CI failure. The matcher
-is deterministic — it does not score; either a rule fires or it does not.
-CI rejects two drivers that claim the same strong signal without a
-disambiguating filter.
+(Tier 4 — OUI, vendor_aliases, hostname, open port, SNMP PEN) produce
+`possible` with a candidate driver list. The matcher is deterministic —
+it does not score; either a rule fires or it does not. CI rejects two
+drivers that claim the same strong signal without a disambiguating
+filter.
+
+**ALWAYS declare soft signals alongside any strong signal.** Strong-
+signal-only drivers are fragile: a single Sonos speaker can be found
+via SSDP NOTIFY, mDNS `_spotify-connect._tcp.local`, mDNS
+`_sonos._tcp.local`, banner-grab on TCP 1400, or an ARP-table sweep
+that captures the OUI — five different scanner paths. A driver that
+only declares the SSDP URN matches one of those five and silently
+misses the rest, even when discovery already has the device's
+manufacturer string and hostname in evidence. The same applies to
+mDNS-only drivers (Blackmagic Videohub), ONVIF-only drivers (Sony
+VISCA, PTZOptics), and any driver that picked one Tier 1/2/3 signal
+and stopped. Soft signals (`oui_prefixes`, `vendor_aliases`,
+`hostname_patterns`, `open_ports`) cost nothing to declare and let
+the driver claim the device regardless of which scanner path
+surfaced it.
 
 ```yaml
 discovery:
@@ -172,9 +186,14 @@ discovery:
 
 **Validation rules (enforced at load time):**
 
-1. Any combination of strong + soft signals is valid. A driver may
-   declare strong signals only, soft signals only, both, or none.
-   Declaring nothing logs a warning but doesn't reject the driver.
+1. **Always declare soft signals alongside strong signals.** A driver
+   may technically declare strong signals only, soft signals only,
+   both, or none — the loader accepts any combination and declaring
+   nothing logs a warning but doesn't reject the driver. But "strong
+   only" is fragile (see the Sonos / Blackmagic / ONVIF examples
+   above); always include `oui_prefixes`, `vendor_aliases`,
+   `hostname_patterns`, and `open_ports` so the driver is claimed
+   regardless of which scanner path surfaced the device.
 2. Tier 4 hints (`snmp_pen`, `oui_prefixes`, `hostname_patterns`,
    `open_ports`) only contribute to the *possible* state, never
    *identified* on their own. They DO register on `manual_only` drivers

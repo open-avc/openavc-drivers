@@ -87,7 +87,7 @@ class LgWebosDriver(BaseDriver):
         "name":         "LG WebOS",
         "manufacturer": "LG",
         "category":     "display",
-        "version":      "3.2.0",
+        "version":      "3.3.0",
         "author":       "Keaton Stacks",
         "description":  "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
         "source_url":   "https://github.com/hobbyquaker/lgtv2",
@@ -105,9 +105,21 @@ class LgWebosDriver(BaseDriver):
 
         "discovery": {
             # LG WebOS TVs announce via SSDP using a vendor-specific URN.
+            # Soft fallback signals (shared with the lg_sicp commercial
+            # signage driver — both surface as candidates for any LG
+            # device, user picks). LG's OUI list is intentionally broad
+            # because they share OUI blocks across consumer TV, signage,
+            # appliances, and audio.
             "ssdp_device_types": [
                 "urn:lge-com:service:webos-second-screen:1",
             ],
+            "oui_prefixes": [
+                "00:05:c9", "00:e0:91", "10:68:3f", "2c:54:cf",
+                "34:4d:f7", "38:8c:50", "58:a2:b5", "64:99:5d",
+                "a8:23:fe", "bc:f1:71",
+            ],
+            "hostname_patterns": ["^LGwebOSTV", "^\\[LG\\]"],
+            "vendor_aliases": ["lg", "lg electronics", "lge"],
         },
 
         "help": {

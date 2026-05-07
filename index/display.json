@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T01:27:54+00:00",
+    "generated_at": "2026-05-07T01:49:11+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -125,7 +125,7 @@
       "name": "LG WebOS",
       "manufacturer": "LG",
       "category": "display",
-      "version": "3.2.0",
+      "version": "3.3.0",
       "author": "Keaton Stacks",
       "transport": "tcp",
       "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
@@ -157,6 +157,27 @@
       "discovery": {
         "ssdp_device_types": [
           "urn:lge-com:service:webos-second-screen:1"
+        ],
+        "oui_prefixes": [
+          "00:05:c9",
+          "00:e0:91",
+          "10:68:3f",
+          "2c:54:cf",
+          "34:4d:f7",
+          "38:8c:50",
+          "58:a2:b5",
+          "64:99:5d",
+          "a8:23:fe",
+          "bc:f1:71"
+        ],
+        "hostname_patterns": [
+          "^LGwebOSTV",
+          "^\\[LG\\]"
+        ],
+        "vendor_aliases": [
+          "lg",
+          "lg electronics",
+          "lge"
         ]
       }
     },

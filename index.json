@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:37:20+00:00",
+    "generated_at": "2026-05-07T00:37:45+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -3286,7 +3286,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Supports outlet on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
@@ -3300,6 +3300,7 @@
         "wattbox-integration-v1.7"
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "pdu",
         "power",
@@ -3334,6 +3335,13 @@
         "oui_prefixes": [
           "d4:6a:91",
           "14:3f:c3"
+        ],
+        "vendor_aliases": [
+          "wattbox",
+          "snapav",
+          "snap one",
+          "snap-av",
+          "wirepath"
         ]
       }
     },

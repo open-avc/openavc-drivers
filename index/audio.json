@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:20:44+00:00",
+    "generated_at": "2026-05-07T00:29:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -527,7 +527,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.4.1",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
@@ -541,6 +541,7 @@
         "shure_dcs"
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "ceiling-mic",
         "wireless-mic",
@@ -564,7 +565,24 @@
       ],
       "discovery": {
         "oui_prefixes": [
-          "00:0e:dd"
+          "00:0e:dd",
+          "d8:34:ee"
+        ],
+        "hostname_patterns": [
+          "^MXA",
+          "^ANI",
+          "^AD4",
+          "^ULXD",
+          "^MXW",
+          "^P300",
+          "^IMX"
+        ],
+        "open_ports": [
+          2202
+        ],
+        "vendor_aliases": [
+          "shure",
+          "shure incorporated"
         ]
       }
     },

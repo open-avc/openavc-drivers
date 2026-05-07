@@ -20,8 +20,9 @@ id: shure_network
 name: Shure Networked Devices
 manufacturer: Shure
 category: audio
-version: 1.4.1
+version: 1.5.0
 author: OpenAVC
+min_platform_version: "0.10.3"
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
   Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces,
@@ -50,13 +51,35 @@ transport: tcp
 delimiter: ">"
 
 discovery:
-  # Shure SMG / P300 / MXA family use a vendor TCP protocol on 2202
-  # rather than the legacy DCS Telnet probe. No verified Tier 1/2/3
-  # signal in core today (the documented mDNS service type and the
-  # SMG broadcast probe are still unverified per the redesign plan),
-  # so discovery surfaces this driver as a soft OUI candidate only.
+  # Shure documentation does not advertise a custom `_shure._tcp`
+  # namespace — Web Device Discovery / Designer enumerate devices via
+  # standard mDNS (`_http._tcp` on UDP 5353) plus TXT/hostname filters.
+  # The `_shure-mxa._tcp`, `_axient-d._tcp`, `_intellimix._tcp` and
+  # `_shure-control._tcp` candidates return zero hits across IANA,
+  # vendor docs, and GitHub code search — they are not real registered
+  # service types. Soft-only via OUIs plus model-prefixed default
+  # hostnames (Shure ships every networked device with a hostname like
+  # `MXA920-XXXXXX`, `AD4Q-XXXXXX`, `ULXD4-XXXXXX`).
+  #   Common IP ports doc:
+  #     content-files.shure.com/FileRepository/common-ip-ports-v2.pdf
+  #   System API / device-discovery-lifecycle:
+  #     shure.stoplight.io
   oui_prefixes:
-    - "00:0e:dd"
+    - "00:0e:dd"   # Shure Incorporated (legacy MA-L)
+    - "d8:34:ee"   # Shure Incorporated (current MXA / AD product blocks)
+  hostname_patterns:
+    - "^MXA"
+    - "^ANI"
+    - "^AD4"
+    - "^ULXD"
+    - "^MXW"
+    - "^P300"
+    - "^IMX"
+  open_ports:
+    - 2202
+  vendor_aliases:
+    - "shure"
+    - "shure incorporated"
 
 default_config:
   host: ""

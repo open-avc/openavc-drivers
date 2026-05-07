@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:32:50+00:00",
+    "generated_at": "2026-05-07T00:33:29+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -12,7 +12,7 @@
       "name": "Allen & Heath Avantis Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath Avantis digital mixing consoles via MIDI over TCP/IP on port 51325. Mute / fader / send level / assign control across all 96 inputs, 54 mono and 27 stereo groups, 54 mono and 27 stereo aux outs, 54 mono and 27 stereo matrix outs, 12 mono and 12 stereo FX sends, 12 FX returns, 3 mains, 16 DCAs, 8 mute groups, plus 8 stereo UFX sends and returns. Scene recall (1-500), channel name and colour set, MIDI Machine Control transport, UFX global key and scale, and bidirectional state from console-side change echoes.",
@@ -26,7 +26,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.6.0",
+      "min_platform_version": "0.10.3",
       "tags": [
         "mixer",
         "console",
@@ -53,6 +53,16 @@
       "discovery": {
         "oui_prefixes": [
           "00:04:c4"
+        ],
+        "open_ports": [
+          51325
+        ],
+        "vendor_aliases": [
+          "allen & heath",
+          "allen and heath",
+          "a&h",
+          "allen-heath",
+          "audiotonix"
         ]
       }
     },

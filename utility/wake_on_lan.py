@@ -55,7 +55,8 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.2.0",
+        "version": "1.3.0",
+        "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
             "Send Wake-on-LAN magic packets to wake devices on the network. "

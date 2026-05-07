@@ -48,8 +48,9 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
             "Select NDI sources on decoders, monitor input/output status, "
@@ -212,10 +213,15 @@ class BirdDogCodecDriver(BaseDriver):
             },
         },
         "discovery": {
-            "manual_only": True,
-            # Factory default hostname is `birddog-<xxxxx>` (last 5 hex
-            # digits of serial), per BirdDog Eyes P200 / BirdUI manuals.
-            "hostname_patterns": ["^birddog-"],
+            # BirdDog NDI encoders/decoders advertise NDI on `_ndi._tcp`
+            # (claimed by ndi_source) and expose the BirdDog REST API on
+            # TCP 8080. OUI D4:20:00 is BirdDog Australia's MA-M block.
+            # Factory default hostname is `birddog-<xxxxx>` per the
+            # Eyes P200 / BirdUI manuals.
+            "oui_prefixes": ["d4:20:00"],
+            "hostname_patterns": ["^birddog-", "^BirdDog-"],
+            "open_ports": [8080],
+            "vendor_aliases": ["birddog", "bird-dog", "bird dog"],
         },
     }
 

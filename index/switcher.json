@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T01:27:54+00:00",
+    "generated_at": "2026-05-07T01:50:56+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 8,
@@ -231,7 +231,7 @@
       "name": "Blackmagic Videohub",
       "manufacturer": "Blackmagic Design",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Supports video output routing, monitoring output routing, input/output label editing, and output locking across the entire Videohub product line.",
@@ -279,6 +279,14 @@
       "discovery": {
         "mdns_services": [
           "_blackmagic._tcp.local."
+        ],
+        "open_ports": [
+          9990
+        ],
+        "vendor_aliases": [
+          "blackmagic",
+          "blackmagic design",
+          "bmd"
         ]
       }
     },

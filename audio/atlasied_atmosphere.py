@@ -189,8 +189,9 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing "
             "and control systems over the third-party JSON-RPC protocol "
@@ -206,7 +207,18 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "protocols": ["atlasied-atmosphere-thirdparty"],
         "ports": [5321],
         "transport": "tcp",
-        "discovery": {"manual_only": True},
+        "discovery": {
+            # AZM4 / AZM8 do not advertise via mDNS, SSDP, or SNMP. The
+            # AtlasIED 3rd-Party Control PDF and AtlasIED Network Protocols
+            # & Ports doc both list only the JSON-RPC control surface
+            # (TCP 5321) and the meter subscription channel (UDP 3131).
+            # No Atlas-registered IEEE OUI surfaces in public registries.
+            # Match by the JSON-RPC port; expect a `possible (candidate:
+            # atlasied_atmosphere)` outcome when a host listens there.
+            #   Source: https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf
+            "open_ports": [5321],
+            "vendor_aliases": ["atlasied", "atlas ied", "atmosphere"],
+        },
         "compatible_models": [
             {
                 "manufacturer": "AtlasIED",

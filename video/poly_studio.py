@@ -86,8 +86,9 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "
             "G7500 video collaboration bars via the public VideoOS "
@@ -103,8 +104,20 @@ class PolyStudioDriver(BaseDriver):
         "ports": [443],
         "transport": "http",
         "discovery": {
-            # Polycom / Poly room-system OUIs.
-            "oui_prefixes": ["00:04:f2", "64:16:7f", "48:25:67"],
+            # Polycom / Poly room-system OUIs. 00:04:f2 is the original
+            # Polycom MA-L (registered 2001, exhausted ~2020). 64:16:7f
+            # and 9c:ad:ef are the post-2020 Polycom voice/video blocks
+            # used on current Studio + G7500 / G62 hardware. 00:e0:db
+            # and 00:90:27 cover legacy Polycom video gear. SSDP / mDNS
+            # service strings are not publicly documented for VideoOS;
+            # the candidate `urn:polycom:device:VideoOSEndpoint:1` did
+            # not turn up in any vendor doc, integrator module, or
+            # public PCAP — left unset until a real capture lands.
+            "oui_prefixes": [
+                "00:04:f2", "64:16:7f", "48:25:67",
+                "9c:ad:ef", "00:e0:db", "00:90:27",
+            ],
+            "vendor_aliases": ["poly", "polycom", "hp", "plantronics"],
         },
         "compatible_models": [
             {

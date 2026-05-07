@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:26:33+00:00",
+    "generated_at": "2026-05-07T00:27:55+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -1034,7 +1034,7 @@
       "name": "Cisco Webex Codec / Room Series (xAPI)",
       "manufacturer": "Cisco",
       "category": "video",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ, Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND, presentation, camera presets, on-screen messaging, reboot. Polling-based \u2014 HttpFeedback push deferred until the platform's inbound-listener primitive lands.\n",
@@ -1048,7 +1048,7 @@
         "xapi_http"
       ],
       "simulated": true,
-      "min_platform_version": "0.9.1",
+      "min_platform_version": "0.10.3",
       "tags": [
         "cisco",
         "webex",
@@ -1099,7 +1099,13 @@
       ],
       "discovery": {
         "oui_prefixes": [
-          "00:50:60"
+          "00:50:60",
+          "e8:0a:b9"
+        ],
+        "vendor_aliases": [
+          "cisco",
+          "tandberg",
+          "webex"
         ]
       }
     },

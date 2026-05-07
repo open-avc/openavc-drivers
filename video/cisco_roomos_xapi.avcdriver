@@ -43,7 +43,7 @@ id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.1.1
+version: 1.2.0
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -59,7 +59,7 @@ verified: false
 simulated: true
 protocols: [xapi_http]
 ports: [443]
-min_platform_version: "0.9.1"
+min_platform_version: "0.10.3"
 
 compatible_models:
   - manufacturer: Cisco
@@ -123,12 +123,22 @@ help:
        you want faster touch-panel feedback.
 
 discovery:
-  # Cisco Webex / RoomOS endpoints announce on `_cisco-phone._tcp` and
-  # also expose Webex device discovery, but neither has been verified
-  # against current firmware. Surface via the legacy Tandberg OUI
-  # (Cisco acquired Tandberg in 2009; codec endpoints inherited it).
+  # The `_cisco-phone._tcp` candidate is widely associated with Cisco UC
+  # IP phones (CUCM-registered handsets), not RoomOS video endpoints —
+  # not safe to claim from this driver. Cisco RoomOS xAPI transport
+  # docs (D15427.02) document HTTPS / SSH / WebSocket but say nothing
+  # about mDNS advertisement. Home Assistant has no zeroconf-based
+  # RoomOS integration — strong negative signal that no widely-known
+  # stable mDNS string exists. Soft-only via legacy Tandberg OUI
+  # (Cisco acquired Tandberg in 2009; codecs inherit it) plus the
+  # general Cisco TelePresence MA-L block.
   oui_prefixes:
     - "00:50:60"   # Tandberg Telecom AS — now Cisco Collaboration
+    - "e8:0a:b9"   # Cisco Systems
+  vendor_aliases:
+    - "cisco"
+    - "tandberg"
+    - "webex"
 
 default_config:
   host: ""

@@ -166,8 +166,9 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
+        "min_platform_version": "0.10.3",
         "description": (
             "Controls Epson business and installation projectors over "
             "ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, "

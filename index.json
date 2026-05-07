@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:06:24+00:00",
+    "generated_at": "2026-05-07T00:09:55+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 55,
@@ -1305,7 +1305,7 @@
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
@@ -1319,6 +1319,7 @@
         "artnet"
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "artnet",
         "dmx",
@@ -1439,7 +1440,31 @@
         }
       ],
       "discovery": {
-        "manual_only": true
+        "udp_broadcast_probe": {
+          "port": 6454,
+          "send": {
+            "hex": "41 72 74 2D 4E 65 74 00 00 20 00 0E 00 10"
+          },
+          "response_match": {
+            "starts_with_hex": "41 72 74 2D 4E 65 74 00 00 21"
+          },
+          "extract": {
+            "shortname": {
+              "regex": "^[\\s\\S]{26}([\\x20-\\x7E]{1,17})\\x00",
+              "group": 1
+            },
+            "longname": {
+              "regex": "^[\\s\\S]{44}([\\x20-\\x7E]{1,63})\\x00",
+              "group": 1
+            }
+          },
+          "timeout_ms": 1500,
+          "generic": true
+        },
+        "vendor_aliases": [
+          "artnet",
+          "art-net"
+        ]
       }
     },
     {

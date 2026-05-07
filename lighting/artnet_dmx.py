@@ -123,7 +123,8 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.2.0",
+        "version": "1.3.0",
+        "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
             "Sends DMX512 lighting data over Art-Net (UDP 6454) to "
@@ -152,9 +153,42 @@ class ArtNetDMXDriver(BaseDriver):
         "ports": [6454],
         "transport": "udp",
         "discovery": {
-            # Art-Net poll responses (ArtPollReply on UDP 6454) are not yet
-            # parsed by the discovery engine; nodes are added manually.
-            "manual_only": True,
+            # Art-Net 4 spec is fully public — every conforming node answers
+            # an ArtPoll broadcast on UDP 6454 with an ArtPollReply that
+            # carries ShortName (offset 26, 18 bytes) and LongName (offset
+            # 44, 64 bytes) NUL-padded ASCII fields. Generic = true so
+            # vendor-specific Art-Net drivers (e.g. dedicated ETC / MA /
+            # Pathport drivers added later) can claim the device by
+            # vendor_aliases. Probe is silent: TalkToMe=0x00 means reply-
+            # to-poll only, no diagnostics, no VLC.
+            #   Art-Net 4 spec: https://art-net.org.uk/downloads/art-net.pdf
+            #   ArtNode reference (MIT): github.com/tobiasebsen/ArtNode
+            #   go-artnet (MIT): github.com/jsimonetti/go-artnet
+            "udp_broadcast_probe": {
+                "port": 6454,
+                # ArtPoll: "Art-Net\0" + OpPoll(0x2000 LE) + ProtVer(0x000E)
+                # + TalkToMe(0x00) + Priority(0x10 = DpLow).
+                "send": {"hex": "41 72 74 2D 4E 65 74 00 00 20 00 0E 00 10"},
+                "response_match": {
+                    # "Art-Net\0" + OpPollReply(0x2100 LE).
+                    "starts_with_hex": "41 72 74 2D 4E 65 74 00 00 21",
+                },
+                "extract": {
+                    # ShortName: 18-byte NUL-padded ASCII at offset 26.
+                    "shortname": {
+                        "regex": r"^[\s\S]{26}([\x20-\x7E]{1,17})\x00",
+                        "group": 1,
+                    },
+                    # LongName: 64-byte NUL-padded ASCII at offset 44.
+                    "longname": {
+                        "regex": r"^[\s\S]{44}([\x20-\x7E]{1,63})\x00",
+                        "group": 1,
+                    },
+                },
+                "timeout_ms": 1500,
+                "generic": True,
+            },
+            "vendor_aliases": ["artnet", "art-net"],
         },
         "compatible_models": [
             {

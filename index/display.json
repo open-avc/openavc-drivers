@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T20:16:57+00:00",
+    "generated_at": "2026-05-07T00:45:46+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -13,7 +13,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "display",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",
@@ -29,6 +29,7 @@
         "crestron_cip"
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "av-over-ip",
         "encoder",
@@ -46,12 +47,19 @@
         }
       ],
       "discovery": {
+        "crestron_cip": true,
         "oui_prefixes": [
           "00:10:7f",
+          "00:0e:80",
+          "00:1f:5d",
           "c4:42:68"
         ],
         "hostname_patterns": [
           "^DM-NVX-"
+        ],
+        "vendor_aliases": [
+          "crestron",
+          "crestron electronics"
         ]
       }
     },
@@ -60,7 +68,7 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
@@ -71,6 +79,7 @@
         9761
       ],
       "simulated": true,
+      "min_platform_version": "0.10.3",
       "tags": [
         "display",
         "signage",
@@ -103,6 +112,13 @@
           "64:99:5d",
           "a8:23:fe",
           "bc:f1:71"
+        ],
+        "open_ports": [
+          9761
+        ],
+        "vendor_aliases": [
+          "lg",
+          "lg electronics"
         ]
       }
     },

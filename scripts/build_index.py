@@ -345,140 +345,54 @@ def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
 
 
 # --- Discovery block validation ---------------------------------------------
+#
+# Mirrors ``parse_driver_discovery`` in the platform's hints.py. Schema
+# reference: ``discovery-rewrite-plan.md`` (workspace root).
 
-# Phase 9 dropped the broadcast / active-probe allow-lists: the platform
-# accepts unknown probe IDs as silent no-ops at runtime and driver-
-# declared probes carry the wire format directly via ``udp_broadcast_probe:``
-# / ``tcp_active_probe:``. CI no longer has a registry to gate against.
-
-# Ports too generic to use as a Tier 4 soft enrichment signal — every web /
-# admin / SSH device on the network would match. AV-specific ports are fine.
-# Mirrors `DISALLOWED_OPEN_PORTS` in the platform's hints.py.
+# Ports too generic to use as a hint — every web / admin / SSH device on
+# the network would match. AV-specific ports are fine. Mirrors
+# ``DISALLOWED_OPEN_PORTS`` in the platform.
 _DISALLOWED_OPEN_PORTS = frozenset({22, 80, 443})
 
-# Phase 9: ports owned by built-in handlers — drivers declaring a
-# ``udp_broadcast_probe`` / ``tcp_active_probe`` cannot collide on them.
-# Mirrors `DISALLOWED_UDP_BROADCAST_PROBE_PORTS` /
-# `DISALLOWED_TCP_ACTIVE_PROBE_PORTS` in the platform's hints.py.
-_DISALLOWED_UDP_BROADCAST_PROBE_PORTS = frozenset({
-    1900, 3702, 4352, 5353, 9131, 41794,
-})
-_DISALLOWED_TCP_ACTIVE_PROBE_PORTS = frozenset({
-    23, 1515, 1688, 1710, 4352, 10500, 49280,
-})
 _MAX_PROBE_TIMEOUT_MS = 10000
 
+_KNOWN_DISCOVERY_KEYS: frozenset[str] = frozenset({
+    "mdns", "ssdp", "amx_ddp",
+    "tcp_probe", "udp_probe", "python",
+    "oui", "hostname", "port_open", "manufacturer_alias", "snmp_pen",
+})
 
-def _validate_send_block(file: str, kind: str, raw: Any) -> list[str]:
-    """Return validation errors for a probe ``send:`` block."""
-    errors: list[str] = []
-    if not isinstance(raw, dict):
-        errors.append(
-            f"{file}: discovery.{kind}.send must be a mapping with exactly "
-            "one of 'hex' or 'ascii'"
-        )
-        return errors
-    has_hex = "hex" in raw and raw["hex"] is not None
-    has_ascii = "ascii" in raw and raw["ascii"] is not None
-    if has_hex and has_ascii:
-        errors.append(
-            f"{file}: discovery.{kind}.send must declare exactly one of "
-            "'hex' or 'ascii', not both"
-        )
-    if not has_hex and not has_ascii:
-        errors.append(
-            f"{file}: discovery.{kind}.send must declare one of 'hex' or 'ascii'"
-        )
-    if has_hex:
-        h = raw["hex"]
-        if not isinstance(h, str):
-            errors.append(f"{file}: discovery.{kind}.send.hex must be a string")
-        else:
-            try:
-                bytes.fromhex(h.replace(" ", "").replace(":", ""))
-            except ValueError as exc:
-                errors.append(
-                    f"{file}: discovery.{kind}.send.hex is not valid hex: {exc}"
-                )
-    if has_ascii and not isinstance(raw["ascii"], str):
-        errors.append(f"{file}: discovery.{kind}.send.ascii must be a string")
-    return errors
+_KNOWN_PROBE_KEYS: frozenset[str] = frozenset({
+    "port", "send_hex", "send_ascii",
+    "expect", "expect_regex", "expect_hex",
+    "cross_vendor", "timeout_ms",
+    "extract", "extract_manufacturer",
+})
 
 
-def _validate_response_match_block(file: str, kind: str, raw: Any) -> list[str]:
-    """Return validation errors for a ``response_match:`` block."""
-    errors: list[str] = []
-    if not isinstance(raw, dict):
-        errors.append(
-            f"{file}: discovery.{kind}.response_match must be a mapping (at "
-            "least one of starts_with_hex, contains, regex)"
-        )
-        return errors
-    have_any = False
-    if "starts_with_hex" in raw and raw["starts_with_hex"] is not None:
-        s = raw["starts_with_hex"]
-        if not isinstance(s, str):
-            errors.append(
-                f"{file}: discovery.{kind}.response_match.starts_with_hex "
-                "must be a string"
-            )
-        else:
-            have_any = True
-            try:
-                bytes.fromhex(s.replace(" ", "").replace(":", ""))
-            except ValueError as exc:
-                errors.append(
-                    f"{file}: discovery.{kind}.response_match.starts_with_hex "
-                    f"is not valid hex: {exc}"
-                )
-    if "contains" in raw and raw["contains"] is not None:
-        c = raw["contains"]
-        if not isinstance(c, str) or not c:
-            errors.append(
-                f"{file}: discovery.{kind}.response_match.contains must be a "
-                "non-empty string"
-            )
-        else:
-            have_any = True
-    if "regex" in raw and raw["regex"] is not None:
-        r = raw["regex"]
-        if not isinstance(r, str) or not r:
-            errors.append(
-                f"{file}: discovery.{kind}.response_match.regex must be a "
-                "non-empty string"
-            )
-        else:
-            have_any = True
-            try:
-                re.compile(r)
-            except re.error as exc:
-                errors.append(
-                    f"{file}: discovery.{kind}.response_match.regex failed "
-                    f"to compile: {exc}"
-                )
-    if not have_any:
-        errors.append(
-            f"{file}: discovery.{kind}.response_match needs at least one of "
-            "starts_with_hex, contains, regex"
-        )
-    return errors
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
 
 
-def _validate_extract_block(file: str, kind: str, raw: Any) -> list[str]:
+def _validate_extract_block(file: str, where: str, raw: Any) -> list[str]:
     """Return validation errors for an ``extract:`` block."""
     errors: list[str] = []
     if raw is None:
         return errors
     if not isinstance(raw, dict):
         errors.append(
-            f"{file}: discovery.{kind}.extract must be a mapping of field "
+            f"{file}: discovery.{where}.extract must be a mapping of field "
             "name to literal string or {regex, group} mapping"
         )
         return errors
     for name, spec in raw.items():
         if not isinstance(name, str) or not name:
             errors.append(
-                f"{file}: discovery.{kind}.extract field names must be "
+                f"{file}: discovery.{where}.extract field names must be "
                 "non-empty strings"
             )
             continue
@@ -488,7 +402,7 @@ def _validate_extract_block(file: str, kind: str, raw: Any) -> list[str]:
             pat = spec.get("regex")
             if not isinstance(pat, str) or not pat:
                 errors.append(
-                    f"{file}: discovery.{kind}.extract.{name} mapping requires "
+                    f"{file}: discovery.{where}.extract.{name} mapping requires "
                     "a non-empty 'regex' string"
                 )
             else:
@@ -496,74 +410,272 @@ def _validate_extract_block(file: str, kind: str, raw: Any) -> list[str]:
                     re.compile(pat)
                 except re.error as exc:
                     errors.append(
-                        f"{file}: discovery.{kind}.extract.{name}.regex failed "
+                        f"{file}: discovery.{where}.extract.{name}.regex failed "
                         f"to compile: {exc}"
                     )
             grp = spec.get("group", 1)
             if not isinstance(grp, int) or isinstance(grp, bool) or grp < 0:
                 errors.append(
-                    f"{file}: discovery.{kind}.extract.{name}.group must be a "
+                    f"{file}: discovery.{where}.extract.{name}.group must be a "
                     "non-negative integer"
                 )
             continue
         errors.append(
-            f"{file}: discovery.{kind}.extract.{name} must be a literal "
+            f"{file}: discovery.{where}.extract.{name} must be a literal "
             "string or a {regex, group} mapping"
         )
     return errors
 
 
-def _validate_custom_probe_block(
-    file: str,
-    kind: str,                      # "udp_broadcast_probe" | "tcp_active_probe"
-    raw: Any,
-    disallowed_ports: frozenset[int],
-) -> list[str]:
-    """Return validation errors for one custom probe block."""
+def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
+    """Return validation errors for a ``tcp_probe:`` / ``udp_probe:`` block."""
+    where = f"{kind}_probe"
     errors: list[str] = []
     if not isinstance(raw, dict):
-        errors.append(f"{file}: discovery.{kind} must be a mapping")
+        errors.append(f"{file}: discovery.{where} must be a mapping")
         return errors
+
+    unknown = set(raw.keys()) - _KNOWN_PROBE_KEYS
+    if unknown:
+        errors.append(
+            f"{file}: discovery.{where} has unknown keys: {sorted(unknown)}"
+        )
 
     port = raw.get("port")
     if not isinstance(port, int) or isinstance(port, bool) or port < 1 or port > 65535:
         errors.append(
-            f"{file}: discovery.{kind}.port must be an integer in [1, 65535]"
-        )
-    elif port in disallowed_ports:
-        errors.append(
-            f"{file}: discovery.{kind}.port {port} is reserved for a built-in "
-            f"handler. Use the named opt-in instead. "
-            f"Disallowed: {sorted(disallowed_ports)}"
+            f"{file}: discovery.{where}.port must be an integer in [1, 65535]"
         )
 
-    errors.extend(_validate_send_block(file, kind, raw.get("send")))
-    errors.extend(_validate_response_match_block(file, kind, raw.get("response_match")))
-    errors.extend(_validate_extract_block(file, kind, raw.get("extract")))
+    has_send_hex = "send_hex" in raw and raw["send_hex"] is not None
+    has_send_ascii = "send_ascii" in raw and raw["send_ascii"] is not None
+    if has_send_hex and has_send_ascii:
+        errors.append(
+            f"{file}: discovery.{where} declares both send_hex and "
+            "send_ascii — pick one"
+        )
+    if has_send_hex:
+        if not isinstance(raw["send_hex"], str):
+            errors.append(f"{file}: discovery.{where}.send_hex must be a string")
+        else:
+            try:
+                bytes.fromhex(raw["send_hex"].replace(" ", "").replace(":", ""))
+            except ValueError as exc:
+                errors.append(
+                    f"{file}: discovery.{where}.send_hex is not valid hex: {exc}"
+                )
+    if has_send_ascii and not isinstance(raw["send_ascii"], str):
+        errors.append(f"{file}: discovery.{where}.send_ascii must be a string")
+
+    has_send = has_send_hex or has_send_ascii
+    if kind == "udp" and not has_send:
+        errors.append(
+            f"{file}: discovery.{where} must declare send_ascii or send_hex "
+            "(UDP probes need a query payload)"
+        )
+
+    has_expect = (
+        ("expect" in raw and raw["expect"] is not None)
+        or ("expect_regex" in raw and raw["expect_regex"] is not None)
+        or ("expect_hex" in raw and raw["expect_hex"] is not None)
+    )
+    if "expect" in raw and raw["expect"] is not None:
+        c = raw["expect"]
+        if not isinstance(c, str) or not c:
+            errors.append(
+                f"{file}: discovery.{where}.expect must be a non-empty string"
+            )
+    if "expect_regex" in raw and raw["expect_regex"] is not None:
+        r = raw["expect_regex"]
+        if not isinstance(r, str) or not r:
+            errors.append(
+                f"{file}: discovery.{where}.expect_regex must be a non-empty string"
+            )
+        else:
+            try:
+                re.compile(r)
+            except re.error as exc:
+                errors.append(
+                    f"{file}: discovery.{where}.expect_regex failed to compile: {exc}"
+                )
+    if "expect_hex" in raw and raw["expect_hex"] is not None:
+        s = raw["expect_hex"]
+        if not isinstance(s, str):
+            errors.append(f"{file}: discovery.{where}.expect_hex must be a string")
+        else:
+            try:
+                bytes.fromhex(s.replace(" ", "").replace(":", ""))
+            except ValueError as exc:
+                errors.append(
+                    f"{file}: discovery.{where}.expect_hex is not valid hex: {exc}"
+                )
+
+    if kind == "udp" and not has_expect:
+        errors.append(
+            f"{file}: discovery.{where} needs at least one of "
+            "expect, expect_regex, expect_hex"
+        )
+    if kind == "tcp" and has_send and not has_expect:
+        errors.append(
+            f"{file}: discovery.{where} sends bytes but declares no matcher "
+            "— add expect, expect_regex, or expect_hex"
+        )
 
     timeout_ms = raw.get("timeout_ms")
     if timeout_ms is not None:
         if not isinstance(timeout_ms, int) or isinstance(timeout_ms, bool) or timeout_ms < 1:
             errors.append(
-                f"{file}: discovery.{kind}.timeout_ms must be a positive integer"
+                f"{file}: discovery.{where}.timeout_ms must be a positive integer"
             )
         elif timeout_ms > _MAX_PROBE_TIMEOUT_MS:
             errors.append(
-                f"{file}: discovery.{kind}.timeout_ms exceeds the max of "
+                f"{file}: discovery.{where}.timeout_ms exceeds the max of "
                 f"{_MAX_PROBE_TIMEOUT_MS} ms"
             )
 
-    if "generic" in raw and not isinstance(raw["generic"], bool):
-        errors.append(f"{file}: discovery.{kind}.generic must be a bool")
+    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
+        errors.append(f"{file}: discovery.{where}.cross_vendor must be a bool")
+
+    errors.extend(_validate_extract_block(file, where, raw.get("extract")))
+
+    if "extract_manufacturer" in raw and raw["extract_manufacturer"] is not None:
+        mfg = raw["extract_manufacturer"]
+        if not isinstance(mfg, str) or not mfg:
+            errors.append(
+                f"{file}: discovery.{where}.extract_manufacturer must be a "
+                "non-empty string"
+            )
+        elif (
+            isinstance(raw.get("extract"), dict)
+            and "manufacturer" in raw["extract"]
+        ):
+            errors.append(
+                f"{file}: discovery.{where}.extract_manufacturer collides with "
+                "extract.manufacturer — pick one"
+            )
 
     return errors
+
+
+def _validate_python_block(file: str, raw: Any) -> list[str]:
+    """Return validation errors for the ``python:`` field."""
+    errors: list[str] = []
+    if isinstance(raw, str):
+        if not raw:
+            errors.append(
+                f"{file}: discovery.python path must be a non-empty string"
+            )
+        return errors
+    if not isinstance(raw, dict):
+        errors.append(
+            f"{file}: discovery.python must be a string path or "
+            "{file, cross_vendor} mapping"
+        )
+        return errors
+    unknown = set(raw.keys()) - {"file", "cross_vendor"}
+    if unknown:
+        errors.append(
+            f"{file}: discovery.python has unknown keys: {sorted(unknown)}"
+        )
+    file_path = raw.get("file")
+    if not isinstance(file_path, str) or not file_path:
+        errors.append(
+            f"{file}: discovery.python.file must be a non-empty string"
+        )
+    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
+        errors.append(f"{file}: discovery.python.cross_vendor must be a bool")
+    return errors
+
+
+def _validate_mdns_entry(file: str, raw: Any) -> tuple[list[str], dict[str, Any] | None]:
+    """Validate one mDNS fingerprint entry. Returns (errors, normalized)."""
+    if isinstance(raw, str):
+        if not raw:
+            return ([f"{file}: discovery.mdns service must be a non-empty string"], None)
+        return ([], {"service": raw, "txt": {}})
+    if not isinstance(raw, dict):
+        return (
+            [f"{file}: discovery.mdns entries must be strings or "
+             "{service, txt, cross_vendor} mappings"],
+            None,
+        )
+    errors: list[str] = []
+    unknown = set(raw.keys()) - {"service", "txt", "cross_vendor"}
+    if unknown:
+        errors.append(
+            f"{file}: discovery.mdns entry has unknown keys: {sorted(unknown)}"
+        )
+    service = raw.get("service")
+    if not isinstance(service, str) or not service:
+        errors.append(f"{file}: discovery.mdns.service must be a non-empty string")
+        return (errors, None)
+    txt_raw = raw.get("txt") or {}
+    if not isinstance(txt_raw, dict):
+        errors.append(f"{file}: discovery.mdns.txt must be a mapping")
+        txt_raw = {}
+    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
+        errors.append(f"{file}: discovery.mdns.cross_vendor must be a bool")
+    return (
+        errors,
+        {"service": service, "txt": {str(k): str(v) for k, v in txt_raw.items()}},
+    )
+
+
+def _validate_ssdp_entry(file: str, raw: Any) -> tuple[list[str], str | None]:
+    """Validate one SSDP fingerprint entry. Returns (errors, normalized device_type)."""
+    if isinstance(raw, str):
+        if not raw:
+            return ([f"{file}: discovery.ssdp device_type must be a non-empty string"], None)
+        return ([], raw)
+    if not isinstance(raw, dict):
+        return (
+            [f"{file}: discovery.ssdp entries must be strings or "
+             "{device_type, cross_vendor} mappings"],
+            None,
+        )
+    errors: list[str] = []
+    unknown = set(raw.keys()) - {"device_type", "cross_vendor"}
+    if unknown:
+        errors.append(
+            f"{file}: discovery.ssdp entry has unknown keys: {sorted(unknown)}"
+        )
+    dt = raw.get("device_type")
+    if not isinstance(dt, str) or not dt:
+        errors.append(f"{file}: discovery.ssdp.device_type must be a non-empty string")
+        return (errors, None)
+    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
+        errors.append(f"{file}: discovery.ssdp.cross_vendor must be a bool")
+    return (errors, dt)
+
+
+def _validate_amx_ddp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, str] | None]:
+    """Validate one AMX-DDP fingerprint entry."""
+    if not isinstance(raw, dict):
+        return ([f"{file}: discovery.amx_ddp entries must be mappings"], None)
+    errors: list[str] = []
+    unknown = set(raw.keys()) - {"make", "model_pattern", "cross_vendor"}
+    if unknown:
+        errors.append(
+            f"{file}: discovery.amx_ddp entry has unknown keys: {sorted(unknown)}"
+        )
+    make = raw.get("make")
+    if not isinstance(make, str) or not make:
+        errors.append(f"{file}: discovery.amx_ddp.make is required")
+        return (errors, None)
+    model_pattern = raw.get("model_pattern", "*")
+    if not isinstance(model_pattern, str):
+        errors.append(f"{file}: discovery.amx_ddp.model_pattern must be a string")
+        model_pattern = "*"
+    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
+        errors.append(f"{file}: discovery.amx_ddp.cross_vendor must be a bool")
+    return (errors, {"make": make, "model_pattern": str(model_pattern)})
 
 
 def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
     """Return (errors, normalized_discovery) for one driver.
 
     Mirrors ``parse_driver_discovery`` in the platform. Drivers whose IDs
-    start with ``generic_`` are exempt from the strong-signal requirement.
+    start with ``generic_`` are exempt.
     """
     errors: list[str] = []
     normalized: dict[str, Any] = {}
@@ -576,232 +688,151 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
         errors.append(f"{file}: discovery: must be a mapping")
         return errors, normalized
 
-    manual_only = bool(discovery.get("manual_only", False))
-    normalized["manual_only"] = manual_only
+    unknown = set(discovery.keys()) - _KNOWN_DISCOVERY_KEYS
+    if unknown:
+        errors.append(
+            f"{file}: discovery has unknown keys: {sorted(unknown)}. "
+            f"Known keys: {sorted(_KNOWN_DISCOVERY_KEYS)}"
+        )
 
-    mdns = discovery.get("mdns_services") or []
-    if not isinstance(mdns, list):
-        errors.append(f"{file}: discovery.mdns_services must be a list")
-        mdns = []
+    # --- Fingerprints -----------------------------------------------------
+
     normalized_mdns: list[dict[str, Any]] = []
-    for entry in mdns:
-        if isinstance(entry, str):
-            normalized_mdns.append({"service": entry, "txt_match": {}})
-        elif isinstance(entry, dict) and isinstance(entry.get("service"), str):
-            normalized_mdns.append({
-                "service": entry["service"],
-                "txt_match": {str(k): str(v) for k, v in (entry.get("txt_match") or {}).items()},
-            })
-        else:
-            errors.append(
-                f"{file}: discovery.mdns_services entries must be strings or "
-                f"{{service, txt_match}} mappings"
-            )
-    normalized["mdns_services"] = normalized_mdns
+    if "mdns" in discovery:
+        for entry in _as_list(discovery["mdns"]):
+            entry_errors, entry_norm = _validate_mdns_entry(file, entry)
+            errors.extend(entry_errors)
+            if entry_norm is not None:
+                normalized_mdns.append(entry_norm)
+    normalized["mdns"] = normalized_mdns
 
-    ssdp = discovery.get("ssdp_device_types") or []
-    if not isinstance(ssdp, list) or not all(isinstance(s, str) for s in ssdp):
-        errors.append(f"{file}: discovery.ssdp_device_types must be a list of strings")
-        ssdp = []
-    normalized["ssdp_device_types"] = list(ssdp)
+    normalized_ssdp: list[str] = []
+    if "ssdp" in discovery:
+        for entry in _as_list(discovery["ssdp"]):
+            entry_errors, dt = _validate_ssdp_entry(file, entry)
+            errors.extend(entry_errors)
+            if dt is not None:
+                normalized_ssdp.append(dt)
+    normalized["ssdp"] = normalized_ssdp
 
-    amx = discovery.get("amx_ddp")
-    if amx is not None:
-        if not isinstance(amx, dict) or not isinstance(amx.get("make"), str) or not amx["make"]:
-            errors.append(f"{file}: discovery.amx_ddp.make is required")
-            amx = None
-        else:
-            amx = {"make": amx["make"], "model_pattern": str(amx.get("model_pattern", "*"))}
-    normalized["amx_ddp"] = amx
+    normalized_amx: list[dict[str, str]] = []
+    if "amx_ddp" in discovery:
+        for entry in _as_list(discovery["amx_ddp"]):
+            entry_errors, entry_norm = _validate_amx_ddp_entry(file, entry)
+            errors.extend(entry_errors)
+            if entry_norm is not None:
+                normalized_amx.append(entry_norm)
+    normalized["amx_ddp"] = normalized_amx
 
-    broadcast: list[tuple[str, str | None]] = []
-    # ONVIF is the only remaining built-in Tier 2 named opt-in. PJLink
-    # Class 2 + Crestron CIP discovery now ship as ``_discovery.py``
-    # companions on their respective drivers (Phase 9.7).
-    if "onvif" in discovery:
-        onvif_block = discovery["onvif"]
-        if onvif_block is True:
-            broadcast.append(("onvif", None))
-        elif isinstance(onvif_block, dict):
-            mfg = onvif_block.get("manufacturer")
-            broadcast.append(("onvif", str(mfg) if mfg else None))
-        elif onvif_block is not False and onvif_block is not None:
-            errors.append(f"{file}: discovery.onvif must be a bool or {{manufacturer: ...}} mapping")
-    normalized["broadcast"] = broadcast
-
-    active: list[str] = []
-    raw_probes = discovery.get("active_probes") or []
-    if not isinstance(raw_probes, list):
-        errors.append(f"{file}: discovery.active_probes must be a list")
-        raw_probes = []
-    for entry in raw_probes:
-        if isinstance(entry, str):
-            probe_id = entry
-        elif isinstance(entry, dict) and isinstance(entry.get("probe"), str):
-            probe_id = entry["probe"]
-        else:
-            errors.append(f"{file}: discovery.active_probes entry malformed")
-            continue
-        active.append(probe_id)
-    normalized["active_probes"] = active
-
-    # Phase 9: driver-declared probe blocks. Both optional.
-    has_udp_probe = False
     has_tcp_probe = False
-    if "udp_broadcast_probe" in discovery:
-        errors.extend(_validate_custom_probe_block(
-            file,
-            "udp_broadcast_probe",
-            discovery["udp_broadcast_probe"],
-            _DISALLOWED_UDP_BROADCAST_PROBE_PORTS,
-        ))
-        has_udp_probe = True
-    if "tcp_active_probe" in discovery:
-        errors.extend(_validate_custom_probe_block(
-            file,
-            "tcp_active_probe",
-            discovery["tcp_active_probe"],
-            _DISALLOWED_TCP_ACTIVE_PROBE_PORTS,
-        ))
+    has_udp_probe = False
+    if "tcp_probe" in discovery:
+        errors.extend(_validate_probe_block(file, "tcp", discovery["tcp_probe"]))
         has_tcp_probe = True
-    normalized["has_udp_broadcast_probe"] = has_udp_probe
-    normalized["has_tcp_active_probe"] = has_tcp_probe
+    if "udp_probe" in discovery:
+        errors.extend(_validate_probe_block(file, "udp", discovery["udp_probe"]))
+        has_udp_probe = True
+    normalized["has_tcp_probe"] = has_tcp_probe
+    normalized["has_udp_probe"] = has_udp_probe
 
-    # Phase 9.7: companion declaration. Mirrors parse_driver_discovery.
-    has_companion = False
-    companion_generic = False
-    if "companion" in discovery:
-        comp_block = discovery["companion"]
-        if not isinstance(comp_block, dict):
-            errors.append(
-                f"{file}: discovery.companion must be a mapping "
-                f"(use ``companion: {{generic: bool}}``)"
-            )
-        else:
-            unknown = set(comp_block.keys()) - {"generic"}
-            if unknown:
-                errors.append(
-                    f"{file}: discovery.companion has unknown keys: "
-                    f"{sorted(unknown)}. Only ``generic`` is supported."
-                )
-            generic_raw = comp_block.get("generic", False)
-            if not isinstance(generic_raw, bool):
-                errors.append(
-                    f"{file}: discovery.companion.generic must be a bool"
-                )
-            else:
-                has_companion = True
-                companion_generic = generic_raw
-    normalized["has_companion"] = has_companion
-    normalized["companion_generic"] = companion_generic
+    has_python = False
+    if "python" in discovery:
+        errors.extend(_validate_python_block(file, discovery["python"]))
+        has_python = True
+    normalized["has_python"] = has_python
+
+    # --- Hints ------------------------------------------------------------
 
     if "snmp_pen" in discovery:
         pen = discovery["snmp_pen"]
         if not isinstance(pen, int) or isinstance(pen, bool) or pen < 1:
             errors.append(f"{file}: discovery.snmp_pen must be a positive integer")
 
-    raw_ports = discovery.get("open_ports") or []
-    if not isinstance(raw_ports, list):
-        errors.append(f"{file}: discovery.open_ports must be a list")
-        raw_ports = []
-    for port in raw_ports:
-        if not isinstance(port, int) or isinstance(port, bool):
-            errors.append(
-                f"{file}: discovery.open_ports entries must be integers, got {port!r}"
-            )
-            continue
-        if port < 1 or port > 65535:
-            errors.append(
-                f"{file}: discovery.open_ports entry {port} out of range [1, 65535]"
-            )
-            continue
-        if port in _DISALLOWED_OPEN_PORTS:
-            errors.append(
-                f"{file}: discovery.open_ports entry {port} is disallowed "
-                f"(too generic — would match every web/SSH device). "
-                f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
-            )
-
-    # oui_prefixes: list of non-empty strings. Mirrors platform's
-    # parse_driver_discovery validation in hints.py.
-    raw_oui = discovery.get("oui_prefixes") or []
+    raw_oui = discovery.get("oui") or []
     if not isinstance(raw_oui, list):
-        errors.append(f"{file}: discovery.oui_prefixes must be a list")
+        errors.append(f"{file}: discovery.oui must be a list")
         raw_oui = []
     for prefix in raw_oui:
         if not isinstance(prefix, str) or not prefix:
             errors.append(
-                f"{file}: discovery.oui_prefixes entries must be non-empty "
-                f"strings, got {prefix!r}"
+                f"{file}: discovery.oui entries must be non-empty strings, "
+                f"got {prefix!r}"
             )
 
-    # hostname_patterns: list of non-empty strings, each must compile as
-    # a regex (platform's SignalIndex.add_rule compiles with re.IGNORECASE
-    # and raises ValueError on failure — mirror that here so a bad regex
-    # fails CI, not the platform at load time).
-    raw_host = discovery.get("hostname_patterns") or []
+    raw_host = discovery.get("hostname") or []
     if not isinstance(raw_host, list):
-        errors.append(f"{file}: discovery.hostname_patterns must be a list")
+        errors.append(f"{file}: discovery.hostname must be a list")
         raw_host = []
     for pattern in raw_host:
         if not isinstance(pattern, str) or not pattern:
             errors.append(
-                f"{file}: discovery.hostname_patterns entries must be "
-                f"non-empty strings, got {pattern!r}"
+                f"{file}: discovery.hostname entries must be non-empty strings, "
+                f"got {pattern!r}"
             )
             continue
         try:
             re.compile(pattern, re.IGNORECASE)
         except re.error as exc:
             errors.append(
-                f"{file}: discovery.hostname_patterns entry {pattern!r} "
-                f"failed to compile: {exc}"
+                f"{file}: discovery.hostname entry {pattern!r} failed to "
+                f"compile: {exc}"
             )
 
-    # Phase 8.6: vendor_aliases are manufacturer/make strings the driver
-    # claims when a strong-tier probe response carries that field.
-    raw_aliases = discovery.get("vendor_aliases") or []
+    raw_ports = discovery.get("port_open") or []
+    if not isinstance(raw_ports, list):
+        errors.append(f"{file}: discovery.port_open must be a list")
+        raw_ports = []
+    for port in raw_ports:
+        if not isinstance(port, int) or isinstance(port, bool):
+            errors.append(
+                f"{file}: discovery.port_open entries must be integers, got {port!r}"
+            )
+            continue
+        if port < 1 or port > 65535:
+            errors.append(
+                f"{file}: discovery.port_open entry {port} out of range [1, 65535]"
+            )
+            continue
+        if port in _DISALLOWED_OPEN_PORTS:
+            errors.append(
+                f"{file}: discovery.port_open entry {port} is too generic — "
+                f"would match every web/SSH device. "
+                f"Disallowed: {sorted(_DISALLOWED_OPEN_PORTS)}"
+            )
+
+    raw_aliases = discovery.get("manufacturer_alias") or []
     if not isinstance(raw_aliases, list):
-        errors.append(f"{file}: discovery.vendor_aliases must be a list")
+        errors.append(f"{file}: discovery.manufacturer_alias must be a list")
         raw_aliases = []
     for alias in raw_aliases:
         if not isinstance(alias, str):
             errors.append(
-                f"{file}: discovery.vendor_aliases entries must be strings, "
+                f"{file}: discovery.manufacturer_alias entries must be strings, "
                 f"got {alias!r}"
             )
             continue
         if not alias.strip():
             errors.append(
-                f"{file}: discovery.vendor_aliases entries must be non-empty"
+                f"{file}: discovery.manufacturer_alias entries must be non-empty"
             )
 
-    # Phase 8 Task 8.3: any combination of strong + soft signals is valid.
-    # Declaring no signals at all is a no-op (the matcher silently ignores
-    # the driver) but no longer a hard error. We surface it as a warning
-    # via stderr so contributors notice, while letting CI succeed.
     has_any_signal = (
         bool(normalized_mdns)
-        or bool(ssdp)
-        or amx is not None
-        or bool(broadcast)
-        or bool(active)
-        or has_udp_probe
+        or bool(normalized_ssdp)
+        or bool(normalized_amx)
         or has_tcp_probe
-        or has_companion
+        or has_udp_probe
+        or has_python
         or "snmp_pen" in discovery
-        or bool(discovery.get("oui_prefixes"))
-        or bool(discovery.get("hostname_patterns"))
+        or bool(raw_oui)
+        or bool(raw_host)
         or bool(raw_ports)
         or bool(raw_aliases)
     )
-    if not has_any_signal and not manual_only:
+    if not has_any_signal:
         sys.stderr.write(
-            f"warning: {file}: discovery block declares no signals "
-            "(strong or soft); this driver will never participate in "
-            "matching. Add oui_prefixes, hostname_patterns, open_ports, "
-            "vendor_aliases, or a Tier 1/2/3 signal — or set "
-            "manual_only: true.\n"
+            f"warning: {file}: discovery block declares no fingerprints or "
+            "hints; this driver will never participate in matching.\n"
         )
     return errors, normalized
 
@@ -809,7 +840,7 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
 def _validate_no_signal_collisions(
     per_driver: list[tuple[str, str, dict[str, Any]]],
 ) -> list[str]:
-    """Cross-driver: refuse two drivers claiming the same strong signal."""
+    """Cross-driver: refuse two drivers claiming the same fingerprint."""
     errors: list[str] = []
     # (kind, source_id) -> list[(driver_id, file, txt_filter)]
     bucket: dict[tuple[str, str], list[tuple[str, str, frozenset]]] = {}
@@ -845,22 +876,23 @@ def _validate_no_signal_collisions(
         existing.append((driver_id, file, filter_set))
 
     for driver_id, file, normalized in per_driver:
-        if normalized.get("manual_only"):
-            continue
-        for entry in normalized.get("mdns_services", []):
-            claim("mdns", entry["service"].lower().rstrip(".") + ".",
-                  driver_id, file, entry.get("txt_match"))
-        for st in normalized.get("ssdp_device_types", []):
-            claim("ssdp", st, driver_id, file, None)
-        amx = normalized.get("amx_ddp")
-        if amx:
+        for entry in normalized.get("mdns", []):
+            service_norm = entry["service"].lower().rstrip(".") + "."
+            claim("mdns", service_norm, driver_id, file, entry.get("txt"))
+        for dt in normalized.get("ssdp", []):
+            claim("ssdp", dt, driver_id, file, None)
+        for amx in normalized.get("amx_ddp", []):
             claim("amx_ddp", f"{amx['make']}/{amx['model_pattern']}",
                   driver_id, file, None)
-        for probe_id, mfg in normalized.get("broadcast", []):
-            claim("broadcast", probe_id, driver_id, file,
-                  {"manufacturer": mfg} if mfg else None)
-        for probe_id in normalized.get("active_probes", []):
-            claim("probe", probe_id, driver_id, file, None)
+        if normalized.get("has_tcp_probe"):
+            claim("probe", f"custom_{driver_id}_tcp", driver_id, file, None)
+        if normalized.get("has_udp_probe"):
+            claim("broadcast", f"custom_{driver_id}_udp", driver_id, file, None)
+        if normalized.get("has_python"):
+            claim("broadcast", f"custom_{driver_id}_companion_udp",
+                  driver_id, file, None)
+            claim("probe", f"custom_{driver_id}_companion_tcp",
+                  driver_id, file, None)
 
     return errors
 

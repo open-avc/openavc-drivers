@@ -4,15 +4,15 @@
 # CIP discovery probe (UDP 41794) — 3-Series control systems, DIN-AP,
 # TSW touch panels, DM-NVX endpoints, MC4, RMC4, and similar gear.
 #
-# This is the "discovery anchor driver" pattern documented in
-# OpenAVC-Discovery-Spec.md §11. The driver itself ships no control
-# surface; it exists to host the sibling crestron_cip_discovery.py
-# companion and its `companion: {generic: true}` declaration. The
-# companion does the 0x14 UDP probe + 0x15 binary parse and emits
-# Tier 2 + Tier 3 evidence. The matcher's best-driver-first logic
-# then demotes this anchor to an alternative when a vendor-specific
+# This is the cross-vendor anchor pattern. The driver itself ships
+# no control surface; it exists to host the sibling
+# crestron_cip_discovery.py companion declared via
+# ``discovery.python`` with ``cross_vendor: true``. The companion
+# does the 0x14 UDP probe + 0x15 binary parse and emits broadcast +
+# active evidence. The matcher's best-driver-first logic then
+# demotes this anchor to an alternative when a vendor-specific
 # Crestron driver (crestron_nvx for video endpoints, future 3-Series
-# / TSW drivers) matches the same device via vendor_aliases / OUI.
+# / TSW drivers) matches the same device via manufacturer_alias / OUI.
 #
 # Adding this driver to a project gives the user a placeholder that
 # surfaces device hostname / model / firmware via discovery; for

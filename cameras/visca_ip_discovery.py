@@ -35,8 +35,8 @@ VISCA_PORT = 10500
 VISCA_VERSION_INQ = b"\x81\x09\x00\x02\xFF"
 
 # Known VISCA vendor codes. Codes outside the table still emit
-# evidence (the probe success + open_ports anchor enough), but without
-# a manufacturer_alias narrowing path.
+# evidence (the probe success + port_open hint anchor enough), but
+# without a manufacturer_alias narrowing path.
 _VENDOR_CODES: dict[int, str] = {
     0x0001: "Panasonic",
     0x0020: "Sony",

@@ -144,8 +144,8 @@ def _live_targets(subnets: tuple[str, ...] | list[str]) -> list[str]:
     Modern Crestron firmware ignores broadcast probes — the platform
     feeds per-host targets via a wider engine pass when needed. For
     the companion we still send to the directed broadcast as a
-    best-effort sweep; the responders that don't honor broadcast won't
-    fire here, but the open_ports / OUI soft signals on the anchor
+    best-effort sweep; the responders that don't honor broadcast
+    won't fire here, but the port_open / OUI hints on the anchor
     driver still surface them as `possible`.
     """
     out: list[str] = []

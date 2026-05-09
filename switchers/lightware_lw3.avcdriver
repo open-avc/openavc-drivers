@@ -43,7 +43,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
@@ -107,16 +107,16 @@ discovery:
   # discovery and that LDC was rewritten to no longer require Apple
   # Bonjour, but the literal `_service._tcp` PTR string isn't named
   # in any vendor doc, integrator manual, or open-source module.
-  # Soft-only via the registered Lightware Visual Engineering OUI
+  # Hint-only via the registered Lightware Visual Engineering OUI
   # plus open TCP 6107 (LW3 protocol).
   #   Refs:
   #     maclookup.app/vendors/lightware-visual-engineering
   #     Lightware Device Controller User's Manual
-  oui_prefixes:
+  oui:
     - "a8:d2:36"
-  open_ports:
+  port_open:
     - 6107
-  vendor_aliases:
+  manufacturer_alias:
     - "lightware"
     - "lightware visual engineering"
 

@@ -19,7 +19,7 @@ id: lg_sicp
 name: LG SICP Display
 manufacturer: LG
 category: display
-version: 1.4.0
+version: 1.4.1
 author: OpenAVC
 description: >
   Controls LG commercial displays via SICP over TCP (port 9761).
@@ -55,11 +55,11 @@ help:
 discovery:
   # LG SICP has no announcement (vs. webOS, which advertises via SSDP
   # for Smart TVs — that's a different driver, not commercial signage).
-  # Stays soft-only via the comprehensive LG OUI list + open SICP
-  # port + vendor_aliases. The OUI list is broad and intentionally
+  # Hint-only via the comprehensive LG OUI list + open SICP port +
+  # manufacturer alias. The OUI list is broad and intentionally
   # surfaces as a `possible (candidate: lg_sicp)` rather than a
   # confident match.
-  oui_prefixes:
+  oui:
     - "00:05:c9"
     - "00:e0:91"
     - "10:68:3f"
@@ -70,9 +70,9 @@ discovery:
     - "64:99:5d"
     - "a8:23:fe"
     - "bc:f1:71"
-  open_ports:
+  port_open:
     - 9761
-  vendor_aliases:
+  manufacturer_alias:
     - "lg"
     - "lg electronics"
 

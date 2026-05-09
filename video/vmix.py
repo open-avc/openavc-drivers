@@ -85,7 +85,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
@@ -100,11 +100,11 @@ class VMixDriver(BaseDriver):
         "discovery": {
             # vMix is software running on a Windows host — there's no
             # vMix-specific OUI, no broadcast announcement, no mDNS
-            # service. Stays manual_only by design. The TCP API port
-            # 8099 surfaces as a soft `open_ports` candidate.
-            "manual_only": True,
-            "open_ports": [8099],
-            "vendor_aliases": ["vmix", "studiocoast"],
+            # service. Hint-only via the open TCP API port 8099 plus
+            # the manufacturer aliases — surfaces as a candidate when
+            # something listens on 8099.
+            "port_open": [8099],
+            "manufacturer_alias": ["vmix", "studiocoast"],
         },
         "compatible_models": [
             {

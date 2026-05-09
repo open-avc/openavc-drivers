@@ -40,7 +40,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.4.0",
+        "version": "2.4.1",
         "author": "OpenAVC",
         "description": "Controls any PJLink Class 1 compatible projector.",
         "source_url": "https://pjlink.jbmia.or.jp/english/",
@@ -50,19 +50,21 @@ class PJLinkDriver(BaseDriver):
         "protocols": ["pjlink"],
         "ports": [4352],
         "transport": "tcp",
-        # Phase 9.7+: PJLink Class 1 + Class 2 discovery is hosted by
-        # the sibling pjlink_class1_discovery.py companion. Declaring
-        # ``companion: {generic: true}`` auto-registers two synthetic
-        # SignalRules so the matcher's best-driver-first logic demotes
-        # the generic pjlink_class1 driver to an alternative whenever a
-        # vendor-specific projector driver matches via vendor_aliases /
-        # OUI / hostname soft signals (the Sharp NEC / Epson / Sony /
-        # ... pattern). open_ports: [4352] adds a Tier 4 fallback for
-        # PJLink-Class-1-only projectors that don't answer the SRCH
-        # broadcast — those surface as `possible (candidate: pjlink_class1)`.
+        # PJLink Class 1 + Class 2 discovery is hosted by the sibling
+        # pjlink_class1_discovery.py companion. ``cross_vendor: true``
+        # marks this as the cross-vendor anchor so vendor-specific
+        # projector drivers (sharp_nec_projector, epson_escvp, sony_vpl,
+        # panasonic_pt, ...) demote this entry to an alternative
+        # whenever they match via manufacturer_alias / OUI / hostname.
+        # ``port_open: [4352]`` adds a hint for PJLink-Class-1-only
+        # projectors that don't answer the SRCH broadcast — those
+        # surface as `possible (candidate: pjlink_class1)`.
         "discovery": {
-            "companion": {"generic": True},
-            "open_ports": [4352],
+            "python": {
+                "file": "./pjlink_class1_discovery.py",
+                "cross_vendor": True,
+            },
+            "port_open": [4352],
         },
         "compatible_models": [
             {

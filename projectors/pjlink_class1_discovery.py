@@ -16,14 +16,14 @@ This companion implements both halves of PJLink discovery:
 
 Evidence is emitted under the canonical synthetic IDs:
 
-  ``custom_pjlink_class1_companion_udp`` (Tier 2)  — Class 2 SRCH ack
-  ``custom_pjlink_class1_companion_tcp`` (Tier 3)  — Class 1 INF reply
+  ``custom_pjlink_class1_companion_udp`` (broadcast)  — Class 2 SRCH ack
+  ``custom_pjlink_class1_companion_tcp`` (active)     — Class 1 INF reply
 
-The pjlink_class1 driver declares ``discovery.companion: {generic: true}``,
-so the matcher's best-driver-first logic demotes pjlink_class1 to an
-alternative when a vendor-specific projector driver
+The pjlink_class1 driver declares ``discovery.python`` with
+``cross_vendor: true``, so the matcher's best-driver-first logic demotes
+pjlink_class1 to an alternative when a vendor-specific projector driver
 (``sharp_nec_projector``, ``epson_escvp``, etc.) matches the device via
-``vendor_aliases`` lifted from the INF1 manufacturer string, or via OUI.
+``manufacturer_alias`` lifted from the INF1 manufacturer string, or via OUI.
 
 Spec references
 ---------------
@@ -326,12 +326,12 @@ async def _query_class1_info(
 async def probe(ctx: ProbeContext) -> None:
     """Run PJLink Class 2 SRCH + per-responder Class 1 INFO query.
 
-    Emits Tier 2 evidence for every ACKN responder, plus Tier 3 evidence
-    enriched with manufacturer / product / lamp_hours from the per-host
-    TCP exchange. The reserved ``manufacturer`` key in the Tier 3 evidence
-    response is what feeds Phase 8.6 vendor-string narrowing — vendor-
-    specific drivers with matching ``vendor_aliases`` win primary
-    identification over the generic ``pjlink_class1`` driver.
+    Emits broadcast evidence for every ACKN responder, plus active
+    evidence enriched with manufacturer / product / lamp_hours from the
+    per-host TCP exchange. The reserved ``manufacturer`` key in the
+    active evidence response feeds the manufacturer-alias hint path —
+    vendor-specific drivers with matching ``manufacturer_alias`` win
+    primary identification over the generic ``pjlink_class1`` driver.
     """
     # Class 2 listen window. The spec recommends 30s for full coverage
     # (responders use a randomized delay), but the engine's overall scan
@@ -354,9 +354,9 @@ async def probe(ctx: ProbeContext) -> None:
         "pjlink_class1 companion: %d Class 2 responder(s)", len(ackn_replies),
     )
 
-    # Emit Tier 2 evidence for each ACKN responder. The matcher binds
+    # Emit broadcast evidence for each ACKN responder. The matcher binds
     # this to the canonical companion synthetic ID auto-registered by
-    # the driver's ``companion: {generic: true}`` declaration.
+    # the driver's ``discovery.python`` declaration.
     for ip, reply in ackn_replies.items():
         await ctx.emit_broadcast(
             host=ip,

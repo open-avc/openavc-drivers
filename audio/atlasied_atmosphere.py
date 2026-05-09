@@ -189,7 +189,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing "
@@ -215,8 +215,8 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             # Match by the JSON-RPC port; expect a `possible (candidate:
             # atlasied_atmosphere)` outcome when a host listens there.
             #   Source: https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf
-            "open_ports": [5321],
-            "vendor_aliases": ["atlasied", "atlas ied", "atmosphere"],
+            "port_open": [5321],
+            "manufacturer_alias": ["atlasied", "atlas ied", "atmosphere"],
         },
         "compatible_models": [
             {

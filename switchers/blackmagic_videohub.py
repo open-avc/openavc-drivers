@@ -77,7 +77,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls Blackmagic Design Videohub routers over the Videohub "
@@ -95,13 +95,13 @@ class BlackmagicVideohubDriver(BaseDriver):
         "discovery": {
             # Videohub routers advertise on `_blackmagic._tcp.local.`
             # via mDNS, but the mDNS scanner can miss the service on
-            # busy networks or against firewalled VLANs. Soft fallback:
-            # control port + vendor_aliases narrow the device when
+            # busy networks or against firewalled VLANs. Hint fallback:
+            # control port + manufacturer alias narrow the device when
             # discovery captures `manufacturer: Blackmagic Design`
             # from any source.
-            "mdns_services": ["_blackmagic._tcp.local."],
-            "open_ports": [9990],
-            "vendor_aliases": [
+            "mdns": "_blackmagic._tcp.local.",
+            "port_open": [9990],
+            "manufacturer_alias": [
                 "blackmagic", "blackmagic design", "bmd",
             ],
         },

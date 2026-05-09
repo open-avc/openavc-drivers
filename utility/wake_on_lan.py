@@ -55,7 +55,7 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Send Wake-on-LAN magic packets to wake devices on the network. "
@@ -78,11 +78,9 @@ class WakeOnLANDriver(BaseDriver):
                 "4. The broadcast address is usually 255.255.255.255 (default)"
             ),
         },
-        "discovery": {
-            # WoL is a one-shot send-only utility — there's no device
-            # endpoint to discover. Always added manually.
-            "manual_only": True,
-        },
+        # WoL is a one-shot send-only utility — there's no device
+        # endpoint to discover. Always added manually, so no
+        # ``discovery`` block.
         "default_config": {
             "mac_address": "",
             "broadcast_address": "255.255.255.255",

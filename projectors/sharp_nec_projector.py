@@ -235,7 +235,7 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.4.0",
+        "version": "2.4.1",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
@@ -295,9 +295,9 @@ class SharpNECProjectorDriver(BaseDriver):
         "discovery": {
             # NEC/Sharp projectors also support PJLink — generic detection
             # goes to the pjlink_class1 driver. This brand-specific driver
-            # surfaces as a soft OUI candidate for the extra NEC PJ-Net
+            # surfaces as an OUI-hint candidate for the extra NEC PJ-Net
             # commands.
-            "oui_prefixes": [
+            "oui": [
                 "00:30:13",   # NEC Corporation (Fuchu — display/PC division)
                 "00:60:b9",   # NEC Platforms (Kawasaki — display platforms)
                 "8c:52:19",   # Sharp Corporation (post-merger Sharp NEC PE/PA series)
@@ -306,7 +306,7 @@ class SharpNECProjectorDriver(BaseDriver):
             # ``%1MNFR?`` (and similar generic-probe responses). Lets the
             # matcher prefer this driver over plain pjlink_class1 even
             # when the device's OUI isn't catalogued.
-            "vendor_aliases": ["NEC", "Sharp NEC", "Sharp"],
+            "manufacturer_alias": ["NEC", "Sharp NEC", "Sharp"],
         },
         "default_config": {
             "host": "",

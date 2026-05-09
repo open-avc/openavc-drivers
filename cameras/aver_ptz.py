@@ -159,7 +159,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "author": "OpenAVC",
         "description": (
             "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP "
@@ -183,10 +183,10 @@ class AVerPTZDriver(BaseDriver):
         "transport": "http",
         "discovery": {
             # AVer Pro-AV PTZ cameras advertise ONVIF when the camera
-            # menu's network feature is enabled. The AVerMedia OUI also
-            # surfaces them as a soft candidate when ONVIF is off.
-            "onvif": {"manufacturer": "AVer"},
-            "oui_prefixes": ["00:18:1a"],
+            # menu's network feature is enabled — picked up by the
+            # generic onvif_camera anchor. The AVerMedia OUI also
+            # surfaces them as a candidate when ONVIF is off.
+            "oui": ["00:18:1a"],
         },
         "compatible_models": [
             {

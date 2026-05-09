@@ -63,7 +63,7 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "
@@ -420,9 +420,9 @@ class SolsticeDriver(BaseDriver):
             # OUI matching would false-positive across the office.
             #   Network Requirements: documentation.mersive.com/en/network-requirements.html
             #   SDS Guide: documentation.mersive.com/content/pdf/solsticediscoveryserviceguide.pdf
-            "open_ports": [53200, 53201, 53202, 7236],
-            "hostname_patterns": ["^solstice", "^Pod-"],
-            "vendor_aliases": ["mersive", "solstice"],
+            "port_open": [53200, 53201, 53202, 7236],
+            "hostname": ["^solstice", "^Pod-"],
+            "manufacturer_alias": ["mersive", "solstice"],
         },
     }
 

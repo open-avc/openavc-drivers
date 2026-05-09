@@ -86,7 +86,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "
@@ -112,11 +112,11 @@ class PolyStudioDriver(BaseDriver):
             # the candidate `urn:polycom:device:VideoOSEndpoint:1` did
             # not turn up in any vendor doc, integrator module, or
             # public PCAP — left unset until a real capture lands.
-            "oui_prefixes": [
+            "oui": [
                 "00:04:f2", "64:16:7f", "48:25:67",
                 "9c:ad:ef", "00:e0:db", "00:90:27",
             ],
-            "vendor_aliases": ["poly", "polycom", "hp", "plantronics"],
+            "manufacturer_alias": ["poly", "polycom", "hp", "plantronics"],
         },
         "compatible_models": [
             {

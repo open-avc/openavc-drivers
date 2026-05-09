@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T15:44:08+00:00",
+    "generated_at": "2026-05-09T22:57:16+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 56,
+    "total_drivers": 57,
     "shards": null
   },
   "drivers": [
@@ -12,7 +12,7 @@
       "name": "Allen & Heath Avantis Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath Avantis digital mixing consoles via MIDI over TCP/IP on port 51325. Mute / fader / send level / assign control across all 96 inputs, 54 mono and 27 stereo groups, 54 mono and 27 stereo aux outs, 54 mono and 27 stereo matrix outs, 12 mono and 12 stereo FX sends, 12 FX returns, 3 mains, 16 DCAs, 8 mute groups, plus 8 stereo UFX sends and returns. Scene recall (1-500), channel name and colour set, MIDI Machine Control transport, UFX global key and scale, and bidirectional state from console-side change echoes.",
@@ -51,13 +51,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:c4"
         ],
-        "open_ports": [
+        "port_open": [
           51325
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "allen & heath",
           "allen and heath",
           "a&h",
@@ -71,7 +71,7 @@
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Mute / fader / send level / send assign / channel assign across 128 inputs, 62 mono and 31 stereo groups, 62 mono and 31 stereo aux outs, 62 mono and 31 stereo matrix outs, 16 mono and 16 stereo FX sends, 16 FX returns, 6 mains, 24 DCAs, 8 mute groups, 8 stereo UFX sends, 8 stereo UFX returns. Adds dLive-specific surface: 128 socket preamps (gain via Pitchbend, Pad, 48V), per-channel HPF, Cue List Recall (Surface, 1-2000), Scene Recall (MixRack, 1-500), channel name and colour set, MMC transport, UFX global key and scale, plus bidirectional state from console-side echoes.",
@@ -118,13 +118,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:c4"
         ],
-        "open_ports": [
+        "port_open": [
           51325
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "allen & heath",
           "allen and heath",
           "a&h",
@@ -138,7 +138,7 @@
       "name": "Allen & Heath SQ Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Full mute / level / pan / assignment control across all 48 inputs, 12 groups, 12 aux outs, 3 matrix outs, 4 FX sends, 8 FX returns, 8 DCAs, and 8 mute groups. Scene recall (1-300), 1 dB increment/decrement, SoftKey triggers, and bidirectional state \u2014 console-side moves push back into OpenAVC state.",
@@ -177,13 +177,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:c4"
         ],
-        "open_ports": [
+        "port_open": [
           51325
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "allen & heath",
           "allen and heath",
           "a&h",
@@ -197,7 +197,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Covers source / zone / mix / group gain and mute, zone source select, group combine, message and routine and scene playback, GPO state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -237,10 +237,10 @@
         }
       ],
       "discovery": {
-        "open_ports": [
+        "port_open": [
           5321
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "atlasied",
           "atlas ied",
           "atmosphere"
@@ -252,7 +252,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
@@ -293,10 +293,10 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "b8:98:b0"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "atlona"
         ]
       }
@@ -306,7 +306,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -345,10 +345,10 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "b8:98:b0"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "atlona"
         ]
       }
@@ -358,7 +358,7 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source routing (per output, all outputs, multi-output), per-output volume and mute, power, presets (save / recall / clear), front-panel lock, and identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M outputs 11-18 are routable but not state-mirrored).\n",
@@ -398,10 +398,10 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "b8:98:b0"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "atlona"
         ]
       }
@@ -411,7 +411,7 @@
       "name": "Atlona OmniStream",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP encoders and decoders via the Telnet CLI (port 23). Supports source routing, audio mute/volume, video enable, HDCP, analog speaker power, and CEC/RS-232 display triggers. Runtime control surface only \u2014 install-time setup is configured in the device's web UI.\n",
@@ -456,10 +456,10 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "b8:98:b0"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "atlona",
           "omnistream"
         ]
@@ -470,7 +470,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Discover devices, route/unroute audio channels, monitor subscriptions.",
@@ -501,8 +501,7 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "audinate",
           "dante"
         ]
@@ -513,7 +512,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP. Supports input/output level and mute control, preset recall, and SmartMix configuration.\n",
@@ -544,13 +543,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:0a:45"
         ],
-        "open_ports": [
+        "port_open": [
           17300
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "audio-technica",
           "audio technica",
           "at"
@@ -562,7 +561,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP. Supports input/output level and mute control, bus assign, SmartMix configuration, operator faders, and preset recall.\n",
@@ -595,13 +594,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:0a:45"
         ],
-        "open_ports": [
+        "port_open": [
           17300
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "audio-technica",
           "audio technica",
           "at"
@@ -613,7 +612,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -657,10 +656,7 @@
         }
       ],
       "discovery": {
-        "onvif": {
-          "manufacturer": "AVer"
-        },
-        "oui_prefixes": [
+        "oui": [
           "00:18:1a"
         ]
       }
@@ -670,7 +666,7 @@
       "name": "Barco ClickShare CX",
       "manufacturer": "Barco",
       "category": "streaming",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Wireless presentation Base Unit control via local REST API V2 (HTTPS, port 4003). System status, standby / wake / reboot, audio + video + wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50, C-5 / C-10 / C-10A, CB-Core / CB-Pro.\n",
@@ -718,13 +714,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:a5"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^[Cc]lick[Ss]hare-"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "barco",
           "clickshare"
         ]
@@ -735,7 +731,7 @@
       "name": "Behringer X32 Digital Mixer",
       "manufacturer": "Behringer",
       "category": "audio",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.",
@@ -782,13 +778,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:15:64"
         ],
-        "open_ports": [
+        "port_open": [
           10023
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "behringer",
           "music tribe",
           "midas"
@@ -800,7 +796,7 @@
       "name": "Biamp Tesira TTP",
       "manufacturer": "Biamp",
       "category": "audio",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Biamp Tesira and TesiraFORT\u00c9 DSPs over the Tesira Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, Source Selector, Matrix Mixer (crosspoints), Auto Mixer, Router, Logic, AEC, Room Combiner, Audio Meter, Signal Present Meter, Tone Generator, Preset recall, and basic VoIP / Dialer surfaces. Subscribes to push updates instead of polling. Declare your Tesira blocks once in the device config \u2014 the driver expands per-block / per-channel state variables and commands automatically.",
@@ -853,10 +849,8 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "tesira_ttp"
-        ],
-        "oui_prefixes": [
+        "python": "./biamp_tesira_ttp_discovery.py",
+        "oui": [
           "78:45:01"
         ]
       }
@@ -866,7 +860,7 @@
       "name": "BirdDog NDI Encoder/Decoder",
       "manufacturer": "BirdDog",
       "category": "video",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
@@ -904,17 +898,17 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "d4:20:00"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^birddog-",
           "^BirdDog-"
         ],
-        "open_ports": [
+        "port_open": [
           8080
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "birddog",
           "bird-dog",
           "bird dog"
@@ -926,7 +920,7 @@
       "name": "BirdDog PTZ Camera",
       "manufacturer": "BirdDog",
       "category": "camera",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
@@ -972,17 +966,17 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "d4:20:00"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^birddog-",
           "^BirdDog-"
         ],
-        "open_ports": [
+        "port_open": [
           8080
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "birddog",
           "bird-dog",
           "bird dog"
@@ -994,7 +988,7 @@
       "name": "Blackmagic Videohub",
       "manufacturer": "Blackmagic Design",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Supports video output routing, monitoring output routing, input/output label editing, and output locking across the entire Videohub product line.",
@@ -1040,13 +1034,11 @@
         }
       ],
       "discovery": {
-        "mdns_services": [
-          "_blackmagic._tcp.local."
-        ],
-        "open_ports": [
+        "mdns": "_blackmagic._tcp.local.",
+        "port_open": [
           9990
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "blackmagic",
           "blackmagic design",
           "bmd"
@@ -1058,7 +1050,7 @@
       "name": "Christie Projector",
       "manufacturer": "Christie",
       "category": "projector",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Christie commercial projectors using the Christie Serial API on TCP 3002. Supports the M, J, HS, H, GS, G, and E series families and their derivatives. Power, shutter, fade-to-black, input select, test patterns, brightness/contrast, freeze, orientation, lamp mode, lamp intensity, and lens focus. Polls for status; the projector also reports model, firmware, and projector hours.",
@@ -1104,13 +1096,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:1a:d7"
         ],
-        "open_ports": [
+        "port_open": [
           3002
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "christie",
           "christie digital"
         ]
@@ -1121,7 +1113,7 @@
       "name": "Cisco Webex Codec / Room Series (xAPI)",
       "manufacturer": "Cisco",
       "category": "video",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ, Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND, presentation, camera presets, on-screen messaging, reboot. Polling-based \u2014 HttpFeedback push deferred until the platform's inbound-listener primitive lands.\n",
@@ -1185,11 +1177,11 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:50:60",
           "e8:0a:b9"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "cisco",
           "tandberg",
           "webex"
@@ -1201,7 +1193,7 @@
       "name": "Crestron Device (CIP discovery)",
       "manufacturer": "Crestron",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Discovery-only anchor for Crestron devices that answer the CIP probe on UDP 41794. Surfaces hostname, model, and firmware through discovery so vendor-specific Crestron drivers (DM NVX, future 3-Series / TSW) can claim the device as primary; otherwise the user gets a placeholder they can swap for a control driver later.\n",
@@ -1234,19 +1226,20 @@
         }
       ],
       "discovery": {
-        "companion": {
-          "generic": true
+        "python": {
+          "file": "./crestron_cip_discovery.py",
+          "cross_vendor": true
         },
-        "oui_prefixes": [
+        "oui": [
           "00:10:7f",
           "00:0e:80",
           "00:1f:5d",
           "c4:42:68"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^(MC4|CP3|RMC4|TSW|DIN-AP|DM-NVX)-"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "crestron",
           "crestron electronics"
         ]
@@ -1257,7 +1250,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "display",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",
@@ -1290,16 +1283,16 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:10:7f",
           "00:0e:80",
           "00:1f:5d",
           "c4:42:68"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^DM-NVX-"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "crestron",
           "crestron electronics"
         ]
@@ -1310,7 +1303,7 @@
       "name": "Epson Projector (ESC/VP21)",
       "manufacturer": "Epson",
       "category": "projector",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Epson business and installation projectors over ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, input, A/V mute, freeze, aspect ratio, color mode, lamp hours, and remote-key passthrough.",
@@ -1354,7 +1347,7 @@
         }
       ],
       "discovery": {
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "EPSON",
           "Seiko Epson"
         ]
@@ -1365,7 +1358,7 @@
       "name": "ETC Eos Family Console",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2, Nomad/Eos PC) via OSC. Fire cues, fire macros, recall snapshots and presets, fire palettes, set channel/group/submaster levels, send raw command-line strings, press hardkeys/softkeys. Status pushed by Eos: current/pending cue text, command line, Live/Blind state, active cue progress.",
@@ -1418,10 +1411,10 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:c0:16"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "etc",
           "electronic theatre controls",
           "eos"
@@ -1433,7 +1426,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -1476,10 +1469,21 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "extron_sis"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 23,
+          "send_ascii": "\u001b3CV\r\n",
+          "expect_regex": "(?:\u00a9|\\(c\\))[^\\n]*?\\d{4}[^\\n]*?Extron\\s+Electronics",
+          "extract_manufacturer": "Extron",
+          "extract": {
+            "model": {
+              "regex": "((?:DTP|IN|DXP|SW|MPS|SMP|XTP|SMD|DSP|IPL|MLC|NAV)[A-Za-z0-9 /.+-]+)"
+            },
+            "firmware": {
+              "regex": "V(\\d+\\.\\d+(?:\\.\\d+)?)"
+            }
+          }
+        },
+        "oui": [
           "00:05:a6"
         ]
       }
@@ -1489,7 +1493,7 @@
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
@@ -1624,14 +1628,10 @@
         }
       ],
       "discovery": {
-        "udp_broadcast_probe": {
+        "udp_probe": {
           "port": 6454,
-          "send": {
-            "hex": "41 72 74 2D 4E 65 74 00 00 20 00 0E 00 10"
-          },
-          "response_match": {
-            "starts_with_hex": "41 72 74 2D 4E 65 74 00 00 21"
-          },
+          "send_hex": "41 72 74 2D 4E 65 74 00 00 20 00 0E 00 10",
+          "expect_hex": "41 72 74 2D 4E 65 74 00 00 21",
           "extract": {
             "shortname": {
               "regex": "^[\\s\\S]{26}([\\x20-\\x7E]{1,17})\\x00",
@@ -1643,9 +1643,9 @@
             }
           },
           "timeout_ms": 1500,
-          "generic": true
+          "cross_vendor": true
         },
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "artnet",
           "art-net"
         ]
@@ -1678,7 +1678,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -1749,8 +1749,11 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
-        "vendor_aliases": [
+        "python": {
+          "file": "./visca_ip_discovery.py",
+          "cross_vendor": true
+        },
+        "manufacturer_alias": [
           "sony",
           "aver",
           "marshall",
@@ -1764,7 +1767,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.4.0",
+      "version": "2.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -1937,10 +1940,11 @@
         }
       ],
       "discovery": {
-        "companion": {
-          "generic": true
+        "python": {
+          "file": "./pjlink_class1_discovery.py",
+          "cross_vendor": true
         },
-        "open_ports": [
+        "port_open": [
           4352
         ]
       }
@@ -1950,7 +1954,7 @@
       "name": "Wake-on-LAN",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
@@ -1966,9 +1970,6 @@
       "help": {
         "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
         "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
-      },
-      "discovery": {
-        "manual_only": true
       }
     },
     {
@@ -1976,7 +1977,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000). Covers matrix switchers (VS series), scalers (VP series), distribution amplifiers, and Via wireless presentation systems.\n",
@@ -2015,10 +2016,18 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "kramer_p3000"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 5000,
+          "send_ascii": "#MODEL?\r\n",
+          "expect_regex": "~\\d+@MODEL|Welcome to Kramer|Kramer\\s+(?:P3K|Protocol)",
+          "extract_manufacturer": "Kramer",
+          "extract": {
+            "model": {
+              "regex": "~\\d+@MODEL\\s+(\\S+)"
+            }
+          }
+        },
+        "oui": [
           "00:1d:56"
         ]
       }
@@ -2028,7 +2037,7 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
@@ -2060,7 +2069,7 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:05:c9",
           "00:e0:91",
           "10:68:3f",
@@ -2072,10 +2081,10 @@
           "a8:23:fe",
           "bc:f1:71"
         ],
-        "open_ports": [
+        "port_open": [
           9761
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "lg",
           "lg electronics"
         ]
@@ -2086,7 +2095,7 @@
       "name": "LG WebOS",
       "manufacturer": "LG",
       "category": "display",
-      "version": "3.3.0",
+      "version": "3.3.1",
       "author": "Keaton Stacks",
       "transport": "tcp",
       "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
@@ -2116,10 +2125,10 @@
         }
       ],
       "discovery": {
-        "ssdp_device_types": [
+        "ssdp": [
           "urn:lge-com:service:webos-second-screen:1"
         ],
-        "oui_prefixes": [
+        "oui": [
           "00:05:c9",
           "00:e0:91",
           "10:68:3f",
@@ -2131,11 +2140,11 @@
           "a8:23:fe",
           "bc:f1:71"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^LGwebOSTV",
           "^\\[LG\\]"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "lg",
           "lg electronics",
           "lge"
@@ -2147,7 +2156,7 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides video and audio crosspoint switching, mute, lock, HDCP, output 5V, embedded- audio mute, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
@@ -2196,13 +2205,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "a8:d2:36"
         ],
-        "open_ports": [
+        "port_open": [
           6107
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "lightware",
           "lightware visual engineering"
         ]
@@ -2213,7 +2222,7 @@
       "name": "Lutron HomeWorks QS",
       "manufacturer": "Lutron",
       "category": "lighting",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet using the Lutron Integration Protocol (LIP). Supports zone level control (OUTPUT), keypad/phantom button presses and LED control (DEVICE), area occupancy queries (AREA), and shade group control (SHADEGRP). Use phantom keypad button presses to activate scenes.\n",
@@ -2254,14 +2263,14 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:0f:e7"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^lutron-",
           "^Lutron-"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "lutron",
           "lutron electronics"
         ]
@@ -2272,7 +2281,7 @@
       "name": "Mersive Solstice Pod",
       "manufacturer": "Mersive",
       "category": "streaming",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
@@ -2310,17 +2319,17 @@
         }
       ],
       "discovery": {
-        "open_ports": [
+        "port_open": [
           53200,
           53201,
           53202,
           7236
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^solstice",
           "^Pod-"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "mersive",
           "solstice"
         ]
@@ -2331,7 +2340,7 @@
       "name": "Middle Atlantic RackLink PDU",
       "manufacturer": "Middle Atlantic",
       "category": "power",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Middle Atlantic / Legrand RackLink RLNK power distribution units (Select, Premium, Premium+) over the RackLink Control Protocol on TCP port 60000. Outlet and dry-contact control, sequencing, naming, EPO, and live voltage / current / temperature / wattage telemetry. Premium models push unsolicited status changes; Select models fall back to polling.",
@@ -2380,13 +2389,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:1e:c5"
         ],
-        "open_ports": [
+        "port_open": [
           60000
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "middle atlantic",
           "middle atlantic products",
           "legrand",
@@ -2399,7 +2408,7 @@
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
       "category": "video",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
@@ -2435,13 +2444,54 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "54:b5:6c"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "novastar",
           "xi'an novastar"
         ]
+      }
+    },
+    {
+      "id": "onvif_camera",
+      "name": "ONVIF Camera (discovery)",
+      "manufacturer": "ONVIF",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Discovery-only anchor for cameras and AV devices that answer the ONVIF WS-Discovery multicast probe. Surfaces manufacturer, hardware model, and ONVIF service URLs in scan results so vendor-specific camera drivers can claim the device as primary; otherwise the user gets a placeholder they can swap for a control driver later.\n",
+      "source_url": "https://github.com/open-avc/openavc-drivers",
+      "file": "cameras/onvif_camera.avcdriver",
+      "format": "avcdriver",
+      "protocols": [
+        "onvif"
+      ],
+      "tags": [
+        "discovery-anchor",
+        "onvif",
+        "camera"
+      ],
+      "help": {
+        "overview": "ONVIF cameras advertise themselves on the local network via SOAP-over-UDP WS-Discovery (multicast group 239.255.255.250 port 3702). A scan listens for ProbeMatch responses and reads each camera's manufacturer + hardware fields from the scope URIs so the matcher can identify the device. Use this anchor when no vendor-specific driver is available; replace it with the vendor's control driver once one ships in the catalog.\n",
+        "setup": "1. Run a network scan from the discovery panel. 2. ONVIF cameras that answer the multicast Probe surface with\n   manufacturer, hardware model, and ONVIF service URLs read from\n   their scope URIs.\n3. If a vendor-specific camera driver matches the device's\n   manufacturer or OUI, that driver wins primary identification\n   and this anchor demotes to an alternative.\n4. If no specific driver matches, add this anchor \u2014 you'll get\n   a placeholder device entry surfacing the camera's identity.\n   Install / build the right control driver next and swap it in.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Any",
+          "models": [
+            "Any IP camera or AV device that answers ONVIF WS-Discovery with a NetworkVideoTransmitter scope (Axis, Hanwha, Hikvision, Bosch, Sony, Panasonic, AVer, Vaddio, PTZOptics, Lumens, Marshall, etc.)"
+          ],
+          "confidence": "untested",
+          "notes": "Discovery-only entry. Tested against the ONVIF Network Specification \u00a77 scope URI format; firmware variations in the SOAP envelope are tolerated. For control, use the matching vendor-specific camera driver once it ships in the catalog.\n"
+        }
+      ],
+      "discovery": {
+        "python": {
+          "file": "./onvif_camera_discovery.py",
+          "cross_vendor": true
+        }
       }
     },
     {
@@ -2449,7 +2499,7 @@
       "name": "Panasonic AW-HE/UE/UN PTZ Camera",
       "manufacturer": "Panasonic",
       "category": "camera",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras via the documented HTTP CGI protocol (port 80). Covers power, pan/tilt drive and absolute positioning, zoom, focus (auto/manual), iris (auto/ manual), 100 presets, tally, wireless remote enable, and zoom-linked pan/tilt speed. Image-quality controls (gain, white balance, scene files, gamma) are install-time setup left to the camera's web UI.\n",
@@ -2509,13 +2559,13 @@
         }
       ],
       "discovery": {
-        "onvif": {
-          "manufacturer": "Panasonic"
-        },
-        "oui_prefixes": [
+        "oui": [
           "00:80:45",
           "70:1d:7c",
           "00:60:b0"
+        ],
+        "manufacturer_alias": [
+          "panasonic"
         ]
       }
     },
@@ -2524,7 +2574,7 @@
       "name": "Panasonic PT-MZ / PT-RZ Projector",
       "manufacturer": "Panasonic",
       "category": "projector",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) professional installation projectors via the NTCONTROL TCP protocol (Protocol 2). Power, input, shutter / AV mute, freeze, and operating-hours readout. Supports Panasonic's MD5 session-challenge authentication so the projector keeps its default Web Control admin password.",
@@ -2594,7 +2644,7 @@
         }
       ],
       "discovery": {
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "Panasonic"
         ]
       }
@@ -2604,7 +2654,7 @@
       "name": "Poly Studio (VideoOS)",
       "manufacturer": "Poly",
       "category": "video",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
@@ -2648,7 +2698,7 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:f2",
           "64:16:7f",
           "48:25:67",
@@ -2656,7 +2706,7 @@
           "00:e0:db",
           "00:90:27"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "poly",
           "polycom",
           "hp",
@@ -2669,7 +2719,7 @@
       "name": "PTZOptics Camera",
       "manufacturer": "PTZOptics",
       "category": "camera",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls PTZOptics PTZ cameras over the VISCA-over-IP protocol on TCP port 5678. Pan, tilt, zoom, focus, preset recall / save / reset, tally light, image flip, auto-exposure mode, white balance mode, and backlight. Polled state covers pan / tilt / zoom / focus position, focus mode, AE mode, WB mode, backlight, and flip settings.",
@@ -2718,17 +2768,14 @@
         }
       ],
       "discovery": {
-        "onvif": {
-          "manufacturer": "PTZOptics"
-        },
-        "open_ports": [
+        "port_open": [
           5678
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^PTZOptics",
           "^ptz-"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "ptzoptics",
           "ptz optics",
           "ptz-optics"
@@ -2740,7 +2787,7 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "3.1.1",
+      "version": "3.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. QRC is QSC's modern control protocol; ECP (port 1702) is legacy. Supports Named Controls, Component gain/mute, Mixer (per-input, per-output, crosspoint), Audio Router, Snapshot recall / save, Loop Player, and PA Router page submission. Uses Change Groups with auto-poll for push-style state updates instead of polling. Declare your Q-SYS blocks once in the device config \u2014 the driver expands per-block state variables and commands automatically.",
@@ -2784,10 +2831,21 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "qrc"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 1710,
+          "send_ascii": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"EngineStatus\"}\u0000",
+          "expect_regex": "\"result\"\\s*:\\s*\\{[^}]*\"Platform\"\\s*:\\s*\"",
+          "extract_manufacturer": "QSC",
+          "extract": {
+            "model": {
+              "regex": "\"Platform\"\\s*:\\s*\"([^\"]+)\""
+            },
+            "device_name": {
+              "regex": "\"DesignName\"\\s*:\\s*\"([^\"]+)\""
+            }
+          }
+        },
+        "oui": [
           "00:60:74"
         ]
       }
@@ -2797,7 +2855,7 @@
       "name": "Samsung MDC Display",
       "manufacturer": "Samsung",
       "category": "display",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP.",
@@ -2833,10 +2891,13 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "samsung_mdc"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 1515,
+          "send_hex": "AA0B01000C",
+          "expect_hex": "AAFF",
+          "extract_manufacturer": "Samsung"
+        },
+        "oui": [
           "00:07:ab",
           "00:e0:64",
           "14:49:e0",
@@ -2853,7 +2914,7 @@
       "name": "Sharp NEC Projector",
       "manufacturer": "Sharp NEC",
       "category": "projector",
-      "version": "2.4.0",
+      "version": "2.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
@@ -2901,12 +2962,12 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:30:13",
           "00:60:b9",
           "8c:52:19"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "NEC",
           "Sharp NEC",
           "Sharp"
@@ -2918,7 +2979,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.5.0",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
@@ -2954,11 +3015,22 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 2202,
+          "send_ascii": "< GET DEVICE_NAME >\r\n",
+          "expect_regex": "<\\s*REP\\s+DEVICE_NAME",
+          "extract_manufacturer": "Shure",
+          "extract": {
+            "device_name": {
+              "regex": "<\\s*REP\\s+DEVICE_NAME\\s+(\\S+)"
+            }
+          }
+        },
+        "oui": [
           "00:0e:dd",
           "d8:34:ee"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^MXA",
           "^ANI",
           "^AD4",
@@ -2967,10 +3039,10 @@
           "^P300",
           "^IMX"
         ],
-        "open_ports": [
+        "port_open": [
           2202
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "shure",
           "shure incorporated"
         ]
@@ -2981,7 +3053,7 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Philips Hue lights, rooms, zones, and scenes via the local REST API V1 on a Hue Bridge (HTTP, port 80). Recall scenes, on/off whole rooms, set brightness / color / color-temperature on groups or individual lights. Polling-based \u2014 the V1 API does not push.\n",
@@ -3020,10 +3092,8 @@
         }
       ],
       "discovery": {
-        "mdns_services": [
-          "_hue._tcp.local."
-        ],
-        "oui_prefixes": [
+        "mdns": "_hue._tcp.local.",
+        "oui": [
           "00:17:88",
           "ec:b5:fa",
           "1c:53:f9"
@@ -3035,7 +3105,7 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, track info, and transport control.",
@@ -3069,22 +3139,22 @@
         }
       ],
       "discovery": {
-        "ssdp_device_types": [
+        "ssdp": [
           "urn:schemas-upnp-org:device:ZonePlayer:1"
         ],
-        "oui_prefixes": [
+        "oui": [
           "54:2a:1b",
           "b8:e9:37",
           "78:28:ca"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^Sonos-",
           "^sonos"
         ],
-        "open_ports": [
+        "port_open": [
           1400
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "sonos"
         ]
       }
@@ -3094,7 +3164,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -3132,10 +3202,10 @@
         }
       ],
       "discovery": {
-        "ssdp_device_types": [
+        "ssdp": [
           "urn:schemas-sony-com:service:ScalarWebAPI:1"
         ],
-        "oui_prefixes": [
+        "oui": [
           "00:01:4a",
           "00:0a:d9",
           "00:0e:07",
@@ -3155,7 +3225,7 @@
       "name": "Sony VISCA-IP PTZ Camera",
       "manufacturer": "Sony",
       "category": "camera",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port 52381). Adds Sony picture profiles, R/B gain, color matrix, defog, visibility enhancer, low-light, chroma suppress, PRESET MODE + PTZ TRACE (BRC-X400/X401), tally, IR correction, ICR, AF mode, AE speed, min/max shutter, high sensitivity, and OSD on/off \u2014 on top of the standard PTZ + AE/WB command set.",
@@ -3194,13 +3264,10 @@
         }
       ],
       "discovery": {
-        "onvif": {
-          "manufacturer": "Sony"
-        },
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "sony"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^SRG-",
           "^BRC-",
           "^EVI-"
@@ -3212,7 +3279,7 @@
       "name": "Sony VPL Projector (ADCP)",
       "manufacturer": "Sony",
       "category": "projector",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sony VPL professional installation projectors over Sony's Advanced Display Control Protocol (ADCP) on TCP port 53595. Power, input, blank, freeze, picture mode, aspect ratio, image-quality (contrast / brightness / colour / sharpness), and the universal remote-key set. Supports SHA-256 challenge-response authentication so the projector can keep its default auth-on web setting.",
@@ -3276,7 +3343,7 @@
         }
       ],
       "discovery": {
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "Sony"
         ]
       }
@@ -3286,7 +3353,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
@@ -3318,11 +3385,10 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
-        "open_ports": [
+        "port_open": [
           8099
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "vmix",
           "studiocoast"
         ]
@@ -3333,7 +3399,7 @@
       "name": "Symetrix Composer DSP",
       "manufacturer": "Symetrix",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, Prism, Solus NX, and xControl DSPs via the Composer Control Protocol on TCP port 48631. Generic controller model: assign controller numbers (1\u201310000) in Composer to faders, mutes, selectors, and meters; this driver reads / writes those numbers and subscribes to push-enabled value changes.",
@@ -3383,13 +3449,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:0c:d0"
         ],
-        "open_ports": [
+        "port_open": [
           48631
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "symetrix"
         ]
       }
@@ -3399,7 +3465,7 @@
       "name": "Vaddio RoboSHOT / ConferenceShot",
       "manufacturer": "Vaddio",
       "category": "camera",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom, focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris / gain / detail / white-balance) controls, factory & custom CCU scenes, and standby. One driver covers the entire RoboSHOT family \u2014 HDBT, HD-SDI, NDI, IW, USB.\n",
@@ -3455,16 +3521,16 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:1e:c0",
           "08:00:6b"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^vaddio-",
           "^Vaddio-",
           "^roboshot"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "vaddio",
           "legrand",
           "legrand av"
@@ -3476,7 +3542,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Supports outlet on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
@@ -3521,11 +3587,11 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "d4:6a:91",
           "14:3f:c3"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "wattbox",
           "snapav",
           "snap one",
@@ -3539,7 +3605,7 @@
       "name": "Yamaha MTX/MRX/XMV",
       "manufacturer": "Yamaha",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the XMV power amps + EXi8 / EXo8 audio expanders over the Remote Control Protocol (RCP) on TCP port 49280. Push-capable: NOTIFY messages from the device drive state immediately; polling backstops liveness and refresh. MRX7-D parameters are addressed via Remote Control Setup List Index numbers (1..32); MTX/XMV use full parameter paths via generic set_param / get_param.\n",
@@ -3605,10 +3671,18 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "yamaha_rcp"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 49280,
+          "send_ascii": "devstatus runmode\r\n",
+          "expect_regex": "OK\\s+devstatus\\s+runmode",
+          "extract_manufacturer": "Yamaha",
+          "extract": {
+            "runmode": {
+              "regex": "OK\\s+devstatus\\s+runmode\\s+\"?([A-Za-z]+)"
+            }
+          }
+        },
+        "oui": [
           "00:a0:de"
         ]
       }

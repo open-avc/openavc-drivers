@@ -1,13 +1,25 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T15:44:08+00:00",
+    "generated_at": "2026-05-09T22:57:16+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 90,
+    "total_devices": 91,
     "shards": null,
     "category": "camera"
   },
   "devices": [
+    {
+      "manufacturer": "Any",
+      "model": "Any IP camera or AV device that answers ONVIF WS-Discovery with a NetworkVideoTransmitter scope (Axis, Hanwha, Hikvision, Bosch, Sony, Panasonic, AVer, Vaddio, PTZOptics, Lumens, Marshall, etc.)",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "onvif_camera",
+          "confidence": "untested",
+          "notes": "Discovery-only entry. Tested against the ONVIF Network Specification \u00a77 scope URI format; firmware variations in the SOAP envelope are tolerated. For control, use the matching vendor-specific camera driver once it ships in the catalog.\n"
+        }
+      ]
+    },
     {
       "manufacturer": "AVer",
       "model": "CAM520 Pro / Pro2 / Pro3",

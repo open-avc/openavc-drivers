@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T15:44:08+00:00",
+    "generated_at": "2026-05-09T22:57:16+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 5,
@@ -13,7 +13,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "display",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",
@@ -46,16 +46,16 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:10:7f",
           "00:0e:80",
           "00:1f:5d",
           "c4:42:68"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^DM-NVX-"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "crestron",
           "crestron electronics"
         ]
@@ -66,7 +66,7 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
@@ -98,7 +98,7 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:05:c9",
           "00:e0:91",
           "10:68:3f",
@@ -110,10 +110,10 @@
           "a8:23:fe",
           "bc:f1:71"
         ],
-        "open_ports": [
+        "port_open": [
           9761
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "lg",
           "lg electronics"
         ]
@@ -124,7 +124,7 @@
       "name": "LG WebOS",
       "manufacturer": "LG",
       "category": "display",
-      "version": "3.3.0",
+      "version": "3.3.1",
       "author": "Keaton Stacks",
       "transport": "tcp",
       "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
@@ -154,10 +154,10 @@
         }
       ],
       "discovery": {
-        "ssdp_device_types": [
+        "ssdp": [
           "urn:lge-com:service:webos-second-screen:1"
         ],
-        "oui_prefixes": [
+        "oui": [
           "00:05:c9",
           "00:e0:91",
           "10:68:3f",
@@ -169,11 +169,11 @@
           "a8:23:fe",
           "bc:f1:71"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^LGwebOSTV",
           "^\\[LG\\]"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "lg",
           "lg electronics",
           "lge"
@@ -185,7 +185,7 @@
       "name": "Samsung MDC Display",
       "manufacturer": "Samsung",
       "category": "display",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP.",
@@ -221,10 +221,13 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "samsung_mdc"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 1515,
+          "send_hex": "AA0B01000C",
+          "expect_hex": "AAFF",
+          "extract_manufacturer": "Samsung"
+        },
+        "oui": [
           "00:07:ab",
           "00:e0:64",
           "14:49:e0",
@@ -241,7 +244,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -279,10 +282,10 @@
         }
       ],
       "discovery": {
-        "ssdp_device_types": [
+        "ssdp": [
           "urn:schemas-sony-com:service:ScalarWebAPI:1"
         ],
-        "oui_prefixes": [
+        "oui": [
           "00:01:4a",
           "00:0a:d9",
           "00:0e:07",

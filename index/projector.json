@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T15:44:08+00:00",
+    "generated_at": "2026-05-09T22:57:16+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 6,
@@ -13,7 +13,7 @@
       "name": "Christie Projector",
       "manufacturer": "Christie",
       "category": "projector",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Christie commercial projectors using the Christie Serial API on TCP 3002. Supports the M, J, HS, H, GS, G, and E series families and their derivatives. Power, shutter, fade-to-black, input select, test patterns, brightness/contrast, freeze, orientation, lamp mode, lamp intensity, and lens focus. Polls for status; the projector also reports model, firmware, and projector hours.",
@@ -59,13 +59,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:1a:d7"
         ],
-        "open_ports": [
+        "port_open": [
           3002
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "christie",
           "christie digital"
         ]
@@ -76,7 +76,7 @@
       "name": "Epson Projector (ESC/VP21)",
       "manufacturer": "Epson",
       "category": "projector",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Epson business and installation projectors over ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, input, A/V mute, freeze, aspect ratio, color mode, lamp hours, and remote-key passthrough.",
@@ -120,7 +120,7 @@
         }
       ],
       "discovery": {
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "EPSON",
           "Seiko Epson"
         ]
@@ -131,7 +131,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.4.0",
+      "version": "2.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -304,10 +304,11 @@
         }
       ],
       "discovery": {
-        "companion": {
-          "generic": true
+        "python": {
+          "file": "./pjlink_class1_discovery.py",
+          "cross_vendor": true
         },
-        "open_ports": [
+        "port_open": [
           4352
         ]
       }
@@ -317,7 +318,7 @@
       "name": "Panasonic PT-MZ / PT-RZ Projector",
       "manufacturer": "Panasonic",
       "category": "projector",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) professional installation projectors via the NTCONTROL TCP protocol (Protocol 2). Power, input, shutter / AV mute, freeze, and operating-hours readout. Supports Panasonic's MD5 session-challenge authentication so the projector keeps its default Web Control admin password.",
@@ -387,7 +388,7 @@
         }
       ],
       "discovery": {
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "Panasonic"
         ]
       }
@@ -397,7 +398,7 @@
       "name": "Sharp NEC Projector",
       "manufacturer": "Sharp NEC",
       "category": "projector",
-      "version": "2.4.0",
+      "version": "2.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
@@ -445,12 +446,12 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:30:13",
           "00:60:b9",
           "8c:52:19"
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "NEC",
           "Sharp NEC",
           "Sharp"
@@ -462,7 +463,7 @@
       "name": "Sony VPL Projector (ADCP)",
       "manufacturer": "Sony",
       "category": "projector",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sony VPL professional installation projectors over Sony's Advanced Display Control Protocol (ADCP) on TCP port 53595. Power, input, blank, freeze, picture mode, aspect ratio, image-quality (contrast / brightness / colour / sharpness), and the universal remote-key set. Supports SHA-256 challenge-response authentication so the projector can keep its default auth-on web setting.",
@@ -526,7 +527,7 @@
         }
       ],
       "discovery": {
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "Sony"
         ]
       }

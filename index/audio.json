@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T15:44:08+00:00",
+    "generated_at": "2026-05-09T22:57:16+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 14,
@@ -13,7 +13,7 @@
       "name": "Allen & Heath Avantis Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath Avantis digital mixing consoles via MIDI over TCP/IP on port 51325. Mute / fader / send level / assign control across all 96 inputs, 54 mono and 27 stereo groups, 54 mono and 27 stereo aux outs, 54 mono and 27 stereo matrix outs, 12 mono and 12 stereo FX sends, 12 FX returns, 3 mains, 16 DCAs, 8 mute groups, plus 8 stereo UFX sends and returns. Scene recall (1-500), channel name and colour set, MIDI Machine Control transport, UFX global key and scale, and bidirectional state from console-side change echoes.",
@@ -52,13 +52,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:c4"
         ],
-        "open_ports": [
+        "port_open": [
           51325
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "allen & heath",
           "allen and heath",
           "a&h",
@@ -72,7 +72,7 @@
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Mute / fader / send level / send assign / channel assign across 128 inputs, 62 mono and 31 stereo groups, 62 mono and 31 stereo aux outs, 62 mono and 31 stereo matrix outs, 16 mono and 16 stereo FX sends, 16 FX returns, 6 mains, 24 DCAs, 8 mute groups, 8 stereo UFX sends, 8 stereo UFX returns. Adds dLive-specific surface: 128 socket preamps (gain via Pitchbend, Pad, 48V), per-channel HPF, Cue List Recall (Surface, 1-2000), Scene Recall (MixRack, 1-500), channel name and colour set, MMC transport, UFX global key and scale, plus bidirectional state from console-side echoes.",
@@ -119,13 +119,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:c4"
         ],
-        "open_ports": [
+        "port_open": [
           51325
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "allen & heath",
           "allen and heath",
           "a&h",
@@ -139,7 +139,7 @@
       "name": "Allen & Heath SQ Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Full mute / level / pan / assignment control across all 48 inputs, 12 groups, 12 aux outs, 3 matrix outs, 4 FX sends, 8 FX returns, 8 DCAs, and 8 mute groups. Scene recall (1-300), 1 dB increment/decrement, SoftKey triggers, and bidirectional state \u2014 console-side moves push back into OpenAVC state.",
@@ -178,13 +178,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:04:c4"
         ],
-        "open_ports": [
+        "port_open": [
           51325
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "allen & heath",
           "allen and heath",
           "a&h",
@@ -198,7 +198,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Covers source / zone / mix / group gain and mute, zone source select, group combine, message and routine and scene playback, GPO state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -238,10 +238,10 @@
         }
       ],
       "discovery": {
-        "open_ports": [
+        "port_open": [
           5321
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "atlasied",
           "atlas ied",
           "atmosphere"
@@ -253,7 +253,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Discover devices, route/unroute audio channels, monitor subscriptions.",
@@ -284,8 +284,7 @@
         }
       ],
       "discovery": {
-        "manual_only": true,
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "audinate",
           "dante"
         ]
@@ -296,7 +295,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP. Supports input/output level and mute control, preset recall, and SmartMix configuration.\n",
@@ -327,13 +326,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:0a:45"
         ],
-        "open_ports": [
+        "port_open": [
           17300
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "audio-technica",
           "audio technica",
           "at"
@@ -345,7 +344,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP. Supports input/output level and mute control, bus assign, SmartMix configuration, operator faders, and preset recall.\n",
@@ -378,13 +377,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:0a:45"
         ],
-        "open_ports": [
+        "port_open": [
           17300
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "audio-technica",
           "audio technica",
           "at"
@@ -396,7 +395,7 @@
       "name": "Behringer X32 Digital Mixer",
       "manufacturer": "Behringer",
       "category": "audio",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.",
@@ -443,13 +442,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:15:64"
         ],
-        "open_ports": [
+        "port_open": [
           10023
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "behringer",
           "music tribe",
           "midas"
@@ -461,7 +460,7 @@
       "name": "Biamp Tesira TTP",
       "manufacturer": "Biamp",
       "category": "audio",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Biamp Tesira and TesiraFORT\u00c9 DSPs over the Tesira Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, Source Selector, Matrix Mixer (crosspoints), Auto Mixer, Router, Logic, AEC, Room Combiner, Audio Meter, Signal Present Meter, Tone Generator, Preset recall, and basic VoIP / Dialer surfaces. Subscribes to push updates instead of polling. Declare your Tesira blocks once in the device config \u2014 the driver expands per-block / per-channel state variables and commands automatically.",
@@ -514,10 +513,8 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "tesira_ttp"
-        ],
-        "oui_prefixes": [
+        "python": "./biamp_tesira_ttp_discovery.py",
+        "oui": [
           "78:45:01"
         ]
       }
@@ -527,7 +524,7 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "3.1.1",
+      "version": "3.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. QRC is QSC's modern control protocol; ECP (port 1702) is legacy. Supports Named Controls, Component gain/mute, Mixer (per-input, per-output, crosspoint), Audio Router, Snapshot recall / save, Loop Player, and PA Router page submission. Uses Change Groups with auto-poll for push-style state updates instead of polling. Declare your Q-SYS blocks once in the device config \u2014 the driver expands per-block state variables and commands automatically.",
@@ -571,10 +568,21 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "qrc"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 1710,
+          "send_ascii": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"EngineStatus\"}\u0000",
+          "expect_regex": "\"result\"\\s*:\\s*\\{[^}]*\"Platform\"\\s*:\\s*\"",
+          "extract_manufacturer": "QSC",
+          "extract": {
+            "model": {
+              "regex": "\"Platform\"\\s*:\\s*\"([^\"]+)\""
+            },
+            "device_name": {
+              "regex": "\"DesignName\"\\s*:\\s*\"([^\"]+)\""
+            }
+          }
+        },
+        "oui": [
           "00:60:74"
         ]
       }
@@ -584,7 +592,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.5.0",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
@@ -620,11 +628,22 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 2202,
+          "send_ascii": "< GET DEVICE_NAME >\r\n",
+          "expect_regex": "<\\s*REP\\s+DEVICE_NAME",
+          "extract_manufacturer": "Shure",
+          "extract": {
+            "device_name": {
+              "regex": "<\\s*REP\\s+DEVICE_NAME\\s+(\\S+)"
+            }
+          }
+        },
+        "oui": [
           "00:0e:dd",
           "d8:34:ee"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^MXA",
           "^ANI",
           "^AD4",
@@ -633,10 +652,10 @@
           "^P300",
           "^IMX"
         ],
-        "open_ports": [
+        "port_open": [
           2202
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "shure",
           "shure incorporated"
         ]
@@ -647,7 +666,7 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, track info, and transport control.",
@@ -681,22 +700,22 @@
         }
       ],
       "discovery": {
-        "ssdp_device_types": [
+        "ssdp": [
           "urn:schemas-upnp-org:device:ZonePlayer:1"
         ],
-        "oui_prefixes": [
+        "oui": [
           "54:2a:1b",
           "b8:e9:37",
           "78:28:ca"
         ],
-        "hostname_patterns": [
+        "hostname": [
           "^Sonos-",
           "^sonos"
         ],
-        "open_ports": [
+        "port_open": [
           1400
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "sonos"
         ]
       }
@@ -706,7 +725,7 @@
       "name": "Symetrix Composer DSP",
       "manufacturer": "Symetrix",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, Prism, Solus NX, and xControl DSPs via the Composer Control Protocol on TCP port 48631. Generic controller model: assign controller numbers (1\u201310000) in Composer to faders, mutes, selectors, and meters; this driver reads / writes those numbers and subscribes to push-enabled value changes.",
@@ -756,13 +775,13 @@
         }
       ],
       "discovery": {
-        "oui_prefixes": [
+        "oui": [
           "00:0c:d0"
         ],
-        "open_ports": [
+        "port_open": [
           48631
         ],
-        "vendor_aliases": [
+        "manufacturer_alias": [
           "symetrix"
         ]
       }
@@ -772,7 +791,7 @@
       "name": "Yamaha MTX/MRX/XMV",
       "manufacturer": "Yamaha",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the XMV power amps + EXi8 / EXo8 audio expanders over the Remote Control Protocol (RCP) on TCP port 49280. Push-capable: NOTIFY messages from the device drive state immediately; polling backstops liveness and refresh. MRX7-D parameters are addressed via Remote Control Setup List Index numbers (1..32); MTX/XMV use full parameter paths via generic set_param / get_param.\n",
@@ -838,10 +857,18 @@
         }
       ],
       "discovery": {
-        "active_probes": [
-          "yamaha_rcp"
-        ],
-        "oui_prefixes": [
+        "tcp_probe": {
+          "port": 49280,
+          "send_ascii": "devstatus runmode\r\n",
+          "expect_regex": "OK\\s+devstatus\\s+runmode",
+          "extract_manufacturer": "Yamaha",
+          "extract": {
+            "runmode": {
+              "regex": "OK\\s+devstatus\\s+runmode\\s+\"?([A-Za-z]+)"
+            }
+          }
+        },
+        "oui": [
           "00:a0:de"
         ]
       }

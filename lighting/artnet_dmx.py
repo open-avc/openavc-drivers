@@ -123,7 +123,7 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
@@ -156,23 +156,21 @@ class ArtNetDMXDriver(BaseDriver):
             # Art-Net 4 spec is fully public — every conforming node answers
             # an ArtPoll broadcast on UDP 6454 with an ArtPollReply that
             # carries ShortName (offset 26, 18 bytes) and LongName (offset
-            # 44, 64 bytes) NUL-padded ASCII fields. Generic = true so
+            # 44, 64 bytes) NUL-padded ASCII fields. cross_vendor = true so
             # vendor-specific Art-Net drivers (e.g. dedicated ETC / MA /
             # Pathport drivers added later) can claim the device by
-            # vendor_aliases. Probe is silent: TalkToMe=0x00 means reply-
-            # to-poll only, no diagnostics, no VLC.
+            # manufacturer_alias. Probe is silent: TalkToMe=0x00 means
+            # reply-to-poll only, no diagnostics, no VLC.
             #   Art-Net 4 spec: https://art-net.org.uk/downloads/art-net.pdf
             #   ArtNode reference (MIT): github.com/tobiasebsen/ArtNode
             #   go-artnet (MIT): github.com/jsimonetti/go-artnet
-            "udp_broadcast_probe": {
+            "udp_probe": {
                 "port": 6454,
                 # ArtPoll: "Art-Net\0" + OpPoll(0x2000 LE) + ProtVer(0x000E)
                 # + TalkToMe(0x00) + Priority(0x10 = DpLow).
-                "send": {"hex": "41 72 74 2D 4E 65 74 00 00 20 00 0E 00 10"},
-                "response_match": {
-                    # "Art-Net\0" + OpPollReply(0x2100 LE).
-                    "starts_with_hex": "41 72 74 2D 4E 65 74 00 00 21",
-                },
+                "send_hex": "41 72 74 2D 4E 65 74 00 00 20 00 0E 00 10",
+                # "Art-Net\0" + OpPollReply(0x2100 LE).
+                "expect_hex": "41 72 74 2D 4E 65 74 00 00 21",
                 "extract": {
                     # ShortName: 18-byte NUL-padded ASCII at offset 26.
                     "shortname": {
@@ -186,9 +184,9 @@ class ArtNetDMXDriver(BaseDriver):
                     },
                 },
                 "timeout_ms": 1500,
-                "generic": True,
+                "cross_vendor": True,
             },
-            "vendor_aliases": ["artnet", "art-net"],
+            "manufacturer_alias": ["artnet", "art-net"],
         },
         "compatible_models": [
             {

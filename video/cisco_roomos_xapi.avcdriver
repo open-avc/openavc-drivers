@@ -43,7 +43,7 @@ id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -129,13 +129,13 @@ discovery:
   # docs (D15427.02) document HTTPS / SSH / WebSocket but say nothing
   # about mDNS advertisement. Home Assistant has no zeroconf-based
   # RoomOS integration — strong negative signal that no widely-known
-  # stable mDNS string exists. Soft-only via legacy Tandberg OUI
+  # stable mDNS string exists. Hint-only via legacy Tandberg OUI
   # (Cisco acquired Tandberg in 2009; codecs inherit it) plus the
   # general Cisco TelePresence MA-L block.
-  oui_prefixes:
+  oui:
     - "00:50:60"   # Tandberg Telecom AS — now Cisco Collaboration
     - "e8:0a:b9"   # Cisco Systems
-  vendor_aliases:
+  manufacturer_alias:
     - "cisco"
     - "tandberg"
     - "webex"

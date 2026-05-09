@@ -1092,7 +1092,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "2.1.1",
+        "version": "2.1.2",
         "min_platform_version": "0.11.0",
         "author": "OpenAVC",
         "description": (
@@ -1114,8 +1114,13 @@ class BiampTesiraTTPDriver(BaseDriver):
         "ports": [23],
         "transport": "tcp",
         "discovery": {
-            "active_probes": ["tesira_ttp"],
-            "oui_prefixes": ["78:45:01"],
+            # Tesira's TCP/23 banner read is preceded by Telnet IAC
+            # negotiation that the declarative tcp_probe runner can't
+            # filter, and the serial-number multi-exchange needs a
+            # banner read before the query write. The companion handles
+            # both.
+            "python": "./biamp_tesira_ttp_discovery.py",
+            "oui": ["78:45:01"],
         },
         "compatible_models": [
             {

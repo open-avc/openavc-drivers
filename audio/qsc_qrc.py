@@ -945,7 +945,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "3.1.1",
+        "version": "3.1.2",
         "min_platform_version": "0.11.0",
         "author": "OpenAVC",
         "description": (
@@ -971,8 +971,26 @@ class QSCQRCDriver(BaseDriver):
         "ports": [1710],
         "transport": "tcp",
         "discovery": {
-            "active_probes": ["qrc"],
-            "oui_prefixes": ["00:60:74"],
+            # QRC speaks JSON-RPC over TCP/1710 with NUL-terminated framing.
+            # `EngineStatus` is a documented, side-effect-free method that
+            # returns the Core's Platform ("Core 110f", "NV-32-H", etc.)
+            # and DesignName. Any matching reply uniquely identifies a
+            # Q-SYS Core.
+            "tcp_probe": {
+                "port": 1710,
+                "send_ascii": (
+                    '{"jsonrpc":"2.0","id":1,"method":"EngineStatus"}\x00'
+                ),
+                "expect_regex": (
+                    r'"result"\s*:\s*\{[^}]*"Platform"\s*:\s*"'
+                ),
+                "extract_manufacturer": "QSC",
+                "extract": {
+                    "model": {"regex": r'"Platform"\s*:\s*"([^"]+)"'},
+                    "device_name": {"regex": r'"DesignName"\s*:\s*"([^"]+)"'},
+                },
+            },
+            "oui": ["00:60:74"],
         },
         "compatible_models": [
             {

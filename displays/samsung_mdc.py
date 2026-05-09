@@ -86,7 +86,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
@@ -124,8 +124,16 @@ class SamsungMDCDriver(BaseDriver):
             ),
         },
         "discovery": {
-            "active_probes": ["samsung_mdc"],
-            "oui_prefixes": [
+            # Samsung MDC is binary on TCP/1515. Get-Serial-Number
+            # (AA 0B 01 00 0C) elicits a fixed-prefix ACK starting with
+            # AA FF on any MDC-speaking display, regardless of model.
+            "tcp_probe": {
+                "port": 1515,
+                "send_hex": "AA0B01000C",
+                "expect_hex": "AAFF",
+                "extract_manufacturer": "Samsung",
+            },
+            "oui": [
                 "00:07:ab",
                 "00:e0:64",
                 "14:49:e0",

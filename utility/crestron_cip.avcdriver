@@ -23,7 +23,7 @@ id: crestron_cip
 name: Crestron Device (CIP discovery)
 manufacturer: Crestron
 category: utility
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 description: >
   Discovery-only anchor for Crestron devices that answer the CIP
@@ -87,30 +87,31 @@ config_schema:
 commands: {}
 
 discovery:
-  # Phase 9.7 companion declaration. The sibling crestron_cip_discovery.py
-  # emits Tier 2 + Tier 3 evidence under
-  # `custom_crestron_cip_companion_(udp|tcp)`; build_signal_index
-  # auto-registers matching SignalRules. `generic: true` marks this as
-  # a cross-vendor anchor so vendor-specific peer drivers (crestron_nvx
-  # and future Crestron control drivers) demote this entry to an
-  # alternative whenever they match via vendor_aliases or OUI.
-  companion:
-    generic: true
-  # Soft-tier fallbacks: when no specific Crestron driver is installed,
-  # the OUI/hostname/vendor evidence still surfaces this anchor as a
+  # The sibling crestron_cip_discovery.py runs the UDP/41794 broadcast
+  # probe + TCP/1688 fallback sweep and emits evidence under
+  # `custom_crestron_cip_companion_(udp|tcp)` — build_signal_index
+  # auto-registers matching SignalRules. `cross_vendor: true` marks
+  # this as the cross-vendor anchor so vendor-specific peer drivers
+  # (crestron_nvx, future 3-Series / TSW drivers) demote this entry to
+  # an alternative whenever they match via manufacturer_alias or OUI.
+  python:
+    file: ./crestron_cip_discovery.py
+    cross_vendor: true
+  # Soft hints — when no specific Crestron driver is installed, the
+  # OUI/hostname/manufacturer evidence still surfaces this anchor as a
   # `possible` candidate. The OUIs cover modern Crestron gear (00:10:7f
-  # is Crestron's IAB block; 00:0e:80 and 00:1f:5d are the older fully
+  # is the IAB block; 00:0e:80 and 00:1f:5d are the older fully
   # registered prefixes; c4:42:68 covers a recent block).
-  oui_prefixes:
+  oui:
     - "00:10:7f"
     - "00:0e:80"
     - "00:1f:5d"
     - "c4:42:68"
-  hostname_patterns:
+  hostname:
     # Common Crestron hostname conventions: <MODEL>-<MAC>, MC4-...,
     # CP3-..., TSW-..., DM-NVX-..., DIN-AP-... etc.
     - "^(MC4|CP3|RMC4|TSW|DIN-AP|DM-NVX)-"
-  vendor_aliases:
+  manufacturer_alias:
     - "crestron"
     - "crestron electronics"
 

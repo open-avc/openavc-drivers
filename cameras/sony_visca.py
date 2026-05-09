@@ -221,7 +221,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port "
@@ -242,18 +242,16 @@ class SonyVISCADriver(BaseDriver):
         "ports": [52381],
         "transport": "udp",
         "discovery": {
-            # Sony PTZ cameras advertise via ONVIF when enabled in the
-            # camera menu; VISCA-over-IP runs on UDP 52381 (open_ports
-            # only matches TCP, so we can't surface that here).
-            # Skip oui_prefixes — Sony has dozens of OUI blocks across
-            # consumer / pro / mobile / appliance gear, declaring them
-            # would surface every Sony PlayStation as a "possible PTZ."
-            # Vendor narrowing via vendor_aliases catches the camera
-            # when discovery captures `manufacturer: Sony` from any
-            # source (mDNS, ONVIF GetDeviceInformation, banner).
-            "onvif": {"manufacturer": "Sony"},
-            "vendor_aliases": ["sony"],
-            "hostname_patterns": ["^SRG-", "^BRC-", "^EVI-"],
+            # Sony PTZ cameras come up via the cross-vendor visca_ip
+            # companion (TCP/10500 CAM_VersionInq) — that probe lifts
+            # vendor_code 0x0020 to manufacturer="Sony" which the
+            # manufacturer_alias hint here narrows to this driver.
+            # Skip oui — Sony has dozens of OUI blocks across consumer /
+            # pro / mobile / appliance gear; declaring them surfaces
+            # every Sony PlayStation as a "possible PTZ." Hostnames are
+            # the SRG / BRC / EVI families.
+            "manufacturer_alias": ["sony"],
+            "hostname": ["^SRG-", "^BRC-", "^EVI-"],
         },
         "compatible_models": [
             {

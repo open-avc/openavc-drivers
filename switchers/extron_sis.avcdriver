@@ -26,7 +26,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.4.0
+version: 1.4.1
 author: OpenAVC
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
@@ -68,9 +68,23 @@ help:
     3. Extron recommends a 100ms delay between commands (pre-configured).
 
 discovery:
-  active_probes:
-    - extron_sis
-  oui_prefixes:
+  # Extron telnet (port 23) emits a copyright banner the moment the
+  # socket opens — typical form:
+  #   "(c) Copyright 2014, Extron Electronics, DXP HD 4K PLUS, V1.06"
+  # The SIS verbose-mode-3 query (`\x1b3CV\r\n`) flushes the IAC
+  # negotiation and elicits a `Vrb3` confirmation behind the banner so
+  # the read picks up either signal.
+  tcp_probe:
+    port: 23
+    send_ascii: "\x1b3CV\r\n"
+    expect_regex: '(?:©|\(c\))[^\n]*?\d{4}[^\n]*?Extron\s+Electronics'
+    extract_manufacturer: "Extron"
+    extract:
+      model:
+        regex: '((?:DTP|IN|DXP|SW|MPS|SMP|XTP|SMD|DSP|IPL|MLC|NAV)[A-Za-z0-9 /.+-]+)'
+      firmware:
+        regex: 'V(\d+\.\d+(?:\.\d+)?)'
+  oui:
     - "00:05:a6"
 
 default_config:

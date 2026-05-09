@@ -49,7 +49,7 @@ id: yamaha_mtx_mrx
 name: Yamaha MTX/MRX/XMV
 manufacturer: Yamaha
 category: audio
-version: 1.1.0
+version: 1.1.1
 author: OpenAVC
 description: >
   Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the
@@ -136,9 +136,19 @@ help:
        command arrives within the configured timeout.
 
 discovery:
-  active_probes:
-    - yamaha_rcp
-  oui_prefixes:
+  # `devstatus runmode` is a documented read-only RCP query. Yamaha
+  # consoles (CL/QL/TF/Rivage/DM3/MTX/MRX) reply with `OK devstatus
+  # runmode "<mode>"` on success, which uniquely identifies an RCP
+  # speaker on TCP/49280.
+  tcp_probe:
+    port: 49280
+    send_ascii: "devstatus runmode\r\n"
+    expect_regex: 'OK\s+devstatus\s+runmode'
+    extract_manufacturer: "Yamaha"
+    extract:
+      runmode:
+        regex: 'OK\s+devstatus\s+runmode\s+"?([A-Za-z]+)'
+  oui:
     - "00:a0:de"   # Yamaha Corporation
 
 default_config:

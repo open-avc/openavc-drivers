@@ -5,25 +5,34 @@ panels, MC4 / RMC4 control boxes, and DM NVX endpoints answer a
 1-byte UDP probe on port 41794 with a fixed-format reply containing
 hostname, model, and firmware. The wire format is well-documented
 (Tenable PoC + Phenomite AMP-Research) and trivial to send/parse but
-doesn't fit the declarative ``udp_broadcast_probe`` block — the
-parser is binary at fixed offsets, not response_match-style.
+doesn't fit the declarative ``udp_probe`` block — the parser is
+binary at fixed offsets, not ``response_match``-style.
 
-This companion sends one ``\\x14`` byte per live host and parses any
-``\\x15``-magic reply. It emits:
+This companion runs in two phases:
 
-  Tier 2 broadcast evidence under
-    ``custom_crestron_cip_companion_udp``  (auto-registered)
+  1. UDP broadcast: send one ``\\x14`` byte to every subnet's directed
+     broadcast address; parse ``\\x15``-magic replies for hostname,
+     model, and firmware. Emits Tier 2 broadcast evidence under
+     ``custom_crestron_cip_companion_udp``.
+  2. TCP fallback (port 1688): modern Crestron firmware ignores the
+     broadcast probe. For every subnet IP that didn't answer the UDP
+     phase, the companion attempts a connect-only TCP probe on 1688;
+     any data the device emits on connect confirms it as Crestron.
+     Emits Tier 3 active evidence under
+     ``custom_crestron_cip_companion_tcp``.
 
-with the parsed manufacturer / hostname / model / firmware lifted to
-the response dict — manufacturer is the reserved key that feeds Phase
-8.6 vendor-string narrowing, so vendor-specific Crestron drivers
-(crestron_nvx today, future 3-Series / TSW drivers) win the primary
-identification when they declare matching ``vendor_aliases``.
+Both phases lift ``manufacturer = "Crestron"`` into their evidence
+``response`` dict — the reserved key feeds vendor-string narrowing,
+so vendor-specific Crestron drivers (crestron_nvx today, future
+3-Series / TSW drivers) win the primary identification when they
+declare matching ``manufacturer_alias`` values.
 
 Spec references
 ---------------
 Tenable PoC (BSD-style permissive): tenable/poc Crestron DGE-100
 discover_and_hostname_change.py — describes the 0x14 / 0x15 protocol.
+The TCP/1688 connect probe is the Crestron CIP control port; any
+listener answer there is sufficient to identify Crestron gear.
 
 License: MIT (matches the OpenAVC drivers repo).
 """
@@ -43,6 +52,18 @@ from server.discovery.companion import ProbeContext
 
 CRESTRON_CIP_PORT = 41794
 CRESTRON_CIP_PROBE = b"\x14"
+
+# TCP fallback port — modern firmware ignores the UDP broadcast.
+CRESTRON_CIP_TCP_PORT = 1688
+
+# Per-host TCP connect / read budgets. Failed hosts RST quickly so the
+# main cost is the read window for ones that connect.
+TCP_CONNECT_TIMEOUT = 1.0
+TCP_READ_TIMEOUT = 1.5
+
+# Cap concurrent TCP connects so the fallback sweep doesn't burst the
+# network with hundreds of simultaneous SYNs.
+MAX_CONCURRENT_TCP = 32
 
 # Response constants (verified against Tenable PoC + Phenomite
 # AMP-Research). Hostname is a fixed-width field at offset 10.
@@ -150,95 +171,187 @@ def _make_broadcast_socket(source_ip: str) -> socket.socket | None:
         return None
 
 
+def _expand_subnet_hosts(
+    subnets: tuple[str, ...] | list[str],
+) -> list[str]:
+    """Return every unicast host IP across the given subnets, deduped."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for cidr in subnets:
+        try:
+            net = ipaddress.IPv4Network(cidr, strict=False)
+        except ValueError:
+            continue
+        if net.prefixlen >= 31:
+            continue
+        for host in net.hosts():
+            ip = str(host)
+            if ip not in seen:
+                seen.add(ip)
+                out.append(ip)
+    return out
+
+
+async def _tcp_connect_probe(
+    ip: str,
+    source_ip: str,
+    log: logging.Logger,
+) -> bool:
+    """Connect to TCP/1688 and return True if the device emits any data.
+
+    Crestron CIP servers answer a connect with a banner / negotiation
+    blob; non-Crestron hosts on 1688 (rare) typically don't. The
+    original built-in probe used the same connect-only test.
+    """
+    local_addr = (source_ip, 0) if source_ip else None
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(
+                ip, CRESTRON_CIP_TCP_PORT, local_addr=local_addr,
+            ),
+            timeout=TCP_CONNECT_TIMEOUT,
+        )
+    except (TimeoutError, asyncio.TimeoutError, ConnectionRefusedError, OSError):
+        return False
+    try:
+        try:
+            data = await asyncio.wait_for(
+                reader.read(1024), timeout=TCP_READ_TIMEOUT,
+            )
+            return bool(data)
+        except (TimeoutError, asyncio.TimeoutError):
+            return False
+    finally:
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except (OSError, ConnectionResetError):
+            pass
+
+
 # ---------------------------------------------------------------------------
 # Companion entrypoint
 # ---------------------------------------------------------------------------
 
 
 async def probe(ctx: ProbeContext) -> None:
-    """Send a single 1-byte CIP probe per subnet and collect 0x15 replies.
+    """UDP broadcast 0x14 probe + TCP/1688 fallback sweep.
 
-    Emits Tier 2 evidence per responder under the canonical synthetic
-    ID auto-registered for the crestron_cip anchor driver.
+    Phase 1 emits Tier 2 broadcast evidence for every host that
+    answers the UDP probe; phase 2 runs a connect-only TCP probe on
+    port 1688 against every subnet host that didn't already respond,
+    and emits Tier 3 active evidence for any listener that emits data
+    on connect.
+
+    Both phases use the canonical synthetic IDs auto-registered for
+    the crestron_cip anchor driver.
     """
     targets = _live_targets(ctx.target_subnets)
-    if not targets:
-        return
-
-    sock = _make_broadcast_socket(ctx.source_ip)
-    if sock is None:
-        ctx.log.warning(
-            "crestron_cip companion: could not bind broadcast socket",
-        )
-        return
-
-    listen_window = min(ctx.timeout_seconds * 0.6, 4.0)
-    loop = asyncio.get_event_loop()
     seen: set[str] = set()
+    udp_budget = min(ctx.timeout_seconds * 0.4, 4.0)
 
-    try:
-        for target in targets:
+    # ── Phase 1: UDP broadcast ─────────────────────────────────────
+    if targets:
+        sock = _make_broadcast_socket(ctx.source_ip)
+        if sock is None:
+            ctx.log.warning(
+                "crestron_cip companion: could not bind broadcast socket",
+            )
+        else:
+            loop = asyncio.get_event_loop()
             try:
-                await loop.run_in_executor(
-                    None,
-                    lambda t=target: sock.sendto(
-                        CRESTRON_CIP_PROBE, (t, CRESTRON_CIP_PORT),
-                    ),
-                )
-                ctx.log.debug(
-                    "crestron CIP probe -> %s:%d", target, CRESTRON_CIP_PORT,
-                )
-            except OSError as exc:
-                ctx.log.debug(
-                    "crestron CIP send to %s failed: %s", target, exc,
-                )
-            await asyncio.sleep(0.02)
+                for target in targets:
+                    try:
+                        await loop.run_in_executor(
+                            None,
+                            lambda t=target: sock.sendto(
+                                CRESTRON_CIP_PROBE, (t, CRESTRON_CIP_PORT),
+                            ),
+                        )
+                        ctx.log.debug(
+                            "crestron CIP probe -> %s:%d",
+                            target, CRESTRON_CIP_PORT,
+                        )
+                    except OSError as exc:
+                        ctx.log.debug(
+                            "crestron CIP send to %s failed: %s",
+                            target, exc,
+                        )
+                    await asyncio.sleep(0.02)
 
-        end = loop.time() + listen_window
-        while loop.time() < end:
-            remaining = end - loop.time()
-            if remaining <= 0:
-                break
-            try:
-                sock.settimeout(min(remaining, 0.5))
-                data, addr = await loop.run_in_executor(
-                    None, lambda: sock.recvfrom(4096),
-                )
-            except (TimeoutError, socket.timeout):
-                continue
-            except OSError as exc:
-                ctx.log.debug("crestron CIP recv error: %s", exc)
-                break
+                end = loop.time() + udp_budget
+                while loop.time() < end:
+                    remaining = end - loop.time()
+                    if remaining <= 0:
+                        break
+                    try:
+                        sock.settimeout(min(remaining, 0.5))
+                        data, addr = await loop.run_in_executor(
+                            None, lambda: sock.recvfrom(4096),
+                        )
+                    except (TimeoutError, socket.timeout):
+                        continue
+                    except OSError as exc:
+                        ctx.log.debug("crestron CIP recv error: %s", exc)
+                        break
 
-            sender_ip = addr[0]
-            if sender_ip in seen:
-                continue
-            reply = parse_crestron_cip(data, sender_ip)
-            if reply is None:
-                continue
-            seen.add(sender_ip)
+                    sender_ip = addr[0]
+                    if sender_ip in seen:
+                        continue
+                    reply = parse_crestron_cip(data, sender_ip)
+                    if reply is None:
+                        continue
+                    seen.add(sender_ip)
 
-            response: dict[str, Any] = {
-                "ip": sender_ip,
-                "manufacturer": "Crestron",   # reserved — feeds vendor_string
+                    response: dict[str, Any] = {
+                        "ip": sender_ip,
+                        "manufacturer": "Crestron",  # reserved
+                        "category": "control",
+                        "protocols": ["crestron_cip"],
+                    }
+                    if reply.hostname:
+                        response["hostname"] = reply.hostname
+                        response["device_name"] = reply.hostname
+                    if reply.model:
+                        response["model"] = reply.model
+                    if reply.firmware:
+                        response["firmware"] = reply.firmware
+
+                    await ctx.emit_broadcast(host=sender_ip, response=response)
+                    ctx.log.info(
+                        "crestron CIP reply from %s: hostname=%s model=%s",
+                        sender_ip, reply.hostname, reply.model,
+                    )
+            finally:
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+
+    # ── Phase 2: TCP/1688 fallback for hosts the UDP phase missed ──
+    subnet_hosts = _expand_subnet_hosts(ctx.target_subnets)
+    candidates = [ip for ip in subnet_hosts if ip not in seen]
+    if not candidates:
+        return
+
+    sem = asyncio.Semaphore(MAX_CONCURRENT_TCP)
+
+    async def _try_tcp(ip: str) -> None:
+        async with sem:
+            ok = await _tcp_connect_probe(ip, ctx.source_ip, ctx.log)
+        if not ok:
+            return
+        await ctx.emit_active(
+            host=ip,
+            response={
+                "ip": ip,
+                "manufacturer": "Crestron",  # reserved
                 "category": "control",
                 "protocols": ["crestron_cip"],
-            }
-            if reply.hostname:
-                response["hostname"] = reply.hostname
-                response["device_name"] = reply.hostname
-            if reply.model:
-                response["model"] = reply.model
-            if reply.firmware:
-                response["firmware"] = reply.firmware
+            },
+        )
+        ctx.log.info("crestron CIP TCP/1688 listener at %s", ip)
 
-            await ctx.emit_broadcast(host=sender_ip, response=response)
-            ctx.log.info(
-                "crestron CIP reply from %s: hostname=%s model=%s",
-                sender_ip, reply.hostname, reply.model,
-            )
-    finally:
-        try:
-            sock.close()
-        except OSError:
-            pass
+    await asyncio.gather(
+        *(_try_tcp(ip) for ip in candidates), return_exceptions=True,
+    )

@@ -1,0 +1,105 @@
+# OpenAVC ONVIF Camera Discovery Anchor
+#
+# Discovery-only driver for any camera (or AV device) that answers
+# WS-Discovery on the standard ONVIF multicast group
+# 239.255.255.250:3702 with a NetworkVideoTransmitter scope. ONVIF is
+# an open multi-vendor standard; the device's response carries a
+# ``Scopes`` URI list that names the manufacturer and hardware model,
+# which the matcher uses to demote this anchor in favour of a
+# vendor-specific peer when one matches.
+#
+# This is the discovery-anchor pattern: the driver itself ships no
+# control surface. It exists to host the sibling
+# ``onvif_camera_discovery.py`` companion. When a vendor-specific
+# camera driver matches the device via ``manufacturer_alias:`` or
+# ``oui:``, that driver wins primary identification and this anchor
+# demotes to an alternative — the user still sees a usable
+# placeholder that surfaces the camera by manufacturer/model in the
+# scan results.
+
+id: onvif_camera
+name: ONVIF Camera (discovery)
+manufacturer: ONVIF
+category: camera
+version: 1.0.0
+author: OpenAVC
+description: >
+  Discovery-only anchor for cameras and AV devices that answer the
+  ONVIF WS-Discovery multicast probe. Surfaces manufacturer, hardware
+  model, and ONVIF service URLs in scan results so vendor-specific
+  camera drivers can claim the device as primary; otherwise the user
+  gets a placeholder they can swap for a control driver later.
+source_url: https://github.com/open-avc/openavc-drivers
+tags:
+  - discovery-anchor
+  - onvif
+  - camera
+verified: false
+simulated: false
+protocols:
+  - onvif
+transport: tcp
+
+help:
+  overview: >
+    ONVIF cameras advertise themselves on the local network via
+    SOAP-over-UDP WS-Discovery (multicast group 239.255.255.250 port
+    3702). A scan listens for ProbeMatch responses and reads each
+    camera's manufacturer + hardware fields from the scope URIs so
+    the matcher can identify the device. Use this anchor when no
+    vendor-specific driver is available; replace it with the
+    vendor's control driver once one ships in the catalog.
+  setup: >
+    1. Run a network scan from the discovery panel.
+    2. ONVIF cameras that answer the multicast Probe surface with
+       manufacturer, hardware model, and ONVIF service URLs read from
+       their scope URIs.
+    3. If a vendor-specific camera driver matches the device's
+       manufacturer or OUI, that driver wins primary identification
+       and this anchor demotes to an alternative.
+    4. If no specific driver matches, add this anchor — you'll get
+       a placeholder device entry surfacing the camera's identity.
+       Install / build the right control driver next and swap it in.
+
+# Minimal connection schema. This driver doesn't connect or poll —
+# it exists for discovery + as a placeholder device entry. Host /
+# port let the Add Device dialog populate from the scan card; the
+# port matches the typical ONVIF media service, but no traffic is
+# actually sent.
+default_config:
+  host: ""
+  port: 80
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 80
+    label: ONVIF Service Port
+
+# No commands. No state polling. Discovery anchor only.
+commands: {}
+
+discovery:
+  # The sibling onvif_camera_discovery.py runs the WS-Discovery
+  # multicast probe and emits evidence under
+  # ``custom_onvif_camera_companion_udp``. ``cross_vendor: true`` flags
+  # this as a cross-vendor anchor so vendor-specific peer drivers (a
+  # future axis_camera, panasonic_awhe, etc.) demote this entry to an
+  # alternative whenever they match via manufacturer_alias or OUI.
+  python:
+    file: ./onvif_camera_discovery.py
+    cross_vendor: true
+
+compatible_models:
+  - manufacturer: Any
+    models:
+      - "Any IP camera or AV device that answers ONVIF WS-Discovery with a NetworkVideoTransmitter scope (Axis, Hanwha, Hikvision, Bosch, Sony, Panasonic, AVer, Vaddio, PTZOptics, Lumens, Marshall, etc.)"
+    confidence: untested
+    notes: >
+      Discovery-only entry. Tested against the ONVIF Network
+      Specification §7 scope URI format; firmware variations in the
+      SOAP envelope are tolerated. For control, use the matching
+      vendor-specific camera driver once it ships in the catalog.

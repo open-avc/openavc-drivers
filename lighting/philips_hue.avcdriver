@@ -42,7 +42,7 @@ id: philips_hue
 name: Philips Hue Bridge
 manufacturer: Signify
 category: lighting
-version: 1.1.0
+version: 1.1.1
 author: OpenAVC
 description: >
   Controls Philips Hue lights, rooms, zones, and scenes via the local
@@ -101,9 +101,8 @@ help:
 
 discovery:
   # Hue Bridge advertises its mDNS service `_hue._tcp` on the LAN.
-  mdns_services:
-    - "_hue._tcp.local."
-  oui_prefixes:
+  mdns: "_hue._tcp.local."
+  oui:
     - "00:17:88"
     - "ec:b5:fa"
     - "1c:53:f9"

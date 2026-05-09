@@ -43,7 +43,7 @@ id: vaddio_roboshot
 name: Vaddio RoboSHOT / ConferenceShot
 manufacturer: Vaddio
 category: camera
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -128,22 +128,22 @@ help:
 
 discovery:
   # RoboSHOT cameras speak Vaddio's Telnet CLI on port 23, not the
-  # standard VISCA-over-IP port the Tier 3 visca probe targets. ONVIF
-  # is NOT supported on the RoboSHOT line — confirmed across firmware
-  # 3.4-3.6 release notes and the Integrator's Complete Guides for
-  # Roboshot 20/40 UHD. (Vaddio's ONVIF-capable cameras are EasyIP
-  # and AV Bridge MatrixMIX, which would be separate drivers.) Vaddio
-  # also runs its Deployment Tool on mDNS but the exact service-type
-  # PTR string is not publicly documented; soft-only via OUI + the
+  # standard VISCA-over-IP port. ONVIF is NOT supported on the
+  # RoboSHOT line — confirmed across firmware 3.4-3.6 release notes
+  # and the Integrator's Complete Guides for Roboshot 20/40 UHD.
+  # (Vaddio's ONVIF-capable cameras are EasyIP and AV Bridge
+  # MatrixMIX, which would be separate drivers.) Vaddio also runs
+  # its Deployment Tool on mDNS but the exact service-type PTR
+  # string is not publicly documented; hint-only via OUI + the
   # factory hostname pattern.
-  oui_prefixes:
+  oui:
     - "00:1e:c0"   # Vaddio
     - "08:00:6b"   # Legrand AV (parent)
-  hostname_patterns:
+  hostname:
     - "^vaddio-"
     - "^Vaddio-"
     - "^roboshot"
-  vendor_aliases:
+  manufacturer_alias:
     - "vaddio"
     - "legrand"
     - "legrand av"

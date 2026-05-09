@@ -496,7 +496,7 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "
@@ -517,11 +517,11 @@ class AllenHeathSQDriver(BaseDriver):
         "discovery": {
             # Same AHNet situation as allenheath_avantis / dlive — UDP
             # 51320 announce protocol exists but wire format isn't
-            # public. Soft-only via Audiotonix OUI + control port +
-            # vendor_aliases.
-            "oui_prefixes": ["00:04:c4"],
-            "open_ports": [51325],
-            "vendor_aliases": [
+            # public. Hint-only via Audiotonix OUI + control port +
+            # manufacturer alias.
+            "oui": ["00:04:c4"],
+            "port_open": [51325],
+            "manufacturer_alias": [
                 "allen & heath", "allen and heath", "a&h",
                 "allen-heath", "audiotonix",
             ],

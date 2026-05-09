@@ -111,7 +111,7 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
@@ -432,17 +432,17 @@ class BirdDogPTZDriver(BaseDriver):
             # the generic ndi_source driver). They also expose a public
             # REST API on TCP 8080 (BirdDog API v2.0; `GET /about`,
             # `GET /version`). The `_birddog._tcp` / `_bdctl._tcp`
-            # candidates aren't documented anywhere — soft-only here
+            # candidates aren't documented anywhere — hint-only here
             # until a Wireshark capture confirms a vendor-specific
             # service type. OUI D4:20:00 is BirdDog Australia's MA-M
             # block (registered 2023-03-10). Factory default hostname
             # is `birddog-<xxxxx>` per the Eyes P200 / BirdUI manuals.
             #   API: birddog.tv/AV/API/index.html
             #   OUI: maclookup.app/macaddress/d42000a (MA-M scope D4:20:00:A*)
-            "oui_prefixes": ["d4:20:00"],
-            "hostname_patterns": ["^birddog-", "^BirdDog-"],
-            "open_ports": [8080],
-            "vendor_aliases": ["birddog", "bird-dog", "bird dog"],
+            "oui": ["d4:20:00"],
+            "hostname": ["^birddog-", "^BirdDog-"],
+            "port_open": [8080],
+            "manufacturer_alias": ["birddog", "bird-dog", "bird dog"],
         },
     }
 

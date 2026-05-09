@@ -40,7 +40,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "display",
-        "version": "1.3.4",
+        "version": "1.3.5",
         "author": "OpenAVC",
         "description": (
             "Controls Crestron DM NVX AV-over-IP encoders and decoders via "
@@ -56,21 +56,19 @@ class CrestronNVXDriver(BaseDriver):
         "discovery": {
             # DM NVX endpoints respond to the Crestron CIP UDP/41794
             # discovery probe — the same probe Toolbox sends to find
-            # 3-Series controllers, TSW panels, DIN-AP3, etc. After
-            # Phase 9.7 the actual CIP probe ships in
-            # `utility/crestron_cip` (a discovery anchor driver hosting
-            # a `_discovery.py` companion). NVX-specific identification
-            # comes from the soft signals below: when a CIP responder's
-            # hostname starts with `DM-NVX-`, this driver wins primary
-            # over the generic crestron_cip anchor via best-driver-first
-            # matching.
+            # 3-Series controllers, TSW panels, DIN-AP3, etc. The CIP
+            # probe lives on the `utility/crestron_cip` cross-vendor
+            # anchor driver (its sibling `_discovery.py` companion).
+            # NVX-specific identification comes from the hints below:
+            # when a CIP responder's hostname starts with `DM-NVX-`,
+            # this driver wins over the generic crestron_cip anchor.
             #   docs.crestron.com/en-us/9496 (NVX Director auto-discovery)
             #   docs.crestron.com/en-us/8241 (NVX configuration / hostname format)
             #   00:10:7f IAB registered to Crestron Electronics (covers
             #   the bulk of modern NVX gear, alongside 00:0e:80 and 00:1f:5d).
-            "oui_prefixes": ["00:10:7f", "00:0e:80", "00:1f:5d", "c4:42:68"],
-            "hostname_patterns": ["^DM-NVX-"],
-            "vendor_aliases": ["crestron", "crestron electronics"],
+            "oui": ["00:10:7f", "00:0e:80", "00:1f:5d", "c4:42:68"],
+            "hostname": ["^DM-NVX-"],
+            "manufacturer_alias": ["crestron", "crestron electronics"],
         },
         "compatible_models": [
             {

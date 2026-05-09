@@ -52,7 +52,7 @@ id: lutron_homeworks_qs
 name: Lutron HomeWorks QS
 manufacturer: Lutron
 category: lighting
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -115,18 +115,18 @@ discovery:
   # confirm HWQS commissioning uses multicast 239.0.38.1, NOT a
   # documented mDNS service type. The Lutron OUIs (00:0f:e7,
   # 00:14:7b, 88:1f:a1, d8:6b:f7) cover HWQS hubs but also Caseta /
-  # RA2 / Pico bridges, so even soft OUI matches risk false-
+  # RA2 / Pico bridges, so even hint OUI matches risk false-
   # positives across other Lutron product lines. Stay manual.
   #   Refs:
   #     assets.lutron.com/a/documents/048760.pdf (App Note 760)
   #     assets.lutron.com/a/documents/residential_systems_networking_guide.pdf
   #     openhab.org/addons/bindings/lutron/
-  oui_prefixes:
+  oui:
     - "00:0f:e7"
-  hostname_patterns:
+  hostname:
     - "^lutron-"
     - "^Lutron-"
-  vendor_aliases:
+  manufacturer_alias:
     - "lutron"
     - "lutron electronics"
 

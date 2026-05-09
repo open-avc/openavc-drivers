@@ -699,7 +699,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "
@@ -727,18 +727,18 @@ class AllenHeathAvantisDriver(BaseDriver):
             # but the exact wire-format header bytes and field offsets
             # aren't publicly documented — A&H IT Manager PDF only
             # specifies the cadence + payload-size envelope, not the
-            # byte layout. A declarative udp_broadcast_probe needs a
-            # PCAP from real hardware to lock down. Soft-only via the
-            # Audiotonix Group OUI (00:04:c4 is registered to
-            # Audiotonix Group Limited per IEEE — A&H's parent company,
-            # also covers DiGiCo / SSL / Calrec consoles, which is fine
-            # for first-pass narrowing).
+            # byte layout. A declarative udp_probe needs a PCAP from
+            # real hardware to lock down. Hint-only via the Audiotonix
+            # Group OUI (00:04:c4 is registered to Audiotonix Group
+            # Limited per IEEE — A&H's parent company, also covers
+            # DiGiCo / SSL / Calrec consoles, which is fine for
+            # first-pass narrowing).
             #   Refs:
             #     allen-heath.com/content/uploads/2023/11/AH-dLive-for-IT-managers.pdf
             #     support.allen-heath.com/hc/en-gb/articles/37287399691409
-            "oui_prefixes": ["00:04:c4"],
-            "open_ports": [51325],
-            "vendor_aliases": [
+            "oui": ["00:04:c4"],
+            "port_open": [51325],
+            "manufacturer_alias": [
                 "allen & heath", "allen and heath", "a&h",
                 "allen-heath", "audiotonix",
             ],

@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Controls Sony Bravia TVs and professional displays via the "
@@ -212,10 +212,10 @@ class SonyBraviaDriver(BaseDriver):
             ),
         },
         "discovery": {
-            "ssdp_device_types": [
+            "ssdp": [
                 "urn:schemas-sony-com:service:ScalarWebAPI:1",
             ],
-            "oui_prefixes": [
+            "oui": [
                 "00:01:4a",
                 "00:0a:d9",
                 "00:0e:07",

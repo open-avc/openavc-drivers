@@ -12,14 +12,14 @@ This companion runs in two phases:
 
   1. UDP broadcast: send one ``\\x14`` byte to every subnet's directed
      broadcast address; parse ``\\x15``-magic replies for hostname,
-     model, and firmware. Emits Tier 2 broadcast evidence under
+     model, and firmware. Emits broadcast evidence under
      ``custom_crestron_cip_companion_udp``.
   2. TCP fallback (port 1688): modern Crestron firmware ignores the
      broadcast probe. The companion consumes the engine's port-scan
      map (``ctx.hosts_by_open_port``) and, for any host the engine
      already saw answering on TCP/1688 that the UDP phase missed,
      attempts a connect-only probe; data on connect confirms it as
-     Crestron. Emits Tier 3 active evidence under
+     Crestron. Emits active evidence under
      ``custom_crestron_cip_companion_tcp``.
 
 Both phases lift ``manufacturer = "Crestron"`` into their evidence
@@ -217,11 +217,11 @@ async def _tcp_connect_probe(
 async def probe(ctx: ProbeContext) -> None:
     """UDP broadcast 0x14 probe + TCP/1688 fallback sweep.
 
-    Phase 1 emits Tier 2 broadcast evidence for every host that
-    answers the UDP probe; phase 2 runs a connect-only TCP probe on
+    The UDP phase emits broadcast evidence for every host that
+    answers the probe; the TCP phase runs a connect-only probe on
     port 1688 against every subnet host that didn't already respond,
-    and emits Tier 3 active evidence for any listener that emits data
-    on connect.
+    and emits active evidence for any listener that emits data on
+    connect.
 
     Both phases use the canonical synthetic IDs auto-registered for
     the crestron_cip anchor driver.

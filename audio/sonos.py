@@ -156,7 +156,7 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers via the local UPnP API. "
@@ -286,24 +286,24 @@ class SonosDriver(BaseDriver):
         },
         "discovery": {
             # Sonos speakers advertise via SSDP using the ZonePlayer URN.
-            # Soft signals are required as a fallback: discovery scans
-            # often capture Sonos via mDNS (`_spotify-connect._tcp.local`,
+            # Hints are required as a fallback: discovery scans often
+            # capture Sonos via mDNS (`_spotify-connect._tcp.local`,
             # `_sonos._tcp.local`) without picking up the SSDP NOTIFY,
-            # so an SSDP-only driver wouldn't claim the device. Soft
-            # signals (OUI, hostname, vendor_aliases, port) ensure the
-            # driver surfaces as a candidate regardless of which scanner
-            # found the speaker.
-            "ssdp_device_types": [
+            # so an SSDP-only driver wouldn't claim the device. The
+            # OUI / hostname / manufacturer_alias / port hints below
+            # ensure the driver surfaces as a candidate regardless of
+            # which scanner found the speaker.
+            "ssdp": [
                 "urn:schemas-upnp-org:device:ZonePlayer:1",
             ],
-            "oui_prefixes": [
+            "oui": [
                 "54:2a:1b",   # Sonos (current)
                 "b8:e9:37",   # Sonos (legacy)
                 "78:28:ca",   # Sonos
             ],
-            "hostname_patterns": ["^Sonos-", "^sonos"],
-            "open_ports": [1400],
-            "vendor_aliases": ["sonos"],
+            "hostname": ["^Sonos-", "^sonos"],
+            "port_open": [1400],
+            "manufacturer_alias": ["sonos"],
         },
     }
 

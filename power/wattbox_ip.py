@@ -104,7 +104,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls SnapAV WattBox IP-controlled power distribution units "
@@ -126,15 +126,15 @@ class WattBoxIPDriver(BaseDriver):
             # `/wattbox_info.xml` HTTP endpoint is a near-perfect
             # fingerprint (returns hostname / hardware_version /
             # serial_number XML) but lives on TCP 80, which is in
-            # the disallowed open_ports set; declarative probe could
-            # use tcp_active_probe on 80 — deferred until we have a
-            # real captured response to verify against. WattBox does
-            # not expose a polled SNMP MIB (only outbound traps).
+            # the disallowed port_open set; a declarative tcp_probe on
+            # 80 is deferred until we have a real captured response to
+            # verify against. WattBox does not expose a polled SNMP
+            # MIB (only outbound traps).
             #   Refs:
             #     SnapAV_Wattbox_API_V2.2.pdf (Telnet 23 / HTTP API)
             #     WattBox.WB10.API.v3.0.pdf (XML endpoint)
-            "oui_prefixes": ["d4:6a:91", "14:3f:c3"],
-            "vendor_aliases": [
+            "oui": ["d4:6a:91", "14:3f:c3"],
+            "manufacturer_alias": [
                 "wattbox", "snapav", "snap one", "snap-av", "wirepath",
             ],
         },

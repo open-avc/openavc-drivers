@@ -15,7 +15,9 @@ carries the reserved ``manufacturer`` key.
 
 The companion is declared on the generic ``visca_ip`` driver with
 ``cross_vendor: true`` so vendor-specific peers win primary
-identification when their ``manufacturer_alias`` matches.
+identification when their ``manufacturer_alias`` matches. It consumes
+the engine's port-scan map (``ctx.hosts_by_open_port``) — only hosts
+already seen answering on TCP/10500 are queried.
 
 License: MIT (matches the OpenAVC drivers repo).
 """
@@ -23,7 +25,6 @@ License: MIT (matches the OpenAVC drivers repo).
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,9 +42,9 @@ _VENDOR_CODES: dict[int, str] = {
     0x0020: "Sony",
 }
 
-MAX_CONCURRENT_PROBES = 32
 CONNECT_TIMEOUT = 1.0
 READ_TIMEOUT = 1.5
+MAX_CONCURRENT_PROBES = 16
 
 
 @dataclass
@@ -73,24 +74,6 @@ def parse_visca_response(data: bytes, ip: str) -> ViscaReply | None:
         model_code=model_code,
         manufacturer=_VENDOR_CODES.get(vendor_code),
     )
-
-
-def _expand_targets(subnets: tuple[str, ...] | list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for cidr in subnets:
-        try:
-            net = ipaddress.IPv4Network(cidr, strict=False)
-        except ValueError:
-            continue
-        if net.prefixlen >= 31:
-            continue
-        for host in net.hosts():
-            ip = str(host)
-            if ip not in seen:
-                seen.add(ip)
-                out.append(ip)
-    return out
 
 
 async def _query_one(
@@ -140,9 +123,9 @@ async def _query_one(
 
 
 async def probe(ctx: ProbeContext) -> None:
-    """Sweep ``target_subnets`` for VISCA cameras on TCP/10500."""
-    targets = _expand_targets(ctx.target_subnets)
-    if not targets:
+    """Query every host the engine saw answering on TCP/10500."""
+    candidates = ctx.hosts_by_open_port.get(VISCA_PORT, ())
+    if not candidates:
         return
 
     sem = asyncio.Semaphore(MAX_CONCURRENT_PROBES)
@@ -151,7 +134,7 @@ async def probe(ctx: ProbeContext) -> None:
         async with sem:
             return await _query_one(ip, ctx.source_ip, ctx.log)
 
-    results = await asyncio.gather(*(bounded(ip) for ip in targets))
+    results = await asyncio.gather(*(bounded(ip) for ip in candidates))
 
     matches = 0
     for ip, response in results:

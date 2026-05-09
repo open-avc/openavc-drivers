@@ -15,10 +15,11 @@ This companion runs in two phases:
      model, and firmware. Emits Tier 2 broadcast evidence under
      ``custom_crestron_cip_companion_udp``.
   2. TCP fallback (port 1688): modern Crestron firmware ignores the
-     broadcast probe. For every subnet IP that didn't answer the UDP
-     phase, the companion attempts a connect-only TCP probe on 1688;
-     any data the device emits on connect confirms it as Crestron.
-     Emits Tier 3 active evidence under
+     broadcast probe. The companion consumes the engine's port-scan
+     map (``ctx.hosts_by_open_port``) and, for any host the engine
+     already saw answering on TCP/1688 that the UDP phase missed,
+     attempts a connect-only probe; data on connect confirms it as
+     Crestron. Emits Tier 3 active evidence under
      ``custom_crestron_cip_companion_tcp``.
 
 Both phases lift ``manufacturer = "Crestron"`` into their evidence
@@ -171,27 +172,6 @@ def _make_broadcast_socket(source_ip: str) -> socket.socket | None:
         return None
 
 
-def _expand_subnet_hosts(
-    subnets: tuple[str, ...] | list[str],
-) -> list[str]:
-    """Return every unicast host IP across the given subnets, deduped."""
-    seen: set[str] = set()
-    out: list[str] = []
-    for cidr in subnets:
-        try:
-            net = ipaddress.IPv4Network(cidr, strict=False)
-        except ValueError:
-            continue
-        if net.prefixlen >= 31:
-            continue
-        for host in net.hosts():
-            ip = str(host)
-            if ip not in seen:
-                seen.add(ip)
-                out.append(ip)
-    return out
-
-
 async def _tcp_connect_probe(
     ip: str,
     source_ip: str,
@@ -329,8 +309,10 @@ async def probe(ctx: ProbeContext) -> None:
                     pass
 
     # ── Phase 2: TCP/1688 fallback for hosts the UDP phase missed ──
-    subnet_hosts = _expand_subnet_hosts(ctx.target_subnets)
-    candidates = [ip for ip in subnet_hosts if ip not in seen]
+    # Engine already port-scanned the subnet — only check hosts it saw
+    # answering on 1688 that the UDP phase didn't already identify.
+    tcp_candidates = ctx.hosts_by_open_port.get(CRESTRON_CIP_TCP_PORT, ())
+    candidates = [ip for ip in tcp_candidates if ip not in seen]
     if not candidates:
         return
 

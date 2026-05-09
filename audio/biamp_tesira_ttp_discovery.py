@@ -8,11 +8,10 @@ query on the established session returns ``+OK "value:<serial>"``, so
 the companion can pull the unit serial alongside the banner-based
 identification.
 
-The companion runs once per scan and iterates ``target_subnets`` to
-try TCP/23 on each host. Hosts that don't answer drop quickly (RST or
-timeout); matching ones get a banner read, query, and parse, with the
-serial number lifted into the Tier 3 evidence response under the
-reserved ``manufacturer`` key.
+The companion runs once per scan and consumes the engine's existing
+port-scan map (``ctx.hosts_by_open_port``) — only hosts the engine
+already saw answering on TCP/23 are queried. No subnet sweep, no
+duplication of the engine's port scan.
 
 License: MIT (matches the OpenAVC drivers repo).
 """
@@ -20,7 +19,6 @@ License: MIT (matches the OpenAVC drivers repo).
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import re
 from typing import Any
 
@@ -43,35 +41,16 @@ _TESIRA_RESPONSE_RE = re.compile(
 )
 _TESIRA_VERSION_RE = re.compile(r"version\s+(\d+\.\d+(?:\.\d+)?)", re.IGNORECASE)
 
-# Cap concurrent TCP connects so the companion doesn't burst the
-# network with hundreds of simultaneous SYNs. 32 is comfortable for
-# embedded AV gear; a /24 finishes in a few seconds at this setting.
-MAX_CONCURRENT_PROBES = 32
-
-# Per-host budget. Connect timeouts are short because failed hosts
-# typically RST immediately; reads get a slightly longer window so
-# devices have time to push the banner after IAC negotiation.
+# Per-host budget. Connect timeouts are short because the engine has
+# already confirmed these hosts answer on TCP/23 — failures here are
+# rare. Reads get a slightly longer window so devices have time to
+# push the banner after IAC negotiation.
 CONNECT_TIMEOUT = 1.0
 READ_TIMEOUT = 1.5
 
-
-def _expand_targets(subnets: tuple[str, ...] | list[str]) -> list[str]:
-    """Return all unicast host IPs in the given subnets, deduped."""
-    seen: set[str] = set()
-    out: list[str] = []
-    for cidr in subnets:
-        try:
-            net = ipaddress.IPv4Network(cidr, strict=False)
-        except ValueError:
-            continue
-        if net.prefixlen >= 31:
-            continue
-        for host in net.hosts():
-            ip = str(host)
-            if ip not in seen:
-                seen.add(ip)
-                out.append(ip)
-    return out
+# Cap simultaneous queries — embedded DSPs handle a handful of
+# concurrent telnet sessions but can melt under hundreds.
+MAX_CONCURRENT_PROBES = 16
 
 
 async def _query_one(
@@ -143,9 +122,9 @@ async def _query_one(
 
 
 async def probe(ctx: ProbeContext) -> None:
-    """Sweep ``target_subnets`` for Tesira DSPs on TCP/23 and emit evidence."""
-    targets = _expand_targets(ctx.target_subnets)
-    if not targets:
+    """Query every host the engine saw answering on TCP/23 and emit evidence."""
+    candidates = ctx.hosts_by_open_port.get(TESIRA_PORT, ())
+    if not candidates:
         return
 
     sem = asyncio.Semaphore(MAX_CONCURRENT_PROBES)
@@ -154,7 +133,7 @@ async def probe(ctx: ProbeContext) -> None:
         async with sem:
             return await _query_one(ip, ctx.source_ip, ctx.log)
 
-    results = await asyncio.gather(*(bounded(ip) for ip in targets))
+    results = await asyncio.gather(*(bounded(ip) for ip in candidates))
 
     matches = 0
     for ip, response in results:

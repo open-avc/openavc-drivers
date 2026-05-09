@@ -25,7 +25,7 @@ id: etc_eos
 name: ETC Eos Family Console
 manufacturer: ETC
 category: lighting
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 description: >-
   Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2,
@@ -96,14 +96,14 @@ help:
        Eos Family Online Help under "OSC Key Names".
 
 discovery:
-  # Eos consoles speak OSC over UDP only. No deterministic broadcast
-  # or active-probe fingerprint exists — Eos publishes OSC TX but
-  # doesn't announce its presence (push-only). Stays soft-only by
-  # design; surface via the registered Electronic Theatre Controls
-  # OUI plus vendor_aliases.
-  oui_prefixes:
+  # Eos consoles speak OSC over UDP only. No deterministic mDNS / SSDP
+  # / probe fingerprint exists — Eos publishes OSC TX but doesn't
+  # announce its presence (push-only). Hint-only by design; surface
+  # via the registered Electronic Theatre Controls OUI plus the
+  # manufacturer alias list.
+  oui:
     - "00:c0:16"
-  vendor_aliases:
+  manufacturer_alias:
     - "etc"
     - "electronic theatre controls"
     - "eos"

@@ -166,7 +166,7 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Controls Epson business and installation projectors over "
@@ -184,11 +184,11 @@ class EpsonEscVpDriver(BaseDriver):
         "discovery": {
             # Epson projectors also support PJLink Class 2 for vendor-
             # neutral discovery; the generic pjlink_class1 driver claims
-            # that signal. Surface this brand-specific driver as a soft
+            # that signal. Surface this brand-specific driver as a
             # candidate when the PJLink response identifies the unit as
             # an Epson — picks up "EPSON" in firmware-released MNFR
             # strings and the legacy "Seiko Epson" form.
-            "vendor_aliases": ["EPSON", "Seiko Epson"],
+            "manufacturer_alias": ["EPSON", "Seiko Epson"],
         },
         "compatible_models": [
             {

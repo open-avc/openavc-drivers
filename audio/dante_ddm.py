@@ -86,7 +86,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
@@ -101,11 +101,10 @@ class DanteDDMDriver(BaseDriver):
         "discovery": {
             # DDM / Dante Director is a management *server*, not a
             # discovered endpoint — the user supplies the URL and API
-            # token. Stays manual_only by design. Vendor_aliases let
-            # peer Audinate drivers (future Dante Connect / Dante AV
-            # entries) narrow when an endpoint reports Audinate.
-            "manual_only": True,
-            "vendor_aliases": ["audinate", "dante"],
+            # token. The manufacturer aliases let peer Audinate drivers
+            # (future Dante Connect / Dante AV entries) narrow when an
+            # endpoint reports Audinate.
+            "manufacturer_alias": ["audinate", "dante"],
         },
         "compatible_models": [
             {

@@ -57,10 +57,9 @@ def _write_yaml_driver(
         "transport": "tcp",
         "description": "Fixture driver for tests.",
         "source_url": "https://example.com/test-protocol",
-        # Phase 6 schema requires every driver to either declare a strong
-        # discovery signal or set manual_only:true. Default fixtures are
-        # manual_only so individual tests focus on the field under test.
-        "discovery": {"manual_only": True},
+        # Discovery is optional. The parser warns when no fingerprints
+        # or hints are declared; tests that exercise discovery
+        # validation supply their own override.
     }
     if overrides:
         data.update(overrides)
@@ -91,7 +90,6 @@ def _write_python_driver(
         "transport": "tcp",
         "description": "Python fixture.",
         "source_url": "https://example.com/test-protocol",
-        "discovery": {"manual_only": True},
     }
     if info_overrides:
         info.update(info_overrides)
@@ -290,33 +288,33 @@ def test_ports_must_be_in_range(tmp_path: Path) -> None:
     assert "65535" in err
 
 
-def test_discovery_open_ports_must_be_list(tmp_path: Path) -> None:
+def test_discovery_port_open_must_be_list(tmp_path: Path) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
-        overrides={"discovery": {"manual_only": True, "open_ports": "1710"}},
+        overrides={"discovery": {"port_open": "1710"}},
     )
     rc, _, err = _run(tmp_path)
     assert rc != 0
-    assert "open_ports must be a list" in err
+    assert "port_open must be a list" in err
 
 
-def test_discovery_open_ports_must_be_int(tmp_path: Path) -> None:
+def test_discovery_port_open_must_be_int(tmp_path: Path) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
-        overrides={"discovery": {"manual_only": True, "open_ports": ["1710"]}},
+        overrides={"discovery": {"port_open": ["1710"]}},
     )
     rc, _, err = _run(tmp_path)
     assert rc != 0
     assert "must be integers" in err
 
 
-def test_discovery_open_ports_out_of_range(tmp_path: Path) -> None:
+def test_discovery_port_open_out_of_range(tmp_path: Path) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
-        overrides={"discovery": {"manual_only": True, "open_ports": [70000]}},
+        overrides={"discovery": {"port_open": [70000]}},
     )
     rc, _, err = _run(tmp_path)
     assert rc != 0
@@ -324,22 +322,22 @@ def test_discovery_open_ports_out_of_range(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("port", [22, 80, 443])
-def test_discovery_open_ports_disallowed(tmp_path: Path, port: int) -> None:
+def test_discovery_port_open_too_generic(tmp_path: Path, port: int) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
-        overrides={"discovery": {"manual_only": True, "open_ports": [port]}},
+        overrides={"discovery": {"port_open": [port]}},
     )
     rc, _, err = _run(tmp_path)
     assert rc != 0
-    assert "disallowed" in err
+    assert "too generic" in err
 
 
-def test_discovery_open_ports_valid_pass(tmp_path: Path) -> None:
+def test_discovery_port_open_valid_pass(tmp_path: Path) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
-        overrides={"discovery": {"manual_only": True, "open_ports": [1710, 4352]}},
+        overrides={"discovery": {"port_open": [1710, 4352]}},
     )
     rc, _, err = _run(tmp_path)
     assert rc == 0, err

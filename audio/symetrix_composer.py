@@ -69,7 +69,7 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "description": (
             "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, "
@@ -96,14 +96,14 @@ class SymetrixComposerDriver(BaseDriver):
             # v7.0 PDF, or the open-source CommLink-Integration
             # symetrix-control Node.js client. A declarative probe
             # block needs a PCAP from real Radius / Edge hardware to
-            # lock down. Soft-only via OUI + open Composer port +
-            # vendor_aliases.
+            # lock down. Hint-only via OUI + open Composer port +
+            # manufacturer alias.
             #   Refs:
             #     symetrix.co/knowledge/symetrix-control-network-considerations/
             #     symetrix.co/wp-content/uploads/2024/04/Composer-Control-Protocol-v7.0-080918.pdf
-            "oui_prefixes": ["00:0c:d0"],
-            "open_ports": [48631],
-            "vendor_aliases": ["symetrix"],
+            "oui": ["00:0c:d0"],
+            "port_open": [48631],
+            "manufacturer_alias": ["symetrix"],
         },
         "compatible_models": [
             {

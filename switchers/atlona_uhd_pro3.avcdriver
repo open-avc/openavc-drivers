@@ -56,7 +56,7 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -113,10 +113,11 @@ help:
 
 discovery:
   # Atlona UHD-PRO3 series matrices announce on mDNS per KB01625, but
-  # no public source publishes the exact PTR string. Soft-only.
-  oui_prefixes:
+  # no public source publishes the exact PTR string. Hint-only via the
+  # registered Atlona OUI + manufacturer alias.
+  oui:
     - "b8:98:b0"
-  vendor_aliases:
+  manufacturer_alias:
     - "atlona"
 
 default_config:

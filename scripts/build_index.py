@@ -127,9 +127,9 @@ class DriverEntry(BaseModel):
     deprecated: bool = False
     replacement_id: str | None = None
     compatible_models: list[CompatibleModelsEntry] = Field(default_factory=list)
-    # Phase 6 deterministic discovery hints. Carried through to index.json
-    # so on-device discovery can match catalog entries before they're
-    # installed — that's discovery's whole job.
+    # Discovery declaration (fingerprints + hints, new schema). Carried
+    # through to index.json so on-device discovery can match catalog
+    # entries before they're installed — that's discovery's whole job.
     discovery: dict[str, Any] | None = None
 
     @field_validator("id")
@@ -325,7 +325,7 @@ def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
     """Walk driver dirs and extract raw metadata. Does not validate.
 
     ``*_sim.py`` (Python simulator companions) and ``*_discovery.py``
-    (Phase 9.7 discovery companions) are sibling helper files, not
+    (Python discovery companions) are sibling helper files, not
     drivers — skipped here.
     """
     raw: list[tuple[Path, dict[str, Any]]] = []

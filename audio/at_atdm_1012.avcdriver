@@ -35,7 +35,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 1.3.0
+version: 1.3.1
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
@@ -75,13 +75,13 @@ discovery:
   # adds a Dante card and would advertise Dante's `_netaudio._tcp`
   # mDNS service alongside other Dante-enabled gear, but that's a
   # generic Dante signal not specific to this driver — claiming it
-  # would over-match. Soft-only via OUI + control port +
-  # vendor_aliases.
-  oui_prefixes:
+  # would over-match. Hint-only via OUI + control port +
+  # manufacturer alias.
+  oui:
     - "00:0a:45"
-  open_ports:
+  port_open:
     - 17300
-  vendor_aliases:
+  manufacturer_alias:
     - "audio-technica"
     - "audio technica"
     - "at"

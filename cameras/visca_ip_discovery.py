@@ -141,7 +141,7 @@ async def probe(ctx: ProbeContext) -> None:
         if response is None:
             continue
         matches += 1
-        await ctx.emit_active(host=ip, response=response)
+        await ctx.emit_active(host=ip, response=response, port=VISCA_PORT)
 
     if matches:
         ctx.log.info(

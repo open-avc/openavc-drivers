@@ -331,6 +331,8 @@ async def probe(ctx: ProbeContext) -> None:
                 host=sender_ip,
                 response=_build_response(match),
                 txt=_build_txt(match) or None,
+                port=WSD_PORT,
+                matched_pattern="onvif:ProbeMatches",
             )
 
         if matches:

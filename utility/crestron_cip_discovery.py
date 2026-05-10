@@ -297,7 +297,12 @@ async def probe(ctx: ProbeContext) -> None:
                     if reply.firmware:
                         response["firmware"] = reply.firmware
 
-                    await ctx.emit_broadcast(host=sender_ip, response=response)
+                    await ctx.emit_broadcast(
+                        host=sender_ip,
+                        response=response,
+                        port=CRESTRON_CIP_PORT,
+                        matched_pattern="crestron:device-info-reply",
+                    )
                     ctx.log.info(
                         "crestron CIP reply from %s: hostname=%s model=%s",
                         sender_ip, reply.hostname, reply.model,
@@ -331,6 +336,7 @@ async def probe(ctx: ProbeContext) -> None:
                 "category": "control",
                 "protocols": ["crestron_cip"],
             },
+            port=CRESTRON_CIP_TCP_PORT,
         )
         ctx.log.info("crestron CIP TCP/1688 listener at %s", ip)
 

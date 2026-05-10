@@ -362,6 +362,8 @@ async def probe(ctx: ProbeContext) -> None:
             host=ip,
             response={"mac": reply.mac, "ip": ip, "protocols": ["pjlink"]},
             txt={"mac": format_mac(reply.mac)},
+            port=PJLINK_PORT,
+            matched_pattern="ascii:%2ACKN=",
         )
 
     # Per-responder TCP/4352 INFO query. Run in parallel with a tcp
@@ -396,4 +398,4 @@ async def probe(ctx: ProbeContext) -> None:
             response["device_name"] = info.device_name
         if info.extra:
             response["extra"] = dict(info.extra)
-        await ctx.emit_active(host=ip, response=response)
+        await ctx.emit_active(host=ip, response=response, port=PJLINK_PORT)

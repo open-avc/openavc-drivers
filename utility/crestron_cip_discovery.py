@@ -141,12 +141,11 @@ def parse_crestron_cip(data: bytes, sender_ip: str) -> CrestronCIPReply | None:
 def _live_targets(subnets: tuple[str, ...] | list[str]) -> list[str]:
     """Return the directed broadcast address per CIDR.
 
-    Modern Crestron firmware ignores broadcast probes — the platform
-    feeds per-host targets via a wider engine pass when needed. For
-    the companion we still send to the directed broadcast as a
-    best-effort sweep; the responders that don't honor broadcast
-    won't fire here, but the port_open / OUI hints on the anchor
-    driver still surface them as `possible`.
+    Used by the UDP broadcast pass for a best-effort sweep. Modern
+    Crestron firmware that ignores broadcast probes is caught by the
+    TCP/1688 fallback pass below, which iterates
+    ``ctx.hosts_by_open_port[1688]`` to reach every host the engine
+    already saw listening on the CIP port.
     """
     out: list[str] = []
     for cidr in subnets:
@@ -230,7 +229,7 @@ async def probe(ctx: ProbeContext) -> None:
     seen: set[str] = set()
     udp_budget = min(ctx.timeout_seconds * 0.4, 4.0)
 
-    # ── Phase 1: UDP broadcast ─────────────────────────────────────
+    # ── UDP broadcast pass ─────────────────────────────────────────
     if targets:
         sock = _make_broadcast_socket(ctx.source_ip)
         if sock is None:
@@ -313,7 +312,7 @@ async def probe(ctx: ProbeContext) -> None:
                 except OSError:
                     pass
 
-    # ── Phase 2: TCP/1688 fallback for hosts the UDP phase missed ──
+    # ── TCP/1688 fallback pass for hosts the UDP pass missed ──────
     # Engine already port-scanned the subnet — only check hosts it saw
     # answering on 1688 that the UDP phase didn't already identify.
     tcp_candidates = ctx.hosts_by_open_port.get(CRESTRON_CIP_TCP_PORT, ())

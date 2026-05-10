@@ -321,7 +321,7 @@ def test_discovery_port_open_out_of_range(tmp_path: Path) -> None:
     assert "out of range" in err
 
 
-@pytest.mark.parametrize("port", [22, 80, 443])
+@pytest.mark.parametrize("port", [22, 80, 443, 8000, 8080, 8443, 8888])
 def test_discovery_port_open_too_generic(tmp_path: Path, port: int) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(

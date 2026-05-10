@@ -351,8 +351,9 @@ def collect_drivers(repo_root: Path) -> list[tuple[Path, dict[str, Any]]]:
 
 # Ports too generic to use as a hint — every web / admin / SSH device on
 # the network would match. AV-specific ports are fine. Mirrors
-# ``DISALLOWED_OPEN_PORTS`` in the platform.
-_DISALLOWED_OPEN_PORTS = frozenset({22, 80, 443})
+# ``DISALLOWED_OPEN_PORTS`` in the platform. 8000 / 8080 / 8443 / 8888
+# are admin-UI alternates with the same false-positive class as 80/443.
+_DISALLOWED_OPEN_PORTS = frozenset({22, 80, 443, 8000, 8080, 8443, 8888})
 
 _MAX_PROBE_TIMEOUT_MS = 10000
 

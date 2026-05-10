@@ -435,7 +435,7 @@ When a `notifications` entry exists for a state variable, it takes priority over
 
 For Python drivers with binary or complex protocols, write a companion simulator file. The scaffold tool generates a ready-to-edit skeleton.
 
-> **Related: Python `_discovery.py` companions.** The same sibling-Python pattern is also used for Phase 9 discovery: when a driver's discovery wire format can't be expressed declaratively (multi-step handshakes, encrypted payloads), ship a `<driver_id>_discovery.py` next to the `.avcdriver`. It exposes `async def probe(ctx)` and emits evidence via `ctx.emit_broadcast` / `emit_active` / `emit_oui`. See AGENTS.md §2.2.2 for the full spec.
+> **Related: Python `_discovery.py` companions.** The same sibling-Python pattern is also used for discovery: when a driver's discovery wire format can't be expressed declaratively (multi-step handshakes, encrypted payloads), ship a `<driver_id>_discovery.py` next to the `.avcdriver` and reference it from the YAML's `discovery.python` field. It exposes `async def probe(ctx)` and emits evidence via `ctx.emit_broadcast` / `emit_active` / `emit_oui`. See AGENTS.md §2.2.2 for the full spec.
 
 ### Step 1: Generate the Skeleton
 

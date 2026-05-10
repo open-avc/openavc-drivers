@@ -288,11 +288,14 @@ async def probe(ctx: ProbeContext) -> None:
     #                                  scan-results "Why?" reveal can
     #                                  render "UDP probe on port <p>
     #                                  matched <kind:value>"
-    # ctx.emit_active(host, response, *, port)
+    # ctx.emit_active(host, response, *, port, matched_pattern)
     #                                — emit active-probe evidence; pass
-    #                                  the TCP port so the reveal renders
-    #                                  "TCP probe on port <p> returned
-    #                                  <excerpt>"
+    #                                  port + matched_pattern so the
+    #                                  reveal renders "TCP probe on
+    #                                  port <p> returned <excerpt>"
+    #                                  for readable text, or
+    #                                  "TCP probe on port <p> matched
+    #                                  <kind:value>" for binary protocols
     # ctx.emit_oui(mac, host, *, vendor)
     #                                — emit OUI evidence (mac first)
 

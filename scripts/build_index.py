@@ -475,11 +475,18 @@ def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
             "(UDP probes need a query payload)"
         )
 
-    has_expect = (
-        ("expect" in raw and raw["expect"] is not None)
-        or ("expect_regex" in raw and raw["expect_regex"] is not None)
-        or ("expect_hex" in raw and raw["expect_hex"] is not None)
-    )
+    declared_matchers = [
+        k for k in ("expect", "expect_regex", "expect_hex")
+        if k in raw and raw[k] is not None
+    ]
+    has_expect = bool(declared_matchers)
+    if len(declared_matchers) > 1:
+        errors.append(
+            f"{file}: discovery.{where} declares multiple matchers "
+            f"({', '.join(declared_matchers)}) — pick exactly one of "
+            "expect, expect_regex, or expect_hex"
+        )
+
     if "expect" in raw and raw["expect"] is not None:
         c = raw["expect"]
         if not isinstance(c, str) or not c:
@@ -513,13 +520,13 @@ def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
 
     if kind == "udp" and not has_expect:
         errors.append(
-            f"{file}: discovery.{where} needs at least one of "
+            f"{file}: discovery.{where} needs exactly one of "
             "expect, expect_regex, expect_hex"
         )
     if kind == "tcp" and has_send and not has_expect:
         errors.append(
             f"{file}: discovery.{where} sends bytes but declares no matcher "
-            "— add expect, expect_regex, or expect_hex"
+            "— add exactly one of expect, expect_regex, or expect_hex"
         )
 
     timeout_ms = raw.get("timeout_ms")

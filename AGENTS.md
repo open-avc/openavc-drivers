@@ -284,7 +284,7 @@ async def probe(ctx: ProbeContext) -> None:
     # ctx.log                  — logger
     # ctx.emit_broadcast(host, ...)  — emit broadcast evidence
     # ctx.emit_active(host, ...)     — emit active-probe evidence
-    # ctx.emit_oui(host, ...)        — emit OUI evidence
+    # ctx.emit_oui(mac, host, ...)   — emit OUI evidence (mac first)
 
     for host in ctx.hosts_by_open_port.get(4352, ()):
         await ctx.emit_active(

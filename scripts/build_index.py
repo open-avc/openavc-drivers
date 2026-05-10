@@ -565,33 +565,61 @@ def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
     return errors
 
 
-def _validate_python_block(file: str, raw: Any) -> list[str]:
-    """Return validation errors for the ``python:`` field."""
+def _validate_python_block(
+    file: str, raw: Any, *, yaml_dir: Path | None = None,
+) -> list[str]:
+    """Return validation errors for the ``python:`` field.
+
+    When ``yaml_dir`` is provided, also verifies the declared companion
+    file exists alongside the YAML — required so a community PR can't
+    ship a YAML with ``python: ./missing.py`` past CI. Without the
+    sibling file the engine would auto-register two ``SignalRule``
+    records under ``custom_<id>_companion_(udp|tcp)`` that never get
+    any evidence to match.
+    """
     errors: list[str] = []
+    file_path: str | None = None
     if isinstance(raw, str):
         if not raw:
             errors.append(
                 f"{file}: discovery.python path must be a non-empty string"
             )
-        return errors
-    if not isinstance(raw, dict):
+        else:
+            file_path = raw
+    elif not isinstance(raw, dict):
         errors.append(
             f"{file}: discovery.python must be a string path or "
             "{file, cross_vendor} mapping"
         )
         return errors
-    unknown = set(raw.keys()) - {"file", "cross_vendor"}
-    if unknown:
-        errors.append(
-            f"{file}: discovery.python has unknown keys: {sorted(unknown)}"
-        )
-    file_path = raw.get("file")
-    if not isinstance(file_path, str) or not file_path:
-        errors.append(
-            f"{file}: discovery.python.file must be a non-empty string"
-        )
-    if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
-        errors.append(f"{file}: discovery.python.cross_vendor must be a bool")
+    else:
+        unknown = set(raw.keys()) - {"file", "cross_vendor"}
+        if unknown:
+            errors.append(
+                f"{file}: discovery.python has unknown keys: {sorted(unknown)}"
+            )
+        candidate = raw.get("file")
+        if not isinstance(candidate, str) or not candidate:
+            errors.append(
+                f"{file}: discovery.python.file must be a non-empty string"
+            )
+        else:
+            file_path = candidate
+        if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
+            errors.append(f"{file}: discovery.python.cross_vendor must be a bool")
+
+    # Companion existence check — only when the parser has somewhere to
+    # look (yaml_dir set). Skipped for purely-structural validation (the
+    # platform's parser path runs without a yaml_dir).
+    if file_path and yaml_dir is not None:
+        companion_path = (yaml_dir / file_path).resolve()
+        if not companion_path.is_file():
+            errors.append(
+                f"{file}: discovery.python.file={file_path!r} but no "
+                f"such file exists at {companion_path} — drivers must "
+                "ship the sibling _discovery.py companion alongside "
+                "the .avcdriver"
+            )
     return errors
 
 
@@ -679,11 +707,15 @@ def _validate_amx_ddp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, s
     return (errors, {"make": make, "model_pattern": str(model_pattern)})
 
 
-def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
+def _validate_discovery_block(
+    file: str, raw: dict[str, Any], *, yaml_dir: Path | None = None,
+) -> tuple[list[str], dict[str, Any]]:
     """Return (errors, normalized_discovery) for one driver.
 
     Mirrors ``parse_driver_discovery`` in the platform. Drivers whose IDs
-    start with ``generic_`` are exempt.
+    start with ``generic_`` are exempt. ``yaml_dir`` is the directory the
+    YAML lives in — when provided, used to verify a declared
+    ``python:`` companion .py exists alongside the YAML.
     """
     errors: list[str] = []
     normalized: dict[str, Any] = {}
@@ -745,7 +777,9 @@ def _validate_discovery_block(file: str, raw: dict[str, Any]) -> tuple[list[str]
 
     has_python = False
     if "python" in discovery:
-        errors.extend(_validate_python_block(file, discovery["python"]))
+        errors.extend(_validate_python_block(
+            file, discovery["python"], yaml_dir=yaml_dir,
+        ))
         has_python = True
     normalized["has_python"] = has_python
 
@@ -1202,7 +1236,9 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             errors.append(f"{rel}: {e}")
 
-        disc_errors, normalized = _validate_discovery_block(rel, data)
+        disc_errors, normalized = _validate_discovery_block(
+            rel, data, yaml_dir=filepath.parent,
+        )
         errors.extend(disc_errors)
         if normalized:
             discovery_per_driver.append((str(data.get("id") or ""), rel, normalized))

@@ -282,9 +282,19 @@ async def probe(ctx: ProbeContext) -> None:
     #                            this instead of iterating subnets
     # ctx.timeout_seconds      — overall budget (capped 30 s)
     # ctx.log                  — logger
-    # ctx.emit_broadcast(host, ...)  — emit broadcast evidence
-    # ctx.emit_active(host, ...)     — emit active-probe evidence
-    # ctx.emit_oui(mac, host, ...)   — emit OUI evidence (mac first)
+    # ctx.emit_broadcast(host, *, response, txt, port, matched_pattern)
+    #                                — emit broadcast evidence; pass
+    #                                  port + matched_pattern so the
+    #                                  scan-results "Why?" reveal can
+    #                                  render "UDP probe on port <p>
+    #                                  matched <kind:value>"
+    # ctx.emit_active(host, response, *, port)
+    #                                — emit active-probe evidence; pass
+    #                                  the TCP port so the reveal renders
+    #                                  "TCP probe on port <p> returned
+    #                                  <excerpt>"
+    # ctx.emit_oui(mac, host, *, vendor)
+    #                                — emit OUI evidence (mac first)
 
     for host in ctx.hosts_by_open_port.get(4352, ()):
         await ctx.emit_active(
@@ -292,6 +302,9 @@ async def probe(ctx: ProbeContext) -> None:
             response={"manufacturer": "BSS"},   # 'manufacturer' is
                                                  # reserved — feeds the
                                                  # manufacturer_alias path
+            port=4352,                           # TCP port for the
+                                                 # "TCP probe on port
+                                                 # 4352 returned ..." UI
         )
 ```
 

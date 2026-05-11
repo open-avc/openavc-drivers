@@ -987,7 +987,7 @@ from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16, h
 | Transport | Config Fields | Use Case |
 |-----------|---------------|----------|
 | `tcp` | `host`, `port`, `ssl`, `verify_ssl` | Network devices (most AV equipment) |
-| `serial` | `serial_port`, `baudrate`, `bytesize`, `parity`, `stopbits` | RS-232/RS-485 devices |
+| `serial` | `port`, `baudrate`, `bytesize`, `parity`, `stopbits` | RS-232/RS-485 devices |
 | `http` | `host`, `port`, `ssl`, `verify_ssl`, `auth_type`, `username`, `password`, `token`, `api_key` | REST API devices |
 | `udp` | `host`, `port` | Broadcast protocols (Wake-on-LAN, Art-Net) |
 | `osc` | `host`, `port`, `listen_port` | OSC (Open Sound Control) devices — mixing consoles, show control, lighting |

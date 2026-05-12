@@ -996,6 +996,20 @@ from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16, h
 - `poll_interval` -- Seconds between polls (0 = disabled)
 - `inter_command_delay` -- Seconds to wait between sequential commands
 
+### Reachability detection by transport
+
+The runtime decides "is this device actually online?" differently per transport. If your driver omits the right signal, `device.<id>.connected` can report `True` indefinitely against an unreachable host.
+
+| Transport | How `connected` becomes `False` |
+|-----------|----------------------------------|
+| `tcp` | Socket open fails or the connection drops. |
+| `serial` | The OS rejects the port open. |
+| `http` | Pre-connect `verify()` HEAD probe; periodic poll on `poll_interval`. |
+| `osc` | Pre-connect `verify()` probe (send + listen); periodic poll on `poll_interval`. |
+| `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. The only signal the runtime gets is your driver's `poll()` succeeding or failing. Set `poll_interval > 0` and implement a `poll()` that round-trips a status query — otherwise the device will sit at `connected: True` forever no matter what's happening on the network. |
+
+For UDP, picking a poll interval is a tradeoff: too tight wastes wire traffic on a connectionless protocol; too loose delays failure detection. 10–30 seconds is reasonable for most AV equipment.
+
 ---
 
 ## 5. Simulator Support

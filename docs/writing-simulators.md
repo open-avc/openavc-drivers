@@ -234,9 +234,10 @@ simulator:
 |----------|--------|
 | `no_response` | Simulator stops replying (tests timeout handling) |
 | `corrupt_response` | Random byte corruption in responses |
-| `disconnect` | Drop the TCP connection (tests reconnection) |
 
-Error modes without a `behavior` field only apply `set_state` changes. This is useful for simulating device-reported errors (lamp warnings, temperature alerts) that change the device's status responses.
+Only the two values above are wired into the simulator transports. Error modes without a `behavior` field — or with an unrecognized value — only apply `set_state` changes. That's useful for simulating device-reported conditions (lamp warnings, temperature alerts) that change the device's status responses without affecting the wire-level transport.
+
+If you want to test TCP connection drops, use the **Network Conditions** controls in the Simulator UI (instability presets) rather than an error mode — connection-drop behavior lives in the network-conditions layer, not in `error_modes`.
 
 ### Complete Example
 

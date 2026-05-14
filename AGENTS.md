@@ -162,9 +162,12 @@ one-click choice.
 **Validation rules (enforced at load time by `parse_driver_discovery`,
 mirrored at catalog-build time by `build_index.py`):**
 
-1. **`port_open` rejects `{22, 80, 443}`** — too generic. Other ports
-   are accepted; vendor-specific port allocation is the driver
-   author's responsibility.
+1. **`port_open` rejects `{22, 80, 443, 8000, 8080, 8443, 8888}`** —
+   too generic. The runtime keeps the disallowed set in
+   `server/discovery/hints.py:DISALLOWED_OPEN_PORTS`; declaring any of
+   these as a vendor-specific hint fails validation at load time.
+   Other ports are accepted; vendor-specific port allocation is the
+   driver author's responsibility.
 2. **`tcp_probe` and `udp_probe` accept exactly one of `send_ascii` /
    `send_hex`.** Both is an error; omitting both is allowed for TCP
    connect-only banner reads.
@@ -1090,7 +1093,8 @@ simulator:
   error_modes:
     communication_timeout:
       description: "Device stops responding"
-      behavior: no_response       # no_response | corrupt_response | custom_state
+      behavior: no_response       # no_response | corrupt_response
+                                  # (omit `behavior` to only apply this mode's `set_state`)
 ```
 
 ### 5.2 Python Drivers: Separate `_sim.py` File
@@ -1123,14 +1127,21 @@ openavc-drivers/
 ├── projectors/          # PJLink, Sony ADCP, Sharp NEC
 ├── displays/            # Samsung MDC, LG SICP, Sony Bravia
 ├── switchers/           # Extron SIS, Kramer P3000
-├── audio/               # Biamp Tesira, QSC Q-SYS, Shure, Sonos
+├── audio/               # Biamp Tesira, QSC Q-SYS, Shure, Audio-Technica
 ├── cameras/             # VISCA, BirdDog PTZ
 ├── video/               # vMix, NDI codecs
+├── streaming/           # NDI / RTSP encoders, streaming endpoints, Sonos
 ├── lighting/            # DMX, Art-Net, sACN
+├── power/               # PDUs, power sequencers
+├── devices/             # Miscellaneous AV gear that doesn't fit elsewhere
 ├── utility/             # Wake-on-LAN, relays, bridges
 ├── docs/                # Contributing guide, writing simulators
-├── index.json           # Driver catalog
-├── validate.py          # Validation script
+├── scripts/             # Build + validation scripts (build_index.py)
+├── index/               # Generated per-category index files
+├── tests/               # Driver tests
+├── index.json           # Generated driver catalog
+├── devices.json         # Generated device catalog
+├── manufacturers.json   # Manufacturer registry
 └── AGENTS.md            # This file
 ```
 
@@ -1150,9 +1161,11 @@ openavc-drivers/
 | `switcher` | `switchers/` | Matrix switchers, presentation switchers, scalers |
 | `audio` | `audio/` | DSPs, mixers, amplifiers, microphones, speakers |
 | `camera` | `cameras/` | PTZ cameras, webcams |
-| `video` | `video/` | Video production software, NDI encoders/decoders |
+| `video` | `video/` | Video production software, recorders |
+| `streaming` | `streaming/` | NDI / RTSP encoders, streaming endpoints, Sonos |
 | `lighting` | `lighting/` | DMX controllers, Art-Net nodes, sACN |
-| `utility` | `utility/` | Wake-on-LAN, relays, power controllers, bridges |
+| `power` | `power/` | PDUs, power sequencers, relay controllers |
+| `utility` | `utility/` | Wake-on-LAN, bridges, miscellaneous helpers |
 
 ---
 

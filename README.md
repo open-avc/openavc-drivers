@@ -52,16 +52,15 @@ See the [Contributing Guide](docs/contributing-drivers.md) for the full checklis
 
 ### Using an AI Assistant
 
-If you use an AI coding assistant, point it to [`AGENTS.md`](AGENTS.md) in this repository. It contains the complete YAML schema, Python driver API, and examples in a format optimized for LLM agents. Run `python validate.py` to check the result before submitting.
+If you use an AI coding assistant, point it to [`AGENTS.md`](AGENTS.md) in this repository. It contains the complete YAML schema, Python driver API, and examples in a format optimized for LLM agents. Run `python scripts/build_index.py --check` to validate the result before submitting.
 
 ## Validation
 
-Run the validator before submitting a pull request:
+Run the build script before submitting a pull request. It validates the schema and regenerates `index.json` / `devices.json`:
 
 ```bash
-python validate.py                              # Validate all drivers
-python validate.py switchers/my_driver.avcdriver # Validate a specific driver
-python validate.py --check-index                 # Also check index.json consistency
+python scripts/build_index.py            # Validate + regenerate
+python scripts/build_index.py --check    # Validate only (what CI runs)
 ```
 
 ## License

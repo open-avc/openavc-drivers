@@ -43,7 +43,7 @@ id: vaddio_roboshot
 name: Vaddio RoboSHOT / ConferenceShot
 manufacturer: Vaddio
 category: camera
-version: 1.2.1
+version: 1.2.2
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -681,7 +681,6 @@ responses:
       firmware_version: "$2"
 
 polling:
-  interval: 30
   queries:
     - ccu_get_all
     - query_focus_mode

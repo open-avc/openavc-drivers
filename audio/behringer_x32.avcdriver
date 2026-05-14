@@ -20,7 +20,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.5.1
+version: 1.5.2
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -1138,7 +1138,6 @@ on_connect:
 
 # Renew subscription every 9 seconds (X32 expires after ~10s)
 polling:
-  interval: 9
   queries:
     - "renew"
 

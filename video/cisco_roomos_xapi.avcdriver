@@ -43,7 +43,7 @@ id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.2.1
+version: 1.2.2
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -791,7 +791,6 @@ responses:
     set: { people_count: "$1" }
 
 polling:
-  interval: 30
   queries:
     - query_system_unit
     - query_standby

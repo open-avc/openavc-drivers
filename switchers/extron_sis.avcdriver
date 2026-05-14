@@ -26,7 +26,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.4.1
+version: 1.4.2
 author: OpenAVC
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
@@ -258,7 +258,6 @@ responses:
     set: { signal_active: false }
 
 polling:
-  interval: 10
   queries:
     - "I"
     - "V"

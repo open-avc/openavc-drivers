@@ -40,7 +40,7 @@ id: panasonic_awhe
 name: Panasonic AW-HE/UE/UN PTZ Camera
 manufacturer: Panasonic
 category: camera
-version: 1.1.1
+version: 1.1.2
 author: OpenAVC
 description: >
   Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras
@@ -690,7 +690,6 @@ responses:
 
 # Polling — refresh state at the configured interval.
 polling:
-  interval: 10
   queries:
     - query_power
     - query_pan_tilt_position

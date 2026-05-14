@@ -20,7 +20,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.3.2
+version: 1.3.3
 author: OpenAVC
 description: >
   Controls Kramer products via Protocol 3000 over TCP (port 5000).
@@ -222,7 +222,6 @@ responses:
     set: { signal_present: "false" }
 
 polling:
-  interval: 10
   queries:
     - "#ROUTE? 1,1\r"
     - "#VMUTE? 1\r"

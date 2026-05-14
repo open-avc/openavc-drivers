@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-10T23:34:40+00:00",
+    "generated_at": "2026-05-14T01:06:15+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 4,
@@ -303,7 +303,7 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Philips Hue lights, rooms, zones, and scenes via the local REST API V1 on a Hue Bridge (HTTP, port 80). Recall scenes, on/off whole rooms, set brightness / color / color-temperature on groups or individual lights. Polling-based \u2014 the V1 API does not push.\n",

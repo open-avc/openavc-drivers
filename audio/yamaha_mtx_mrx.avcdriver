@@ -49,7 +49,7 @@ id: yamaha_mtx_mrx
 name: Yamaha MTX/MRX/XMV
 manufacturer: Yamaha
 category: audio
-version: 1.1.1
+version: 1.1.2
 author: OpenAVC
 description: >
   Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the
@@ -876,7 +876,6 @@ responses:
     set: { index_32: "$1", index_32_string: "$2" }
 
 polling:
-  interval: 30
   queries:
     - "devstatus runmode\n"
     - "devstatus error\n"

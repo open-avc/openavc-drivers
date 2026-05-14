@@ -19,7 +19,7 @@ id: lg_sicp
 name: LG SICP Display
 manufacturer: LG
 category: display
-version: 1.4.1
+version: 1.4.2
 author: OpenAVC
 description: >
   Controls LG commercial displays via SICP over TCP (port 9761).
@@ -236,7 +236,6 @@ responses:
     set: { input: "URL Launcher" }
 
 polling:
-  interval: 15
   queries:
     - "ka {set_id} FF\r"
     - "kf {set_id} FF\r"

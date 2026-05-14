@@ -627,11 +627,18 @@ This enables real-time push notifications from devices that support it. Without 
 
 ### 2.10 polling
 
-Periodic status queries sent to the device.
+Periodic status queries sent to the device. The poll cadence is set by
+`default_config.poll_interval` (and overridden per-device by the project's
+`config.poll_interval`) — `polling:` only declares the queries to run.
 
 ```yaml
+default_config:
+  poll_interval: 10              # Seconds between polls. Single canonical
+                                  # field for poll cadence — DO NOT add a
+                                  # top-level `polling.interval` (runtime
+                                  # ignores it; the build script rejects it).
+
 polling:
-  interval: 10                   # Seconds between polls (overridden by device config poll_interval)
   queries:
     # TCP/Serial: raw protocol strings
     - "I\r"                      # Query current input

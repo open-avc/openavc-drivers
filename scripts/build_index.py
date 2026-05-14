@@ -1236,6 +1236,19 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             errors.append(f"{rel}: {e}")
 
+        # The runtime sources poll cadence from `default_config.poll_interval`
+        # only — a top-level `polling.interval` has never been honored and was
+        # stripped from the fleet on 2026-05-13 (backlog §19). Reject it here
+        # so future contributions can't reintroduce a field that does nothing.
+        polling = data.get("polling")
+        if isinstance(polling, dict) and "interval" in polling:
+            errors.append(
+                f"{rel}: top-level `polling.interval` is inert — the runtime "
+                f"reads only `default_config.poll_interval`. Remove the "
+                f"`interval:` key from the `polling:` block; set the cadence "
+                f"via `default_config.poll_interval` instead."
+            )
+
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,
         )

@@ -43,7 +43,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.2.1
+version: 1.2.2
 author: OpenAVC
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
@@ -765,7 +765,6 @@ responses:
     set: { audio_mute: "false" }
 
 polling:
-  interval: 30
   queries:
     - "GET /V1/MANAGEMENT/UID/PACKAGE.Version\r\n"
     - "GET /V1/MANAGEMENT/LABEL.DeviceLabel\r\n"

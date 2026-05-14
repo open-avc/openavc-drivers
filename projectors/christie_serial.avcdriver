@@ -27,7 +27,7 @@ id: christie_serial
 name: Christie Projector
 manufacturer: Christie
 category: projector
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 description: >-
   Controls Christie commercial projectors using the Christie Serial API
@@ -144,60 +144,63 @@ state_variables:
   power_state:
     type: integer
     label: Power State
-    description: >-
-      0=Standby, 1=On, 10=Cooling, 11=Warming, 20-22=Auto-shutdown,
-      23=Emergency shutdown
+    help: "Power state code from (PWR?): 0=Standby, 1=On, 10=Cooling, 11=Warming, 20-22=Auto-shutdown, 23=Emergency shutdown."
   shutter_state:
     type: integer
     label: Shutter
-    description: 0=Open, 1=Closed
+    help: "Mechanical / electronic shutter state from (SHU?): 0=Open, 1=Closed."
   fade_to_black:
     type: integer
     label: Fade to Black
-    description: 0=Image, 1=Black
+    help: "Fade-to-black state from (FTB?): 0=Image, 1=Black."
   selected_input:
     type: string
     label: Selected Input
-    description: Slot+input two-digit code (e.g. 12 = slot 1 input 2)
+    help: "Two-digit slot+input code from (SIN?) — first digit = slot, second digit = input (e.g. '12' = slot 1 input 2)."
   brightness:
     type: integer
     label: Brightness
-    description: -1000 to 1000
+    help: "Brightness setting from (BRT?), -1000 to 1000."
   contrast:
     type: integer
     label: Contrast
-    description: -1000 to 1000
+    help: "Contrast setting from (CON?), -1000 to 1000."
   freeze_state:
     type: integer
     label: Freeze
-    description: 0=Live, 1=Frozen
+    help: "Image freeze state from (FRZ?): 0=Live, 1=Frozen."
   orientation:
     type: integer
     label: Screen Orientation
-    description: 0=Front, 1=Rear, 2=Front-inverted, 3=Rear-inverted
+    help: "Image orientation from (SOR?): 0=Front, 1=Rear, 2=Front-inverted, 3=Rear-inverted."
   test_pattern:
     type: integer
     label: Test Pattern
-    description: 0=Off, 1=Grid, 2=Grayscale16, 3=White, 4=FlatGrey, 5=Black, 6=Checker, 7=13Point, 8=ColorBars, 11=AspectRatio, 12=EdgeBlend, 14=Boresight
+    help: "Active test pattern code from (TST?). 0=Off, 1=Grid, 2=Grayscale16, 3=White, 4=FlatGrey, 5=Black, 6=Checker, 7=13Point, 8=ColorBars, 11=AspectRatio, 12=EdgeBlend, 14=Boresight."
   lamp_mode:
     type: integer
     label: Lamp Mode
+    help: "Lamp / light-source operating mode reported by the projector (model-specific code from (LMM?))."
   lamp_intensity:
     type: integer
     label: Lamp Intensity
+    help: "Lamp / light-source intensity percentage reported by (LMI?)."
   projector_hours:
     type: integer
     label: Projector Hours
+    help: "Total projector run hours from (PRH?)."
   health_state:
     type: string
     label: Projector Health
-    description: SST+HLTH descriptive payload
+    help: "Combined SST + HLTH status payload describing temperature, lamp health, and fault flags."
   model_name:
     type: string
     label: Model
+    help: "Projector model string reported by (MDL?)."
   firmware_version:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by (SVR?)."
 
 commands:
   # ── Power ──

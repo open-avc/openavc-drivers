@@ -56,7 +56,7 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -176,93 +176,123 @@ state_variables:
     type: enum
     values: ["on", "off"]
     label: Power
+    help: "Unit power state reported by PWSTA — 'on' or 'off' (standby)."
   firmware:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by the `Version` query."
   model:
     type: string
     label: Model
+    help: "Model string reported by the `Type` query (e.g. AT-UHD-PRO3-88M)."
   front_panel_locked:
     type: boolean
     label: Front Panel Locked
+    help: "True when the front-panel buttons are locked (Lock / Unlock)."
   route_1:
     type: integer
     label: Output 1 — Source
+    help: "Input number currently routed to output 1."
   route_2:
     type: integer
     label: Output 2 — Source
+    help: "Input number currently routed to output 2."
   route_3:
     type: integer
     label: Output 3 — Source
+    help: "Input number currently routed to output 3."
   route_4:
     type: integer
     label: Output 4 — Source
+    help: "Input number currently routed to output 4."
   route_5:
     type: integer
     label: Output 5 — Source
+    help: "Input number currently routed to output 5."
   route_6:
     type: integer
     label: Output 6 — Source
+    help: "Input number currently routed to output 6."
   route_7:
     type: integer
     label: Output 7 — Source
+    help: "Input number currently routed to output 7."
   route_8:
     type: integer
     label: Output 8 — Source
+    help: "Input number currently routed to output 8."
   route_9:
     type: integer
     label: Output 9 — Source
+    help: "Input number currently routed to output 9 (mirror output)."
   route_10:
     type: integer
     label: Output 10 — Source
+    help: "Input number currently routed to output 10 (mirror output)."
   volume_1:
     type: integer
     label: Output 1 — Volume (dB)
+    help: "Audio volume on output 1 in dB."
   volume_2:
     type: integer
     label: Output 2 — Volume (dB)
+    help: "Audio volume on output 2 in dB."
   volume_3:
     type: integer
     label: Output 3 — Volume (dB)
+    help: "Audio volume on output 3 in dB."
   volume_4:
     type: integer
     label: Output 4 — Volume (dB)
+    help: "Audio volume on output 4 in dB."
   volume_5:
     type: integer
     label: Output 5 — Volume (dB)
+    help: "Audio volume on output 5 in dB."
   volume_6:
     type: integer
     label: Output 6 — Volume (dB)
+    help: "Audio volume on output 6 in dB."
   volume_7:
     type: integer
     label: Output 7 — Volume (dB)
+    help: "Audio volume on output 7 in dB."
   volume_9:
     type: integer
     label: Output 9 — Volume (dB)
+    help: "Audio volume on output 9 in dB."
   mute_1:
     type: boolean
     label: Output 1 — Mute
+    help: "True when output 1 audio is muted."
   mute_2:
     type: boolean
     label: Output 2 — Mute
+    help: "True when output 2 audio is muted."
   mute_3:
     type: boolean
     label: Output 3 — Mute
+    help: "True when output 3 audio is muted."
   mute_4:
     type: boolean
     label: Output 4 — Mute
+    help: "True when output 4 audio is muted."
   mute_5:
     type: boolean
     label: Output 5 — Mute
+    help: "True when output 5 audio is muted."
   mute_6:
     type: boolean
     label: Output 6 — Mute
+    help: "True when output 6 audio is muted."
   mute_7:
     type: boolean
     label: Output 7 — Mute
+    help: "True when output 7 audio is muted."
   mute_9:
     type: boolean
     label: Output 9 — Mute
+    help: "True when output 9 audio is muted."
 
 commands:
 

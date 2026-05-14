@@ -42,7 +42,7 @@ id: philips_hue
 name: Philips Hue Bridge
 manufacturer: Signify
 category: lighting
-version: 1.1.2
+version: 1.1.3
 author: OpenAVC
 description: >
   Controls Philips Hue lights, rooms, zones, and scenes via the local
@@ -153,26 +153,31 @@ state_variables:
   bridge_name:
     type: string
     label: Bridge Name
+    help: "Friendly bridge name configured in the Hue app."
   bridge_id:
     type: string
     label: Bridge ID
-    description: "16-character hex bridge identifier (also printed on the bridge label)."
+    help: "16-character hex bridge identifier (also printed on the bridge label)."
   model_id:
     type: string
     label: Model ID
-    description: "BSB002 = Hue Bridge V2 (square). BSB001 = Hue Bridge V1 (round)."
+    help: "Hue Bridge model code — BSB002 = V2 (square), BSB001 = V1 (round)."
   api_version:
     type: string
     label: API Version
+    help: "Hue API version string reported by the bridge."
   sw_version:
     type: string
     label: Bridge Firmware Version
+    help: "Bridge firmware version (`swversion` field from /api/<user>/config)."
   mac_address:
     type: string
     label: MAC Address
+    help: "Bridge MAC address (`mac` field from /api/<user>/config)."
   zigbee_channel:
     type: integer
     label: Zigbee Channel
+    help: "ZigBee radio channel the bridge is currently using (11-26)."
 
 commands:
 

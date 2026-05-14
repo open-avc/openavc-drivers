@@ -20,7 +20,7 @@ id: shure_network
 name: Shure Networked Devices
 manufacturer: Shure
 category: audio
-version: 1.5.3
+version: 1.5.4
 author: OpenAVC
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
@@ -114,21 +114,27 @@ state_variables:
   device_name:
     type: string
     label: Device Name
+    help: "Friendly device name configured on the Shure device (DEVICE_ID property)."
   mute:
     type: boolean
     label: Mute State
+    help: "Device-level mute. True when DEVICE_AUDIO_MUTE is ON."
   audio_mute:
     type: boolean
     label: Audio Mute
+    help: "Audio output mute, mirror of `mute` exposed for compatibility with templates that bind to audio_mute."
   led_state:
     type: string
     label: LED State
+    help: "Front-panel mute LED color/state reported by the device (e.g. RED, GREEN, OFF)."
   firmware:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by the device (FW_VER)."
   meter_level:
     type: integer
     label: Meter Level (dB)
+    help: "Latest audio meter reading in dB, sampled from the device's level stream."
 
 commands:
   mute_on:

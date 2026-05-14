@@ -43,7 +43,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
@@ -146,54 +146,71 @@ state_variables:
   device_label:
     type: string
     label: Device Label
+    help: "Custom label set on the unit (DeviceLabel property)."
   firmware:
     type: string
     label: Firmware Version
+    help: "Package firmware version reported by /V1/MANAGEMENT/UID/PACKAGE.Version."
   source_o1:
     type: string
     label: Output 1 — Connected Source
+    help: "Input node currently routed to output 1 (e.g. 'I1', 'I2')."
   source_o2:
     type: string
     label: Output 2 — Connected Source
+    help: "Input node currently routed to output 2."
   source_o3:
     type: string
     label: Output 3 — Connected Source
+    help: "Input node currently routed to output 3."
   source_o4:
     type: string
     label: Output 4 — Connected Source
+    help: "Input node currently routed to output 4."
   signal_i1:
     type: boolean
     label: Input 1 — Signal Present
+    help: "True when input 1 reports a valid sync/signal (SignalPresent)."
   signal_i2:
     type: boolean
     label: Input 2 — Signal Present
+    help: "True when input 2 reports a valid sync/signal."
   signal_i3:
     type: boolean
     label: Input 3 — Signal Present
+    help: "True when input 3 reports a valid sync/signal."
   signal_i4:
     type: boolean
     label: Input 4 — Signal Present
+    help: "True when input 4 reports a valid sync/signal."
   mute_o1:
     type: boolean
     label: Output 1 — Video Mute
+    help: "True when output 1's video path is muted (image blanked)."
   mute_o2:
     type: boolean
     label: Output 2 — Video Mute
+    help: "True when output 2's video path is muted."
   mute_o3:
     type: boolean
     label: Output 3 — Video Mute
+    help: "True when output 3's video path is muted."
   mute_o4:
     type: boolean
     label: Output 4 — Video Mute
+    help: "True when output 4's video path is muted."
   audio_volume_percent:
     type: number
     label: Analog Audio Out (O4) — Volume (%)
+    help: "Analog audio output volume on the O4 port as a 0–100% scale."
   audio_volume_db:
     type: number
     label: Analog Audio Out (O4) — Volume (dB)
+    help: "Analog audio output volume on the O4 port in dB."
   audio_mute:
     type: boolean
     label: Analog Audio Out (O4) — Mute
+    help: "True when the analog audio output on the O4 port is muted."
 
 commands:
 

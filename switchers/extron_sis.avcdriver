@@ -26,7 +26,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.4.2
+version: 1.4.3
 author: OpenAVC
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
@@ -120,18 +120,23 @@ state_variables:
   input:
     type: integer
     label: Current Input
+    help: "Input number currently routed to the active output."
   volume:
     type: integer
     label: Volume Level
+    help: "Audio output volume on a 0–100 scale."
   mute:
     type: boolean
     label: Audio Mute
+    help: "True when the audio output is muted."
   firmware:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by the device."
   signal_active:
     type: boolean
     label: Signal Detected
+    help: "True when the device detects a valid signal on the active input ('Sig1' / 'Sig0' notification)."
 
 commands:
   route:

@@ -43,7 +43,7 @@ id: vaddio_roboshot
 name: Vaddio RoboSHOT / ConferenceShot
 manufacturer: Vaddio
 category: camera
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -207,48 +207,61 @@ state_variables:
   firmware_version:
     type: string
     label: Firmware Version
+    help: Firmware version string parsed from the `version` command banner.
   standby:
     type: enum
     values: ["on", "off"]
     label: Standby
+    help: "Camera standby state from `camera standby get` — 'on' = in standby, 'off' = active."
   focus_auto:
     type: enum
     values: ["on", "off"]
     label: Auto Focus
+    help: "Auto-focus mode from `camera focus mode get` — 'on' = auto, 'off' = manual."
   auto_iris:
     type: enum
     values: ["on", "off"]
     label: Auto Iris
+    help: "Auto-iris mode from `camera ccu get auto_iris`. When 'on', the camera adjusts iris automatically."
   auto_white_balance:
     type: enum
     values: ["on", "off"]
     label: Auto White Balance
+    help: "Auto white-balance mode from `camera ccu get auto_white_balance`."
   backlight_compensation:
     type: enum
     values: ["on", "off"]
     label: Backlight Compensation
+    help: "Backlight compensation state from `camera ccu get backlight_compensation`."
   wide_dynamic_range:
     type: enum
     values: ["on", "off"]
     label: Wide Dynamic Range
+    help: "Wide dynamic range (WDR) state from `camera ccu get wide_dynamic_range`."
   iris:
     type: integer
     label: Iris (0-11)
+    help: "Manual iris setting reported by `camera ccu get iris`, 0–11."
   gain:
     type: integer
     label: Gain (0-11)
+    help: "Manual gain setting reported by `camera ccu get gain`, 0–11."
   detail:
     type: integer
     label: Detail (0-15)
+    help: "Image detail/sharpness setting reported by `camera ccu get detail`, 0–15."
   chroma:
     type: integer
     label: Chroma (0-14)
+    help: "Chroma saturation setting reported by `camera ccu get chroma`, 0–14."
   red_gain:
     type: integer
     label: Red Gain (0-255)
+    help: "Red channel gain reported by `camera ccu get red_gain`, 0–255 (manual white-balance mode only)."
   blue_gain:
     type: integer
     label: Blue Gain (0-255)
+    help: "Blue channel gain reported by `camera ccu get blue_gain`, 0–255 (manual white-balance mode only)."
 
 on_connect:
   - version

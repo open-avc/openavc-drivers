@@ -43,7 +43,7 @@ id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -200,52 +200,55 @@ state_variables:
   product_id:
     type: string
     label: Product ID
-    description: "Marketing name reported by the codec (e.g. 'Cisco Webex Codec Pro')."
+    help: "Marketing product name reported by the codec (e.g. 'Cisco Webex Codec Pro')."
   product_platform:
     type: string
     label: Product Platform
-    description: "Hardware platform (e.g. 'Codec Pro', 'Room Kit', 'Desk Pro')."
+    help: "Hardware platform string (e.g. 'Codec Pro', 'Room Kit', 'Desk Pro')."
   software_version:
     type: string
     label: Software Version
-    description: "RoomOS / CE software build, e.g. 'ce11.27.1.7'."
+    help: "RoomOS / CE software build, e.g. 'ce11.27.1.7'."
   serial_number:
     type: string
     label: Serial Number
+    help: "Codec serial number reported by xStatus SystemUnit Hardware Module SerialNumber."
   uptime_seconds:
     type: integer
     label: Uptime (sec)
+    help: "Seconds since the codec last booted (xStatus SystemUnit Uptime)."
   standby_state:
     type: string
     label: Standby State
-    description: "Off / Standby / EnteringStandby / Halfwake."
+    help: "Standby state from xStatus Standby State: Off / Standby / EnteringStandby / Halfwake."
   audio_volume:
     type: integer
     label: Volume (0-100)
+    help: "Speaker output volume, 0–100, from xStatus Audio Volume."
   audio_volume_mute:
     type: string
     label: Output Mute
-    description: "On / Off."
+    help: "Speaker mute state from xStatus Audio VolumeMute: On / Off."
   microphones_mute:
     type: string
     label: Microphone Mute
-    description: "On / Off."
+    help: "Microphone mute state from xStatus Audio Microphones Mute: On / Off."
   dnd_state:
     type: string
     label: Do Not Disturb
-    description: "Active / Inactive."
+    help: "Do-not-disturb state from xStatus Conference DoNotDisturb: Active / Inactive."
   presentation_mode:
     type: string
     label: Presentation Mode
-    description: "Sending / Receiving / Off."
+    help: "Presentation pipeline state from xStatus Conference Presentation Mode: Sending / Receiving / Off."
   people_presence:
     type: string
     label: Room Occupied
-    description: "Yes / No / Unknown."
+    help: "People-presence detection from xStatus RoomAnalytics PeoplePresence: Yes / No / Unknown."
   people_count:
     type: integer
     label: People Count
-    description: "Headcount from the camera analytics. -1 when unsupported / no signal."
+    help: "Headcount from xStatus RoomAnalytics PeopleCount Current. -1 when unsupported or no signal."
 
 # Headers used by every POST /putxml command. The /putxml endpoint requires
 # Content-Type: text/xml — without it the codec rejects the body.

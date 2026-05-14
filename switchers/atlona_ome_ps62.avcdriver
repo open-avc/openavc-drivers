@@ -53,7 +53,7 @@ id: atlona_ome_ps62
 name: Atlona AT-OME-PS62 Matrix Switcher
 manufacturer: Atlona
 category: switcher
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -163,80 +163,105 @@ state_variables:
   model:
     type: string
     label: Model
+    help: "Model string reported by the `Type` query."
   firmware:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by the `Version` query."
   front_panel_locked:
     type: boolean
     label: Front Panel Locked
+    help: "True when the front-panel buttons are locked (Lock / Unlock)."
   route_1:
     type: integer
     label: Output 1 (HDBaseT) — Source
+    help: "Input (1-6) currently routed to output 1 (HDBaseT)."
   route_2:
     type: integer
     label: Output 2 (HDMI) — Source
+    help: "Input (1-6) currently routed to output 2 (HDMI)."
   audio_1:
     type: enum
     values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
     label: Analog Out 1 — Audio Source
+    help: "Source feeding the analog audio output 1 (HDBaseT, HDMI, or analog AUX 1-3)."
   audio_2:
     type: enum
     values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
     label: Analog Out 2 — Audio Source
+    help: "Source feeding the analog audio output 2 (HDBaseT, HDMI, or analog AUX 1-3)."
   volume_1:
     type: integer
     label: Zone 1 (HDBaseT Out) — Volume (dB)
+    help: "Audio volume on zone 1 (HDBaseT output) in dB."
   volume_2:
     type: integer
     label: Zone 2 (HDMI Out) — Volume (dB)
+    help: "Audio volume on zone 2 (HDMI output) in dB."
   volume_3:
     type: integer
     label: Zone 3 (Analog Out 1) — Volume (dB)
+    help: "Audio volume on zone 3 (analog output 1) in dB."
   volume_4:
     type: integer
     label: Zone 4 (Analog Out 2) — Volume (dB)
+    help: "Audio volume on zone 4 (analog output 2) in dB."
   mute_1:
     type: boolean
     label: Zone 1 (HDBaseT Out) — Mute
+    help: "True when zone 1 (HDBaseT output) audio is muted."
   mute_2:
     type: boolean
     label: Zone 2 (HDMI Out) — Mute
+    help: "True when zone 2 (HDMI output) audio is muted."
   mute_3:
     type: boolean
     label: Zone 3 (Analog Out 1) — Mute
+    help: "True when zone 3 (analog output 1) audio is muted."
   mute_4:
     type: boolean
     label: Zone 4 (Analog Out 2) — Mute
+    help: "True when zone 4 (analog output 2) audio is muted."
   mono_1:
     type: boolean
     label: Analog Out 1 — Mono
+    help: "True when analog output 1 is summed to mono."
   mono_2:
     type: boolean
     label: Analog Out 2 — Mono
+    help: "True when analog output 2 is summed to mono."
   input_signal_1:
     type: boolean
     label: Input 1 — Signal
+    help: "True when input 1 detects a valid HDMI/USB-C signal."
   input_signal_2:
     type: boolean
     label: Input 2 — Signal
+    help: "True when input 2 detects a valid HDMI/USB-C signal."
   input_signal_3:
     type: boolean
     label: Input 3 — Signal
+    help: "True when input 3 detects a valid HDMI/USB-C signal."
   input_signal_4:
     type: boolean
     label: Input 4 — Signal
+    help: "True when input 4 detects a valid HDMI/USB-C signal."
   input_signal_5:
     type: boolean
     label: Input 5 — Signal
+    help: "True when input 5 detects a valid HDMI/USB-C signal."
   input_signal_6:
     type: boolean
     label: Input 6 — Signal
+    help: "True when input 6 detects a valid HDMI/USB-C signal."
   usb_mode:
     type: integer
     label: USB Mode (0=Follow USB, 1=Manual, 2=Follow Video)
+    help: "USB host-routing mode: 0 = follow USB selection, 1 = manual, 2 = follow active video input."
   usb_route:
     type: integer
     label: USB Host Source
+    help: "Currently-selected USB host port (1 = USB-C, 2 = USB-B)."
 
 commands:
 

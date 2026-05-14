@@ -25,7 +25,7 @@ id: etc_eos
 name: ETC Eos Family Console
 manufacturer: ETC
 category: lighting
-version: 1.2.1
+version: 1.2.2
 author: OpenAVC
 description: >-
   Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2,
@@ -138,27 +138,27 @@ state_variables:
   show_state:
     type: integer
     label: Live / Blind
-    description: 1 = Live, 0 = Blind
+    help: "Editor mode reported by the console: 1 = Live, 0 = Blind."
   command_line:
     type: string
     label: Command Line
-    description: Current command-line text on the console
+    help: "Current command-line text on the console (mirrors /eos/out/cmd)."
   active_cue_text:
     type: string
     label: Active Cue
-    description: Description of the currently running cue
+    help: "Description of the currently running cue (list/cue/label string)."
   pending_cue_text:
     type: string
     label: Pending Cue
-    description: Description of the next cue
+    help: "Description of the next cue queued to fire."
   active_cue_percent:
     type: number
     label: Active Cue Progress
-    description: 0.0 to 1.0, fraction of the active cue's fade time elapsed
+    help: "Fraction of the active cue's fade time elapsed, 0.0–1.0."
   wheel_mode:
     type: number
     label: Wheel Mode
-    description: 0 = coarse, 1 = fine
+    help: "Encoder wheel resolution: 0 = coarse, 1 = fine."
 
 commands:
   # ── Raw command line (most powerful — covers everything) ──

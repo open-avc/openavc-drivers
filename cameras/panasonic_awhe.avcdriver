@@ -40,7 +40,7 @@ id: panasonic_awhe
 name: Panasonic AW-HE/UE/UN PTZ Camera
 manufacturer: Panasonic
 category: camera
-version: 1.1.2
+version: 1.1.3
 author: OpenAVC
 description: >
   Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras
@@ -182,52 +182,59 @@ state_variables:
   power:
     type: integer
     label: Power
-    description: "0 = standby, 1 = on, 3 = transitioning"
+    help: "Power state from #O / p? — 0 = standby, 1 = on, 3 = transitioning."
   pan_position:
     type: string
     label: Pan Position (hex)
-    description: "0000h = ccw limit, 8000h = center, FFFFh = cw limit (4-char uppercase hex)"
+    help: "Current pan position as 4-char uppercase hex (#APC) — 0000h = ccw limit, 8000h = center, FFFFh = cw limit."
   tilt_position:
     type: string
     label: Tilt Position (hex)
-    description: "0000h = up limit, 8000h = center, FFFFh = down limit (4-char uppercase hex)"
+    help: "Current tilt position as 4-char uppercase hex (#APC) — 0000h = up limit, 8000h = center, FFFFh = down limit."
   zoom_position:
     type: string
     label: Zoom Position (hex)
-    description: "555h = wide, FFFh = tele (3-char uppercase hex)"
+    help: "Current zoom position as 3-char uppercase hex (#GZ) — 555h = wide, FFFh = tele."
   focus_position:
     type: string
     label: Focus Position (hex)
-    description: "555h = near, FFFh = far (3-char uppercase hex)"
+    help: "Current focus position as 3-char uppercase hex (#GF) — 555h = near, FFFh = far."
   focus_auto:
     type: boolean
     label: Auto Focus
+    help: "Auto-focus state from #D1 / d1 (true = auto, false = manual)."
   iris_position:
     type: string
     label: Iris Position (hex)
-    description: "555h = closed, FFFh = open (3-char uppercase hex)"
+    help: "Current iris position as 3-char uppercase hex (#GI) — 555h = closed, FFFh = open."
   iris_auto:
     type: boolean
     label: Auto Iris
+    help: "Auto-iris state from #D3 / d3 (true = auto, false = manual)."
   preset_last:
     type: integer
     label: Last Preset Recalled (1..100)
+    help: "Index (1–100) of the most recent preset recalled via #R / s."
   preset_speed:
     type: integer
     label: Preset Speed (250..999 / 1..63)
-    description: "AW-HE40/50/60/70/120/130/HR140: 250 = slowest, 999 = fastest. AW-UE150 in time mode: 1..63 seconds."
+    help: "Preset recall speed. AW-HE40/50/60/70/120/130/HR140: 250 = slowest, 999 = fastest. AW-UE150 in time mode: 1–63 seconds."
   r_tally:
     type: boolean
     label: Red Tally
+    help: "Red tally lamp state reported by #DA (true = on)."
   tally_input_enabled:
     type: boolean
     label: Tally Input Enable
+    help: "Tally input enable flag from #TLR (true = external tally accepted)."
   wireless_remote_enabled:
     type: boolean
     label: Wireless Remote Enable
+    help: "Wireless remote-control receiver enable flag from #WLC."
   zoom_linked_pt_speed:
     type: boolean
     label: Zoom-Linked PT Speed
+    help: "Zoom-linked pan/tilt speed mode from #LPC (true = pan/tilt slows automatically at high zoom)."
 
 # All commands are HTTP GET to /cgi-bin/aw_ptz?cmd=<cmd>&res=1.
 # The leading "#" of each command is URL-encoded as %23.

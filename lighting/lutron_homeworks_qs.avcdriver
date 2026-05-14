@@ -52,7 +52,7 @@ id: lutron_homeworks_qs
 name: Lutron HomeWorks QS
 manufacturer: Lutron
 category: lighting
-version: 1.2.1
+version: 1.2.2
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -191,6 +191,7 @@ state_variables:
   last_output_level:
     type: number
     label: Last Output Level (%)
+    help: Level (0-100%) from the most recent ~OUTPUT response.
   last_device_id:
     type: integer
     label: Last Device ID
@@ -210,19 +211,24 @@ state_variables:
   last_area_id:
     type: integer
     label: Last Area ID
+    help: Integration ID of the most recent ~AREA occupancy event.
   last_area_occupancy:
     type: enum
     values: ["unknown", "inactive", "occupied", "unoccupied"]
     label: Last Area Occupancy
+    help: Occupancy status from the most recent ~AREA,_,8 event (occupancy mode).
   last_shadegrp_id:
     type: integer
     label: Last Shade Group ID
+    help: Integration ID of the most recent ~SHADEGRP response.
   last_shadegrp_level:
     type: number
     label: Last Shade Group Level (%)
+    help: Level (0-100%) from the most recent ~SHADEGRP level response.
   last_shadegrp_preset:
     type: integer
     label: Last Shade Group Preset
+    help: Preset index from the most recent ~SHADEGRP preset event.
 
 commands:
 

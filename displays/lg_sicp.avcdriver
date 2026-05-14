@@ -19,7 +19,7 @@ id: lg_sicp
 name: LG SICP Display
 manufacturer: LG
 category: display
-version: 1.4.2
+version: 1.4.3
 author: OpenAVC
 description: >
   Controls LG commercial displays via SICP over TCP (port 9761).
@@ -107,18 +107,23 @@ state_variables:
     type: enum
     values: ["off", "on"]
     label: Power State
+    help: "Display power state — 'on' when the panel is powered, 'off' in standby."
   input:
     type: string
     label: Input Source
+    help: "Active input source reported by the display (HDMI 1, HDMI 2, DisplayPort, etc.)."
   volume:
     type: integer
     label: Volume
+    help: "Audio volume on a 0–100 scale."
   mute:
     type: boolean
     label: Audio Mute
+    help: "True when the audio output is muted."
   screen_mute:
     type: boolean
     label: Screen Mute
+    help: "True when the screen image is blanked (backlight on, content hidden)."
 
 commands:
   power_on:

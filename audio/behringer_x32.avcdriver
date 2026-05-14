@@ -20,7 +20,7 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.5.2
+version: 1.5.3
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
@@ -94,17 +94,21 @@ state_variables:
   console_model:
     type: string
     label: Console Model
+    help: "Console model string reported by /info."
   firmware_version:
     type: string
     label: Firmware Version
+    help: "Console firmware version reported by /info."
 
   # Scene/show
   current_scene:
     type: integer
     label: Current Scene
+    help: "Index of the currently-loaded scene."
   show_name:
     type: string
     label: Show Name
+    help: "Display name of the currently-loaded show."
 
   # ── Input Channels 1-32 ──
   ch01_fader:
@@ -112,353 +116,449 @@ state_variables:
     label: Ch 01 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 1 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch01_mute:
     type: boolean
     label: Ch 01 Mute
+    help: "True when input channel 1 is muted."
   ch01_name:
     type: string
     label: Ch 01 Name
+    help: "Display name for input channel 1."
   ch02_fader:
     type: number
     label: Ch 02 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 2 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch02_mute:
     type: boolean
     label: Ch 02 Mute
+    help: "True when input channel 2 is muted."
   ch02_name:
     type: string
     label: Ch 02 Name
+    help: "Display name for input channel 2."
   ch03_fader:
     type: number
     label: Ch 03 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 3 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch03_mute:
     type: boolean
     label: Ch 03 Mute
+    help: "True when input channel 3 is muted."
   ch03_name:
     type: string
     label: Ch 03 Name
+    help: "Display name for input channel 3."
   ch04_fader:
     type: number
     label: Ch 04 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 4 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch04_mute:
     type: boolean
     label: Ch 04 Mute
+    help: "True when input channel 4 is muted."
   ch04_name:
     type: string
     label: Ch 04 Name
+    help: "Display name for input channel 4."
   ch05_fader:
     type: number
     label: Ch 05 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 5 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch05_mute:
     type: boolean
     label: Ch 05 Mute
+    help: "True when input channel 5 is muted."
   ch05_name:
     type: string
     label: Ch 05 Name
+    help: "Display name for input channel 5."
   ch06_fader:
     type: number
     label: Ch 06 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 6 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch06_mute:
     type: boolean
     label: Ch 06 Mute
+    help: "True when input channel 6 is muted."
   ch06_name:
     type: string
     label: Ch 06 Name
+    help: "Display name for input channel 6."
   ch07_fader:
     type: number
     label: Ch 07 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 7 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch07_mute:
     type: boolean
     label: Ch 07 Mute
+    help: "True when input channel 7 is muted."
   ch07_name:
     type: string
     label: Ch 07 Name
+    help: "Display name for input channel 7."
   ch08_fader:
     type: number
     label: Ch 08 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 8 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch08_mute:
     type: boolean
     label: Ch 08 Mute
+    help: "True when input channel 8 is muted."
   ch08_name:
     type: string
     label: Ch 08 Name
+    help: "Display name for input channel 8."
   ch09_fader:
     type: number
     label: Ch 09 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 9 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch09_mute:
     type: boolean
     label: Ch 09 Mute
+    help: "True when input channel 9 is muted."
   ch09_name:
     type: string
     label: Ch 09 Name
+    help: "Display name for input channel 9."
   ch10_fader:
     type: number
     label: Ch 10 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 10 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch10_mute:
     type: boolean
     label: Ch 10 Mute
+    help: "True when input channel 10 is muted."
   ch10_name:
     type: string
     label: Ch 10 Name
+    help: "Display name for input channel 10."
   ch11_fader:
     type: number
     label: Ch 11 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 11 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch11_mute:
     type: boolean
     label: Ch 11 Mute
+    help: "True when input channel 11 is muted."
   ch11_name:
     type: string
     label: Ch 11 Name
+    help: "Display name for input channel 11."
   ch12_fader:
     type: number
     label: Ch 12 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 12 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch12_mute:
     type: boolean
     label: Ch 12 Mute
+    help: "True when input channel 12 is muted."
   ch12_name:
     type: string
     label: Ch 12 Name
+    help: "Display name for input channel 12."
   ch13_fader:
     type: number
     label: Ch 13 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 13 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch13_mute:
     type: boolean
     label: Ch 13 Mute
+    help: "True when input channel 13 is muted."
   ch13_name:
     type: string
     label: Ch 13 Name
+    help: "Display name for input channel 13."
   ch14_fader:
     type: number
     label: Ch 14 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 14 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch14_mute:
     type: boolean
     label: Ch 14 Mute
+    help: "True when input channel 14 is muted."
   ch14_name:
     type: string
     label: Ch 14 Name
+    help: "Display name for input channel 14."
   ch15_fader:
     type: number
     label: Ch 15 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 15 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch15_mute:
     type: boolean
     label: Ch 15 Mute
+    help: "True when input channel 15 is muted."
   ch15_name:
     type: string
     label: Ch 15 Name
+    help: "Display name for input channel 15."
   ch16_fader:
     type: number
     label: Ch 16 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 16 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch16_mute:
     type: boolean
     label: Ch 16 Mute
+    help: "True when input channel 16 is muted."
   ch16_name:
     type: string
     label: Ch 16 Name
+    help: "Display name for input channel 16."
   ch17_fader:
     type: number
     label: Ch 17 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 17 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch17_mute:
     type: boolean
     label: Ch 17 Mute
+    help: "True when input channel 17 is muted."
   ch17_name:
     type: string
     label: Ch 17 Name
+    help: "Display name for input channel 17."
   ch18_fader:
     type: number
     label: Ch 18 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 18 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch18_mute:
     type: boolean
     label: Ch 18 Mute
+    help: "True when input channel 18 is muted."
   ch18_name:
     type: string
     label: Ch 18 Name
+    help: "Display name for input channel 18."
   ch19_fader:
     type: number
     label: Ch 19 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 19 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch19_mute:
     type: boolean
     label: Ch 19 Mute
+    help: "True when input channel 19 is muted."
   ch19_name:
     type: string
     label: Ch 19 Name
+    help: "Display name for input channel 19."
   ch20_fader:
     type: number
     label: Ch 20 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 20 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch20_mute:
     type: boolean
     label: Ch 20 Mute
+    help: "True when input channel 20 is muted."
   ch20_name:
     type: string
     label: Ch 20 Name
+    help: "Display name for input channel 20."
   ch21_fader:
     type: number
     label: Ch 21 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 21 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch21_mute:
     type: boolean
     label: Ch 21 Mute
+    help: "True when input channel 21 is muted."
   ch21_name:
     type: string
     label: Ch 21 Name
+    help: "Display name for input channel 21."
   ch22_fader:
     type: number
     label: Ch 22 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 22 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch22_mute:
     type: boolean
     label: Ch 22 Mute
+    help: "True when input channel 22 is muted."
   ch22_name:
     type: string
     label: Ch 22 Name
+    help: "Display name for input channel 22."
   ch23_fader:
     type: number
     label: Ch 23 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 23 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch23_mute:
     type: boolean
     label: Ch 23 Mute
+    help: "True when input channel 23 is muted."
   ch23_name:
     type: string
     label: Ch 23 Name
+    help: "Display name for input channel 23."
   ch24_fader:
     type: number
     label: Ch 24 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 24 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch24_mute:
     type: boolean
     label: Ch 24 Mute
+    help: "True when input channel 24 is muted."
   ch24_name:
     type: string
     label: Ch 24 Name
+    help: "Display name for input channel 24."
   ch25_fader:
     type: number
     label: Ch 25 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 25 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch25_mute:
     type: boolean
     label: Ch 25 Mute
+    help: "True when input channel 25 is muted."
   ch25_name:
     type: string
     label: Ch 25 Name
+    help: "Display name for input channel 25."
   ch26_fader:
     type: number
     label: Ch 26 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 26 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch26_mute:
     type: boolean
     label: Ch 26 Mute
+    help: "True when input channel 26 is muted."
   ch26_name:
     type: string
     label: Ch 26 Name
+    help: "Display name for input channel 26."
   ch27_fader:
     type: number
     label: Ch 27 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 27 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch27_mute:
     type: boolean
     label: Ch 27 Mute
+    help: "True when input channel 27 is muted."
   ch27_name:
     type: string
     label: Ch 27 Name
+    help: "Display name for input channel 27."
   ch28_fader:
     type: number
     label: Ch 28 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 28 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch28_mute:
     type: boolean
     label: Ch 28 Mute
+    help: "True when input channel 28 is muted."
   ch28_name:
     type: string
     label: Ch 28 Name
+    help: "Display name for input channel 28."
   ch29_fader:
     type: number
     label: Ch 29 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 29 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch29_mute:
     type: boolean
     label: Ch 29 Mute
+    help: "True when input channel 29 is muted."
   ch29_name:
     type: string
     label: Ch 29 Name
+    help: "Display name for input channel 29."
   ch30_fader:
     type: number
     label: Ch 30 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 30 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch30_mute:
     type: boolean
     label: Ch 30 Mute
+    help: "True when input channel 30 is muted."
   ch30_name:
     type: string
     label: Ch 30 Name
+    help: "Display name for input channel 30."
   ch31_fader:
     type: number
     label: Ch 31 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 31 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch31_mute:
     type: boolean
     label: Ch 31 Mute
+    help: "True when input channel 31 is muted."
   ch31_name:
     type: string
     label: Ch 31 Name
+    help: "Display name for input channel 31."
   ch32_fader:
     type: number
     label: Ch 32 Fader
     min: 0
     max: 1
+    help: "Fader level for input channel 32 (0.0 = -inf dB, 1.0 = +10 dB)."
   ch32_mute:
     type: boolean
     label: Ch 32 Mute
+    help: "True when input channel 32 is muted."
   ch32_name:
     type: string
     label: Ch 32 Name
+    help: "Display name for input channel 32."
 
   # ── Mix Buses 1-16 ──
   bus01_fader:
@@ -466,129 +566,161 @@ state_variables:
     label: Bus 01 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 1 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus01_mute:
     type: boolean
     label: Bus 01 Mute
+    help: "True when mix bus 1 is muted."
   bus02_fader:
     type: number
     label: Bus 02 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 2 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus02_mute:
     type: boolean
     label: Bus 02 Mute
+    help: "True when mix bus 2 is muted."
   bus03_fader:
     type: number
     label: Bus 03 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 3 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus03_mute:
     type: boolean
     label: Bus 03 Mute
+    help: "True when mix bus 3 is muted."
   bus04_fader:
     type: number
     label: Bus 04 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 4 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus04_mute:
     type: boolean
     label: Bus 04 Mute
+    help: "True when mix bus 4 is muted."
   bus05_fader:
     type: number
     label: Bus 05 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 5 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus05_mute:
     type: boolean
     label: Bus 05 Mute
+    help: "True when mix bus 5 is muted."
   bus06_fader:
     type: number
     label: Bus 06 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 6 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus06_mute:
     type: boolean
     label: Bus 06 Mute
+    help: "True when mix bus 6 is muted."
   bus07_fader:
     type: number
     label: Bus 07 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 7 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus07_mute:
     type: boolean
     label: Bus 07 Mute
+    help: "True when mix bus 7 is muted."
   bus08_fader:
     type: number
     label: Bus 08 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 8 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus08_mute:
     type: boolean
     label: Bus 08 Mute
+    help: "True when mix bus 8 is muted."
   bus09_fader:
     type: number
     label: Bus 09 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 9 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus09_mute:
     type: boolean
     label: Bus 09 Mute
+    help: "True when mix bus 9 is muted."
   bus10_fader:
     type: number
     label: Bus 10 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 10 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus10_mute:
     type: boolean
     label: Bus 10 Mute
+    help: "True when mix bus 10 is muted."
   bus11_fader:
     type: number
     label: Bus 11 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 11 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus11_mute:
     type: boolean
     label: Bus 11 Mute
+    help: "True when mix bus 11 is muted."
   bus12_fader:
     type: number
     label: Bus 12 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 12 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus12_mute:
     type: boolean
     label: Bus 12 Mute
+    help: "True when mix bus 12 is muted."
   bus13_fader:
     type: number
     label: Bus 13 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 13 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus13_mute:
     type: boolean
     label: Bus 13 Mute
+    help: "True when mix bus 13 is muted."
   bus14_fader:
     type: number
     label: Bus 14 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 14 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus14_mute:
     type: boolean
     label: Bus 14 Mute
+    help: "True when mix bus 14 is muted."
   bus15_fader:
     type: number
     label: Bus 15 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 15 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus15_mute:
     type: boolean
     label: Bus 15 Mute
+    help: "True when mix bus 15 is muted."
   bus16_fader:
     type: number
     label: Bus 16 Fader
     min: 0
     max: 1
+    help: "Fader level for mix bus 16 (0.0 = -inf dB, 1.0 = +10 dB)."
   bus16_mute:
     type: boolean
     label: Bus 16 Mute
+    help: "True when mix bus 16 is muted."
 
   # ── Matrices 1-6 ──
   mtx01_fader:
@@ -596,49 +728,61 @@ state_variables:
     label: Matrix 01 Fader
     min: 0
     max: 1
+    help: "Fader level for matrix output 1 (0.0 = -inf dB, 1.0 = +10 dB)."
   mtx01_mute:
     type: boolean
     label: Matrix 01 Mute
+    help: "True when matrix output 1 is muted."
   mtx02_fader:
     type: number
     label: Matrix 02 Fader
     min: 0
     max: 1
+    help: "Fader level for matrix output 2 (0.0 = -inf dB, 1.0 = +10 dB)."
   mtx02_mute:
     type: boolean
     label: Matrix 02 Mute
+    help: "True when matrix output 2 is muted."
   mtx03_fader:
     type: number
     label: Matrix 03 Fader
     min: 0
     max: 1
+    help: "Fader level for matrix output 3 (0.0 = -inf dB, 1.0 = +10 dB)."
   mtx03_mute:
     type: boolean
     label: Matrix 03 Mute
+    help: "True when matrix output 3 is muted."
   mtx04_fader:
     type: number
     label: Matrix 04 Fader
     min: 0
     max: 1
+    help: "Fader level for matrix output 4 (0.0 = -inf dB, 1.0 = +10 dB)."
   mtx04_mute:
     type: boolean
     label: Matrix 04 Mute
+    help: "True when matrix output 4 is muted."
   mtx05_fader:
     type: number
     label: Matrix 05 Fader
     min: 0
     max: 1
+    help: "Fader level for matrix output 5 (0.0 = -inf dB, 1.0 = +10 dB)."
   mtx05_mute:
     type: boolean
     label: Matrix 05 Mute
+    help: "True when matrix output 5 is muted."
   mtx06_fader:
     type: number
     label: Matrix 06 Fader
     min: 0
     max: 1
+    help: "Fader level for matrix output 6 (0.0 = -inf dB, 1.0 = +10 dB)."
   mtx06_mute:
     type: boolean
     label: Matrix 06 Mute
+    help: "True when matrix output 6 is muted."
 
   # ── DCAs 1-8 ──
   dca1_fader:
@@ -646,65 +790,81 @@ state_variables:
     label: DCA 1 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 1 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca1_mute:
     type: boolean
     label: DCA 1 Mute
+    help: "True when DCA group 1 is muted."
   dca2_fader:
     type: number
     label: DCA 2 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 2 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca2_mute:
     type: boolean
     label: DCA 2 Mute
+    help: "True when DCA group 2 is muted."
   dca3_fader:
     type: number
     label: DCA 3 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 3 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca3_mute:
     type: boolean
     label: DCA 3 Mute
+    help: "True when DCA group 3 is muted."
   dca4_fader:
     type: number
     label: DCA 4 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 4 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca4_mute:
     type: boolean
     label: DCA 4 Mute
+    help: "True when DCA group 4 is muted."
   dca5_fader:
     type: number
     label: DCA 5 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 5 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca5_mute:
     type: boolean
     label: DCA 5 Mute
+    help: "True when DCA group 5 is muted."
   dca6_fader:
     type: number
     label: DCA 6 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 6 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca6_mute:
     type: boolean
     label: DCA 6 Mute
+    help: "True when DCA group 6 is muted."
   dca7_fader:
     type: number
     label: DCA 7 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 7 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca7_mute:
     type: boolean
     label: DCA 7 Mute
+    help: "True when DCA group 7 is muted."
   dca8_fader:
     type: number
     label: DCA 8 Fader
     min: 0
     max: 1
+    help: "Fader level for DCA group 8 (0.0 = -inf dB, 1.0 = +10 dB)."
   dca8_mute:
     type: boolean
     label: DCA 8 Mute
+    help: "True when DCA group 8 is muted."
 
   # ── Aux Inputs 1-8 ──
   auxin01_fader:
@@ -712,65 +872,81 @@ state_variables:
     label: Aux In 01 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 1 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin01_mute:
     type: boolean
     label: Aux In 01 Mute
+    help: "True when aux input 1 is muted."
   auxin02_fader:
     type: number
     label: Aux In 02 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 2 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin02_mute:
     type: boolean
     label: Aux In 02 Mute
+    help: "True when aux input 2 is muted."
   auxin03_fader:
     type: number
     label: Aux In 03 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 3 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin03_mute:
     type: boolean
     label: Aux In 03 Mute
+    help: "True when aux input 3 is muted."
   auxin04_fader:
     type: number
     label: Aux In 04 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 4 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin04_mute:
     type: boolean
     label: Aux In 04 Mute
+    help: "True when aux input 4 is muted."
   auxin05_fader:
     type: number
     label: Aux In 05 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 5 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin05_mute:
     type: boolean
     label: Aux In 05 Mute
+    help: "True when aux input 5 is muted."
   auxin06_fader:
     type: number
     label: Aux In 06 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 6 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin06_mute:
     type: boolean
     label: Aux In 06 Mute
+    help: "True when aux input 6 is muted."
   auxin07_fader:
     type: number
     label: Aux In 07 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 7 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin07_mute:
     type: boolean
     label: Aux In 07 Mute
+    help: "True when aux input 7 is muted."
   auxin08_fader:
     type: number
     label: Aux In 08 Fader
     min: 0
     max: 1
+    help: "Fader level for aux input 8 (0.0 = -inf dB, 1.0 = +10 dB)."
   auxin08_mute:
     type: boolean
     label: Aux In 08 Mute
+    help: "True when aux input 8 is muted."
 
   # ── FX Returns 1-8 ──
   fxrtn01_fader:
@@ -778,65 +954,81 @@ state_variables:
     label: FX Return 01 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 1 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn01_mute:
     type: boolean
     label: FX Return 01 Mute
+    help: "True when FX return 1 is muted."
   fxrtn02_fader:
     type: number
     label: FX Return 02 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 2 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn02_mute:
     type: boolean
     label: FX Return 02 Mute
+    help: "True when FX return 2 is muted."
   fxrtn03_fader:
     type: number
     label: FX Return 03 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 3 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn03_mute:
     type: boolean
     label: FX Return 03 Mute
+    help: "True when FX return 3 is muted."
   fxrtn04_fader:
     type: number
     label: FX Return 04 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 4 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn04_mute:
     type: boolean
     label: FX Return 04 Mute
+    help: "True when FX return 4 is muted."
   fxrtn05_fader:
     type: number
     label: FX Return 05 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 5 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn05_mute:
     type: boolean
     label: FX Return 05 Mute
+    help: "True when FX return 5 is muted."
   fxrtn06_fader:
     type: number
     label: FX Return 06 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 6 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn06_mute:
     type: boolean
     label: FX Return 06 Mute
+    help: "True when FX return 6 is muted."
   fxrtn07_fader:
     type: number
     label: FX Return 07 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 7 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn07_mute:
     type: boolean
     label: FX Return 07 Mute
+    help: "True when FX return 7 is muted."
   fxrtn08_fader:
     type: number
     label: FX Return 08 Fader
     min: 0
     max: 1
+    help: "Fader level for FX return 8 (0.0 = -inf dB, 1.0 = +10 dB)."
   fxrtn08_mute:
     type: boolean
     label: FX Return 08 Mute
+    help: "True when FX return 8 is muted."
 
   # ── Main Outputs ──
   main_st_fader:
@@ -844,17 +1036,21 @@ state_variables:
     label: Main Stereo Fader
     min: 0
     max: 1
+    help: "Fader level for the main stereo (LR) output (0.0 = -inf dB, 1.0 = +10 dB)."
   main_st_mute:
     type: boolean
     label: Main Stereo Mute
+    help: "True when the main stereo (LR) output is muted."
   main_m_fader:
     type: number
     label: Main Mono Fader
     min: 0
     max: 1
+    help: "Fader level for the main M (center) output (0.0 = -inf dB, 1.0 = +10 dB)."
   main_m_mute:
     type: boolean
     label: Main Mono Mute
+    help: "True when the main M (center) output is muted."
 
 commands:
   # Subscription renewal (called by polling)

@@ -53,7 +53,7 @@ id: barco_clickshare_cx
 name: Barco ClickShare CX
 manufacturer: Barco
 category: streaming
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 description: >
   Wireless presentation Base Unit control via local REST API V2 (HTTPS,
@@ -197,85 +197,89 @@ state_variables:
   in_use:
     type: boolean
     label: In Use
-    description: "True when at least one source (Button / App) is connected to the Base Unit."
+    help: "True when at least one source (Button or App) is connected to the Base Unit."
   sharing:
     type: boolean
     label: Sharing
-    description: "True when at least one connected source is currently sharing content on the display."
+    help: "True when at least one connected source is currently sharing content on the display."
   current_uptime:
     type: integer
     label: Current Uptime (sec)
-    description: "Seconds since the Base Unit was last booted."
+    help: "Seconds since the Base Unit was last booted."
   total_uptime:
     type: integer
     label: Total Uptime (sec)
-    description: "Total seconds the Base Unit has run across its lifetime."
+    help: "Total seconds the Base Unit has run across its lifetime."
   error_code:
     type: integer
     label: Error Code
-    description: "Health code. 0 = Ok. Non-zero means errorMessage will explain."
+    help: "Health code. 0 = OK; non-zero means errorMessage will explain."
   error_message:
     type: string
     label: Error Message
-    description: "Health message. Empty when the Base Unit is healthy."
+    help: "Health message. Empty when the Base Unit is healthy."
 
   # ── Power management (configuration/system/power-management) ──
   system_status:
     type: string
     label: System Status
-    description: "On / Standby. Reflects the Base Unit's display-output power state."
+    help: "Base Unit display-output power state — On or Standby."
   power_mode:
     type: string
     label: Power Mode
-    description: "EcoStandby / NetworkedStandby / DeepStandby. Set via set_power_mode."
+    help: "Selected standby mode: EcoStandby / NetworkedStandby / DeepStandby (set via set_power_mode)."
   standby_timeout:
     type: string
     label: Standby Timeout (min)
-    description: "Inactivity timeout before standby. 'Infinite' or a numeric string of minutes."
+    help: "Inactivity timeout before entering standby — 'Infinite' or a numeric string of minutes."
 
   # ── Device identity (configuration/system/device-identity) ──
   product_name:
     type: string
     label: Product
-    description: "User-facing model, e.g. CX-30."
+    help: "User-facing model name, e.g. CX-30."
   model_name:
     type: string
     label: Platform
-    description: "Internal platform name, e.g. C3010S."
+    help: "Internal platform name, e.g. C3010S."
   serial_number:
     type: string
     label: Serial Number
+    help: "Base Unit serial number reported by configuration/system/device-identity."
   article_number:
     type: string
     label: Article Number
-    description: "Barco SKU, e.g. R9861511EU."
+    help: "Barco SKU / article number, e.g. R9861511EU."
 
   # ── Audio (configuration/audio) ──
   audio_enabled:
     type: boolean
     label: Audio Enabled
+    help: "True when audio output is enabled on the Base Unit."
   audio_output:
     type: string
     label: Audio Output
-    description: "Selected output: DisplayPort / Jack / HDMI / SPDIF (Base Unit-dependent)."
+    help: "Selected audio output: DisplayPort / Jack / HDMI / SPDIF (Base Unit-dependent)."
 
   # ── Video (configuration/video) ──
   video_mode:
     type: string
     label: Video Mode
-    description: "Extended / Clone — only meaningful on dual-output Base Units."
+    help: "Dual-output behavior — Extended or Clone (only meaningful on dual-output Base Units)."
   cec_enabled:
     type: boolean
     label: CEC Enabled
-    description: "When on, the Base Unit reacts to CEC signals from connected displays."
+    help: "When true, the Base Unit reacts to CEC signals from connected displays."
 
   # ── Wallpaper (configuration/wallpapers/selected) ──
   selected_wallpaper_id:
     type: integer
     label: Wallpaper ID
+    help: "ID of the wallpaper currently selected for display."
   selected_wallpaper_name:
     type: string
     label: Wallpaper Name
+    help: "Display name of the currently-selected wallpaper."
 
 commands:
 

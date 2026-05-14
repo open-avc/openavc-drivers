@@ -41,7 +41,7 @@ id: atlona_omnistream
 name: Atlona OmniStream
 manufacturer: Atlona
 category: switcher
-version: 1.3.2
+version: 1.3.3
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -167,54 +167,71 @@ state_variables:
   device_type:
     type: string
     label: Device Type
+    help: "Device model identifier reported by the `Type` command."
   firmware:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by the `Version` command."
   temperature_c:
     type: number
     label: System Temperature (°C)
+    help: "Internal system temperature in °C, reported by `Temperature`."
   video_active_input_1:
     type: string
     label: HDMI Out 1 — Active Input
+    help: "Name of the IP video source currently routed to HDMI output 1."
   video_active_input_2:
     type: string
     label: HDMI Out 2 — Active Input
+    help: "Name of the IP video source currently routed to HDMI output 2."
   video_active_status_1:
     type: string
     label: HDMI Out 1 — Video Status
+    help: "Video pipeline status text for output 1 (Active / Inactive / No Signal)."
   video_active_status_2:
     type: string
     label: HDMI Out 2 — Video Status
+    help: "Video pipeline status text for output 2."
   audio_active_input_1:
     type: string
     label: HDMI Out 1 — Active Audio Input
+    help: "Name of the IP audio source currently routed to HDMI output 1."
   audio_active_input_2:
     type: string
     label: HDMI Out 2 — Active Audio Input
+    help: "Name of the IP audio source currently routed to HDMI output 2."
   audio_active_status_1:
     type: string
     label: HDMI Out 1 — Audio Status
+    help: "Audio pipeline status text for output 1."
   audio_active_status_2:
     type: string
     label: HDMI Out 2 — Audio Status
+    help: "Audio pipeline status text for output 2."
   audio_mute_1:
     type: boolean
     label: HDMI Out 1 — Audio Mute
+    help: "True when audio output 1 is muted."
   audio_mute_2:
     type: boolean
     label: HDMI Out 2 — Audio Mute
+    help: "True when audio output 2 is muted."
   audio_volume_1:
     type: integer
     label: HDMI Out 1 — Audio Volume (0–15)
+    help: "Audio volume on HDMI output 1 (0–15 step scale)."
   audio_volume_2:
     type: integer
     label: HDMI Out 2 — Audio Volume (0–15)
+    help: "Audio volume on HDMI output 2 (0–15 step scale)."
   analog_power_1:
     type: boolean
     label: HDMI Out 1 — Analog Speaker Power
+    help: "True when the analog speaker output associated with HDMI 1 is powered on."
   analog_power_2:
     type: boolean
     label: HDMI Out 2 — Analog Speaker Power
+    help: "True when the analog speaker output associated with HDMI 2 is powered on."
 
 commands:
 

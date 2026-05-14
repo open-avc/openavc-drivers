@@ -35,7 +35,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 1.3.2
+version: 1.3.3
 author: OpenAVC
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
@@ -115,114 +115,151 @@ state_variables:
   firmware_version:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by the device (g_firmware_version)."
   input_1_level:
     type: number
     label: Input 1 Level
+    help: "Fader level on input 1 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_2_level:
     type: number
     label: Input 2 Level
+    help: "Fader level on input 2 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_3_level:
     type: number
     label: Input 3 Level
+    help: "Fader level on input 3 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_4_level:
     type: number
     label: Input 4 Level
+    help: "Fader level on input 4 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_5_level:
     type: number
     label: Input 5 Level
+    help: "Fader level on input 5 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_6_level:
     type: number
     label: Input 6 Level
+    help: "Fader level on input 6 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_7_level:
     type: number
     label: Input 7 Level
+    help: "Fader level on input 7 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_8_level:
     type: number
     label: Input 8 Level
+    help: "Fader level on input 8 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_9_level:
     type: number
     label: Input 9 Level
+    help: "Fader level on input 9 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_10_level:
     type: number
     label: Input 10 Level
+    help: "Fader level on input 10 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   input_1_mute:
     type: boolean
     label: Input 1 Mute
+    help: "True when input 1 is muted."
   input_2_mute:
     type: boolean
     label: Input 2 Mute
+    help: "True when input 2 is muted."
   input_3_mute:
     type: boolean
     label: Input 3 Mute
+    help: "True when input 3 is muted."
   input_4_mute:
     type: boolean
     label: Input 4 Mute
+    help: "True when input 4 is muted."
   input_5_mute:
     type: boolean
     label: Input 5 Mute
+    help: "True when input 5 is muted."
   input_6_mute:
     type: boolean
     label: Input 6 Mute
+    help: "True when input 6 is muted."
   input_7_mute:
     type: boolean
     label: Input 7 Mute
+    help: "True when input 7 is muted."
   input_8_mute:
     type: boolean
     label: Input 8 Mute
+    help: "True when input 8 is muted."
   input_9_mute:
     type: boolean
     label: Input 9 Mute
+    help: "True when input 9 is muted."
   input_10_mute:
     type: boolean
     label: Input 10 Mute
+    help: "True when input 10 is muted."
   output_1_level:
     type: number
     label: Output 1 Level
+    help: "Fader level on output 1 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_2_level:
     type: number
     label: Output 2 Level
+    help: "Fader level on output 2 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_3_level:
     type: number
     label: Output 3 Level
+    help: "Fader level on output 3 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_4_level:
     type: number
     label: Output 4 Level
+    help: "Fader level on output 4 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_5_level:
     type: number
     label: Output 5 Level
+    help: "Fader level on output 5 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_6_level:
     type: number
     label: Output 6 Level
+    help: "Fader level on output 6 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_7_level:
     type: number
     label: Output 7 Level
+    help: "Fader level on output 7 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_8_level:
     type: number
     label: Output 8 Level
+    help: "Fader level on output 8 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_1_mute:
     type: boolean
     label: Output 1 Mute
+    help: "True when output 1 is muted."
   output_2_mute:
     type: boolean
     label: Output 2 Mute
+    help: "True when output 2 is muted."
   output_3_mute:
     type: boolean
     label: Output 3 Mute
+    help: "True when output 3 is muted."
   output_4_mute:
     type: boolean
     label: Output 4 Mute
+    help: "True when output 4 is muted."
   output_5_mute:
     type: boolean
     label: Output 5 Mute
+    help: "True when output 5 is muted."
   output_6_mute:
     type: boolean
     label: Output 6 Mute
+    help: "True when output 6 is muted."
   output_7_mute:
     type: boolean
     label: Output 7 Mute
+    help: "True when output 7 is muted."
   output_8_mute:
     type: boolean
     label: Output 8 Mute
+    help: "True when output 8 is muted."
 
 commands:
   # ── Input Level Control (short commands) ──

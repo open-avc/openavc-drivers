@@ -49,7 +49,7 @@ id: yamaha_mtx_mrx
 name: Yamaha MTX/MRX/XMV
 manufacturer: Yamaha
 category: audio
-version: 1.1.2
+version: 1.1.3
 author: OpenAVC
 description: >
   Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the
@@ -188,244 +188,324 @@ state_variables:
   device_runmode:
     type: string
     label: Run Mode
+    help: "Operating mode from devstatus runmode (e.g. Normal, Emergency)."
   device_error:
     type: string
     label: Last Alert
+    help: "Most recent alert/error string reported by the device."
   device_fs:
     type: string
     label: Sample Rate
+    help: "Current internal sample rate reported by devstatus fs (e.g. 48k, 96k)."
   device_lockstatus:
     type: string
     label: Word Clock Status
+    help: "Word-clock lock status reported by devstatus lockstatus (e.g. Locked, Unlocked)."
   protocol_version:
     type: string
     label: RCP Protocol Version
+    help: "RCP protocol version string reported by the device."
   firmware_version:
     type: string
     label: Firmware Version
+    help: "Firmware version string reported by devinfo version."
   product_name:
     type: string
     label: Product Name
+    help: "Product/model name string reported by devinfo productname."
   serial_number:
     type: string
     label: Serial Number
+    help: "Device serial number reported by devinfo serialno."
   device_id:
     type: string
     label: Unit ID
+    help: "Unit ID reported by devinfo deviceid."
   device_name:
     type: string
     label: Device Name
+    help: "Custom device name reported by devinfo devicename."
   current_preset:
     type: number
     label: Current Preset Index
+    help: "Index of the currently-loaded RCP preset."
   current_snapshot:
     type: number
     label: Current Snapshot Index (MRX7-D)
+    help: "Index of the currently-loaded snapshot (MRX7-D only)."
   scheduler_enabled:
     type: boolean
     label: Scheduler Enabled
+    help: "True when the internal RCP scheduler is enabled."
   last_param_address:
     type: string
     label: Last Raw Parameter Address
+    help: "Address of the most recent raw RCP parameter set or queried via raw_rcp."
   last_param_value:
     type: string
     label: Last Raw Parameter Value
+    help: "Raw value associated with last_param_address."
   last_param_string:
     type: string
     label: Last Raw Parameter String
+    help: "Display string associated with last_param_address."
 
   index_1:
     type: number
     label: "Index 1 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 1 (set via set_index / query_index)."
   index_1_string:
     type: string
     label: "Index 1 \u2014 Display Value"
+    help: "Display string for parameter index slot 1."
   index_2:
     type: number
     label: "Index 2 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 2 (set via set_index / query_index)."
   index_2_string:
     type: string
     label: "Index 2 \u2014 Display Value"
+    help: "Display string for parameter index slot 2."
   index_3:
     type: number
     label: "Index 3 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 3 (set via set_index / query_index)."
   index_3_string:
     type: string
     label: "Index 3 \u2014 Display Value"
+    help: "Display string for parameter index slot 3."
   index_4:
     type: number
     label: "Index 4 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 4 (set via set_index / query_index)."
   index_4_string:
     type: string
     label: "Index 4 \u2014 Display Value"
+    help: "Display string for parameter index slot 4."
   index_5:
     type: number
     label: "Index 5 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 5 (set via set_index / query_index)."
   index_5_string:
     type: string
     label: "Index 5 \u2014 Display Value"
+    help: "Display string for parameter index slot 5."
   index_6:
     type: number
     label: "Index 6 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 6 (set via set_index / query_index)."
   index_6_string:
     type: string
     label: "Index 6 \u2014 Display Value"
+    help: "Display string for parameter index slot 6."
   index_7:
     type: number
     label: "Index 7 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 7 (set via set_index / query_index)."
   index_7_string:
     type: string
     label: "Index 7 \u2014 Display Value"
+    help: "Display string for parameter index slot 7."
   index_8:
     type: number
     label: "Index 8 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 8 (set via set_index / query_index)."
   index_8_string:
     type: string
     label: "Index 8 \u2014 Display Value"
+    help: "Display string for parameter index slot 8."
   index_9:
     type: number
     label: "Index 9 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 9 (set via set_index / query_index)."
   index_9_string:
     type: string
     label: "Index 9 \u2014 Display Value"
+    help: "Display string for parameter index slot 9."
   index_10:
     type: number
     label: "Index 10 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 10 (set via set_index / query_index)."
   index_10_string:
     type: string
     label: "Index 10 \u2014 Display Value"
+    help: "Display string for parameter index slot 10."
   index_11:
     type: number
     label: "Index 11 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 11 (set via set_index / query_index)."
   index_11_string:
     type: string
     label: "Index 11 \u2014 Display Value"
+    help: "Display string for parameter index slot 11."
   index_12:
     type: number
     label: "Index 12 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 12 (set via set_index / query_index)."
   index_12_string:
     type: string
     label: "Index 12 \u2014 Display Value"
+    help: "Display string for parameter index slot 12."
   index_13:
     type: number
     label: "Index 13 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 13 (set via set_index / query_index)."
   index_13_string:
     type: string
     label: "Index 13 \u2014 Display Value"
+    help: "Display string for parameter index slot 13."
   index_14:
     type: number
     label: "Index 14 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 14 (set via set_index / query_index)."
   index_14_string:
     type: string
     label: "Index 14 \u2014 Display Value"
+    help: "Display string for parameter index slot 14."
   index_15:
     type: number
     label: "Index 15 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 15 (set via set_index / query_index)."
   index_15_string:
     type: string
     label: "Index 15 \u2014 Display Value"
+    help: "Display string for parameter index slot 15."
   index_16:
     type: number
     label: "Index 16 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 16 (set via set_index / query_index)."
   index_16_string:
     type: string
     label: "Index 16 \u2014 Display Value"
+    help: "Display string for parameter index slot 16."
   index_17:
     type: number
     label: "Index 17 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 17 (set via set_index / query_index)."
   index_17_string:
     type: string
     label: "Index 17 \u2014 Display Value"
+    help: "Display string for parameter index slot 17."
   index_18:
     type: number
     label: "Index 18 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 18 (set via set_index / query_index)."
   index_18_string:
     type: string
     label: "Index 18 \u2014 Display Value"
+    help: "Display string for parameter index slot 18."
   index_19:
     type: number
     label: "Index 19 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 19 (set via set_index / query_index)."
   index_19_string:
     type: string
     label: "Index 19 \u2014 Display Value"
+    help: "Display string for parameter index slot 19."
   index_20:
     type: number
     label: "Index 20 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 20 (set via set_index / query_index)."
   index_20_string:
     type: string
     label: "Index 20 \u2014 Display Value"
+    help: "Display string for parameter index slot 20."
   index_21:
     type: number
     label: "Index 21 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 21 (set via set_index / query_index)."
   index_21_string:
     type: string
     label: "Index 21 \u2014 Display Value"
+    help: "Display string for parameter index slot 21."
   index_22:
     type: number
     label: "Index 22 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 22 (set via set_index / query_index)."
   index_22_string:
     type: string
     label: "Index 22 \u2014 Display Value"
+    help: "Display string for parameter index slot 22."
   index_23:
     type: number
     label: "Index 23 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 23 (set via set_index / query_index)."
   index_23_string:
     type: string
     label: "Index 23 \u2014 Display Value"
+    help: "Display string for parameter index slot 23."
   index_24:
     type: number
     label: "Index 24 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 24 (set via set_index / query_index)."
   index_24_string:
     type: string
     label: "Index 24 \u2014 Display Value"
+    help: "Display string for parameter index slot 24."
   index_25:
     type: number
     label: "Index 25 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 25 (set via set_index / query_index)."
   index_25_string:
     type: string
     label: "Index 25 \u2014 Display Value"
+    help: "Display string for parameter index slot 25."
   index_26:
     type: number
     label: "Index 26 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 26 (set via set_index / query_index)."
   index_26_string:
     type: string
     label: "Index 26 \u2014 Display Value"
+    help: "Display string for parameter index slot 26."
   index_27:
     type: number
     label: "Index 27 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 27 (set via set_index / query_index)."
   index_27_string:
     type: string
     label: "Index 27 \u2014 Display Value"
+    help: "Display string for parameter index slot 27."
   index_28:
     type: number
     label: "Index 28 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 28 (set via set_index / query_index)."
   index_28_string:
     type: string
     label: "Index 28 \u2014 Display Value"
+    help: "Display string for parameter index slot 28."
   index_29:
     type: number
     label: "Index 29 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 29 (set via set_index / query_index)."
   index_29_string:
     type: string
     label: "Index 29 \u2014 Display Value"
+    help: "Display string for parameter index slot 29."
   index_30:
     type: number
     label: "Index 30 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 30 (set via set_index / query_index)."
   index_30_string:
     type: string
     label: "Index 30 \u2014 Display Value"
+    help: "Display string for parameter index slot 30."
   index_31:
     type: number
     label: "Index 31 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 31 (set via set_index / query_index)."
   index_31_string:
     type: string
     label: "Index 31 \u2014 Display Value"
+    help: "Display string for parameter index slot 31."
   index_32:
     type: number
     label: "Index 32 \u2014 Raw Value"
+    help: "Raw numeric value of parameter index slot 32 (set via set_index / query_index)."
   index_32_string:
     type: string
     label: "Index 32 \u2014 Display Value"
+    help: "Display string for parameter index slot 32."
 
 on_connect:
   - "devstatus runmode\n"

@@ -159,7 +159,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.1.2",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "description": (
             "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP "
@@ -886,34 +886,48 @@ class AVerPTZDriver(BaseDriver):
     # ── HTTP helpers ──
 
     async def _cgi(self, cmd: str) -> str | None:
-        """Fire a /storks?cmd=<cmd> GET. Returns response text or None."""
+        """Fire a /storks?cmd=<cmd> GET. Returns response text or None.
+
+        Propagates transport-level errors as ConnectionError so the
+        BaseDriver watchdog can flip device.<id>.connected to False
+        when the camera is unreachable.
+        """
         if not self._http:
             return None
         try:
             resp = await self._http.get(f"/storks?cmd={cmd}")
-            if resp.status_code == 200:
-                return resp.text
-            log.debug(
-                f"[{self.device_id}] CGI '{cmd}' status={resp.status_code}"
-            )
-            return None
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError) as e:
-            log.warning(f"[{self.device_id}] CGI '{cmd}' error: {e}")
-            return None
+        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            raise ConnectionError(
+                f"AVer camera at {self._base_url} not responding: {exc}"
+            ) from exc
+        if resp.status_code == 200:
+            return resp.text
+        log.debug(
+            f"[{self.device_id}] CGI '{cmd}' status={resp.status_code}"
+        )
+        return None
 
     async def _cgi_post(self, cmd: str) -> str | None:
         if not self._http:
             return None
         try:
             resp = await self._http.post(f"/storks?cmd={cmd}")
-            if resp.status_code == 200:
-                return resp.text
-            return None
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPError):
-            return None
+        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            raise ConnectionError(
+                f"AVer camera at {self._base_url} not responding: {exc}"
+            ) from exc
+        if resp.status_code == 200:
+            return resp.text
+        return None
 
     async def _http_get_sys_stat(self) -> bool:
-        text = await self._cgi("get_sys_stat")
+        # Catch ConnectionError so connect() can use the False return to
+        # decide whether to bail. poll() does not call this; it calls
+        # _cgi directly, so transport errors propagate up to the watchdog.
+        try:
+            text = await self._cgi("get_sys_stat")
+        except ConnectionError:
+            return False
         if text is None:
             return False
         for pair in text.split(";"):

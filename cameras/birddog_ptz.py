@@ -111,7 +111,7 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.3.2",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
@@ -672,8 +672,10 @@ class BirdDogPTZDriver(BaseDriver):
             if wb:
                 self.set_state("wb_mode", wb.get("WBMode", ""))
 
-        except (httpx.ConnectError, httpx.TimeoutException):
-            log.warning(f"[{self.device_id}] Poll failed — camera not responding")
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            raise ConnectionError(
+                f"BirdDog camera at {self._base_url} not responding: {exc}"
+            ) from exc
         except Exception:
             log.exception(f"[{self.device_id}] Poll error")
 
@@ -690,35 +692,29 @@ class BirdDogPTZDriver(BaseDriver):
         self._visca_transport.sendto(packet)
 
     async def _api_get(self, endpoint: str) -> dict | None:
-        """Send a GET request to the BirdDog REST API."""
+        """Send a GET request to the BirdDog REST API.
+
+        Transport errors propagate so the BaseDriver watchdog can react.
+        """
         if not self._client:
             return None
-        try:
-            resp = await self._client.get(f"/{endpoint}")
-            if resp.status_code == 200:
-                return resp.json()
-            return None
-        except (httpx.TimeoutException, httpx.ConnectError):
-            return None
-        except Exception as e:
-            log.warning(f"[{self.device_id}] GET /{endpoint} error: {e}")
-            return None
+        resp = await self._client.get(f"/{endpoint}")
+        if resp.status_code == 200:
+            return resp.json()
+        return None
 
     async def _api_post(self, endpoint: str, body: dict) -> dict | None:
-        """Send a POST request to the BirdDog REST API."""
+        """Send a POST request to the BirdDog REST API.
+
+        Transport errors propagate so the BaseDriver watchdog can react.
+        """
         if not self._client:
             return None
-        try:
-            resp = await self._client.post(
-                f"/{endpoint}",
-                json=body,
-                headers={"Content-Type": "application/json"},
-            )
-            if resp.status_code == 200 and resp.text:
-                return resp.json()
-            return None
-        except (httpx.TimeoutException, httpx.ConnectError):
-            return None
-        except Exception as e:
-            log.warning(f"[{self.device_id}] POST /{endpoint} error: {e}")
-            return None
+        resp = await self._client.post(
+            f"/{endpoint}",
+            json=body,
+            headers={"Content-Type": "application/json"},
+        )
+        if resp.status_code == 200 and resp.text:
+            return resp.json()
+        return None

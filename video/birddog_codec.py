@@ -48,7 +48,7 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.3.2",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
@@ -367,14 +367,20 @@ class BirdDogCodecDriver(BaseDriver):
                 raise ValueError(f"Unknown device setting: {key}")
 
     async def poll(self) -> None:
-        """Query device status."""
+        """Query device status.
+
+        Transport errors propagate so the BaseDriver watchdog can flip
+        device.<id>.connected to False.
+        """
         if not self._client:
             return
 
         try:
             await self._refresh_state()
-        except (httpx.ConnectError, httpx.TimeoutException):
-            log.warning(f"[{self.device_id}] Poll failed — device not responding")
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            raise ConnectionError(
+                f"BirdDog codec at {self._base_url} not responding: {exc}"
+            ) from exc
         except Exception:
             log.exception(f"[{self.device_id}] Poll error")
 
@@ -430,50 +436,41 @@ class BirdDogCodecDriver(BaseDriver):
         log.info(f"[{self.device_id}] Switched to source: {new_source}")
 
     async def _api_get(self, endpoint: str) -> dict | None:
-        """Send a GET request, return parsed JSON."""
+        """Send a GET request, return parsed JSON.
+
+        Transport errors propagate so the BaseDriver watchdog can react.
+        """
         if not self._client:
             return None
-        try:
-            resp = await self._client.get(f"/{endpoint}")
-            if resp.status_code == 200:
-                return resp.json()
-            return None
-        except (httpx.TimeoutException, httpx.ConnectError):
-            return None
-        except Exception as e:
-            log.warning(f"[{self.device_id}] GET /{endpoint} error: {e}")
-            return None
+        resp = await self._client.get(f"/{endpoint}")
+        if resp.status_code == 200:
+            return resp.json()
+        return None
 
     async def _api_get_text(self, endpoint: str) -> str | None:
-        """Send a GET request, return raw text (for endpoints that return plain text)."""
+        """Send a GET request, return raw text.
+
+        Transport errors propagate so the BaseDriver watchdog can react.
+        """
         if not self._client:
             return None
-        try:
-            resp = await self._client.get(f"/{endpoint}")
-            if resp.status_code == 200:
-                return resp.text
-            return None
-        except (httpx.TimeoutException, httpx.ConnectError):
-            return None
-        except Exception as e:
-            log.warning(f"[{self.device_id}] GET /{endpoint} error: {e}")
-            return None
+        resp = await self._client.get(f"/{endpoint}")
+        if resp.status_code == 200:
+            return resp.text
+        return None
 
     async def _api_post(self, endpoint: str, body: dict) -> dict | None:
-        """Send a POST request with JSON body."""
+        """Send a POST request with JSON body.
+
+        Transport errors propagate so the BaseDriver watchdog can react.
+        """
         if not self._client:
             return None
-        try:
-            resp = await self._client.post(
-                f"/{endpoint}",
-                json=body,
-                headers={"Content-Type": "application/json"},
-            )
-            if resp.status_code == 200 and resp.text:
-                return resp.json()
-            return None
-        except (httpx.TimeoutException, httpx.ConnectError):
-            return None
-        except Exception as e:
-            log.warning(f"[{self.device_id}] POST /{endpoint} error: {e}")
-            return None
+        resp = await self._client.post(
+            f"/{endpoint}",
+            json=body,
+            headers={"Content-Type": "application/json"},
+        )
+        if resp.status_code == 200 and resp.text:
+            return resp.json()
+        return None

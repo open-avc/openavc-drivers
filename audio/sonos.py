@@ -156,7 +156,7 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "1.3.1",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers via the local UPnP API. "
@@ -517,12 +517,13 @@ class SonosDriver(BaseDriver):
                 self.set_state("track_duration", None)
                 self.set_state("track_position", None)
 
-        except (httpx.ConnectError, httpx.TimeoutException):
-            log.warning(
-                f"[{self.device_id}] Poll failed — speaker not responding"
-            )
-        except Exception:
-            log.exception(f"[{self.device_id}] Poll error")
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            # Re-raise as ConnectionError so the BaseDriver poll-loop
+            # watchdog counts this as a dry poll and eventually flips
+            # device.<id>.connected to False.
+            raise ConnectionError(
+                f"Sonos at {self._base_url} not responding: {exc}"
+            ) from exc
 
     # --- Internal helpers ---
 
@@ -539,34 +540,29 @@ class SonosDriver(BaseDriver):
 
         body, soap_action = _build_soap(service, action, **params)
 
-        try:
-            log.debug(f"[{self.device_id}] SOAP {action}")
-            resp = await self._client.post(
-                endpoint,
-                content=body.encode("utf-8"),
-                headers={
-                    "Content-Type": 'text/xml; charset="utf-8"',
-                    "SOAPAction": soap_action,
-                },
-            )
-            log.info(
-                f"[{self.device_id}] SOAP {action} -> {resp.status_code}"
-            )
+        # Let httpx.ConnectError / TimeoutException propagate — callers
+        # (connect, poll) translate them to ConnectionError so the platform
+        # watchdog can flip device.<id>.connected to False.
+        log.debug(f"[{self.device_id}] SOAP {action}")
+        resp = await self._client.post(
+            endpoint,
+            content=body.encode("utf-8"),
+            headers={
+                "Content-Type": 'text/xml; charset="utf-8"',
+                "SOAPAction": soap_action,
+            },
+        )
+        log.info(
+            f"[{self.device_id}] SOAP {action} -> {resp.status_code}"
+        )
 
-            if resp.status_code == 200:
-                return resp.text
-            else:
-                log.warning(
-                    f"[{self.device_id}] SOAP {action} failed: "
-                    f"HTTP {resp.status_code}"
-                )
-                return None
-        except httpx.TimeoutException:
-            log.warning(f"[{self.device_id}] SOAP {action} timeout")
-            return None
-        except httpx.ConnectError:
-            log.warning(f"[{self.device_id}] SOAP {action} connection error")
-            return None
+        if resp.status_code == 200:
+            return resp.text
+        log.warning(
+            f"[{self.device_id}] SOAP {action} failed: "
+            f"HTTP {resp.status_code}"
+        )
+        return None
 
     async def _get_speaker_name(self) -> str | None:
         """Query the speaker name via DeviceProperties."""

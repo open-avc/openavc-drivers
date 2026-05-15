@@ -86,7 +86,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.5.1",
+        "version": "1.6.0",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
@@ -423,14 +423,20 @@ class DanteDDMDriver(BaseDriver):
                 log.warning(f"[{self.device_id}] Unknown command: {command}")
 
     async def poll(self) -> None:
-        """Periodically refresh device and subscription status."""
+        """Periodically refresh device and subscription status.
+
+        Transport errors propagate so the BaseDriver watchdog can flip
+        device.<id>.connected to False.
+        """
         if not self._client:
             return
 
         try:
             await self._refresh_devices()
-        except Exception:
-            log.exception(f"[{self.device_id}] Poll error")
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            raise ConnectionError(
+                f"DDM at {self._base_url} not responding: {exc}"
+            ) from exc
 
     # --- Internal helpers ---
 
@@ -512,7 +518,8 @@ class DanteDDMDriver(BaseDriver):
             )
 
         except (httpx.TimeoutException, httpx.ConnectError):
-            log.warning(f"[{self.device_id}] Refresh failed — connection issue")
+            # Let transport errors propagate so poll()/connect() can react.
+            raise
         except Exception:
             log.exception(f"[{self.device_id}] Refresh error")
 

@@ -63,7 +63,7 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "
@@ -612,15 +612,19 @@ class SolsticeDriver(BaseDriver):
                 raise ValueError(f"Unknown device setting: {key}")
 
     async def poll(self) -> None:
-        """Refresh state from /api/stats and /api/config."""
+        """Refresh state from /api/stats and /api/config.
+
+        Transport errors propagate so the BaseDriver watchdog can flip
+        device.<id>.connected to False.
+        """
         if self._client is None:
             return
         try:
             await self._refresh_state()
-        except (httpx.ConnectError, httpx.TimeoutException):
-            log.warning(
-                "[%s] Poll failed — Solstice not responding", self.device_id
-            )
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            raise ConnectionError(
+                f"Solstice at {self._base_url} not responding: {exc}"
+            ) from exc
         except Exception:
             log.exception("[%s] Poll error", self.device_id)
 

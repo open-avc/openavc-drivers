@@ -837,7 +837,46 @@ async def on_data_received(self, data: bytes) -> None:
 async def poll(self) -> None:
     """Called periodically (every poll_interval seconds).
     Default: no-op. Override to send status query commands.
+
+    CONTRACT: poll() MUST propagate transport-level errors
+    (ConnectionError, TimeoutError, OSError, httpx.ConnectError,
+    httpx.TimeoutException). The platform polling loop catches them
+    and counts each toward a missed-poll watchdog; after 3 consecutive
+    dry polls, device.<id>.connected is flipped to False.
+
+    Swallowing transport errors here causes device.<id>.connected to
+    lie. Wrap any HTTP client work in poll() like this:
+
+        try:
+            await self._refresh_state()
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            raise ConnectionError(
+                f"Device not responding: {exc}"
+            ) from exc
+
+    Protocol-level errors (ValueError, expected device "in standby"
+    responses) MAY be handled inside poll() — the device is still
+    reachable.
     """
+```
+
+#### Reachability check for custom-transport drivers
+
+If your driver creates its own HTTP / websocket client instead of using
+a platform transport class, call `_verify_reachable(host, port, timeout)`
+in `connect()` before setting `connected=True`. Without this, loading the
+project against an unreachable device reports `connected=True` for one
+or more poll cycles before the watchdog catches up.
+
+```python
+async def connect(self) -> None:
+    host = self.config.get("host", "")
+    port = self.config.get("port", 1400)
+    if not await self._verify_reachable(host, port, timeout=3.0):
+        raise ConnectionError(f"Device at {host}:{port} not responding")
+    # ... rest of setup
+    self._connected = True
+    self.set_state("connected", True)
 ```
 
 #### Device Settings

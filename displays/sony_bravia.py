@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.3.1",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony Bravia TVs and professional displays via the "
@@ -372,6 +372,21 @@ class SonyBraviaDriver(BaseDriver):
         )
         await self.transport.open()
 
+        # Verify reachability before declaring connected. Without this,
+        # loading the project against an unreachable TV reports
+        # connected=True for ~45s until the missed-poll watchdog catches
+        # up, which is what users see when their laptop isn't on the
+        # same network as the TV.
+        verify_timeout = self.config.get("verify_timeout", 3.0)
+        if verify_timeout > 0 and not await self.transport.verify(
+            timeout=verify_timeout
+        ):
+            await self.transport.close()
+            self.transport = None
+            raise ConnectionError(
+                f"Sony Bravia at {base_url} is not responding"
+            )
+
         self._connected = True
         self.set_state("connected", True)
         await self.events.emit(f"device.connected.{self.device_id}")
@@ -417,31 +432,31 @@ class SonyBraviaDriver(BaseDriver):
             "version": version,
         }
 
-        try:
-            response = await self.transport.post(f"/sony/{service}", body=body)
-            if not response.ok:
-                log.warning(
-                    f"[{self.device_id}] {service}/{method} HTTP {response.status_code}"
-                )
-                return None
-            data = response.json_data
-            if data and "result" in data:
-                return data["result"]
-            if data and "error" in data:
-                err = data["error"]
-                # Error code 7 = "Illegal State" (TV in app or standby).
-                # Error code 40400 = method not found on this model.
-                # Don't spam logs for expected transient errors.
-                err_code = err[0] if isinstance(err, list) and err else None
-                if err_code not in (7, 40400):
-                    log.warning(
-                        f"[{self.device_id}] {service}/{method} error: {err}"
-                    )
-                return None
-            return data
-        except Exception as e:
-            log.warning(f"[{self.device_id}] {service}/{method} failed: {e}")
+        # Transport-level errors (ConnectError, Timeout) propagate so the
+        # platform watchdog can flip device.<id>.connected to False.
+        # Only suppress protocol-level errors that indicate the TV is
+        # reachable but in an expected non-queryable state.
+        response = await self.transport.post(f"/sony/{service}", body=body)
+        if not response.ok:
+            log.warning(
+                f"[{self.device_id}] {service}/{method} HTTP {response.status_code}"
+            )
             return None
+        data = response.json_data
+        if data and "result" in data:
+            return data["result"]
+        if data and "error" in data:
+            err = data["error"]
+            # Error code 7 = "Illegal State" (TV in app or standby).
+            # Error code 40400 = method not found on this model.
+            # Don't spam logs for expected transient errors.
+            err_code = err[0] if isinstance(err, list) and err else None
+            if err_code not in (7, 40400):
+                log.warning(
+                    f"[{self.device_id}] {service}/{method} error: {err}"
+                )
+            return None
+        return data
 
     # --- IRCC (IR remote emulation via SOAP) ---
 

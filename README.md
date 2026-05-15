@@ -6,6 +6,14 @@ Device drivers for the [OpenAVC](https://github.com/open-avc/openavc) open-sourc
 
 This repository contains community-maintained device drivers for AV equipment — projectors, displays, switchers, DSPs, cameras, lighting controllers, and more. Drivers are installed directly from the OpenAVC Programmer IDE.
 
+<p align="center">
+  <a href="https://raw.githubusercontent.com/open-avc/openavc-drivers/main/docs/images/programmer-browse-drivers.png">
+    <img src="https://raw.githubusercontent.com/open-avc/openavc-drivers/main/docs/images/programmer-browse-drivers.png" alt="Browse Community Drivers in the OpenAVC Programmer IDE" width="80%">
+  </a>
+</p>
+
+<p align="center"><sub><i>Browse Community Drivers in the OpenAVC Programmer IDE. Click to enlarge.</i></sub></p>
+
 ## Driver Formats
 
 | Format | Extension | Use Case |

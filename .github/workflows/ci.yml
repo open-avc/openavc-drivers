@@ -22,8 +22,8 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml pydantic pytest
 
-      - name: Run build_index tests
-        run: python -m pytest tests/test_build_index.py -v
+      - name: Run driver, simulator, and build_index tests
+        run: python -m pytest tests/ -v
 
       - name: Build index and devices catalogs
         run: python scripts/build_index.py

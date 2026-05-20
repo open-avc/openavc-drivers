@@ -455,6 +455,36 @@ state_variables:
 - `enum` type requires a `values` list.
 - Values must be flat primitives (str, int, float, bool, None). No nested objects.
 
+### 2.5.1 child_entity_types
+
+Optional. Declare this when one physical device manages many addressable sub-units — a video matrix with hundreds of encoders/decoders, a DSP with many zones, a switcher with video-wall presets. Each registered sub-unit becomes a **child entity** with its own state keyed `device.<device_id>.<child_type>.<local_id_padded>.<property>`, its own row in the device's Child Entities tab, and per-property cloud relay cadence. Drivers that omit this stay flat single-unit devices.
+
+```yaml
+child_entity_types:
+  encoder:
+    label: "Encoder"
+    label_plural: "Encoders"
+    id_format:
+      type: integer       # only integer IDs are supported in v1
+      min: 1
+      max: 762
+      pad_width: 3        # encoder 5 -> "005" in state keys
+    state_variables:
+      name: { type: string }
+      ip: { type: string }
+      signal_present: { type: boolean, cloud_priority: high }
+      edid_block: { type: string, cloud_priority: low }
+    summary_fields: ["name", "ip", "signal_present"]
+    label_field: name
+```
+
+**Rules:**
+- `id_format.type` must be `integer`. `min` defaults to 1; `max` is optional (unbounded if omitted); `pad_width` zero-pads the ID in state keys (0 = no padding).
+- `state_variables` uses the same schema as device `state_variables` (types: `string`, `integer`, `number`, `float`, `boolean`, `enum`). The platform always injects a boolean `online` and a string `label` per child — do not declare those.
+- `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.
+- `summary_fields` lists which fields appear as columns in the list view; `label_field` names the field carrying the controller's own name for the unit (the user-set label is separate and lives in the project file).
+- A YAML driver only declares the types here; it has no way to register instances at runtime. Use a **Python driver** when the controller actually enumerates and updates children (`register_child` / `set_children_state_batch` / `deregister_child` — see §3.5).
+
 ### 2.6 commands
 
 Actions the driver can send to the device.
@@ -921,6 +951,42 @@ self.set_states({"power": True, "input": 3})
 # Read a state value
 value = self.get_state("power")
 ```
+
+#### Child entities
+
+When the device declares `child_entity_types` (see §2.5.1), register and update its sub-units through these helpers. The platform owns the key formatting — never assemble `device.<id>.<type>.<id>.<prop>` strings yourself. All writes validate the property against the declared schema and raise on unknown props.
+
+```python
+# Tell the platform a child exists; creates its state keys. Idempotent —
+# a repeat call with the same (type, id) is a no-op, so it's safe to call
+# from a poll loop. initial_state overrides per-prop defaults; the
+# synthetic `online` defaults to True.
+self.register_child("encoder", 5, initial_state={"name": "Lobby TX"})
+
+# Update one or many fields for one child (atomic per child).
+self.set_child_state("encoder", 5, "signal_present", True)
+self.set_child_state_batch("encoder", 5, {"ip": "10.0.0.9", "online": True})
+
+# Atomic update across many children — preferred for poll responses that
+# touch dozens/hundreds at once. Each entry is (type, local_id, {prop: val}).
+self.set_children_state_batch([
+    ("encoder", 5, {"signal_present": True}),
+    ("encoder", 6, {"signal_present": False}),
+])
+
+# Currently-registered local IDs of a type, in registration order.
+ids = self.list_children("encoder")
+
+# Remove a child and delete all its state keys (e.g. unit deleted on the
+# controller). For a unit that's merely offline, set online=False instead.
+self.deregister_child("encoder", 5)
+
+# Paginated polling helper: splits registered IDs into batches, calls
+# fetch(batch_ids) per batch, applies results atomically per batch.
+await self.poll_children("encoder", fetch=self._fetch_encoder_state)
+```
+
+Override `async def refresh_children(self)` to support the IDE's "Refresh from Device" button (re-enumerate the controller's children). Without an override it returns HTTP 501.
 
 ### 3.6 Polling Control
 

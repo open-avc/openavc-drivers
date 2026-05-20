@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-20T15:37:25+00:00",
+    "generated_at": "2026-05-20T20:17:56+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 53,
+    "total_devices": 54,
     "shards": null,
     "category": "switcher"
   },
@@ -629,6 +629,18 @@
           "id": "lightware_lw3",
           "confidence": "untested",
           "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Chazy Control",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "chazy_control",
+          "confidence": "untested",
+          "notes": "Adapted from the hardware-validated Control Pro driver; the standard Control API is a documented strict subset (Chazy Control API reference, FW 1.00.17). Not yet validated against a standalone Control unit."
         }
       ]
     },

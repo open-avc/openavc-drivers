@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-20T15:37:25+00:00",
+    "generated_at": "2026-05-20T20:17:56+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 538,
+    "total_devices": 539,
     "shards": null
   },
   "devices": [
@@ -5874,6 +5874,18 @@
           "id": "symetrix_composer",
           "confidence": "untested",
           "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Chazy Control",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "chazy_control",
+          "confidence": "untested",
+          "notes": "Adapted from the hardware-validated Control Pro driver; the standard Control API is a documented strict subset (Chazy Control API reference, FW 1.00.17). Not yet validated against a standalone Control unit."
         }
       ]
     },

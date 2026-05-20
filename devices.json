@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-15T02:19:53+00:00",
+    "generated_at": "2026-05-20T15:37:25+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 537,
+    "total_devices": 538,
     "shards": null
   },
   "devices": [
@@ -5874,6 +5874,18 @@
           "id": "symetrix_composer",
           "confidence": "untested",
           "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Chazy Control Pro (TAV-CHAZY-CLTPRO)",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "chazy_control_pro",
+          "confidence": "untested",
+          "notes": "Telnet API confirmed against FW 1.10.11."
         }
       ]
     },

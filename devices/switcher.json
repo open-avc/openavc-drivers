@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-15T02:19:53+00:00",
+    "generated_at": "2026-05-20T15:37:25+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 52,
+    "total_devices": 53,
     "shards": null,
     "category": "switcher"
   },
@@ -629,6 +629,18 @@
           "id": "lightware_lw3",
           "confidence": "untested",
           "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Chazy Control Pro (TAV-CHAZY-CLTPRO)",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "chazy_control_pro",
+          "confidence": "untested",
+          "notes": "Telnet API confirmed against FW 1.10.11."
         }
       ]
     }

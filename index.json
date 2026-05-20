@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-15T02:19:53+00:00",
+    "generated_at": "2026-05-20T15:37:25+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 57,
+    "total_drivers": 58,
     "shards": null
   },
   "drivers": [
@@ -3451,6 +3451,59 @@
         ],
         "manufacturer_alias": [
           "symetrix"
+        ]
+      }
+    },
+    {
+      "id": "chazy_control_pro",
+      "name": "TurtleAV Chazy Control Pro",
+      "manufacturer": "TurtleAV",
+      "category": "switcher",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
+      "source_url": "https://turtleav.com/portfolio/chazy-4k/",
+      "file": "switchers/chazy_control_pro.py",
+      "format": "python",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "chazy_telnet"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.13.0",
+      "tags": [
+        "av-over-ip",
+        "matrix",
+        "encoder",
+        "decoder",
+        "video-wall",
+        "dante"
+      ],
+      "help": {
+        "overview": "The Chazy Control Pro orchestrates an entire Chazy 4K AV-over-IP system. Add it as one device; its encoders, decoders, video walls, groups, events, schedules, media sources, Dante presets, and configuration presets appear as child entities under the Child Entities tab.",
+        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use the Search command to find new TX/RX on the Video LAN, then Add Auto All to register them."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "TurtleAV",
+          "models": [
+            "Chazy Control Pro (TAV-CHAZY-CLTPRO)"
+          ],
+          "confidence": "untested",
+          "notes": "Telnet API confirmed against FW 1.10.11."
+        }
+      ],
+      "discovery": {
+        "mdns": "controller.local",
+        "port_open": [
+          23
+        ],
+        "manufacturer_alias": [
+          "turtleav",
+          "chazy"
         ]
       }
     },

@@ -182,7 +182,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -200,11 +200,19 @@ class ChazyControlProDriver(BaseDriver):
         "ports": [23],
         "transport": "tcp",
         "discovery": {
-            # The controller's mDNS hostname is settable but defaults to
-            # controller.local; the telnet banner identifies the model
-            # ("TAV-CHAZY-CLTPRO"). Confirm the exact mDNS service-type with
-            # TurtleAV (open question A.5) before relying on mDNS browse.
-            "mdns": "controller.local",
+            # A.5 resolved against live hardware (FW 1.10.11): the controller
+            # advertises exactly one mDNS service, the generic Audinate Dante
+            # Conmon service (_netaudio-cmc._udp.local.), whose TXT carries
+            # only Dante fields — no vendor string. That is not a Chazy
+            # fingerprint (every Dante device emits it), so there is no mDNS
+            # service-type to claim here. The only on-wire identity is the
+            # telnet connect banner ("Welcome To TAV-CHAZY-CLTPRO ..."), which
+            # the companion probe reads past the controller's Telnet IAC
+            # negotiation and turns into a strong fingerprint plus a
+            # manufacturer string (so manufacturer_alias narrowing fires). The
+            # default hostname controller.local is a soft corroborating hint.
+            "python": "./chazy_control_pro_discovery.py",
+            "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],
             "manufacturer_alias": ["turtleav", "chazy"],
         },

@@ -176,7 +176,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -195,14 +195,18 @@ class ChazyControlDriver(BaseDriver):
         "ports": [23],
         "transport": "tcp",
         "discovery": {
-            # The standard Control and the Control Pro are indistinguishable on
-            # the wire by hostname/port alone (both default to controller.local
-            # on telnet 23). Only soft hints are declared here, so discovery
-            # offers both controllers as candidates rather than the non-Pro
-            # claiming an exclusive strong signal it would share with the Pro.
-            # The Pro currently owns the strong mDNS hint; revisit the family's
-            # discovery fingerprints together once TurtleAV confirms the real
-            # mDNS service-type (open question A.5 / Phase 6).
+            # A.5 resolved (2026-05-20): the standard Control and the Pro are
+            # indistinguishable on the wire by hostname/port (both default to
+            # controller.local on telnet 23) and the controller's only mDNS
+            # service is the generic Audinate Dante one — no vendor string, not
+            # a Chazy fingerprint. What *does* distinguish them is the telnet
+            # connect banner model token: "CHAZY CONTROL" (standard) vs
+            # "TAV-CHAZY-CLTPRO" (Pro). The companion probe reads that banner
+            # past Telnet IAC and emits a strong fingerprint only for the
+            # standard token, so the two drivers never both claim one
+            # controller. The default hostname is a soft corroborating hint.
+            "python": "./chazy_control_discovery.py",
+            "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],
             "manufacturer_alias": ["turtleav", "chazy"],
         },

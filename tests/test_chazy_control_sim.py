@@ -401,3 +401,16 @@ def test_delete_wall_removed(sim):
     sim.handle_command(b"DELETE WALL HANDLE 3")
     out = _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
     assert drv._parse_wall_status(out) == {}
+
+
+def test_wall_status_multi_instance(sim):
+    # Same wall-block-separator fidelity as the Pro (validated on Pro hardware).
+    sim.handle_command(b"CREATE WALL HANDLE 1")
+    sim._walls[2] = sim._make_wall(2, columns=3, rows=1)
+    out = _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
+    w = drv._parse_wall_status(out)
+    assert set(w) == {1, 2}
+    assert w[2]["columns"] == 3 and w[2]["rows"] == 1
+    lines = out.split("\n")
+    vw_idx = [i for i, ln in enumerate(lines) if ln.startswith("VW  Col")]
+    assert len(vw_idx) == 2 and lines[vw_idx[1] - 1] == ""

@@ -623,27 +623,37 @@ class ChazyControlSimulator(TCPSimulator):
         return [store[handle]] if handle in store else []
 
     def _render_wall(self, handle: int | None) -> str:
-        body: list[str] = []
+        # Real hardware separates multiple wall blocks with one blank line
+        # (confirmed by a live two-wall query on the Pro); single wall has none.
+        blocks: list[list[str]] = []
         for w in self._select(self._walls, handle):
             name = w["name"] if w["name"] else "NULL"
-            body.append("VW  Col    Row    CfgSel  Name")
-            body.append(_line((0, f"{w['id']:02d}"), (4, f"{w['columns']:02d}"),
-                              (11, f"{w['rows']:02d}"), (18, f"{w['cfgsel']:02d}"),
-                              (26, name)))
-            body.append("    OutID")
-            body.append("    " + " ".join(["---"] * (w["columns"] * w["rows"])))
-            body.append("    Cfg    Name")
+            wlines = [
+                "VW  Col    Row    CfgSel  Name",
+                _line((0, f"{w['id']:02d}"), (4, f"{w['columns']:02d}"),
+                      (11, f"{w['rows']:02d}"), (18, f"{w['cfgsel']:02d}"),
+                      (26, name)),
+                "    OutID",
+                "    " + " ".join(["---"] * (w["columns"] * w["rows"])),
+                "    Cfg    Name",
+            ]
             screens = " ".join(
                 f"H{col:02d}V{row:02d}"
                 for row in range(1, w["rows"] + 1)
                 for col in range(1, w["columns"] + 1)
             )
             for p in w["presets"]:
-                body.append(_line((4, f"{p['id']:02d}"), (11, p["name"])))
-                body.append("           Class  From    Screen")
+                wlines.append(_line((4, f"{p['id']:02d}"), (11, p["name"])))
+                wlines.append("           Class  From    Screen")
                 for c in p["classes"]:
-                    body.append(_line((11, c["cls"]), (18, f"{c['source']:03d}"),
-                                      (26, screens)))
+                    wlines.append(_line((11, c["cls"]), (18, f"{c['source']:03d}"),
+                                        (26, screens)))
+            blocks.append(wlines)
+        body: list[str] = []
+        for i, blk in enumerate(blocks):
+            if i:
+                body.append("")
+            body += blk
         lines = [
             _SENTINEL,
             "              CHAZY CONTROL Video Wall Info",

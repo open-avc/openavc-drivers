@@ -490,3 +490,20 @@ def test_roundtrip_dante_preset_parses(sim):
     p = drv._parse_dante_preset_status(
         _strip(sim.handle_command(b"GET DANTE PRESET STATUS"), "GET DANTE PRESET STATUS"))
     assert p == {1: {"name": "TestDP"}}
+
+
+def test_wall_status_multi_instance(sim):
+    # Live two-wall hardware query showed each wall is a full VW... block
+    # separated by one blank line; the parser must read both and the sim must
+    # emit the separator.
+    sim.handle_command(b"CREATE WALL HANDLE 1")
+    sim._walls[2] = sim._make_wall(2, columns=3, rows=1)
+    out = _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
+    w = drv._parse_wall_status(out)
+    assert set(w) == {1, 2}
+    assert w[1] == {"name": "", "columns": 2, "rows": 2}
+    assert w[2] == {"name": "", "columns": 3, "rows": 1}
+    lines = out.split("\n")
+    vw_idx = [i for i, ln in enumerate(lines) if ln.startswith("VW  Col")]
+    assert len(vw_idx) == 2
+    assert lines[vw_idx[1] - 1] == ""  # blank line separates the two wall blocks

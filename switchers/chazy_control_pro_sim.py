@@ -278,7 +278,9 @@ class ChazyControlProSimulator(TCPSimulator):
 
     @staticmethod
     def _make_event(eid: int, name: str = "") -> dict:
-        # Defaults match a freshly-created TCP event (the captured TestEvent).
+        # Reproduces the captured TestEvent (Type TCP), the byte-exact fixture.
+        # Note: a pristine event created on current FW shows an empty Type until
+        # SET EVENT n TYPE is issued — the fixture's event had TCP configured.
         return {
             "id": eid, "name": name, "etype": "TCP", "address": "",
             "port": 0, "interface": "Control LAN", "data": "",
@@ -704,27 +706,37 @@ class ChazyControlProSimulator(TCPSimulator):
         return self._child_banner("Dante Preset Info", body, "No Event")
 
     def _render_wall(self, handle: int | None) -> str:
-        body: list[str] = []
+        # Real hardware separates multiple wall blocks with one blank line
+        # (confirmed by a live two-wall query); a single wall has no separator.
+        blocks: list[list[str]] = []
         for w in self._select(self._walls, handle):
             name = w["name"] if w["name"] else "NULL"
-            body.append("VW  Col    Row    CfgSel  Name")
-            body.append(_line((0, f"{w['id']:02d}"), (4, f"{w['columns']:02d}"),
-                              (11, f"{w['rows']:02d}"), (18, f"{w['cfgsel']:02d}"),
-                              (26, name)))
-            body.append("    OutID")
-            body.append("    " + " ".join(["---"] * (w["columns"] * w["rows"])))
-            body.append("    Cfg    Name")
+            lines = [
+                "VW  Col    Row    CfgSel  Name",
+                _line((0, f"{w['id']:02d}"), (4, f"{w['columns']:02d}"),
+                      (11, f"{w['rows']:02d}"), (18, f"{w['cfgsel']:02d}"),
+                      (26, name)),
+                "    OutID",
+                "    " + " ".join(["---"] * (w["columns"] * w["rows"])),
+                "    Cfg    Name",
+            ]
             screens = " ".join(
                 f"H{col:02d}V{row:02d}"
                 for row in range(1, w["rows"] + 1)
                 for col in range(1, w["columns"] + 1)
             )
             for p in w["presets"]:
-                body.append(_line((4, f"{p['id']:02d}"), (11, p["name"])))
-                body.append("           Class  From    Screen")
+                lines.append(_line((4, f"{p['id']:02d}"), (11, p["name"])))
+                lines.append("           Class  From    Screen")
                 for c in p["classes"]:
-                    body.append(_line((11, c["cls"]), (18, f"{c['source']:03d}"),
-                                      (26, screens)))
+                    lines.append(_line((11, c["cls"]), (18, f"{c['source']:03d}"),
+                                       (26, screens)))
+            blocks.append(lines)
+        body: list[str] = []
+        for i, blk in enumerate(blocks):
+            if i:
+                body.append("")
+            body += blk
         return self._child_banner("Video Wall Info", body, "No Video Wall")
 
     def _render_dante_preset(self, handle: int | None) -> str:

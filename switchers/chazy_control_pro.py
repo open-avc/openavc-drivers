@@ -31,6 +31,22 @@ FW 1.10.11, telnet port 23):
   sentinel lines. Numeric fields are zero-padded on the wire (IP
   ``192.168.004.188``); the driver normalises IPs back to ``192.168.4.188``.
 
+Child enumeration on connect:
+
+* Encoders and decoders are read from ``GET STATUS`` on connect and reconciled
+  into the platform child registry. Groups, events, video walls, and Dante
+  presets are enumerated from their own list banners (``GET GROUP STATUS``,
+  ``GET EVENT STATUS``, ``GET WALL STATUS``, ``GET DANTE PRESET STATUS``), so
+  instances already configured on the controller — built in its web GUI, or
+  surviving an OpenAVC restart — are discovered, not only the ones this driver
+  creates.
+* Media sources, schedules, and configuration presets are the exception: the
+  controller returns ``[ERROR]Unknown parameter`` for their ``GET ... STATUS``
+  queries (confirmed against FW 1.10.11), so they genuinely cannot be
+  re-enumerated. They are tracked only from the moment this driver creates
+  them; after a server restart they are not re-discovered until re-created or
+  re-added. This is a device-API limitation, not a driver gap.
+
 License: MIT.
 """
 
@@ -166,7 +182,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -217,7 +233,12 @@ class ChazyControlProDriver(BaseDriver):
                 "port at 23.\n"
                 "4. Encoders and decoders are discovered automatically on "
                 "connect from GET STATUS. Use the Search command to find new "
-                "TX/RX on the Video LAN, then Add Auto All to register them."
+                "TX/RX on the Video LAN, then Add Auto All to register them.\n"
+                "5. Video walls, groups, events, and Dante presets already "
+                "configured on the controller are also listed automatically. "
+                "Media sources, schedules, and configuration presets cannot be "
+                "listed by the controller, so they appear only once you create "
+                "them here."
             ),
         },
         "default_config": {
@@ -350,6 +371,11 @@ class ChazyControlProDriver(BaseDriver):
                 "summary_fields": ["name", "time_type", "running"],
                 "label_field": "name",
             },
+            # media / schedule / config_preset cannot be enumerated by the
+            # controller (GET ... STATUS returns [ERROR]Unknown parameter on
+            # FW 1.10.11). They are registered only when this driver creates
+            # them and are not re-discovered after a restart — create-time
+            # tracking only.
             "media": {
                 "label": "Media Source",
                 "label_plural": "Media Sources",
@@ -448,6 +474,7 @@ class ChazyControlProDriver(BaseDriver):
         try:
             await self.poll_children("encoder", self._fetch_encoder_detail)
             await self.poll_children("decoder", self._fetch_decoder_detail)
+            await self._reconcile_config_children()
         except Exception:
             log.exception(f"[{self.device_id}] Initial detail poll failed")
 
@@ -565,6 +592,7 @@ class ChazyControlProDriver(BaseDriver):
             if self._poll_count % every == 0:
                 await self.poll_children("encoder", self._fetch_encoder_detail)
                 await self.poll_children("decoder", self._fetch_decoder_detail)
+                await self._reconcile_config_children()
 
     # ── send_command dispatch ──
 
@@ -666,11 +694,14 @@ class ChazyControlProDriver(BaseDriver):
         await self._poll_status()
         await self.poll_children("encoder", self._fetch_encoder_detail)
         await self.poll_children("decoder", self._fetch_decoder_detail)
+        await self._reconcile_config_children()
         return {
             "encoders": len(self.list_children("encoder")),
             "decoders": len(self.list_children("decoder")),
+            "video_walls": len(self.list_children("video_wall")),
             "groups": len(self.list_children("group")),
             "events": len(self.list_children("event")),
+            "dante_presets": len(self.list_children("dante_preset")),
         }
 
     # ── Status refresh + child reconciliation ──
@@ -701,11 +732,21 @@ class ChazyControlProDriver(BaseDriver):
         except Exception:
             log.debug(f"[{self.device_id}] GPIO poll failed", exc_info=True)
 
-    def _reconcile_roster(
-        self, ctype: str, parsed_map: dict[int, dict[str, Any]]
+    def _reconcile_children(
+        self,
+        ctype: str,
+        parsed_map: dict[int, dict[str, Any]],
+        *,
+        online_from_net: bool,
     ) -> None:
         """Register newly-seen children, update the light state of known ones,
         and deregister any that the controller no longer reports.
+
+        ``online_from_net`` derives the platform ``online`` flag from the
+        parsed ``net`` link state (encoders/decoders, whose presence and link
+        are independent). Config-style children (groups/events/walls/dante
+        presets) have no link concept — if the controller lists them they
+        exist, so ``online`` is forced True.
         """
         schema = self.get_child_entity_types()[ctype]["state_variables"]
         current = set(self.list_children(ctype))
@@ -713,13 +754,47 @@ class ChazyControlProDriver(BaseDriver):
         for cid, props in parsed_map.items():
             seen.add(cid)
             clean = {k: v for k, v in props.items() if k in schema}
-            clean["online"] = bool(props.get("net", False))
+            clean["online"] = bool(props.get("net", False)) if online_from_net else True
             if cid not in current:
                 self.register_child(ctype, cid, initial_state=clean)
             else:
                 self.set_child_state_batch(ctype, cid, clean)
         for cid in current - seen:
             self.deregister_child(ctype, cid)
+
+    def _reconcile_roster(
+        self, ctype: str, parsed_map: dict[int, dict[str, Any]]
+    ) -> None:
+        """Encoder/decoder roster reconcile (online derived from the net flag)."""
+        self._reconcile_children(ctype, parsed_map, online_from_net=True)
+
+    async def _reconcile_config_children(self) -> None:
+        """Enumerate the queryable non-encoder/decoder child types from their
+        list banners and reconcile the platform registry, so a group/event/
+        wall/dante-preset built in the controller's web GUI (or surviving an
+        OpenAVC restart) is discovered — not only the ones this driver creates.
+
+        Each query is independent; a failure on one type is logged and the rest
+        still run. media / schedule / config_preset are intentionally absent
+        (the controller cannot enumerate them — create-time tracking only).
+        """
+        queries = (
+            ("group", "GET GROUP STATUS", _parse_group_status),
+            ("event", "GET EVENT STATUS", _parse_event_status),
+            ("video_wall", "GET WALL STATUS", _parse_wall_status),
+            ("dante_preset", "GET DANTE PRESET STATUS", _parse_dante_preset_status),
+        )
+        for ctype, query, parser in queries:
+            try:
+                resp = await self._send_request(query)
+                self._reconcile_children(
+                    ctype, parser(resp), online_from_net=False
+                )
+            except Exception:
+                log.debug(
+                    f"[{self.device_id}] {ctype} enumeration failed",
+                    exc_info=True,
+                )
 
     async def _fetch_encoder_detail(
         self, ids: list[int]
@@ -927,6 +1002,129 @@ def _parse_gpio(text: str) -> dict[str, Any]:
                 out[f"gpio{n}_dir"] = parts[1]
                 get = parts[-1]
                 out[f"gpio{n}_level"] = int(get) if get.lstrip("-").isdigit() else 0
+    return out
+
+
+# ── Pre-existing-child enumeration parsers ──
+#
+# Encoders/decoders come from GET STATUS; the remaining queryable child types
+# are enumerated from their own list banners on connect (and on Refresh). All
+# four below are validated byte-for-byte against
+# tests/fixtures/chazy_control_pro_child_banners.py.
+#
+# These parsers key off the body/columns, NOT the Info-header line: FW 1.10.11
+# mislabels the GET GROUP STATUS and GET EVENT STATUS Info headers as
+# "TAV-CHAZY-CLTPRO Dante Preset Info" (a firmware copy-paste bug). Each list
+# query returns {local_id: {prop: value}} for the props declared on that child
+# type; empty controllers reply with a "No <Type>" body and parse to {}.
+#
+# media / schedule / config_preset are intentionally absent: the controller
+# returns "[ERROR]Unknown parameter" for their GET ... STATUS, so they cannot
+# be re-discovered after a restart (create-time tracking only — see the
+# child_entity_types comment on the driver class).
+
+
+def _parse_group_status(text: str) -> dict[int, dict[str, Any]]:
+    """Parse GET GROUP STATUS. Each group is ``ID nnn Name: <name>`` followed
+    by an indented ``Decoders:  <count>`` line.
+    """
+    out: dict[int, dict[str, Any]] = {}
+    cur: int | None = None
+    for ln in text.split("\n"):
+        s = ln.strip()
+        if s.startswith("ID ") and "Name:" in s:
+            head, _, name = s.partition("Name:")
+            parts = head.split()
+            if len(parts) >= 2 and parts[1].isdigit():
+                cur = int(parts[1])
+                out[cur] = {"name": name.strip(), "member_count": 0}
+            else:
+                cur = None
+        elif cur is not None and s.startswith("Decoders:"):
+            val = s.split(":", 1)[1].strip()
+            out[cur]["member_count"] = int(val) if val.isdigit() else 0
+    return out
+
+
+def _parse_event_status(text: str) -> dict[int, dict[str, Any]]:
+    """Parse GET EVENT STATUS. Each event is ``ID nnn Name: <name>`` followed
+    by indented ``<Label>: <value>`` field lines (Type / Address / Port /
+    Interface / Data / Request / Resend Delay / Resending). Only the declared
+    props (name, event_type, address) are extracted; the rest are decoration.
+    """
+    out: dict[int, dict[str, Any]] = {}
+    cur: int | None = None
+    field_map = {"Type": "event_type", "Address": "address"}
+    for ln in text.split("\n"):
+        s = ln.strip()
+        if s.startswith("ID ") and "Name:" in s:
+            head, _, name = s.partition("Name:")
+            parts = head.split()
+            if len(parts) >= 2 and parts[1].isdigit():
+                cur = int(parts[1])
+                out[cur] = {"name": name.strip()}
+            else:
+                cur = None
+        elif cur is not None and ":" in s:
+            label, _, val = s.partition(":")
+            key = field_map.get(label.strip())
+            if key:
+                out[cur][key] = val.strip()
+    return out
+
+
+def _parse_wall_status(text: str) -> dict[int, dict[str, Any]]:
+    """Parse GET WALL STATUS. Each video wall is a ``VW Col Row CfgSel Name``
+    header + a single data row, followed by an OutID grid and per-preset class
+    detail (decoration the schema doesn't track). The device's ``NULL`` name
+    sentinel (an unnamed wall) is normalised to an empty string.
+    """
+    out: dict[int, dict[str, Any]] = {}
+    lines = [ln.rstrip("\r") for ln in text.split("\n")]
+    for i, ln in enumerate(lines):
+        if ln.startswith("VW") and "Col" in ln and "CfgSel" in ln and "Name" in ln:
+            if i + 1 >= len(lines):
+                continue
+            cols = _split_columns(ln, lines[i + 1])
+            vid = cols.get("VW", "")
+            if not vid.isdigit():
+                continue
+            name = cols.get("Name", "").strip()
+            if name == "NULL":
+                name = ""
+            col = cols.get("Col", "")
+            row = cols.get("Row", "")
+            out[int(vid)] = {
+                "name": name,
+                "columns": int(col) if col.isdigit() else 0,
+                "rows": int(row) if row.isdigit() else 0,
+            }
+    return out
+
+
+def _parse_dante_preset_status(text: str) -> dict[int, dict[str, Any]]:
+    """Parse GET DANTE PRESET STATUS. Each preset is an ``ID    Name`` header +
+    a ``nnn   <name>`` data row, then an indented ``>>Dev`` routing block the
+    schema doesn't track. The header is distinct from the enc/dec detail header
+    (which has a ``Type`` column), so it's matched on its exact two columns.
+    """
+    out: dict[int, dict[str, Any]] = {}
+    lines = [ln.rstrip("\r") for ln in text.split("\n")]
+    for i, ln in enumerate(lines):
+        if ln.strip().split() != ["ID", "Name"]:
+            continue
+        j = i + 1
+        while j < len(lines):
+            row = lines[j]
+            stripped = row.strip()
+            if not stripped or row.lstrip().startswith(">>") or "====" in row:
+                break
+            if row[:3].isdigit():
+                cols = _split_columns(ln, row)
+                pid = cols.get("ID", "")
+                if pid.isdigit():
+                    out[int(pid)] = {"name": cols.get("Name", "").strip()}
+            j += 1
     return out
 
 

@@ -26,6 +26,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SIM_PATH = REPO_ROOT / "switchers" / "chazy_control_pro_sim.py"
 DRIVER_PATH = REPO_ROOT / "switchers" / "chazy_control_pro.py"
 FIXTURES_PATH = REPO_ROOT / "tests" / "fixtures" / "chazy_control_pro_banners.py"
+CHILD_FIXTURES_PATH = (
+    REPO_ROOT / "tests" / "fixtures" / "chazy_control_pro_child_banners.py"
+)
 
 
 def _install_simulator_stub() -> None:
@@ -130,6 +133,7 @@ _install_server_stubs()
 simmod = _load(SIM_PATH, "chazy_control_pro_sim_under_test")
 drv = _load(DRIVER_PATH, "chazy_control_pro_driver_for_sim_test")
 fx = _load(FIXTURES_PATH, "chazy_fixtures_for_sim_test")
+fxc = _load(CHILD_FIXTURES_PATH, "chazy_child_fixtures_for_sim_test")
 
 Sim = simmod.ChazyControlProSimulator
 
@@ -378,3 +382,111 @@ def test_roundtrip_gpio_parses(sim):
     assert p["gpio1_dir"] == "In"
     assert p["gpio1_level"] == 1
     assert p["gpio4_level"] == 1
+
+
+# ── Config-child banners: byte-exact vs the captured child fixtures ──
+#
+# A fresh controller has none of these; the byte-exact captures were taken
+# after one of each was created. Each test drives the sim into the captured
+# state, then asserts GET <TYPE> STATUS matches byte-for-byte.
+
+def test_group_status_byte_exact(sim):
+    sim.handle_command(b"CREATE GROUP HANDLE 1")
+    sim.handle_command(b"SET GROUP 1 NAME TestGroup")
+    sim.handle_command(b"ADD GROUP 1 DEC 1")
+    assert _strip(sim.handle_command(b"GET GROUP STATUS"), "GET GROUP STATUS") == \
+        fxc.BANNER_GROUP_ALL
+    # Per-handle returns the same single-instance view.
+    assert _strip(sim.handle_command(b"GET GROUP 1 STATUS"), "GET GROUP 1 STATUS") == \
+        fxc.BANNER_GROUP_DETAIL
+
+
+def test_event_status_byte_exact(sim):
+    sim.handle_command(b"CREATE EVENT HANDLE 1")
+    sim.handle_command(b"SET EVENT 1 NAME TestEvent")
+    assert _strip(sim.handle_command(b"GET EVENT STATUS"), "GET EVENT STATUS") == \
+        fxc.BANNER_EVENT_ALL
+    assert _strip(sim.handle_command(b"GET EVENT 1 STATUS"), "GET EVENT 1 STATUS") == \
+        fxc.BANNER_EVENT_DETAIL
+
+
+def test_wall_status_byte_exact(sim):
+    sim.handle_command(b"CREATE WALL HANDLE 1")
+    assert _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS") == \
+        fxc.BANNER_WALL_ALL
+    assert _strip(sim.handle_command(b"GET WALL 1 STATUS"), "GET WALL 1 STATUS") == \
+        fxc.BANNER_WALL_DETAIL
+
+
+def test_dante_preset_status_byte_exact(sim):
+    sim.handle_command(b"CREATE DANTE PRESET HANDLE 1")
+    # Routing detail is decoration the schema doesn't track; construct the
+    # captured TestDP routes directly (precedent: poking sim._encoders).
+    sim._dante_presets[1] = {
+        "id": 1, "name": "TestDP",
+        "routes": [
+            ("Decoder-001", "video", "01", "Encoder-001", "01"),
+            ("Decoder-001", "audio", "01", "0", "00"),
+            ("Decoder-001", "audio", "02", "0", "00"),
+        ],
+    }
+    out = _strip(sim.handle_command(b"GET DANTE PRESET STATUS"), "GET DANTE PRESET STATUS")
+    assert out == fxc.BANNER_DANTE_PRESET_ALL
+    out1 = _strip(sim.handle_command(b"GET DANTE PRESET 1 STATUS"),
+                  "GET DANTE PRESET 1 STATUS")
+    assert out1 == fxc.BANNER_DANTE_PRESET_DETAIL
+
+
+# ── Empty banners + lifecycle reflected in subsequent reads ──
+
+def test_config_status_empty_by_default(sim):
+    assert "No Group" in _strip(sim.handle_command(b"GET GROUP STATUS"), "GET GROUP STATUS")
+    assert "No Event" in _strip(sim.handle_command(b"GET EVENT STATUS"), "GET EVENT STATUS")
+    assert "No Video Wall" in _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
+    assert "No Dante Preset" in _strip(
+        sim.handle_command(b"GET DANTE PRESET STATUS"), "GET DANTE PRESET STATUS")
+
+
+def test_create_delete_group_reflected(sim):
+    sim.handle_command(b"CREATE GROUP HANDLE 5")
+    g = drv._parse_group_status(
+        _strip(sim.handle_command(b"GET GROUP STATUS"), "GET GROUP STATUS"))
+    assert set(g) == {5}
+    sim.handle_command(b"DELETE GROUP HANDLE 5")
+    assert drv._parse_group_status(
+        _strip(sim.handle_command(b"GET GROUP STATUS"), "GET GROUP STATUS")) == {}
+
+
+# ── Round-trip through the driver's own config parsers (true duals) ──
+
+def test_roundtrip_group_parses(sim):
+    sim.handle_command(b"CREATE GROUP HANDLE 1")
+    sim.handle_command(b"SET GROUP 1 NAME TestGroup")
+    sim.handle_command(b"ADD GROUP 1 DEC 1")
+    g = drv._parse_group_status(
+        _strip(sim.handle_command(b"GET GROUP STATUS"), "GET GROUP STATUS"))
+    assert g == {1: {"name": "TestGroup", "member_count": 1}}
+
+
+def test_roundtrip_event_parses(sim):
+    sim.handle_command(b"CREATE EVENT HANDLE 1")
+    sim.handle_command(b"SET EVENT 1 NAME TestEvent")
+    e = drv._parse_event_status(
+        _strip(sim.handle_command(b"GET EVENT STATUS"), "GET EVENT STATUS"))
+    assert e[1]["name"] == "TestEvent"
+    assert e[1]["event_type"] == "TCP"
+    assert e[1]["address"] == ""
+
+
+def test_roundtrip_wall_parses(sim):
+    sim.handle_command(b"CREATE WALL HANDLE 1")
+    w = drv._parse_wall_status(
+        _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS"))
+    assert w == {1: {"name": "", "columns": 2, "rows": 2}}
+
+
+def test_roundtrip_dante_preset_parses(sim):
+    sim._dante_presets[1] = sim._make_dante_preset(1, name="TestDP")
+    p = drv._parse_dante_preset_status(
+        _strip(sim.handle_command(b"GET DANTE PRESET STATUS"), "GET DANTE PRESET STATUS"))
+    assert p == {1: {"name": "TestDP"}}

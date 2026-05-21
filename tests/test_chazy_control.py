@@ -258,3 +258,41 @@ def test_split_columns_blank_middle():
     assert cols["Type"] == ""           # blank middle column preserved
     assert cols["EDID"] == "DF000"
     assert cols["NET/Sig"] == "Off/Off"
+
+
+# ── Video-wall enumeration (the standard Control's one queryable config type) ──
+#
+# The parser keys off the VW Col Row CfgSel Name row, so it's identity-agnostic
+# (same on the standard Control and the Pro). No standalone Control hardware
+# exists, so the banner here is the shared family layout with CHAZY CONTROL
+# identity rather than a hardware fixture.
+
+def test_parse_wall_status():
+    banner = (
+        "================================================================\n"
+        "              CHAZY CONTROL Video Wall Info\n"
+        "              FW Version: 1.00.17\n"
+        "\n"
+        "VW  Col    Row    CfgSel  Name\n"
+        "01  02     02     01      NULL\n"
+        "    OutID\n"
+        "    --- --- --- ---\n"
+        "    Cfg    Name\n"
+        "    01     Preset 1\n"
+        "           Class  From    Screen\n"
+        "           A      001     H01V01 H02V01 H01V02 H02V02\n"
+        "================================================================"
+    )
+    w = drv._parse_wall_status(banner)
+    assert w == {1: {"name": "", "columns": 2, "rows": 2}}
+
+
+def test_parse_wall_status_empty():
+    banner = (
+        "================================================================\n"
+        "              CHAZY CONTROL Video Wall Info\n"
+        "\n"
+        "No Video Wall\n"
+        "================================================================"
+    )
+    assert drv._parse_wall_status(banner) == {}

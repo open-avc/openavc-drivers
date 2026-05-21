@@ -23,6 +23,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "switchers" / "chazy_control_pro.py"
 FIXTURES_PATH = REPO_ROOT / "tests" / "fixtures" / "chazy_control_pro_banners.py"
+CHILD_FIXTURES_PATH = (
+    REPO_ROOT / "tests" / "fixtures" / "chazy_control_pro_child_banners.py"
+)
 
 
 def _install_server_stubs() -> None:
@@ -74,6 +77,7 @@ def _load(path: Path, name: str) -> ModuleType:
 _install_server_stubs()
 drv = _load(DRIVER_PATH, "chazy_control_pro_under_test")
 fx = _load(FIXTURES_PATH, "chazy_fixtures_under_test")
+fxc = _load(CHILD_FIXTURES_PATH, "chazy_child_fixtures_under_test")
 INFO = drv.ChazyControlProDriver.DRIVER_INFO
 
 
@@ -255,3 +259,57 @@ def test_parse_gpio():
     g = drv._parse_gpio(fx.BANNER_GPIO)
     assert g["gpio1_dir"] == "In" and g["gpio1_level"] == 1
     assert g["gpio4_dir"] == "In" and g["gpio4_level"] == 1
+
+
+# ── Pre-existing-child enumeration parsers (group/event/wall/dante_preset) ──
+#
+# Validated against the byte-exact populated banners in
+# fixtures/chazy_control_pro_child_banners.py. Both the ALL (list) and DETAIL
+# (per-handle) captures parse to the same single-instance view.
+
+@pytest.mark.parametrize("banner", ["BANNER_GROUP_ALL", "BANNER_GROUP_DETAIL"])
+def test_parse_group_status(banner):
+    g = drv._parse_group_status(getattr(fxc, banner))
+    assert set(g) == {1}
+    assert g[1]["name"] == "TestGroup"
+    assert g[1]["member_count"] == 1
+
+
+@pytest.mark.parametrize("banner", ["BANNER_EVENT_ALL", "BANNER_EVENT_DETAIL"])
+def test_parse_event_status(banner):
+    e = drv._parse_event_status(getattr(fxc, banner))
+    assert set(e) == {1}
+    assert e[1]["name"] == "TestEvent"
+    assert e[1]["event_type"] == "TCP"
+    assert e[1]["address"] == ""
+    assert "running" not in e[1]  # no banner field for it; defaults on register
+
+
+@pytest.mark.parametrize("banner", ["BANNER_WALL_ALL", "BANNER_WALL_DETAIL"])
+def test_parse_wall_status(banner):
+    w = drv._parse_wall_status(getattr(fxc, banner))
+    assert set(w) == {1}
+    assert w[1]["columns"] == 2
+    assert w[1]["rows"] == 2
+    assert w[1]["name"] == ""  # "NULL" sentinel normalised to empty
+
+
+@pytest.mark.parametrize(
+    "banner", ["BANNER_DANTE_PRESET_ALL", "BANNER_DANTE_PRESET_DETAIL"]
+)
+def test_parse_dante_preset_status(banner):
+    p = drv._parse_dante_preset_status(getattr(fxc, banner))
+    assert set(p) == {1}
+    assert p[1]["name"] == "TestDP"
+
+
+def test_config_child_parsers_handle_empty():
+    # The "No <Type>" body an empty controller returns must parse to {}.
+    for body, parser in (
+        ("No Group", drv._parse_group_status),
+        ("No Event", drv._parse_event_status),
+        ("No Video Wall", drv._parse_wall_status),
+        ("No Dante Preset", drv._parse_dante_preset_status),
+    ):
+        banner = f"{'=' * 64}\n              TAV-CHAZY-CLTPRO Info\n\n{body}\n{'=' * 64}"
+        assert parser(banner) == {}

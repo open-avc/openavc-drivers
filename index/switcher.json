@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-20T20:17:56+00:00",
+    "generated_at": "2026-05-21T00:50:40+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 10,
@@ -486,7 +486,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -538,7 +538,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -563,7 +563,7 @@
       ],
       "help": {
         "overview": "The Chazy Control Pro orchestrates an entire Chazy 4K AV-over-IP system. Add it as one device; its encoders, decoders, video walls, groups, events, schedules, media sources, Dante presets, and configuration presets appear as child entities under the Child Entities tab.",
-        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use the Search command to find new TX/RX on the Video LAN, then Add Auto All to register them."
+        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use the Search command to find new TX/RX on the Video LAN, then Add Auto All to register them.\n5. Video walls, groups, events, and Dante presets already configured on the controller are also listed automatically. Media sources, schedules, and configuration presets cannot be listed by the controller, so they appear only once you create them here."
       },
       "compatible_models": [
         {

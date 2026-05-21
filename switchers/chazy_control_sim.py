@@ -208,6 +208,9 @@ class ChazyControlSimulator(TCPSimulator):
         super().__init__(device_id, config)
         self._encoders: dict[int, dict] = {1: self._make_encoder(1)}
         self._decoders: dict[int, dict] = {1: self._make_decoder(1)}
+        # Video walls — the standard Control's one queryable config child type.
+        # Empty by default (a fresh controller); populated by CREATE/SET WALL.
+        self._walls: dict[int, dict] = {}
         # Physical TX/RX present on the Video LAN. assigned == 0 means the unit
         # is unassigned and will show up in SEARCH; otherwise it maps to the
         # enc/dec id it was added as.
@@ -257,6 +260,18 @@ class ChazyControlSimulator(TCPSimulator):
             "ip": f"169.254.020.{did:03d}",
             "gateway": "169.254.001.001", "subnet_mask": "255.255.000.000",
             "lan2_num": "1", "lan2_im": "DHCP",
+        }
+
+    @staticmethod
+    def _make_wall(wid: int, name: str = "", columns: int = 2, rows: int = 2) -> dict:
+        # A configured 2x2 wall with one preset whose class A is sourced from
+        # encoder 001 across all four screens (same shape as the Pro family).
+        return {
+            "id": wid, "name": name, "columns": columns, "rows": rows,
+            "cfgsel": 1,
+            "presets": [
+                {"id": 1, "name": "Preset 1", "classes": [{"cls": "A", "source": 1}]},
+            ],
         }
 
     def _sync_counts(self) -> None:
@@ -315,6 +330,8 @@ class ChazyControlSimulator(TCPSimulator):
             return self._render_enc_detail(toks[2])
         if upt[:2] == ["GET", "DEC"] and upt[-1:] == ["STATUS"] and len(upt) == 4:
             return self._render_dec_detail(toks[2])
+        if upt[:2] == ["GET", "WALL"] and upt[-1:] == ["STATUS"]:
+            return self._render_wall(self._handle_arg(toks, upt, 2))
 
         if up in ("SET RESET", "SET RESET NETWORK", "SET RESET ALL"):
             self._awaiting_reset = True
@@ -581,6 +598,62 @@ class ChazyControlSimulator(TCPSimulator):
             n += 1
         return n
 
+    # ── GET WALL [n] STATUS ──
+    #
+    # Video walls are the standard Control's one queryable config child type.
+    # No standalone Control hardware exists to capture from, so this banner is
+    # not asserted byte-exact; instead the sim tests round-trip it through the
+    # driver's _parse_wall_status to prove sim↔driver duality. Layout matches
+    # the Pro family; the identity line reads CHAZY CONTROL.
+
+    @staticmethod
+    def _handle_arg(toks: list[str], upt: list[str], handle_idx: int) -> int | None:
+        """Optional numeric handle between the type word and STATUS. None means
+        the all-form (``GET WALL STATUS``)."""
+        if len(upt) == handle_idx + 1:
+            return None
+        if len(upt) == handle_idx + 2 and toks[handle_idx].isdigit():
+            return int(toks[handle_idx])
+        return None
+
+    @staticmethod
+    def _select(store: dict, handle: int | None) -> list[dict]:
+        if handle is None:
+            return [store[k] for k in sorted(store)]
+        return [store[handle]] if handle in store else []
+
+    def _render_wall(self, handle: int | None) -> str:
+        body: list[str] = []
+        for w in self._select(self._walls, handle):
+            name = w["name"] if w["name"] else "NULL"
+            body.append("VW  Col    Row    CfgSel  Name")
+            body.append(_line((0, f"{w['id']:02d}"), (4, f"{w['columns']:02d}"),
+                              (11, f"{w['rows']:02d}"), (18, f"{w['cfgsel']:02d}"),
+                              (26, name)))
+            body.append("    OutID")
+            body.append("    " + " ".join(["---"] * (w["columns"] * w["rows"])))
+            body.append("    Cfg    Name")
+            screens = " ".join(
+                f"H{col:02d}V{row:02d}"
+                for row in range(1, w["rows"] + 1)
+                for col in range(1, w["columns"] + 1)
+            )
+            for p in w["presets"]:
+                body.append(_line((4, f"{p['id']:02d}"), (11, p["name"])))
+                body.append("           Class  From    Screen")
+                for c in p["classes"]:
+                    body.append(_line((11, c["cls"]), (18, f"{c['source']:03d}"),
+                                      (26, screens)))
+        lines = [
+            _SENTINEL,
+            "              CHAZY CONTROL Video Wall Info",
+            "              FW Version: 1.00.17",
+            "",
+        ]
+        lines += body if body else ["No Video Wall"]
+        lines.append(_SENTINEL)
+        return "\n".join(lines)
+
     # ── Mutations (SET / CREATE / DELETE / ADD) ──
 
     def _mutate(self, toks: list[str], upt: list[str]) -> str | None:
@@ -592,12 +665,42 @@ class ChazyControlSimulator(TCPSimulator):
                 and toks[2].isdigit()):
             return self._mutate_endpoint(toks, upt)
 
-        # Shared lifecycle (video wall) + everything else valid acks with
-        # [SUCCESS]; the driver only treats a leading [ERROR] as a rejection,
-        # so the exact text is immaterial. Pro-only verbs were already rejected
-        # in _respond, so what reaches here is the standard Control surface.
+        # Video-wall lifecycle — mutate tracked state so a later GET WALL
+        # STATUS reflects the change.
+        wall = self._mutate_wall(toks, upt)
+        if wall is not None:
+            return wall
+
+        # Everything else valid acks with [SUCCESS]; the driver only treats a
+        # leading [ERROR] as a rejection, so the exact text is immaterial.
+        # Pro-only verbs were already rejected in _respond, so what reaches here
+        # is the standard Control surface.
         if upt[0] in ("SET", "CREATE", "DELETE", "ADD", "APPLY",
                       "DANTE", "EXITGUEST", "SEARCH"):
+            return "[SUCCESS]OK."
+        return None
+
+    def _mutate_wall(self, toks: list[str], upt: list[str]) -> str | None:
+        """Handle CREATE/DELETE WALL HANDLE n and SET WALL n NAME .... Returns
+        a reply string if handled, else None (caller falls back)."""
+        if upt[:1] not in (["CREATE"], ["DELETE"], ["SET"]) or upt[1:2] != ["WALL"]:
+            return None
+        verb = upt[0]
+        if (verb in ("CREATE", "DELETE") and upt[2:3] == ["HANDLE"]
+                and len(toks) >= 4 and toks[3].isdigit()):
+            n = int(toks[3])
+            if verb == "CREATE":
+                self._walls.setdefault(n, self._make_wall(n))
+                return f"[SUCCESS]Create wall {n:03d}."
+            self._walls.pop(n, None)
+            return f"[SUCCESS]Delete wall {n:03d}."
+        if verb == "SET" and len(toks) >= 3 and toks[2].isdigit():
+            n = int(toks[2])
+            if n not in self._walls:
+                return f"[ERROR]Wall {n:03d} does not exist."
+            if upt[3:4] == ["NAME"]:
+                self._walls[n]["name"] = " ".join(toks[4:])
+                return f"[SUCCESS]Set wall {n:03d} name."
             return "[SUCCESS]OK."
         return None
 

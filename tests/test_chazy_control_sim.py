@@ -369,3 +369,35 @@ def test_dec_switch_reflects_in_detail(sim):
     sim.handle_command(b"SET DEC 1 SWITCH 2 VIDEO")
     detail = _strip(sim.handle_command(b"GET DEC 1 STATUS"), "GET DEC 1 STATUS")
     assert drv._parse_decoder_detail(detail)["source_video"] == 2
+
+
+# ── Video-wall enumeration (sim↔driver dual; no hardware fixture exists) ──
+
+def test_wall_status_empty_by_default(sim):
+    out = _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
+    assert "No Video Wall" in out
+    assert drv._parse_wall_status(out) == {}
+
+
+def test_create_wall_enumerated_and_round_trips(sim):
+    sim.handle_command(b"CREATE WALL HANDLE 1")
+    out = _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
+    assert "CHAZY CONTROL Video Wall Info" in out  # standard Control identity
+    assert drv._parse_wall_status(out) == {1: {"name": "", "columns": 2, "rows": 2}}
+    # Per-handle returns the same single-instance view.
+    out1 = _strip(sim.handle_command(b"GET WALL 1 STATUS"), "GET WALL 1 STATUS")
+    assert drv._parse_wall_status(out1) == {1: {"name": "", "columns": 2, "rows": 2}}
+
+
+def test_wall_set_name_reflected(sim):
+    sim.handle_command(b"CREATE WALL HANDLE 2")
+    sim.handle_command(b"SET WALL 2 NAME Lobby")
+    out = _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
+    assert drv._parse_wall_status(out)[2]["name"] == "Lobby"
+
+
+def test_delete_wall_removed(sim):
+    sim.handle_command(b"CREATE WALL HANDLE 3")
+    sim.handle_command(b"DELETE WALL HANDLE 3")
+    out = _strip(sim.handle_command(b"GET WALL STATUS"), "GET WALL STATUS")
+    assert drv._parse_wall_status(out) == {}

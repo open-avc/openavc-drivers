@@ -24,11 +24,13 @@ Seeded by default with one encoder (001, a TAV-CHAZY4K-TX) and one decoder
 Inject the ``endpoints_offline`` error mode to reproduce the just-added
 (Net Off, blank-column) state.
 
-Scope note: encoders and decoders are fully simulated (the captured surface).
-Groups, events, video walls, media, schedules, Dante presets, and config
-presets are accepted (CREATE/ADD/DELETE acked) but have no GET ... STATUS
-rendering yet — their populated banner formats are not captured (blocked on
-hardware; tracked under D1.1 in openavc-device-children-plan.md).
+Scope note: encoders and decoders are fully simulated (the captured surface),
+as are the four queryable config-style child types — groups, events, video
+walls, and Dante presets — whose GET ... STATUS banners are rendered
+byte-exact against tests/fixtures/chazy_control_pro_child_banners.py. Media
+sources, schedules, and configuration presets are accepted (ADD/SAVE/DELETE
+acked) but have no GET ... STATUS rendering, mirroring the real controller,
+which returns [ERROR]Unknown parameter for them (create-time tracking only).
 
 License: MIT.
 """
@@ -63,6 +65,13 @@ _GREETING_BODY = (
 )
 
 _SENTINEL = "=" * 64
+
+# Dante-preset routing sub-block header (>>Dev @4, Type @38, Chn @44,
+# SubDev @49, SubChn @81 — measured from the captured banner).
+_DP_DEV_HEADER = (
+    "    >>Dev                             "
+    "Type  Chn  SubDev                          SubChn"
+)
 
 # Fixed system blocks of GET STATUS (controller network/config — constant in the
 # captures; zero-padded on the wire). Kept verbatim for byte-exactness.
@@ -204,6 +213,12 @@ class ChazyControlProSimulator(TCPSimulator):
         super().__init__(device_id, config)
         self._encoders: dict[int, dict] = {1: self._make_encoder(1)}
         self._decoders: dict[int, dict] = {1: self._make_decoder(1)}
+        # Config-style children. Empty by default (a fresh controller, the
+        # state the captures were taken against). Populated by CREATE/SET/ADD.
+        self._groups: dict[int, dict] = {}
+        self._events: dict[int, dict] = {}
+        self._walls: dict[int, dict] = {}
+        self._dante_presets: dict[int, dict] = {}
         # Physical TX/RX present on the Video LAN. assigned == 0 means the unit
         # is unassigned and will show up in SEARCH; otherwise it maps to the
         # enc/dec id it was added as.
@@ -254,6 +269,39 @@ class ChazyControlProSimulator(TCPSimulator):
             "gateway": "169.254.001.001", "subnet_mask": "255.255.000.000",
             "lan2_num": "1", "lan2_im": "DHCP",
         }
+
+    # ── Config-child factories ──
+
+    @staticmethod
+    def _make_group(gid: int, name: str = "") -> dict:
+        return {"id": gid, "name": name, "decoders": []}
+
+    @staticmethod
+    def _make_event(eid: int, name: str = "") -> dict:
+        # Defaults match a freshly-created TCP event (the captured TestEvent).
+        return {
+            "id": eid, "name": name, "etype": "TCP", "address": "",
+            "port": 0, "interface": "Control LAN", "data": "",
+            "request": "", "resend_delay": 0, "resending": 0,
+        }
+
+    @staticmethod
+    def _make_wall(wid: int, name: str = "", columns: int = 2, rows: int = 2) -> dict:
+        # A configured 2x2 wall with one preset whose class A is sourced from
+        # encoder 001 across all four screens — the exact shape captured in the
+        # child-banner fixtures.
+        return {
+            "id": wid, "name": name, "columns": columns, "rows": rows,
+            "cfgsel": 1,
+            "presets": [
+                {"id": 1, "name": "Preset 1", "classes": [{"cls": "A", "source": 1}]},
+            ],
+        }
+
+    @staticmethod
+    def _make_dante_preset(pid: int, name: str = "") -> dict:
+        # routes: list of (dev, type, chn, subdev, subchn) wire strings.
+        return {"id": pid, "name": name, "routes": []}
 
     def _sync_counts(self) -> None:
         self.set_state("encoder_count", len(self._encoders))
@@ -311,6 +359,10 @@ class ChazyControlProSimulator(TCPSimulator):
             return self._render_enc_detail(toks[2])
         if upt[:2] == ["GET", "DEC"] and upt[-1:] == ["STATUS"] and len(upt) == 4:
             return self._render_dec_detail(toks[2])
+
+        cfg = self._render_config_get(toks, upt)
+        if cfg is not None:
+            return cfg
 
         if up in ("SET RESET", "SET RESET NETWORK", "SET RESET ALL"):
             self._awaiting_reset = True
@@ -577,6 +629,115 @@ class ChazyControlProSimulator(TCPSimulator):
             n += 1
         return n
 
+    # ── GET GROUP / EVENT / WALL / DANTE PRESET [n] STATUS ──
+    #
+    # All four list banners are rendered byte-exact against
+    # tests/fixtures/chazy_control_pro_child_banners.py. The all-form (no
+    # handle) lists every instance; the per-handle form returns the same
+    # single-instance view. FW 1.10.11 mislabels the GROUP and EVENT Info
+    # header as "Dante Preset Info" (a firmware bug) — reproduced verbatim.
+
+    def _render_config_get(self, toks: list[str], upt: list[str]) -> str | None:
+        if upt[:1] != ["GET"] or upt[-1:] != ["STATUS"]:
+            return None
+        if upt[1:2] == ["GROUP"]:
+            return self._render_group(self._handle_arg(toks, upt, 2))
+        if upt[1:2] == ["EVENT"]:
+            return self._render_event(self._handle_arg(toks, upt, 2))
+        if upt[1:2] == ["WALL"]:
+            return self._render_wall(self._handle_arg(toks, upt, 2))
+        if upt[1:3] == ["DANTE", "PRESET"]:
+            return self._render_dante_preset(self._handle_arg(toks, upt, 3))
+        return None
+
+    @staticmethod
+    def _handle_arg(toks: list[str], upt: list[str], handle_idx: int) -> int | None:
+        """Optional numeric handle between the type word(s) and STATUS.
+        None means the all-form (``GET <TYPE> STATUS``).
+        """
+        if len(upt) == handle_idx + 1:
+            return None
+        if len(upt) == handle_idx + 2 and toks[handle_idx].isdigit():
+            return int(toks[handle_idx])
+        return None
+
+    @staticmethod
+    def _select(store: dict, handle: int | None) -> list[dict]:
+        if handle is None:
+            return [store[k] for k in sorted(store)]
+        return [store[handle]] if handle in store else []
+
+    def _child_banner(
+        self, label: str, body_lines: list[str], empty: str
+    ) -> str:
+        lines = [
+            _SENTINEL,
+            f"              TAV-CHAZY-CLTPRO {label}",
+            "              FW Version: 1.10.11",
+            "",
+        ]
+        lines += body_lines if body_lines else [empty]
+        lines.append(_SENTINEL)
+        return "\n".join(lines)
+
+    def _render_group(self, handle: int | None) -> str:
+        body: list[str] = []
+        for g in self._select(self._groups, handle):
+            body.append(f"ID {g['id']:03d} Name: {g['name']}")
+            body.append(f"       Decoders:  {len(g['decoders'])}")
+        # FW header bug: groups are labelled "Dante Preset Info".
+        return self._child_banner("Dante Preset Info", body, "No Group")
+
+    def _render_event(self, handle: int | None) -> str:
+        body: list[str] = []
+        for e in self._select(self._events, handle):
+            body.append(f"ID {e['id']:03d} Name: {e['name']}")
+            body.append(f"       Type: {e['etype']}")
+            body.append(f"       Address: {e['address']}")
+            body.append(f"       Port: {e['port']}")
+            body.append(f"       Interface: {e['interface']}")
+            body.append(f"       Data: {e['data']}")
+            body.append(f"       Request: {e['request']}")
+            body.append(f"       Resend Delay: {e['resend_delay']}")
+            body.append(f"       Resending: {e['resending']}")
+        # FW header bug: events are also labelled "Dante Preset Info".
+        return self._child_banner("Dante Preset Info", body, "No Event")
+
+    def _render_wall(self, handle: int | None) -> str:
+        body: list[str] = []
+        for w in self._select(self._walls, handle):
+            name = w["name"] if w["name"] else "NULL"
+            body.append("VW  Col    Row    CfgSel  Name")
+            body.append(_line((0, f"{w['id']:02d}"), (4, f"{w['columns']:02d}"),
+                              (11, f"{w['rows']:02d}"), (18, f"{w['cfgsel']:02d}"),
+                              (26, name)))
+            body.append("    OutID")
+            body.append("    " + " ".join(["---"] * (w["columns"] * w["rows"])))
+            body.append("    Cfg    Name")
+            screens = " ".join(
+                f"H{col:02d}V{row:02d}"
+                for row in range(1, w["rows"] + 1)
+                for col in range(1, w["columns"] + 1)
+            )
+            for p in w["presets"]:
+                body.append(_line((4, f"{p['id']:02d}"), (11, p["name"])))
+                body.append("           Class  From    Screen")
+                for c in p["classes"]:
+                    body.append(_line((11, c["cls"]), (18, f"{c['source']:03d}"),
+                                      (26, screens)))
+        return self._child_banner("Video Wall Info", body, "No Video Wall")
+
+    def _render_dante_preset(self, handle: int | None) -> str:
+        body: list[str] = []
+        for p in self._select(self._dante_presets, handle):
+            body.append("ID    Name")
+            body.append(_line((0, f"{p['id']:03d}"), (6, p["name"])))
+            body.append(_DP_DEV_HEADER)
+            for dev, rtype, chn, subdev, subchn in p["routes"]:
+                body.append(_line((6, dev), (38, rtype), (44, chn),
+                                  (49, subdev), (81, subchn)))
+        return self._child_banner("Dante Preset Info", body, "No Dante Preset")
+
     # ── Mutations (SET / CREATE / DELETE / ADD) ──
 
     def _mutate(self, toks: list[str], upt: list[str]) -> str | None:
@@ -588,12 +749,83 @@ class ChazyControlProSimulator(TCPSimulator):
                 and toks[2].isdigit()):
             return self._mutate_endpoint(toks, upt)
 
+        # CREATE/DELETE/SET/ADD on a queryable config child type — these mutate
+        # tracked state so a later GET ... STATUS reflects the change.
+        cfg = self._mutate_config_child(toks, upt)
+        if cfg is not None:
+            return cfg
+
         # Lifecycle + everything else valid acks with [SUCCESS]; the driver only
         # treats a leading [ERROR] as a rejection, so the exact text is
         # immaterial (per-command success strings are not all captured).
         if upt[0] in ("SET", "CREATE", "DELETE", "ADD", "APPLY", "SAVE",
                       "DANTE", "EXITGUEST", "SEARCH"):
             return "[SUCCESS]OK."
+        return None
+
+    # Queryable config child types: type word(s) -> (store attr, factory).
+    _CONFIG_CHILD_TYPES = (
+        (["GROUP"], "_groups", "_make_group"),
+        (["EVENT"], "_events", "_make_event"),
+        (["WALL"], "_walls", "_make_wall"),
+        (["DANTE", "PRESET"], "_dante_presets", "_make_dante_preset"),
+    )
+
+    def _match_config_type(self, words: list[str]):
+        """Match a leading config-type token sequence; return
+        (type_len, store, factory) or (0, None, None)."""
+        for type_words, store_attr, factory_attr in self._CONFIG_CHILD_TYPES:
+            if words[:len(type_words)] == type_words:
+                return len(type_words), getattr(self, store_attr), \
+                    getattr(self, factory_attr)
+        return 0, None, None
+
+    def _mutate_config_child(self, toks: list[str], upt: list[str]) -> str | None:
+        """Handle CREATE/DELETE ... HANDLE n, SET <type> n NAME ..., and
+        ADD/DELETE GROUP n DEC d for the four queryable config child types.
+        Returns a reply string if handled, else None (caller falls back).
+        """
+        verb = upt[0]
+        if verb not in ("CREATE", "DELETE", "SET", "ADD"):
+            return None
+        tlen, store, factory = self._match_config_type(upt[1:])
+        if store is None:
+            return None
+        rest = upt[1 + tlen:]
+        rest_toks = toks[1 + tlen:]
+
+        # CREATE/DELETE <type> HANDLE n
+        if (verb in ("CREATE", "DELETE") and rest[:1] == ["HANDLE"]
+                and len(rest_toks) >= 2 and rest_toks[1].isdigit()):
+            n = int(rest_toks[1])
+            if verb == "CREATE":
+                store.setdefault(n, factory(n))
+                return f"[SUCCESS]Create handle {n:03d}."
+            store.pop(n, None)
+            return f"[SUCCESS]Delete handle {n:03d}."
+
+        # Operations on an existing handle: SET <type> n NAME ..., and the
+        # group membership commands ADD/DELETE GROUP n DEC d.
+        if rest_toks and rest_toks[0].isdigit():
+            n = int(rest_toks[0])
+            if n not in store:
+                return f"[ERROR]Handle {n:03d} does not exist."
+            sub = rest[1:]
+            if verb == "SET" and sub[:1] == ["NAME"]:
+                store[n]["name"] = " ".join(toks[3 + tlen:])
+                return f"[SUCCESS]Set handle {n:03d} name."
+            if (tlen == 1 and upt[1] == "GROUP" and sub[:1] == ["DEC"]
+                    and len(rest_toks) >= 3 and rest_toks[2].isdigit()):
+                d = int(rest_toks[2])
+                members = store[n]["decoders"]
+                if verb == "ADD" and d not in members:
+                    members.append(d)
+                elif verb == "DELETE" and d in members:
+                    members.remove(d)
+                return f"[SUCCESS]Group {n:03d} membership updated."
+            if verb == "SET":
+                # Other SET <type> n <field> ... — accepted, not modelled.
+                return "[SUCCESS]OK."
         return None
 
     def _mutate_endpoint(self, toks: list[str], upt: list[str]) -> str | None:

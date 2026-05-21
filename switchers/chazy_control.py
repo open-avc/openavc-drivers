@@ -36,6 +36,13 @@ Control Pro; the standard Control is documented as using the same telnet API):
   word position, not whitespace. Numeric fields are zero-padded on the wire
   (IP ``192.168.004.188``); the driver normalises IPs back to ``192.168.4.188``.
 
+Child enumeration on connect: encoders and decoders are read from GET STATUS;
+video walls already configured on the controller are enumerated from
+GET WALL STATUS, so a wall built in the web GUI (or surviving an OpenAVC
+restart) is discovered, not only the ones this driver creates. (Video wall is
+the standard Control's only queryable non-encoder/decoder child type; the
+Pro-only Group/Event/Dante-preset modules don't exist here.)
+
 License: MIT.
 """
 
@@ -169,7 +176,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -387,6 +394,7 @@ class ChazyControlDriver(BaseDriver):
         try:
             await self.poll_children("encoder", self._fetch_encoder_detail)
             await self.poll_children("decoder", self._fetch_decoder_detail)
+            await self._reconcile_config_children()
         except Exception:
             log.exception(f"[{self.device_id}] Initial detail poll failed")
 
@@ -504,6 +512,7 @@ class ChazyControlDriver(BaseDriver):
             if self._poll_count % every == 0:
                 await self.poll_children("encoder", self._fetch_encoder_detail)
                 await self.poll_children("decoder", self._fetch_decoder_detail)
+                await self._reconcile_config_children()
 
     # ── send_command dispatch ──
 
@@ -605,9 +614,11 @@ class ChazyControlDriver(BaseDriver):
         await self._poll_status()
         await self.poll_children("encoder", self._fetch_encoder_detail)
         await self.poll_children("decoder", self._fetch_decoder_detail)
+        await self._reconcile_config_children()
         return {
             "encoders": len(self.list_children("encoder")),
             "decoders": len(self.list_children("decoder")),
+            "video_walls": len(self.list_children("video_wall")),
         }
 
     # ── Status refresh + child reconciliation ──
@@ -638,11 +649,20 @@ class ChazyControlDriver(BaseDriver):
         except Exception:
             log.debug(f"[{self.device_id}] GPIO poll failed", exc_info=True)
 
-    def _reconcile_roster(
-        self, ctype: str, parsed_map: dict[int, dict[str, Any]]
+    def _reconcile_children(
+        self,
+        ctype: str,
+        parsed_map: dict[int, dict[str, Any]],
+        *,
+        online_from_net: bool,
     ) -> None:
         """Register newly-seen children, update the light state of known ones,
         and deregister any that the controller no longer reports.
+
+        ``online_from_net`` derives the platform ``online`` flag from the
+        parsed ``net`` link state (encoders/decoders). Config-style children
+        (video walls) have no link concept — if listed they exist, so ``online``
+        is forced True.
         """
         schema = self.get_child_entity_types()[ctype]["state_variables"]
         current = set(self.list_children(ctype))
@@ -650,13 +670,37 @@ class ChazyControlDriver(BaseDriver):
         for cid, props in parsed_map.items():
             seen.add(cid)
             clean = {k: v for k, v in props.items() if k in schema}
-            clean["online"] = bool(props.get("net", False))
+            clean["online"] = bool(props.get("net", False)) if online_from_net else True
             if cid not in current:
                 self.register_child(ctype, cid, initial_state=clean)
             else:
                 self.set_child_state_batch(ctype, cid, clean)
         for cid in current - seen:
             self.deregister_child(ctype, cid)
+
+    def _reconcile_roster(
+        self, ctype: str, parsed_map: dict[int, dict[str, Any]]
+    ) -> None:
+        """Encoder/decoder roster reconcile (online derived from the net flag)."""
+        self._reconcile_children(ctype, parsed_map, online_from_net=True)
+
+    async def _reconcile_config_children(self) -> None:
+        """Enumerate the standard Control's one queryable non-encoder/decoder
+        child type — video walls — from GET WALL STATUS and reconcile the
+        platform registry, so a wall already configured on the controller (web
+        GUI, or surviving an OpenAVC restart) is discovered, not only the ones
+        this driver creates. (The Pro-only group/event/dante-preset types don't
+        exist on the standard Control.)
+        """
+        try:
+            resp = await self._send_request("GET WALL STATUS")
+            self._reconcile_children(
+                "video_wall", _parse_wall_status(resp), online_from_net=False
+            )
+        except Exception:
+            log.debug(
+                f"[{self.device_id}] video_wall enumeration failed", exc_info=True
+            )
 
     async def _fetch_encoder_detail(
         self, ids: list[int]
@@ -864,6 +908,36 @@ def _parse_gpio(text: str) -> dict[str, Any]:
                 out[f"gpio{n}_dir"] = parts[1]
                 get = parts[-1]
                 out[f"gpio{n}_level"] = int(get) if get.lstrip("-").isdigit() else 0
+    return out
+
+
+def _parse_wall_status(text: str) -> dict[int, dict[str, Any]]:
+    """Parse GET WALL STATUS. Each video wall is a ``VW Col Row CfgSel Name``
+    header + a single data row, followed by an OutID grid and per-preset class
+    detail (decoration the schema doesn't track). The device's ``NULL`` name
+    sentinel (an unnamed wall) is normalised to an empty string. Shared with
+    the Chazy Control Pro family.
+    """
+    out: dict[int, dict[str, Any]] = {}
+    lines = [ln.rstrip("\r") for ln in text.split("\n")]
+    for i, ln in enumerate(lines):
+        if ln.startswith("VW") and "Col" in ln and "CfgSel" in ln and "Name" in ln:
+            if i + 1 >= len(lines):
+                continue
+            cols = _split_columns(ln, lines[i + 1])
+            vid = cols.get("VW", "")
+            if not vid.isdigit():
+                continue
+            name = cols.get("Name", "").strip()
+            if name == "NULL":
+                name = ""
+            col = cols.get("Col", "")
+            row = cols.get("Row", "")
+            out[int(vid)] = {
+                "name": name,
+                "columns": int(col) if col.isdigit() else 0,
+                "rows": int(row) if row.isdigit() else 0,
+            }
     return out
 
 

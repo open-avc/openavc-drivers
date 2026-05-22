@@ -988,6 +988,18 @@ await self.poll_children("encoder", fetch=self._fetch_encoder_state)
 
 Override `async def refresh_children(self)` to support the IDE's "Refresh from Device" button (re-enumerate the controller's children). Without an override it returns HTTP 501.
 
+#### Controller pattern: enumerate and reconcile children
+
+A controller that manages many children follows one shape every time (worked example: `switchers/chazy_control_pro.py`):
+
+1. **Declare** the child types in `DRIVER_INFO["child_entity_types"]` (§2.5.1).
+2. **On connect, enumerate the roster.** Override `connect()`; after the transport is up, run one cheap "list everything" command, parse it, and `register_child(type, id, initial_state=...)` per unit. `register_child` is idempotent, so the same call is safe to repeat every poll.
+3. **Fill in detail** with `await self.poll_children(type, fetch=...)` — it batches the registered IDs (50/batch) instead of one request per unit.
+4. **On poll, reconcile.** Re-read the roster, `register_child` newly-seen units (idempotent → updates existing), `deregister_child` ones the controller no longer reports. Run the cheap roster query at the normal poll interval and the expensive per-unit detail refresh on a **slower** cadence (e.g. a `detail_poll_interval` config knob) so large controllers don't flood the wire every cycle.
+5. **Pick the right `online` model per type.** Link-style children (encoders/decoders/endpoints that physically come and go) derive `online` from the unit's link/net flag and stay registered while offline (`online=False`, do **not** deregister). Config-style children (groups, video walls, presets — virtual objects) are forced `online=True` whenever the controller lists them and deregistered only when actually deleted on the device.
+6. **Refresh.** Override `async def refresh_children(self)` to re-run the enumeration for the IDE button; return a count summary.
+7. **Commands** that act on a child take a `child_id` param (`child_type: <type>`, §2.5.1 / commands) — the platform substitutes the integer local ID. There is no separate per-child command surface.
+
 ### 3.6 Polling Control
 
 ```python

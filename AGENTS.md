@@ -49,6 +49,14 @@ OpenAVC supports two driver formats. Both produce identical runtime behavior.
 
 YAML driver definitions are interpreted at runtime by the `ConfigurableDriver` class. The file extension must be `.avcdriver`.
 
+A machine-readable JSON Schema for this format lives at the repository root: [`avcdriver.schema.json`](avcdriver.schema.json), published at `https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json`. Add this line to the top of a `.avcdriver` file to get live validation and autocompletion in editors with YAML Language Server support:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+```
+
+The sections below remain the authoritative field-by-field reference; the schema mirrors them and the catalog rules enforced by `scripts/build_index.py`.
+
 ### 2.1 Top-Level Fields
 
 #### Required

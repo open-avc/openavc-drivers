@@ -1,0 +1,1288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json",
+  "title": "OpenAVC Driver Definition (.avcdriver)",
+  "description": "The schema for OpenAVC .avcdriver device driver definitions. Use it for live validation and autocompletion in your editor while authoring drivers. The required fields and constraints match what the OpenAVC community driver catalog enforces. Loaded on its own, the OpenAVC platform requires only id, name, and transport; the remaining metadata fields (manufacturer, category, version, author, description, source_url) are required to publish a driver to the community catalog.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "manufacturer",
+    "category",
+    "version",
+    "author",
+    "transport",
+    "description",
+    "source_url"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Unique driver identifier. Lowercase alphanumeric with underscores."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable display name."
+    },
+    "manufacturer": {
+      "type": "string",
+      "description": "Manufacturer name. Must exist in manufacturers.json for catalog submission."
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "projector",
+        "display",
+        "switcher",
+        "audio",
+        "camera",
+        "video",
+        "streaming",
+        "lighting",
+        "power",
+        "utility"
+      ],
+      "description": "Driver category. One of the ten catalog categories."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[\\-+][\\w.\\-]+)?$",
+      "description": "Semantic version, e.g. 1.0.0."
+    },
+    "author": {
+      "type": "string",
+      "description": "Driver author."
+    },
+    "transport": {
+      "type": "string",
+      "enum": ["tcp", "serial", "udp", "http", "osc"],
+      "description": "Transport the driver uses to reach the device."
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of what the driver controls."
+    },
+    "source_url": {
+      "type": "string",
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://",
+      "description": "Protocol reference or product documentation URL. Must start with http:// or https://."
+    },
+    "delimiter": {
+      "type": "string",
+      "description": "Message delimiter. Default \"\\r\". Use \"\\r\\n\" for CRLF. Escape sequences \\r and \\n are interpreted."
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "description": "TCP/UDP ports the device listens on (catalog metadata only)."
+    },
+    "protocols": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Protocol names this driver speaks, e.g. [\"pjlink\"]. Helps discovery match devices to drivers."
+    },
+    "simulated": {
+      "type": "boolean",
+      "description": "True if the driver ships with simulator support (auto-gen or an explicit simulator: section)."
+    },
+    "verified": {
+      "type": "boolean",
+      "description": "True once the driver has been validated against real hardware."
+    },
+    "min_platform_version": {
+      "type": ["string", "null"],
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[\\-+][\\w.\\-]+)?$",
+      "description": "Minimum OpenAVC version required. Blocks install on older platforms missing a needed feature. Semantic version."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "description": "Search/browse tags. Lowercase, hyphen-separated, alphanumeric."
+    },
+    "help": {
+      "$ref": "#/$defs/helpBlock"
+    },
+    "deprecated": {
+      "type": "boolean",
+      "description": "True if this driver is superseded. Requires replacement_id."
+    },
+    "replacement_id": {
+      "type": "string",
+      "description": "ID of the driver that replaces this one. Only valid when deprecated is true."
+    },
+    "compatible_models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/compatibleModelsEntry"
+      },
+      "description": "Specific device models this driver supports, with confidence levels."
+    },
+    "default_config": {
+      "type": "object",
+      "description": "Default values for config fields (e.g. host, port, poll_interval, inter_command_delay)."
+    },
+    "config_schema": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/configSchemaEntry"
+      },
+      "description": "Per-device connection settings shown in the Add Device dialog. Keyed by config field name."
+    },
+    "device_settings": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/deviceSettingEntry"
+      },
+      "description": "Configurable values that live on the device hardware (polled + writable). Keyed by setting name."
+    },
+    "state_variables": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/stateVariableEntry"
+      },
+      "description": "Read-only state properties this driver exposes. Keyed by state variable name."
+    },
+    "child_entity_types": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/childEntityType"
+      },
+      "description": "Sub-units this device manages (encoders, decoders, zones, presets). Keyed by child type name."
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/commandEntry"
+      },
+      "description": "Commands this driver can send. Keyed by command name."
+    },
+    "responses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/responseEntry"
+      },
+      "description": "Patterns for parsing device replies. Checked in order; first match wins."
+    },
+    "on_connect": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/oscArg"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "description": "Commands sent immediately after connect, before polling. Strings for TCP/serial/UDP; {address, args} mappings for OSC."
+    },
+    "polling": {
+      "type": "object",
+      "properties": {
+        "queries": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              }
+            ]
+          },
+          "description": "Query strings (or command names) sent each poll cycle. Cadence comes from default_config.poll_interval."
+        }
+      },
+      "not": {
+        "required": ["interval"]
+      },
+      "description": "Periodic status query configuration. NOTE: a polling.interval key is inert and rejected by the catalog validator; set the cadence via default_config.poll_interval instead."
+    },
+    "auth": {
+      "$ref": "#/$defs/authBlock"
+    },
+    "frame_parser": {
+      "$ref": "#/$defs/frameParser"
+    },
+    "simulator": {
+      "$ref": "#/$defs/simulatorSection"
+    },
+    "discovery": {
+      "$ref": "#/$defs/discoveryBlock"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "deprecated": {
+            "const": true
+          }
+        },
+        "required": ["deprecated"]
+      },
+      "then": {
+        "required": ["replacement_id"]
+      }
+    },
+    {
+      "if": {
+        "required": ["replacement_id"]
+      },
+      "then": {
+        "properties": {
+          "deprecated": {
+            "const": true
+          }
+        },
+        "required": ["deprecated"]
+      }
+    }
+  ],
+  "$defs": {
+    "helpBlock": {
+      "type": "object",
+      "required": ["overview", "setup"],
+      "additionalProperties": false,
+      "properties": {
+        "overview": {
+          "type": "string",
+          "minLength": 1
+        },
+        "setup": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "description": "Help text shown in the Add Device dialog and available to the AI assistant. Both fields required."
+    },
+    "compatibleModelsEntry": {
+      "type": "object",
+      "required": ["manufacturer", "models", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "manufacturer": {
+          "type": "string"
+        },
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["full", "partial", "untested"]
+        },
+        "notes": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "stateVariableEntry": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "enum", "float"]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable label. Required for top-level state variables."
+        },
+        "help": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "description": "Allowed values for enum type."
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "default": true,
+        "cloud_priority": {
+          "type": "string",
+          "enum": ["high", "low"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "childStateVariableEntry": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "enum", "float"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "default": true,
+        "cloud_priority": {
+          "type": "string",
+          "enum": ["high", "low"]
+        }
+      },
+      "additionalProperties": true,
+      "description": "Child state variable. Same shape as device state variables, but label is not required (the platform injects online and label automatically)."
+    },
+    "childEntityType": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "label_plural": {
+          "type": "string"
+        },
+        "id_format": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["integer"],
+              "description": "Only integer local IDs are supported in v1."
+            },
+            "min": {
+              "type": "integer"
+            },
+            "max": {
+              "type": "integer"
+            },
+            "pad_width": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": true
+        },
+        "state_variables": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/childStateVariableEntry"
+          }
+        },
+        "summary_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "label_field": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "paramEntry": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "enum", "child_id"]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "label": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array"
+        },
+        "child_type": {
+          "type": "string",
+          "description": "For child_id type: the child_entity_types name this parameter targets."
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "default": true
+      },
+      "additionalProperties": true
+    },
+    "oscArg": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["f", "i", "s", "h", "d", "T", "F", "N"],
+          "description": "OSC type tag: f=float32, i=int32, s=string, h=int64, d=float64, T=true, F=false, N=nil."
+        },
+        "value": true
+      },
+      "additionalProperties": true
+    },
+    "commandEntry": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": ["send"]
+        },
+        {
+          "required": ["string"]
+        },
+        {
+          "required": ["path"]
+        },
+        {
+          "required": ["method"]
+        },
+        {
+          "required": ["address"]
+        }
+      ],
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "send": {
+          "type": "string",
+          "description": "Raw bytes to send (TCP/serial/UDP). {param} and {config} placeholders substituted at runtime."
+        },
+        "string": {
+          "type": "string",
+          "description": "Deprecated alias for send."
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method (GET/POST/PUT/DELETE). Default GET."
+        },
+        "path": {
+          "type": "string",
+          "description": "HTTP URL path."
+        },
+        "body": {
+          "type": "string",
+          "description": "HTTP request body. Parsed as JSON when valid, otherwise sent raw."
+        },
+        "query_params": {
+          "type": "object",
+          "description": "HTTP query parameters with {param} substitution."
+        },
+        "headers": {
+          "type": "object",
+          "description": "Per-request HTTP headers with {param} substitution."
+        },
+        "address": {
+          "type": "string",
+          "description": "OSC address pattern."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/oscArg"
+          },
+          "description": "OSC typed arguments."
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/paramEntry"
+          },
+          "description": "Parameter definitions, keyed by {placeholder} name."
+        }
+      },
+      "additionalProperties": true,
+      "description": "A command must declare one of: send (TCP/serial/UDP), path/method (HTTP), or address (OSC)."
+    },
+    "mappingEntry": {
+      "type": "object",
+      "properties": {
+        "group": {
+          "type": "integer",
+          "description": "Regex capture group index (1-based; 0 is the whole match)."
+        },
+        "state": {
+          "type": "string",
+          "description": "State variable to update."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "float", "number", "boolean"],
+          "description": "Coercion applied to the captured value."
+        },
+        "map": {
+          "type": "object",
+          "description": "Lookup table translating raw captured values to friendly values."
+        },
+        "value": true,
+        "arg": {
+          "type": "integer",
+          "description": "OSC argument index (for OSC responses)."
+        }
+      },
+      "additionalProperties": true
+    },
+    "responseEntry": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": ["match"]
+        },
+        {
+          "required": ["pattern"]
+        },
+        {
+          "required": ["address"]
+        }
+      ],
+      "properties": {
+        "match": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Regex matched against incoming text. Capture groups extract values."
+        },
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Deprecated alias for match."
+        },
+        "address": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "OSC address pattern (must start with /). Supports fnmatch wildcards."
+        },
+        "set": {
+          "type": "object",
+          "description": "Shorthand: maps state variables to capture groups (\"$1\") or static values."
+        },
+        "mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mappingEntry"
+          },
+          "description": "Verbose mapping form, supporting type coercion and value maps."
+        }
+      },
+      "additionalProperties": true,
+      "description": "A response must declare match or pattern (regex) or address (OSC)."
+    },
+    "authBlock": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Handshake type. Only telnet_login is implemented; other values skip the handshake."
+        },
+        "username_prompt": {
+          "type": "string",
+          "description": "Regex matched against the device's username prompt."
+        },
+        "password_prompt": {
+          "type": "string",
+          "description": "Regex matched against the device's password prompt."
+        },
+        "success_pattern": {
+          "type": "string",
+          "description": "Optional regex indicating successful login."
+        },
+        "failure_pattern": {
+          "type": "string",
+          "description": "Optional regex indicating rejected login."
+        },
+        "username_field": {
+          "type": "string",
+          "description": "Config field holding the username. Default \"username\"."
+        },
+        "password_field": {
+          "type": "string",
+          "description": "Config field holding the password. Default \"password\"."
+        },
+        "skip_if_empty": {
+          "type": "boolean",
+          "description": "Skip the handshake when the username config is empty. Default true."
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "description": "Per-stage handshake timeout. Default 10."
+        },
+        "line_ending": {
+          "type": "string",
+          "description": "Line ending appended to credentials. Default \"\\r\\n\"."
+        }
+      },
+      "additionalProperties": true
+    },
+    "frameParser": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["length_prefix", "fixed_length"],
+          "description": "Frame parser kind interpreted at runtime."
+        },
+        "header_size": {
+          "type": "integer",
+          "description": "length_prefix: bytes holding the length. Default 2."
+        },
+        "header_offset": {
+          "type": "integer",
+          "description": "length_prefix: offset of the length field. Default 0."
+        },
+        "include_header": {
+          "type": "boolean",
+          "description": "length_prefix: whether the length includes the header itself. Default false."
+        },
+        "length": {
+          "type": "integer",
+          "description": "fixed_length: frame size in bytes. Default 1."
+        }
+      },
+      "additionalProperties": true
+    },
+    "configSchemaEntry": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "text", "integer", "number", "float", "boolean", "enum"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "default": true,
+        "required": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "description": "Allowed values for enum type."
+        },
+        "secret": {
+          "type": "boolean",
+          "description": "Render as a masked password field."
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "regex": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "deviceSettingEntry": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "float", "boolean", "enum"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "state_key": {
+          "type": "string",
+          "description": "State variable providing the current value. Defaults to the setting key."
+        },
+        "default": true,
+        "setup": {
+          "type": "boolean",
+          "description": "Prompt for this setting when adding the device to a project. Default false."
+        },
+        "unique": {
+          "type": "boolean",
+          "description": "Generate a non-clashing default (appends device ID). Default false."
+        },
+        "values": {
+          "type": "array"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "regex": {
+          "type": "string"
+        },
+        "write": {
+          "$ref": "#/$defs/deviceSettingWrite"
+        }
+      },
+      "additionalProperties": true,
+      "description": "type, label, help, and default are expected by the IDE; the runtime enforces only the write definition."
+    },
+    "deviceSettingWrite": {
+      "type": "object",
+      "properties": {
+        "send": {
+          "type": "string",
+          "description": "TCP/serial write string. {value} and config placeholders substituted."
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method. Default POST."
+        },
+        "path": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object"
+        },
+        "address": {
+          "type": "string",
+          "description": "OSC address."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/oscArg"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "simulatorSection": {
+      "type": "object",
+      "properties": {
+        "push_state": {
+          "type": "boolean",
+          "description": "Push state changes to connected drivers, matching real device feedback behavior."
+        },
+        "initial_state": {
+          "type": "object",
+          "description": "Override initial state values."
+        },
+        "delays": {
+          "type": "object",
+          "description": "Response delays in seconds, e.g. {command_response: 0.05}."
+        },
+        "error_modes": {
+          "type": "object",
+          "description": "Named error behaviors selectable in the simulator UI."
+        },
+        "controls": {
+          "type": "array",
+          "description": "Declarative control widgets for the simulator UI."
+        },
+        "state_machines": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["states", "initial", "transitions"],
+            "properties": {
+              "states": {
+                "type": "array"
+              },
+              "initial": {},
+              "transitions": {}
+            },
+            "additionalProperties": true
+          }
+        },
+        "command_handlers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "receive": {
+                "type": "string",
+                "description": "Regex pattern matched against incoming commands (template handler)."
+              },
+              "match": {
+                "type": "string",
+                "description": "Regex pattern matched against incoming commands (template or script handler)."
+              },
+              "address": {
+                "type": "string",
+                "description": "OSC address fnmatch pattern (OSC script handler)."
+              },
+              "respond": {
+                "type": "string",
+                "description": "Response template with {1}, {state.key} placeholders."
+              },
+              "set_state": {
+                "type": "object",
+                "description": "State updates with template values."
+              },
+              "handler": {
+                "type": "string",
+                "description": "Inline Python handler body."
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "notifications": {
+          "type": "object",
+          "description": "Unsolicited messages emitted on state change, keyed by state variable."
+        }
+      },
+      "additionalProperties": true
+    },
+    "discoveryBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mdns": {
+          "$ref": "#/$defs/mdnsField"
+        },
+        "ssdp": {
+          "$ref": "#/$defs/ssdpField"
+        },
+        "amx_ddp": {
+          "$ref": "#/$defs/amxDdpField"
+        },
+        "tcp_probe": {
+          "$ref": "#/$defs/tcpProbe"
+        },
+        "udp_probe": {
+          "$ref": "#/$defs/udpProbe"
+        },
+        "python": {
+          "$ref": "#/$defs/pythonProbe"
+        },
+        "oui": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "MAC OUI prefixes (vendor) used as a soft hint."
+        },
+        "hostname": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Hostname regex patterns used as a soft hint."
+        },
+        "port_open": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "not": {
+              "enum": [22, 80, 443, 8000, 8080, 8443, 8888]
+            }
+          },
+          "description": "Open-port hints. Generic admin/web/SSH ports are disallowed."
+        },
+        "manufacturer_alias": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Vendor-string aliases matched against discovered banners/TXT records."
+        },
+        "snmp_pen": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "SNMP private enterprise number."
+        }
+      },
+      "description": "Discovery fingerprints and hints. Unknown keys are rejected by the platform and the catalog validator."
+    },
+    "mdnsItem": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "required": ["service"],
+          "additionalProperties": false,
+          "properties": {
+            "service": {
+              "type": "string",
+              "minLength": 1
+            },
+            "txt": {
+              "type": "object"
+            },
+            "cross_vendor": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "mdnsField": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/mdnsItem"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mdnsItem"
+          }
+        }
+      ]
+    },
+    "ssdpItem": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "required": ["device_type"],
+          "additionalProperties": false,
+          "properties": {
+            "device_type": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cross_vendor": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "ssdpField": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ssdpItem"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ssdpItem"
+          }
+        }
+      ]
+    },
+    "amxDdpItem": {
+      "type": "object",
+      "required": ["make"],
+      "additionalProperties": false,
+      "properties": {
+        "make": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_pattern": {
+          "type": "string"
+        },
+        "cross_vendor": {
+          "type": "boolean"
+        }
+      }
+    },
+    "amxDdpField": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/amxDdpItem"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/amxDdpItem"
+          }
+        }
+      ]
+    },
+    "extractField": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": ["regex"],
+          "properties": {
+            "regex": {
+              "type": "string",
+              "minLength": 1
+            },
+            "group": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "tcpProbe": {
+      "type": "object",
+      "required": ["port"],
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "send_hex": {
+          "type": "string"
+        },
+        "send_ascii": {
+          "type": "string"
+        },
+        "expect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expect_regex": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expect_hex": {
+          "type": "string"
+        },
+        "cross_vendor": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "extract": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/extractField"
+          }
+        },
+        "extract_manufacturer": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "not": {
+        "required": ["send_hex", "send_ascii"]
+      },
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": ["expect", "expect_regex"]
+              },
+              {
+                "required": ["expect", "expect_hex"]
+              },
+              {
+                "required": ["expect_regex", "expect_hex"]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": ["send_hex"]
+              },
+              {
+                "required": ["send_ascii"]
+              }
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": ["expect"]
+              },
+              {
+                "required": ["expect_regex"]
+              },
+              {
+                "required": ["expect_hex"]
+              }
+            ]
+          }
+        }
+      ],
+      "description": "TCP probe. Connect-only probes may omit send and expect. If it sends bytes, exactly one matcher is required."
+    },
+    "udpProbe": {
+      "type": "object",
+      "required": ["port"],
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "send_hex": {
+          "type": "string"
+        },
+        "send_ascii": {
+          "type": "string"
+        },
+        "expect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expect_regex": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expect_hex": {
+          "type": "string"
+        },
+        "cross_vendor": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "extract": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/extractField"
+          }
+        },
+        "extract_manufacturer": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "not": {
+        "required": ["send_hex", "send_ascii"]
+      },
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "required": ["send_hex"]
+            },
+            {
+              "required": ["send_ascii"]
+            }
+          ]
+        },
+        {
+          "anyOf": [
+            {
+              "required": ["expect"]
+            },
+            {
+              "required": ["expect_regex"]
+            },
+            {
+              "required": ["expect_hex"]
+            }
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": ["expect", "expect_regex"]
+              },
+              {
+                "required": ["expect", "expect_hex"]
+              },
+              {
+                "required": ["expect_regex", "expect_hex"]
+              }
+            ]
+          }
+        }
+      ],
+      "description": "UDP probe. Must declare a send payload (send_hex or send_ascii) and exactly one matcher."
+    },
+    "pythonProbe": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "required": ["file"],
+          "additionalProperties": false,
+          "properties": {
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cross_vendor": {
+              "type": "boolean"
+            }
+          }
+        }
+      ],
+      "description": "Python discovery escape-hatch. Bare path string or {file, cross_vendor} mapping. The companion .py must ship alongside the driver."
+    }
+  }
+}

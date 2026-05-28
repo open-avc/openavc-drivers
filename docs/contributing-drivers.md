@@ -249,6 +249,14 @@ python scripts/build_index.py --check    # Validate only (does not write outputs
 
 CI runs `--check` and fails the PR if the generated artifacts differ from what's checked in.
 
+To catch mistakes as you type, point your editor at the JSON Schema for the `.avcdriver` format. Add this line to the top of your driver file and any editor with YAML Language Server support (VS Code, Neovim, JetBrains, and others) will validate it live:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+```
+
+The schema is checked into the repository root as [`avcdriver.schema.json`](../avcdriver.schema.json). It covers the same rules CI enforces, so a file that validates cleanly against it is well on its way to passing `--check`.
+
 ## Using an AI Assistant
 
 If you use an AI coding assistant, point it to [`AGENTS.md`](../AGENTS.md) in the root of this repository. It contains the complete YAML schema, Python driver API, naming conventions, and examples in a format optimized for LLM agents. Have your assistant run `python scripts/build_index.py --check` on its output to catch errors before you submit.

@@ -2,13 +2,19 @@
 OpenAVC Samsung MDC (Multiple Display Control) Driver.
 
 Controls Samsung commercial displays via TCP using the MDC binary protocol.
-Default port: 1515. Each frame has a header (0xAA), command byte, display ID,
-data length, data bytes, and a checksum (sum of bytes after header, masked 0xFF).
+Default port: 1515.
 
-Frame format:
+Request frame (host -> display):
     [0xAA] [CMD] [ID] [LEN] [DATA...] [CHECKSUM]
 
-This driver validates the frame parser + checksum infrastructure from Phase 3.
+Response frame (display -> host):
+    [0xAA] [0xFF] [ID] [LEN] [ACK/NAK] [r-CMD] [VALUES...] [CHECKSUM]
+
+In a response the byte after the 0xAA header is always 0xFF (not the command).
+ACK is 0x41 ('A') and NAK is 0x4E ('N'); r-CMD echoes the command being
+answered, and the value bytes follow it. The checksum is the sum of every byte
+after the header, masked to 0xFF. The frame parser strips the 0xAA header and
+the trailing checksum before handing the body to on_data_received().
 """
 
 from __future__ import annotations
@@ -29,14 +35,50 @@ CMD_MUTE = 0x13
 CMD_INPUT = 0x14
 CMD_STATUS = 0x00
 
-# MDC input source codes
+# Response framing: every response uses 0xFF in the command position, followed
+# by an ACK ('A') or NAK ('N') byte before the echoed command.
+RESPONSE_CMD = 0xFF
+ACK = 0x41  # 'A'
+NAK = 0x4E  # 'N'
+
+# MDC input source codes (full Samsung source set). Ordered with the inputs an
+# integrator switches most often first; the rest cover PC-mode variants and the
+# display's internal/platform sources so status read-back always resolves.
 INPUT_MAP = {
     "hdmi1": 0x21,
     "hdmi2": 0x23,
+    "hdmi3": 0x31,
+    "hdmi4": 0x33,
     "dp1": 0x25,
-    "dvi1": 0x18,
-    "vga1": 0x14,
+    "dp2": 0x26,
+    "dp3": 0x27,
+    "dvi": 0x18,
+    "pc": 0x14,  # analog RGB (D-sub / "PC")
+    "hdbaset": 0x55,
+    "component": 0x08,
+    "av": 0x0C,
+    "av2": 0x0D,
+    "s_video": 0x04,
+    "scart1": 0x0E,
+    "bnc": 0x1E,
+    "rf_tv": 0x30,
+    "tv_dtv": 0x40,
+    "hdmi1_pc": 0x22,
+    "hdmi2_pc": 0x24,
+    "hdmi3_pc": 0x32,
+    "hdmi4_pc": 0x34,
+    "dvi_video": 0x1F,
+    "magic_info": 0x20,
+    "magic_info_s": 0x60,
     "url_launcher": 0x63,
+    "web_browser": 0x65,
+    "internal_usb": 0x62,
+    "widi": 0x61,
+    "iwb": 0x64,
+    "remote_workspace": 0x66,
+    "ocm": 0x56,
+    "plug_in_mode": 0x50,
+    "none": 0x00,
 }
 INPUT_REVERSE = {v: k for k, v in INPUT_MAP.items()}
 
@@ -86,7 +128,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.3.1",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
@@ -272,34 +314,45 @@ class SamsungMDCDriver(BaseDriver):
         log.debug(f"[{self.device_id}] Sent command: {command} {params}")
 
     async def on_data_received(self, data: bytes) -> None:
-        """Parse MDC response frames and update state."""
-        if len(data) < 3:
+        """Parse MDC response frames and update state.
+
+        The frame parser has already stripped the 0xAA header and trailing
+        checksum, so ``data`` is the response body::
+
+            [0xFF] [display_id] [len] [ACK/NAK] [r-CMD] [values...]
+
+        Values are read by the echoed command (r-CMD), not by the leading
+        byte — that is always 0xFF on a response.
+        """
+        # Need at least: response marker, id, len, ack/nak, r-cmd
+        if len(data) < 5 or data[0] != RESPONSE_CMD:
             return
 
-        cmd = data[0]
-        # data[1] = display_id (ACK responses use 0xFF + cmd format)
-        payload = data[3:] if len(data) > 3 else b""
+        ack = data[3]
+        rcmd = data[4]
+        values = data[5:]
 
-        # Check for ACK (0xFF prefix in response)
-        ack_cmd = data[0]
+        if ack == NAK:
+            log.warning(f"[{self.device_id}] Display returned NAK for command 0x{rcmd:02x}")
+            return
+        if ack != ACK:
+            return
 
-        if ack_cmd == CMD_POWER and payload:
-            self.set_state("power", "on" if payload[0] else "off")
-        elif ack_cmd == CMD_VOLUME and payload:
-            self.set_state("volume", payload[0])
-        elif ack_cmd == CMD_MUTE and payload:
-            self.set_state("mute", bool(payload[0]))
-        elif ack_cmd == CMD_INPUT and payload:
-            input_name = INPUT_REVERSE.get(payload[0], f"unknown_{payload[0]:02x}")
-            self.set_state("input", input_name)
-        elif ack_cmd == CMD_STATUS and len(payload) >= 3:
-            # Status response: [power, volume, mute, input, ...]
-            self.set_state("power", "on" if payload[0] else "off")
-            self.set_state("volume", payload[1])
-            self.set_state("mute", bool(payload[2]))
-            if len(payload) >= 4:
-                input_name = INPUT_REVERSE.get(payload[3], f"unknown_{payload[3]:02x}")
-                self.set_state("input", input_name)
+        if rcmd == CMD_POWER and values:
+            self.set_state("power", "on" if values[0] else "off")
+        elif rcmd == CMD_VOLUME and values:
+            self.set_state("volume", values[0])
+        elif rcmd == CMD_MUTE and values:
+            self.set_state("mute", bool(values[0]))
+        elif rcmd == CMD_INPUT and values:
+            self.set_state("input", INPUT_REVERSE.get(values[0], f"unknown_{values[0]:02x}"))
+        elif rcmd == CMD_STATUS and len(values) >= 3:
+            # Status values: [power, volume, mute, input, aspect, n_time, f_time]
+            self.set_state("power", "on" if values[0] else "off")
+            self.set_state("volume", values[1])
+            self.set_state("mute", bool(values[2]))
+            if len(values) >= 4:
+                self.set_state("input", INPUT_REVERSE.get(values[3], f"unknown_{values[3]:02x}"))
 
     async def poll(self) -> None:
         """Query display status."""

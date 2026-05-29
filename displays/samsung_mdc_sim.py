@@ -9,13 +9,15 @@ Full Samsung MDC (Multiple Display Control) binary protocol simulator with:
   - Status query returning all state at once
   - Proper MDC frame format with header (0xAA) and checksum
 
-Frame format (request and response):
+Request frame (controller -> display):
     [0xAA] [CMD] [ID] [LEN] [DATA...] [CHECKSUM]
-    Checksum = sum of bytes after header (CMD+ID+LEN+DATA) & 0xFF
 
-Response echoes the command byte back in the same frame format.
-The driver's frame parser strips 0xAA and checksum, returning
-[CMD, ID, LEN, DATA...] for processing.
+Response frame (display -> controller):
+    [0xAA] [0xFF] [ID] [LEN] [ACK/NAK] [r-CMD] [VALUES...] [CHECKSUM]
+
+Every response carries 0xFF in the command position (not the original command),
+an ACK (0x41 'A') or NAK (0x4E 'N') byte, then the echoed command and its
+values. Checksum = sum of all bytes after the 0xAA header, masked to 0xFF.
 """
 
 from simulator.tcp_simulator import TCPSimulator
@@ -28,14 +30,42 @@ CMD_VOLUME = 0x12
 CMD_MUTE = 0x13
 CMD_INPUT = 0x14
 
-# Input source codes
+# Input source codes (full Samsung source set — must match the driver)
 INPUT_MAP = {
     "hdmi1": 0x21,
     "hdmi2": 0x23,
+    "hdmi3": 0x31,
+    "hdmi4": 0x33,
     "dp1": 0x25,
-    "dvi1": 0x18,
-    "vga1": 0x14,
+    "dp2": 0x26,
+    "dp3": 0x27,
+    "dvi": 0x18,
+    "pc": 0x14,
+    "hdbaset": 0x55,
+    "component": 0x08,
+    "av": 0x0C,
+    "av2": 0x0D,
+    "s_video": 0x04,
+    "scart1": 0x0E,
+    "bnc": 0x1E,
+    "rf_tv": 0x30,
+    "tv_dtv": 0x40,
+    "hdmi1_pc": 0x22,
+    "hdmi2_pc": 0x24,
+    "hdmi3_pc": 0x32,
+    "hdmi4_pc": 0x34,
+    "dvi_video": 0x1F,
+    "magic_info": 0x20,
+    "magic_info_s": 0x60,
     "url_launcher": 0x63,
+    "web_browser": 0x65,
+    "internal_usb": 0x62,
+    "widi": 0x61,
+    "iwb": 0x64,
+    "remote_workspace": 0x66,
+    "ocm": 0x56,
+    "plug_in_mode": 0x50,
+    "none": 0x00,
 }
 INPUT_REVERSE = {v: k for k, v in INPUT_MAP.items()}
 
@@ -81,13 +111,21 @@ class SamsungMdcSimulator(TCPSimulator):
                 "type": "select",
                 "key": "input",
                 "label": "Input Source",
-                "options": ["hdmi1", "hdmi2", "dp1", "dvi1", "vga1", "url_launcher"],
+                "options": [
+                    "hdmi1", "hdmi2", "hdmi3", "hdmi4",
+                    "dp1", "dvi", "pc", "hdbaset",
+                    "magic_info_s", "url_launcher",
+                ],
                 "labels": {
                     "hdmi1": "HDMI 1",
                     "hdmi2": "HDMI 2",
+                    "hdmi3": "HDMI 3",
+                    "hdmi4": "HDMI 4",
                     "dp1": "DisplayPort",
-                    "dvi1": "DVI",
-                    "vga1": "VGA",
+                    "dvi": "DVI",
+                    "pc": "PC (analog RGB)",
+                    "hdbaset": "HDBaseT",
+                    "magic_info_s": "MagicInfo S",
                     "url_launcher": "URL Launcher",
                 },
             },
@@ -106,13 +144,19 @@ class SamsungMdcSimulator(TCPSimulator):
         ],
     }
 
-    def _build_ack(self, cmd: int, display_id: int, data: bytes = b"") -> bytes:
+    def _build_ack(
+        self, rcmd: int, display_id: int, data: bytes = b"", ack: bool = True
+    ) -> bytes:
         """Build an MDC response frame.
 
-        Format: [0xAA] [CMD] [ID] [LEN] [DATA...] [CHECKSUM]
-        Checksum covers CMD+ID+LEN+DATA (everything after header).
+        Format: [0xAA] [0xFF] [ID] [LEN] [ACK/NAK] [r-CMD] [DATA...] [CHECKSUM]
+        The byte after the header is always 0xFF (response marker), followed by
+        ACK (0x41 'A') or NAK (0x4E 'N'), then the echoed command and its data.
+        LEN counts the ACK/NAK, r-CMD, and data bytes. Checksum covers every
+        byte after the header.
         """
-        payload = bytes([cmd, display_id, len(data)]) + data
+        body = bytes([0x41 if ack else 0x4E, rcmd]) + data
+        payload = bytes([0xFF, display_id, len(body)]) + body
         cs = _checksum(payload)
         return bytes([0xAA]) + payload + bytes([cs])
 
@@ -170,10 +214,13 @@ class SamsungMdcSimulator(TCPSimulator):
             volume_byte = self.state.get("volume", 30)
             mute_byte = 0x01 if self.state.get("mute") else 0x00
             input_code = INPUT_MAP.get(self.state.get("input", "hdmi1"), 0x21)
+            # Real displays return 7 values: power, volume, mute, input,
+            # picture aspect, and two legacy timer bytes. The driver reads the
+            # first four; the rest are sent for protocol fidelity.
             return self._build_ack(
                 CMD_STATUS,
                 display_id,
-                bytes([power_byte, volume_byte, mute_byte, input_code]),
+                bytes([power_byte, volume_byte, mute_byte, input_code, 0x01, 0x00, 0x00]),
             )
 
         # ── Power (0x11) ──

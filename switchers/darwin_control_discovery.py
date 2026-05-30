@@ -140,7 +140,11 @@ async def _grab_banner(ip: str, source_ip: str, log: logging.Logger) -> str:
             if not chunk:
                 break  # peer closed
             acc += chunk
-            if _BANNER_SENTINEL.encode("latin-1") in acc:
+            # Wait for the FW Version line (it follows the welcome line), not
+            # just the sentinel, so a fragmented banner doesn't drop firmware.
+            if _BANNER_SENTINEL.encode("latin-1") in acc and _FW_RE.search(
+                acc.decode("latin-1", errors="replace")
+            ):
                 break
     except (ConnectionResetError, BrokenPipeError, OSError) as exc:
         log.debug("darwin_control companion: read from %s failed: %s", ip, exc)

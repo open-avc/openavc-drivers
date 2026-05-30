@@ -197,7 +197,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (

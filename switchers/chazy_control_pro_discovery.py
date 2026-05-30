@@ -91,6 +91,21 @@ def parse_welcome(text: str) -> tuple[str | None, str | None]:
     return (model or None), firmware
 
 
+def is_pro_token(model: str | None) -> bool:
+    """True when a welcome-line model token identifies a Chazy Control *Pro*.
+
+    Accepts the verified ``TAV-CHAZY-CLTPRO`` token and tolerates a firmware
+    rebrand (any token bearing ``CLTPRO``, or both ``CHAZY`` and ``PRO``).
+    Rejects the standard Control (``CHAZY CONTROL``) and the Darwin
+    ``Controller(h)`` / ``DARWIN CONTROL`` tokens, so the three TAV companions
+    stay mutually exclusive even across firmware brand changes.
+    """
+    if not model:
+        return False
+    low = model.lower()
+    return "cltpro" in low or ("chazy" in low and "pro" in low)
+
+
 async def _grab_banner(ip: str, source_ip: str, log: logging.Logger) -> str:
     """Connect to ``ip:CHAZY_TELNET_PORT`` and read the connect banner.
 
@@ -124,7 +139,12 @@ async def _grab_banner(ip: str, source_ip: str, log: logging.Logger) -> str:
             if not chunk:
                 break  # peer closed
             acc += chunk
-            if _BANNER_SENTINEL.encode("latin-1") in acc:
+            # Don't stop at the sentinel alone: the FW Version line follows the
+            # welcome line, so a banner fragmented across segments could exit
+            # before it arrives and drop the firmware. Wait for both (or budget).
+            if _BANNER_SENTINEL.encode("latin-1") in acc and _FW_RE.search(
+                acc.decode("latin-1", errors="replace")
+            ):
                 break
     except (ConnectionResetError, BrokenPipeError, OSError) as exc:
         log.debug("chazy_control_pro companion: read from %s failed: %s", ip, exc)
@@ -159,7 +179,7 @@ async def probe(ctx: ProbeContext) -> None:
         if not banner:
             return
         model, firmware = parse_welcome(banner)
-        if model != PRO_MODEL_TOKEN:
+        if not is_pro_token(model):
             return
         response: dict[str, object] = {
             "ip": ip,
@@ -174,7 +194,7 @@ async def probe(ctx: ProbeContext) -> None:
             host=ip,
             response=response,
             port=CHAZY_TELNET_PORT,
-            matched_pattern=f"regex:Welcome To {PRO_MODEL_TOKEN}",
+            matched_pattern=f"regex:Welcome To {model}",
         )
         ctx.log.info(
             "chazy_control_pro companion: %s identified as %s (FW %s)",

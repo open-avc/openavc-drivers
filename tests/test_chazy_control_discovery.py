@@ -40,6 +40,20 @@ PRO_BANNER = (
     "CONTROLLER> "
 )
 
+# Darwin Control shares the hostname + telnet port; its welcome token contains
+# the substring "control" (Controller(h)), so the standard companion must
+# anchor on "chazy" and reject both Darwin tokens.
+DARWIN_BANNER_H = (
+    "\r\n"
+    "================================================================\r\n"
+    "Welcome To Controller(h) Terminal Control System\r\n"
+    "FW Version: 1.50.02\r\n"
+    'Type "HELP" For More Information\r\n'
+    "================================================================\r\n"
+    "CONTROLLER> "
+)
+DARWIN_BANNER_BRAND = DARWIN_BANNER_H.replace("Controller(h)", "DARWIN CONTROL")
+
 
 def _load_companion() -> ModuleType:
     if "server.discovery.companion" not in sys.modules:
@@ -152,6 +166,22 @@ def test_probe_ignores_pro_banner():
     # The Pro's banner must NOT be claimed by the standard-Control companion.
     emitted = asyncio.run(_run_probe_against(PRO_BANNER))
     assert emitted == []
+
+
+def test_probe_ignores_darwin_banners():
+    # "Controller(h)" contains the substring "control"; the standard companion
+    # anchors on "chazy", so neither Darwin token is claimed.
+    assert asyncio.run(_run_probe_against(DARWIN_BANNER_H)) == []
+    assert asyncio.run(_run_probe_against(DARWIN_BANNER_BRAND)) == []
+
+
+def test_is_standard_token_rejects_siblings():
+    assert _mod.is_standard_token("CHAZY CONTROL")
+    assert not _mod.is_standard_token("TAV-CHAZY-CLTPRO")  # pro
+    assert not _mod.is_standard_token("CHAZY CONTROL PRO")  # pro rebrand
+    assert not _mod.is_standard_token("Controller(h)")      # darwin (no chazy)
+    assert not _mod.is_standard_token("DARWIN CONTROL")     # darwin
+    assert not _mod.is_standard_token(None)
 
 
 def test_probe_no_candidates_emits_nothing():

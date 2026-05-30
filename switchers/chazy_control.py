@@ -176,7 +176,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (

@@ -66,6 +66,12 @@ log = get_logger(__name__)
 # End-of-response marker the controller prints after every reply (and after
 # the connect banner). No trailing newline.
 PROMPT = b"CONTROLLER> "
+# Frame on the CRLF-anchored prompt, not the bare token. The prompt is always
+# CRLF-preceded on the wire (verified live: greeting ends ``====\r\nCONTROLLER> ``
+# and every response ends ``...\r\nCONTROLLER> ``), so anchoring to the line
+# boundary stops an echoed command argument that itself contains the literal
+# ``CONTROLLER> `` (e.g. a device name) from false-splitting a response.
+_FRAME_DELIM = b"\r\n" + PROMPT
 
 # Telnet IAC bytes.
 _IAC = 0xFF
@@ -190,7 +196,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.0",
+        "version": "1.4.1",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -554,14 +560,20 @@ class ChazyControlProDriver(BaseDriver):
         return bytes(out)
 
     async def on_data_received(self, data: bytes) -> None:
-        """Accumulate bytes; emit one queue item per prompt-delimited unit."""
+        """Accumulate bytes; emit one queue item per prompt-delimited unit.
+
+        The prompt is matched only when CRLF-preceded (``_FRAME_DELIM``), so an
+        echoed command argument containing the literal ``CONTROLLER> `` can't
+        false-split a response. The trailing ``\\r\\n`` is consumed as part of
+        the delimiter; ``_strip_echo`` then drops the leading echoed command.
+        """
         self._rx_buffer += self._filter_telnet(data)
         while True:
-            idx = self._rx_buffer.find(PROMPT)
+            idx = self._rx_buffer.find(_FRAME_DELIM)
             if idx == -1:
                 break
             unit = self._rx_buffer[:idx]
-            self._rx_buffer = self._rx_buffer[idx + len(PROMPT):]
+            self._rx_buffer = self._rx_buffer[idx + len(_FRAME_DELIM):]
             text = unit.decode("latin-1", errors="replace")
             self._responses.put_nowait(text)
 
@@ -735,7 +747,13 @@ class ChazyControlProDriver(BaseDriver):
         return resp
 
     async def _do_search(self) -> str:
-        """Trigger a Video LAN device search and reconcile the result."""
+        """Trigger a Video LAN device search and reconcile the result.
+
+        The controller returns the whole reply as ONE prompt-delimited unit:
+        the ``[SUCCESS]...done.`` progress line and the result banner arrive
+        together (confirmed live, FW 1.10.11), so a single long-timeout read
+        captures it — no separate GET SEARCH STATUS poll is needed.
+        """
         resp = await self._send_request("SEARCH", timeout=60.0)
         await self._poll_status()
         return resp
@@ -1232,11 +1250,12 @@ def _parse_dante_preset_status(text: str) -> dict[int, dict[str, Any]]:
             stripped = row.strip()
             if not stripped or row.lstrip().startswith(">>") or "====" in row:
                 break
-            if row[:3].isdigit():
-                cols = _split_columns(ln, row)
-                pid = cols.get("ID", "")
-                if pid.isdigit():
-                    out[int(pid)] = {"name": cols.get("Name", "").strip()}
+            # Gate on the first token (robust to any ID pad width), then read
+            # the name via column slice so multi-word names survive.
+            toks = stripped.split()
+            if toks and toks[0].isdigit():
+                name = _split_columns(ln, row).get("Name", "").strip()
+                out[int(toks[0])] = {"name": name}
             j += 1
     return out
 
@@ -1437,13 +1456,17 @@ def _parse_decoder_detail(text: str) -> dict[str, Any]:
                 r = r.lstrip("/")
                 if r.isdigit():
                     out[k] = int(r)
-            tail = toks[6:]
-            if len(tail) >= 1:
-                out["multicast"] = tail[0] == "On"
-            if len(tail) >= 2:
-                out["video_output"] = tail[1] == "On"
-            if len(tail) >= 3:
-                out["video_mute"] = tail[2] == "On"
+            # MCast/Video/Mute follow the 6 slash-routes; anchor them to the
+            # header columns (the label line) rather than positional toks[6:],
+            # so an added/reordered route column can't shift these booleans
+            # onto the wrong field.
+            cols = _split_columns(label, v0)
+            if cols.get("MCast"):
+                out["multicast"] = cols["MCast"] == "On"
+            if cols.get("Video"):
+                out["video_output"] = cols["Video"] == "On"
+            if cols.get("Mute"):
+                out["video_mute"] = cols["Mute"] == "On"
         elif ">>Sel" in label:
             for k, val in zip(sel_keys, _slash_ints(v0)):
                 out[k] = val

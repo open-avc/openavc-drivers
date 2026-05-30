@@ -232,10 +232,10 @@ def test_optimistic_write_back_on_write_only_setting():
 
     d._send_set = ok
     # Write-back to an unregistered decoder is a safe no-op (no crash).
-    asyncio.run(d.send_command("dec_output_freeze", {"decoder_id": 1, "state": "ON"}))
+    asyncio.run(d.send_command("dec_output_osd", {"decoder_id": 1, "state": "ON"}))
     d.register_child("decoder", 1)
-    asyncio.run(d.send_command("dec_output_freeze", {"decoder_id": 1, "state": "ON"}))
-    assert d.get_child_state("decoder", 1)["video_freeze"] is True
+    asyncio.run(d.send_command("dec_output_osd", {"decoder_id": 1, "state": "ON"}))
+    assert d.get_child_state("decoder", 1)["osd"] is True
     asyncio.run(d.send_command("dec_arp", {"decoder_id": 1, "path": "SPDIF"}))
     assert d.get_child_state("decoder", 1)["arp"] == "SPDIF"
 

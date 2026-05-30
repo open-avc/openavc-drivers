@@ -167,23 +167,42 @@ def test_reset_commands_present():
 
 # ── Subset correctness: shared surface present, Pro-only absent ──
 
-def test_shared_command_surface_present():
+def test_documented_command_surface_present():
     # The encoder/decoder/video-wall/Dante-routing/network/GPIO/search surface
-    # the standard Control shares with the Pro must all be present.
+    # the FW 1.00.17 reference documents must all be present.
     for name in (
         "reboot_controller", "set_rs232_baud",
-        "enc_set_name", "enc_static_ip", "enc_preset_apply", "enc_lan2_ipmode",
+        "enc_set_name", "enc_static_ip", "enc_preset_apply", "enc_ipmode",
         "enc_guest_config", "enc_switch_arc", "enc_reset",
-        "dec_route", "dec_static_ip", "dec_preset_apply", "dec_hotkey",
+        "dec_route", "dec_static_ip", "dec_preset_apply", "dec_output_osd",
         "dec_reset",
         "wall_create", "wall_delete", "wall_apply_preset", "wall_preset_class",
-        "dante_set_name", "dante_rxchn_subscribe", "dante_interface_static",
+        "dante_set_name", "dante_rxchn_subscribe", "dante_txflow_add",
         "dante_search",
         "search", "add_auto_all", "add_dev_enc", "add_dev_reset",
         "gpio_dir", "gpio_level",
         "net_dhcp", "net_telnet_port", "net_hostname",
     ):
-        assert name in INFO["commands"], f"missing shared command {name}"
+        assert name in INFO["commands"], f"missing documented command {name}"
+
+
+def test_undocumented_pro_carryovers_absent():
+    # Commands the FW 1.00.17 reference does NOT document (Pro carryovers) were
+    # removed to match the doc (see chazy-control-review-report.md). Re-adding
+    # one without a doc to back it should fail this test.
+    for name in (
+        "net_ssh", "net_ssh_port", "net_telnet",
+        "enc_usbmode", "enc_source", "enc_source_auto_priority", "enc_fan",
+        "enc_audio_stream", "enc_lanmode", "enc_lan2_ipmode",
+        "enc_sendguest_ascii", "enc_sendguest_hex",
+        "dec_audio_stream", "dec_output_freeze", "dec_ull",
+        "dec_dante_audio_source", "dec_hotkey", "dec_hotkey_del", "dec_lanmode",
+        "dec_sendguest_ascii", "dec_sendguest_hex",
+        "dante_preferred", "dante_aes67", "dante_reboot", "dante_clear_config",
+        "dante_interface_static", "dante_interface_dynamic", "dante_event_clear",
+    ):
+        assert name not in INFO["commands"], f"undocumented command present: {name}"
+        assert name not in drv._COMMAND_TEMPLATES, f"undocumented template: {name}"
 
 
 def test_pro_only_commands_absent():

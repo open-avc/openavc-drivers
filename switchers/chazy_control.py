@@ -10,29 +10,29 @@ through a single OpenAVC device.
 
 Relationship to the Pro driver:
 
-This driver was forked from the Chazy Control Pro driver. The Pro-only *modules*
-are removed: Media Player, decoder Groups, Events, Scheduler, Configuration
-Presets, Dante Presets, and Date/Time/NTP. The encoder, decoder, video-wall,
-Dante-routing, device-search, GPIO and core network surface remain.
+This driver was forked from the Chazy Control Pro driver and then **re-based on
+the standard Control's own API reference** (``Chazy-Control-API-.pdf``, FW
+**1.00.17**). The Pro-only *modules* are gone (Media Player, decoder Groups,
+Events, Scheduler, Configuration Presets, Dante Presets, Date/Time/NTP), and so
+are the per-endpoint / Dante / network commands the Pro has but the FW 1.00.17
+reference does **not** document — they were carried over by the fork and have
+been **removed** rather than shipped on a guess (no standalone Control unit was
+available to verify them, and on a genuine 1.00.17 unit they return ``[ERROR]``).
+Removed: ``enc_usbmode``/``enc_source``/``enc_source_auto_priority``/``enc_fan``/
+``enc_audio_stream``/``enc_lanmode``/``enc_lan2_*``/``enc_sendguest_*``;
+``dec_audio_stream``/``dec_output_freeze``/``dec_ull``/``dec_dante_audio_source``/
+``dec_hotkey``/``dec_hotkey_del``/``dec_lanmode``/``dec_lan2_*``/
+``dec_sendguest_*``; the extended Dante verbs
+(``dante_preferred``/``dante_aes67``/``dante_reboot``/``dante_clear_config``/
+``dante_interface_*``/``dante_event_clear``); and
+``net_ssh``/``net_ssh_port``/``net_telnet`` (the toggle — ``net_telnet_port``
+stays). If a newer standard-Control API doc surfaces, add back exactly what it
+documents (TurtleAV open-questions Q15).
 
-Two caveats, because the only written reference is the Chazy Control API
-(``Chazy-Control-API-.pdf``, FW **1.00.17**, dated 2023) and no standalone
-Control unit was available to verify against:
-
-* **Carryover commands.** A number of per-endpoint, Dante and network commands
-  inherited from the Pro (e.g. ``enc_usbmode``/``enc_source``/``enc_fan``,
-  ``dec_hotkey``/``dec_ull``/``dec_output_freeze``, the extended Dante
-  set, ``net_ssh``/``net_telnet``) are **not documented in the FW 1.00.17
-  reference**. They are real on the live Pro (FW 1.10.11) and likely work on a
-  standard Control running current firmware, but on a genuine FW 1.00.17 unit
-  they would return ``[ERROR]``. They are kept (current firmware is far newer
-  than 2023) but are *not* a verified-against-FW-1.00.17 surface — see the
-  backlog item and the TurtleAV open-questions note.
-* **Documented-but-implemented surface** is re-based on the FW 1.00.17 reference
-  where it is unambiguous: video-wall handles are [01..09], the EDID and
-  resolution help ranges match §4.6/§3.14, the hostname setter is
-  ``SET NETWORK DNS <name>`` (§9.8), and the TX SS (secondary stream) module
-  (§6) is supported read-side.
+The documented surface is matched to the reference: SWITCH routes are the seven
+§3.3-3.9 types (no MEDIA), video-wall handles are [01..09], EDID/resolution help
+ranges match §4.6/§3.14, the hostname setter is ``SET NETWORK DNS <name>`` (§9.8),
+and the TX SS (secondary stream) module (§6) is supported read-side.
 
 Transport / protocol (framing shared with — and hardware-validated on — the
 Control Pro; the standard Control is documented as using the same telnet API):
@@ -164,18 +164,12 @@ def _dec_state_vars() -> dict[str, dict[str, Any]]:
         "multicast": {"type": "boolean", "label": "Multicast"},
         "video_output": {"type": "boolean", "label": "Output On", "cloud_priority": "high"},
         "video_mute": {"type": "boolean", "label": "Output Muted"},
-        "video_freeze": {"type": "boolean", "label": "Output Frozen"},
         "osd": {"type": "boolean", "label": "ID OSD"},
-        "ull": {"type": "boolean", "label": "Ultra Low Latency", "cloud_priority": "low"},
         "sac": {"type": "enum", "values": ["ARC", "CEC", "OFF"], "label": "Shared Audio Pin"},
         "osp": {"type": "integer", "label": "OSP", "cloud_priority": "low"},
         "guest_enabled": {"type": "boolean", "label": "Serial Guest", "cloud_priority": "low"},
         "guest_baud": {"type": "string", "label": "Guest Baud", "cloud_priority": "low"},
         "guest_framing": {"type": "string", "label": "Guest Framing", "cloud_priority": "low"},
-        "dante_audio_source": {
-            "type": "enum", "values": ["DANTE", "NATIVE"], "label": "Dante Audio Source",
-            "cloud_priority": "low",
-        },
         "arp": {"type": "enum", "values": ["ARC", "SPDIF"], "label": "Audio Return Path",
                 "cloud_priority": "low"},
         "earc_downgrade": {"type": "boolean", "label": "eARC Downgrade", "cloud_priority": "low"},
@@ -202,7 +196,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.6",
+        "version": "1.2.7",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -1223,9 +1217,9 @@ def _parse_decoder_detail(text: str) -> dict[str, Any]:
 #
 # {param} placeholders are filled from the command's params. Child-id params
 # are coerced to bare ints by _coerce_child_ids before formatting. This is the
-# Chazy Control Pro command surface with the Pro-only modules removed (no
-# media, group, event, schedule, config-preset, Dante-preset or date/NTP
-# commands).
+# command surface the FW 1.00.17 Chazy Control API reference documents — the
+# Pro-only modules and the Pro per-endpoint/Dante/network carryovers the
+# reference does not list have been removed (see the module docstring).
 
 _COMMAND_TEMPLATES: dict[str, str] = {
     # System
@@ -1240,7 +1234,6 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "enc_dante_bridge": "SET ENC {encoder_id} DANTE BRIDGE {state}",
     "enc_dante_vlan": "SET ENC {encoder_id} DANTE VLAN {state}",
     "enc_dante_vlan_tag": "SET ENC {encoder_id} DANTE VLAN TAG {tag}",
-    "enc_audio_stream": "SET ENC {encoder_id} AUDIO STREAM {stream}",
     "enc_audio_input": "SET ENC {encoder_id} AUDIO INPUT {source}",
     "enc_edid_copy": "SET ENC {encoder_id} EDID COPY {decoder_id}",
     "enc_edid_default": "SET ENC {encoder_id} EDID DEFAULT {edid}",
@@ -1251,26 +1244,15 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "enc_relay": "SET ENC {encoder_id} RELAY {relay} {state}",
     "enc_sac": "SET ENC {encoder_id} SAC {mode}",
     "enc_net": "SET ENC {encoder_id} NET {phy}",
-    "enc_usbmode": "SET ENC {encoder_id} USBMODE {mode}",
-    "enc_source": "SET ENC {encoder_id} SOURCE {source}",
-    "enc_source_auto_priority": "SET ENC {encoder_id} SOURCE AUTO {priority}",
-    "enc_fan": "SET ENC {encoder_id} FAN {speed}",
     "enc_cec_send": "SET ENC {encoder_id} CEC SEND {data}",
     "enc_ir_send": "SET ENC {encoder_id} IR SEND {data}",
     "enc_guest_config": "SET ENC {encoder_id} GUEST {state} BR {baud} BIT {bits}",
     "enc_guest_start": "SET ENC {encoder_id} GUEST",
-    "enc_sendguest_ascii": "SET ENC {encoder_id} SENDGUEST ASCII {message}",
-    "enc_sendguest_hex": "SET ENC {encoder_id} SENDGUEST HEX {message}",
     "enc_ipmode": "SET ENC {encoder_id} IPMODE {mode}",
     "enc_static_ip": "SET ENC {encoder_id} STATIC IP {ip}",
     "enc_static_gateway": "SET ENC {encoder_id} STATIC GATEWAY {gateway}",
     "enc_static_mask": "SET ENC {encoder_id} STATIC MASK {mask}",
     "enc_network_reboot": "SET ENC {encoder_id} NETWORK REBOOT",
-    "enc_lanmode": "SET ENC {encoder_id} LANMODE {lanmode}",
-    "enc_lan2_ipmode": "SET ENC {encoder_id} LAN2 IPMODE {mode}",
-    "enc_lan2_static_ip": "SET ENC {encoder_id} LAN2 STATIC IP {ip}",
-    "enc_lan2_static_gateway": "SET ENC {encoder_id} LAN2 STATIC GATEWAY {gateway}",
-    "enc_lan2_static_mask": "SET ENC {encoder_id} LAN2 STATIC MASK {mask}",
     "enc_preset_ipmode": "SET ENC PRESET IPMODE {mode}",
     "enc_preset_start_ip": "SET ENC PRESET START IP {ip}",
     "enc_preset_end_ip": "SET ENC PRESET END IP {ip}",
@@ -1285,14 +1267,10 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "dec_led": "SET DEC {decoder_id} LED {state}",
     "dec_led_timeout": "SET DEC {decoder_id} LED ON 90",
     "dec_multicast": "SET DEC {decoder_id} MULTICAST {state}",
-    "dec_ull": "SET DEC {decoder_id} ULL {state}",
-    "dec_audio_stream": "SET DEC {decoder_id} AUDIO STREAM {stream}",
     "dec_dante_bridge": "SET DEC {decoder_id} DANTE BRIDGE {state}",
     "dec_dante_vlan": "SET DEC {decoder_id} DANTE VLAN {state}",
     "dec_dante_vlan_tag": "SET DEC {decoder_id} DANTE VLAN TAG {tag}",
-    "dec_dante_audio_source": "SET DEC {decoder_id} DANTE AUDIO SOURCE {source}",
     "dec_output": "SET DEC {decoder_id} OUTPUT {state}",
-    "dec_output_freeze": "SET DEC {decoder_id} OUTPUT FREEZE {state}",
     "dec_output_mute": "SET DEC {decoder_id} OUTPUT MUTE {state}",
     "dec_output_osd": "SET DEC {decoder_id} OUTPUT OSD {state}",
     "dec_output_resolution": "SET DEC {decoder_id} OUTPUT RESOLUTION {resolution}",
@@ -1311,25 +1289,13 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "dec_usb_data": "SET DEC {decoder_id} USB DATA {state}",
     "dec_cec_send": "SET DEC {decoder_id} CEC SEND {data}",
     "dec_ir_send": "SET DEC {decoder_id} IR SEND {data}",
-    "dec_hotkey": (
-        "SET DEC {decoder_id} HOTKEY {hotkey} KEY {k0} {k1} "
-        "ACTION {action} SRC {src}"
-    ),
-    "dec_hotkey_del": "SET DEC {decoder_id} HOTKEY {hotkey} DEL",
     "dec_guest_config": "SET DEC {decoder_id} GUEST {state} BR {baud} BIT {bits}",
     "dec_guest_start": "SET DEC {decoder_id} GUEST",
-    "dec_sendguest_ascii": "SET DEC {decoder_id} SENDGUEST ASCII {message}",
-    "dec_sendguest_hex": "SET DEC {decoder_id} SENDGUEST HEX {message}",
     "dec_ipmode": "SET DEC {decoder_id} IPMODE {mode}",
     "dec_static_ip": "SET DEC {decoder_id} STATIC IP {ip}",
     "dec_static_gateway": "SET DEC {decoder_id} STATIC GATEWAY {gateway}",
     "dec_static_mask": "SET DEC {decoder_id} STATIC MASK {mask}",
     "dec_network_reboot": "SET DEC {decoder_id} NETWORK REBOOT",
-    "dec_lanmode": "SET DEC {decoder_id} LANMODE {lanmode}",
-    "dec_lan2_ipmode": "SET DEC {decoder_id} LAN2 IPMODE {mode}",
-    "dec_lan2_static_ip": "SET DEC {decoder_id} LAN2 STATIC IP {ip}",
-    "dec_lan2_static_gateway": "SET DEC {decoder_id} LAN2 STATIC GATEWAY {gateway}",
-    "dec_lan2_static_mask": "SET DEC {decoder_id} LAN2 STATIC MASK {mask}",
     "dec_preset_ipmode": "SET DEC PRESET IPMODE {mode}",
     "dec_preset_start_ip": "SET DEC PRESET START IP {ip}",
     "dec_preset_end_ip": "SET DEC PRESET END IP {ip}",
@@ -1358,10 +1324,6 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "dante_set_srate": "SET DANTE DEV {devname} SRATE {rate}",
     "dante_set_encoding": "SET DANTE DEV {devname} ENC {encoding}",
     "dante_set_latency": "SET DANTE DEV {devname} LATENCY {latency}",
-    "dante_preferred": "SET DANTE DEV {devname} PREFERRED {state}",
-    "dante_aes67": "SET DANTE DEV {devname} AES67 {state}",
-    "dante_aes67_prefix": "SET DANTE DEV {devname} AES67 PREFIX {prefix}",
-    "dante_reboot": "SET DANTE DEV {devname} REBOOT {mode}",
     "dante_txchn_name": "SET DANTE DEV {devname} {flow} TXCHN {channel} NAME {name}",
     "dante_txflow_add": "SET DANTE DEV {devname} {flow} TXFLOW {name} ID {flow_id} SLOT {slot}",
     "dante_txflow_delete": "SET DANTE DEV {devname} {flow} TXFLOW {flow_id} DELETE",
@@ -1369,14 +1331,7 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "dante_rxchn_subscribe": (
         "SET DANTE DEV {devname} {flow} RXCHN {channel} SOURCE {txdev} CHN {src_channel}"
     ),
-    "dante_clear_config": "SET DANTE DEV {devname} CLEAR CONFIG {scope}",
-    "dante_interface_static": (
-        "SET DANTE DEV {devname} INTERFACE {intf} STATIC IP {ip} "
-        "MASK {mask} GW {gateway} DNS {dns}"
-    ),
-    "dante_interface_dynamic": "SET DANTE DEV {devname} INTERFACE {intf} DYNAMIC",
     "dante_search": "DANTE DEV SEARCH",
-    "dante_event_clear": "SET DANTE EVENT CLEAR",
     # Device management
     "search_reset": "SEARCH RESET",
     "add_dev_enc": "ADD DEV {dev} ENC {encoder_id}",
@@ -1391,10 +1346,7 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "net_static_gateway": "SET NETWORK {lan} STATIC GATEWAY {gateway}",
     "net_static_mask": "SET NETWORK {lan} STATIC MASK {mask}",
     "net_reboot": "SET NETWORK REBOOT",
-    "net_telnet": "SET NETWORK TELNET {state}",
     "net_telnet_port": "SET NETWORK TELNET PORT {port}",
-    "net_ssh": "SET NETWORK SSH {state}",
-    "net_ssh_port": "SET NETWORK SSH PORT {port}",
     "net_https": "SET NETWORK HTTPS {state}",
     # §9.8 "Modify the domain name": SET NETWORK DNS <hostname> (sets <name>.local,
     # restarts the controller). FW 1.00.17 has no DNS-server (MODE/PREFER/BACKUP)
@@ -1446,10 +1398,7 @@ _RESET_CONFIRM: dict[str, str] = {
 # value into child state so the IDE reflects it (maps to (child_type, id_param,
 # value-builder)).
 _POST_SET_STATE: dict[str, tuple[str, str, Any]] = {
-    "dec_output_freeze": ("decoder", "decoder_id", lambda p: {"video_freeze": p["state"] == "ON"}),
     "dec_output_osd": ("decoder", "decoder_id", lambda p: {"osd": p["state"] == "ON"}),
-    "dec_ull": ("decoder", "decoder_id", lambda p: {"ull": p["state"] == "ON"}),
-    "dec_dante_audio_source": ("decoder", "decoder_id", lambda p: {"dante_audio_source": p["source"]}),
     "dec_arp": ("decoder", "decoder_id", lambda p: {"arp": p["path"]}),
     "dec_earc_downgrade": ("decoder", "decoder_id", lambda p: {"earc_downgrade": p["state"] == "ON"}),
 }
@@ -1506,9 +1455,6 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "encoder_id": enc_id(), "state": onoff}},
         "enc_dante_vlan_tag": {"label": "Encoder: Dante VLAN Tag", "params": {
             "encoder_id": enc_id(), "tag": {"type": "integer", "required": True, "min": 1, "max": 4095}}},
-        "enc_audio_stream": {"label": "Encoder: Audio Stream", "params": {
-            "encoder_id": enc_id(), "stream": {"type": "enum", "values": ["DANTE", "AES67", "NONE"],
-                                               "required": True}}},
         "enc_audio_input": {"label": "Encoder: Audio Input", "params": {
             "encoder_id": enc_id(), "source": {"type": "enum", "values": ["HDMI", "ANA"],
                                                "required": True}}},
@@ -1538,30 +1484,13 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "enc_net": {"label": "Encoder: Network PHY", "params": {
             "encoder_id": enc_id(), "phy": {"type": "enum", "values": ["FIBER", "COPPER"],
                                             "required": True}}},
-        "enc_usbmode": {"label": "Encoder: USB Mode", "params": {
-            "encoder_id": enc_id(), "mode": {"type": "enum", "values": ["AUTO", "HOST", "TYPEC"],
-                                             "required": True}}},
-        "enc_source": {"label": "Encoder: Video Source", "params": {
-            "encoder_id": enc_id(), "source": {"type": "enum", "values": ["AUTO", "HDMI", "TYPEC"],
-                                               "required": True}}},
-        "enc_fan": {"label": "Encoder: Fan Speed", "params": {
-            "encoder_id": enc_id(), "speed": {"type": "enum",
-                                              "values": ["SILENT", "LOW", "STANDARD", "HIGH", "AUTO"],
-                                              "required": True}}},
         "enc_cec_send": {"label": "Encoder: Send CEC", "params": {
             "encoder_id": enc_id(), "data": {"type": "string", "required": True,
                                              "help": "Hex bytes, e.g. '40 04'."}}},
         "enc_ir_send": {"label": "Encoder: Send IR", "params": {
             "encoder_id": enc_id(), "data": {"type": "string", "required": True,
                                              "help": "Hex IR data."}}},
-        "enc_sendguest_ascii": {"label": "Encoder: Send Serial (ASCII)", "params": {
-            "encoder_id": enc_id(), "message": {"type": "string", "required": True}}},
-        "enc_sendguest_hex": {"label": "Encoder: Send Serial (Hex)", "params": {
-            "encoder_id": enc_id(), "message": {"type": "string", "required": True}}},
         "enc_led_timeout": {"label": "Encoder: Flash LED (90s)", "params": {"encoder_id": enc_id()}},
-        "enc_source_auto_priority": {"label": "Encoder: Auto Source Priority", "params": {
-            "encoder_id": enc_id(), "priority": {"type": "enum", "values": ["NONE", "HDMI", "TYPEC"],
-                                                 "required": True}}},
         "enc_guest_config": {"label": "Encoder: Serial Guest Config", "params": {
             "encoder_id": enc_id(), "state": onoff, "baud": _baud(),
             "bits": {"type": "string", "required": True, "help": "Data/parity/stop, e.g. 8n1"}}},
@@ -1576,16 +1505,6 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "enc_static_mask": {"label": "Encoder: Static Mask", "params": {
             "encoder_id": enc_id(), "mask": _ipparam("Subnet Mask")}},
         "enc_network_reboot": {"label": "Encoder: Reboot NIC", "params": {"encoder_id": enc_id()}},
-        "enc_lanmode": {"label": "Encoder: LAN Mode", "params": {
-            "encoder_id": enc_id(), "lanmode": {"type": "enum", "values": ["1", "2"], "required": True}}},
-        "enc_lan2_ipmode": {"label": "Encoder: LAN2 IP Mode", "params": {
-            "encoder_id": enc_id(), "mode": _ipmode_ds()}},
-        "enc_lan2_static_ip": {"label": "Encoder: LAN2 Static IP", "params": {
-            "encoder_id": enc_id(), "ip": _ipparam()}},
-        "enc_lan2_static_gateway": {"label": "Encoder: LAN2 Static Gateway", "params": {
-            "encoder_id": enc_id(), "gateway": _ipparam("Gateway")}},
-        "enc_lan2_static_mask": {"label": "Encoder: LAN2 Static Mask", "params": {
-            "encoder_id": enc_id(), "mask": _ipparam("Subnet Mask")}},
         "enc_preset_ipmode": {"label": "Encoder Preset: IP Mode", "params": {"mode": _ipmode_012()}},
         "enc_preset_start_ip": {"label": "Encoder Preset: Start IP", "params": {"ip": _ipparam()}},
         "enc_preset_end_ip": {"label": "Encoder Preset: End IP", "params": {"ip": _ipparam()}},
@@ -1610,24 +1529,14 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": dec_id(), "state": onoff}},
         "dec_multicast": {"label": "Decoder: Multicast", "params": {
             "decoder_id": dec_id(), "state": onoff}},
-        "dec_ull": {"label": "Decoder: Ultra Low Latency", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
-        "dec_audio_stream": {"label": "Decoder: Audio Stream", "params": {
-            "decoder_id": dec_id(), "stream": {"type": "enum", "values": ["DANTE", "AES67", "NONE"],
-                                               "required": True}}},
         "dec_dante_bridge": {"label": "Decoder: Dante Bridge", "params": {
             "decoder_id": dec_id(), "state": onoff}},
         "dec_dante_vlan": {"label": "Decoder: Dante VLAN", "params": {
             "decoder_id": dec_id(), "state": onoff}},
         "dec_dante_vlan_tag": {"label": "Decoder: Dante VLAN Tag", "params": {
             "decoder_id": dec_id(), "tag": {"type": "integer", "required": True, "min": 1, "max": 4095}}},
-        "dec_dante_audio_source": {"label": "Decoder: Dante Audio Source", "params": {
-            "decoder_id": dec_id(), "source": {"type": "enum", "values": ["DANTE", "NATIVE"],
-                                               "required": True}}},
         "dec_output": {"label": "Decoder: Output", "params": {
             "decoder_id": dec_id(), "state": onoff}, "help": "HDMI output on/off."},
-        "dec_output_freeze": {"label": "Decoder: Output Freeze", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
         "dec_output_mute": {"label": "Decoder: Output Mute", "params": {
             "decoder_id": dec_id(), "state": onoff}},
         "dec_output_osd": {"label": "Decoder: ID OSD", "params": {
@@ -1675,24 +1584,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": dec_id(), "data": {"type": "string", "required": True}}},
         "dec_ir_send": {"label": "Decoder: Send IR", "params": {
             "decoder_id": dec_id(), "data": {"type": "string", "required": True}}},
-        "dec_hotkey_del": {"label": "Decoder: Delete Hotkey", "params": {
-            "decoder_id": dec_id(), "hotkey": {"type": "integer", "required": True, "min": 1, "max": 20}}},
-        "dec_sendguest_ascii": {"label": "Decoder: Send Serial (ASCII)", "params": {
-            "decoder_id": dec_id(), "message": {"type": "string", "required": True}}},
-        "dec_sendguest_hex": {"label": "Decoder: Send Serial (Hex)", "params": {
-            "decoder_id": dec_id(), "message": {"type": "string", "required": True}}},
         "dec_led_timeout": {"label": "Decoder: Flash LED (90s)", "params": {"decoder_id": dec_id()}},
-        "dec_hotkey": {"label": "Decoder: Set KVM Hotkey", "params": {
-            "decoder_id": dec_id(),
-            "hotkey": {"type": "integer", "required": True, "min": 1, "max": 20, "label": "Hotkey #"},
-            "k0": {"type": "enum", "values": ["01", "02", "03", "04", "05", "06", "07", "08", "09"],
-                   "required": True, "label": "Modifier",
-                   "help": "01:LCtrl 02:RCtrl 03:LShift 04:RShift 05:LAlt 06:RAlt "
-                           "07:LCtrl+LShift 08:LCtrl+LAlt 09:LShift+LAlt"},
-            "k1": {"type": "string", "required": True, "label": "Key", "help": "ASCII code"},
-            "action": {"type": "enum", "values": ["PULL", "PUSH"], "required": True},
-            "src": {"type": "integer", "required": True, "label": "Source ID",
-                    "help": "Encoder or decoder ID"}}},
         "dec_guest_config": {"label": "Decoder: Serial Guest Config", "params": {
             "decoder_id": dec_id(), "state": onoff, "baud": _baud(),
             "bits": {"type": "string", "required": True, "help": "Data/parity/stop, e.g. 8n1"}}},
@@ -1707,16 +1599,6 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_static_mask": {"label": "Decoder: Static Mask", "params": {
             "decoder_id": dec_id(), "mask": _ipparam("Subnet Mask")}},
         "dec_network_reboot": {"label": "Decoder: Reboot NIC", "params": {"decoder_id": dec_id()}},
-        "dec_lanmode": {"label": "Decoder: LAN Mode", "params": {
-            "decoder_id": dec_id(), "lanmode": {"type": "enum", "values": ["1", "2"], "required": True}}},
-        "dec_lan2_ipmode": {"label": "Decoder: LAN2 IP Mode", "params": {
-            "decoder_id": dec_id(), "mode": _ipmode_ds()}},
-        "dec_lan2_static_ip": {"label": "Decoder: LAN2 Static IP", "params": {
-            "decoder_id": dec_id(), "ip": _ipparam()}},
-        "dec_lan2_static_gateway": {"label": "Decoder: LAN2 Static Gateway", "params": {
-            "decoder_id": dec_id(), "gateway": _ipparam("Gateway")}},
-        "dec_lan2_static_mask": {"label": "Decoder: LAN2 Static Mask", "params": {
-            "decoder_id": dec_id(), "mask": _ipparam("Subnet Mask")}},
         "dec_preset_ipmode": {"label": "Decoder Preset: IP Mode", "params": {"mode": _ipmode_012()}},
         "dec_preset_start_ip": {"label": "Decoder Preset: Start IP", "params": {"ip": _ipparam()}},
         "dec_preset_end_ip": {"label": "Decoder Preset: End IP", "params": {"ip": _ipparam()}},
@@ -1787,15 +1669,6 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "devname": _devname(), "encoding": {"type": "string", "required": True}}},
         "dante_set_latency": {"label": "Dante: Set Latency", "params": {
             "devname": _devname(), "latency": {"type": "string", "required": True}}},
-        "dante_preferred": {"label": "Dante: Preferred Master", "params": {
-            "devname": _devname(), "state": onoff}},
-        "dante_aes67": {"label": "Dante: AES67", "params": {
-            "devname": _devname(), "state": onoff}},
-        "dante_aes67_prefix": {"label": "Dante: AES67 Prefix", "params": {
-            "devname": _devname(), "prefix": {"type": "integer", "required": True, "min": 0, "max": 255}}},
-        "dante_reboot": {"label": "Dante: Reboot", "params": {
-            "devname": _devname(), "mode": {"type": "enum", "values": ["SOFT", "FACTORY"],
-                                            "required": True}}},
         "dante_txchn_name": {"label": "Dante: TX Channel Name", "params": {
             "devname": _devname(), "flow": _flow(),
             "channel": {"type": "integer", "required": True, "label": "Channel"},
@@ -1817,17 +1690,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "channel": {"type": "integer", "required": True, "label": "Channel"},
             "txdev": {"type": "string", "required": True, "label": "Source Device"},
             "src_channel": {"type": "integer", "required": True, "label": "Source Channel"}}},
-        "dante_clear_config": {"label": "Dante: Clear Config", "params": {
-            "devname": _devname(), "scope": {"type": "enum", "values": ["KEEPIP", "ALL"],
-                                             "required": True}}},
-        "dante_interface_static": {"label": "Dante: Interface Static IP", "params": {
-            "devname": _devname(), "intf": {"type": "string", "required": True, "label": "Interface"},
-            "ip": _ipparam(), "mask": _ipparam("Subnet Mask"), "gateway": _ipparam("Gateway"),
-            "dns": _ipparam("DNS")}},
-        "dante_interface_dynamic": {"label": "Dante: Interface DHCP", "params": {
-            "devname": _devname(), "intf": {"type": "string", "required": True, "label": "Interface"}}},
         "dante_search": {"label": "Dante: Search Devices", "params": {}},
-        "dante_event_clear": {"label": "Dante: Clear Events", "params": {}},
 
         # ── Device management ──
         "search": {"label": "Search for Devices", "params": {},
@@ -1864,11 +1727,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "net_static_mask": {"label": "Network: Static Mask", "params": {
             "lan": _lan(), "mask": {"type": "string", "required": True}}},
         "net_reboot": {"label": "Network: Reboot NIC", "params": {}},
-        "net_telnet": {"label": "Network: Telnet", "params": {"state": onoff}},
         "net_telnet_port": {"label": "Network: Telnet Port", "params": {
-            "port": {"type": "integer", "required": True, "min": 22, "max": 65535}}},
-        "net_ssh": {"label": "Network: SSH", "params": {"state": onoff}},
-        "net_ssh_port": {"label": "Network: SSH Port", "params": {
             "port": {"type": "integer", "required": True, "min": 22, "max": 65535}}},
         "net_https": {"label": "Network: HTTPS", "params": {"state": onoff}},
         "net_hostname": {"label": "Network: Hostname", "params": {

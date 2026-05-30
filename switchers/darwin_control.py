@@ -200,7 +200,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.4",
+        "version": "1.1.5",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -637,7 +637,6 @@ class DarwinControlDriver(BaseDriver):
                 seed = {
                     k: v for k, v in prev.items()
                     if k in self.get_child_entity_types()[ctype]["state_variables"]
-                    and k != "label"
                 }
                 self.register_child(ctype, new, initial_state=seed or None)
         return resp

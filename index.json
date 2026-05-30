@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-30T20:30:07+00:00",
+    "generated_at": "2026-05-30T20:32:05+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 60,
@@ -3571,7 +3571,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",

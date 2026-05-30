@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-30T20:56:21+00:00",
+    "generated_at": "2026-05-30T22:32:20+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 60,
@@ -3571,7 +3571,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -3605,7 +3605,7 @@
             "Darwin Control (CTL100AL)"
           ],
           "confidence": "full",
-          "notes": "Verified end-to-end against live hardware (FW 1.50.02): connect, discovery, child enumeration, status parsing, enrolment/idempotency, and the operational SET surface (routing, output/mute/pause/OSD/auto, resolution, rotate, no-signal standby, HDCP/Osp, TX encoding, LED/FPLED, audio input, IR, GPIO, video walls). The source-binding commands (video-wall class/matrix source, KVM hotkey) need a streaming source TX to accept, and reboot/reset/network commands were held back on the live unit; their wire formats match the manufacturer reference."
+          "notes": "Verified end-to-end against live hardware (FW 1.50.02) with a live HDMI source on the TX and a display on the RX: connect, discovery, child enumeration, status parsing, enrolment/idempotency, and the operational SET surface (routing, output/mute/pause/OSD/auto, resolution, rotate, no-signal standby, HDCP/Osp SNK/SRC/OFF/H14/H22, TX encoding, LED/FPLED, audio input, IR, GPIO). OSD, mute, pause, resolution, rotation, output on/off, and a single-RX video wall tile were confirmed rendering on the attached display; the source-binding commands (video-wall class/matrix source, KVM hotkey) were accepted with a live source. Decoder video-wall mode (MODE VW) requires the RX assigned to a wall with an applied class region first. Only reboot/reset/network commands were held back on the live unit; their wire formats match the manufacturer reference. Multi-endpoint routing and multi-screen walls need additional TX/RX units to exercise."
         }
       ],
       "discovery": {

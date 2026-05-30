@@ -200,7 +200,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.5",
+        "version": "1.1.6",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -235,16 +235,22 @@ class DarwinControlDriver(BaseDriver):
                 "models": ["Darwin Control (CTL100AL)"],
                 "confidence": "full",
                 "notes": (
-                    "Verified end-to-end against live hardware (FW 1.50.02): "
-                    "connect, discovery, child enumeration, status parsing, "
+                    "Verified end-to-end against live hardware (FW 1.50.02) with a "
+                    "live HDMI source on the TX and a display on the RX: connect, "
+                    "discovery, child enumeration, status parsing, "
                     "enrolment/idempotency, and the operational SET surface "
                     "(routing, output/mute/pause/OSD/auto, resolution, rotate, "
-                    "no-signal standby, HDCP/Osp, TX encoding, LED/FPLED, audio "
-                    "input, IR, GPIO, video walls). The source-binding commands "
-                    "(video-wall class/matrix source, KVM hotkey) need a streaming "
-                    "source TX to accept, and reboot/reset/network commands were "
-                    "held back on the live unit; their wire formats match the "
-                    "manufacturer reference."
+                    "no-signal standby, HDCP/Osp SNK/SRC/OFF/H14/H22, TX encoding, "
+                    "LED/FPLED, audio input, IR, GPIO). OSD, mute, pause, "
+                    "resolution, rotation, output on/off, and a single-RX video "
+                    "wall tile were confirmed rendering on the attached display; "
+                    "the source-binding commands (video-wall class/matrix source, "
+                    "KVM hotkey) were accepted with a live source. Decoder "
+                    "video-wall mode (MODE VW) requires the RX assigned to a wall "
+                    "with an applied class region first. Only reboot/reset/network "
+                    "commands were held back on the live unit; their wire formats "
+                    "match the manufacturer reference. Multi-endpoint routing and "
+                    "multi-screen walls need additional TX/RX units to exercise."
                 ),
             },
         ],
@@ -1504,9 +1510,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_hotkey_set": {"label": "Decoder: Set KVM Hotkey", "params": {
             "decoder_id": dec_id(),
             "nn": {"type": "integer", "required": True, "min": 1, "max": 20, "label": "Slot (1-20)"},
-            "k0": {"type": "enum", "values": [f"{x:02d}" for x in range(1, 10)], "required": True,
-                   "help": "01:LCtrl 02:RCtrl 03:LShift 04:RShift 05:LAlt 06:RAlt "
-                           "07:Ctrl+Shift 08:Ctrl+Alt 09:Shift+Alt"},
+            "k0": {"type": "enum", "values": [str(x) for x in range(1, 10)], "required": True,
+                   "help": "1:LCtrl 2:RCtrl 3:LShift 4:RShift 5:LAlt 6:RAlt "
+                           "7:Ctrl+Shift 8:Ctrl+Alt 9:Shift+Alt"},
             "k1": {"type": "integer", "required": True, "label": "ASCII code"},
             "action": {"type": "enum", "values": ["PULL", "PUSH"], "required": True},
             "encoder_id": enc_id("Source Encoder")}},

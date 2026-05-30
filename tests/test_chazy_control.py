@@ -236,10 +236,14 @@ def test_lifecycle_only_enc_dec_wall():
 def test_state_vars_drop_date_ntp_keep_network():
     sv = INFO["state_variables"]
     assert "date" not in sv and "ntp_server" not in sv
-    # DNS is part of the Network module, which the standard Control keeps.
-    for name in ("dns_mode", "dns_preferred", "dns_alternate",
-                 "lan1_ip", "lan2_ip", "hostname", "gpio1_dir"):
+    # The core network/system vars the standard Control reports in GET STATUS.
+    for name in ("lan1_ip", "lan2_ip", "hostname", "telnet_port", "ssh",
+                 "https", "gpio1_dir"):
         assert name in sv, f"network/system var {name} missing"
+    # FW 1.00.17 GET STATUS (§2.2) has no DNS-server block, so these can never
+    # populate and are not declared (see report H5).
+    for name in ("dns_mode", "dns_preferred", "dns_alternate"):
+        assert name not in sv, f"{name} declared but unpopulatable on FW 1.00.17"
 
 
 # ── Helpers (shared parser primitives) ──

@@ -194,7 +194,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.3",
+        "version": "1.2.4",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -312,9 +312,9 @@ class ChazyControlDriver(BaseDriver):
             "ssh": {"type": "boolean", "label": "SSH Enabled"},
             "https": {"type": "boolean", "label": "HTTPS Enabled"},
             "hostname": {"type": "string", "label": "Hostname"},
-            "dns_mode": {"type": "string", "label": "DNS Mode"},
-            "dns_preferred": {"type": "string", "label": "DNS Preferred"},
-            "dns_alternate": {"type": "string", "label": "DNS Alternate"},
+            # The FW 1.00.17 GET STATUS banner (§2.2) has no DNS-server block
+            # (only a Domain Name line, parsed into `hostname`). No dns_mode/
+            # dns_preferred/dns_alternate keys — they could never populate.
             "gpio1_dir": {"type": "string", "label": "GPIO1 Direction"},
             "gpio1_level": {"type": "integer", "label": "GPIO1 Level"},
             "gpio2_dir": {"type": "string", "label": "GPIO2 Direction"},
@@ -897,16 +897,6 @@ def _parse_status(text: str) -> dict[str, Any]:
             if len(parts) >= 5:
                 system["lan1_mac"] = parts[3]
                 system["lan2_mac"] = parts[4]
-            i += 2
-            continue
-        elif line.startswith("DNS") and "Preferred" in line:
-            cols = _split_columns(line, lines[i + 1]) if i + 1 < n else {}
-            if cols.get("Mode"):
-                system["dns_mode"] = cols.get("Mode", "")
-            if cols.get("Preferred"):
-                system["dns_preferred"] = _norm_ip(cols.get("Preferred", ""))
-            if cols.get("Alternate"):
-                system["dns_alternate"] = _norm_ip(cols.get("Alternate", ""))
             i += 2
             continue
         elif s == "Domain Name":

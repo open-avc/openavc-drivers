@@ -218,8 +218,9 @@ def test_roundtrip_status_online_parses(sim):
     assert p["decoders"][1]["source_video"] == 1
     assert p["system"]["firmware"] == "1.00.17"
     assert p["system"]["lan2_ip"] == "192.168.6.100"
-    assert p["system"]["dns_preferred"] == "192.168.6.1"
     assert p["system"]["hostname"] == "controller.local"
+    # FW 1.00.17 GET STATUS has no DNS-server block.
+    assert "dns_preferred" not in p["system"]
 
 
 def test_roundtrip_status_offline_parses(sim):

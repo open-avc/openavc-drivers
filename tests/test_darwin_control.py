@@ -153,6 +153,7 @@ def test_parse_status_populated_roster():
     e = ps["encoders"][1]
     assert e["ip"] == "169.254.10.1" and e["net"] is True and e["signal_present"] is False
     assert e["edid"] == "DF000"
+    assert e["audio_format"] == "PCM"  # AudioFormat column is device-reported
     assert sorted(ps["decoders"]) == [1]
     de = ps["decoders"][1]
     assert de["source"] == 1 and de["net"] is True and de["hpd"] is False

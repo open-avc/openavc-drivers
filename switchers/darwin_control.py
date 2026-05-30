@@ -97,8 +97,10 @@ EDID_LABELS = {
 def _enc_state_vars() -> dict[str, dict[str, Any]]:
     """Per-encoder (TX) state. `online` + `label` are injected by the platform.
 
-    The bitrate / codec / audio-format keys are write-through (the device does
-    not report them in GET ENC STATUS) — they are populated from SET acks.
+    The bitrate / codec keys are write-through (the device reports them in no
+    banner) — populated from SET acks. ``audio_format`` IS reported in the
+    GET STATUS roster (AudioFormat column), so it is polled there; the SET-ack
+    write-through only bridges the window until the next poll.
     """
     return {
         "name": {"type": "string", "label": "Device Name"},
@@ -112,6 +114,11 @@ def _enc_state_vars() -> dict[str, dict[str, Any]]:
             "type": "enum", "values": ["HDMI", "ANA"], "label": "Audio Input",
         },
         "multicast": {"type": "boolean", "label": "Multicast"},
+        # Reported in the GET STATUS roster (AudioFormat column); also write-through.
+        "audio_format": {
+            "type": "enum", "values": ["PCM", "AAC"], "label": "Audio Format",
+            "cloud_priority": "low",
+        },
         "fpled": {"type": "string", "label": "Front-Panel LED", "cloud_priority": "low"},
         "guest_enabled": {"type": "boolean", "label": "Serial Guest", "cloud_priority": "low"},
         "guest_baud": {"type": "string", "label": "Guest Baud", "cloud_priority": "low"},
@@ -120,12 +127,8 @@ def _enc_state_vars() -> dict[str, dict[str, Any]]:
         "ip": {"type": "string", "label": "IP Address"},
         "gateway": {"type": "string", "label": "Gateway", "cloud_priority": "low"},
         "subnet_mask": {"type": "string", "label": "Subnet Mask", "cloud_priority": "low"},
-        # write-through (set-only; device does not report these)
+        # write-through (set-only; device reports these in no banner)
         "bitrate": {"type": "string", "label": "Encode Bitrate", "cloud_priority": "low"},
-        "audio_format": {
-            "type": "enum", "values": ["PCM", "AAC"], "label": "Audio Format",
-            "cloud_priority": "low",
-        },
         "mainstream_codec": {
             "type": "enum", "values": ["h264", "h265"], "label": "Mainstream Codec",
             "cloud_priority": "low",
@@ -197,7 +200,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -553,6 +556,13 @@ class DarwinControlDriver(BaseDriver):
             resp = await self._send_set("ADD AUTO ALL")
             await self._poll_status()
             return resp
+        if command in ("add_dev_enc", "add_dev_dec"):
+            # The ADD ack names only the search IP, and id 0 auto-assigns an id
+            # the client can't know, so re-read the roster to register the new
+            # child immediately under its controller-assigned id.
+            resp = await self._send_set(_COMMAND_TEMPLATES[command].format(**params))
+            await self._poll_status()
+            return resp
         if command == "exit_guest":
             return await self._send_request("EXITGUEST")
 
@@ -867,12 +877,18 @@ def _parse_status(text: str) -> dict[str, Any]:
                 eid = cols.get("In", "")
                 if eid.isdigit():
                     net, sig = _split_flag_pair(cols.get("NET/Sig", ""))
-                    encoders[int(eid)] = {
+                    enc = {
                         "edid": cols.get("EDID", ""),
                         "ip": _norm_ip(cols.get("IP", "")),
                         "net": net,
                         "signal_present": sig,
                     }
+                    # AudioFormat (PCM/AAC) is the only encoding param the device
+                    # reports; include it when present so it self-heals on poll.
+                    af = cols.get("AudioFormat", "").strip()
+                    if af:
+                        enc["audio_format"] = af
+                    encoders[int(eid)] = enc
                 i += 1
             continue
         elif "FromIn" in line and "NET/HDMI" in line:

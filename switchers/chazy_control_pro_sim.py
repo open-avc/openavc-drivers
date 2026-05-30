@@ -110,6 +110,12 @@ _STATUS_TAIL = [
 _LINE_GET_DATE = "[SUCCESS]2026-05-20 12:17:01 (Australia/Sydney)."
 _LINE_GET_NTP = "[SUCCESS]time.nist.gov."
 _LINE_ERR_CMD = "[ERROR]Command not found."
+
+
+def _err_unknow_param(kind: str) -> str:
+    """Live wording (FW 1.10.11) for a bad ENC/DEC sub-parameter — the
+    firmware's 'unknow' misspelling is preserved."""
+    return f'[ERROR]{kind.upper()} unknow param. Type "HELP" for more reference.'
 _LINE_RESET_QUESTION = (
     'Sure to RESET system to default settings? Type "Yes" after next prompt to confirm...'
 )
@@ -345,7 +351,7 @@ class ChazyControlProSimulator(TCPSimulator):
             return self._render_status()
         if up == "GET DATE":
             return _LINE_GET_DATE
-        if up == "GET NTP":
+        if up == "GET NTP SERVER":
             return _LINE_GET_NTP
         if up == "SEARCH" or up == "GET SEARCH STATUS":
             return self._render_search()
@@ -897,6 +903,8 @@ class ChazyControlProSimulator(TCPSimulator):
                 self._reassign_phys(kind, n, new)
             return f"[SUCCESS]Set {kind} {n:03d} id {new:03d}."
         if rest[:1] == ["MULTICAST"] and len(rest) >= 2:
+            if rest[1] not in ("ON", "OFF"):
+                return _err_unknow_param(kind)
             dev["multicast"] = rest[1] == "ON"
             return f"[SUCCESS]Set {kind} {n:03d} multicast."
         if kind == "dec" and rest[:1] == ["SWITCH"] and len(toks) >= 5 \
@@ -904,9 +912,13 @@ class ChazyControlProSimulator(TCPSimulator):
             self._route_decoder(dev, int(toks[4]), rest[2] if len(rest) > 2 else "ALL")
             return f"[SUCCESS]Set dec {n:03d} switch."
         if kind == "dec" and rest[:2] == ["OUTPUT", "MUTE"] and len(rest) >= 3:
+            if rest[2] not in ("ON", "OFF"):
+                return _err_unknow_param(kind)
             dev["video_mute"] = rest[2] == "ON"
             return f"[SUCCESS]Set dec {n:03d} mute."
         if kind == "dec" and rest[:1] == ["OUTPUT"] and len(rest) == 2:
+            if rest[1] not in ("ON", "OFF"):
+                return _err_unknow_param(kind)
             dev["video_output"] = rest[1] == "ON"
             return f"[SUCCESS]Set dec {n:03d} output."
         return "[SUCCESS]OK."

@@ -325,7 +325,7 @@ def test_reset_confirm_no_cancels(sim):
 
 @pytest.mark.parametrize("cmd", [
     b"GET DATE",
-    b"GET NTP",
+    b"GET NTP SERVER",
     b"SET DATE 2026-05-20 12:00:00",
     b"SET NTP SERVER time.nist.gov",
     b"ADD MEDIA HANDLE 1",

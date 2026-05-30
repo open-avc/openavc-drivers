@@ -315,8 +315,21 @@ def test_reset_confirm_no_cancels(sim):
 
 
 def test_get_date_and_ntp(sim):
+    # The live command is "GET NTP SERVER" (the driver polls that exact form).
     assert _strip(sim.handle_command(b"GET DATE"), "GET DATE") == fx.LINE_GET_DATE
-    assert _strip(sim.handle_command(b"GET NTP"), "GET NTP") == fx.LINE_GET_NTP
+    assert _strip(
+        sim.handle_command(b"GET NTP SERVER"), "GET NTP SERVER"
+    ) == fx.LINE_GET_NTP
+
+
+def test_bad_output_arg_rejected_like_hardware(sim):
+    # Hardware rejects a non-ON/OFF output arg with "[ERROR]DEC unknow param";
+    # the sim must too, so error-path tests aren't fooled.
+    out = _strip(sim.handle_command(b"SET DEC 1 OUTPUT MAYBE"), "SET DEC 1 OUTPUT MAYBE")
+    assert out.startswith("[ERROR]") and "unknow param" in out
+    # The valid form still succeeds.
+    ok = _strip(sim.handle_command(b"SET DEC 1 OUTPUT OFF"), "SET DEC 1 OUTPUT OFF")
+    assert ok.startswith("[SUCCESS]")
 
 
 # ── Stateful mutations reflect in subsequent reads ──

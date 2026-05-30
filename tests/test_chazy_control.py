@@ -196,6 +196,35 @@ def test_pro_only_commands_absent():
         assert name not in drv._LIFECYCLE_COMMANDS, f"{name} in lifecycle"
 
 
+# ── Command bounds match the FW 1.00.17 reference ──
+
+def test_dec_route_signals_match_documented_switch_types():
+    # FW 1.00.17 §3.3-3.9: ALL/VIDEO/AUDIO/IR/RS232/USB/CEC. No MEDIA — the
+    # standard Control has no Media Player module to route from.
+    sig = INFO["commands"]["dec_route"]["params"]["signal"]["values"]
+    assert sig == ["ALL", "VIDEO", "AUDIO", "IR", "RS232", "USB", "CEC"]
+    assert "MEDIA" not in sig
+
+
+def test_help_ranges_match_fw_1_00_17_tables():
+    edid = INFO["commands"]["enc_edid_default"]["params"]["edid"]["help"]
+    assert "00-23" in edid and "101" not in edid  # §4.6 EDID table
+    res = INFO["commands"]["dec_output_resolution"]["params"]["resolution"]["help"]
+    assert "00-13" in res  # §3.14 resolution table
+
+
+def test_add_dev_allows_auto_assign_zero():
+    # §8.5/§8.6: enc/dec id 0 = auto-assign next free ID.
+    assert INFO["commands"]["add_dev_enc"]["params"]["encoder_id"]["min"] == 0
+    assert INFO["commands"]["add_dev_dec"]["params"]["decoder_id"]["min"] == 0
+
+
+def test_ss_encoder_state_present():
+    # FW 1.00.17 §6 TX SS module read path.
+    enc = INFO["child_entity_types"]["encoder"]["state_variables"]
+    assert "mainstream_url" in enc and "substream_url" in enc
+
+
 # ── child_entity_types schema (subset of the Pro's nine) ──
 
 def test_child_entity_types_are_the_subset():

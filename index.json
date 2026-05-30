@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-29T13:44:09+00:00",
+    "generated_at": "2026-05-30T02:43:00+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 59,
+    "total_drivers": 60,
     "shards": null
   },
   "drivers": [
@@ -3563,6 +3563,60 @@
         "manufacturer_alias": [
           "turtleav",
           "chazy"
+        ]
+      }
+    },
+    {
+      "id": "darwin_control",
+      "name": "TurtleAV Darwin Control",
+      "manufacturer": "TurtleAV",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
+      "source_url": "https://turtleav.com/",
+      "file": "switchers/darwin_control.py",
+      "format": "python",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "darwin_telnet"
+      ],
+      "min_platform_version": "0.13.0",
+      "tags": [
+        "av-over-ip",
+        "matrix",
+        "encoder",
+        "decoder",
+        "video-wall",
+        "h265"
+      ],
+      "help": {
+        "overview": "The Darwin Control orchestrates an entire Darwin HD AV-over-IP system. Add it as one device; its encoders, decoders, and video walls appear as child entities under the Child Entities tab.",
+        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use the Search command to find new TX/RX on the Video LAN, then Add Auto All to register them.\n5. Video walls already configured on the controller are also listed automatically."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "TurtleAV",
+          "models": [
+            "Darwin Control (CTL100AL)"
+          ],
+          "confidence": "partial",
+          "notes": "Connect, child enumeration, status parsing, enrolment and idempotency confirmed against live hardware (FW 1.50.02). Full command surface not yet exercised end-to-end."
+        }
+      ],
+      "discovery": {
+        "hostname": [
+          "^controller(\\.local)?$"
+        ],
+        "port_open": [
+          23
+        ],
+        "manufacturer_alias": [
+          "turtleav",
+          "darwin"
         ]
       }
     },

@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-29T13:44:09+00:00",
+    "generated_at": "2026-05-30T02:43:00+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 539,
+    "total_devices": 540,
     "shards": null
   },
   "devices": [
@@ -5898,6 +5898,18 @@
           "id": "chazy_control_pro",
           "confidence": "untested",
           "notes": "Telnet API confirmed against FW 1.10.11."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
+      "model": "Darwin Control (CTL100AL)",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "darwin_control",
+          "confidence": "partial",
+          "notes": "Connect, child enumeration, status parsing, enrolment and idempotency confirmed against live hardware (FW 1.50.02). Full command surface not yet exercised end-to-end."
         }
       ]
     },

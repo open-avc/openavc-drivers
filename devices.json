@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-30T13:57:25+00:00",
+    "generated_at": "2026-05-30T14:52:59+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_devices": 540,
@@ -5908,8 +5908,8 @@
       "drivers": [
         {
           "id": "darwin_control",
-          "confidence": "partial",
-          "notes": "Connect, child enumeration, status parsing, enrolment and idempotency confirmed against live hardware (FW 1.50.02). Full command surface not yet exercised end-to-end."
+          "confidence": "full",
+          "notes": "Verified end-to-end against live hardware (FW 1.50.02): connect, discovery, child enumeration, status parsing, enrolment/idempotency, and the operational SET surface (routing, output/mute/pause/OSD/auto, resolution, rotate, no-signal standby, HDCP/Osp, TX encoding, LED/FPLED, audio input, IR, GPIO, video walls). The source-binding commands (video-wall class/matrix source, KVM hotkey) need a streaming source TX to accept, and reboot/reset/network commands were held back on the live unit; their wire formats match the manufacturer reference."
         }
       ]
     },

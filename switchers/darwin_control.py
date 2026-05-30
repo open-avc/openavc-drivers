@@ -197,7 +197,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -230,11 +230,18 @@ class DarwinControlDriver(BaseDriver):
             {
                 "manufacturer": "TurtleAV",
                 "models": ["Darwin Control (CTL100AL)"],
-                "confidence": "partial",
+                "confidence": "full",
                 "notes": (
-                    "Connect, child enumeration, status parsing, enrolment and "
-                    "idempotency confirmed against live hardware (FW 1.50.02). "
-                    "Full command surface not yet exercised end-to-end."
+                    "Verified end-to-end against live hardware (FW 1.50.02): "
+                    "connect, discovery, child enumeration, status parsing, "
+                    "enrolment/idempotency, and the operational SET surface "
+                    "(routing, output/mute/pause/OSD/auto, resolution, rotate, "
+                    "no-signal standby, HDCP/Osp, TX encoding, LED/FPLED, audio "
+                    "input, IR, GPIO, video walls). The source-binding commands "
+                    "(video-wall class/matrix source, KVM hotkey) need a streaming "
+                    "source TX to accept, and reboot/reset/network commands were "
+                    "held back on the live unit; their wire formats match the "
+                    "manufacturer reference."
                 ),
             },
         ],

@@ -307,6 +307,29 @@ def test_dec_pause_and_hdcp_reflect(sim):
     assert d["hdcp"] == "H22"
 
 
+def test_dec_lost_button_ir_fpled_reflect(sim):
+    # Device-reported decoder settings the sim previously didn't model (review D2).
+    _send(sim, "SET DEC 1 OUTPUT LOST 5")
+    _send(sim, "SET DEC 1 BUTTON OFF")
+    _send(sim, "SET DEC 1 IR OFF")
+    _send(sim, "SET DEC 1 FPLED 0")
+    d = drv._parse_decoder_detail(_send(sim, "GET DEC 1 STATUS"))
+    assert d["video_lost_timeout"] == 5
+    assert d["button"] is False
+    assert d["ir_enabled"] is False
+    assert d["fpled"] == "0"
+
+
+def test_dec_resolution_and_rotate_reflect(sim):
+    # These SET values live at the third token; the sim used to store the
+    # keyword. Lock the corrected round-trip.
+    _send(sim, "SET DEC 1 OUTPUT RESOLUTION 08")
+    _send(sim, "SET DEC 1 OUTPUT ROTATE 2")
+    d = drv._parse_decoder_detail(_send(sim, "GET DEC 1 STATUS"))
+    assert d["resolution"] == "576p@50"  # RES_LABELS["08"]
+    assert d["rotate"] == "180"  # ROTATE_DEG["2"]
+
+
 def test_wall_create_delete_reflected(sim):
     _send(sim, "CREATE WALL HANDLE 1")
     w = drv._parse_wall_status(_send(sim, "GET WALL STATUS"))

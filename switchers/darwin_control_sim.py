@@ -614,12 +614,15 @@ class DarwinControlSimulator(TCPSimulator):
         if rest[:2] == ["OUTPUT", "AUTO"] and len(rest) >= 3:
             dev["auto"] = rest[2] == "ON"
             return f"[SUCCESS]Set dec {n:03d} auto."
-        if rest[:2] == ["OUTPUT", "RESOLUTION"] and len(toks) >= 5:
-            dev["resolution"] = toks[4].zfill(2)
+        if rest[:2] == ["OUTPUT", "RESOLUTION"] and len(rest) >= 3:
+            dev["resolution"] = rest[2].zfill(2)
             return f"[SUCCESS]Set dec {n:03d} resolution."
-        if rest[:2] == ["OUTPUT", "ROTATE"] and len(toks) >= 5:
-            dev["rotate"] = toks[4]
+        if rest[:2] == ["OUTPUT", "ROTATE"] and len(rest) >= 3:
+            dev["rotate"] = rest[2]
             return f"[SUCCESS]Set dec {n:03d} rotate."
+        if rest[:2] == ["OUTPUT", "LOST"] and len(rest) >= 3 and rest[2].isdigit():
+            dev["video_lost_timeout"] = int(rest[2])
+            return f"[SUCCESS]Set dec {n:03d} video lost timeout."
         if rest[:1] == ["OUTPUT"] and len(rest) == 2:
             dev["video_output"] = rest[1] == "ON"
             return f"[SUCCESS]Set dec {n:03d} output."
@@ -629,6 +632,15 @@ class DarwinControlSimulator(TCPSimulator):
         if rest[:1] == ["OSP"] and len(rest) >= 2:
             dev["hdcp"] = rest[1]
             return f"[SUCCESS]Set dec {n:03d} osp."
+        if rest[:1] == ["BUTTON"] and len(rest) >= 2:
+            dev["button"] = rest[1] == "ON"
+            return f"[SUCCESS]Set dec {n:03d} button."
+        if rest[:1] == ["IR"] and len(rest) == 2:  # 'IR VOL 12V' is len 3, excluded
+            dev["ir_enabled"] = rest[1] == "ON"
+            return f"[SUCCESS]Set dec {n:03d} ir."
+        if rest[:1] == ["FPLED"] and len(toks) >= 5:
+            dev["fpled"] = toks[4]
+            return f"[SUCCESS]Set dec {n:03d} fpled."
         if rest[:1] == ["STREAM"] and len(rest) >= 2:
             dev["multicast"] = rest[1] == "MULTICAST"
             return f"[SUCCESS]Set dec {n:03d} stream."

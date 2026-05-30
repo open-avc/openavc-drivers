@@ -194,7 +194,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.4",
+        "version": "1.2.5",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -563,7 +563,34 @@ class ChazyControlDriver(BaseDriver):
             log.warning(f"[{self.device_id}] Unknown command: {command}")
             raise ValueError(f"Unknown command: {command}")
         wire = template.format(**params)
-        return await self._send_set(wire)
+        resp = await self._send_set(wire)
+        # Reflect device settings the controller has no GET read-back for into
+        # child state, so the UI shows the commanded value instead of a blank.
+        self._apply_post_set_state(command, params)
+        return resp
+
+    def _apply_post_set_state(self, command: str, params: dict[str, Any]) -> None:
+        """Optimistically write a just-succeeded SET into child state for the
+        decoder settings the controller doesn't report via GET DEC STATUS (OSD,
+        ARP, eARC, freeze, ULL, Dante audio source), so the IDE doesn't show
+        them permanently blank. No-op for any other command.
+        """
+        spec = _POST_SET_STATE.get(command)
+        if not spec:
+            return
+        ctype, id_param, builder = spec
+        try:
+            cid = int(params[id_param])
+        except (KeyError, TypeError, ValueError):
+            return
+        if not self.is_child_registered(ctype, cid):
+            return
+        try:
+            updates = builder(params)
+        except KeyError:
+            return
+        if updates:
+            self.set_child_state_batch(ctype, cid, updates)
 
     def _coerce_child_ids(self, command: str, params: dict[str, Any]) -> None:
         """Coerce any child_id-typed param to a bare int for the wire format
@@ -1366,6 +1393,19 @@ _RESET_CONFIRM: dict[str, str] = {
     "reset_system_confirm": "SET RESET",
     "reset_network_confirm": "SET RESET NETWORK",
     "reset_all_confirm": "SET RESET ALL",
+}
+
+# Decoder settings the controller accepts via SET but never reports in
+# GET DEC STATUS. After a successful SET, optimistically write the commanded
+# value into child state so the IDE reflects it (maps to (child_type, id_param,
+# value-builder)).
+_POST_SET_STATE: dict[str, tuple[str, str, Any]] = {
+    "dec_output_freeze": ("decoder", "decoder_id", lambda p: {"video_freeze": p["state"] == "ON"}),
+    "dec_output_osd": ("decoder", "decoder_id", lambda p: {"osd": p["state"] == "ON"}),
+    "dec_ull": ("decoder", "decoder_id", lambda p: {"ull": p["state"] == "ON"}),
+    "dec_dante_audio_source": ("decoder", "decoder_id", lambda p: {"dante_audio_source": p["source"]}),
+    "dec_arp": ("decoder", "decoder_id", lambda p: {"arp": p["path"]}),
+    "dec_earc_downgrade": ("decoder", "decoder_id", lambda p: {"earc_downgrade": p["state"] == "ON"}),
 }
 
 

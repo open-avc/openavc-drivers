@@ -135,7 +135,7 @@ def test_full_module_coverage_present():
         "media_add", "group_create", "event_create", "schedule_create",
         "config_preset_save", "dante_preset_create", "set_date", "set_ntp_server",
         "enc_static_ip", "enc_preset_apply", "enc_lan2_ipmode", "enc_guest_config",
-        "dec_static_ip", "dec_preset_apply", "dec_hotkey", "dec_output_colorspace",
+        "dec_static_ip", "dec_preset_apply", "dec_hotkey",
         "net_dns", "dante_rxchn_subscribe", "wall_create",
     ):
         assert name in INFO["commands"], f"missing {name}"

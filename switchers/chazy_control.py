@@ -176,7 +176,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -1216,7 +1216,6 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "dec_output_mute": "SET DEC {decoder_id} OUTPUT MUTE {state}",
     "dec_output_osd": "SET DEC {decoder_id} OUTPUT OSD {state}",
     "dec_output_resolution": "SET DEC {decoder_id} OUTPUT RESOLUTION {resolution}",
-    "dec_output_colorspace": "SET DEC {decoder_id} OUTPUT COLORSPACE {colorspace}",
     "dec_output_rotate": "SET DEC {decoder_id} OUTPUT ROTATE {rotate}",
     "dec_output_flip": "SET DEC {decoder_id} OUTPUT FLIP {flip}",
     "dec_mode": "SET DEC {decoder_id} MODE {mode}",
@@ -1422,7 +1421,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "encoder_id": enc_id(), "decoder_id": dec_id()}},
         "enc_edid_default": {"label": "Encoder: Set Default EDID", "params": {
             "encoder_id": enc_id(), "edid": {"type": "string", "required": True,
-                                             "help": "EDID preset index (00-51, 101, 102)."}}},
+                                             "help": "EDID preset index (00-27 built-in, 101/102 user)."}}},
         "enc_ir_vol": {"label": "Encoder: IR Voltage", "params": {
             "encoder_id": enc_id(), "voltage": {"type": "enum", "values": ["5V", "12V"],
                                                 "required": True}}},
@@ -1540,11 +1539,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": dec_id(), "state": onoff}},
         "dec_output_resolution": {"label": "Decoder: Output Resolution", "params": {
             "decoder_id": dec_id(), "resolution": {"type": "string", "required": True,
-                                                   "help": "Resolution index (00-21)."}}},
-        "dec_output_colorspace": {"label": "Decoder: Output Color Space", "params": {
-            "decoder_id": dec_id(), "colorspace": {"type": "enum", "values": ["00", "01", "02", "03"],
-                                                   "required": True,
-                                                   "help": "00:RGB 01:YUV444 02:YUV422 03:YUV420"}}},
+                                                   "help": "Resolution index (00-17)."}}},
         "dec_output_rotate": {"label": "Decoder: Output Rotate", "params": {
             "decoder_id": dec_id(), "rotate": {"type": "enum", "values": ["0", "1", "2", "3"],
                                                "required": True, "help": "0:0 1:90 2:180 3:270"}}},

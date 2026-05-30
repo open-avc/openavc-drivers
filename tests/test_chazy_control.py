@@ -175,7 +175,7 @@ def test_shared_command_surface_present():
         "enc_set_name", "enc_static_ip", "enc_preset_apply", "enc_lan2_ipmode",
         "enc_guest_config", "enc_switch_arc", "enc_reset",
         "dec_route", "dec_static_ip", "dec_preset_apply", "dec_hotkey",
-        "dec_output_colorspace", "dec_reset",
+        "dec_reset",
         "wall_create", "wall_delete", "wall_apply_preset", "wall_preset_class",
         "dante_set_name", "dante_rxchn_subscribe", "dante_interface_static",
         "dante_search",

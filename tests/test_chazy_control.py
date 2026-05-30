@@ -181,7 +181,7 @@ def test_shared_command_surface_present():
         "dante_search",
         "search", "add_auto_all", "add_dev_enc", "add_dev_reset",
         "gpio_dir", "gpio_level",
-        "net_dhcp", "net_dns", "net_telnet_port", "net_hostname",
+        "net_dhcp", "net_telnet_port", "net_hostname",
     ):
         assert name in INFO["commands"], f"missing shared command {name}"
 
@@ -204,7 +204,7 @@ def test_child_entity_types_are_the_subset():
     assert types["encoder"]["id_format"] == {
         "type": "integer", "min": 1, "max": 762, "pad_width": 3}
     assert types["decoder"]["id_format"]["max"] == 762
-    assert types["video_wall"]["id_format"]["max"] == 256
+    assert types["video_wall"]["id_format"]["max"] == 9  # FW 1.00.17 §7 hdl [01..09]
 
 
 def test_child_types_do_not_declare_reserved_props():

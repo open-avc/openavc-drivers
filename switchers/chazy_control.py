@@ -10,13 +10,29 @@ through a single OpenAVC device.
 
 Relationship to the Pro driver:
 
-This driver is the standard Control's command set, which is a documented strict
-*subset* of the Chazy Control Pro. Per the Chazy Control API reference
-(``Chazy-Control-API-.pdf``, FW 1.00.17), the standard Control has the same
-encoder, decoder, video-wall, Dante-routing, device-search, GPIO and network
-command surface as the Pro, but lacks the Pro-only modules: Media Player,
-decoder Groups, Events, Scheduler, Configuration Presets, Dante Presets, and
-Date/Time/NTP. Those are simply absent here.
+This driver was forked from the Chazy Control Pro driver. The Pro-only *modules*
+are removed: Media Player, decoder Groups, Events, Scheduler, Configuration
+Presets, Dante Presets, and Date/Time/NTP. The encoder, decoder, video-wall,
+Dante-routing, device-search, GPIO and core network surface remain.
+
+Two caveats, because the only written reference is the Chazy Control API
+(``Chazy-Control-API-.pdf``, FW **1.00.17**, dated 2023) and no standalone
+Control unit was available to verify against:
+
+* **Carryover commands.** A number of per-endpoint, Dante and network commands
+  inherited from the Pro (e.g. ``enc_usbmode``/``enc_source``/``enc_fan``,
+  ``dec_hotkey``/``dec_ull``/``dec_output_freeze``, the extended Dante
+  set, ``net_ssh``/``net_telnet``) are **not documented in the FW 1.00.17
+  reference**. They are real on the live Pro (FW 1.10.11) and likely work on a
+  standard Control running current firmware, but on a genuine FW 1.00.17 unit
+  they would return ``[ERROR]``. They are kept (current firmware is far newer
+  than 2023) but are *not* a verified-against-FW-1.00.17 surface — see the
+  backlog item and the TurtleAV open-questions note.
+* **Documented-but-implemented surface** is re-based on the FW 1.00.17 reference
+  where it is unambiguous: video-wall handles are [01..09], the EDID and
+  resolution help ranges match §4.6/§3.14, the hostname setter is
+  ``SET NETWORK DNS <name>`` (§9.8), and the TX SS (secondary stream) module
+  (§6) is supported read-side.
 
 Transport / protocol (framing shared with — and hardware-validated on — the
 Control Pro; the standard Control is documented as using the same telnet API):
@@ -69,9 +85,11 @@ _NEGOTIATE = (0xFB, 0xFC, 0xFD, 0xFE)  # WILL / WONT / DO / DONT (+1 option byte
 
 ENC_MAX = 762
 DEC_MAX = 762
-HDL_MAX = 256
+HDL_MAX = 9  # video-wall handle range is [01..09] (FW 1.00.17 §7)
 
-SIGNAL_TYPES = ["ALL", "VIDEO", "AUDIO", "IR", "RS232", "USB", "CEC", "MEDIA"]
+# SWITCH route signal types. The standard Control has no Media Player module, so
+# MEDIA routing (a Pro-only signal) is not offered here (FW 1.00.17 §3.3-3.9).
+SIGNAL_TYPES = ["ALL", "VIDEO", "AUDIO", "IR", "RS232", "USB", "CEC"]
 
 
 def _enc_state_vars() -> dict[str, dict[str, Any]]:
@@ -176,7 +194,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.2",
+        "version": "1.2.3",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -591,7 +609,6 @@ class ChazyControlDriver(BaseDriver):
                 seed = {
                     k: v for k, v in prev.items()
                     if k in self.get_child_entity_types()[ctype]["state_variables"]
-                    and k != "label"
                 }
                 self.register_child(ctype, new, initial_state=seed or None)
         return resp
@@ -1316,8 +1333,10 @@ _COMMAND_TEMPLATES: dict[str, str] = {
     "net_ssh": "SET NETWORK SSH {state}",
     "net_ssh_port": "SET NETWORK SSH PORT {port}",
     "net_https": "SET NETWORK HTTPS {state}",
-    "net_hostname": "SET NETWORK HOSTNAME {hostname}",
-    "net_dns": "SET NETWORK DNS MODE {mode} PREFER {prefer} BACKUP {backup} DEV {lan}",
+    # §9.8 "Modify the domain name": SET NETWORK DNS <hostname> (sets <name>.local,
+    # restarts the controller). FW 1.00.17 has no DNS-server (MODE/PREFER/BACKUP)
+    # command, so that form was removed (it would mis-set the hostname).
+    "net_hostname": "SET NETWORK DNS {hostname}",
 }
 
 # Lifecycle commands: send the wire, then mutate the platform child registry.
@@ -1421,7 +1440,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "encoder_id": enc_id(), "decoder_id": dec_id()}},
         "enc_edid_default": {"label": "Encoder: Set Default EDID", "params": {
             "encoder_id": enc_id(), "edid": {"type": "string", "required": True,
-                                             "help": "EDID preset index (00-27 built-in, 101/102 user)."}}},
+                                             "help": "EDID preset index (00-23 built-in; 25 = User EDID 1, 26 = User EDID 2)."}}},
         "enc_ir_vol": {"label": "Encoder: IR Voltage", "params": {
             "encoder_id": enc_id(), "voltage": {"type": "enum", "values": ["5V", "12V"],
                                                 "required": True}}},
@@ -1539,7 +1558,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": dec_id(), "state": onoff}},
         "dec_output_resolution": {"label": "Decoder: Output Resolution", "params": {
             "decoder_id": dec_id(), "resolution": {"type": "string", "required": True,
-                                                   "help": "Resolution index (00-17)."}}},
+                                                   "help": "Resolution index (00-13)."}}},
         "dec_output_rotate": {"label": "Decoder: Output Rotate", "params": {
             "decoder_id": dec_id(), "rotate": {"type": "enum", "values": ["0", "1", "2", "3"],
                                                "required": True, "help": "0:0 1:90 2:180 3:270"}}},
@@ -1742,12 +1761,12 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                          "help": "Add every newly-found encoder/decoder to the system."},
         "add_dev_enc": {"label": "Add Encoder from Search", "params": {
             "dev": {"type": "integer", "required": True, "min": 1, "label": "Search Index"},
-            "encoder_id": {"type": "integer", "required": True, "min": 1, "max": ENC_MAX,
-                           "label": "Assign ID"}}},
+            "encoder_id": {"type": "integer", "required": True, "min": 0, "max": ENC_MAX,
+                           "label": "Assign ID", "help": "0 = auto-assign next free ID."}}},
         "add_dev_dec": {"label": "Add Decoder from Search", "params": {
             "dev": {"type": "integer", "required": True, "min": 1, "label": "Search Index"},
-            "decoder_id": {"type": "integer", "required": True, "min": 1, "max": DEC_MAX,
-                           "label": "Assign ID"}}},
+            "decoder_id": {"type": "integer", "required": True, "min": 0, "max": DEC_MAX,
+                           "label": "Assign ID", "help": "0 = auto-assign next free ID."}}},
         "add_dev_reset": {"label": "Reset All Devices", "params": {},
                           "help": "Wipe all encoders/decoders/video walls/search from the system."},
 
@@ -1777,11 +1796,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "port": {"type": "integer", "required": True, "min": 22, "max": 65535}}},
         "net_https": {"label": "Network: HTTPS", "params": {"state": onoff}},
         "net_hostname": {"label": "Network: Hostname", "params": {
-            "hostname": {"type": "string", "required": True}}},
-        "net_dns": {"label": "Network: DNS Servers", "params": {
-            "mode": {"type": "enum", "values": ["0", "1"], "required": True,
-                     "label": "DNS Mode", "help": "0:Auto 1:Manual"},
-            "prefer": _ipparam("Preferred DNS"), "backup": _ipparam("Backup DNS"), "lan": _lan()}},
+            "hostname": {"type": "string", "required": True,
+                         "help": "Sets <name>.local and restarts the controller."}}},
     }
     return cmds
 

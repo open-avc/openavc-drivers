@@ -304,15 +304,27 @@ def test_parse_dante_preset_status(banner):
 
 
 def test_config_child_parsers_handle_empty():
-    # The "No <Type>" body an empty controller returns must parse to {}.
-    for body, parser in (
-        ("No Group", drv._parse_group_status),
-        ("No Event", drv._parse_event_status),
-        ("No Video Wall", drv._parse_wall_status),
-        ("No Dante Preset", drv._parse_dante_preset_status),
-    ):
-        banner = f"{'=' * 64}\n              TAV-CHAZY-CLTPRO Info\n\n{body}\n{'=' * 64}"
-        assert parser(banner) == {}
+    # Real empty banners (FW 1.10.11, from the live probe): GROUP and EVENT are
+    # firmware-mislabeled "Dante Preset Info" and have NO closing sentinel;
+    # WALL and DANTE PRESET carry their own title and a closing sentinel. All
+    # must parse to {}.
+    sentinel = "=" * 64
+    cases = (
+        ("Dante Preset Info", "No Group", drv._parse_group_status, False),
+        ("Dante Preset Info", "No Event", drv._parse_event_status, False),
+        ("Video Wall Info", "No Video Wall", drv._parse_wall_status, True),
+        ("Dante Preset Info", "No Dante Preset", drv._parse_dante_preset_status, True),
+    )
+    for title, body, parser, closed in cases:
+        banner = (
+            f"{sentinel}\n"
+            f"              TAV-CHAZY-CLTPRO {title}\n"
+            f"              FW Version: 1.10.11\n\n"
+            f"{body}\n"
+        )
+        if closed:
+            banner += f"{sentinel}\n"
+        assert parser(banner) == {}, f"{body!r} should parse to empty"
 
 
 def test_parse_success_line():

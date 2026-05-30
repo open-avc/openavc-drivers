@@ -13,11 +13,15 @@ from pathlib import Path
 
 import pytest
 
+HERE = Path(__file__).resolve().parent
+
 # Make the scripts/ dir importable so tests can call `main()` directly
-SCRIPT_DIR = Path(__file__).resolve().parent.parent / "scripts"
+SCRIPT_DIR = HERE.parent / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import build_index  # noqa: E402
+
+JSON_SCHEMA_PATH = HERE.parent / "avcdriver.schema.json"
 
 
 # --- Fixtures and helpers ---------------------------------------------------
@@ -111,16 +115,36 @@ def _write_python_driver(
     return fp
 
 
-def _run(root: Path, *args: str) -> tuple[int, str, str]:
-    """Run build_index.main against `root` and capture exit code + stderr."""
+@pytest.fixture(
+    params=[True, False],
+    ids=["with_json_schema", "without_json_schema"],
+)
+def json_schema(request) -> bool:
+    """Fixture that parametrizes tests to run once with JSON Schema validation
+    and once without.
+    """
+    return request.param
+
+
+def _run(root: Path, *args: str, bypass_json_schema: bool = False) -> tuple[int, str, str]:
+    """Run build_index.main against `root` and capture exit code + stderr.
+
+    By default, the JSON Schema is used to validate drivers.
+    Pass `bypass_json_schema=True` to skip that validation and only test the
+    script's custom validation.
+    """
     import io
 
     stderr_buf = io.StringIO()
     stdout_buf = io.StringIO()
     real_stderr, real_stdout = sys.stderr, sys.stdout
     sys.stderr, sys.stdout = stderr_buf, stdout_buf
+    if bypass_json_schema:
+        schema_args = []
+    else:
+        schema_args = ["--json-schema-file", str(JSON_SCHEMA_PATH)]
     try:
-        rc = build_index.main(["--root", str(root), *args])
+        rc = build_index.main(["--root", str(root), *schema_args, *args])
     finally:
         sys.stderr, sys.stdout = real_stderr, real_stdout
     return rc, stdout_buf.getvalue(), stderr_buf.getvalue()
@@ -215,16 +239,19 @@ def test_check_mode_does_not_write(tmp_path: Path) -> None:
     ],
 )
 def test_field_validation_rejects_bad_values(
-    tmp_path: Path, field: str, bad_value: str, expected_substring: str
+    tmp_path: Path, field: str, bad_value: str, expected_substring: str, json_schema: bool
 ) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(tmp_path, overrides={field: bad_value})
-    rc, _, err = _run(tmp_path)
+    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
     assert rc != 0
-    assert expected_substring in err, err
+    if json_schema:
+        assert "JSON Schema validation error" in err, err
+    else:
+        assert expected_substring in err, err
 
 
-def test_required_field_missing_fails(tmp_path: Path) -> None:
+def test_required_field_missing_fails(tmp_path: Path, json_schema: bool) -> None:
     _write_manufacturers(tmp_path)
     # Build a driver missing `description`
     cat_dir = tmp_path / "audio"
@@ -240,9 +267,12 @@ def test_required_field_missing_fails(tmp_path: Path) -> None:
         'source_url: https://example.com\n',
         encoding="utf-8",
     )
-    rc, _, err = _run(tmp_path)
+    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
     assert rc != 0
-    assert "description" in err
+    if json_schema:
+        assert "JSON Schema validation error" in err, err
+    else:
+        assert "description" in err
 
 
 def test_tags_must_be_lowercase_hyphenated(tmp_path: Path) -> None:
@@ -288,49 +318,61 @@ def test_ports_must_be_in_range(tmp_path: Path) -> None:
     assert "65535" in err
 
 
-def test_discovery_port_open_must_be_list(tmp_path: Path) -> None:
+def test_discovery_port_open_must_be_list(tmp_path: Path, json_schema: bool) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
         overrides={"discovery": {"port_open": "1710"}},
     )
-    rc, _, err = _run(tmp_path)
+    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
     assert rc != 0
-    assert "port_open must be a list" in err
+    if json_schema:
+        assert "JSON Schema validation error" in err, err
+    else:
+        assert "port_open must be a list" in err
 
 
-def test_discovery_port_open_must_be_int(tmp_path: Path) -> None:
+def test_discovery_port_open_must_be_int(tmp_path: Path, json_schema: bool) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
         overrides={"discovery": {"port_open": ["1710"]}},
     )
-    rc, _, err = _run(tmp_path)
+    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
     assert rc != 0
-    assert "must be integers" in err
+    if json_schema:
+        assert "JSON Schema validation error" in err, err
+    else:
+        assert "must be integers" in err
 
 
-def test_discovery_port_open_out_of_range(tmp_path: Path) -> None:
+def test_discovery_port_open_out_of_range(tmp_path: Path, json_schema: bool) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
         overrides={"discovery": {"port_open": [70000]}},
     )
-    rc, _, err = _run(tmp_path)
+    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
     assert rc != 0
-    assert "out of range" in err
+    if json_schema:
+        assert "JSON Schema validation error" in err, err
+    else:
+        assert "out of range" in err
 
 
 @pytest.mark.parametrize("port", [22, 80, 443, 8000, 8080, 8443, 8888])
-def test_discovery_port_open_too_generic(tmp_path: Path, port: int) -> None:
+def test_discovery_port_open_too_generic(tmp_path: Path, port: int, json_schema: bool) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(
         tmp_path,
         overrides={"discovery": {"port_open": [port]}},
     )
-    rc, _, err = _run(tmp_path)
+    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
     assert rc != 0
-    assert "too generic" in err
+    if json_schema:
+        assert "JSON Schema validation error" in err, err
+    else:
+        assert "too generic" in err
 
 
 def test_discovery_port_open_valid_pass(tmp_path: Path) -> None:

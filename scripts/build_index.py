@@ -37,6 +37,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+import jsonschema_rs
 
 
 # --- Constants ---------------------------------------------------------------
@@ -377,6 +378,37 @@ def _as_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def _validate_json_schema(
+    filepath: str,
+    driver_info: dict[str, Any],
+    validator: jsonschema_rs.Validator
+) -> list[str]:
+    """Validate driver_info against the JSON Schema.
+
+    Returns a list of errors.
+    """
+    errors: list[str] = []
+    try:
+        validator.validate(driver_info)
+    except jsonschema_rs.ValidationError as e:
+        errors.append(f"{filepath}: JSON Schema validation error: {e.message}")
+    return errors
+
+
+def _validate_all_json_schemas(
+    raw: list[tuple[Path, dict[str, Any]]],
+    validator: jsonschema_rs.Validator
+) -> list[str]:
+    """Validate all driver_info dicts against the JSON Schema.
+
+    Returns a list of errors.
+    """
+    errors: list[str] = []
+    for filepath, driver_info in raw:
+        errors.extend(_validate_json_schema(filepath.as_posix(), driver_info, validator))
+    return errors
 
 
 def _validate_extract_block(file: str, where: str, raw: Any) -> list[str]:
@@ -1197,6 +1229,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Validate only — do not write outputs (used in CI)",
     )
     parser.add_argument(
+        "--check-json-schema",
+        action="store_true",
+        help="Validate driver files against the JSON Schema",
+    )
+    parser.add_argument(
+        "--json-schema-file",
+        type=Path,
+        default=None,
+        help="Path to JSON Schema file (default: avcdriver.schema.json in repo root)",
+    )
+    parser.add_argument(
         "--root",
         type=Path,
         default=Path(__file__).resolve().parent.parent,
@@ -1205,6 +1248,25 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     repo_root: Path = args.root.resolve()
+    json_schema_path = args.json_schema_file or (repo_root / "avcdriver.schema.json")
+    if json_schema_path.is_file():
+        json_schema = json.loads(json_schema_path.read_text(encoding="utf-8"))
+        json_validator = jsonschema_rs.validator_for(json_schema)
+    else:
+        if args.check_json_schema:
+            # If the user explicitly requested JSON Schema validation,
+            # treat a missing schema file as an error.
+            print(
+                f"ERROR: JSON Schema file not found at {json_schema_path}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            f"WARNING: JSON Schema file not found at {json_schema_path}, skipping schema validation.",
+            file=sys.stderr,
+        )
+        json_schema = None
+        json_validator = None
 
     try:
         manufacturers = _load_manufacturers(repo_root)
@@ -1223,6 +1285,18 @@ def main(argv: list[str] | None = None) -> int:
     if not raw:
         print(f"ERROR: no driver files found under {repo_root}", file=sys.stderr)
         return 1
+
+    if json_schema is not None:
+        assert json_validator is not None
+        schema_errors = _validate_all_json_schemas(raw, json_validator)
+        if schema_errors:
+            print(
+                f"\nFAILED: {len(schema_errors)} JSON Schema validation error(s):\n",
+                file=sys.stderr,
+            )
+            for err in schema_errors:
+                print(f"  - {err}", file=sys.stderr)
+            return 1
 
     entries: list[DriverEntry] = []
     errors: list[str] = []
@@ -1274,7 +1348,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Validated {len(entries)} driver(s), {len(devices)} device(s).")
 
-    if args.check:
+    if args.check or args.check_json_schema:
         return 0
 
     write_outputs(repo_root, entries, devices)

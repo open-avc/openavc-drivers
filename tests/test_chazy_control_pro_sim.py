@@ -208,6 +208,17 @@ def test_enc_detail_online_byte_exact(sim):
         fx.BANNER_ENC_DETAIL_ONLINE
 
 
+def test_enc_ss_status_roundtrips(sim):
+    # Driver parser must read the sim's SS banner (MJPEG mainstream from the
+    # encoder IP, no substream) — sim/driver parity for the preview-URL feature.
+    out = _strip(sim.handle_command(b"GET ENC 1 SS STATUS"), "GET ENC 1 SS STATUS")
+    ss = drv._parse_ss_status(out)
+    assert ss["mainstream_url"] == "http://169.254.10.1:8080/?action=stream"
+    assert ss["substream_url"] == ""
+    err = _strip(sim.handle_command(b"GET ENC 99 SS STATUS"), "GET ENC 99 SS STATUS")
+    assert "does not exist" in err
+
+
 def test_dec_detail_online_byte_exact(sim):
     assert _strip(sim.handle_command(b"GET DEC 1 STATUS"), "GET DEC 1 STATUS") == \
         fx.BANNER_DEC_DETAIL_ONLINE

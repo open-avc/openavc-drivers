@@ -97,6 +97,12 @@ def _enc_state_vars() -> dict[str, dict[str, Any]]:
             "type": "enum", "values": ["HDMI", "ANA"], "label": "Audio Input",
         },
         "multicast": {"type": "boolean", "label": "Multicast"},
+        "mainstream_url": {
+            "type": "string", "label": "Preview Stream URL", "cloud_priority": "low",
+        },
+        "substream_url": {
+            "type": "string", "label": "Substream URL", "cloud_priority": "low",
+        },
         "arc_source": {
             "type": "integer", "label": "ARC Source (Sel)", "cloud_priority": "high",
         },
@@ -184,7 +190,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.3.2",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -886,6 +892,19 @@ class ChazyControlProDriver(BaseDriver):
             clean = {k: v for k, v in props.items() if k in schema}
             if clean:
                 clean["online"] = bool(props.get("net", False))
+                # Secondary-stream preview URLs come from a separate query;
+                # best-effort so an SS failure never drops the encoder.
+                try:
+                    ss_resp = await self._send_request(f"GET ENC {eid} SS STATUS")
+                    if not ss_resp.lstrip().startswith("[ERROR]"):
+                        clean.update(
+                            {k: v for k, v in _parse_ss_status(ss_resp).items()
+                             if k in schema}
+                        )
+                except Exception:
+                    log.debug(
+                        f"[{self.device_id}] ENC {eid} SS poll failed", exc_info=True
+                    )
                 out[eid] = clean
         return out
 
@@ -1310,6 +1329,39 @@ def _parse_sac_guest(value: str, out: dict[str, Any], with_osp: bool) -> None:
         out["guest_baud"] = rest[1]
     if len(rest) >= 3:
         out["guest_framing"] = rest[2]
+
+
+def _parse_ss_status(text: str) -> dict[str, str]:
+    """Parse ``GET ENC [n] SS STATUS`` into ``{mainstream_url, substream_url}``.
+
+    The banner carries a ``>>MainStream URL`` / ``>>SubStream URL`` marker, each
+    followed by the URL (or ``NA``) on the next line, e.g.::
+
+        ID    WorkMode    Version
+        001   NA
+            >>MainStream URL
+              http://169.254.10.1:8080/?action=stream
+            >>SubStream URL
+              NA
+
+    ``NA`` (no stream of that kind on this generation) normalises to ``""``.
+    """
+    lines = [ln.rstrip("\r") for ln in text.split("\n")]
+    markers = {">>mainstream url": "mainstream_url", ">>substream url": "substream_url"}
+    out: dict[str, str] = {}
+    for i, line in enumerate(lines):
+        key = markers.get(line.strip().lower())
+        if key is None:
+            continue
+        for nxt in lines[i + 1:]:
+            val = nxt.strip()
+            if not val or val.startswith("="):
+                continue
+            if val.startswith(">>"):
+                break  # next marker reached with no value
+            out[key] = "" if val.upper() == "NA" else val
+            break
+    return out
 
 
 def _parse_encoder_detail(text: str) -> dict[str, Any]:

@@ -338,3 +338,28 @@ def test_event_schedule_schema_drops_unpopulated_keys():
     assert ce["event"]["summary_fields"] == ["name", "event_type", "address"]
     assert set(ce["schedule"]["state_variables"]) == {"name"}
     assert ce["schedule"]["summary_fields"] == ["name"]
+
+
+def test_parse_ss_status():
+    # Byte-exact GET ENC 1 SS STATUS from FW 1.10.11 (Gen-2 MJPEG mainstream,
+    # no substream). Mainstream URL uses the de-padded encoder IP.
+    banner = (
+        "=" * 64 + "\n"
+        "              TAV-CHAZY-CLTPRO Secondary Stream Info\n"
+        "\n"
+        "ID    WorkMode    Version\n"
+        "001   NA\n"
+        "    >>MainStream URL\n"
+        "      http://169.254.10.1:8080/?action=stream\n"
+        "    >>SubStream URL\n"
+        "      NA\n"
+        "\n" + "=" * 64
+    )
+    ss = drv._parse_ss_status(banner)
+    assert ss["mainstream_url"] == "http://169.254.10.1:8080/?action=stream"
+    assert ss["substream_url"] == ""  # NA normalises to empty
+
+
+def test_encoder_declares_stream_urls():
+    enc_vars = INFO["child_entity_types"]["encoder"]["state_variables"]
+    assert "mainstream_url" in enc_vars and "substream_url" in enc_vars

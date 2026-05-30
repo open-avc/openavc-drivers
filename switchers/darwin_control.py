@@ -197,7 +197,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -208,19 +208,20 @@ class DarwinControlDriver(BaseDriver):
         "source_url": "https://turtleav.com/",
         "tags": ["av-over-ip", "matrix", "encoder", "decoder", "video-wall", "h265"],
         "verified": False,
-        "simulated": False,
+        "simulated": True,
         "protocols": ["darwin_telnet"],
         "ports": [23],
         "transport": "tcp",
         "discovery": {
             # The controller's only on-wire identity is the telnet connect
             # banner ("Welcome To Controller(h) Terminal Control System" on FW
-            # 1.50.02; the brand becomes "DARWIN CONTROL" on FW 2.03.19). A
+            # 1.50.02; the brand becomes "DARWIN CONTROL" on FW 2.03.19). The
             # banner-grab companion (darwin_control_discovery.py) reads past the
-            # Telnet IAC negotiation and matches that token; until it lands,
-            # these declarative hints narrow candidates. controller.local is the
-            # default hostname (shared with Chazy — the banner token is the
-            # real discriminator).
+            # Telnet IAC negotiation and matches that token, emitting only for a
+            # Darwin Control (never a Chazy controller, which shares the default
+            # hostname and port). The declarative hints below narrow candidates
+            # to telnet hosts named controller.local before the companion runs.
+            "python": "./darwin_control_discovery.py",
             "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],
             "manufacturer_alias": ["turtleav", "darwin"],

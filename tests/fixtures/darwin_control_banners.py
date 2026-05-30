@@ -7,7 +7,9 @@ darwin_control simulator, whose banners must match byte-for-byte.
 `RAW_*` values are exactly what arrives on the wire after Telnet IAC stripping
 (command echo + response + trailing "CONTROLLER> " prompt). `BANNER_*` values
 are the response body the driver's parser receives (echo + prompt removed,
-CRLF normalised to LF) — i.e. the output of DarwinControlDriver._strip_echo.
+CRLF normalised to LF, leading/trailing newlines stripped) — i.e. the exact
+output of DarwinControlDriver._strip_echo, so the simulator's framed output can
+be asserted against them directly.
 
 Note the firmware brands every banner header "Controller(h)" (not "DARWIN
 CONTROL", which the FW 2.03.19 manual shows). Parsers must key off row layout,
@@ -51,7 +53,7 @@ BANNER_STATUS_EMPTY = (
     "\n"
     "Domain Name\n"
     "Controller.local\n"
-    "================================================================\n"
+    "================================================================"
 )
 
 # GET STATUS — one encoder (ID 001) + one decoder (ID 001) enrolled.
@@ -79,7 +81,7 @@ BANNER_STATUS_POPULATED = (
     "\n"
     "Domain Name\n"
     "Controller.local\n"
-    "================================================================\n"
+    "================================================================"
 )
 
 # GET ENC 1 STATUS — enrolled TX (endpoint FW 3.12.02).
@@ -96,7 +98,7 @@ BANNER_ENC = (
     "      18:66:96:11:0D:EB\n"
     "    >>IP               GW               SM\n"
     "      169.254.010.001  169.254.008.001  255.255.000.000\n"
-    "================================================================\n"
+    "================================================================"
 )
 
 # GET ENC STATUS — nothing enrolled (header only).
@@ -104,11 +106,11 @@ BANNER_ENC_EMPTY = (
     "================================================================\n"
     "              IP Control Box Controller(h) Encoder Info\n"
     "              FW Version: 1.50.02\n"
-    "================================================================\n"
+    "================================================================"
 )
 
 # GET ENC 1 STATUS — absent id.
-BANNER_ENC_ABSENT = "[ERROR]Encoder 001 not exist.\n"
+BANNER_ENC_ABSENT = "[ERROR]Encoder 001 not exist."
 
 # GET DEC 1 STATUS — enrolled RX (endpoint FW 3.12.01).
 BANNER_DEC = (
@@ -128,7 +130,7 @@ BANNER_DEC = (
     "      18:66:96:11:0D:1D\n"
     "    >>IP               GW               SM\n"
     "      169.254.020.001  169.254.008.001  255.255.000.000\n"
-    "================================================================\n"
+    "================================================================"
 )
 
 # GET GPIO STATUS — all four ports input.
@@ -142,7 +144,7 @@ BANNER_GPIO = (
     "02     In     -     1\n"
     "03     In     -     1\n"
     "04     In     -     1\n"
-    "================================================================\n"
+    "================================================================"
 )
 
 # GET WALL STATUS — no walls.
@@ -152,12 +154,12 @@ BANNER_WALL_EMPTY = (
     "              FW Version: 1.50.02\n"
     "\n"
     "No Video Wall\n"
-    "================================================================\n"
+    "================================================================"
 )
 
 # SEARCH — one new encoder + one new decoder on the Video LAN (endpoint OUI
 # 18:66:96, not the ASPEED 6C:DF:FB the manual shows; header column is
-# "Assign", not "ID").
+# "Assign", not "ID"; MAC reported lowercase in this banner).
 BANNER_SEARCH = (
     "[SUCCESS]More device in network will take more time to finish scan, "
     "please wait...done.\n"
@@ -171,5 +173,5 @@ BANNER_SEARCH = (
     "==New Decoder\n"
     "Index   IP               MAC                Assign\n"
     "001     169.254.030.013  18:66:96:11:0d:1d  No\n"
-    "================================================================\n"
+    "================================================================"
 )

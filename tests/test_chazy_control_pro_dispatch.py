@@ -118,10 +118,12 @@ class _FakeBaseDriver:
 
 
 def _load_driver() -> ModuleType:
-    server = ModuleType("server"); server.__path__ = []  # type: ignore[attr-defined]
+    server = ModuleType("server")
+    server.__path__ = []  # type: ignore[attr-defined]
     sys.modules["server"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}"); m.__path__ = []  # type: ignore[attr-defined]
+        m = ModuleType(f"server.{sub}")
+        m.__path__ = []  # type: ignore[attr-defined]
         sys.modules[f"server.{sub}"] = m
     base = ModuleType("server.drivers.base")
     base.BaseDriver = _FakeBaseDriver

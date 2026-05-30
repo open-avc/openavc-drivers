@@ -243,6 +243,14 @@ def test_roundtrip_enc_detail_parses(sim):
     assert p["io1_dir"] == "Out" and p["io1_phy"] == "Copper"
 
 
+def test_roundtrip_enc_ss_parses(sim):
+    # FW 1.00.17 §6 TX SS module: mainstream MJPEG URL + NA substream.
+    banner = _strip(sim.handle_command(b"GET ENC 1 SS STATUS"), "GET ENC 1 SS STATUS")
+    ss = drv._parse_ss_status(banner)
+    assert ss["mainstream_url"] == "http://169.254.10.1:8080/?action=stream"
+    assert ss["substream_url"] == ""
+
+
 def test_roundtrip_dec_detail_parses(sim):
     banner = _strip(sim.handle_command(b"GET DEC 1 STATUS"), "GET DEC 1 STATUS")
     p = drv._parse_decoder_detail(banner)

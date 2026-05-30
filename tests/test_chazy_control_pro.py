@@ -313,3 +313,28 @@ def test_config_child_parsers_handle_empty():
     ):
         banner = f"{'=' * 64}\n              TAV-CHAZY-CLTPRO Info\n\n{body}\n{'=' * 64}"
         assert parser(banner) == {}
+
+
+def test_parse_success_line():
+    # Live GET DATE / GET NTP SERVER replies (FW 1.10.11): [SUCCESS] prefix +
+    # trailing period, date carries a (TZ) suffix that must be preserved.
+    assert (
+        drv._parse_success_line("[SUCCESS]2026-05-31 03:55:35 (Australia/Sydney).")
+        == "2026-05-31 03:55:35 (Australia/Sydney)"
+    )
+    assert drv._parse_success_line("[SUCCESS]time.nist.gov.") == "time.nist.gov"
+    # An IP NTP server keeps its dotted form (only the sentence period drops).
+    assert drv._parse_success_line("[SUCCESS]192.168.4.1.") == "192.168.4.1"
+    # Error / empty replies yield None so the state key isn't overwritten.
+    assert drv._parse_success_line("[ERROR]Unknown parameter.") is None
+    assert drv._parse_success_line("") is None
+
+
+def test_event_schedule_schema_drops_unpopulated_keys():
+    # Keys with no GET read-back were removed so the IDE doesn't show them
+    # permanently blank (review findings #7, #8).
+    ce = INFO["child_entity_types"]
+    assert "running" not in ce["event"]["state_variables"]
+    assert ce["event"]["summary_fields"] == ["name", "event_type", "address"]
+    assert set(ce["schedule"]["state_variables"]) == {"name"}
+    assert ce["schedule"]["summary_fields"] == ["name"]

@@ -45,7 +45,9 @@ Child enumeration on connect:
   queries (confirmed against FW 1.10.11), so they genuinely cannot be
   re-enumerated. They are tracked only from the moment this driver creates
   them; after a server restart they are not re-discovered until re-created or
-  re-added. This is a device-API limitation, not a driver gap.
+  re-added, and one deleted out-of-band (web GUI or a second telnet session)
+  lingers as a stale child until this driver restarts. This is a device-API
+  limitation, not a driver gap.
 
 License: MIT.
 """
@@ -182,7 +184,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.3.1",
+        "version": "1.3.2",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -274,8 +276,10 @@ class ChazyControlProDriver(BaseDriver):
                 "label": "Detail Poll Interval (sec)",
                 "description": (
                     "How often to refresh full per-encoder/per-decoder state "
-                    "(GET ENC/DEC [n] STATUS), batched. 0 disables detail "
-                    "polling (roster-only)."
+                    "(GET ENC/DEC [n] STATUS) and the controller clock, batched. "
+                    "0 disables only this heavy detail refresh; the encoder/"
+                    "decoder roster and the group/event/wall/dante-preset lists "
+                    "still reconcile on every status poll."
                 ),
             },
         },
@@ -358,25 +362,29 @@ class ChazyControlProDriver(BaseDriver):
                 "label": "Event",
                 "label_plural": "Events",
                 "id_format": {"type": "integer", "min": 1, "max": HDL_MAX, "pad_width": 2},
+                # `event_type` and `address` are parsed from GET EVENT STATUS.
+                # There is no banner field for a started/stopped flag, so no
+                # `running` state var (event_start/event_stop have no read-back).
                 "state_variables": {
                     "name": {"type": "string", "label": "Name"},
                     "event_type": {"type": "string", "label": "Type"},
                     "address": {"type": "string", "label": "Address"},
-                    "running": {"type": "boolean", "label": "Running"},
                 },
-                "summary_fields": ["name", "event_type", "running"],
+                "summary_fields": ["name", "event_type", "address"],
                 "label_field": "name",
             },
             "schedule": {
                 "label": "Schedule",
                 "label_plural": "Schedules",
                 "id_format": {"type": "integer", "min": 1, "max": HDL_MAX, "pad_width": 2},
+                # Schedules can't be enumerated (GET SCHEDULE STATUS ->
+                # [ERROR]Unknown parameter on FW 1.10.11), so only the name we
+                # seed at create time is ever known. time_type / running have no
+                # read-back and would render permanently blank — omitted.
                 "state_variables": {
                     "name": {"type": "string", "label": "Name"},
-                    "time_type": {"type": "string", "label": "Time Type"},
-                    "running": {"type": "boolean", "label": "Running"},
                 },
-                "summary_fields": ["name", "time_type", "running"],
+                "summary_fields": ["name"],
                 "label_field": "name",
             },
             # media / schedule / config_preset cannot be enumerated by the
@@ -483,6 +491,7 @@ class ChazyControlProDriver(BaseDriver):
             await self.poll_children("encoder", self._fetch_encoder_detail)
             await self.poll_children("decoder", self._fetch_decoder_detail)
             await self._reconcile_config_children()
+            await self._poll_system_clock()
         except Exception:
             log.exception(f"[{self.device_id}] Initial detail poll failed")
 
@@ -592,6 +601,12 @@ class ChazyControlProDriver(BaseDriver):
 
     async def poll(self) -> None:
         await self._poll_status()
+        # Config-child lists (groups/events/walls/dante presets) are cheap
+        # single-banner queries and the only steady-state path that picks up
+        # children built in the controller's web GUI and drops ones deleted
+        # there. Reconcile every poll so they stay in sync even when detail
+        # polling (the heavy per-encoder/decoder fetch) is disabled.
+        await self._reconcile_config_children()
         detail_interval = self.config.get("detail_poll_interval", 60)
         poll_interval = self.config.get("poll_interval", 10) or 10
         self._poll_count += 1
@@ -600,7 +615,7 @@ class ChazyControlProDriver(BaseDriver):
             if self._poll_count % every == 0:
                 await self.poll_children("encoder", self._fetch_encoder_detail)
                 await self.poll_children("decoder", self._fetch_decoder_detail)
-                await self._reconcile_config_children()
+                await self._poll_system_clock()
 
     # ── send_command dispatch ──
 
@@ -629,7 +644,36 @@ class ChazyControlProDriver(BaseDriver):
             log.warning(f"[{self.device_id}] Unknown command: {command}")
             raise ValueError(f"Unknown command: {command}")
         wire = template.format(**params)
-        return await self._send_set(wire)
+        resp = await self._send_set(wire)
+        # Reflect device settings the controller has no GET read-back for into
+        # child state, so the UI shows the commanded value instead of a blank.
+        self._apply_post_set_state(command, params)
+        # Date / NTP do have a read-back — refresh them after a successful set.
+        if command in ("set_date", "set_ntp_server"):
+            await self._poll_system_clock()
+        return resp
+
+    def _apply_post_set_state(self, command: str, params: dict[str, Any]) -> None:
+        """Optimistically write a just-succeeded SET into child state for the
+        device settings the controller can't report back via GET (so the IDE
+        doesn't show them permanently blank/stale). No-op for any other command.
+        """
+        spec = _POST_SET_STATE.get(command)
+        if not spec:
+            return
+        ctype, id_param, builder = spec
+        try:
+            cid = int(params[id_param])
+        except (KeyError, TypeError, ValueError):
+            return
+        if not self.is_child_registered(ctype, cid):
+            return
+        try:
+            updates = builder(params)
+        except KeyError:
+            return
+        if updates:
+            self.set_child_state_batch(ctype, cid, updates)
 
     def _coerce_child_ids(self, command: str, params: dict[str, Any]) -> None:
         """Coerce any child_id-typed param to a bare int for the wire format
@@ -672,10 +716,14 @@ class ChazyControlProDriver(BaseDriver):
             if old != new and self.is_child_registered(ctype, old):
                 prev = self.get_child_state(ctype, old)
                 self.deregister_child(ctype, old)
+                # Carry every effective-schema prop (declared vars + the
+                # platform-managed `online` and `label`) so a renumber doesn't
+                # silently drop the user's custom label — register_child under
+                # the new id would otherwise re-source label from a project
+                # entry that doesn't exist yet and reset it to "".
                 seed = {
                     k: v for k, v in prev.items()
                     if k in self.get_child_entity_types()[ctype]["state_variables"]
-                    and k != "label"
                 }
                 self.register_child(ctype, new, initial_state=seed or None)
         return resp
@@ -710,6 +758,11 @@ class ChazyControlProDriver(BaseDriver):
             "groups": len(self.list_children("group")),
             "events": len(self.list_children("event")),
             "dante_presets": len(self.list_children("dante_preset")),
+            # Create-tracked types (not re-enumerable) — unchanged by the
+            # refresh, but reported so the IDE summary doesn't show 0.
+            "schedules": len(self.list_children("schedule")),
+            "media": len(self.list_children("media")),
+            "config_presets": len(self.list_children("config_preset")),
         }
 
     # ── Status refresh + child reconciliation ──
@@ -739,6 +792,22 @@ class ChazyControlProDriver(BaseDriver):
                 self.set_states(gpio)
         except Exception:
             log.debug(f"[{self.device_id}] GPIO poll failed", exc_info=True)
+
+    async def _poll_system_clock(self) -> None:
+        """Read the controller clock + NTP server. These have no field in
+        GET STATUS and change rarely, so they're polled on a slow cadence
+        (and re-read right after a set). Each query is guarded independently.
+        """
+        declared = self.DRIVER_INFO["state_variables"]
+        for wire, key in (("GET DATE", "date"), ("GET NTP SERVER", "ntp_server")):
+            if key not in declared:
+                continue
+            try:
+                val = _parse_success_line(await self._send_request(wire))
+                if val is not None:
+                    self.set_state(key, val)
+            except Exception:
+                log.debug(f"[{self.device_id}] {wire} poll failed", exc_info=True)
 
     def _reconcile_children(
         self,
@@ -887,6 +956,23 @@ def _norm_ip(value: str) -> str:
 
 def _is_on(value: str) -> bool:
     return value.strip() == "On"
+
+
+def _parse_success_line(text: str) -> str | None:
+    """Pull the payload out of a single-line ``[SUCCESS]<value>.`` reply.
+
+    Live examples: ``[SUCCESS]2026-05-31 03:55:35 (Australia/Sydney).`` and
+    ``[SUCCESS]time.nist.gov.``. Strips the ``[SUCCESS]`` prefix and the single
+    trailing period; returns None on an ``[ERROR]`` reply or an empty payload.
+    """
+    stripped = text.strip()
+    line = stripped.splitlines()[0].strip() if stripped else ""
+    if line.startswith("[ERROR]"):
+        return None
+    if line.startswith("[SUCCESS]"):
+        line = line[len("[SUCCESS]"):].strip()
+    line = line.rstrip(".").strip()
+    return line or None
 
 
 def _split_flag_pair(value: str) -> tuple[bool, bool]:
@@ -1642,6 +1728,28 @@ _RESET_CONFIRM: dict[str, str] = {
     "reset_system_confirm": "SET RESET",
     "reset_network_confirm": "SET RESET NETWORK",
     "reset_all_confirm": "SET RESET ALL",
+}
+
+# Wire code -> child enum value for media source type (the SET command takes the
+# numeric code; the child state var carries the human label).
+_MEDIA_TYPE_CODE = {"01": "SAMBA", "02": "NFS", "03": "FTP"}
+
+# Optimistic child-state writes applied after a SET command succeeds, for the
+# device settings the controller has no GET read-back for (so the IDE doesn't
+# show them permanently blank). Maps command ->
+# (child_type, id_param, builder(params) -> {state_var: value}).
+_POST_SET_STATE: dict[str, tuple[str, str, Any]] = {
+    "dec_output_freeze": ("decoder", "decoder_id", lambda p: {"video_freeze": p["state"] == "ON"}),
+    "dec_output_osd": ("decoder", "decoder_id", lambda p: {"osd": p["state"] == "ON"}),
+    "dec_ull": ("decoder", "decoder_id", lambda p: {"ull": p["state"] == "ON"}),
+    "dec_dante_audio_source": ("decoder", "decoder_id", lambda p: {"dante_audio_source": p["source"]}),
+    "dec_arp": ("decoder", "decoder_id", lambda p: {"arp": p["path"]}),
+    "dec_earc_downgrade": ("decoder", "decoder_id", lambda p: {"earc_downgrade": p["state"] == "ON"}),
+    "media_set_name": ("media", "media_id", lambda p: {"name": p["name"]}),
+    "media_set_type": ("media", "media_id",
+                       lambda p: {"media_type": _MEDIA_TYPE_CODE.get(p["media_type"], p["media_type"])}),
+    "media_set_addr_file": ("media", "media_id",
+                            lambda p: {"address": p["address"], "file": p["file"]}),
 }
 
 

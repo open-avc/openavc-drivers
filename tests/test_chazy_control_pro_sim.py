@@ -332,6 +332,21 @@ def test_bad_output_arg_rejected_like_hardware(sim):
     assert ok.startswith("[SUCCESS]")
 
 
+def test_output_colorspace_roundtrips(sim):
+    # FW 2.10.07 endpoints implement SET DEC n OUTPUT COLORSPACE [cs]
+    # (00:RGB 01:YUV444 02:YUV422 03:YUV420); the sim mirrors the live wording.
+    rgb = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 00"), "SET DEC 1 OUTPUT COLORSPACE 00")
+    assert rgb == "[SUCCESS]Set decoder 001 color space to RGB."
+    yuv = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 01"), "SET DEC 1 OUTPUT COLORSPACE 01")
+    assert yuv.startswith("[SUCCESS]") and "YUV444" in yuv
+    # Out-of-range value rejected like hardware.
+    bad = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 99"), "SET DEC 1 OUTPUT COLORSPACE 99")
+    assert bad.startswith("[ERROR]") and "out of range" in bad
+    # YUV420 is gated to 4K50/4K60; rejected at the default 1080p (res 02).
+    y420 = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 03"), "SET DEC 1 OUTPUT COLORSPACE 03")
+    assert y420.startswith("[ERROR]") and "YUV420" in y420
+
+
 # ── Stateful mutations reflect in subsequent reads ──
 
 def test_set_name_reflects_in_detail(sim):

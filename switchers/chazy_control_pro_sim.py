@@ -921,6 +921,15 @@ class ChazyControlProSimulator(TCPSimulator):
                 return _err_unknow_param(kind)
             dev["video_output"] = rest[1] == "ON"
             return f"[SUCCESS]Set dec {n:03d} output."
+        if kind == "dec" and rest[:2] == ["OUTPUT", "COLORSPACE"] and len(rest) >= 3:
+            names = {"00": "RGB", "01": "YUV444", "02": "YUV422", "03": "YUV420"}
+            cs = rest[2]
+            if cs not in names:
+                return '[ERROR]DEC param out of range. Type "HELP" for more reference.'
+            # YUV420 only legal at a 4K50/4K60 output (res index 07/08), per hardware.
+            if cs == "03" and dev.get("resolution") not in ("07", "08"):
+                return "[ERROR]Only 4K50 and 4K60 support YUV420."
+            return f"[SUCCESS]Set decoder {n:03d} color space to {names[cs]}."
         return "[SUCCESS]OK."
 
     @staticmethod

@@ -84,7 +84,7 @@ INFO = drv.ChazyControlProDriver.DRIVER_INFO
 # ── Command surface consistency ──
 
 def test_every_command_has_a_handler():
-    special = {"search", "add_auto_all"} | set(drv._RESET_CONFIRM)
+    special = {"search", "add_auto_all", "discover_add_all"} | set(drv._RESET_CONFIRM)
     for name in INFO["commands"]:
         assert (name in drv._COMMAND_TEMPLATES or name in drv._LIFECYCLE_COMMANDS
                 or name in special), f"{name} has no handler"

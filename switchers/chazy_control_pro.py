@@ -196,7 +196,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.5",
+        "version": "1.4.6",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -274,8 +274,9 @@ class ChazyControlProDriver(BaseDriver):
                 "3. Enter the controller's IP in the device config; leave the "
                 "port at 23.\n"
                 "4. Encoders and decoders are discovered automatically on "
-                "connect from GET STATUS. Use the Search command to find new "
-                "TX/RX on the Video LAN, then Add Auto All to register them.\n"
+                "connect from GET STATUS. Use 'Find + Add All Devices' to search "
+                "the Video LAN and enroll everything new in one step (or Search, "
+                "then Add All New Devices, to do it in stages).\n"
                 "5. Video walls, groups, events, and Dante presets already "
                 "configured on the controller are also listed automatically. "
                 "Media sources, schedules, and configuration presets cannot be "
@@ -673,6 +674,14 @@ class ChazyControlProDriver(BaseDriver):
         if command == "search":
             return await self._do_search()
         if command == "add_auto_all":
+            resp = await self._send_set("ADD AUTO ALL")
+            await self._poll_status()
+            return resp
+        if command == "discover_add_all":
+            # One step: search the Video LAN, enroll everything new, refresh the
+            # roster. ADD AUTO ALL returns [SUCCESS] even when nothing is new
+            # ("No new device add to system."), so this is safe to re-run.
+            await self._send_request("SEARCH", timeout=60.0)
             resp = await self._send_set("ADD AUTO ALL")
             await self._poll_status()
             return resp
@@ -2392,6 +2401,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         # ── Device management ──
         "search": {"label": "Search for Devices", "params": {},
                    "help": "Search the Video LAN for new encoders/decoders."},
+        "discover_add_all": {"label": "Find + Add All Devices", "params": {},
+                             "help": "One step: search the Video LAN, add every new "
+                                     "encoder/decoder, and refresh the list."},
         "search_reset": {"label": "Reset Search Results", "params": {}},
         "add_auto_all": {"label": "Add All New Devices", "params": {},
                          "help": "Add every newly-found encoder/decoder to the system."},

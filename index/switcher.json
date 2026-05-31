@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-31T14:39:58+00:00",
+    "generated_at": "2026-05-31T16:07:09+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 11,
@@ -558,7 +558,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.5",
+      "version": "1.4.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -583,7 +583,7 @@
       ],
       "help": {
         "overview": "The Chazy Control Pro orchestrates an entire Chazy 4K AV-over-IP system. Add it as one device; its encoders, decoders, video walls, groups, events, schedules, media sources, Dante presets, and configuration presets appear as child entities under the Child Entities tab.",
-        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use the Search command to find new TX/RX on the Video LAN, then Add Auto All to register them.\n5. Video walls, groups, events, and Dante presets already configured on the controller are also listed automatically. Media sources, schedules, and configuration presets cannot be listed by the controller, so they appear only once you create them here."
+        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use 'Find + Add All Devices' to search the Video LAN and enroll everything new in one step (or Search, then Add All New Devices, to do it in stages).\n5. Video walls, groups, events, and Dante presets already configured on the controller are also listed automatically. Media sources, schedules, and configuration presets cannot be listed by the controller, so they appear only once you create them here."
       },
       "compatible_models": [
         {

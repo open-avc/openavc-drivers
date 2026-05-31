@@ -189,6 +189,32 @@ def test_send_set_passes_success_through():
     assert "output on" in asyncio.run(d._send_set("SET DEC 1 OUTPUT ON"))
 
 
+def test_discover_add_all_searches_then_adds():
+    d = make_driver()
+    calls = []
+
+    async def fake_send_request(wire, timeout=6.0):
+        calls.append(("req", wire))
+        return "[SUCCESS]...done."
+
+    async def fake_send_set(wire, timeout=6.0):
+        calls.append(("set", wire))
+        return "[SUCCESS]No new device add to system."
+
+    async def fake_poll():
+        calls.append(("poll", None))
+
+    d._send_request = fake_send_request
+    d._send_set = fake_send_set
+    d._poll_status = fake_poll
+    resp = asyncio.run(d.send_command("discover_add_all", {}))
+    # Searches first, then enrolls everything new, then refreshes the roster.
+    assert [k for k, _ in calls] == ["req", "set", "poll"]
+    assert ("req", "SEARCH") in calls
+    assert ("set", "ADD AUTO ALL") in calls
+    assert "No new device" in resp
+
+
 # --- lifecycle registry mutation -------------------------------------------
 
 

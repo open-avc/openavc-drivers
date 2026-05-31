@@ -819,6 +819,7 @@ def _validate_discovery_block(
                 f"{file}: discovery.hostname entry {pattern!r} failed to "
                 f"compile: {exc}"
             )
+    normalized["hostname"] = [p for p in raw_host if isinstance(p, str) and p]
 
     raw_ports = discovery.get("port_open") or []
     if not isinstance(raw_ports, list):
@@ -936,6 +937,77 @@ def _validate_no_signal_collisions(
             claim("probe", f"custom_{driver_id}_companion_tcp",
                   driver_id, file, None)
 
+    return errors
+
+
+# Pre-existing shared-hostname drivers that predate this check and can't be
+# given a declarative disambiguator without hardware we don't have. Grandfathered
+# so the rule is a hard error for NEW occurrences while these stay tracked for
+# cleanup (openavc-backlog.md). birddog_ptz / birddog_codec both default to the
+# "^birddog-" hostname with only soft signals (oui + NDI, deliberately not an
+# mdns claim since _ndi._tcp is cross-vendor); telling a PTZ from a codec
+# pre-install needs a probe of the BirdDog HTTP /about API, which needs a
+# capture from real gear. Remove an id here once it carries a real fingerprint.
+_KNOWN_LOCATOR_AMBIGUITY: frozenset[str] = frozenset({
+    "birddog_ptz", "birddog_codec",
+})
+
+
+def _validate_locator_disambiguation(
+    per_driver: list[tuple[str, str, dict[str, Any]]],
+) -> list[str]:
+    """Cross-driver: a hostname pattern shared by 2+ drivers needs each of
+    them to carry a *declarative* pre-install fingerprint.
+
+    ``hostname`` (and ``port_open``) are soft locator hints: they narrow the
+    candidate set but never identify on their own. When several drivers claim
+    the same hostname pattern, the thing that tells them apart has to run
+    before any of them is installed — a declarative ``tcp_probe`` /
+    ``udp_probe`` / ``mdns`` / ``ssdp`` / ``amx_ddp`` fingerprint, which the
+    engine evaluates straight from the catalog. A ``python:`` companion does
+    NOT count: companions load only from on-disk ``*_discovery.py`` files, so
+    they run only after the driver is installed. A driver that leans on a
+    companion as its sole strong signal while sharing a hostname with a
+    sibling gets mislabeled as that sibling on any scan where it isn't
+    installed (the exact TurtleAV Darwin-vs-Chazy failure this check exists
+    to prevent). Discovery's job is to identify gear you have NOT installed
+    yet, so the disambiguator must be declarative.
+    """
+    errors: list[str] = []
+    # hostname pattern (lowercased) -> {driver_id: (file, normalized)}.
+    # Keyed by driver_id so a driver listing the same pattern twice counts
+    # once, and a pattern claimed by a single driver never trips the check.
+    by_host: dict[str, dict[str, tuple[str, dict[str, Any]]]] = {}
+    for driver_id, file, norm in per_driver:
+        for pattern in norm.get("hostname", []):
+            by_host.setdefault(pattern.lower(), {})[driver_id] = (file, norm)
+
+    for pattern, claimants in sorted(by_host.items()):
+        if len(claimants) < 2:
+            continue
+        for driver_id, (file, norm) in sorted(claimants.items()):
+            has_declarative_fingerprint = (
+                norm.get("has_tcp_probe")
+                or norm.get("has_udp_probe")
+                or bool(norm.get("mdns"))
+                or bool(norm.get("ssdp"))
+                or bool(norm.get("amx_ddp"))
+            )
+            if has_declarative_fingerprint:
+                continue
+            if driver_id in _KNOWN_LOCATOR_AMBIGUITY:
+                continue  # grandfathered pre-existing case (tracked in backlog)
+            others = sorted(d for d in claimants if d != driver_id)
+            errors.append(
+                f"Locator ambiguity: {driver_id!r} ({file}) shares the "
+                f"hostname pattern {pattern!r} with {others} but declares no "
+                f"pre-install fingerprint (tcp_probe / udp_probe / mdns / "
+                f"ssdp / amx_ddp). An uninstalled device matching that "
+                f"hostname can't be told apart from its siblings; a python: "
+                f"companion only runs once the driver is installed, so it "
+                f"can't disambiguate first. Add a declarative fingerprint "
+                f"(e.g. a tcp_probe matching this driver's banner token)."
+            )
     return errors
 
 
@@ -1259,6 +1331,7 @@ def main(argv: list[str] | None = None) -> int:
     if entries:
         errors.extend(cross_validate(entries, manufacturers))
     errors.extend(_validate_no_signal_collisions(discovery_per_driver))
+    errors.extend(_validate_locator_disambiguation(discovery_per_driver))
 
     if errors:
         print(f"\nFAILED: {len(errors)} validation error(s):\n", file=sys.stderr)

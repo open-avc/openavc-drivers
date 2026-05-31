@@ -196,7 +196,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.7",
+        "version": "1.2.8",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -218,13 +218,37 @@ class ChazyControlDriver(BaseDriver):
             # A.5 resolved (2026-05-20): the standard Control and the Pro are
             # indistinguishable on the wire by hostname/port (both default to
             # controller.local on telnet 23) and the controller's only mDNS
-            # service is the generic Audinate Dante one — no vendor string, not
-            # a Chazy fingerprint. What *does* distinguish them is the telnet
+            # service is the generic Audinate Dante one (no vendor string, not
+            # a Chazy fingerprint). What distinguishes them is the telnet
             # connect banner model token: "CHAZY CONTROL" (standard) vs
-            # "TAV-CHAZY-CLTPRO" (Pro). The companion probe reads that banner
-            # past Telnet IAC and emits a strong fingerprint only for the
-            # standard token, so the two drivers never both claim one
-            # controller. The default hostname is a soft corroborating hint.
+            # "TAV-CHAZY-CLTPRO" (Pro). The tcp_probe below matches the standard
+            # token so an UNINSTALLED standard Control identifies from the
+            # catalog without colliding with the Pro or Darwin. The banner
+            # follows Telnet IAC negotiation in a later TCP segment, which the
+            # probe runner accumulates. The companion stays as a backup path.
+            # No standalone standard Control hardware is on hand: the banner
+            # form is from the FW 1.00.17 reference, like the rest of this
+            # driver.
+            "tcp_probe": {
+                "port": 23,
+                # Standard model token "CHAZY CONTROL"; the trailing sentinel
+                # keeps it from matching the Pro "TAV-CHAZY-CLTPRO" or a
+                # "CHAZY CONTROL PRO" rebrand, and the Darwin tokens never
+                # contain "CHAZY CONTROL".
+                "expect_regex": r"(?i)Welcome To\s+CHAZY CONTROL\s+Terminal",
+                "timeout_ms": 4000,
+                "extract_manufacturer": "TurtleAV",
+                "extract": {
+                    "model": {
+                        "regex": r"Welcome To\s+(.+?)\s+Terminal Control System",
+                        "group": 1,
+                    },
+                    "firmware": {
+                        "regex": r"FW Version:\s*([0-9][0-9A-Za-z.\-]*)",
+                        "group": 1,
+                    },
+                },
+            },
             "python": "./chazy_control_discovery.py",
             "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],

@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-30T22:32:20+00:00",
+    "generated_at": "2026-05-31T01:15:09+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 60,
@@ -3459,7 +3459,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.7",
+      "version": "1.2.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -3497,6 +3497,22 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "(?i)Welcome To\\s+CHAZY CONTROL\\s+Terminal",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "TurtleAV",
+          "extract": {
+            "model": {
+              "regex": "Welcome To\\s+(.+?)\\s+Terminal Control System",
+              "group": 1
+            },
+            "firmware": {
+              "regex": "FW Version:\\s*([0-9][0-9A-Za-z.\\-]*)",
+              "group": 1
+            }
+          }
+        },
         "python": "./chazy_control_discovery.py",
         "hostname": [
           "^controller(\\.local)?$"
@@ -3515,7 +3531,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -3553,6 +3569,22 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect": "TAV-CHAZY-CLTPRO",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "TurtleAV",
+          "extract": {
+            "model": {
+              "regex": "Welcome To\\s+(.+?)\\s+Terminal Control System",
+              "group": 1
+            },
+            "firmware": {
+              "regex": "FW Version:\\s*([0-9][0-9A-Za-z.\\-]*)",
+              "group": 1
+            }
+          }
+        },
         "python": "./chazy_control_pro_discovery.py",
         "hostname": [
           "^controller(\\.local)?$"
@@ -3571,7 +3603,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.6",
+      "version": "1.1.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -3609,6 +3641,22 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "(?i)Welcome To\\s+(?:DARWIN|Controller\\(h\\))",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "TurtleAV",
+          "extract": {
+            "model": {
+              "regex": "Welcome To\\s+(.+?)\\s+Terminal Control System",
+              "group": 1
+            },
+            "firmware": {
+              "regex": "FW Version:\\s*([0-9][0-9A-Za-z.\\-]*)",
+              "group": 1
+            }
+          }
+        },
         "python": "./darwin_control_discovery.py",
         "hostname": [
           "^controller(\\.local)?$"

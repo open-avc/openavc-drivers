@@ -200,7 +200,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.6",
+        "version": "1.1.7",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -219,11 +219,34 @@ class DarwinControlDriver(BaseDriver):
             # The controller's only on-wire identity is the telnet connect
             # banner ("Welcome To Controller(h) Terminal Control System" on FW
             # 1.50.02; the brand becomes "DARWIN CONTROL" on FW 2.03.19). The
-            # banner-grab companion (darwin_control_discovery.py) reads past the
-            # Telnet IAC negotiation and matches that token, emitting only for a
-            # Darwin Control (never a Chazy controller, which shares the default
-            # hostname and port). The declarative hints below narrow candidates
-            # to telnet hosts named controller.local before the companion runs.
+            # tcp_probe below matches that token, which is what lets an
+            # UNINSTALLED Darwin identify straight from the catalog: hostname
+            # and port are shared with the Chazy controllers, so they can't
+            # disambiguate on their own. The banner arrives after Telnet IAC
+            # negotiation in a later TCP segment; the probe runner accumulates
+            # segments (it no longer stops at the first read), so this matches
+            # the same banner the companion reads. The sibling companion
+            # (darwin_control_discovery.py) stays as a belt-and-suspenders path
+            # with identical token logic and richer fragmented-banner handling.
+            "tcp_probe": {
+                "port": 23,
+                # "Controller(h)" (FW 1.50.02, verified live) or any
+                # "DARWIN"-bearing brand (FW 2.03.19). Never matches the Chazy
+                # tokens "CHAZY CONTROL" / "TAV-CHAZY-CLTPRO".
+                "expect_regex": r"(?i)Welcome To\s+(?:DARWIN|Controller\(h\))",
+                "timeout_ms": 4000,
+                "extract_manufacturer": "TurtleAV",
+                "extract": {
+                    "model": {
+                        "regex": r"Welcome To\s+(.+?)\s+Terminal Control System",
+                        "group": 1,
+                    },
+                    "firmware": {
+                        "regex": r"FW Version:\s*([0-9][0-9A-Za-z.\-]*)",
+                        "group": 1,
+                    },
+                },
+            },
             "python": "./darwin_control_discovery.py",
             "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],

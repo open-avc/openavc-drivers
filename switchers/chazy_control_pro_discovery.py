@@ -11,12 +11,13 @@ preceded by Telnet IAC option negotiation:
     ================================================================
     CONTROLLER>
 
-A declarative ``tcp_probe`` can't reach this banner: the controller sends
-the IAC negotiation in its own TCP segment first, so a single read returns
-only the ~12 IAC bytes and the model line arrives later. This companion
-connects, accumulates a few short reads until the banner lands (it does not
-need to answer the IAC negotiation — the controller sends the banner
-regardless), reads the model token out of the welcome line, and emits an
+The driver declares a declarative ``tcp_probe`` that matches this banner: the
+discovery probe runner accumulates TCP segments, so the IAC-first framing no
+longer hides the model line, and an uninstalled Pro identifies straight from
+the catalog. This companion is kept as a backup path that runs once the driver
+is installed: it connects, accumulates a few short reads until the banner lands
+(it does not need to answer the IAC negotiation; the controller sends the
+banner regardless), reads the model token out of the welcome line, and emits an
 active-probe fingerprint with ``manufacturer = "TurtleAV"``. That positively
 identifies the chazy_control_pro driver and feeds the manufacturer-alias
 narrowing path.

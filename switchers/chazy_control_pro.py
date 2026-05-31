@@ -196,7 +196,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.3",
+        "version": "1.4.4",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -216,15 +216,35 @@ class ChazyControlProDriver(BaseDriver):
         "discovery": {
             # A.5 resolved against live hardware (FW 1.10.11): the controller
             # advertises exactly one mDNS service, the generic Audinate Dante
-            # Conmon service (_netaudio-cmc._udp.local.), whose TXT carries
-            # only Dante fields — no vendor string. That is not a Chazy
-            # fingerprint (every Dante device emits it), so there is no mDNS
-            # service-type to claim here. The only on-wire identity is the
-            # telnet connect banner ("Welcome To TAV-CHAZY-CLTPRO ..."), which
-            # the companion probe reads past the controller's Telnet IAC
-            # negotiation and turns into a strong fingerprint plus a
-            # manufacturer string (so manufacturer_alias narrowing fires). The
-            # default hostname controller.local is a soft corroborating hint.
+            # Conmon service (_netaudio-cmc._udp.local.), whose TXT carries only
+            # Dante fields and no vendor string. That is not a Chazy fingerprint
+            # (every Dante device emits it), so there is no mDNS service-type to
+            # claim here. The on-wire identity is the telnet connect banner
+            # ("Welcome To TAV-CHAZY-CLTPRO ..."). The tcp_probe below matches
+            # that token so an UNINSTALLED Pro identifies straight from the
+            # catalog; hostname and port are shared with the other Chazy/Darwin
+            # controllers and cannot disambiguate on their own. The banner
+            # follows Telnet IAC negotiation in a later TCP segment, which the
+            # probe runner accumulates. The companion stays as a backup path
+            # with identical token logic.
+            "tcp_probe": {
+                "port": 23,
+                # Pro model token; never matches "CHAZY CONTROL" (standard) or
+                # the Darwin "Controller(h)" / "DARWIN" tokens.
+                "expect": "TAV-CHAZY-CLTPRO",
+                "timeout_ms": 4000,
+                "extract_manufacturer": "TurtleAV",
+                "extract": {
+                    "model": {
+                        "regex": r"Welcome To\s+(.+?)\s+Terminal Control System",
+                        "group": 1,
+                    },
+                    "firmware": {
+                        "regex": r"FW Version:\s*([0-9][0-9A-Za-z.\-]*)",
+                        "group": 1,
+                    },
+                },
+            },
             "python": "./chazy_control_pro_discovery.py",
             "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],

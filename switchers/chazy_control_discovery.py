@@ -7,12 +7,15 @@ only the model token in the welcome line differs:
     FW Version: 1.00.17
 
 As with the Pro, the banner arrives after Telnet IAC negotiation in a
-later TCP segment, so a declarative ``tcp_probe`` (single read) only sees
-the IAC bytes. This companion connects, accumulates short reads until the
-banner lands, reads the model token, and emits an active-probe fingerprint
-with ``manufacturer = "TurtleAV"`` only when the token is the standard
-Control's. The Pro companion emits only for ``TAV-CHAZY-CLTPRO``, so the
-two drivers never both claim one controller.
+later TCP segment. The driver declares a ``tcp_probe`` that matches it: the
+discovery probe runner accumulates TCP segments, so a single read no longer
+stops at the IAC bytes and an uninstalled standard Control identifies from
+the catalog. This companion stays as a backup path that runs once the driver
+is installed: it connects, accumulates short reads until the banner lands,
+reads the model token, and emits an active-probe fingerprint with
+``manufacturer = "TurtleAV"`` only when the token is the standard Control's.
+The Pro companion emits only for ``TAV-CHAZY-CLTPRO``, so the two drivers
+never both claim one controller.
 
 The standard Control's banner format is taken from the Chazy Control API
 reference (FW 1.00.17) — the same documentary basis as the rest of the

@@ -198,6 +198,19 @@ mirrored at catalog-build time by `build_index.py`):**
 8. **Template drivers exempt.** Drivers whose ID starts with
    `generic_` skip discovery validation entirely — they are project
    starting points, not discoverable devices.
+9. **A shared `hostname` needs a declarative fingerprint.** `hostname`
+   is a soft locator that narrows candidates but never identifies on
+   its own. When two or more drivers declare the same `hostname`
+   pattern (e.g. two product lines that default to the same name),
+   each must also carry a fingerprint the catalog can evaluate *before*
+   install: a `tcp_probe`, `udp_probe`, `mdns`, `ssdp`, or `amx_ddp`. A
+   `python:` companion does NOT satisfy this. Companions load only from
+   on-disk `*_discovery.py` files, so they run only once the driver is
+   installed, and discovery exists to identify gear you have NOT
+   installed yet. A shared-hostname driver whose only strong signal is
+   a companion gets mislabeled as its sibling on any scan where it is
+   not installed. `build_index.py` fails the build for new occurrences;
+   give each such driver a `tcp_probe` matching its own banner token.
 
 ### 2.2.1 Cross-vendor demotion
 

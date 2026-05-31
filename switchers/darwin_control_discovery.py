@@ -12,12 +12,15 @@ framing — Telnet IAC negotiation in one TCP segment, then a welcome banner and
     ================================================================
     CONTROLLER>
 
-A declarative ``tcp_probe`` can't reach this banner (the IAC bytes arrive in
-their own segment, so a single read returns only ~12 IAC bytes). This companion
-connects, accumulates short reads until the banner lands (it does not answer
-the IAC negotiation — the controller sends the banner regardless), reads the
-model token from the welcome line, and emits an active-probe fingerprint with
-``manufacturer = "TurtleAV"`` when that token identifies a Darwin Control.
+The driver declares a declarative ``tcp_probe`` that matches this banner. The
+discovery probe runner accumulates TCP segments, so the IAC-first framing no
+longer hides the welcome line, and an uninstalled Darwin identifies straight
+from the catalog. This companion is kept as a belt-and-suspenders path that
+runs once the driver is installed: it connects, accumulates short reads until
+the banner lands (it does not answer the IAC negotiation; the controller sends
+the banner regardless), reads the model token from the welcome line, and emits
+an active-probe fingerprint with ``manufacturer = "TurtleAV"`` when that token
+identifies a Darwin Control.
 
 **The discriminator is the welcome token, and it is firmware-dependent.** The
 verified unit (FW 1.50.02) welcomes as ``Controller(h)`` — *not* "DARWIN"; the

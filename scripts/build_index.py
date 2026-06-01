@@ -366,7 +366,7 @@ _KNOWN_DISCOVERY_KEYS: frozenset[str] = frozenset({
 _KNOWN_PROBE_KEYS: frozenset[str] = frozenset({
     "port", "send_hex", "send_ascii",
     "expect", "expect_regex", "expect_hex",
-    "cross_vendor", "timeout_ms",
+    "cross_vendor", "timeout_ms", "tls",
     "extract", "extract_manufacturer",
 })
 
@@ -543,6 +543,14 @@ def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
 
     if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
         errors.append(f"{file}: discovery.{where}.cross_vendor must be a bool")
+
+    if "tls" in raw:
+        if not isinstance(raw["tls"], bool):
+            errors.append(f"{file}: discovery.{where}.tls must be a bool")
+        elif raw["tls"] and kind != "tcp":
+            errors.append(
+                f"{file}: discovery.{where}.tls is only valid on a tcp_probe"
+            )
 
     errors.extend(_validate_extract_block(file, where, raw.get("extract")))
 

@@ -117,6 +117,8 @@ discovery:
 
   tcp_probe:
     port: 4352
+    tls: false                          # optional — TLS-wrap before send/read
+                                        # (HTTPS-only device). Default false.
     send_ascii: "%1POWR ?\r"           # exactly one of: send_ascii, send_hex,
                                         # (omit for connect-only banner read)
     expect: "%1POWR=[01]"               # exactly one of: expect (substring),
@@ -178,7 +180,10 @@ mirrored at catalog-build time by `build_index.py`):**
    driver author's responsibility.
 2. **`tcp_probe` and `udp_probe` accept exactly one of `send_ascii` /
    `send_hex`.** Both is an error; omitting both is allowed for TCP
-   connect-only banner reads.
+   connect-only banner reads. **`tls: true` is `tcp_probe`-only** — it
+   TLS-wraps the connection (no cert verification) before send/read so an
+   HTTPS-only device can be fingerprinted from its own landing page;
+   declaring it on a `udp_probe` fails validation.
 3. **Probes declare exactly one of `expect` / `expect_regex` /
    `expect_hex`.** Required for both `tcp_probe` and `udp_probe`.
    Regex patterns are compiled at load time — invalid patterns fail

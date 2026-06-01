@@ -132,7 +132,7 @@ The matcher is deterministic — there is no scoring. A signal either fires or i
 
 If your device announces itself with a wire format that isn't already covered by the platform's passive listeners (mDNS / SSDP / AMX-DDP), declare a custom probe directly in the driver YAML:
 
-1. **`tcp_probe:`** — connect to a port, optionally send a query, match the response. Sub-fields: `port`, exactly one of `send_ascii` / `send_hex` (or omit for connect-only banner reads), exactly one of `expect` (substring) / `expect_regex` / `expect_hex`, optional `timeout_ms` (≤ 10000), optional `cross_vendor` flag, optional `extract_manufacturer:` (lifts a string into the manufacturer-alias enrichment path so peer drivers can claim the device via `manufacturer_alias`), optional free-form `extract:` rules for other metadata (model, version).
+1. **`tcp_probe:`** — connect to a port, optionally send a query, match the response. Sub-fields: `port`, exactly one of `send_ascii` / `send_hex` (or omit for connect-only banner reads), exactly one of `expect` (substring) / `expect_regex` / `expect_hex`, optional `tls: true` (TLS-wrap the connection without cert verification before send/read, so an HTTPS-only device can be fingerprinted from its landing page — e.g. `GET /` and `expect` a string from the HTML), optional `timeout_ms` (≤ 10000), optional `cross_vendor` flag, optional `extract_manufacturer:` (lifts a string into the manufacturer-alias enrichment path so peer drivers can claim the device via `manufacturer_alias`), optional free-form `extract:` rules for other metadata (model, version).
 
 2. **`udp_probe:`** — broadcast on a port, listen for replies. Same sub-fields as `tcp_probe`. Useful for devices that respond to a directed broadcast on a vendor-specific port.
 

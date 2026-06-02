@@ -1370,6 +1370,8 @@ Confidence values:
 - `partial` — driver controls common features only. Some advanced features unsupported.
 - `untested` — generic protocol driver expected to work but not specifically verified for these models.
 
+When real-hardware results come in (via a [Driver test report](https://github.com/open-avc/openavc-drivers/issues/new?template=driver-test-report.yml) issue or a PR), raise a model's confidence from `untested` to `partial` or `full` and split it into its own `compatible_models` entry if its results differ from the rest of the family. Never set `verified: true` yourself — that flag is maintainer-controlled and always submitted as `false`.
+
 ### How models become discoverable
 
 The build script reverse-indexes every `compatible_models` entry into `devices.json`, so a user searching "Epson EB-L1075U" in Browse Drivers finds the right driver. Generic protocol drivers (PJLink, SNMP, ONVIF, etc.) leave their own `compatible_models` mostly empty — their device coverage comes from `devices-extra.json` entries that point at them.

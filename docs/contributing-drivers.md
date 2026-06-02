@@ -228,6 +228,22 @@ Add your own `log.info(f"[{self.device_id}] ...")` calls only for semantic event
 - Test connection and disconnection behavior
 - For polled drivers, verify polling works at the configured interval
 
+## Reporting Test Results
+
+Many drivers ship at `verified: false`, or with `compatible_models` entries marked `untested` — they are built from the protocol manual and the simulator but have not been confirmed against the specific hardware. If you run a driver against real equipment, please report what you find. There are two ways, depending on what you saw.
+
+**File a test report.** Use the [Driver test report](https://github.com/open-avc/openavc-drivers/issues/new?template=driver-test-report.yml) issue template (it carries the `test-report` label). Fill in the driver, the model(s) and firmware, what worked, and for anything that misbehaved, the command you sent, the response you expected, and the response you actually got. This is the right path when something did not work as documented, and the low-effort path if you would rather not edit YAML. The raw command/response detail lets the result be folded in correctly.
+
+**Open a pull request.** If you are comfortable editing the driver, a test report usually becomes one or two edits in the `.avcdriver` file:
+
+- Update `compatible_models`. It is an array of groups, so different models can carry different confidence. A model whose whole command surface worked goes to `confidence: full`; one with quirks gets its own entry at `confidence: partial` with a `notes:` line describing the deviation.
+- Fix any commands or response patterns that did not match, and bump the driver `version`.
+- Run `python scripts/build_index.py` so `index.json` and `devices.json` regenerate.
+
+Link the test-report issue from the pull request so the evidence and the change stay connected.
+
+The `verified` flag stays maintainer-controlled: always submit `false`. A maintainer flips it to `true` once at least one model in `compatible_models` has been confirmed end to end on real hardware. Your report or pull request is what earns that.
+
 ## Naming Conventions
 
 - Driver IDs: lowercase, underscores (e.g., `extron_sis`, `biamp_tesira`)

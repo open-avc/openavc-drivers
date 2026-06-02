@@ -37,7 +37,16 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-import jsonschema_rs
+try:
+    from jsonschema_rs import (
+        Validator as JsonSchemaValidator,
+        ValidationError as JsonSchemaValidationError,
+        validator_for as jsonschema_validator_for,
+    )
+except ModuleNotFoundError:
+    JsonSchemaValidator = object
+    JsonSchemaValidationError = BaseException
+    jsonschema_validator_for = None
 
 
 # --- Constants ---------------------------------------------------------------
@@ -383,7 +392,7 @@ def _as_list(value: Any) -> list[Any]:
 def _validate_json_schema(
     filepath: str,
     driver_info: dict[str, Any],
-    validator: jsonschema_rs.Validator
+    validator: JsonSchemaValidator
 ) -> list[str]:
     """Validate driver_info against the JSON Schema.
 
@@ -392,14 +401,14 @@ def _validate_json_schema(
     errors: list[str] = []
     try:
         validator.validate(driver_info)
-    except jsonschema_rs.ValidationError as e:
-        errors.append(f"{filepath}: JSON Schema validation error: {e.message}")
+    except JsonSchemaValidationError as e:
+        errors.append(f"{filepath}: JSON Schema validation error: {e}")
     return errors
 
 
 def _validate_all_json_schemas(
     raw: list[tuple[Path, dict[str, Any]]],
-    validator: jsonschema_rs.Validator
+    validator: JsonSchemaValidator
 ) -> list[str]:
     """Validate all driver_info dicts against the JSON Schema.
 
@@ -1329,9 +1338,9 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root: Path = args.root.resolve()
     json_schema_path = args.json_schema_file or (repo_root / "avcdriver.schema.json")
-    if json_schema_path.is_file():
+    if jsonschema_validator_for is not None and json_schema_path.is_file():
         json_schema = json.loads(json_schema_path.read_text(encoding="utf-8"))
-        json_validator = jsonschema_rs.validator_for(json_schema)
+        json_validator = jsonschema_validator_for(json_schema)
     else:
         if args.check_json_schema:
             # If the user explicitly requested JSON Schema validation,

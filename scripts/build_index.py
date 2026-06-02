@@ -402,7 +402,7 @@ def _validate_json_schema(
     try:
         validator.validate(driver_info)
     except JsonSchemaValidationError as e:
-        errors.append(f"{filepath}: JSON Schema validation error: {e}")
+        errors.append(f"{filepath}: JSON Schema validation error: {e.message}")
     return errors
 
 

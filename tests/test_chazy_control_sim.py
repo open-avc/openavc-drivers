@@ -218,8 +218,9 @@ def test_roundtrip_status_online_parses(sim):
     assert p["decoders"][1]["source_video"] == 1
     assert p["system"]["firmware"] == "1.00.17"
     assert p["system"]["lan2_ip"] == "192.168.6.100"
-    assert p["system"]["dns_preferred"] == "192.168.6.1"
     assert p["system"]["hostname"] == "controller.local"
+    # FW 1.00.17 GET STATUS has no DNS-server block.
+    assert "dns_preferred" not in p["system"]
 
 
 def test_roundtrip_status_offline_parses(sim):
@@ -240,6 +241,14 @@ def test_roundtrip_enc_detail_parses(sim):
     assert p["mac"] == "18:66:96:11:0A:27"
     assert p["multicast"] is True
     assert p["io1_dir"] == "Out" and p["io1_phy"] == "Copper"
+
+
+def test_roundtrip_enc_ss_parses(sim):
+    # FW 1.00.17 §6 TX SS module: mainstream MJPEG URL + NA substream.
+    banner = _strip(sim.handle_command(b"GET ENC 1 SS STATUS"), "GET ENC 1 SS STATUS")
+    ss = drv._parse_ss_status(banner)
+    assert ss["mainstream_url"] == "http://169.254.10.1:8080/?action=stream"
+    assert ss["substream_url"] == ""
 
 
 def test_roundtrip_dec_detail_parses(sim):
@@ -325,7 +334,7 @@ def test_reset_confirm_no_cancels(sim):
 
 @pytest.mark.parametrize("cmd", [
     b"GET DATE",
-    b"GET NTP",
+    b"GET NTP SERVER",
     b"SET DATE 2026-05-20 12:00:00",
     b"SET NTP SERVER time.nist.gov",
     b"ADD MEDIA HANDLE 1",

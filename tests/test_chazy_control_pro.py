@@ -84,7 +84,7 @@ INFO = drv.ChazyControlProDriver.DRIVER_INFO
 # ── Command surface consistency ──
 
 def test_every_command_has_a_handler():
-    special = {"search", "add_auto_all"} | set(drv._RESET_CONFIRM)
+    special = {"search", "add_auto_all", "discover_add_all"} | set(drv._RESET_CONFIRM)
     for name in INFO["commands"]:
         assert (name in drv._COMMAND_TEMPLATES or name in drv._LIFECYCLE_COMMANDS
                 or name in special), f"{name} has no handler"
@@ -135,7 +135,7 @@ def test_full_module_coverage_present():
         "media_add", "group_create", "event_create", "schedule_create",
         "config_preset_save", "dante_preset_create", "set_date", "set_ntp_server",
         "enc_static_ip", "enc_preset_apply", "enc_lan2_ipmode", "enc_guest_config",
-        "dec_static_ip", "dec_preset_apply", "dec_hotkey", "dec_output_colorspace",
+        "dec_static_ip", "dec_preset_apply", "dec_hotkey",
         "net_dns", "dante_rxchn_subscribe", "wall_create",
     ):
         assert name in INFO["commands"], f"missing {name}"
@@ -304,12 +304,74 @@ def test_parse_dante_preset_status(banner):
 
 
 def test_config_child_parsers_handle_empty():
-    # The "No <Type>" body an empty controller returns must parse to {}.
-    for body, parser in (
-        ("No Group", drv._parse_group_status),
-        ("No Event", drv._parse_event_status),
-        ("No Video Wall", drv._parse_wall_status),
-        ("No Dante Preset", drv._parse_dante_preset_status),
-    ):
-        banner = f"{'=' * 64}\n              TAV-CHAZY-CLTPRO Info\n\n{body}\n{'=' * 64}"
-        assert parser(banner) == {}
+    # Real empty banners (FW 1.10.11, from the live probe): GROUP and EVENT are
+    # firmware-mislabeled "Dante Preset Info" and have NO closing sentinel;
+    # WALL and DANTE PRESET carry their own title and a closing sentinel. All
+    # must parse to {}.
+    sentinel = "=" * 64
+    cases = (
+        ("Dante Preset Info", "No Group", drv._parse_group_status, False),
+        ("Dante Preset Info", "No Event", drv._parse_event_status, False),
+        ("Video Wall Info", "No Video Wall", drv._parse_wall_status, True),
+        ("Dante Preset Info", "No Dante Preset", drv._parse_dante_preset_status, True),
+    )
+    for title, body, parser, closed in cases:
+        banner = (
+            f"{sentinel}\n"
+            f"              TAV-CHAZY-CLTPRO {title}\n"
+            f"              FW Version: 1.10.11\n\n"
+            f"{body}\n"
+        )
+        if closed:
+            banner += f"{sentinel}\n"
+        assert parser(banner) == {}, f"{body!r} should parse to empty"
+
+
+def test_parse_success_line():
+    # Live GET DATE / GET NTP SERVER replies (FW 1.10.11): [SUCCESS] prefix +
+    # trailing period, date carries a (TZ) suffix that must be preserved.
+    assert (
+        drv._parse_success_line("[SUCCESS]2026-05-31 03:55:35 (Australia/Sydney).")
+        == "2026-05-31 03:55:35 (Australia/Sydney)"
+    )
+    assert drv._parse_success_line("[SUCCESS]time.nist.gov.") == "time.nist.gov"
+    # An IP NTP server keeps its dotted form (only the sentence period drops).
+    assert drv._parse_success_line("[SUCCESS]192.168.4.1.") == "192.168.4.1"
+    # Error / empty replies yield None so the state key isn't overwritten.
+    assert drv._parse_success_line("[ERROR]Unknown parameter.") is None
+    assert drv._parse_success_line("") is None
+
+
+def test_event_schedule_schema_drops_unpopulated_keys():
+    # Keys with no GET read-back were removed so the IDE doesn't show them
+    # permanently blank (review findings #7, #8).
+    ce = INFO["child_entity_types"]
+    assert "running" not in ce["event"]["state_variables"]
+    assert ce["event"]["summary_fields"] == ["name", "event_type", "address"]
+    assert set(ce["schedule"]["state_variables"]) == {"name"}
+    assert ce["schedule"]["summary_fields"] == ["name"]
+
+
+def test_parse_ss_status():
+    # Byte-exact GET ENC 1 SS STATUS from FW 1.10.11 (Gen-2 MJPEG mainstream,
+    # no substream). Mainstream URL uses the de-padded encoder IP.
+    banner = (
+        "=" * 64 + "\n"
+        "              TAV-CHAZY-CLTPRO Secondary Stream Info\n"
+        "\n"
+        "ID    WorkMode    Version\n"
+        "001   NA\n"
+        "    >>MainStream URL\n"
+        "      http://169.254.10.1:8080/?action=stream\n"
+        "    >>SubStream URL\n"
+        "      NA\n"
+        "\n" + "=" * 64
+    )
+    ss = drv._parse_ss_status(banner)
+    assert ss["mainstream_url"] == "http://169.254.10.1:8080/?action=stream"
+    assert ss["substream_url"] == ""  # NA normalises to empty
+
+
+def test_encoder_declares_stream_urls():
+    enc_vars = INFO["child_entity_types"]["encoder"]["state_variables"]
+    assert "mainstream_url" in enc_vars and "substream_url" in enc_vars

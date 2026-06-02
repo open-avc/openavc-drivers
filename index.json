@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-30T14:52:59+00:00",
+    "generated_at": "2026-06-01T17:08:37+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 60,
+    "total_drivers": 61,
     "shards": null
   },
   "drivers": [
@@ -1967,6 +1967,42 @@
       }
     },
     {
+      "id": "soundcorehero",
+      "name": "SoundCoreHero Audio System",
+      "manufacturer": "Hero AV",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "Wiktor Myszolow (Hero AV)",
+      "transport": "tcp",
+      "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
+      "source_url": "https://soundcorehero.com",
+      "file": "audio/soundcorehero.py",
+      "format": "python",
+      "protocols": [
+        "soundcorehero"
+      ],
+      "min_platform_version": "0.13.0",
+      "help": {
+        "overview": "SoundCoreHero is a professional multi-zone audio distribution and management system. This driver exposes its zones, players, speakers and inputs as child entities, controls volume/mute/transport, and plays announcements.",
+        "setup": "1. Note the device IP. By default only HTTPS (port 443) is enabled.\n2. Create or pick a user account in Settings -> Users. The driver logs in with that account's email and password to obtain a session (required by the control WebSocket).\n3. Enter IP, email and password. Leave 'Verify SSL' off if the device uses its default self-signed certificate."
+      },
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n",
+          "expect": "SoundCoreHero"
+        },
+        "hostname": [
+          "soundcorehero"
+        ],
+        "manufacturer_alias": [
+          "Hero AV",
+          "SoundCoreHero"
+        ]
+      }
+    },
+    {
       "id": "kramer_p3000",
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
@@ -3459,7 +3495,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -3497,6 +3533,22 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "(?i)Welcome To\\s+CHAZY CONTROL\\s+Terminal",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "TurtleAV",
+          "extract": {
+            "model": {
+              "regex": "Welcome To\\s+(.+?)\\s+Terminal Control System",
+              "group": 1
+            },
+            "firmware": {
+              "regex": "FW Version:\\s*([0-9][0-9A-Za-z.\\-]*)",
+              "group": 1
+            }
+          }
+        },
         "python": "./chazy_control_discovery.py",
         "hostname": [
           "^controller(\\.local)?$"
@@ -3515,7 +3567,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.3.0",
+      "version": "1.4.6",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -3540,7 +3592,7 @@
       ],
       "help": {
         "overview": "The Chazy Control Pro orchestrates an entire Chazy 4K AV-over-IP system. Add it as one device; its encoders, decoders, video walls, groups, events, schedules, media sources, Dante presets, and configuration presets appear as child entities under the Child Entities tab.",
-        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use the Search command to find new TX/RX on the Video LAN, then Add Auto All to register them.\n5. Video walls, groups, events, and Dante presets already configured on the controller are also listed automatically. Media sources, schedules, and configuration presets cannot be listed by the controller, so they appear only once you create them here."
+        "setup": "1. Connect the controller's Control LAN (LAN2) to your network. The default address is 192.168.6.100; it also advertises as controller.local.\n2. Telnet on port 23 is enabled by default with no login.\n3. Enter the controller's IP in the device config; leave the port at 23.\n4. Encoders and decoders are discovered automatically on connect from GET STATUS. Use 'Find + Add All Devices' to search the Video LAN and enroll everything new in one step (or Search, then Add All New Devices, to do it in stages).\n5. Video walls, groups, events, and Dante presets already configured on the controller are also listed automatically. Media sources, schedules, and configuration presets cannot be listed by the controller, so they appear only once you create them here."
       },
       "compatible_models": [
         {
@@ -3553,6 +3605,22 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect": "TAV-CHAZY-CLTPRO",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "TurtleAV",
+          "extract": {
+            "model": {
+              "regex": "Welcome To\\s+(.+?)\\s+Terminal Control System",
+              "group": 1
+            },
+            "firmware": {
+              "regex": "FW Version:\\s*([0-9][0-9A-Za-z.\\-]*)",
+              "group": 1
+            }
+          }
+        },
         "python": "./chazy_control_pro_discovery.py",
         "hostname": [
           "^controller(\\.local)?$"
@@ -3571,7 +3639,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.1",
+      "version": "1.1.7",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -3605,10 +3673,26 @@
             "Darwin Control (CTL100AL)"
           ],
           "confidence": "full",
-          "notes": "Verified end-to-end against live hardware (FW 1.50.02): connect, discovery, child enumeration, status parsing, enrolment/idempotency, and the operational SET surface (routing, output/mute/pause/OSD/auto, resolution, rotate, no-signal standby, HDCP/Osp, TX encoding, LED/FPLED, audio input, IR, GPIO, video walls). The source-binding commands (video-wall class/matrix source, KVM hotkey) need a streaming source TX to accept, and reboot/reset/network commands were held back on the live unit; their wire formats match the manufacturer reference."
+          "notes": "Verified end-to-end against live hardware (FW 1.50.02) with a live HDMI source on the TX and a display on the RX: connect, discovery, child enumeration, status parsing, enrolment/idempotency, and the operational SET surface (routing, output/mute/pause/OSD/auto, resolution, rotate, no-signal standby, HDCP/Osp SNK/SRC/OFF/H14/H22, TX encoding, LED/FPLED, audio input, IR, GPIO). OSD, mute, pause, resolution, rotation, output on/off, and a single-RX video wall tile were confirmed rendering on the attached display; the source-binding commands (video-wall class/matrix source, KVM hotkey) were accepted with a live source. Decoder video-wall mode (MODE VW) requires the RX assigned to a wall with an applied class region first. Only reboot/reset/network commands were held back on the live unit; their wire formats match the manufacturer reference. Multi-endpoint routing and multi-screen walls need additional TX/RX units to exercise."
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "(?i)Welcome To\\s+(?:DARWIN|Controller\\(h\\))",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "TurtleAV",
+          "extract": {
+            "model": {
+              "regex": "Welcome To\\s+(.+?)\\s+Terminal Control System",
+              "group": 1
+            },
+            "firmware": {
+              "regex": "FW Version:\\s*([0-9][0-9A-Za-z.\\-]*)",
+              "group": 1
+            }
+          }
+        },
         "python": "./darwin_control_discovery.py",
         "hostname": [
           "^controller(\\.local)?$"

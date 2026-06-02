@@ -1107,6 +1107,10 @@
         "cross_vendor": {
           "type": "boolean"
         },
+        "tls": {
+          "type": "boolean",
+          "description": "Wrap the connection in TLS (no cert verification) before send/read, for an HTTPS-only device. Default false. tcp_probe only."
+        },
         "timeout_ms": {
           "type": "integer",
           "minimum": 1,

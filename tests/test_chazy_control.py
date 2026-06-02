@@ -167,23 +167,42 @@ def test_reset_commands_present():
 
 # ── Subset correctness: shared surface present, Pro-only absent ──
 
-def test_shared_command_surface_present():
+def test_documented_command_surface_present():
     # The encoder/decoder/video-wall/Dante-routing/network/GPIO/search surface
-    # the standard Control shares with the Pro must all be present.
+    # the FW 1.00.17 reference documents must all be present.
     for name in (
         "reboot_controller", "set_rs232_baud",
-        "enc_set_name", "enc_static_ip", "enc_preset_apply", "enc_lan2_ipmode",
+        "enc_set_name", "enc_static_ip", "enc_preset_apply", "enc_ipmode",
         "enc_guest_config", "enc_switch_arc", "enc_reset",
-        "dec_route", "dec_static_ip", "dec_preset_apply", "dec_hotkey",
-        "dec_output_colorspace", "dec_reset",
+        "dec_route", "dec_static_ip", "dec_preset_apply", "dec_output_osd",
+        "dec_reset",
         "wall_create", "wall_delete", "wall_apply_preset", "wall_preset_class",
-        "dante_set_name", "dante_rxchn_subscribe", "dante_interface_static",
+        "dante_set_name", "dante_rxchn_subscribe", "dante_txflow_add",
         "dante_search",
         "search", "add_auto_all", "add_dev_enc", "add_dev_reset",
         "gpio_dir", "gpio_level",
-        "net_dhcp", "net_dns", "net_telnet_port", "net_hostname",
+        "net_dhcp", "net_telnet_port", "net_hostname",
     ):
-        assert name in INFO["commands"], f"missing shared command {name}"
+        assert name in INFO["commands"], f"missing documented command {name}"
+
+
+def test_undocumented_pro_carryovers_absent():
+    # Commands the FW 1.00.17 reference does NOT document (Pro carryovers) were
+    # removed to match the doc (see chazy-control-review-report.md). Re-adding
+    # one without a doc to back it should fail this test.
+    for name in (
+        "net_ssh", "net_ssh_port", "net_telnet",
+        "enc_usbmode", "enc_source", "enc_source_auto_priority", "enc_fan",
+        "enc_audio_stream", "enc_lanmode", "enc_lan2_ipmode",
+        "enc_sendguest_ascii", "enc_sendguest_hex",
+        "dec_audio_stream", "dec_output_freeze", "dec_ull",
+        "dec_dante_audio_source", "dec_hotkey", "dec_hotkey_del", "dec_lanmode",
+        "dec_sendguest_ascii", "dec_sendguest_hex",
+        "dante_preferred", "dante_aes67", "dante_reboot", "dante_clear_config",
+        "dante_interface_static", "dante_interface_dynamic", "dante_event_clear",
+    ):
+        assert name not in INFO["commands"], f"undocumented command present: {name}"
+        assert name not in drv._COMMAND_TEMPLATES, f"undocumented template: {name}"
 
 
 def test_pro_only_commands_absent():
@@ -196,6 +215,35 @@ def test_pro_only_commands_absent():
         assert name not in drv._LIFECYCLE_COMMANDS, f"{name} in lifecycle"
 
 
+# ── Command bounds match the FW 1.00.17 reference ──
+
+def test_dec_route_signals_match_documented_switch_types():
+    # FW 1.00.17 §3.3-3.9: ALL/VIDEO/AUDIO/IR/RS232/USB/CEC. No MEDIA — the
+    # standard Control has no Media Player module to route from.
+    sig = INFO["commands"]["dec_route"]["params"]["signal"]["values"]
+    assert sig == ["ALL", "VIDEO", "AUDIO", "IR", "RS232", "USB", "CEC"]
+    assert "MEDIA" not in sig
+
+
+def test_help_ranges_match_fw_1_00_17_tables():
+    edid = INFO["commands"]["enc_edid_default"]["params"]["edid"]["help"]
+    assert "00-23" in edid and "101" not in edid  # §4.6 EDID table
+    res = INFO["commands"]["dec_output_resolution"]["params"]["resolution"]["help"]
+    assert "00-13" in res  # §3.14 resolution table
+
+
+def test_add_dev_allows_auto_assign_zero():
+    # §8.5/§8.6: enc/dec id 0 = auto-assign next free ID.
+    assert INFO["commands"]["add_dev_enc"]["params"]["encoder_id"]["min"] == 0
+    assert INFO["commands"]["add_dev_dec"]["params"]["decoder_id"]["min"] == 0
+
+
+def test_ss_encoder_state_present():
+    # FW 1.00.17 §6 TX SS module read path.
+    enc = INFO["child_entity_types"]["encoder"]["state_variables"]
+    assert "mainstream_url" in enc and "substream_url" in enc
+
+
 # ── child_entity_types schema (subset of the Pro's nine) ──
 
 def test_child_entity_types_are_the_subset():
@@ -204,7 +252,7 @@ def test_child_entity_types_are_the_subset():
     assert types["encoder"]["id_format"] == {
         "type": "integer", "min": 1, "max": 762, "pad_width": 3}
     assert types["decoder"]["id_format"]["max"] == 762
-    assert types["video_wall"]["id_format"]["max"] == 256
+    assert types["video_wall"]["id_format"]["max"] == 9  # FW 1.00.17 §7 hdl [01..09]
 
 
 def test_child_types_do_not_declare_reserved_props():
@@ -236,10 +284,14 @@ def test_lifecycle_only_enc_dec_wall():
 def test_state_vars_drop_date_ntp_keep_network():
     sv = INFO["state_variables"]
     assert "date" not in sv and "ntp_server" not in sv
-    # DNS is part of the Network module, which the standard Control keeps.
-    for name in ("dns_mode", "dns_preferred", "dns_alternate",
-                 "lan1_ip", "lan2_ip", "hostname", "gpio1_dir"):
+    # The core network/system vars the standard Control reports in GET STATUS.
+    for name in ("lan1_ip", "lan2_ip", "hostname", "telnet_port", "ssh",
+                 "https", "gpio1_dir"):
         assert name in sv, f"network/system var {name} missing"
+    # FW 1.00.17 GET STATUS (§2.2) has no DNS-server block, so these can never
+    # populate and are not declared (see report H5).
+    for name in ("dns_mode", "dns_preferred", "dns_alternate"):
+        assert name not in sv, f"{name} declared but unpopulatable on FW 1.00.17"
 
 
 # ── Helpers (shared parser primitives) ──

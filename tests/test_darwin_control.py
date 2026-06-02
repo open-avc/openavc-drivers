@@ -153,6 +153,7 @@ def test_parse_status_populated_roster():
     e = ps["encoders"][1]
     assert e["ip"] == "169.254.10.1" and e["net"] is True and e["signal_present"] is False
     assert e["edid"] == "DF000"
+    assert e["audio_format"] == "PCM"  # AudioFormat column is device-reported
     assert sorted(ps["decoders"]) == [1]
     de = ps["decoders"][1]
     assert de["source"] == 1 and de["net"] is True and de["hpd"] is False
@@ -205,3 +206,21 @@ def test_routing_signals_have_no_audio_or_cec():
     assert "AUDIO" not in drv.SIGNAL_TYPES
     assert "CEC" not in drv.SIGNAL_TYPES
     assert set(drv.SIGNAL_TYPES) == {"ALL", "VIDEO", "IR", "RS232", "USB"}
+
+
+def test_hotkey_k0_is_unpadded():
+    """The KVM hotkey modifier (k0) must be an UNPADDED 1-9 enum.
+
+    Live hardware (FW 1.50.02) rejects a zero-padded modifier with
+    ``[ERROR]OUT parameter out of range`` (9/9 rejected) and accepts the
+    unpadded form (9/9 accepted). The IDE enum once shipped padded
+    ("01".."09"), which made the hotkey command always fail when driven from
+    the picker. Guard against regressing to the padded form, and confirm the
+    rendered wire carries a single-digit modifier.
+    """
+    k0 = INFO["commands"]["dec_hotkey_set"]["params"]["k0"]
+    assert k0["values"] == [str(x) for x in range(1, 10)]
+    assert all(not v.startswith("0") for v in k0["values"])
+    wire = drv._COMMAND_TEMPLATES["dec_hotkey_set"].format(
+        decoder_id=1, nn=1, k0="1", k1=65, action="PULL", encoder_id=2)
+    assert wire == "SET DEC 1 HOTKEY 1 KEY 1 65 ACTION PULL SRC 2"

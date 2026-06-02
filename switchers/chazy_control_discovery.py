@@ -7,12 +7,15 @@ only the model token in the welcome line differs:
     FW Version: 1.00.17
 
 As with the Pro, the banner arrives after Telnet IAC negotiation in a
-later TCP segment, so a declarative ``tcp_probe`` (single read) only sees
-the IAC bytes. This companion connects, accumulates short reads until the
-banner lands, reads the model token, and emits an active-probe fingerprint
-with ``manufacturer = "TurtleAV"`` only when the token is the standard
-Control's. The Pro companion emits only for ``TAV-CHAZY-CLTPRO``, so the
-two drivers never both claim one controller.
+later TCP segment. The driver declares a ``tcp_probe`` that matches it: the
+discovery probe runner accumulates TCP segments, so a single read no longer
+stops at the IAC bytes and an uninstalled standard Control identifies from
+the catalog. This companion stays as a backup path that runs once the driver
+is installed: it connects, accumulates short reads until the banner lands,
+reads the model token, and emits an active-probe fingerprint with
+``manufacturer = "TurtleAV"`` only when the token is the standard Control's.
+The Pro companion emits only for ``TAV-CHAZY-CLTPRO``, so the two drivers
+never both claim one controller.
 
 The standard Control's banner format is taken from the Chazy Control API
 reference (FW 1.00.17) — the same documentary basis as the rest of the
@@ -74,6 +77,25 @@ def parse_welcome(text: str) -> tuple[str | None, str | None]:
     return (model or None), firmware
 
 
+def is_standard_token(model: str | None) -> bool:
+    """True when a welcome-line model token identifies the *standard* Chazy
+    Control (not the Pro, not Darwin).
+
+    Anchored on ``CHAZY`` so it can never claim the Darwin ``Controller(h)``
+    token (whose substring ``control`` would otherwise match), and excludes the
+    Pro (``CLTPRO`` / ``CHAZY ... PRO``). Tolerant of a firmware rebrand within
+    the standard line. Keeps the three TAV companions mutually exclusive.
+    """
+    if not model:
+        return False
+    low = model.lower()
+    if "chazy" not in low:
+        return False
+    if "cltpro" in low or "pro" in low:
+        return False
+    return "control" in low
+
+
 async def _grab_banner(ip: str, source_ip: str, log: logging.Logger) -> str:
     """Connect to ``ip:CHAZY_TELNET_PORT`` and read the connect banner.
 
@@ -106,7 +128,11 @@ async def _grab_banner(ip: str, source_ip: str, log: logging.Logger) -> str:
             if not chunk:
                 break  # peer closed
             acc += chunk
-            if _BANNER_SENTINEL.encode("latin-1") in acc:
+            # Wait for the FW Version line (it follows the welcome line), not
+            # just the sentinel, so a fragmented banner doesn't drop firmware.
+            if _BANNER_SENTINEL.encode("latin-1") in acc and _FW_RE.search(
+                acc.decode("latin-1", errors="replace")
+            ):
                 break
     except (ConnectionResetError, BrokenPipeError, OSError) as exc:
         log.debug("chazy_control companion: read from %s failed: %s", ip, exc)
@@ -139,7 +165,7 @@ async def probe(ctx: ProbeContext) -> None:
         if not banner:
             return
         model, firmware = parse_welcome(banner)
-        if model != CONTROL_MODEL_TOKEN:
+        if not is_standard_token(model):
             return
         response: dict[str, object] = {
             "ip": ip,
@@ -154,7 +180,7 @@ async def probe(ctx: ProbeContext) -> None:
             host=ip,
             response=response,
             port=CHAZY_TELNET_PORT,
-            matched_pattern=f"regex:Welcome To {CONTROL_MODEL_TOKEN}",
+            matched_pattern=f"regex:Welcome To {model}",
         )
         ctx.log.info(
             "chazy_control companion: %s identified as %s (FW %s)",

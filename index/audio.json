@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-05-30T14:52:59+00:00",
+    "generated_at": "2026-06-01T17:08:37+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 14,
+    "total_drivers": 15,
     "shards": null,
     "category": "audio"
   },
@@ -516,6 +516,42 @@
         "python": "./biamp_tesira_ttp_discovery.py",
         "oui": [
           "78:45:01"
+        ]
+      }
+    },
+    {
+      "id": "soundcorehero",
+      "name": "SoundCoreHero Audio System",
+      "manufacturer": "Hero AV",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "Wiktor Myszolow (Hero AV)",
+      "transport": "tcp",
+      "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
+      "source_url": "https://soundcorehero.com",
+      "file": "audio/soundcorehero.py",
+      "format": "python",
+      "protocols": [
+        "soundcorehero"
+      ],
+      "min_platform_version": "0.13.0",
+      "help": {
+        "overview": "SoundCoreHero is a professional multi-zone audio distribution and management system. This driver exposes its zones, players, speakers and inputs as child entities, controls volume/mute/transport, and plays announcements.",
+        "setup": "1. Note the device IP. By default only HTTPS (port 443) is enabled.\n2. Create or pick a user account in Settings -> Users. The driver logs in with that account's email and password to obtain a session (required by the control WebSocket).\n3. Enter IP, email and password. Leave 'Verify SSL' off if the device uses its default self-signed certificate."
+      },
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n",
+          "expect": "SoundCoreHero"
+        },
+        "hostname": [
+          "soundcorehero"
+        ],
+        "manufacturer_alias": [
+          "Hero AV",
+          "SoundCoreHero"
         ]
       }
     },

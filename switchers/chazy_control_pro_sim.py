@@ -110,6 +110,12 @@ _STATUS_TAIL = [
 _LINE_GET_DATE = "[SUCCESS]2026-05-20 12:17:01 (Australia/Sydney)."
 _LINE_GET_NTP = "[SUCCESS]time.nist.gov."
 _LINE_ERR_CMD = "[ERROR]Command not found."
+
+
+def _err_unknow_param(kind: str) -> str:
+    """Live wording (FW 1.10.11) for a bad ENC/DEC sub-parameter — the
+    firmware's 'unknow' misspelling is preserved."""
+    return f'[ERROR]{kind.upper()} unknow param. Type "HELP" for more reference.'
 _LINE_RESET_QUESTION = (
     'Sure to RESET system to default settings? Type "Yes" after next prompt to confirm...'
 )
@@ -345,7 +351,7 @@ class ChazyControlProSimulator(TCPSimulator):
             return self._render_status()
         if up == "GET DATE":
             return _LINE_GET_DATE
-        if up == "GET NTP":
+        if up == "GET NTP SERVER":
             return _LINE_GET_NTP
         if up == "SEARCH" or up == "GET SEARCH STATUS":
             return self._render_search()
@@ -357,6 +363,8 @@ class ChazyControlProSimulator(TCPSimulator):
 
         if upt[:2] == ["GET", "GPIO"] and upt[-1:] == ["STATUS"]:
             return self._render_gpio()
+        if upt[:2] == ["GET", "ENC"] and len(upt) == 5 and upt[3:5] == ["SS", "STATUS"]:
+            return self._render_enc_ss(toks[2])
         if upt[:2] == ["GET", "ENC"] and upt[-1:] == ["STATUS"] and len(upt) == 4:
             return self._render_enc_detail(toks[2])
         if upt[:2] == ["GET", "DEC"] and upt[-1:] == ["STATUS"] and len(upt) == 4:
@@ -463,6 +471,35 @@ class ChazyControlProSimulator(TCPSimulator):
         lines += self._enc_body(e, online)
         lines.append(_SENTINEL)
         return "\n".join(lines)
+
+    def _render_enc_ss(self, raw_id: str) -> str:
+        """GET ENC [n] SS STATUS — secondary-stream (MJPEG preview) URLs.
+
+        Mirrors the live banner: Gen-2 TX exposes an MJPEG-over-HTTP mainstream
+        derived from its IP and no substream (NA).
+        """
+        if not raw_id.isdigit():
+            return _LINE_ERR_CMD
+        n = int(raw_id)
+        e = self._encoders.get(n)
+        if e is None:
+            return f"[ERROR]Encoder {n:03d} does not exist."
+        online = self._online(e)
+        ip = ".".join(str(int(p)) for p in e["ip"].split("."))
+        msurl = f"http://{ip}:8080/?action=stream" if online else "NA"
+        return "\n".join([
+            _SENTINEL,
+            "              TAV-CHAZY-CLTPRO Secondary Stream Info",
+            "",
+            "ID    WorkMode    Version",
+            f"{n:03d}   NA",
+            "    >>MainStream URL",
+            f"      {msurl}",
+            "    >>SubStream URL",
+            "      NA",
+            "",
+            _SENTINEL,
+        ])
 
     def _enc_header_row(self, e: dict, online: bool) -> str:
         eid = f"{e['id']:03d}"
@@ -866,6 +903,8 @@ class ChazyControlProSimulator(TCPSimulator):
                 self._reassign_phys(kind, n, new)
             return f"[SUCCESS]Set {kind} {n:03d} id {new:03d}."
         if rest[:1] == ["MULTICAST"] and len(rest) >= 2:
+            if rest[1] not in ("ON", "OFF"):
+                return _err_unknow_param(kind)
             dev["multicast"] = rest[1] == "ON"
             return f"[SUCCESS]Set {kind} {n:03d} multicast."
         if kind == "dec" and rest[:1] == ["SWITCH"] and len(toks) >= 5 \
@@ -873,11 +912,24 @@ class ChazyControlProSimulator(TCPSimulator):
             self._route_decoder(dev, int(toks[4]), rest[2] if len(rest) > 2 else "ALL")
             return f"[SUCCESS]Set dec {n:03d} switch."
         if kind == "dec" and rest[:2] == ["OUTPUT", "MUTE"] and len(rest) >= 3:
+            if rest[2] not in ("ON", "OFF"):
+                return _err_unknow_param(kind)
             dev["video_mute"] = rest[2] == "ON"
             return f"[SUCCESS]Set dec {n:03d} mute."
         if kind == "dec" and rest[:1] == ["OUTPUT"] and len(rest) == 2:
+            if rest[1] not in ("ON", "OFF"):
+                return _err_unknow_param(kind)
             dev["video_output"] = rest[1] == "ON"
             return f"[SUCCESS]Set dec {n:03d} output."
+        if kind == "dec" and rest[:2] == ["OUTPUT", "COLORSPACE"] and len(rest) >= 3:
+            names = {"00": "RGB", "01": "YUV444", "02": "YUV422", "03": "YUV420"}
+            cs = rest[2]
+            if cs not in names:
+                return '[ERROR]DEC param out of range. Type "HELP" for more reference.'
+            # YUV420 only legal at a 4K50/4K60 output (res index 07/08), per hardware.
+            if cs == "03" and dev.get("resolution") not in ("07", "08"):
+                return "[ERROR]Only 4K50 and 4K60 support YUV420."
+            return f"[SUCCESS]Set decoder {n:03d} color space to {names[cs]}."
         return "[SUCCESS]OK."
 
     @staticmethod

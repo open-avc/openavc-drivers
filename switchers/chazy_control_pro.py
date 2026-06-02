@@ -45,7 +45,9 @@ Child enumeration on connect:
   queries (confirmed against FW 1.10.11), so they genuinely cannot be
   re-enumerated. They are tracked only from the moment this driver creates
   them; after a server restart they are not re-discovered until re-created or
-  re-added. This is a device-API limitation, not a driver gap.
+  re-added, and one deleted out-of-band (web GUI or a second telnet session)
+  lingers as a stale child until this driver restarts. This is a device-API
+  limitation, not a driver gap.
 
 License: MIT.
 """
@@ -64,6 +66,12 @@ log = get_logger(__name__)
 # End-of-response marker the controller prints after every reply (and after
 # the connect banner). No trailing newline.
 PROMPT = b"CONTROLLER> "
+# Frame on the CRLF-anchored prompt, not the bare token. The prompt is always
+# CRLF-preceded on the wire (verified live: greeting ends ``====\r\nCONTROLLER> ``
+# and every response ends ``...\r\nCONTROLLER> ``), so anchoring to the line
+# boundary stops an echoed command argument that itself contains the literal
+# ``CONTROLLER> `` (e.g. a device name) from false-splitting a response.
+_FRAME_DELIM = b"\r\n" + PROMPT
 
 # Telnet IAC bytes.
 _IAC = 0xFF
@@ -95,6 +103,12 @@ def _enc_state_vars() -> dict[str, dict[str, Any]]:
             "type": "enum", "values": ["HDMI", "ANA"], "label": "Audio Input",
         },
         "multicast": {"type": "boolean", "label": "Multicast"},
+        "mainstream_url": {
+            "type": "string", "label": "Preview Stream URL", "cloud_priority": "low",
+        },
+        "substream_url": {
+            "type": "string", "label": "Substream URL", "cloud_priority": "low",
+        },
         "arc_source": {
             "type": "integer", "label": "ARC Source (Sel)", "cloud_priority": "high",
         },
@@ -182,7 +196,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.3.0",
+        "version": "1.4.6",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -202,15 +216,35 @@ class ChazyControlProDriver(BaseDriver):
         "discovery": {
             # A.5 resolved against live hardware (FW 1.10.11): the controller
             # advertises exactly one mDNS service, the generic Audinate Dante
-            # Conmon service (_netaudio-cmc._udp.local.), whose TXT carries
-            # only Dante fields — no vendor string. That is not a Chazy
-            # fingerprint (every Dante device emits it), so there is no mDNS
-            # service-type to claim here. The only on-wire identity is the
-            # telnet connect banner ("Welcome To TAV-CHAZY-CLTPRO ..."), which
-            # the companion probe reads past the controller's Telnet IAC
-            # negotiation and turns into a strong fingerprint plus a
-            # manufacturer string (so manufacturer_alias narrowing fires). The
-            # default hostname controller.local is a soft corroborating hint.
+            # Conmon service (_netaudio-cmc._udp.local.), whose TXT carries only
+            # Dante fields and no vendor string. That is not a Chazy fingerprint
+            # (every Dante device emits it), so there is no mDNS service-type to
+            # claim here. The on-wire identity is the telnet connect banner
+            # ("Welcome To TAV-CHAZY-CLTPRO ..."). The tcp_probe below matches
+            # that token so an UNINSTALLED Pro identifies straight from the
+            # catalog; hostname and port are shared with the other Chazy/Darwin
+            # controllers and cannot disambiguate on their own. The banner
+            # follows Telnet IAC negotiation in a later TCP segment, which the
+            # probe runner accumulates. The companion stays as a backup path
+            # with identical token logic.
+            "tcp_probe": {
+                "port": 23,
+                # Pro model token; never matches "CHAZY CONTROL" (standard) or
+                # the Darwin "Controller(h)" / "DARWIN" tokens.
+                "expect": "TAV-CHAZY-CLTPRO",
+                "timeout_ms": 4000,
+                "extract_manufacturer": "TurtleAV",
+                "extract": {
+                    "model": {
+                        "regex": r"Welcome To\s+(.+?)\s+Terminal Control System",
+                        "group": 1,
+                    },
+                    "firmware": {
+                        "regex": r"FW Version:\s*([0-9][0-9A-Za-z.\-]*)",
+                        "group": 1,
+                    },
+                },
+            },
             "python": "./chazy_control_pro_discovery.py",
             "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],
@@ -240,8 +274,9 @@ class ChazyControlProDriver(BaseDriver):
                 "3. Enter the controller's IP in the device config; leave the "
                 "port at 23.\n"
                 "4. Encoders and decoders are discovered automatically on "
-                "connect from GET STATUS. Use the Search command to find new "
-                "TX/RX on the Video LAN, then Add Auto All to register them.\n"
+                "connect from GET STATUS. Use 'Find + Add All Devices' to search "
+                "the Video LAN and enroll everything new in one step (or Search, "
+                "then Add All New Devices, to do it in stages).\n"
                 "5. Video walls, groups, events, and Dante presets already "
                 "configured on the controller are also listed automatically. "
                 "Media sources, schedules, and configuration presets cannot be "
@@ -274,8 +309,10 @@ class ChazyControlProDriver(BaseDriver):
                 "label": "Detail Poll Interval (sec)",
                 "description": (
                     "How often to refresh full per-encoder/per-decoder state "
-                    "(GET ENC/DEC [n] STATUS), batched. 0 disables detail "
-                    "polling (roster-only)."
+                    "(GET ENC/DEC [n] STATUS) and the controller clock, batched. "
+                    "0 disables only this heavy detail refresh; the encoder/"
+                    "decoder roster and the group/event/wall/dante-preset lists "
+                    "still reconcile on every status poll."
                 ),
             },
         },
@@ -358,25 +395,29 @@ class ChazyControlProDriver(BaseDriver):
                 "label": "Event",
                 "label_plural": "Events",
                 "id_format": {"type": "integer", "min": 1, "max": HDL_MAX, "pad_width": 2},
+                # `event_type` and `address` are parsed from GET EVENT STATUS.
+                # There is no banner field for a started/stopped flag, so no
+                # `running` state var (event_start/event_stop have no read-back).
                 "state_variables": {
                     "name": {"type": "string", "label": "Name"},
                     "event_type": {"type": "string", "label": "Type"},
                     "address": {"type": "string", "label": "Address"},
-                    "running": {"type": "boolean", "label": "Running"},
                 },
-                "summary_fields": ["name", "event_type", "running"],
+                "summary_fields": ["name", "event_type", "address"],
                 "label_field": "name",
             },
             "schedule": {
                 "label": "Schedule",
                 "label_plural": "Schedules",
                 "id_format": {"type": "integer", "min": 1, "max": HDL_MAX, "pad_width": 2},
+                # Schedules can't be enumerated (GET SCHEDULE STATUS ->
+                # [ERROR]Unknown parameter on FW 1.10.11), so only the name we
+                # seed at create time is ever known. time_type / running have no
+                # read-back and would render permanently blank — omitted.
                 "state_variables": {
                     "name": {"type": "string", "label": "Name"},
-                    "time_type": {"type": "string", "label": "Time Type"},
-                    "running": {"type": "boolean", "label": "Running"},
                 },
-                "summary_fields": ["name", "time_type", "running"],
+                "summary_fields": ["name"],
                 "label_field": "name",
             },
             # media / schedule / config_preset cannot be enumerated by the
@@ -483,6 +524,7 @@ class ChazyControlProDriver(BaseDriver):
             await self.poll_children("encoder", self._fetch_encoder_detail)
             await self.poll_children("decoder", self._fetch_decoder_detail)
             await self._reconcile_config_children()
+            await self._poll_system_clock()
         except Exception:
             log.exception(f"[{self.device_id}] Initial detail poll failed")
 
@@ -539,14 +581,20 @@ class ChazyControlProDriver(BaseDriver):
         return bytes(out)
 
     async def on_data_received(self, data: bytes) -> None:
-        """Accumulate bytes; emit one queue item per prompt-delimited unit."""
+        """Accumulate bytes; emit one queue item per prompt-delimited unit.
+
+        The prompt is matched only when CRLF-preceded (``_FRAME_DELIM``), so an
+        echoed command argument containing the literal ``CONTROLLER> `` can't
+        false-split a response. The trailing ``\\r\\n`` is consumed as part of
+        the delimiter; ``_strip_echo`` then drops the leading echoed command.
+        """
         self._rx_buffer += self._filter_telnet(data)
         while True:
-            idx = self._rx_buffer.find(PROMPT)
+            idx = self._rx_buffer.find(_FRAME_DELIM)
             if idx == -1:
                 break
             unit = self._rx_buffer[:idx]
-            self._rx_buffer = self._rx_buffer[idx + len(PROMPT):]
+            self._rx_buffer = self._rx_buffer[idx + len(_FRAME_DELIM):]
             text = unit.decode("latin-1", errors="replace")
             self._responses.put_nowait(text)
 
@@ -592,6 +640,12 @@ class ChazyControlProDriver(BaseDriver):
 
     async def poll(self) -> None:
         await self._poll_status()
+        # Config-child lists (groups/events/walls/dante presets) are cheap
+        # single-banner queries and the only steady-state path that picks up
+        # children built in the controller's web GUI and drops ones deleted
+        # there. Reconcile every poll so they stay in sync even when detail
+        # polling (the heavy per-encoder/decoder fetch) is disabled.
+        await self._reconcile_config_children()
         detail_interval = self.config.get("detail_poll_interval", 60)
         poll_interval = self.config.get("poll_interval", 10) or 10
         self._poll_count += 1
@@ -600,7 +654,7 @@ class ChazyControlProDriver(BaseDriver):
             if self._poll_count % every == 0:
                 await self.poll_children("encoder", self._fetch_encoder_detail)
                 await self.poll_children("decoder", self._fetch_decoder_detail)
-                await self._reconcile_config_children()
+                await self._poll_system_clock()
 
     # ── send_command dispatch ──
 
@@ -623,13 +677,50 @@ class ChazyControlProDriver(BaseDriver):
             resp = await self._send_set("ADD AUTO ALL")
             await self._poll_status()
             return resp
+        if command == "discover_add_all":
+            # One step: search the Video LAN, enroll everything new, refresh the
+            # roster. ADD AUTO ALL returns [SUCCESS] even when nothing is new
+            # ("No new device add to system."), so this is safe to re-run.
+            await self._send_request("SEARCH", timeout=60.0)
+            resp = await self._send_set("ADD AUTO ALL")
+            await self._poll_status()
+            return resp
 
         template = _COMMAND_TEMPLATES.get(command)
         if template is None:
             log.warning(f"[{self.device_id}] Unknown command: {command}")
             raise ValueError(f"Unknown command: {command}")
         wire = template.format(**params)
-        return await self._send_set(wire)
+        resp = await self._send_set(wire)
+        # Reflect device settings the controller has no GET read-back for into
+        # child state, so the UI shows the commanded value instead of a blank.
+        self._apply_post_set_state(command, params)
+        # Date / NTP do have a read-back — refresh them after a successful set.
+        if command in ("set_date", "set_ntp_server"):
+            await self._poll_system_clock()
+        return resp
+
+    def _apply_post_set_state(self, command: str, params: dict[str, Any]) -> None:
+        """Optimistically write a just-succeeded SET into child state for the
+        device settings the controller can't report back via GET (so the IDE
+        doesn't show them permanently blank/stale). No-op for any other command.
+        """
+        spec = _POST_SET_STATE.get(command)
+        if not spec:
+            return
+        ctype, id_param, builder = spec
+        try:
+            cid = int(params[id_param])
+        except (KeyError, TypeError, ValueError):
+            return
+        if not self.is_child_registered(ctype, cid):
+            return
+        try:
+            updates = builder(params)
+        except KeyError:
+            return
+        if updates:
+            self.set_child_state_batch(ctype, cid, updates)
 
     def _coerce_child_ids(self, command: str, params: dict[str, Any]) -> None:
         """Coerce any child_id-typed param to a bare int for the wire format
@@ -672,16 +763,26 @@ class ChazyControlProDriver(BaseDriver):
             if old != new and self.is_child_registered(ctype, old):
                 prev = self.get_child_state(ctype, old)
                 self.deregister_child(ctype, old)
+                # Carry every effective-schema prop (declared vars + the
+                # platform-managed `online` and `label`) so a renumber doesn't
+                # silently drop the user's custom label — register_child under
+                # the new id would otherwise re-source label from a project
+                # entry that doesn't exist yet and reset it to "".
                 seed = {
                     k: v for k, v in prev.items()
                     if k in self.get_child_entity_types()[ctype]["state_variables"]
-                    and k != "label"
                 }
                 self.register_child(ctype, new, initial_state=seed or None)
         return resp
 
     async def _do_search(self) -> str:
-        """Trigger a Video LAN device search and reconcile the result."""
+        """Trigger a Video LAN device search and reconcile the result.
+
+        The controller returns the whole reply as ONE prompt-delimited unit:
+        the ``[SUCCESS]...done.`` progress line and the result banner arrive
+        together (confirmed live, FW 1.10.11), so a single long-timeout read
+        captures it — no separate GET SEARCH STATUS poll is needed.
+        """
         resp = await self._send_request("SEARCH", timeout=60.0)
         await self._poll_status()
         return resp
@@ -710,6 +811,11 @@ class ChazyControlProDriver(BaseDriver):
             "groups": len(self.list_children("group")),
             "events": len(self.list_children("event")),
             "dante_presets": len(self.list_children("dante_preset")),
+            # Create-tracked types (not re-enumerable) — unchanged by the
+            # refresh, but reported so the IDE summary doesn't show 0.
+            "schedules": len(self.list_children("schedule")),
+            "media": len(self.list_children("media")),
+            "config_presets": len(self.list_children("config_preset")),
         }
 
     # ── Status refresh + child reconciliation ──
@@ -739,6 +845,22 @@ class ChazyControlProDriver(BaseDriver):
                 self.set_states(gpio)
         except Exception:
             log.debug(f"[{self.device_id}] GPIO poll failed", exc_info=True)
+
+    async def _poll_system_clock(self) -> None:
+        """Read the controller clock + NTP server. These have no field in
+        GET STATUS and change rarely, so they're polled on a slow cadence
+        (and re-read right after a set). Each query is guarded independently.
+        """
+        declared = self.DRIVER_INFO["state_variables"]
+        for wire, key in (("GET DATE", "date"), ("GET NTP SERVER", "ntp_server")):
+            if key not in declared:
+                continue
+            try:
+                val = _parse_success_line(await self._send_request(wire))
+                if val is not None:
+                    self.set_state(key, val)
+            except Exception:
+                log.debug(f"[{self.device_id}] {wire} poll failed", exc_info=True)
 
     def _reconcile_children(
         self,
@@ -817,6 +939,19 @@ class ChazyControlProDriver(BaseDriver):
             clean = {k: v for k, v in props.items() if k in schema}
             if clean:
                 clean["online"] = bool(props.get("net", False))
+                # Secondary-stream preview URLs come from a separate query;
+                # best-effort so an SS failure never drops the encoder.
+                try:
+                    ss_resp = await self._send_request(f"GET ENC {eid} SS STATUS")
+                    if not ss_resp.lstrip().startswith("[ERROR]"):
+                        clean.update(
+                            {k: v for k, v in _parse_ss_status(ss_resp).items()
+                             if k in schema}
+                        )
+                except Exception:
+                    log.debug(
+                        f"[{self.device_id}] ENC {eid} SS poll failed", exc_info=True
+                    )
                 out[eid] = clean
         return out
 
@@ -887,6 +1022,23 @@ def _norm_ip(value: str) -> str:
 
 def _is_on(value: str) -> bool:
     return value.strip() == "On"
+
+
+def _parse_success_line(text: str) -> str | None:
+    """Pull the payload out of a single-line ``[SUCCESS]<value>.`` reply.
+
+    Live examples: ``[SUCCESS]2026-05-31 03:55:35 (Australia/Sydney).`` and
+    ``[SUCCESS]time.nist.gov.``. Strips the ``[SUCCESS]`` prefix and the single
+    trailing period; returns None on an ``[ERROR]`` reply or an empty payload.
+    """
+    stripped = text.strip()
+    line = stripped.splitlines()[0].strip() if stripped else ""
+    if line.startswith("[ERROR]"):
+        return None
+    if line.startswith("[SUCCESS]"):
+        line = line[len("[SUCCESS]"):].strip()
+    line = line.rstrip(".").strip()
+    return line or None
 
 
 def _split_flag_pair(value: str) -> tuple[bool, bool]:
@@ -1127,11 +1279,12 @@ def _parse_dante_preset_status(text: str) -> dict[int, dict[str, Any]]:
             stripped = row.strip()
             if not stripped or row.lstrip().startswith(">>") or "====" in row:
                 break
-            if row[:3].isdigit():
-                cols = _split_columns(ln, row)
-                pid = cols.get("ID", "")
-                if pid.isdigit():
-                    out[int(pid)] = {"name": cols.get("Name", "").strip()}
+            # Gate on the first token (robust to any ID pad width), then read
+            # the name via column slice so multi-word names survive.
+            toks = stripped.split()
+            if toks and toks[0].isdigit():
+                name = _split_columns(ln, row).get("Name", "").strip()
+                out[int(toks[0])] = {"name": name}
             j += 1
     return out
 
@@ -1226,6 +1379,39 @@ def _parse_sac_guest(value: str, out: dict[str, Any], with_osp: bool) -> None:
         out["guest_framing"] = rest[2]
 
 
+def _parse_ss_status(text: str) -> dict[str, str]:
+    """Parse ``GET ENC [n] SS STATUS`` into ``{mainstream_url, substream_url}``.
+
+    The banner carries a ``>>MainStream URL`` / ``>>SubStream URL`` marker, each
+    followed by the URL (or ``NA``) on the next line, e.g.::
+
+        ID    WorkMode    Version
+        001   NA
+            >>MainStream URL
+              http://169.254.10.1:8080/?action=stream
+            >>SubStream URL
+              NA
+
+    ``NA`` (no stream of that kind on this generation) normalises to ``""``.
+    """
+    lines = [ln.rstrip("\r") for ln in text.split("\n")]
+    markers = {">>mainstream url": "mainstream_url", ">>substream url": "substream_url"}
+    out: dict[str, str] = {}
+    for i, line in enumerate(lines):
+        key = markers.get(line.strip().lower())
+        if key is None:
+            continue
+        for nxt in lines[i + 1:]:
+            val = nxt.strip()
+            if not val or val.startswith("="):
+                continue
+            if val.startswith(">>"):
+                break  # next marker reached with no value
+            out[key] = "" if val.upper() == "NA" else val
+            break
+    return out
+
+
 def _parse_encoder_detail(text: str) -> dict[str, Any]:
     """Parse a GET ENC [n] STATUS banner for a single encoder."""
     header, data, body = _detail_sections(text)
@@ -1299,13 +1485,17 @@ def _parse_decoder_detail(text: str) -> dict[str, Any]:
                 r = r.lstrip("/")
                 if r.isdigit():
                     out[k] = int(r)
-            tail = toks[6:]
-            if len(tail) >= 1:
-                out["multicast"] = tail[0] == "On"
-            if len(tail) >= 2:
-                out["video_output"] = tail[1] == "On"
-            if len(tail) >= 3:
-                out["video_mute"] = tail[2] == "On"
+            # MCast/Video/Mute follow the 6 slash-routes; anchor them to the
+            # header columns (the label line) rather than positional toks[6:],
+            # so an added/reordered route column can't shift these booleans
+            # onto the wrong field.
+            cols = _split_columns(label, v0)
+            if cols.get("MCast"):
+                out["multicast"] = cols["MCast"] == "On"
+            if cols.get("Video"):
+                out["video_output"] = cols["Video"] == "On"
+            if cols.get("Mute"):
+                out["video_mute"] = cols["Mute"] == "On"
         elif ">>Sel" in label:
             for k, val in zip(sel_keys, _slash_ints(v0)):
                 out[k] = val
@@ -1645,6 +1835,28 @@ _RESET_CONFIRM: dict[str, str] = {
     "reset_all_confirm": "SET RESET ALL",
 }
 
+# Wire code -> child enum value for media source type (the SET command takes the
+# numeric code; the child state var carries the human label).
+_MEDIA_TYPE_CODE = {"01": "SAMBA", "02": "NFS", "03": "FTP"}
+
+# Optimistic child-state writes applied after a SET command succeeds, for the
+# device settings the controller has no GET read-back for (so the IDE doesn't
+# show them permanently blank). Maps command ->
+# (child_type, id_param, builder(params) -> {state_var: value}).
+_POST_SET_STATE: dict[str, tuple[str, str, Any]] = {
+    "dec_output_freeze": ("decoder", "decoder_id", lambda p: {"video_freeze": p["state"] == "ON"}),
+    "dec_output_osd": ("decoder", "decoder_id", lambda p: {"osd": p["state"] == "ON"}),
+    "dec_ull": ("decoder", "decoder_id", lambda p: {"ull": p["state"] == "ON"}),
+    "dec_dante_audio_source": ("decoder", "decoder_id", lambda p: {"dante_audio_source": p["source"]}),
+    "dec_arp": ("decoder", "decoder_id", lambda p: {"arp": p["path"]}),
+    "dec_earc_downgrade": ("decoder", "decoder_id", lambda p: {"earc_downgrade": p["state"] == "ON"}),
+    "media_set_name": ("media", "media_id", lambda p: {"name": p["name"]}),
+    "media_set_type": ("media", "media_id",
+                       lambda p: {"media_type": _MEDIA_TYPE_CODE.get(p["media_type"], p["media_type"])}),
+    "media_set_addr_file": ("media", "media_id",
+                            lambda p: {"address": p["address"], "file": p["file"]}),
+}
+
 
 def _build_commands() -> dict[str, dict[str, Any]]:
     """Build the DRIVER_INFO['commands'] dict (labels, params, help) that the
@@ -1707,7 +1919,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "encoder_id": enc_id(), "decoder_id": dec_id()}},
         "enc_edid_default": {"label": "Encoder: Set Default EDID", "params": {
             "encoder_id": enc_id(), "edid": {"type": "string", "required": True,
-                                             "help": "EDID preset index (00-51, 101, 102)."}}},
+                                             "help": "EDID preset index (00-27 built-in, 101/102 user)."}}},
         "enc_ir_vol": {"label": "Encoder: IR Voltage", "params": {
             "encoder_id": enc_id(), "voltage": {"type": "enum", "values": ["5V", "12V"],
                                                 "required": True}}},
@@ -1825,11 +2037,15 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": dec_id(), "state": onoff}},
         "dec_output_resolution": {"label": "Decoder: Output Resolution", "params": {
             "decoder_id": dec_id(), "resolution": {"type": "string", "required": True,
-                                                   "help": "Resolution index (00-21)."}}},
+                                                   "help": "Resolution index (00-17)."}}},
         "dec_output_colorspace": {"label": "Decoder: Output Color Space", "params": {
-            "decoder_id": dec_id(), "colorspace": {"type": "enum", "values": ["00", "01", "02", "03"],
+            "decoder_id": dec_id(), "colorspace": {"type": "enum",
+                                                   "values": ["00", "01", "02", "03"],
                                                    "required": True,
-                                                   "help": "00:RGB 01:YUV444 02:YUV422 03:YUV420"}}},
+                                                   "help": "00:RGB 01:YUV444 02:YUV422 03:YUV420. "
+                                                           "YUV420 needs a 4K50/4K60 output; requires "
+                                                           "endpoint firmware that supports it (older "
+                                                           "firmware returns 'does not support this command')."}}},
         "dec_output_rotate": {"label": "Decoder: Output Rotate", "params": {
             "decoder_id": dec_id(), "rotate": {"type": "enum", "values": ["0", "1", "2", "3"],
                                                "required": True, "help": "0:0 1:90 2:180 3:270"}}},
@@ -2033,10 +2249,18 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                                                     "help": "01:IR 02:RS232 03:CEC 04:TCP 05:UDP "
                                                             "06:HTTP GET 07:HTTP POST 08:HTTPS GET "
                                                             "09:HTTPS POST"}}},
-        "event_set_addr": {"label": "Event: Set Address", "params": {
-            "event_id": _event_id(), "address": {"type": "string", "required": True}}},
-        "event_set_addr_port": {"label": "Event: Set Address + Port", "params": {
-            "event_id": _event_id(), "address": {"type": "string", "required": True},
+        # Bare ADDR is only valid for IR/RS232/CEC events (types 01-03), where
+        # `address` is the target TX/RX id. Network events (TCP/UDP/HTTP, types
+        # 04-09) require the Address + Port form below — the firmware rejects a
+        # bare ADDR on a network event with "[ERROR]EVENT unknow param".
+        "event_set_addr": {"label": "Event: Set Address (IR/RS232/CEC)", "params": {
+            "event_id": _event_id(), "address": {"type": "string", "required": True,
+                "help": "IR/RS232/CEC events only — target TX/RX id. Network events "
+                        "(TCP/UDP/HTTP) must use 'Set Address + Port' instead."}}},
+        "event_set_addr_port": {"label": "Event: Set Address + Port (network)", "params": {
+            "event_id": _event_id(), "address": {"type": "string", "required": True,
+                "help": "For network events (TCP/UDP/HTTP). DEV selects the egress "
+                        "interface: CLAN = Control LAN, VLAN = Video LAN."},
             "port": {"type": "integer", "required": True},
             "dev": {"type": "enum", "values": ["CLAN", "VLAN"], "required": True}}},
         "event_set_data": {"label": "Event: Set Data (ASCII)", "params": {
@@ -2177,6 +2401,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         # ── Device management ──
         "search": {"label": "Search for Devices", "params": {},
                    "help": "Search the Video LAN for new encoders/decoders."},
+        "discover_add_all": {"label": "Find + Add All Devices", "params": {},
+                             "help": "One step: search the Video LAN, add every new "
+                                     "encoder/decoder, and refresh the list."},
         "search_reset": {"label": "Reset Search Results", "params": {}},
         "add_auto_all": {"label": "Add All New Devices", "params": {},
                          "help": "Add every newly-found encoder/decoder to the system."},

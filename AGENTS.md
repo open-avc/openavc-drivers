@@ -117,6 +117,8 @@ discovery:
 
   tcp_probe:
     port: 4352
+    tls: false                          # optional — TLS-wrap before send/read
+                                        # (HTTPS-only device). Default false.
     send_ascii: "%1POWR ?\r"           # exactly one of: send_ascii, send_hex,
                                         # (omit for connect-only banner read)
     expect: "%1POWR=[01]"               # exactly one of: expect (substring),
@@ -178,7 +180,10 @@ mirrored at catalog-build time by `build_index.py`):**
    driver author's responsibility.
 2. **`tcp_probe` and `udp_probe` accept exactly one of `send_ascii` /
    `send_hex`.** Both is an error; omitting both is allowed for TCP
-   connect-only banner reads.
+   connect-only banner reads. **`tls: true` is `tcp_probe`-only** — it
+   TLS-wraps the connection (no cert verification) before send/read so an
+   HTTPS-only device can be fingerprinted from its own landing page;
+   declaring it on a `udp_probe` fails validation.
 3. **Probes declare exactly one of `expect` / `expect_regex` /
    `expect_hex`.** Required for both `tcp_probe` and `udp_probe`.
    Regex patterns are compiled at load time — invalid patterns fail
@@ -198,6 +203,19 @@ mirrored at catalog-build time by `build_index.py`):**
 8. **Template drivers exempt.** Drivers whose ID starts with
    `generic_` skip discovery validation entirely — they are project
    starting points, not discoverable devices.
+9. **A shared `hostname` needs a declarative fingerprint.** `hostname`
+   is a soft locator that narrows candidates but never identifies on
+   its own. When two or more drivers declare the same `hostname`
+   pattern (e.g. two product lines that default to the same name),
+   each must also carry a fingerprint the catalog can evaluate *before*
+   install: a `tcp_probe`, `udp_probe`, `mdns`, `ssdp`, or `amx_ddp`. A
+   `python:` companion does NOT satisfy this. Companions load only from
+   on-disk `*_discovery.py` files, so they run only once the driver is
+   installed, and discovery exists to identify gear you have NOT
+   installed yet. A shared-hostname driver whose only strong signal is
+   a companion gets mislabeled as its sibling on any scan where it is
+   not installed. `build_index.py` fails the build for new occurrences;
+   give each such driver a `tcp_probe` matching its own banner token.
 
 ### 2.2.1 Cross-vendor demotion
 
@@ -1351,6 +1369,8 @@ Confidence values:
 - `full` — driver controls every documented feature of these devices.
 - `partial` — driver controls common features only. Some advanced features unsupported.
 - `untested` — generic protocol driver expected to work but not specifically verified for these models.
+
+When real-hardware results come in (via a [Driver test report](https://github.com/open-avc/openavc-drivers/issues/new?template=driver-test-report.yml) issue or a PR), raise a model's confidence from `untested` to `partial` or `full` and split it into its own `compatible_models` entry if its results differ from the rest of the family. Never set `verified: true` yourself — that flag is maintainer-controlled and always submitted as `false`.
 
 ### How models become discoverable
 

@@ -97,8 +97,10 @@ EDID_LABELS = {
 def _enc_state_vars() -> dict[str, dict[str, Any]]:
     """Per-encoder (TX) state. `online` + `label` are injected by the platform.
 
-    The bitrate / codec / audio-format keys are write-through (the device does
-    not report them in GET ENC STATUS) — they are populated from SET acks.
+    The bitrate / codec keys are write-through (the device reports them in no
+    banner) — populated from SET acks. ``audio_format`` IS reported in the
+    GET STATUS roster (AudioFormat column), so it is polled there; the SET-ack
+    write-through only bridges the window until the next poll.
     """
     return {
         "name": {"type": "string", "label": "Device Name"},
@@ -112,6 +114,11 @@ def _enc_state_vars() -> dict[str, dict[str, Any]]:
             "type": "enum", "values": ["HDMI", "ANA"], "label": "Audio Input",
         },
         "multicast": {"type": "boolean", "label": "Multicast"},
+        # Reported in the GET STATUS roster (AudioFormat column); also write-through.
+        "audio_format": {
+            "type": "enum", "values": ["PCM", "AAC"], "label": "Audio Format",
+            "cloud_priority": "low",
+        },
         "fpled": {"type": "string", "label": "Front-Panel LED", "cloud_priority": "low"},
         "guest_enabled": {"type": "boolean", "label": "Serial Guest", "cloud_priority": "low"},
         "guest_baud": {"type": "string", "label": "Guest Baud", "cloud_priority": "low"},
@@ -120,12 +127,8 @@ def _enc_state_vars() -> dict[str, dict[str, Any]]:
         "ip": {"type": "string", "label": "IP Address"},
         "gateway": {"type": "string", "label": "Gateway", "cloud_priority": "low"},
         "subnet_mask": {"type": "string", "label": "Subnet Mask", "cloud_priority": "low"},
-        # write-through (set-only; device does not report these)
+        # write-through (set-only; device reports these in no banner)
         "bitrate": {"type": "string", "label": "Encode Bitrate", "cloud_priority": "low"},
-        "audio_format": {
-            "type": "enum", "values": ["PCM", "AAC"], "label": "Audio Format",
-            "cloud_priority": "low",
-        },
         "mainstream_codec": {
             "type": "enum", "values": ["h264", "h265"], "label": "Mainstream Codec",
             "cloud_priority": "low",
@@ -197,7 +200,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.1",
+        "version": "1.1.7",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -216,11 +219,34 @@ class DarwinControlDriver(BaseDriver):
             # The controller's only on-wire identity is the telnet connect
             # banner ("Welcome To Controller(h) Terminal Control System" on FW
             # 1.50.02; the brand becomes "DARWIN CONTROL" on FW 2.03.19). The
-            # banner-grab companion (darwin_control_discovery.py) reads past the
-            # Telnet IAC negotiation and matches that token, emitting only for a
-            # Darwin Control (never a Chazy controller, which shares the default
-            # hostname and port). The declarative hints below narrow candidates
-            # to telnet hosts named controller.local before the companion runs.
+            # tcp_probe below matches that token, which is what lets an
+            # UNINSTALLED Darwin identify straight from the catalog: hostname
+            # and port are shared with the Chazy controllers, so they can't
+            # disambiguate on their own. The banner arrives after Telnet IAC
+            # negotiation in a later TCP segment; the probe runner accumulates
+            # segments (it no longer stops at the first read), so this matches
+            # the same banner the companion reads. The sibling companion
+            # (darwin_control_discovery.py) stays as a belt-and-suspenders path
+            # with identical token logic and richer fragmented-banner handling.
+            "tcp_probe": {
+                "port": 23,
+                # "Controller(h)" (FW 1.50.02, verified live) or any
+                # "DARWIN"-bearing brand (FW 2.03.19). Never matches the Chazy
+                # tokens "CHAZY CONTROL" / "TAV-CHAZY-CLTPRO".
+                "expect_regex": r"(?i)Welcome To\s+(?:DARWIN|Controller\(h\))",
+                "timeout_ms": 4000,
+                "extract_manufacturer": "TurtleAV",
+                "extract": {
+                    "model": {
+                        "regex": r"Welcome To\s+(.+?)\s+Terminal Control System",
+                        "group": 1,
+                    },
+                    "firmware": {
+                        "regex": r"FW Version:\s*([0-9][0-9A-Za-z.\-]*)",
+                        "group": 1,
+                    },
+                },
+            },
             "python": "./darwin_control_discovery.py",
             "hostname": ["^controller(\\.local)?$"],
             "port_open": [23],
@@ -232,16 +258,22 @@ class DarwinControlDriver(BaseDriver):
                 "models": ["Darwin Control (CTL100AL)"],
                 "confidence": "full",
                 "notes": (
-                    "Verified end-to-end against live hardware (FW 1.50.02): "
-                    "connect, discovery, child enumeration, status parsing, "
+                    "Verified end-to-end against live hardware (FW 1.50.02) with a "
+                    "live HDMI source on the TX and a display on the RX: connect, "
+                    "discovery, child enumeration, status parsing, "
                     "enrolment/idempotency, and the operational SET surface "
                     "(routing, output/mute/pause/OSD/auto, resolution, rotate, "
-                    "no-signal standby, HDCP/Osp, TX encoding, LED/FPLED, audio "
-                    "input, IR, GPIO, video walls). The source-binding commands "
-                    "(video-wall class/matrix source, KVM hotkey) need a streaming "
-                    "source TX to accept, and reboot/reset/network commands were "
-                    "held back on the live unit; their wire formats match the "
-                    "manufacturer reference."
+                    "no-signal standby, HDCP/Osp SNK/SRC/OFF/H14/H22, TX encoding, "
+                    "LED/FPLED, audio input, IR, GPIO). OSD, mute, pause, "
+                    "resolution, rotation, output on/off, and a single-RX video "
+                    "wall tile were confirmed rendering on the attached display; "
+                    "the source-binding commands (video-wall class/matrix source, "
+                    "KVM hotkey) were accepted with a live source. Decoder "
+                    "video-wall mode (MODE VW) requires the RX assigned to a wall "
+                    "with an applied class region first. Only reboot/reset/network "
+                    "commands were held back on the live unit; their wire formats "
+                    "match the manufacturer reference. Multi-endpoint routing and "
+                    "multi-screen walls need additional TX/RX units to exercise."
                 ),
             },
         ],
@@ -553,6 +585,13 @@ class DarwinControlDriver(BaseDriver):
             resp = await self._send_set("ADD AUTO ALL")
             await self._poll_status()
             return resp
+        if command in ("add_dev_enc", "add_dev_dec"):
+            # The ADD ack names only the search IP, and id 0 auto-assigns an id
+            # the client can't know, so re-read the roster to register the new
+            # child immediately under its controller-assigned id.
+            resp = await self._send_set(_COMMAND_TEMPLATES[command].format(**params))
+            await self._poll_status()
+            return resp
         if command == "exit_guest":
             return await self._send_request("EXITGUEST")
 
@@ -627,7 +666,6 @@ class DarwinControlDriver(BaseDriver):
                 seed = {
                     k: v for k, v in prev.items()
                     if k in self.get_child_entity_types()[ctype]["state_variables"]
-                    and k != "label"
                 }
                 self.register_child(ctype, new, initial_state=seed or None)
         return resp
@@ -867,12 +905,18 @@ def _parse_status(text: str) -> dict[str, Any]:
                 eid = cols.get("In", "")
                 if eid.isdigit():
                     net, sig = _split_flag_pair(cols.get("NET/Sig", ""))
-                    encoders[int(eid)] = {
+                    enc = {
                         "edid": cols.get("EDID", ""),
                         "ip": _norm_ip(cols.get("IP", "")),
                         "net": net,
                         "signal_present": sig,
                     }
+                    # AudioFormat (PCM/AAC) is the only encoding param the device
+                    # reports; include it when present so it self-heals on poll.
+                    af = cols.get("AudioFormat", "").strip()
+                    if af:
+                        enc["audio_format"] = af
+                    encoders[int(eid)] = enc
                 i += 1
             continue
         elif "FromIn" in line and "NET/HDMI" in line:
@@ -1489,9 +1533,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_hotkey_set": {"label": "Decoder: Set KVM Hotkey", "params": {
             "decoder_id": dec_id(),
             "nn": {"type": "integer", "required": True, "min": 1, "max": 20, "label": "Slot (1-20)"},
-            "k0": {"type": "enum", "values": [f"{x:02d}" for x in range(1, 10)], "required": True,
-                   "help": "01:LCtrl 02:RCtrl 03:LShift 04:RShift 05:LAlt 06:RAlt "
-                           "07:Ctrl+Shift 08:Ctrl+Alt 09:Shift+Alt"},
+            "k0": {"type": "enum", "values": [str(x) for x in range(1, 10)], "required": True,
+                   "help": "1:LCtrl 2:RCtrl 3:LShift 4:RShift 5:LAlt 6:RAlt "
+                           "7:Ctrl+Shift 8:Ctrl+Alt 9:Shift+Alt"},
             "k1": {"type": "integer", "required": True, "label": "ASCII code"},
             "action": {"type": "enum", "values": ["PULL", "PUSH"], "required": True},
             "encoder_id": enc_id("Source Encoder")}},

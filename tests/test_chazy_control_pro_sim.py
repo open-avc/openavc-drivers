@@ -208,6 +208,17 @@ def test_enc_detail_online_byte_exact(sim):
         fx.BANNER_ENC_DETAIL_ONLINE
 
 
+def test_enc_ss_status_roundtrips(sim):
+    # Driver parser must read the sim's SS banner (MJPEG mainstream from the
+    # encoder IP, no substream) — sim/driver parity for the preview-URL feature.
+    out = _strip(sim.handle_command(b"GET ENC 1 SS STATUS"), "GET ENC 1 SS STATUS")
+    ss = drv._parse_ss_status(out)
+    assert ss["mainstream_url"] == "http://169.254.10.1:8080/?action=stream"
+    assert ss["substream_url"] == ""
+    err = _strip(sim.handle_command(b"GET ENC 99 SS STATUS"), "GET ENC 99 SS STATUS")
+    assert "does not exist" in err
+
+
 def test_dec_detail_online_byte_exact(sim):
     assert _strip(sim.handle_command(b"GET DEC 1 STATUS"), "GET DEC 1 STATUS") == \
         fx.BANNER_DEC_DETAIL_ONLINE
@@ -304,8 +315,36 @@ def test_reset_confirm_no_cancels(sim):
 
 
 def test_get_date_and_ntp(sim):
+    # The live command is "GET NTP SERVER" (the driver polls that exact form).
     assert _strip(sim.handle_command(b"GET DATE"), "GET DATE") == fx.LINE_GET_DATE
-    assert _strip(sim.handle_command(b"GET NTP"), "GET NTP") == fx.LINE_GET_NTP
+    assert _strip(
+        sim.handle_command(b"GET NTP SERVER"), "GET NTP SERVER"
+    ) == fx.LINE_GET_NTP
+
+
+def test_bad_output_arg_rejected_like_hardware(sim):
+    # Hardware rejects a non-ON/OFF output arg with "[ERROR]DEC unknow param";
+    # the sim must too, so error-path tests aren't fooled.
+    out = _strip(sim.handle_command(b"SET DEC 1 OUTPUT MAYBE"), "SET DEC 1 OUTPUT MAYBE")
+    assert out.startswith("[ERROR]") and "unknow param" in out
+    # The valid form still succeeds.
+    ok = _strip(sim.handle_command(b"SET DEC 1 OUTPUT OFF"), "SET DEC 1 OUTPUT OFF")
+    assert ok.startswith("[SUCCESS]")
+
+
+def test_output_colorspace_roundtrips(sim):
+    # FW 2.10.07 endpoints implement SET DEC n OUTPUT COLORSPACE [cs]
+    # (00:RGB 01:YUV444 02:YUV422 03:YUV420); the sim mirrors the live wording.
+    rgb = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 00"), "SET DEC 1 OUTPUT COLORSPACE 00")
+    assert rgb == "[SUCCESS]Set decoder 001 color space to RGB."
+    yuv = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 01"), "SET DEC 1 OUTPUT COLORSPACE 01")
+    assert yuv.startswith("[SUCCESS]") and "YUV444" in yuv
+    # Out-of-range value rejected like hardware.
+    bad = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 99"), "SET DEC 1 OUTPUT COLORSPACE 99")
+    assert bad.startswith("[ERROR]") and "out of range" in bad
+    # YUV420 is gated to 4K50/4K60; rejected at the default 1080p (res 02).
+    y420 = _strip(sim.handle_command(b"SET DEC 1 OUTPUT COLORSPACE 03"), "SET DEC 1 OUTPUT COLORSPACE 03")
+    assert y420.startswith("[ERROR]") and "YUV420" in y420
 
 
 # ── Stateful mutations reflect in subsequent reads ──

@@ -1,0 +1,99 @@
+name: Driver test report
+description: Report what you found running a driver against real hardware
+title: "[Test report] <driver> on <model>"
+labels: ["test-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing a driver against real equipment. Reports like this are how a driver
+        moves from "built from the manual" to "confirmed on hardware."
+
+        The most useful part is the command/response detail for anything that did not behave as
+        documented. With that, the result can be folded into the driver correctly even if someone
+        else makes the edit.
+
+        If you would rather fix it yourself in the driver file, you can skip this form and open a
+        pull request instead. See **Reporting Test Results** in
+        [docs/contributing-drivers.md](https://github.com/open-avc/openavc-drivers/blob/main/docs/contributing-drivers.md).
+  - type: input
+    id: driver
+    attributes:
+      label: Driver
+      description: Driver id, and the file path if you know it.
+      placeholder: panasonic_awhe  (cameras/panasonic_awhe.avcdriver)
+    validations:
+      required: true
+  - type: input
+    id: models
+    attributes:
+      label: Model(s) tested
+      description: The exact model number(s) you put the driver against.
+      placeholder: AW-HE50, AW-UE150
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      placeholder: e.g. 4.21
+    validations:
+      required: false
+  - type: input
+    id: transport
+    attributes:
+      label: Transport and port used
+      placeholder: HTTP, port 80
+    validations:
+      required: false
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked
+      description: Commands and polled state that behaved as documented.
+      placeholder: |
+        Power on/off, pan/tilt drive, absolute position, zoom, focus, all 100 presets,
+        tally, polling at 10s.
+    validations:
+      required: true
+  - type: textarea
+    id: didnt
+    attributes:
+      label: What did not work
+      description: >
+        For each item: the command, the response you expected, and the response you actually got.
+        Raw text is perfect.
+      placeholder: |
+        preset_speed_set: sent #UPVS999, expected uPVS999, got nothing (AW-UE150 uses time mode 1..63)
+        query_iris_auto: expected d31, got an empty body
+      render: text
+    validations:
+      required: false
+  - type: dropdown
+    id: confidence
+    attributes:
+      label: Suggested confidence for the model(s) you tested
+      description: >
+        full = every documented feature worked. partial = the common features work, some advanced
+        ones do not. Pick partial if anything in "what did not work" is non-trivial.
+      options:
+        - "full"
+        - "partial"
+    validations:
+      required: true
+  - type: dropdown
+    id: pr
+    attributes:
+      label: Are you planning to open a pull request with the change?
+      options:
+        - "No, please fold this in for me"
+        - "Yes, I will open a PR and link it here"
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes or raw TX/RX log
+      description: Anything else worth recording. Paste a raw command/response log here if you have one.
+    validations:
+      required: false

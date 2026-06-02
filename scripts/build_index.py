@@ -18,7 +18,7 @@ Usage:
 """
 
 from __future__ import annotations
-
+from typing import TYPE_CHECKING
 import argparse
 import ast
 import json
@@ -38,16 +38,23 @@ from pydantic import (
     model_validator,
 )
 try:
+    from jsonschema_rs import validator_for as jsonschema_validator_for
+except ModuleNotFoundError:
+    jsonschema_validator_for = None
+
+# We want to import these for type checks, but `JsonSchemaValidationError`
+# is needed at runtime so we redefine it as BaseException.
+#
+# This ensures that the script can run with or without jsonschema_rs, but we
+# still get proper types when it's available.
+if TYPE_CHECKING:
     from jsonschema_rs import (
         Validator as JsonSchemaValidator,
         ValidationError as JsonSchemaValidationError,
-        validator_for as jsonschema_validator_for,
     )
-except ModuleNotFoundError:
+else:
     JsonSchemaValidator = object
     JsonSchemaValidationError = BaseException
-    jsonschema_validator_for = None
-
 
 # --- Constants ---------------------------------------------------------------
 

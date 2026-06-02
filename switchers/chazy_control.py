@@ -110,10 +110,21 @@ def _enc_state_vars() -> dict[str, dict[str, Any]]:
         # Secondary-stream (SS) preview URLs — FW 1.00.17 §6 TX SS module.
         # Read-only, fetched via GET ENC [n] SS STATUS in the detail poll.
         "mainstream_url": {
-            "type": "string", "label": "Preview Stream URL", "cloud_priority": "low",
+            "type": "string", "label": "Mainstream URL", "cloud_priority": "low",
         },
         "substream_url": {
             "type": "string", "label": "Substream URL", "cloud_priority": "low",
+        },
+        # Generic preview-source convention (consumed by the Video Panel plugin
+        # to auto-list this encoder as a selectable stream). Derived from the SS
+        # URLs above: preview_url is the chosen stream, preview_format tells the
+        # consumer how to render it (mjpeg via <img>, rtsp via the WHEP path).
+        "preview_url": {
+            "type": "string", "label": "Preview Source URL", "cloud_priority": "low",
+        },
+        "preview_format": {
+            "type": "enum", "values": ["mjpeg", "rtsp"], "label": "Preview Type",
+            "cloud_priority": "low",
         },
         "arc_source": {
             "type": "integer", "label": "ARC Source (Sel)", "cloud_priority": "high",
@@ -196,7 +207,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.8",
+        "version": "1.2.9",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -799,6 +810,14 @@ class ChazyControlDriver(BaseDriver):
                             {k: v for k, v in _parse_ss_status(ss_resp).items()
                              if k in schema}
                         )
+                        preview_url, preview_format = _derive_preview(
+                            clean.get("mainstream_url", ""),
+                            clean.get("substream_url", ""),
+                        )
+                        if "preview_url" in schema:
+                            clean["preview_url"] = preview_url
+                        if "preview_format" in schema:
+                            clean["preview_format"] = preview_format
                 except Exception:
                     log.debug(
                         f"[{self.device_id}] ENC {eid} SS poll failed", exc_info=True
@@ -1153,6 +1172,22 @@ def _parse_encoder_detail(text: str) -> dict[str, Any]:
             if len(toks) >= 3:
                 out["subnet_mask"] = _norm_ip(toks[2])
     return out
+
+
+def _derive_preview(mainstream_url: str, substream_url: str) -> tuple[str, str]:
+    """Pick an encoder's preview stream and classify its format.
+
+    Returns ``(preview_url, preview_format)`` for the generic preview-source
+    convention (see ``creating-drivers.md`` / ``AGENTS.md``). Prefers the
+    mainstream URL — on live Gen-2 4K hardware that is the MJPEG
+    ``?action=stream`` form — and falls back to the substream (the Gen-1 RTSP
+    variant). ``preview_format`` is ``rtsp`` for an ``rtsp://`` URL, else
+    ``mjpeg``. Both empty when neither stream is present (offline / ``NA``).
+    """
+    url = (mainstream_url or "").strip() or (substream_url or "").strip()
+    if not url:
+        return "", ""
+    return url, ("rtsp" if url.lower().startswith("rtsp") else "mjpeg")
 
 
 def _parse_ss_status(text: str) -> dict[str, str]:

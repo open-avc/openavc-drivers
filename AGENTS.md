@@ -511,6 +511,15 @@ child_entity_types:
 - `summary_fields` lists which fields appear as columns in the list view; `label_field` names the field carrying the controller's own name for the unit (the user-set label is separate and lives in the project file).
 - A YAML driver only declares the types here; it has no way to register instances at runtime. Use a **Python driver** when the controller actually enumerates and updates children (`register_child` / `set_children_state_batch` / `deregister_child` — see §3.5).
 
+### 2.5.2 Previewable video streams (preview convention)
+
+If a device or child entity exposes a browser-showable video stream (a camera, an AV-over-IP encoder's preview feed), publish two state variables and the **Video Panel** plugin auto-lists it as a selectable source in the UI Builder — no plugin-specific code:
+
+- `preview_url` (string): the stream URL, reachable **from the OpenAVC server** (the server proxies it). Set `""` when no stream is currently available.
+- `preview_format` (string): `mjpeg` (multipart MJPEG over HTTP) or `rtsp`.
+
+Declare them as ordinary `state_variables` (device-level or under a child type) and set them as the device reports. The plugin reuses the existing `label`/`name` for the dropdown entry. Worked example: the `chazy_control_pro` encoder child derives both from its secondary-stream (`SS STATUS`) URLs via a `_derive_preview` helper.
+
 ### 2.6 commands
 
 Actions the driver can send to the device.

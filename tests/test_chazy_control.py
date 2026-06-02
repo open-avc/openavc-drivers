@@ -242,6 +242,18 @@ def test_ss_encoder_state_present():
     # FW 1.00.17 §6 TX SS module read path.
     enc = INFO["child_entity_types"]["encoder"]["state_variables"]
     assert "mainstream_url" in enc and "substream_url" in enc
+    # Generic preview convention surfaced to the Video Panel plugin.
+    assert "preview_url" in enc and "preview_format" in enc
+
+
+def test_derive_preview_classifies_stream():
+    assert drv._derive_preview("http://169.254.10.1:8080/?action=stream", "") == (
+        "http://169.254.10.1:8080/?action=stream", "mjpeg",
+    )
+    assert drv._derive_preview("", "rtsp://169.254.5.5:554/sub") == (
+        "rtsp://169.254.5.5:554/sub", "rtsp",
+    )
+    assert drv._derive_preview("", "") == ("", "")
 
 
 # ── child_entity_types schema (subset of the Pro's nine) ──

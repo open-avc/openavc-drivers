@@ -372,6 +372,22 @@ def test_parse_ss_status():
     assert ss["substream_url"] == ""  # NA normalises to empty
 
 
+def test_derive_preview_classifies_stream():
+    # Gen-2 MJPEG mainstream is the preview source.
+    assert drv._derive_preview("http://169.254.10.1:8080/?action=stream", "") == (
+        "http://169.254.10.1:8080/?action=stream", "mjpeg",
+    )
+    # A Gen-1 RTSP substream classifies as rtsp and is used when no mainstream.
+    assert drv._derive_preview("", "rtsp://169.254.5.5:554/sub") == (
+        "rtsp://169.254.5.5:554/sub", "rtsp",
+    )
+    # Offline / NA -> empty (no preview advertised).
+    assert drv._derive_preview("", "") == ("", "")
+
+
 def test_encoder_declares_stream_urls():
     enc_vars = INFO["child_entity_types"]["encoder"]["state_variables"]
     assert "mainstream_url" in enc_vars and "substream_url" in enc_vars
+    # Generic preview convention surfaced to the Video Panel plugin.
+    assert "preview_url" in enc_vars and "preview_format" in enc_vars
+    assert enc_vars["preview_format"]["values"] == ["mjpeg", "rtsp"]

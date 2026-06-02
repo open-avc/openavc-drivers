@@ -1385,7 +1385,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             for err in schema_errors:
                 print(f"  - {err}", file=sys.stderr)
-            return 1
+    else:
+        schema_errors = []
 
     entries: list[DriverEntry] = []
     errors: list[str] = []
@@ -1434,6 +1435,11 @@ def main(argv: list[str] | None = None) -> int:
         devices = build_devices(entries, devices_extra)
     except ValueError as e:
         print(f"ERROR building devices catalog: {e}", file=sys.stderr)
+        return 1
+
+    if len(schema_errors) > 0:
+        # If there were JSON Schema validation errors, indicate failure in
+        # case they weren't already caught above.
         return 1
 
     print(f"Validated {len(entries)} driver(s), {len(devices)} device(s).")

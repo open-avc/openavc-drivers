@@ -1382,16 +1382,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: no driver files found under {repo_root}", file=sys.stderr)
         return 1
 
+    def _print_schema_errors(errors: list[str]) -> None:
+        """Print JSON Schema validation errors, if any."""
+        if not errors:
+            return
+        print(
+            f"\nFAILED: {len(errors)} JSON Schema validation error(s):\n",
+            file=sys.stderr,
+        )
+        for err in errors:
+            print(f"  - {err}", file=sys.stderr)
+
     if json_schema is not None:
         assert json_validator is not None
         schema_errors = _validate_all_json_schemas(raw, json_validator)
-        if schema_errors:
-            print(
-                f"\nFAILED: {len(schema_errors)} JSON Schema validation error(s):\n",
-                file=sys.stderr,
-            )
-            for err in schema_errors:
-                print(f"  - {err}", file=sys.stderr)
+        if args.check_json_schema and schema_errors:
+            # If the user requested JSON Schema validation,
+            # report any schema errors and exit with failure.
+            _print_schema_errors(schema_errors)
+            return 1
     else:
         schema_errors = []
 
@@ -1445,8 +1454,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if len(schema_errors) > 0:
-        # If there were JSON Schema validation errors, indicate failure in
-        # case they weren't already caught above.
+        # If we got here, the schema validation ran with errors not caught by
+        # the above checks (and the `--check-json-schema` flag was not set).
+        # Report those errors and exit with failure. This is done as the
+        # final step to avoid duplicated error reports.
+        _print_schema_errors(schema_errors)
         return 1
 
     print(f"Validated {len(entries)} driver(s), {len(devices)} device(s).")

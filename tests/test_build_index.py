@@ -126,7 +126,7 @@ def json_schema(request) -> bool:
     return request.param
 
 
-def _run(root: Path, *args: str, bypass_json_schema: bool = False) -> tuple[int, str, str]:
+def _run(root: Path, *args: str, json_schema_only: bool = False) -> tuple[int, str, str]:
     """Run build_index.main against `root` and capture exit code + stderr.
 
     By default, the JSON Schema is used to validate drivers.
@@ -139,10 +139,9 @@ def _run(root: Path, *args: str, bypass_json_schema: bool = False) -> tuple[int,
     stdout_buf = io.StringIO()
     real_stderr, real_stdout = sys.stderr, sys.stdout
     sys.stderr, sys.stdout = stderr_buf, stdout_buf
-    if bypass_json_schema:
-        schema_args = []
-    else:
-        schema_args = ["--json-schema-file", str(JSON_SCHEMA_PATH)]
+    schema_args = ["--json-schema-file", str(JSON_SCHEMA_PATH)]
+    if json_schema_only:
+        schema_args.append("--check-json-schema")
     try:
         rc = build_index.main(["--root", str(root), *schema_args, *args])
     finally:
@@ -243,7 +242,7 @@ def test_field_validation_rejects_bad_values(
 ) -> None:
     _write_manufacturers(tmp_path)
     _write_yaml_driver(tmp_path, overrides={field: bad_value})
-    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
+    rc, _, err = _run(tmp_path, json_schema_only=json_schema)
     assert rc != 0
     if json_schema:
         assert "JSON Schema validation error" in err, err
@@ -267,7 +266,7 @@ def test_required_field_missing_fails(tmp_path: Path, json_schema: bool) -> None
         'source_url: https://example.com\n',
         encoding="utf-8",
     )
-    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
+    rc, _, err = _run(tmp_path, json_schema_only=json_schema)
     assert rc != 0
     if json_schema:
         assert "JSON Schema validation error" in err, err
@@ -324,7 +323,7 @@ def test_discovery_port_open_must_be_list(tmp_path: Path, json_schema: bool) -> 
         tmp_path,
         overrides={"discovery": {"port_open": "1710"}},
     )
-    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
+    rc, _, err = _run(tmp_path, json_schema_only=json_schema)
     assert rc != 0
     if json_schema:
         assert "JSON Schema validation error" in err, err
@@ -338,7 +337,7 @@ def test_discovery_port_open_must_be_int(tmp_path: Path, json_schema: bool) -> N
         tmp_path,
         overrides={"discovery": {"port_open": ["1710"]}},
     )
-    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
+    rc, _, err = _run(tmp_path, json_schema_only=json_schema)
     assert rc != 0
     if json_schema:
         assert "JSON Schema validation error" in err, err
@@ -352,7 +351,7 @@ def test_discovery_port_open_out_of_range(tmp_path: Path, json_schema: bool) -> 
         tmp_path,
         overrides={"discovery": {"port_open": [70000]}},
     )
-    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
+    rc, _, err = _run(tmp_path, json_schema_only=json_schema)
     assert rc != 0
     if json_schema:
         assert "JSON Schema validation error" in err, err
@@ -367,7 +366,7 @@ def test_discovery_port_open_too_generic(tmp_path: Path, port: int, json_schema:
         tmp_path,
         overrides={"discovery": {"port_open": [port]}},
     )
-    rc, _, err = _run(tmp_path, bypass_json_schema=not json_schema)
+    rc, _, err = _run(tmp_path, json_schema_only=json_schema)
     assert rc != 0
     if json_schema:
         assert "JSON Schema validation error" in err, err

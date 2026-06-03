@@ -9,21 +9,24 @@ TCPTransport), so it needs ``openavc`` importable. ``vmix.py`` also imports
 ``server.*`` at module load, so the whole module skips together when the
 platform isn't present: in this repo's isolated CI (stdlib + pyyaml + pydantic)
 it skips cleanly; it runs in the workspace where openavc is installed alongside.
+
+Other tests' leaked ``server`` stubs are handled centrally in conftest.py, so
+this module imports the real platform normally.
+
+Integration tests use ``asyncio.run()`` in a sync test, matching the
+chazy/darwin driver tests (this repo has no pytest-asyncio).
 """
 
 from __future__ import annotations
 
 import asyncio
 import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
-
-_platform_cache: dict = {}
 
 
 def _load_module(name: str, path: Path):
@@ -33,43 +36,23 @@ def _load_module(name: str, path: Path):
     return module
 
 
-def _platform() -> dict:
-    """The real platform, vMix driver, and simulator, loaded on first use.
-
-    Loaded lazily (not at import) so test collection never fails: this is a
-    real-runtime integration test and only runs where ``openavc`` is installed
-    (the workspace) — in this repo's isolated CI it skips, one test at a time.
-
-    The sibling driver tests (chazy/darwin) install *partial* ``server`` /
-    ``simulator`` stubs in sys.modules at import time and never remove them.
-    Those shadow the real platform modules this test needs (they leave, e.g., a
-    stub ``server.transport`` with no ``__path__`` that hides
-    ``server.transport.frame_parsers``). Purge any such stub first so the real,
-    editable-installed package imports cleanly. The other tests captured what
-    they need from their stubs at their own import time, so dropping the stubs
-    here doesn't affect them.
-    """
-    if _platform_cache:
-        return _platform_cache
-    for name in list(sys.modules):
-        if name.split(".", 1)[0] in ("server", "simulator"):
-            del sys.modules[name]
-    try:
-        from server.core.event_bus import EventBus
-        from server.core.state_store import StateStore
-    except ModuleNotFoundError:
-        pytest.skip("vMix integration test requires the openavc platform")
-    driver_mod = _load_module("_vmix_driver", REPO_ROOT / "video" / "vmix.py")
-    sim_mod = _load_module("_vmix_simulator", TESTS_DIR / "vmix_simulator.py")
-    _platform_cache.update(
-        EventBus=EventBus,
-        StateStore=StateStore,
-        VMixDriver=driver_mod.VMixDriver,
-        parse_frame=driver_mod._parse_vmix_frame,
-        xml_prefix=driver_mod._XML_BODY_PREFIX,
-        VMixSimulator=sim_mod.VMixSimulator,
+try:
+    from server.core.event_bus import EventBus
+    from server.core.state_store import StateStore
+    # vmix.py imports server.* at module load, so this also requires the platform.
+    _driver_mod = _load_module("_vmix_driver", REPO_ROOT / "video" / "vmix.py")
+    _sim_mod = _load_module("_vmix_simulator", TESTS_DIR / "vmix_simulator.py")
+except ModuleNotFoundError:
+    pytest.skip(
+        "vMix integration test requires the openavc platform "
+        "(run from the workspace with openavc installed)",
+        allow_module_level=True,
     )
-    return _platform_cache
+
+_parse_vmix_frame = _driver_mod._parse_vmix_frame
+_XML_BODY_PREFIX = _driver_mod._XML_BODY_PREFIX
+VMixDriver = _driver_mod.VMixDriver
+VMixSimulator = _sim_mod.VMixSimulator
 
 
 # --- Frame parser unit tests ---
@@ -77,105 +60,96 @@ def _platform() -> dict:
 
 def test_parse_normal_crlf():
     """Normal CRLF-delimited message."""
-    parse = _platform()["parse_frame"]
-    msg, remaining = parse(b"FUNCTION OK\r\n")
+    msg, remaining = _parse_vmix_frame(b"FUNCTION OK\r\n")
     assert msg == b"FUNCTION OK"
     assert remaining == b""
 
 
 def test_parse_incomplete():
     """Incomplete message (no CRLF) returns None."""
-    parse = _platform()["parse_frame"]
-    msg, remaining = parse(b"FUNCTION OK")
+    msg, remaining = _parse_vmix_frame(b"FUNCTION OK")
     assert msg is None
     assert remaining == b"FUNCTION OK"
 
 
 def test_parse_multiple_messages():
     """Multiple CRLF messages in one buffer."""
-    parse = _platform()["parse_frame"]
     buffer = b"FUNCTION OK\r\nTALLY OK 1200\r\n"
-    msg1, remaining = parse(buffer)
+    msg1, remaining = _parse_vmix_frame(buffer)
     assert msg1 == b"FUNCTION OK"
-    msg2, remaining = parse(remaining)
+    msg2, remaining = _parse_vmix_frame(remaining)
     assert msg2 == b"TALLY OK 1200"
     assert remaining == b""
 
 
 def test_parse_xml_response():
     """XML response with length-prefixed body."""
-    p = _platform()
-    parse, xml_prefix = p["parse_frame"], p["xml_prefix"]
     xml_body = b"<vmix><recording>True</recording></vmix>"
     header = f"XML {len(xml_body)}\r\n".encode()
     buffer = header + xml_body
 
-    msg, remaining = parse(buffer)
+    msg, remaining = _parse_vmix_frame(buffer)
     assert msg is not None
-    assert msg.startswith(xml_prefix)
-    body = msg[len(xml_prefix):]
+    assert msg.startswith(_XML_BODY_PREFIX)
+    body = msg[len(_XML_BODY_PREFIX):]
     assert body == xml_body
     assert remaining == b""
 
 
 def test_parse_incomplete_xml():
     """Incomplete XML body — parser waits for more data."""
-    parse = _platform()["parse_frame"]
     xml_body = b"<vmix><recording>True</recording></vmix>"
     header = f"XML {len(xml_body)}\r\n".encode()
     # Send only half the body
     buffer = header + xml_body[:10]
 
-    msg, remaining = parse(buffer)
+    msg, remaining = _parse_vmix_frame(buffer)
     assert msg is None
     assert remaining == buffer
 
 
 def test_parse_invalid_xml_length():
     """Non-numeric XML length treated as normal message."""
-    parse = _platform()["parse_frame"]
     buffer = b"XML notanumber\r\n"
-    msg, remaining = parse(buffer)
+    msg, remaining = _parse_vmix_frame(buffer)
     assert msg == b"XML notanumber"
     assert remaining == b""
 
 
 def test_parse_mixed_messages():
     """Mix of normal and XML messages in one buffer."""
-    p = _platform()
-    parse, xml_prefix = p["parse_frame"], p["xml_prefix"]
     xml_body = b"<vmix/>"
     buffer = b"TALLY OK 12\r\n" + f"XML {len(xml_body)}\r\n".encode() + xml_body + b"FUNCTION OK\r\n"
 
-    msg1, remaining = parse(buffer)
+    msg1, remaining = _parse_vmix_frame(buffer)
     assert msg1 == b"TALLY OK 12"
 
-    msg2, remaining = parse(remaining)
-    assert msg2.startswith(xml_prefix)
-    assert msg2[len(xml_prefix):] == xml_body
+    msg2, remaining = _parse_vmix_frame(remaining)
+    assert msg2.startswith(_XML_BODY_PREFIX)
+    assert msg2[len(_XML_BODY_PREFIX):] == xml_body
 
-    msg3, remaining = parse(remaining)
+    msg3, remaining = _parse_vmix_frame(remaining)
     assert msg3 == b"FUNCTION OK"
     assert remaining == b""
 
 
 # --- Integration scenario runner ---
 #
-# This repo's test suite has no pytest-asyncio (CI installs only stdlib +
-# pyyaml + pydantic + pytest), so async work runs via asyncio.run() inside a
-# sync test — matching the chazy/darwin driver tests. Each scenario gets a
-# freshly started simulator + connected driver and tears both down after.
+# This repo's test suite has no pytest-asyncio, so async work runs via
+# asyncio.run() inside a sync test — matching the chazy/darwin driver tests.
+# Each scenario gets a freshly started simulator + connected driver and tears
+# both down after.
 
 
-async def _run_scenario(p, scenario):
+async def _run_scenario(scenario):
     """Start a sim, connect a driver, run ``await scenario(driver, state, sim)``,
     then tear everything down. Returns whatever the scenario returns."""
-    sim = p["VMixSimulator"](port=18099)
+    sim = VMixSimulator(port=18099)
     await sim.start()
-    state = p["StateStore"]()
-    events = p["EventBus"]()
+    state = StateStore()
+    events = EventBus()
     state.set_event_bus(events)
-    d = p["VMixDriver"](
+    d = VMixDriver(
         device_id="vmix_test",
         config={
             "host": "127.0.0.1",
@@ -201,8 +175,7 @@ async def _run_scenario(p, scenario):
 
 def _scenario(scenario):
     """Run an async scenario(driver, state, sim) to completion as a sync test."""
-    p = _platform()  # skips here (sync context) when openavc isn't installed
-    asyncio.run(_run_scenario(p, scenario))
+    asyncio.run(_run_scenario(scenario))
 
 
 # --- Integration tests ---

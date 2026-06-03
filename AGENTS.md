@@ -217,6 +217,16 @@ mirrored at catalog-build time by `build_index.py`):**
    not installed. `build_index.py` fails the build for new occurrences;
    give each such driver a `tcp_probe` matching its own banner token.
 
+**Testing a probe against a real capture.** Drop the bytes a device sends back
+into `tests/fixtures/discovery/<driver_id>.bin` (binary protocols) or `.txt`
+(ASCII). `tests/test_discovery_probe_fixtures.py` automatically replays it
+against your declared matcher and `extract` rules — no test code to write. The
+`.gitattributes` there keeps fixtures byte-exact; never normalize line endings.
+A fixture is optional (skip it if you have no hardware to capture from), but
+without one the probe ships unvalidated. The probe *engine* itself (parser,
+matcher, extract semantics) is tested generically in the openavc platform repo,
+not here — this repo tests *your driver*, not the platform.
+
 ### 2.2.1 Cross-vendor demotion
 
 Some discovery signals identify a *protocol class*, not a specific

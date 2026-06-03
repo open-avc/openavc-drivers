@@ -1,0 +1,4 @@
+# Captured device responses — exact bytes matter for the probe matchers.
+# Never normalize line endings or treat these as text.
+*.bin binary
+*.txt -text

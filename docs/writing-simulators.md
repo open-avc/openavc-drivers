@@ -70,7 +70,7 @@ The auto-generated simulator will:
 
 **What auto-gen handles:** Commands with parameters, queries, boolean toggles (`mute_on`/`mute_off`), state tracking.
 
-**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions. For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
+**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions, and per-child-entity state (a `child_id` command parameter is matched but the simulator has no child-entity model to update — add a script handler if you need routing feedback reflected in state). For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
 
 ---
 
@@ -165,8 +165,11 @@ The handler code has access to:
 | `state` | Mutable state dict. Writes trigger UI updates. |
 | `config` | Device config from the project file |
 | `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
-| `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate` | Built-in functions |
+| `re`, `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate` | Built-in functions |
 | `True`, `False`, `None` | Built-in constants |
+| `Exception`, `ValueError`, `TypeError`, `KeyError`, `IndexError`, `AttributeError`, `ZeroDivisionError`, `RuntimeError`, `StopIteration` | Exception types — so `try/except` blocks work |
+
+The same set is available to both TCP/serial and OSC handlers. (For OSC handlers the match-related variable is `address` plus an `args` list, and `respond(address, args)` sends an OSC message.)
 
 State changes made via `state["key"] = value` are reflected in the Simulator UI in real time.
 

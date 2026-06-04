@@ -715,6 +715,80 @@ def _validate_amx_ddp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, s
     return (errors, {"make": make, "model_pattern": str(model_pattern)})
 
 
+# Catastrophic-backtracking detection. Mirrors the platform runtime validator
+# (server/drivers/driver_loader.py); kept self-contained (stdlib only) because
+# this script runs in CI without an openavc install.
+_NESTED_QUANT_RE = re.compile(r"\((?:\\.|\[[^\]]*\]|[^()\[\]\\*+?])[*+]\)[*+]")
+_ALT_QUANT_RE = re.compile(r"\(([^()]*\|[^()]*)\)[*+]")
+
+
+def _regex_backtracking_reason(pattern: str) -> str | None:
+    """Return why a regex risks catastrophic backtracking, or None if it looks safe."""
+    if _NESTED_QUANT_RE.search(pattern):
+        return "nested quantifier"
+    for m in _ALT_QUANT_RE.finditer(pattern):
+        alts = m.group(1).split("|")
+        if len(set(alts)) != len(alts):
+            return "duplicate alternatives under a quantifier"
+        for a in alts:
+            for b in alts:
+                if a and a != b and b.startswith(a):
+                    return "overlapping alternatives under a quantifier"
+    return None
+
+
+def _validate_auth_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate a driver's optional `auth:` login handshake.
+
+    Mirrors the runtime rules in driver_loader.validate_driver_definition:
+    telnet_login only, tcp/serial only, both prompts required, and all four
+    prompt/pattern regexes compile and don't risk catastrophic backtracking
+    (they run synchronously on raw pre-auth device bytes).
+    """
+    errors: list[str] = []
+    auth = data.get("auth")
+    if auth is None:
+        return errors
+    if not isinstance(auth, dict):
+        errors.append(f"{file}: auth must be a mapping")
+        return errors
+
+    atype = auth.get("type", "telnet_login")
+    if atype != "telnet_login":
+        errors.append(f"{file}: auth.type '{atype}' is unsupported (only telnet_login)")
+
+    transport = data.get("transport", "")
+    if transport and transport not in ("tcp", "serial"):
+        errors.append(
+            f"{file}: auth login handshake is only valid on tcp/serial "
+            f"transports, not '{transport}'"
+        )
+
+    for required in ("username_prompt", "password_prompt"):
+        if not auth.get(required):
+            errors.append(f"{file}: auth missing required '{required}'")
+
+    for key in ("username_prompt", "password_prompt", "success_pattern", "failure_pattern"):
+        pat = auth.get(key)
+        if not pat:
+            continue
+        if not isinstance(pat, str):
+            errors.append(f"{file}: auth.{key} must be a string")
+            continue
+        try:
+            re.compile(pat)
+        except re.error as exc:
+            errors.append(f"{file}: auth.{key} failed to compile: {exc}")
+            continue
+        reason = _regex_backtracking_reason(pat)
+        if reason:
+            errors.append(
+                f"{file}: auth.{key} has a {reason} that can cause catastrophic "
+                f"backtracking against pre-auth device bytes"
+            )
+    return errors
+
+
 def _validate_discovery_block(
     file: str, raw: dict[str, Any], *, yaml_dir: Path | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
@@ -1328,6 +1402,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"`interval:` key from the `polling:` block; set the cadence "
                 f"via `default_config.poll_interval` instead."
             )
+
+        errors.extend(_validate_auth_block(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

@@ -619,18 +619,21 @@
     },
     "authBlock": {
       "type": "object",
+      "description": "Telnet-style login handshake. Only valid on tcp/serial transports (it reads a raw byte stream); declaring it on udp/http/osc is rejected at load time. username_prompt and password_prompt are required. All four regexes are checked for catastrophic backtracking since they run on raw pre-auth device bytes.",
+      "required": ["username_prompt", "password_prompt"],
       "properties": {
         "type": {
           "type": "string",
-          "description": "Handshake type. Only telnet_login is implemented; other values skip the handshake."
+          "enum": ["telnet_login"],
+          "description": "Handshake type. Only telnet_login is implemented and accepted."
         },
         "username_prompt": {
           "type": "string",
-          "description": "Regex matched against the device's username prompt."
+          "description": "Regex matched against the device's username prompt. Required."
         },
         "password_prompt": {
           "type": "string",
-          "description": "Regex matched against the device's password prompt."
+          "description": "Regex matched against the device's password prompt. Required."
         },
         "success_pattern": {
           "type": "string",

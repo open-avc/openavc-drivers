@@ -684,6 +684,12 @@ auth:
 
 Add `username` and `password` fields to `default_config` and `config_schema` so they show up in the Add Device dialog (mark `password` with `secret: true`).
 
+Validation (enforced at load time — a violating driver won't load):
+
+- `auth` is only valid on `tcp` and `serial` transports. It reads a raw byte stream, so declaring it on `udp`, `http`, or `osc` is an error.
+- `username_prompt` and `password_prompt` are both required. A handshake missing either is rejected rather than silently connecting unauthenticated.
+- All four prompt/pattern regexes are checked for catastrophic backtracking (same rule as response patterns) because they run synchronously against raw pre-auth device bytes. Keep them simple and anchored.
+
 The framework drops the transport's frame parser to raw mode for the duration of the handshake so partial prompts (e.g., `Login: ` without trailing newline) are visible. Each prompt is a regex matched against the buffered bytes, decoded as UTF-8 with replacement. The original parser is restored before `on_connect` runs.
 
 If the device's auth scheme is not prompt-and-response Telnet (e.g., `LOGIN <password>` command, JSON-RPC `login` method, OAuth, challenge-response), `type: telnet_login` does not fit — use a Python driver. New auth types may be added as the framework grows; declare the new `type:` value in your driver and check `server/drivers/configurable.py` for support.

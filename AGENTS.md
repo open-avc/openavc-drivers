@@ -217,6 +217,16 @@ mirrored at catalog-build time by `build_index.py`):**
    not installed. `build_index.py` fails the build for new occurrences;
    give each such driver a `tcp_probe` matching its own banner token.
 
+**Testing a probe against a real capture.** Drop the bytes a device sends back
+into `tests/fixtures/discovery/<driver_id>.bin` (binary protocols) or `.txt`
+(ASCII). `tests/test_discovery_probe_fixtures.py` automatically replays it
+against your declared matcher and `extract` rules — no test code to write. The
+`.gitattributes` there keeps fixtures byte-exact; never normalize line endings.
+A fixture is optional (skip it if you have no hardware to capture from), but
+without one the probe ships unvalidated. The probe *engine* itself (parser,
+matcher, extract semantics) is tested generically in the openavc platform repo,
+not here — this repo tests *your driver*, not the platform.
+
 ### 2.2.1 Cross-vendor demotion
 
 Some discovery signals identify a *protocol class*, not a specific
@@ -510,6 +520,15 @@ child_entity_types:
 - `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.
 - `summary_fields` lists which fields appear as columns in the list view; `label_field` names the field carrying the controller's own name for the unit (the user-set label is separate and lives in the project file).
 - A YAML driver only declares the types here; it has no way to register instances at runtime. Use a **Python driver** when the controller actually enumerates and updates children (`register_child` / `set_children_state_batch` / `deregister_child` — see §3.5).
+
+### 2.5.2 Previewable video streams (preview convention)
+
+If a device or child entity exposes a browser-showable video stream (a camera, an AV-over-IP encoder's preview feed), publish two state variables and the **Video Panel** plugin auto-lists it as a selectable source in the UI Builder — no plugin-specific code:
+
+- `preview_url` (string): the stream URL, reachable **from the OpenAVC server** (the server proxies it). Set `""` when no stream is currently available.
+- `preview_format` (string): `mjpeg` (multipart MJPEG over HTTP) or `rtsp`.
+
+Declare them as ordinary `state_variables` (device-level or under a child type) and set them as the device reports. The plugin reuses the existing `label`/`name` for the dropdown entry. Worked example: the `chazy_control_pro` encoder child derives both from its secondary-stream (`SS STATUS`) URLs via a `_derive_preview` helper.
 
 ### 2.6 commands
 

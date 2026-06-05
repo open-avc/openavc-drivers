@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-02T01:24:23+00:00",
+    "generated_at": "2026-06-05T17:15:59+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 2,
+    "total_drivers": 3,
     "shards": null,
     "category": "streaming"
   },
@@ -129,6 +129,111 @@
         "manufacturer_alias": [
           "mersive",
           "solstice"
+        ]
+      }
+    },
+    {
+      "id": "roku_ecp",
+      "name": "Roku (ECP)",
+      "manufacturer": "Roku",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Roku streaming players and Roku TVs over the local network using the External Control Protocol (ECP). Full remote surface, text entry, app launch/install, and TV power, volume, input, and tuner control on supported models.",
+      "source_url": "https://developer.roku.com/docs/developer-program/dev-tools/external-control-api.md",
+      "file": "streaming/roku_ecp.py",
+      "format": "python",
+      "ports": [
+        8060
+      ],
+      "protocols": [
+        "roku_ecp"
+      ],
+      "simulated": true,
+      "tags": [
+        "roku",
+        "streaming",
+        "media-player",
+        "source",
+        "ecp"
+      ],
+      "help": {
+        "overview": "Controls Roku streaming players and Roku TVs over the local network using Roku's External Control Protocol (ECP). Provides the full remote-control surface (navigation, transport, search, and on-screen text entry), app launch and install, and TV power, volume, input, and tuner control on supported models. Reports power state, the currently active app, and media playback status. No Roku account, PIN, or cloud connection is required, and it works with third-party Roku TVs too.",
+        "setup": "1. Connect the Roku to the same network and note its IP address (Settings > Network > About, or the Roku mobile app).\n2. On the Roku, set Settings > System > Control by mobile apps > Network access to 'Default' or 'Permissive' (NOT 'Disabled'). Roku OS 14.1 and later block remote key presses when this is off; the driver then reports Mobile Control Enabled = false and key presses return HTTP 403.\n3. Enter the IP address. The port is 8060 (do not change).\n4. No PIN, password, or account is needed.\n5. To launch an app, use Launch App with its channel ID. Find an installed app's ID by opening it and reading the Active App ID state, or browse http://<roku-ip>:8060/query/apps in a browser. Common IDs: Netflix 12, Amazon Prime Video 13."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Roku",
+          "models": [
+            "Roku Ultra",
+            "Roku Express",
+            "Roku Express 4K",
+            "Roku Streaming Stick",
+            "Roku Streaming Stick 4K",
+            "Roku Premiere",
+            "Roku Streambar",
+            "Roku TV"
+          ],
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 8060,
+          "send_ascii": "GET /query/device-info HTTP/1.1\r\nHost: openavc\r\nConnection: close\r\n\r\n",
+          "expect": "<device-info",
+          "extract": {
+            "model": {
+              "regex": "<model-name>([^<]+)</model-name>",
+              "group": 1
+            }
+          }
+        },
+        "ssdp": [
+          "roku:ecp"
+        ],
+        "oui": [
+          "00:0d:4b",
+          "08:05:81",
+          "10:59:32",
+          "20:ef:bd",
+          "34:5e:08",
+          "50:06:f5",
+          "54:4e:f0",
+          "60:92:c8",
+          "7c:67:ab",
+          "84:ea:ed",
+          "88:de:a9",
+          "8c:49:62",
+          "9c:f1:d4",
+          "a8:b5:7c",
+          "ac:3a:7a",
+          "ac:ae:19",
+          "b0:a7:37",
+          "b0:ee:7b",
+          "b8:3e:59",
+          "b8:a1:75",
+          "bc:d7:d4",
+          "c8:3a:6b",
+          "cc:6d:a0",
+          "d0:4d:2c",
+          "d4:be:dc",
+          "d4:e2:2f",
+          "d8:31:34",
+          "dc:3a:5e",
+          "ec:9b:75",
+          "f8:b2:2c"
+        ],
+        "hostname": [
+          "^Roku"
+        ],
+        "port_open": [
+          8060
+        ],
+        "manufacturer_alias": [
+          "Roku"
         ]
       }
     }

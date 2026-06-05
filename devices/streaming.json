@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-02T01:24:23+00:00",
+    "generated_at": "2026-06-05T17:15:59+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 16,
+    "total_devices": 24,
     "shards": null,
     "category": "streaming"
   },
@@ -197,6 +197,102 @@
           "id": "mersive_solstice",
           "confidence": "untested",
           "notes": "Requires Solstice Enterprise Edition license \u2014 Standard Edition Pods do not expose the OpenControl API. Some commands are Pod-only (reboot, hardware variant, HDMI input force-off); Windows Software hosts ignore them. Power-management / suspend / wake are Pod-only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Express",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Express 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Premiere",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Streambar",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Streaming Stick",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Streaming Stick 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku TV",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Ultra",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
         }
       ]
     }

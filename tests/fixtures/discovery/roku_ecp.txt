@@ -1,0 +1,36 @@
+HTTP/1.1 200 OK
+Content-Type: text/xml; charset="utf-8"
+Server: Roku UPnP/1.0 MiniUPnPd/1.4
+Connection: close
+
+<?xml version="1.0" encoding="UTF-8" ?>
+<device-info>
+  <udn>015e5108-9000-1046-8035-b0a737964dfb</udn>
+  <serial-number>1GU48T017973</serial-number>
+  <device-id>1GU48T017973</device-id>
+  <vendor-name>Roku</vendor-name>
+  <model-name>Roku Ultra</model-name>
+  <model-number>4800X</model-number>
+  <model-region>US</model-region>
+  <is-tv>false</is-tv>
+  <is-stick>false</is-stick>
+  <ui-resolution>1080p</ui-resolution>
+  <power-mode>PowerOn</power-mode>
+  <supports-suspend>false</supports-suspend>
+  <supports-find-remote>true</supports-find-remote>
+  <supports-audio-guide>true</supports-audio-guide>
+  <developer-enabled>false</developer-enabled>
+  <search-enabled>true</search-enabled>
+  <voice-search-enabled>true</voice-search-enabled>
+  <notifications-enabled>true</notifications-enabled>
+  <headphones-connected>false</headphones-connected>
+  <supports-ecs-textedit>true</supports-ecs-textedit>
+  <supports-ecs-microphone>true</supports-ecs-microphone>
+  <supports-wake-on-wlan>false</supports-wake-on-wlan>
+  <software-version>13.0.0</software-version>
+  <software-build>4209</software-build>
+  <network-type>ethernet</network-type>
+  <friendly-device-name>Roku Ultra Living Room</friendly-device-name>
+  <user-device-name>Living Room</user-device-name>
+  <supports-tv-power-control>false</supports-tv-power-control>
+</device-info>

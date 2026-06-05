@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-05T17:15:59+00:00",
+    "generated_at": "2026-06-05T19:33:41+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 3,
@@ -137,7 +137,7 @@
       "name": "Roku (ECP)",
       "manufacturer": "Roku",
       "category": "streaming",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Roku streaming players and Roku TVs over the local network using the External Control Protocol (ECP). Full remote surface, text entry, app launch/install, and TV power, volume, input, and tuner control on supported models.",
@@ -182,7 +182,7 @@
       "discovery": {
         "tcp_probe": {
           "port": 8060,
-          "send_ascii": "GET /query/device-info HTTP/1.1\r\nHost: openavc\r\nConnection: close\r\n\r\n",
+          "send_ascii": "GET /query/device-info HTTP/1.0\r\n\r\n",
           "expect": "<device-info",
           "extract": {
             "model": {

@@ -228,7 +228,7 @@ class RokuECPDriver(BaseDriver):
         "name": "Roku (ECP)",
         "manufacturer": "Roku",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Roku streaming players and Roku TVs over the local "
@@ -295,9 +295,14 @@ class RokuECPDriver(BaseDriver):
         "discovery": {
             # Authoritative fingerprint: every Roku answers GET
             # /query/device-info on 8060 with a <device-info> XML document.
+            # Sent as HTTP/1.0 with NO Host header on purpose: Roku OS 14.1+
+            # has DNS-rebinding protection that returns 403 (empty body) to any
+            # request whose Host header doesn't match the device's own address.
+            # A discovery probe only knows the IP, not the device's hostname, so
+            # it must omit Host entirely. Do not add a Host header here.
             "tcp_probe": {
                 "port": 8060,
-                "send_ascii": "GET /query/device-info HTTP/1.1\r\nHost: openavc\r\nConnection: close\r\n\r\n",
+                "send_ascii": "GET /query/device-info HTTP/1.0\r\n\r\n",
                 "expect": "<device-info",
                 "extract": {
                     "model": {"regex": "<model-name>([^<]+)</model-name>", "group": 1},

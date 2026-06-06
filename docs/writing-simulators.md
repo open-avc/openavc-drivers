@@ -70,7 +70,7 @@ The auto-generated simulator will:
 
 **What auto-gen handles:** Commands with parameters, queries, boolean toggles (`mute_on`/`mute_off`), state tracking.
 
-**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions, and per-child-entity state (a `child_id` command parameter is matched but the simulator has no child-entity model to update — add a script handler if you need routing feedback reflected in state). For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
+**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions, and per-child-entity state (a `child_id` command parameter is matched but the auto-generator has no per-child state model to update — write a Python `_sim.py` and read `self.child_entities` to model each child if you need routing feedback reflected in state). For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
 
 ---
 
@@ -579,6 +579,7 @@ Inside `handle_command` or `handle_request`, you have access to:
 | `self.active_errors` | Set of currently active error mode names |
 | `self.has_error_behavior(name)` | Check if any active error uses the given behavior |
 | `self.config` | Device-specific config passed at startup |
+| `self.child_entities` | Project child entities, `{child_type: {padded_id: {label, config}}}` (empty if none). Use this to model per-child state and answer child-addressed queries — the auto-generator doesn't model child state, so a controller-of-children device needs a Python `_sim.py` here. |
 
 ### Custom Controls in Python
 

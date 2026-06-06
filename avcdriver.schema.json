@@ -676,15 +676,16 @@
         },
         "header_size": {
           "type": "integer",
-          "description": "length_prefix: bytes holding the length. Default 2."
+          "enum": [1, 2, 4],
+          "description": "length_prefix: big-endian bytes holding the body length. Must be 1, 2, or 4. Default 2."
         },
         "header_offset": {
           "type": "integer",
-          "description": "length_prefix: offset of the length field. Default 0."
+          "description": "length_prefix: added to the length the header decodes to. Use a negative value (e.g. -header_size) when the length field counts the header bytes themselves, so only the body is read. Default 0."
         },
         "include_header": {
           "type": "boolean",
-          "description": "length_prefix: whether the length includes the header itself. Default false."
+          "description": "length_prefix: whether the parsed frame includes the header bytes (true) or just the body (false). Default false."
         },
         "length": {
           "type": "integer",

@@ -1335,6 +1335,49 @@ def _load_devices_extra(repo_root: Path) -> list[dict[str, Any]]:
     return data.get("devices", []) if isinstance(data, dict) else []
 
 
+def _validate_frame_parser_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate the optional frame_parser block against the runtime's limits.
+
+    Mirrors server/drivers/driver_loader.validate_driver_definition: the runtime
+    LengthPrefixFrameParser only accepts header_size in {1, 2, 4} and
+    FixedLengthFrameParser needs a positive length. An out-of-range value would
+    crash connect() and wedge the device in a reconnect loop, so reject it at
+    catalog-build time. Stdlib-only so the drivers repo CI stays self-contained.
+    """
+    errors: list[str] = []
+    fp = data.get("frame_parser")
+    if fp is None:
+        return errors
+    if not isinstance(fp, dict):
+        return [f"{file}: frame_parser must be a mapping"]
+    fp_type = fp.get("type", "")
+    if fp_type == "length_prefix":
+        header_size = fp.get("header_size", 2)
+        if header_size not in (1, 2, 4):
+            errors.append(
+                f"{file}: frame_parser.header_size must be 1, 2, or 4 (got {header_size!r})"
+            )
+        offset = fp.get("header_offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, int):
+            errors.append(
+                f"{file}: frame_parser.header_offset must be an integer (got {offset!r})"
+            )
+    elif fp_type == "fixed_length":
+        length = fp.get("length", 1)
+        if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
+            errors.append(
+                f"{file}: frame_parser.length must be a positive integer (got {length!r})"
+            )
+    elif fp_type:
+        errors.append(
+            f"{file}: frame_parser.type '{fp_type}' is not "
+            f"'length_prefix' or 'fixed_length'"
+        )
+    else:
+        errors.append(f"{file}: frame_parser is missing 'type'")
+    return errors
+
+
 def _format_validation_errors(file: str, exc: ValidationError) -> list[str]:
     out: list[str] = []
     for err in exc.errors():
@@ -1404,6 +1447,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         errors.extend(_validate_auth_block(rel, data))
+        errors.extend(_validate_frame_parser_block(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

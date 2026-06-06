@@ -778,15 +778,19 @@ For binary protocols that don't use text delimiters. Overrides the default delim
 ```yaml
 frame_parser:
   type: length_prefix            # length_prefix | fixed_length
-  header_size: 2                 # 1, 2, or 4 bytes (big-endian)
-  header_offset: 0               # Offset added to decoded length value
-  include_header: false          # Include the length header in the returned message
+  header_size: 2                 # bytes holding the body length, big-endian. Must be 1, 2, or 4.
+  header_offset: 0               # added to the length the header decodes to; use a
+                                 # negative value (e.g. -2) when the length field counts
+                                 # the header bytes themselves, so only the body is read
+  include_header: false          # true keeps the header bytes in the parsed frame; false = body only
 
 # OR
 frame_parser:
   type: fixed_length
-  length: 10                     # Exact message length in bytes
+  length: 10                     # exact message length in bytes (must be positive)
 ```
+
+`build_index.py` rejects an out-of-range `header_size` (anything but 1/2/4) or a non-positive `length` — the runtime parser raises on those, which would crash the device's connect.
 
 ---
 

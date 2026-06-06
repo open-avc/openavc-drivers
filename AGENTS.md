@@ -368,6 +368,10 @@ engine's existing scan covers it; the companion stays small.
   runner doesn't sandbox Python — the contract is explicit through
   the `source_ip` argument and the community-trust model that already
   applies to driver code.
+- Every `host` you emit for must be an IP inside one of
+  `ctx.target_subnets`. The engine ignores (and logs) any emit for a
+  host outside the scanned ranges — a companion can enrich or surface
+  on-subnet devices, but can't inject records for arbitrary IPs.
 - Install / uninstall / update of any driver that declares `python:`
   fetches and removes the sibling `_discovery.py` file alongside the
   YAML, atomically.

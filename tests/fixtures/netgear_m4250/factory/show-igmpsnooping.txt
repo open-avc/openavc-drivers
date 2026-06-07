@@ -1,0 +1,27 @@
+show igmpsnooping
+
+Admin Mode..................................... Enable
+Multicast Control Frame Count.................. 760
+IGMP header validation......................... Disabled
+Interfaces Enabled for IGMP Snooping........... None
+VLANs enabled for IGMP snooping................ 1
+Report Flood Mode.............................. Enabled
+Exclude Mrouter Interface Mode................. Enabled
+Operational Mode............................... Enable
+Fast Leave Auto-Assignment Mode................ Enable
+IGMP-Plus...................................... Enabled
+
+
+VLAN ID........................................ 1
+IGMP Snooping Admin Mode....................... Enabled
+Fast Leave Mode................................ Enabled
+Group Membership Interval (secs)............... 600
+Max Response Time (secs)....................... 120
+Multicast Router Expiry Time (secs)............ 300
+Report Suppression Mode........................ Disabled
+Report Flood Mode.............................. Enabled
+Exclude Mrouter Interface Mode................. Enabled
+IGMP-Plus...................................... Enabled
+
+
+(M4250-40G8XF-PoE+)#

@@ -1,0 +1,14 @@
+show poe
+
+Controller..................................... BCM59136
+MCU Type....................................... Nuvoton NUC029Z
+Firmware Version............................... 1.4.1.1
+PSE Main Operational Status.................... OFF
+Total Power Available.......................... 960.0 Watts
+Threshold Power................................ 864.0 Watts
+Total Power Consumed........................... 0.0 Watts
+Usage Threshold................................ 90
+Power Management Mode.......................... Dynamic
+Traps.......................................... Enable
+
+(M4250-40G8XF-PoE+)#

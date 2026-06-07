@@ -1,0 +1,68 @@
+=== mDNS ===
+mDNS query sent; listening 4s...
+  from 169.254.125.131: ............._services._dns-sd._udp.local.................._nvstream_dbd._tcp.#
+  from 169.254.10.1: ............._services._dns-sd._udp.local.................._netaudio-arc..............._netaudio-dbc..............._netaudio-bund..............._netaudio-chan..............._dantevideo..............._netaudio-cmc..............._netaudio-web._tcp.#............._dantevid-flow..
+  from 169.254.100.100: ............._services._dns-sd._udp.local.................._http._tcp.#............._telnet.@............._ssh.@
+
+=== SSDP ===
+SSDP M-SEARCH sent; listening 4s...
+  --- from 169.254.100.100 ---
+  HTTP/1.1 200 OK
+  CACHE-CONTROL: max-age=120
+  ST: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f6
+  USN: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f6
+  EXT:
+  SERVER: Netgear_Switch UPnP/1.1 M4250_64/2.2.2
+  LOCATION: http://169.254.100.100:35611/rootDesc.xml
+  OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01
+  01-NLS: 1743495538
+  BOOTID.UPNP.ORG: 1743495538
+  CONFIGID.UPNP.ORG: 1337
+  --- from 169.254.100.100 ---
+  HTTP/1.1 200 OK
+  CACHE-CONTROL: max-age=120
+  ST: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f5
+  USN: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f5
+  EXT:
+  SERVER: Netgear_Switch UPnP/1.1 M4250_64/2.2.2
+  LOCATION: http://169.254.100.100:35611/rootDesc.xml
+  OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01
+  01-NLS: 1743495538
+  BOOTID.UPNP.ORG: 1743495538
+  CONFIGID.UPNP.ORG: 1337
+  --- from 169.254.100.100 ---
+  HTTP/1.1 200 OK
+  CACHE-CONTROL: max-age=120
+  ST: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f4
+  USN: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f4
+  EXT:
+  SERVER: Netgear_Switch UPnP/1.1 M4250_64/2.2.2
+  LOCATION: http://169.254.100.100:35611/rootDesc.xml
+  OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01
+  01-NLS: 1743495538
+  BOOTID.UPNP.ORG: 1743495538
+  CONFIGID.UPNP.ORG: 1337
+  --- from 169.254.100.100 ---
+  HTTP/1.1 200 OK
+  CACHE-CONTROL: max-age=120
+  ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1
+  USN: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f4::urn:schemas-upnp-org:device:InternetGatewayDevice:1
+  EXT:
+  SERVER: Netgear_Switch UPnP/1.1 M4250_64/2.2.2
+  LOCATION: http://169.254.100.100:35611/rootDesc.xml
+  OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01
+  01-NLS: 1743495538
+  BOOTID.UPNP.ORG: 1743495538
+  CONFIGID.UPNP.ORG: 1337
+  --- from 169.254.100.100 ---
+  HTTP/1.1 200 OK
+  CACHE-CONTROL: max-age=120
+  ST: upnp:rootdevice
+  USN: uuid:fb8e67ba-7dba-11e7-be55-2894017fd8f4::upnp:rootdevice
+  EXT:
+  SERVER: Netgear_Switch UPnP/1.1 M4250_64/2.2.2
+  LOCATION: http://169.254.100.100:35611/rootDesc.xml
+  OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01
+  01-NLS: 1743495538
+  BOOTID.UPNP.ORG: 1743495538
+  CONFIGID.UPNP.ORG: 1337

@@ -1,0 +1,10 @@
+show vlan
+
+Maximum VLAN Entries........................... 4093
+VLAN Entries Currently in Use.................. 1
+
+VLAN ID VLAN Name                        VLAN Type
+------- -------------------------------- -------------------
+1       default                          Default
+
+(M4250-40G8XF-PoE+)#

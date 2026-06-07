@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-05T19:33:41+00:00",
+    "generated_at": "2026-06-07T21:26:48+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 1,
+    "total_devices": 3,
     "shards": null,
     "category": "utility"
   },
@@ -17,6 +17,30 @@
           "id": "crestron_cip",
           "confidence": "untested",
           "notes": "Discovery-only entry. For control, use the matching specific Crestron driver (e.g. crestron_nvx for AV-over-IP endpoints).\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETGEAR",
+      "model": "M4250 series",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "netgear_m4250_m4350",
+          "confidence": "full",
+          "notes": "Validated against an M4250-40G8XF-PoE+ (software 13.0.5.14): PoE draw/control, ports, IGMP/multicast, system health, config save, and reboot exercised on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETGEAR",
+      "model": "M4350 series",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "netgear_m4250_m4350",
+          "confidence": "untested",
+          "notes": "Shares the CLI per the M4250/M4350 CLI Reference Manual; not yet validated on M4350 hardware."
         }
       ]
     }

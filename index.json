@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-05T19:33:41+00:00",
+    "generated_at": "2026-06-07T21:26:48+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 62,
+    "total_drivers": 63,
     "shards": null
   },
   "drivers": [
@@ -2430,6 +2430,72 @@
           "middle atlantic products",
           "legrand",
           "racklink"
+        ]
+      }
+    },
+    {
+      "id": "netgear_m4250_m4350",
+      "name": "NETGEAR M4250 / M4350 AV Line Switch",
+      "manufacturer": "NETGEAR",
+      "category": "utility",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
+      "source_url": "https://www.netgear.com/business/wired/switches/fully-managed/m4250/avline/",
+      "file": "utility/netgear_m4250_m4350.py",
+      "format": "python",
+      "ports": [
+        22,
+        23
+      ],
+      "protocols": [
+        "netgear_cli"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.15.0",
+      "tags": [
+        "network",
+        "switch",
+        "poe",
+        "av-over-ip",
+        "igmp",
+        "multicast"
+      ],
+      "help": {
+        "overview": "Controls a NETGEAR M4250 or M4350 AV Line managed switch. Add it as one device; every physical port appears as a child entity under the Child Entities tab with its link state, PoE draw, and connected device. The driver auto-detects which family you have.",
+        "setup": "1. Enable SSH on the switch (System > Management Access, or 'ip ssh server enable' in the CLI). SSH is the recommended transport.\n2. Recommended: use key auth. Set Auth Method to 'key', then install the OpenAVC public key on the switch. Otherwise set Auth Method to 'password' and enter the admin password.\n3. Enter the switch IP and the admin username (default 'admin'). Leave the port at 22 for SSH.\n4. If the admin account lands in User EXEC mode, set the Enable Password so the driver can enter Privileged EXEC.\n5. Ports, PoE status, and connected devices are discovered automatically on connect."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "NETGEAR",
+          "models": [
+            "M4250 series"
+          ],
+          "confidence": "full",
+          "notes": "Validated against an M4250-40G8XF-PoE+ (software 13.0.5.14): PoE draw/control, ports, IGMP/multicast, system health, config save, and reboot exercised on hardware."
+        },
+        {
+          "manufacturer": "NETGEAR",
+          "models": [
+            "M4350 series"
+          ],
+          "confidence": "untested",
+          "notes": "Shares the CLI per the M4250/M4350 CLI Reference Manual; not yet validated on M4350 hardware."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "28:94:01",
+          "b0:7f:b9",
+          "08:bd:43",
+          "9c:d3:6d",
+          "a0:40:a0",
+          "3c:37:86"
+        ],
+        "manufacturer_alias": [
+          "netgear"
         ]
       }
     },

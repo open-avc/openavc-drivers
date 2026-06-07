@@ -1,0 +1,48 @@
+show poe port configuration all
+
+        Admin           Power   Power Limit    High Power         Detection       Disconnect         Timer Schedule
+Intf    Mode   Priority Limit      Type          Mode                Type            Type
+                         (mW)
+------ ------- -------- ------ -------------- ------------- --------------------- ----------- --------------------------------
+0/1    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/2    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/3    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/4    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/5    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/6    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/7    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/8    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/9    Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/10   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/11   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/12   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/13   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/14   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/15   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/16   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/17   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/18   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/19   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/20   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/21   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/22   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/23   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/24   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/25   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/26   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/27   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/28   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/29   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/30   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/31   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/32   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/33   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/34   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/35   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/36   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/37   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/38   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/39   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+0/40   Enable  Low       N/A    Class Based    Dot3at        4Pt-Dot3af           DC           None
+
+(M4250-40G8XF-PoE+)#

@@ -1,0 +1,188 @@
+
+===== CMD: show poe port info 0/1 =====
+show poe port info 0/1
+
+        High     Max                      Output  Output
+Intf    Power   Power     Class   Power   Current Voltage      Status            Fault
+                 (mW)              (mW)     (mA)   (V)                           Status
+------ ------- -------- -------- -------  ------- -------  ----------------- -----------------
+0/1      Yes   32000    4        7200     131     55       Delivering Power  No Error
+
+
+Overload Counter .............................. 0
+Short Counter ................................. 0
+Power Denied Counter .......................... 5
+Absent Counter ................................ 0
+Invalid Signature Counter ..................... 161
+
+(M4250-40G8XF-PoE+)#
+===== CMD: configure =====
+configure
+
+(M4250-40G8XF-PoE+)(Config)#
+===== CMD: interface 0/1 =====
+interface 0/1
+
+(M4250-40G8XF-PoE+)(Interface 0/1)#
+===== CMD: description SingleWord =====
+description SingleWord
+
+(M4250-40G8XF-PoE+)(Interface 0/1)#
+===== CMD: exit =====
+exit
+
+(M4250-40G8XF-PoE+)(Config)#
+===== CMD: exit =====
+exit
+
+(M4250-40G8XF-PoE+)#
+===== CMD: show running-config interface 0/1 =====
+show running-config interface 0/1
+
+!Current Configuration:
+!
+interface  0/1
+description "SingleWord"
+exit
+
+(M4250-40G8XF-PoE+)#
+===== CMD: configure =====
+configure
+
+(M4250-40G8XF-PoE+)(Config)#
+===== CMD: interface 0/1 =====
+interface 0/1
+
+(M4250-40G8XF-PoE+)(Interface 0/1)#
+===== CMD: description "OpenAVC Test Port" =====
+description "OpenAVC Test Port"
+
+(M4250-40G8XF-PoE+)(Interface 0/1)#
+===== CMD: exit =====
+exit
+
+(M4250-40G8XF-PoE+)(Config)#
+===== CMD: exit =====
+exit
+
+(M4250-40G8XF-PoE+)#
+===== CMD: show running-config interface 0/1 =====
+show running-config interface 0/1
+
+!Current Configuration:
+!
+interface  0/1
+description "OpenAVC Test Port"
+exit
+
+(M4250-40G8XF-PoE+)#
+===== CMD: show interfaces status all =====
+show interfaces status all
+
+                                   Link    Physical    Physical    Media       Flow
+Port       Name                    State   Mode        Status      Type        Control     VLAN
+---------  ----------------------  ------  ----------  ----------  ----------  ----------  ----------
+0/1        OpenAVC Test Port       Up      Auto        1000 Full   Copper          Inactive    1
+0/2                                Down    Auto                                    Inactive    1
+0/3                                Down    Auto                                    Inactive    1
+0/4                                Down    Auto                                    Inactive    1
+0/5                                Down    Auto                                    Inactive    1
+0/6                                Down    Auto                                    Inactive    1
+0/7                                Down    Auto                                    Inactive    1
+0/8                                Down    Auto                                    Inactive    1
+0/9                                Down    Auto                                    Inactive    1
+0/10                               Down    Auto                                    Inactive    1
+0/11                               Down    Auto                                    Inactive    1
+0/12                               Down    Auto                                    Inactive    1
+0/13                               Down    Auto                                    Inactive    1
+0/14                               Down    Auto                                    Inactive    1
+0/15                               Down    Auto                                    Inactive    1
+0/16                               Down    Auto                                    Inactive    1
+0/17                               Down    Auto                                    Inactive    1
+0/18                               Down    Auto                                    Inactive    1
+0/19                               Down    Auto                                    Inactive    1
+0/20                               Down    Auto                                    Inactive    1
+0/21                               Down    Auto                                    Inactive    1
+0/22                               Down    Auto                                    Inactive    1
+0/23                               Down    Auto                                    Inactive    1
+0/24                               Down    Auto                                    Inactive    1
+0/25                               Down    Auto                                    Inactive    1
+0/26                               Down    Auto                                    Inactive    1
+0/27                               Down    Auto                                    Inactive    1
+0/28                               Down    Auto                                    Inactive    1
+0/29                               Down    Auto                                    Inactive    1
+0/30                               Down    Auto                                    Inactive    1
+0/31                               Down    Auto                                    Inactive    1
+0/32                               Down    Auto                                    Inactive    1
+0/33                               Down    Auto                                    Inactive    1
+0/34                               Down    Auto                                    Inactive    1
+0/35                               Down    Auto                                    Inactive    1
+0/36                               Down    Auto                                    Inactive    1
+0/37                               Up      Auto        1000 Full   Copper          Inactive    1
+0/38                               Down    Auto                                    Inactive    1
+0/39                               Down    Auto                                    Inactive    1
+0/40                               Down    Auto                                    Inactive    1
+0/41                               Down    10G Full                                Inactive    1
+0/42                               Down    10G Full                                Inactive    1
+0/43                               Down    10G Full                                Inactive    1
+0/44                               Down    10G Full                                Inactive    1
+0/45                               Down    10G Full                                Inactive    1
+0/46                               Down    10G Full                                Inactive    1
+0/47                               Down    10G Full                                Inactive    1
+0/48                               Down    10G Full                                Inactive    1
+lag 1                              Down                                                        1
+lag 2                              Down                                                        1
+lag 3                              Down                                                        1
+lag 4                              Down                                                        1
+lag 5                              Down                                                        1
+lag 6                              Down                                                        1
+lag 7                              Down                                                        1
+lag 8                              Down                                                        1
+lag 9                              Down                                                        1
+lag 10                             Down                                                        1
+lag 11                             Down                                                        1
+lag 12                             Down                                                        1
+lag 13                             Down                                                        1
+lag 14                             Down                                                        1
+lag 15                             Down                                                        1
+lag 16                             Down                                                        1
+lag 17                             Down                                                        1
+lag 18                             Down                                                        1
+lag 19                             Down                                                        1
+lag 20                             Down                                                        1
+lag 21                             Down                                                        1
+lag 22                             Down                                                        1
+lag 23                             Down                                                        1
+lag 24                             Down                                                        1
+vlan 1                             Up      10 Half     10 Half     Unknown
+
+(M4250-40G8XF-PoE+)#
+===== CMD: configure =====
+configure
+
+(M4250-40G8XF-PoE+)(Config)#
+===== CMD: interface 0/1 =====
+interface 0/1
+
+(M4250-40G8XF-PoE+)(Interface 0/1)#
+===== CMD: no description =====
+no description
+
+(M4250-40G8XF-PoE+)(Interface 0/1)#
+===== CMD: exit =====
+exit
+
+(M4250-40G8XF-PoE+)(Config)#
+===== CMD: exit =====
+exit
+
+(M4250-40G8XF-PoE+)#
+===== CMD: show running-config interface 0/1 =====
+show running-config interface 0/1
+
+!Current Configuration:
+!
+interface  0/1
+exit
+
+(M4250-40G8XF-PoE+)#

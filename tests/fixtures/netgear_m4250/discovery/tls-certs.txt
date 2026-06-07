@@ -1,0 +1,12 @@
+PORT 443
+  Subject    : CN=www.netgear.com, O=NETGEAR, L=SanJose, C=US
+  Issuer     : CN=www.netgear.com, O=NETGEAR, L=SanJose, C=US
+  NotBefore  : 08/11/2020 20:00:00
+  NotAfter   : 08/06/2040 20:00:00
+  Serial     : 19022AD90EBEBF7513629956A17D03242E91AAFD
+  Thumbprint : F2987FEF863C480E93B5F42333B41FEBD7EDF73A
+  SigAlg     : sha256RSA
+  SAN        : IP Address=0.0.0.0
+
+
+PORT 49152 ERROR: Exception calling "Connect" with "2" argument(s): "No connection could be made because the target machine actively refused it. [::ffff:169.254.100.100]:49152"

@@ -1,0 +1,14 @@
+show version
+
+Switch: 1
+
+System Description............................. M4250-40G8XF-PoE+ 40x1G PoE+ 960W and 8xSFP+ Managed Switch, 13.0.5.14, 1.0.0.13
+Machine Model.................................. M4250-40G8XF-PoE+
+Serial Number.................................. 7FH85A5BA029A
+Burned In MAC Address.......................... 28:94:01:7F:D8:F4
+Software Version............................... 13.0.5.14
+CPLD version................................... 0x0
+Bootcode Version............................... 1.0.0.13
+Current Time................................... Apr  1 10:04:28 2025 (UTC+0:00)
+
+(M4250-40G8XF-PoE+)#

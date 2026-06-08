@@ -167,6 +167,21 @@
       },
       "description": "Commands this driver can send. Keyed by command name."
     },
+    "quick_actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Command ids promoted to one-click Quick Action buttons at the top of the device view. Sugar for actions of kind \"command\". Each id must name a declared command."
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/actionEntry"
+      },
+      "description": "Driver-declared actions promoted to buttons in the device view. kind:\"command\" promotes a declared command (runs online); kind:\"setup\" is an offline-capable provisioning wizard handled by the driver's run_setup_action()."
+    },
     "responses": {
       "type": "array",
       "items": {
@@ -549,6 +564,109 @@
       },
       "additionalProperties": true,
       "description": "A command must declare one of: send (TCP/serial/UDP), path/method (HTTP), or address (OSC)."
+    },
+    "actionEntry": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique action id within the driver."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["command", "setup"],
+          "description": "command promotes a declared command (runs online via send_command); setup is an offline-capable provisioning wizard handled by the driver's run_setup_action(). Default command."
+        },
+        "label": {
+          "type": "string",
+          "description": "Button label. Defaults to the promoted command's label, else the id."
+        },
+        "icon": {
+          "type": "string",
+          "description": "lucide icon name (kebab-case), e.g. power, shield, search, radar."
+        },
+        "confirm": {
+          "type": ["boolean", "string"],
+          "description": "Confirm before running. true for a generic prompt, or a custom message string."
+        },
+        "availability": {
+          "type": "string",
+          "enum": ["online", "offline", "always"],
+          "description": "When the button shows. online (default) hides while offline; offline hides while online; always ignores connection state. Setup wizards typically use offline."
+        },
+        "command": {
+          "type": "string",
+          "description": "kind:\"command\" only — the command id to send. Defaults to the action id."
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/paramEntry"
+          },
+          "description": "Input dialog fields. For kind:\"command\", defaults to the promoted command's params."
+        },
+        "visible_when": {
+          "$ref": "#/$defs/visibleWhen"
+        }
+      },
+      "additionalProperties": true,
+      "description": "A promoted action. kind:\"command\" must resolve to a declared command (the command field, or the id)."
+    },
+    "visibleWhen": {
+      "description": "Show the action only when a state condition holds. A single {key, operator, value} condition, or an {any:[...]} (OR) / {all:[...]} (AND) group. key may use $id for the device's own id.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/visibleWhenCondition"
+        },
+        {
+          "type": "object",
+          "required": ["any"],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/visibleWhenCondition"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["all"],
+          "properties": {
+            "all": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/visibleWhenCondition"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visibleWhenCondition": {
+      "type": "object",
+      "required": ["key"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "State key compared against. May contain $id (replaced with the device id)."
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["eq", "ne", "gt", "lt", "gte", "lte", "truthy", "falsy", "equals", "not_equals", "==", "!=", ">", "<", ">=", "<="],
+          "description": "Comparison operator. Default eq."
+        },
+        "value": {
+          "description": "Value to compare against (not needed for truthy/falsy)."
+        }
+      },
+      "additionalProperties": true
     },
     "mappingEntry": {
       "type": "object",

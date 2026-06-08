@@ -618,6 +618,68 @@ If you don't declare `headers:`, the transport sets `Content-Type: application/j
 
 **Config substitution:** `{config_key}` placeholders (e.g., `{display_id}`) are replaced with the device's config values. This works in `send` strings, HTTP `path`/`body`/`query_params`/`headers` fields.
 
+### 2.6.1 actions and quick_actions (Quick Action strip)
+
+By default every command sits in one flat "Send Command" list in the device
+view. For a controller-class driver that's dozens of entries, so the few an
+integrator actually reaches for get buried. Promote them to one-click buttons
+at the top of the device view with `quick_actions` (sugar) or `actions` (full
+form). The Send Command list still shows everything — the strip is additive.
+
+**`quick_actions` — the simple case.** A flat list of command ids to promote.
+Each becomes a button labelled by the command's `label`, firing that command on
+click (commands with params open an input dialog).
+
+```yaml
+quick_actions: [power_on, power_off, recall_preset_1]
+```
+
+**`actions` — the full form.** A list of entries with per-button control over
+label, icon, confirmation, and visibility.
+
+```yaml
+actions:
+  - id: power_on              # required, unique
+    kind: command             # "command" (default) promotes a declared command
+    icon: power               # optional lucide icon name (kebab-case)
+    # label/params inherited from the command unless overridden
+  - id: reboot
+    kind: command
+    command: reboot_device    # the command to send (defaults to the action id)
+    icon: rotate-ccw
+    confirm: "Reboot now? The device drops offline until it restarts."
+  - id: recall_preset
+    kind: command
+    label: "Recall Preset"
+    params:                   # same schema as command params; opens a dialog
+      preset: { type: integer, required: true, min: 1, max: 8 }
+```
+
+Field reference for an `actions` entry:
+
+| Field | Meaning |
+|-------|---------|
+| `id` | Unique id within the driver (required). |
+| `kind` | `command` (default) promotes a declared command. `setup` is reserved for provisioning wizards (not yet invocable — don't use it yet). |
+| `label` | Button text. Defaults to the promoted command's label, else the id. |
+| `icon` | lucide icon name, kebab-case (`power`, `search`, `radar`, `rotate-ccw`). Optional. |
+| `confirm` | `true` for a generic prompt, or a message string. Use it for anything disruptive. |
+| `command` | `kind:command` only — the command id to send. Defaults to the action id. |
+| `params` | Input-dialog fields (same shape as command `params`). For `kind:command`, defaults to the promoted command's params. |
+| `availability` | `online` (default) hides the button while the device is offline; `offline` hides while online; `always` ignores connection state. |
+| `visible_when` | Show only when a state condition holds — a single `{key, operator, value}`, or `{any: [...]}` / `{all: [...]}`. `key` may use `$id` for the device's own id. Operators: `eq, ne, gt, lt, gte, lte, truthy, falsy`. |
+
+```yaml
+actions:
+  - id: clear_alarm
+    kind: command
+    visible_when: { key: "device.$id.alarm", operator: truthy }
+```
+
+`quick_actions` ids and `actions` `kind:command` entries must name a declared
+command — the catalog validator rejects dangling references. If the same id
+appears in both, the explicit `actions` entry wins.
+
 ### 2.7 responses
 
 Regex patterns for parsing device responses and mapping captured values to state variables.
@@ -854,12 +916,22 @@ class MyDriver(BaseDriver):
             "overview": "Controls Acme matrix switchers.",
             "setup": "Connect via Ethernet. Default port 5000.",
         },
+        # Quick Action strip — same shape as YAML (see 2.6.1). Promote the
+        # commands integrators reach for to buttons at the top of the device view.
+        "quick_actions": ["power_on"],
+        "actions": [
+            {"id": "set_input", "kind": "command", "icon": "tv"},
+        ],
         "protocols": ["acme_binary"],
         "discovery": {"port_open": [5000]},
         "device_settings": {},
         "delimiter": "\r",  # Can be overridden by _resolve_delimiter()
     }
 ```
+
+> If `commands` is built dynamically (e.g. assigned to `DRIVER_INFO["commands"]`
+> after the class body), `quick_actions`/`actions` still resolve at runtime —
+> they're matched against commands when the device view loads, not at import.
 
 ### 3.2 Constructor
 

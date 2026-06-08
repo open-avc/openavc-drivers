@@ -1383,6 +1383,128 @@ def _validate_frame_parser_block(file: str, data: dict[str, Any]) -> list[str]:
     return errors
 
 
+_ACTION_KINDS = ("command", "setup")
+_ACTION_AVAILABILITIES = ("online", "offline", "always")
+_VISIBLE_WHEN_OPERATORS = frozenset({
+    "eq", "ne", "gt", "lt", "gte", "lte", "truthy", "falsy",
+    "equals", "not_equals", "==", "!=", ">", "<", ">=", "<=",
+})
+
+
+def _validate_visible_when(where: str, vw: Any) -> list[str]:
+    if vw is None:
+        return []
+    if not isinstance(vw, dict):
+        return [f"{where}: 'visible_when' must be a mapping"]
+
+    def _validate_condition(cwhere: str, cond: Any) -> list[str]:
+        if not isinstance(cond, dict):
+            return [f"{cwhere}: condition must be a mapping"]
+        errs: list[str] = []
+        if not isinstance(cond.get("key"), str) or not cond.get("key"):
+            errs.append(f"{cwhere}: condition missing 'key' (state key string)")
+        op = cond.get("operator", "eq")
+        if op not in _VISIBLE_WHEN_OPERATORS:
+            errs.append(f"{cwhere}: unknown operator '{op}'")
+        return errs
+
+    errors: list[str] = []
+    if "any" in vw or "all" in vw:
+        for group_key in ("any", "all"):
+            if group_key not in vw:
+                continue
+            group = vw[group_key]
+            if not isinstance(group, list) or not group:
+                errors.append(
+                    f"{where}: visible_when.{group_key} must be a non-empty list"
+                )
+                continue
+            for j, cond in enumerate(group):
+                errors.extend(
+                    _validate_condition(f"{where}: visible_when.{group_key}[{j}]", cond)
+                )
+    else:
+        errors.extend(_validate_condition(f"{where}: visible_when", vw))
+    return errors
+
+
+def _validate_actions_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate the optional actions / quick_actions blocks (Quick Action strip).
+
+    Mirrors server/drivers/actions.validate_actions in the platform; kept
+    stdlib-only here so the drivers repo CI stays self-contained.
+    """
+    errors: list[str] = []
+    commands = data.get("commands")
+    command_ids = set(commands.keys()) if isinstance(commands, dict) else set()
+
+    quick = data.get("quick_actions")
+    if quick is not None:
+        if not isinstance(quick, list):
+            errors.append(f"{file}: quick_actions must be a list of command ids")
+        else:
+            for i, cid in enumerate(quick):
+                if not isinstance(cid, str) or not cid:
+                    errors.append(
+                        f"{file}: quick_actions[{i}] must be a non-empty command id"
+                    )
+                elif command_ids and cid not in command_ids:
+                    errors.append(
+                        f"{file}: quick_actions[{i}] '{cid}' is not a declared command"
+                    )
+
+    actions = data.get("actions")
+    if actions is not None:
+        if not isinstance(actions, list):
+            errors.append(f"{file}: actions must be a list")
+            return errors
+        seen: set[str] = set()
+        for i, entry in enumerate(actions):
+            where = f"{file}: actions[{i}]"
+            if not isinstance(entry, dict):
+                errors.append(f"{where}: must be a mapping")
+                continue
+            action_id = entry.get("id")
+            if not isinstance(action_id, str) or not action_id:
+                errors.append(f"{where}: missing required 'id' (non-empty string)")
+            else:
+                if action_id in seen:
+                    errors.append(f"{where}: duplicate action id '{action_id}'")
+                seen.add(action_id)
+            kind = entry.get("kind", "command")
+            if kind not in _ACTION_KINDS:
+                errors.append(
+                    f"{where}: unknown kind '{kind}' (expected {list(_ACTION_KINDS)})"
+                )
+            if entry.get("label") is not None and not isinstance(entry.get("label"), str):
+                errors.append(f"{where}: 'label' must be a string")
+            if entry.get("icon") is not None and not isinstance(entry.get("icon"), str):
+                errors.append(f"{where}: 'icon' must be a string (lucide icon name)")
+            avail = entry.get("availability")
+            if avail is not None and avail not in _ACTION_AVAILABILITIES:
+                errors.append(
+                    f"{where}: 'availability' must be one of {list(_ACTION_AVAILABILITIES)}"
+                )
+            confirm = entry.get("confirm")
+            if confirm is not None and not isinstance(confirm, (bool, str)):
+                errors.append(f"{where}: 'confirm' must be a boolean or a message string")
+            params = entry.get("params")
+            if params is not None and not isinstance(params, dict):
+                errors.append(f"{where}: 'params' must be a mapping")
+            errors.extend(_validate_visible_when(where, entry.get("visible_when")))
+            if kind == "command" and isinstance(action_id, str) and action_id:
+                command_id = entry.get("command")
+                if command_id is not None and not isinstance(command_id, str):
+                    errors.append(f"{where}: 'command' must be a string")
+                else:
+                    target = command_id or action_id
+                    if command_ids and target not in command_ids:
+                        errors.append(
+                            f"{where}: command '{target}' is not a declared command"
+                        )
+    return errors
+
+
 def _format_validation_errors(file: str, exc: ValidationError) -> list[str]:
     out: list[str] = []
     for err in exc.errors():
@@ -1453,6 +1575,7 @@ def main(argv: list[str] | None = None) -> int:
 
         errors.extend(_validate_auth_block(rel, data))
         errors.extend(_validate_frame_parser_block(rel, data))
+        errors.extend(_validate_actions_block(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

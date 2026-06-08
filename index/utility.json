@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-07T21:26:48+00:00",
+    "generated_at": "2026-06-08T02:00:17+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 4,
@@ -115,7 +115,7 @@
       "name": "NETGEAR M4250 / M4350 AV Line Switch",
       "manufacturer": "NETGEAR",
       "category": "utility",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
@@ -163,6 +163,11 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 49151,
+          "send_ascii": "GET / HTTP/1.0\r\n\r\n",
+          "expect_regex": "NETGEAR M4(?:250|350)"
+        },
         "oui": [
           "28:94:01",
           "b0:7f:b9",

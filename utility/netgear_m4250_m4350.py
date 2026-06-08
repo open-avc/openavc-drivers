@@ -526,7 +526,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (
@@ -545,19 +545,27 @@ class NetgearM4250M4350Driver(BaseDriver):
         "transport": "ssh",
         "discovery": {
             # Validated against a real M4250-40G8XF-PoE+ (2026-06-07):
-            #   * OUI 28:94:01 is the unit's base-MAC vendor block.
-            #   * SSDP/UPnP rootDesc.xml reports
-            #     <manufacturer>NETGEAR</manufacturer>; the platform mines that
-            #     into the "netgear" manufacturer_alias below, so a scan
-            #     surfaces this driver as a possible match. The switch's SSDP
-            #     device type is the generic InternetGatewayDevice:1 (every
-            #     router advertises it), so it is deliberately NOT declared as
-            #     an ssdp: fingerprint — that would false-positive every gateway.
-            #   * SSH ident (generic OpenSSH) and SNMP (v2c off at factory) are
-            #     not usable discriminators.
-            # Both signals are soft: the host surfaces as a possible match and
-            # the integrator confirms. The trailing prefixes are additional
-            # NETGEAR OUI blocks (vendor-name display only).
+            #   * tcp_probe on 49151 (the legacy management UI): GET / returns
+            #     "<TITLE>NETGEAR M4250-...</TITLE>" — a strong, vendor- and
+            #     model-specific fingerprint that identifies the switch
+            #     outright whenever that port is up. Unicast, so it works even
+            #     where SSDP multicast doesn't reach the scanner.
+            #   * OUI 28:94:01 is the unit's base-MAC vendor block, and the
+            #     SSDP/UPnP rootDesc reports <manufacturer>NETGEAR</manufacturer>
+            #     (the platform mines that into the "netgear" alias). Both are
+            #     soft signals — a "possible" match — and cover the cases where
+            #     the probe can't run (49151 closed at factory; only the modern
+            #     lighttpd UI on 80/443/8080, whose body carries no NETGEAR
+            #     string, is up).
+            #   * The SSDP device type is the generic InternetGatewayDevice:1
+            #     (every router advertises it), so it is deliberately NOT an
+            #     ssdp: fingerprint. SSH ident (generic OpenSSH) and SNMP
+            #     (v2c off at factory) are not usable discriminators.
+            "tcp_probe": {
+                "port": 49151,
+                "send_ascii": "GET / HTTP/1.0\r\n\r\n",
+                "expect_regex": "NETGEAR M4(?:250|350)",
+            },
             "oui": ["28:94:01", "b0:7f:b9", "08:bd:43", "9c:d3:6d",
                     "a0:40:a0", "3c:37:86"],
             "manufacturer_alias": ["netgear"],

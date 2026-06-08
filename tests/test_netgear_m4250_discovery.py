@@ -77,6 +77,30 @@ def test_real_rootdesc_manufacturer_surfaces_driver():
     assert "netgear_m4250_m4350" in match.candidates
 
 
+def test_legacy_ui_probe_identifies_outright():
+    # The 49151 management UI returns "<TITLE>NETGEAR M4250-...</TITLE>"; the
+    # tcp_probe matches that and identifies the switch outright (strong signal),
+    # rather than the soft OUI "possible". Byte-exact title from a live GET /.
+    from server.discovery.probe_runner import _matches
+    from server.discovery.tier_matcher import evidence_active_probe
+
+    hint = parse_driver_discovery(INFO)
+    assert hint.tcp_probe is not None
+    assert hint.tcp_probe.port == 49151
+
+    real = (b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
+            b"<TITLE>NETGEAR M4250-40G8XF-PoE+</TITLE>")
+    assert _matches(real, hint.tcp_probe.response_match)
+    assert not _matches(b"<title>network</title>", hint.tcp_probe.response_match)
+
+    matcher = TierMatcher(build_signal_index([hint]))
+    ev = evidence_active_probe(
+        hint.tcp_probe.probe_id, response={"text": "matched"}, port=49151)
+    match = matcher.match([ev])
+    assert match.state == DeviceState.IDENTIFIED
+    assert match.driver_id == "netgear_m4250_m4350"
+
+
 def test_base_mac_oui_surfaces_driver():
     match = _matcher().match(
         [evidence_oui("28:94:01:7F:D8:F4", vendor="NETGEAR")])

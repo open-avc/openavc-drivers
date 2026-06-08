@@ -526,7 +526,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (
@@ -554,9 +554,11 @@ class NetgearM4250M4350Driver(BaseDriver):
             #     SSDP/UPnP rootDesc reports <manufacturer>NETGEAR</manufacturer>
             #     (the platform mines that into the "netgear" alias). Both are
             #     soft signals — a "possible" match — and cover the cases where
-            #     the probe can't run (49151 closed at factory; only the modern
-            #     lighttpd UI on 80/443/8080, whose body carries no NETGEAR
-            #     string, is up).
+            #     the 49151 probe can't reach the unit (the legacy UI disabled
+            #     or firewalled; or only the modern lighttpd UI on 80/443/8080,
+            #     whose body carries no NETGEAR string, is up). The factory
+            #     running-config does configure `ip http port 49151`, so the
+            #     probe often succeeds out of the box.
             #   * The SSDP device type is the generic InternetGatewayDevice:1
             #     (every router advertises it), so it is deliberately NOT an
             #     ssdp: fingerprint. SSH ident (generic OpenSSH) and SNMP
@@ -597,18 +599,33 @@ class NetgearM4250M4350Driver(BaseDriver):
                 "family you have."
             ),
             "setup": (
-                "1. Enable SSH on the switch (System > Management Access, or "
-                "'ip ssh server enable' in the CLI). SSH is the recommended "
-                "transport.\n"
-                "2. Recommended: use key auth. Set Auth Method to 'key', then "
-                "install the OpenAVC public key on the switch. Otherwise set "
-                "Auth Method to 'password' and enter the admin password.\n"
-                "3. Enter the switch IP and the admin username (default "
-                "'admin'). Leave the port at 22 for SSH.\n"
-                "4. If the admin account lands in User EXEC mode, set the "
+                "New switches ship with SSH turned off, so turn it on before "
+                "you add the switch here.\n"
+                "1. Reach the switch. It asks for an IP by DHCP and falls back "
+                "to 169.254.100.100 if no DHCP server answers. Open its web UI "
+                "(or a console session). You are prompted to change the default "
+                "admin password on first login.\n"
+                "2. Enable SSH: System > Management Access in the web UI, or "
+                "run 'ip ssh server enable' in the CLI. SSH is the secure "
+                "transport this driver uses.\n"
+                "3. Choose auth. Key auth is recommended: set Auth Method to "
+                "'key' and install the OpenAVC public key on the switch. "
+                "Otherwise set Auth Method to 'password' and enter the admin "
+                "password.\n"
+                "4. Add it here: enter the switch IP and the admin username "
+                "(default 'admin'); leave the port at 22.\n"
+                "5. If the admin account lands in User EXEC mode, set the "
                 "Enable Password so the driver can enter Privileged EXEC.\n"
-                "5. Ports, PoE status, and connected devices are discovered "
-                "automatically on connect."
+                "6. Ports, PoE status, and connected devices are discovered "
+                "automatically once it connects."
+            ),
+            "connection": (
+                "This switch ships with SSH turned off. If it will not connect, "
+                "open the switch web UI and enable SSH (System > Management "
+                "Access, or 'ip ssh server enable' in the CLI), then check the "
+                "IP, the admin username (default 'admin'), and the password. "
+                "The telnet 'tcp' transport is for the bundled simulator, not "
+                "a real switch."
             ),
         },
         "default_config": {

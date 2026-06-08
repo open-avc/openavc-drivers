@@ -276,9 +276,14 @@
         "setup": {
           "type": "string",
           "minLength": 1
+        },
+        "connection": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional short troubleshooting hint shown on the device's offline banner when it can't connect (e.g. a remote-access setting that must be enabled on the device first)."
         }
       },
-      "description": "Help text shown in the Add Device dialog and available to the AI assistant. Both fields required."
+      "description": "Help text shown in the Add Device dialog and available to the AI assistant. overview + setup are required; connection is optional."
     },
     "compatibleModelsEntry": {
       "type": "object",

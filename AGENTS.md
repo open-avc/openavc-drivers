@@ -77,7 +77,7 @@ The sections below remain the authoritative field-by-field reference; the schema
 | `author` | string | `"Community"` | Driver author. |
 | `description` | string | `""` | Brief description. |
 | `delimiter` | string | `"\r"` | Message delimiter. Supports escape sequences: `\r`, `\n`, `\r\n`, or a literal character. |
-| `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. |
+| `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. Optional `connection: "..."` adds a short troubleshooting hint shown on the device's offline banner when it can't connect (e.g. a remote-access setting the device needs enabled first). |
 | `protocols` | list | `[]` | Protocol names for device discovery. (e.g., `["pjlink"]`, `["extron_sis"]`) |
 | `discovery` | object | `{}` | Network discovery hints (see below). |
 

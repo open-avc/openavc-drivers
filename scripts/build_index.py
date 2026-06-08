@@ -72,6 +72,8 @@ class HelpBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     overview: str = Field(min_length=1)
     setup: str = Field(min_length=1)
+    # Optional troubleshooting hint shown on the device's offline banner.
+    connection: str | None = Field(default=None, min_length=1)
 
 
 class CompatibleModelsEntry(BaseModel):

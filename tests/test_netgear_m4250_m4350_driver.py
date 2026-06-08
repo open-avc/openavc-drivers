@@ -285,3 +285,258 @@ def test_device_settings():
         await d.set_device_setting("poe_power_mgmt_mode", "static")
         assert state.get(_k("poe_power_mgmt_mode")) == "Static"
     _scenario(s)
+
+
+# ── telnet login fix + Enable SSH setup action ──
+#
+# These don't use the simulator (which skips login). They drive the driver's
+# CLI framing against a scripted fake "switch" that replays the real User: /
+# Password: login and the captured enable-SSH command sequence
+# (Netgear/captures/after-setup, factory/00-forced-password-set).
+
+
+def _new_driver():
+    state = StateStore()
+    events = EventBus()
+    state.set_event_bus(events)
+    d = NetgearDriver(
+        device_id=DEV,
+        config={"host": "10.0.0.9", "port": 23, "transport": "tcp",
+                "username": "admin", "password": "pw", "poll_interval": 0},
+        state=state, events=events,
+    )
+    return d, state
+
+
+class _ScriptedSwitch:
+    """Fake transport replaying a CLI session. Each ``send()`` delivers the next
+    scripted chunk back through the driver's ``on_data_received``. The login
+    banner is delivered once, lazily, on the first send if not pre-delivered.
+    """
+
+    def __init__(self, on_data, script):
+        self.connected = True
+        self.last_error = ""
+        self._on_data = on_data
+        self._script = list(script)
+        self.sent: list[bytes] = []
+
+    async def send(self, data):
+        self.sent.append(data)
+        if self._script:
+            await self._on_data(self._script.pop(0))
+
+    async def close(self):
+        self.connected = False
+
+
+class _RecordingCtx:
+    """Stands in for the platform's setup context (request_config_update /
+    request_reconnect) so the handler runs outside the full runner."""
+
+    def __init__(self):
+        self.delta = None
+        self.reconnected = False
+
+    async def apply_config_update(self, delta):
+        self.delta = dict(delta)
+
+    async def reconnect(self):
+        self.reconnected = True
+
+
+def test_login_re_frames_user_and_password_prompts():
+    async def run():
+        d, _state = _new_driver()
+        # A real switch's "User:" prompt frames as a "login" boundary...
+        await d.on_data_received(b"\r\r\nUser: ")
+        _text, kind = d._responses.get_nowait()
+        assert kind == "login"
+        # ...and "Password:" as a "password" boundary.
+        await d.on_data_received(b"\r\nPassword: ")
+        _text, kind = d._responses.get_nowait()
+        assert kind == "password"
+    asyncio.run(run())
+
+
+def test_post_connect_drives_user_then_password_login():
+    async def run():
+        d, state = _new_driver()
+        # After username -> Password:, after password -> CLI prompt, then
+        # enable -> #, terminal length 0 -> #, show version -> identity + #.
+        fake = _ScriptedSwitch(d.on_data_received, [
+            b"\r\nPassword: ",
+            b"\r\n(M4250-40G8XF-PoE+) >",
+            b"\r\n(M4250-40G8XF-PoE+) #",
+            b"\r\n(M4250-40G8XF-PoE+) #",
+            b"\r\nMachine Model... M4250-40G8XF-PoE+\r\n(M4250-40G8XF-PoE+) #",
+        ])
+        d.transport = fake
+        # Banner arrives before _post_connect starts waiting (no _clear there).
+        await d.on_data_received(b"\r\r\nUser: ")
+        await asyncio.wait_for(d._post_connect(), timeout=5.0)
+        assert fake.sent[0].strip() == b"admin"   # username answered first
+        assert fake.sent[1].strip() == b"pw"       # then the password
+    asyncio.run(run())
+
+
+def test_post_connect_rejects_bad_credentials():
+    async def run():
+        d, _state = _new_driver()
+        # The switch re-prompts "User:" instead of dropping to the CLI -> auth
+        # failure, surfaced as ConnectionError (not a 15s hang).
+        fake = _ScriptedSwitch(d.on_data_received, [
+            b"\r\nPassword: ",
+            b"\r\nLogin incorrect\r\nUser: ",
+        ])
+        d.transport = fake
+        await d.on_data_received(b"\r\r\nUser: ")
+        with pytest.raises(ConnectionError):
+            await asyncio.wait_for(d._post_connect(), timeout=5.0)
+    asyncio.run(run())
+
+
+def _patch_create(monkeypatch_target, switches):
+    """Replace TCPTransport.create with one that hands out scripted switches in
+    order, scheduling each one's banner so it lands after the handler's _clear.
+    Returns a restore callable."""
+    original = monkeypatch_target.create
+    seq = list(switches)
+
+    async def fake_create(**kwargs):
+        sw = seq.pop(0)
+        sw._on_data = kwargs["on_data"]
+        # Defer the banner to the next yield (after the handler's _clear()).
+        async def _banner():
+            await sw._on_data(b"\r\r\nUser: ")
+        asyncio.create_task(_banner())
+        return sw
+
+    monkeypatch_target.create = staticmethod(fake_create)
+    return lambda: setattr(monkeypatch_target, "create", original)
+
+
+def test_enable_ssh_action_enables_and_switches_to_ssh():
+    async def run():
+        d, _state = _new_driver()
+        # Login (User:/Password:) -> CLI '>', then enable -> '#', then the
+        # captured enable-SSH sequence, then write memory.
+        sw = _ScriptedSwitch(None, [
+            b"\r\nPassword: ",                                  # after username
+            b"\r\n(M4250-40G8XF-PoE+) >",                       # after password
+            b"\r\n(M4250-40G8XF-PoE+) #",                       # after enable
+            b"\r\n(M4250-40G8XF-PoE+) (Config)#",               # after configure
+            b"\r\nRSA key generation complete.\r\n(M4250-40G8XF-PoE+) (Config)#",
+            b"\r\nECDSA key generation complete.\r\n(M4250-40G8XF-PoE+) (Config)#",
+            b"\r\n(M4250-40G8XF-PoE+) #",                       # after exit
+            b"\r\n(M4250-40G8XF-PoE+) #",                       # after ip ssh server enable
+            b"\r\n(M4250-40G8XF-PoE+) #",                       # after write memory
+        ])
+        restore = _patch_create(_driver_mod.TCPTransport, [sw])
+        ctx = _RecordingCtx()
+        d._set_setup_context(ctx)
+        steps = []
+
+        async def progress(step, pct=None):
+            steps.append(step)
+
+        try:
+            result = await asyncio.wait_for(
+                d.run_setup_action("enable_ssh",
+                                   {"username": "admin", "password": "pw"},
+                                   progress),
+                timeout=10.0)
+        finally:
+            restore()
+
+        assert result["ssh_enabled"] is True
+        sent = [b.strip().decode() for b in sw.sent]
+        assert "ip ssh server enable" in sent
+        assert "crypto key generate rsa 2048" in sent
+        assert "write memory confirm" in sent
+        # Flipped to SSH password auth and reconnected.
+        assert ctx.delta["transport"] == "ssh"
+        assert ctx.delta["port"] == 22
+        assert ctx.delta["ssh_auth_method"] == "password"
+        assert ctx.delta["password"] == "pw"
+        assert ctx.reconnected is True
+        assert steps  # progress was reported
+    asyncio.run(run())
+
+
+def test_enable_ssh_action_handles_forced_password_change():
+    async def run():
+        d, _state = _new_driver()
+        # First session: blank/factory password triggers a forced change, then
+        # the switch logs us out.
+        sw1 = _ScriptedSwitch(None, [
+            b"\r\nPassword: ",                                  # after username
+            # after default password: forced change
+            b"\r\nDefault password authentication successful.\r\n"
+            b"Change the default password for user 'admin'.\r\nNew password: ",
+            b"\r\nRe-enter new password: ",                    # after new password
+            # after confirm: success, then the switch re-presents the login.
+            b"\r\nPassword change is successful.\r\nLog in again.\r\nUser: ",
+        ])
+        # Second session: log in with the new password, then enable SSH.
+        sw2 = _ScriptedSwitch(None, [
+            b"\r\nPassword: ",                                  # after username
+            b"\r\n(M4250) >",                                   # after new password
+            b"\r\n(M4250) #",                                   # after enable
+            b"\r\n(M4250) (Config)#",                           # configure
+            b"\r\nRSA key generation complete.\r\n(M4250) (Config)#",
+            b"\r\nECDSA key generation complete.\r\n(M4250) (Config)#",
+            b"\r\n(M4250) #",                                   # exit
+            b"\r\n(M4250) #",                                   # ip ssh server enable
+            b"\r\n(M4250) #",                                   # write memory
+        ])
+        restore = _patch_create(_driver_mod.TCPTransport, [sw1, sw2])
+        ctx = _RecordingCtx()
+        d._set_setup_context(ctx)
+
+        async def progress(step, pct=None):
+            return None
+
+        try:
+            result = await asyncio.wait_for(
+                d.run_setup_action(
+                    "enable_ssh",
+                    {"username": "admin", "password": "", "new_password": "NewPass99"},
+                    progress),
+                timeout=10.0)
+        finally:
+            restore()
+
+        assert result["ssh_enabled"] is True
+        # The new password was set (sent twice on session 1) and used to flip SSH.
+        assert sw1.sent.count(b"NewPass99\r\n") == 2
+        assert ctx.delta["password"] == "NewPass99"
+        assert ctx.reconnected is True
+    asyncio.run(run())
+
+
+def test_enable_ssh_forced_change_without_new_password_errors():
+    async def run():
+        d, _state = _new_driver()
+        sw = _ScriptedSwitch(None, [
+            b"\r\nPassword: ",
+            b"\r\nChange the default password for user 'admin'.\r\nNew password: ",
+        ])
+        restore = _patch_create(_driver_mod.TCPTransport, [sw])
+        d._set_setup_context(_RecordingCtx())
+
+        async def progress(step, pct=None):
+            return None
+
+        try:
+            with pytest.raises(Exception) as exc:
+                await asyncio.wait_for(
+                    d.run_setup_action(
+                        "enable_ssh",
+                        {"username": "admin", "password": ""},  # no new_password
+                        progress),
+                    timeout=10.0)
+            assert "new admin password" in str(exc.value).lower()
+        finally:
+            restore()
+    asyncio.run(run())

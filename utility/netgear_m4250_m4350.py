@@ -42,7 +42,7 @@ import re
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport  # noqa: F401  (telnet/sim path; base builds it)
+from server.transport.tcp import TCPTransport  # the Enable SSH wizard opens its own telnet session
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -51,12 +51,19 @@ log = get_logger(__name__)
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]")
 # CLI prompt: "(name) #", "(name) >", "(name) (Config)#", "(name) (Interface 1/0/2)#".
 _PROMPT_RE = re.compile(r"\([^()\r\n]*\)\s*(?:\([^()\r\n]*\)\s*)?[#>]\s*$")
+# Login username prompt a real switch presents over telnet/SSH before the CLI
+# ("User: ", "Username: ", "login: "). The bundled simulator skips login and
+# lands straight at the CLI prompt, which is why this only bites real hardware.
+_LOGIN_RE = re.compile(r"(?:[Uu]ser(?:name)?|[Ll]ogin)\s*:\s*$")
 # Interactive sub-prompts the device pauses on awaiting input.
 _PASSWORD_RE = re.compile(r"[Pp]assword:\s*$")
 _CONFIRM_RE = re.compile(r"\((?:y/n|Y/N|yes/no|Yes/No)\)[\s.?]*$|continue\?\s*$")
 # Pager prompt (fallback when terminal length 0 is unavailable).
 _PAGER_RE = re.compile(r"--More--[^\n]*$")
 _PAGER_STRIP_RE = re.compile(r"--More-- or \(q\)uit[^\n]*")
+# Factory first-login forced password change (captured: "Change the default
+# password for user 'admin'." -> "New password:" -> "Re-enter new password:").
+_FORCED_PW_RE = re.compile(r"new password|change the default password", re.I)
 
 PORT_MAX = 99999  # encoded id ceiling (unit*10000 + slot*1000 + port)
 
@@ -526,7 +533,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (
@@ -620,14 +627,61 @@ class NetgearM4250M4350Driver(BaseDriver):
                 "automatically once it connects."
             ),
             "connection": (
-                "This switch ships with SSH turned off. If it will not connect, "
-                "open the switch web UI and enable SSH (System > Management "
+                "This switch ships with SSH turned off, so a brand-new switch "
+                "can't connect until SSH is enabled on it. Use the Enable SSH "
+                "button below to do that automatically — it connects over "
+                "telnet, enables SSH, saves, and switches this device to SSH. "
+                "Or enable it by hand (switch web UI, System > Management "
                 "Access, or 'ip ssh server enable' in the CLI), then check the "
-                "IP, the admin username (default 'admin'), and the password. "
-                "The telnet 'tcp' transport is for the bundled simulator, not "
-                "a real switch."
+                "IP, the admin username (default 'admin'), and the password."
             ),
         },
+        # Provisioning wizard: a factory switch ships with SSH off, so the
+        # secure SSH transport this driver uses can't connect until SSH is
+        # enabled on the switch. This offline setup action telnets in (telnet is
+        # on at factory), enables SSH, saves, then flips the device to SSH and
+        # reconnects — shown only while the device is offline because SSH is
+        # refused/unreachable.
+        "actions": [
+            {
+                "id": "enable_ssh",
+                "kind": "setup",
+                "label": "Enable SSH",
+                "icon": "shield",
+                "availability": "offline",
+                "confirm": (
+                    "Connect to the switch over telnet and reconfigure it to "
+                    "enable SSH? This changes the switch configuration and saves it."
+                ),
+                "visible_when": {
+                    "any": [
+                        {"key": "device.$id.offline_reason", "operator": "eq",
+                         "value": "connection_refused"},
+                        {"key": "device.$id.offline_reason", "operator": "eq",
+                         "value": "unreachable"},
+                    ],
+                },
+                "params": {
+                    "username": {
+                        "type": "string", "default": "admin", "required": True,
+                        "label": "Admin Username",
+                    },
+                    "password": {
+                        "type": "password", "secret": True, "required": True,
+                        "label": "Current Admin Password",
+                        "help": "The switch's current admin password (or the "
+                                "factory default if it's brand new).",
+                    },
+                    "new_password": {
+                        "type": "password", "secret": True,
+                        "label": "New Admin Password",
+                        "help": "Only if the switch still has its factory "
+                                "default and forces a password change on first "
+                                "login (8+ characters).",
+                    },
+                },
+            },
+        ],
         "default_config": {
             "host": "",
             "port": 22,
@@ -769,7 +823,8 @@ class NetgearM4250M4350Driver(BaseDriver):
             self._bg(self._safe_send(b" "))
             return
 
-        for regex, kind in ((_PROMPT_RE, "prompt"),
+        for regex, kind in ((_LOGIN_RE, "login"),
+                            (_PROMPT_RE, "prompt"),
                             (_PASSWORD_RE, "password"),
                             (_CONFIRM_RE, "confirm")):
             m = regex.search(self._rx_buffer)
@@ -860,8 +915,22 @@ class NetgearM4250M4350Driver(BaseDriver):
                 + (f" ({err.splitlines()[-1]})" if err else "")
             ) from e
 
-        if kind == "password":  # SSH/telnet asked for a login password at banner
-            await self._answer(self.config.get("password", ""))
+        # Login handshake. A real switch presents "User:" then "Password:"
+        # before the CLI; the bundled simulator goes straight to the CLI prompt
+        # (so neither fires there). SSH password auth lands directly at the
+        # "Password:" sub-prompt with no username step.
+        if kind == "login":
+            kind = await self._login_reply(self.config.get("username", ""))
+        if kind == "password":
+            kind = await self._login_reply(self.config.get("password", ""))
+        if kind in ("login", "password"):
+            # The switch re-prompted instead of dropping to the CLI — the
+            # credentials were rejected. Surface a clear auth error rather than
+            # hanging in enter_privileged.
+            raise ConnectionError(
+                f"[{self.device_id}] Login failed — the switch re-prompted for "
+                f"credentials. Check the username and password."
+            )
 
         await self._enter_privileged()
 
@@ -875,14 +944,23 @@ class NetgearM4250M4350Driver(BaseDriver):
 
         await self._detect_family()
 
-    async def _answer(self, value: str) -> None:
-        """Reply to an interactive sub-prompt and wait for the next unit."""
-        async with self._cmd_lock:
-            await self.transport.send((value + "\r\n").encode("ascii", "replace"))
-            try:
-                await asyncio.wait_for(self._responses.get(), timeout=8.0)
-            except asyncio.TimeoutError:
-                pass
+    async def _login_reply(self, value: str, timeout: float = 10.0) -> str:
+        """Send one login credential (username or password) and return the
+        boundary kind of the device's next pause — "login"/"password" if it
+        re-prompts (rejected), "prompt" once at the CLI. Raises if the device
+        goes silent.
+        """
+        if not self.transport or not self.transport.connected:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        await self.transport.send((value + "\r\n").encode("ascii", "replace"))
+        try:
+            _text, kind = await asyncio.wait_for(
+                self._responses.get(), timeout=timeout)
+        except asyncio.TimeoutError as e:
+            raise ConnectionError(
+                f"[{self.device_id}] No response after sending a login credential"
+            ) from e
+        return kind
 
     async def _enter_privileged(self) -> None:
         """Send 'enable' and answer the enable-password prompt if asked."""
@@ -916,6 +994,186 @@ class NetgearM4250M4350Driver(BaseDriver):
             info["series"] = "M4350"
         declared = self.DRIVER_INFO["state_variables"]
         self.set_states({k: v for k, v in info.items() if k in declared})
+
+    # ── setup action: Enable SSH (offline provisioning wizard) ──
+    #
+    # A factory switch ships with SSH off, so the SSH transport this driver uses
+    # can't connect. Telnet is on at factory, so this telnets in, generates host
+    # keys, enables the SSH server, saves, then flips the device to SSH and
+    # reconnects. The command sequence + prompts are grounded in captured M4250
+    # transcripts (Netgear/captures/after-setup, factory/00-forced-password-set).
+
+    async def run_setup_action(self, action_id, params, progress):
+        if action_id != "enable_ssh":
+            return await super().run_setup_action(action_id, params, progress)
+
+        host = self.config.get("host", "")
+        if not host:
+            raise ValueError("This device has no IP address configured.")
+        username = (params.get("username") or self.config.get("username")
+                    or "admin").strip()
+        password = params.get("password", "")
+        new_password = params.get("new_password", "")
+
+        await progress("Connecting to the switch over telnet…", 5)
+        await self._setup_open_telnet(host)
+        effective_password = password
+        try:
+            await progress("Logging in…", 15)
+            effective_password = await self._setup_login(
+                username, password, new_password, host, progress)
+            await progress("Entering privileged mode…", 30)
+            await self._enter_privileged()
+            await progress(
+                "Generating SSH host keys (this can take a minute)…", 45)
+            await self._enable_ssh_cli()
+            await progress("Saving the configuration…", 80)
+            await self._send_request("write memory confirm", timeout=20.0)
+        finally:
+            await self._setup_close_telnet()
+
+        # Flip this device to SSH (password auth — the switch has no OpenAVC
+        # public key installed yet) and reconnect over the now-open channel.
+        await progress("Switching this device to SSH…", 88)
+        await self.request_config_update({
+            "transport": "ssh",
+            "port": 22,
+            "ssh_auth_method": "password",
+            "password": effective_password,
+        })
+        await progress("Reconnecting securely over SSH…", 95)
+        await self.request_reconnect()
+        return {"ssh_enabled": True, "transport": "ssh", "port": 22}
+
+    async def _setup_open_telnet(self, host: str) -> None:
+        """Open an out-of-band telnet session and route it through this driver's
+        CLI framing. The device's normal SSH transport is offline, so
+        self.transport is free to borrow for the provisioning run.
+        """
+        self.transport = await TCPTransport.create(
+            host=host, port=23,
+            on_data=self.on_data_received,
+            on_disconnect=lambda: None,   # we manage this session ourselves
+            delimiter=None, frame_parser=None,
+            name=f"{self.device_id}-enable-ssh",
+        )
+        self._clear()
+
+    async def _setup_close_telnet(self) -> None:
+        transport, self.transport = self.transport, None
+        if transport is not None:
+            try:
+                await transport.close()
+            except Exception:
+                pass
+        self._connected = False
+        self._clear()
+
+    async def _setup_unit(self, timeout: float) -> tuple[str, str]:
+        """Wait for the next framed (text, boundary_kind) unit, with a clear
+        timeout error."""
+        try:
+            return await asyncio.wait_for(self._responses.get(), timeout=timeout)
+        except asyncio.TimeoutError as e:
+            raise ConnectionError(
+                f"[{self.device_id}] No response from the switch over telnet "
+                f"(timed out after {timeout:.0f}s)"
+            ) from e
+
+    async def _setup_login(
+        self, username: str, password: str, new_password: str,
+        host: str, progress,
+    ) -> str:
+        """Drive the telnet login, handling the factory forced-password-change.
+        Returns the password the device now answers to (the new one if it was
+        forced to change).
+        """
+        _text, kind = await self._setup_unit(15.0)
+        if kind == "login":
+            await self.transport.send((username + "\r\n").encode("ascii", "replace"))
+            _text, kind = await self._setup_unit(10.0)
+        if kind != "password":
+            raise ConnectionError(
+                f"[{self.device_id}] Did not reach a password prompt over telnet "
+                f"(got {kind!r}). Is telnet enabled on the switch?"
+            )
+        # Send the current password; the next pause is the CLI prompt (logged
+        # in) or, on a factory switch, the forced password change.
+        await self.transport.send((password + "\r\n").encode("ascii", "replace"))
+        text, kind = await self._setup_unit(12.0)
+        if kind == "password" and _FORCED_PW_RE.search(text):
+            return await self._setup_force_password(
+                username, new_password, host, progress)
+        if kind in ("login", "password"):
+            raise ConnectionError(
+                f"[{self.device_id}] The switch rejected the admin password."
+            )
+        return password
+
+    async def _setup_force_password(
+        self, username: str, new_password: str, host: str, progress,
+    ) -> str:
+        """Set the factory-forced new admin password, then log back in with it
+        (the switch logs you out after the change)."""
+        if not new_password:
+            raise ConnectionError(
+                "This switch still has its factory password and requires a new "
+                "one on first login. Enter a New Admin Password (8+ characters) "
+                "and run Enable SSH again."
+            )
+        if len(new_password) < 8:
+            raise ConnectionError(
+                "The new admin password must be at least 8 characters."
+            )
+        await progress("Setting a new admin password (factory default)…", 22)
+        # "New password:" -> send it -> "Re-enter new password:".
+        await self.transport.send((new_password + "\r\n").encode("ascii", "replace"))
+        _text, kind = await self._setup_unit(10.0)
+        if kind != "password":
+            raise ConnectionError(
+                f"[{self.device_id}] The switch did not ask to confirm the new "
+                f"password (got {kind!r})."
+            )
+        # "Re-enter new password:" -> send it again. The switch reports success
+        # and tells you to log in again (it may re-present "User:" or drop the
+        # session). Best-effort drain of that message, then reconnect fresh.
+        await self.transport.send((new_password + "\r\n").encode("ascii", "replace"))
+        try:
+            await asyncio.wait_for(self._responses.get(), timeout=3.0)
+        except asyncio.TimeoutError:
+            pass
+        # Reconnect telnet and log in with the new password.
+        await self._setup_close_telnet()
+        await asyncio.sleep(1.0)
+        await progress("Logging in with the new password…", 26)
+        await self._setup_open_telnet(host)
+        _text, kind = await self._setup_unit(15.0)
+        if kind == "login":
+            await self.transport.send((username + "\r\n").encode("ascii", "replace"))
+            _text, kind = await self._setup_unit(10.0)
+        if kind != "password":
+            raise ConnectionError(
+                f"[{self.device_id}] No password prompt on re-login after the "
+                f"password change."
+            )
+        kind = await self._login_reply(new_password)
+        if kind in ("login", "password"):
+            raise ConnectionError(
+                f"[{self.device_id}] The new password was not accepted on re-login."
+            )
+        return new_password
+
+    async def _enable_ssh_cli(self) -> None:
+        """Generate host keys and enable the SSH server. Grounded in captured
+        M4250 transcripts: a clean switch issues no (y/n) prompt, but one with
+        existing keys asks to overwrite (answer yes); key generation can take a
+        minute, hence the long timeouts.
+        """
+        await self._send_request("configure", timeout=10.0)
+        await self._send_confirmable("crypto key generate rsa 2048", timeout=180.0)
+        await self._send_confirmable("crypto key generate ecdsa 256", timeout=180.0)
+        await self._send_request("exit", timeout=10.0)
+        await self._send_request("ip ssh server enable", timeout=10.0)
 
     # ── polling ──
 

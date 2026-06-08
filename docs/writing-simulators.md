@@ -834,3 +834,7 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 5. **Keep it simple.** You don't need to simulate every feature of the device. Focus on the commands your driver actually uses. A simulator that handles power, input, and volume is more useful than no simulator at all.
 
 6. **Test with the actual driver.** The ultimate test is connecting your driver to your simulator. If the driver works against the simulator the same way it works against real hardware, you're done.
+
+## Setup actions and the simulator
+
+A setup action (a Quick Action of `kind:"setup"` — an offline provisioning wizard implemented by a Python driver's `run_setup_action`) targets a *real* device that must be provisioned before it will connect. The simulator has no such provisioning state — a simulated device is reachable from the start — so there's nothing for a setup action to do against it. The simulator does not model setup actions; test `run_setup_action` against the real device (or a throwaway harness that speaks the provisioning side of the protocol), and let the simulator cover the device's normal connected behavior (`commands`, `state_variables`, polling). Quick Actions of `kind:"command"` are just promoted commands, so they exercise against the simulator exactly like any other command.

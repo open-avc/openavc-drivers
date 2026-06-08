@@ -660,7 +660,7 @@ Field reference for an `actions` entry:
 | Field | Meaning |
 |-------|---------|
 | `id` | Unique id within the driver (required). |
-| `kind` | `command` (default) promotes a declared command. `setup` is reserved for provisioning wizards (not yet invocable — don't use it yet). |
+| `kind` | `command` (default) promotes a declared command. `setup` is an offline-capable provisioning wizard — **Python drivers only** (it needs a `run_setup_action` handler; see 3.10). YAML drivers support `command` only. |
 | `label` | Button text. Defaults to the promoted command's label, else the id. |
 | `icon` | lucide icon name, kebab-case (`power`, `search`, `radar`, `rotate-ccw`). Optional. |
 | `confirm` | `true` for a generic prompt, or a message string. Use it for anything disruptive. |
@@ -679,6 +679,15 @@ actions:
 `quick_actions` ids and `actions` `kind:command` entries must name a declared
 command — the catalog validator rejects dangling references. If the same id
 appears in both, the explicit `actions` entry wins.
+
+**Setup / provisioning wizards (`kind:"setup"`)** run while the device is
+**offline**, bring their own transport, report live progress, and can rewrite
+the device's connection config and reconnect — e.g. a factory device whose
+remote-control interface must be switched on before OpenAVC can connect. They
+need a code handler, so they're **Python-driver only** (a `.avcdriver` declaring
+`kind:"setup"` is rejected at load). Declare the action's `params` (the input
+dialog) and `availability`/`visible_when` (e.g. show only when offline) here,
+then implement `run_setup_action` (see 3.10).
 
 ### 2.7 responses
 
@@ -1237,6 +1246,41 @@ parser = CallableFrameParser(my_parser)
 ```python
 from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16, hex_dump
 ```
+
+### 3.10 Setup Actions (Provisioning Wizards)
+
+A setup action (an `actions` entry with `kind:"setup"`, see 2.6.1) is a wizard
+that can run while the device is **offline**. Unlike a command it brings its own
+transport, reports multi-step progress, and may rewrite the device's connection
+config and reconnect. Use it when a device must be provisioned before OpenAVC
+can connect (turn on a control interface, accept a pairing token, trust a cert,
+set a static IP). Override `run_setup_action`:
+
+```python
+async def run_setup_action(self, action_id, params, progress):
+    # `progress(step, pct=None)` is awaitable and streams a live line to the UI.
+    await progress("Connecting…", 10)
+    conn = await open_my_own_transport(self.config["host"])      # out-of-band
+    try:
+        await progress("Provisioning the device", 50)
+        await do_the_provisioning(conn, params)                  # uses dialog inputs
+    finally:
+        await conn.close()
+    # Persist new connection settings and come back online over them.
+    await self.request_config_update({"transport": "tcp", "port": 4999})
+    await progress("Reconnecting", 90)
+    await self.request_reconnect()
+    return {"provisioned": True}                                  # JSON-safe dict
+```
+
+Contract:
+- **Runs offline.** The device's normal transport is down; `run_setup_action` opens whatever connection it needs itself. The platform suppresses auto-reconnect for the duration so it won't race your transport.
+- **`progress(step, pct=None)`** — `await` it to push a step to the wizard UI. `pct` is an optional 0-100.
+- **`params`** — the values the user entered in the action's `params` dialog (e.g. a one-time admin password). Use them transiently; the platform never persists them. To persist a *chosen* auth method, put it in the `request_config_update` delta (e.g. a key path), not the one-time secret.
+- **`await self.request_config_update(delta)`** — persist a connection/config delta. Connection fields (host, port, transport, credentials…) go to the connections table, the rest to device config; the live driver's `self.config` is updated so the next connect uses them. The same driver instance keeps running.
+- **`await self.request_reconnect()`** — reconnect in place using the updated config. Usually the last step.
+- **Failure** — raise. The wizard shows the error; auto-reconnect resumes.
+- `request_config_update` / `request_reconnect` only work *inside* `run_setup_action` (they raise otherwise).
 
 ---
 

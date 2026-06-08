@@ -576,8 +576,8 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["command", "setup"],
-          "description": "command promotes a declared command (runs online via send_command); setup is an offline-capable provisioning wizard handled by the driver's run_setup_action(). Default command."
+          "enum": ["command"],
+          "description": "Promotes a declared command (runs online via send_command). Default and only value for .avcdriver drivers. Offline-capable 'setup' provisioning wizards require a Python driver with a run_setup_action() handler."
         },
         "label": {
           "type": "string",
@@ -594,7 +594,7 @@
         "availability": {
           "type": "string",
           "enum": ["online", "offline", "always"],
-          "description": "When the button shows. online (default) hides while offline; offline hides while online; always ignores connection state. Setup wizards typically use offline."
+          "description": "When the button shows. online (default) hides while offline; offline shows only while offline; always ignores connection state."
         },
         "command": {
           "type": "string",

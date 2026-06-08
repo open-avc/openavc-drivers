@@ -1476,6 +1476,14 @@ def _validate_actions_block(file: str, data: dict[str, Any]) -> list[str]:
                 errors.append(
                     f"{where}: unknown kind '{kind}' (expected {list(_ACTION_KINDS)})"
                 )
+            elif kind == "setup" and file.endswith(".avcdriver"):
+                # A .avcdriver is interpreted by ConfigurableDriver, which has no
+                # run_setup_action handler — kind:"setup" can't do anything there.
+                errors.append(
+                    f"{where}: kind 'setup' requires a Python driver "
+                    f"(a run_setup_action handler); .avcdriver drivers support "
+                    f"kind 'command' only"
+                )
             if entry.get("label") is not None and not isinstance(entry.get("label"), str):
                 errors.append(f"{where}: 'label' must be a string")
             if entry.get("icon") is not None and not isinstance(entry.get("icon"), str):

@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.2",
+        "version": "1.4.3",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (
@@ -654,19 +654,17 @@ class NetgearM4250M4350Driver(BaseDriver):
                 "kind": "setup",
                 "label": "Enable SSH",
                 "icon": "shield",
+                # Shown whenever the switch is offline (availability: offline),
+                # regardless of why. A factory switch can fail to connect in
+                # several ways depending on the configured transport/port
+                # (connection_refused on closed SSH, no_response on a wrong port,
+                # unreachable, a rejected telnet login) — gating on a specific
+                # offline_reason hid the button in exactly the cases that need it.
                 "availability": "offline",
                 "confirm": (
                     "Connect to the switch over telnet and reconfigure it to "
                     "enable SSH? This changes the switch configuration and saves it."
                 ),
-                "visible_when": {
-                    "any": [
-                        {"key": "device.$id.offline_reason", "operator": "eq",
-                         "value": "connection_refused"},
-                        {"key": "device.$id.offline_reason", "operator": "eq",
-                         "value": "unreachable"},
-                    ],
-                },
                 "params": {
                     "username": {
                         "type": "string", "default": "admin", "required": True,

@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.1",
+        "version": "1.4.2",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (
@@ -673,10 +673,11 @@ class NetgearM4250M4350Driver(BaseDriver):
                         "label": "Admin Username",
                     },
                     "password": {
-                        "type": "password", "secret": True, "required": True,
+                        "type": "password", "secret": True,
                         "label": "Current Admin Password",
-                        "help": "The switch's current admin password (or the "
-                                "factory default if it's brand new).",
+                        "help": "The current admin password. Leave blank for a "
+                                "factory-default switch — it has no password yet "
+                                "and will prompt you to set one (below).",
                     },
                     "new_password": {
                         "type": "password", "secret": True,

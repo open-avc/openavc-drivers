@@ -1,0 +1,78 @@
+
+===== CMD: cablestatus 0/2 =====
+cablestatus 0/2
+
+Cable Status................................... No Cable
+
+(M4250-40G8XF-PoE+)#
+===== CMD: cablestatus 0/1 =====
+cablestatus 0/1
+
+Cable Status................................... Normal
+Cable Length................................... 0m - 18m
+
+(M4250-40G8XF-PoE+)#
+===== CMD: show interface 0/1 =====
+show interface 0/1
+
+Interface :.................................. 0/1
+
+Packets Received Without Error................. 2971776
+Packets Received With Error.................... 0
+Broadcast Packets Received..................... 0
+Receive Packets Discarded...................... 1441
+Packets Transmitted Without Errors............. 2428
+Transmit Packets Discarded..................... 0
+Transmit Packet Errors......................... 0
+Collision Frames............................... 0
+Number of link down events..................... 9
+Load Interval.................................. 300
+Received Rate(Mbps)............................ 2.0
+Transmitted Rate(Mbps)......................... 0.0
+Received Error Rate............................ 0
+Transmitted Error Rate......................... 0
+Packets Received Per Second.................... 1448
+Packets Transmitted Per Second................. 1
+Percent Utilization Received................... 0%
+Percent Utilization Transmitted................ 0%
+Link Flaps..................................... 0
+Time Since Counters Last Cleared............... 0 day 3 hr 18 min 15 sec
+
+(M4250-40G8XF-PoE+)#
+===== CMD: clear counters 0/1 =====
+clear counters 0/1
+
+Are you sure you want to clear the port stats? (y/n) y
+
+
+Port Stats Cleared.
+
+(M4250-40G8XF-PoE+)#
+(M4250-40G8XF-PoE+)#
+===== CMD: show interface 0/1 =====
+show interface 0/1
+
+Interface :.................................. 0/1
+
+Packets Received Without Error................. 0
+Packets Received With Error.................... 0
+Broadcast Packets Received..................... 0
+Receive Packets Discarded...................... 0
+Packets Transmitted Without Errors............. 0
+Transmit Packets Discarded..................... 0
+Transmit Packet Errors......................... 0
+Collision Frames............................... 0
+Number of link down events..................... 0
+Load Interval.................................. 300
+Received Rate(Mbps)............................ 0.0
+Transmitted Rate(Mbps)......................... 0.0
+Received Error Rate............................ 0
+Transmitted Error Rate......................... 0
+Packets Received Per Second.................... 0
+Packets Transmitted Per Second................. 0
+Percent Utilization Received................... 0%
+Percent Utilization Transmitted................ 0%
+Link Flaps..................................... 0
+Time Since Counters Last Cleared............... 0 day 0 hr 0 min 0 sec
+
+(M4250-40G8XF-PoE+)#

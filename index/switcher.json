@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-02T01:24:23+00:00",
+    "generated_at": "2026-06-09T01:48:03+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 11,
@@ -558,7 +558,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",

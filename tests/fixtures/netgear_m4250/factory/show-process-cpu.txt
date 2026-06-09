@@ -1,0 +1,33 @@
+show process cpu
+
+Memory and Process CPU Utilization Info of Unit:1
+
+Memory Utilization Report
+status     KBytes
+------ ----------
+free       974592
+alloc     1015244
+CPU Utilization:
+
+PID        Name                  5 Secs  60 Secs 300 Secs
+---------- ------------------- -------- -------- --------
+453        (procmgr)             0.00%    0.01%    0.00%
+508        hwMonTask             0.00%    0.03%    0.03%
+517        osapiTimer            0.00%    0.01%    0.01%
+522        socdmadesc.0          0.04%    0.06%    0.06%
+525        bcmCNTR.0             0.29%    0.41%    0.45%
+528        bcmLINK.0             0.29%    0.33%    0.36%
+530        cpuUtilMonitorTask    0.04%    0.02%    0.02%
+561        emWeb                 0.00%    0.00%    0.01%
+611        snoopTask             0.04%    0.01%    0.00%
+648        openrTask             0.04%    0.09%    0.09%
+682        RMONTask              0.00%    0.02%    0.02%
+685        boxs_Req              0.04%    0.06%    0.06%
+694        dot1as_ctrl_task      0.04%    0.01%    0.00%
+698        StatsAppTask          0.04%    0.05%    0.04%
+748        poe_monitor           0.69%    1.03%    1.07%
+------------------------------ -------- -------- --------
+Total CPU Utilization            1.63%    2.26%    2.40%
+
+
+(M4250-40G8XF-PoE+)#

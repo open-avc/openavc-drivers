@@ -77,7 +77,7 @@ The sections below remain the authoritative field-by-field reference; the schema
 | `author` | string | `"Community"` | Driver author. |
 | `description` | string | `""` | Brief description. |
 | `delimiter` | string | `"\r"` | Message delimiter. Supports escape sequences: `\r`, `\n`, `\r\n`, or a literal character. |
-| `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. |
+| `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. Optional `connection: "..."` adds a short troubleshooting hint shown on the device's offline banner when it can't connect (e.g. a remote-access setting the device needs enabled first). |
 | `protocols` | list | `[]` | Protocol names for device discovery. (e.g., `["pjlink"]`, `["extron_sis"]`) |
 | `discovery` | object | `{}` | Network discovery hints (see below). |
 
@@ -368,6 +368,10 @@ engine's existing scan covers it; the companion stays small.
   runner doesn't sandbox Python — the contract is explicit through
   the `source_ip` argument and the community-trust model that already
   applies to driver code.
+- Every `host` you emit for must be an IP inside one of
+  `ctx.target_subnets`. The engine ignores (and logs) any emit for a
+  host outside the scanned ranges — a companion can enrich or surface
+  on-subnet devices, but can't inject records for arbitrary IPs.
 - Install / uninstall / update of any driver that declares `python:`
   fetches and removes the sibling `_discovery.py` file alongside the
   YAML, atomically.
@@ -614,6 +618,77 @@ If you don't declare `headers:`, the transport sets `Content-Type: application/j
 
 **Config substitution:** `{config_key}` placeholders (e.g., `{display_id}`) are replaced with the device's config values. This works in `send` strings, HTTP `path`/`body`/`query_params`/`headers` fields.
 
+### 2.6.1 actions and quick_actions (Quick Action strip)
+
+By default every command sits in one flat "Send Command" list in the device
+view. For a controller-class driver that's dozens of entries, so the few an
+integrator actually reaches for get buried. Promote them to one-click buttons
+at the top of the device view with `quick_actions` (sugar) or `actions` (full
+form). The Send Command list still shows everything — the strip is additive.
+
+**`quick_actions` — the simple case.** A flat list of command ids to promote.
+Each becomes a button labelled by the command's `label`, firing that command on
+click (commands with params open an input dialog).
+
+```yaml
+quick_actions: [power_on, power_off, recall_preset_1]
+```
+
+**`actions` — the full form.** A list of entries with per-button control over
+label, icon, confirmation, and visibility.
+
+```yaml
+actions:
+  - id: power_on              # required, unique
+    kind: command             # "command" (default) promotes a declared command
+    icon: power               # optional lucide icon name (kebab-case)
+    # label/params inherited from the command unless overridden
+  - id: reboot
+    kind: command
+    command: reboot_device    # the command to send (defaults to the action id)
+    icon: rotate-ccw
+    confirm: "Reboot now? The device drops offline until it restarts."
+  - id: recall_preset
+    kind: command
+    label: "Recall Preset"
+    params:                   # same schema as command params; opens a dialog
+      preset: { type: integer, required: true, min: 1, max: 8 }
+```
+
+Field reference for an `actions` entry:
+
+| Field | Meaning |
+|-------|---------|
+| `id` | Unique id within the driver (required). |
+| `kind` | `command` (default) promotes a declared command. `setup` is an offline-capable provisioning wizard — **Python drivers only** (it needs a `run_setup_action` handler; see 3.10). YAML drivers support `command` only. |
+| `label` | Button text. Defaults to the promoted command's label, else the id. |
+| `icon` | lucide icon name, kebab-case (`power`, `search`, `radar`, `rotate-ccw`). Optional. |
+| `confirm` | `true` for a generic prompt, or a message string. Use it for anything disruptive. |
+| `command` | `kind:command` only — the command id to send. Defaults to the action id. |
+| `params` | Input-dialog fields (same shape as command `params`). For `kind:command`, defaults to the promoted command's params. |
+| `availability` | `online` (default) hides the button while the device is offline; `offline` hides while online; `always` ignores connection state. |
+| `visible_when` | Show only when a state condition holds — a single `{key, operator, value}`, or `{any: [...]}` / `{all: [...]}`. `key` may use `$id` for the device's own id. Operators: `eq, ne, gt, lt, gte, lte, truthy, falsy`. |
+
+```yaml
+actions:
+  - id: clear_alarm
+    kind: command
+    visible_when: { key: "device.$id.alarm", operator: truthy }
+```
+
+`quick_actions` ids and `actions` `kind:command` entries must name a declared
+command — the catalog validator rejects dangling references. If the same id
+appears in both, the explicit `actions` entry wins.
+
+**Setup / provisioning wizards (`kind:"setup"`)** run while the device is
+**offline**, bring their own transport, report live progress, and can rewrite
+the device's connection config and reconnect — e.g. a factory device whose
+remote-control interface must be switched on before OpenAVC can connect. They
+need a code handler, so they're **Python-driver only** (a `.avcdriver` declaring
+`kind:"setup"` is rejected at load). Declare the action's `params` (the input
+dialog) and `availability`/`visible_when` (e.g. show only when offline) here,
+then implement `run_setup_action` (see 3.10).
+
 ### 2.7 responses
 
 Regex patterns for parsing device responses and mapping captured values to state variables.
@@ -683,6 +758,12 @@ auth:
 ```
 
 Add `username` and `password` fields to `default_config` and `config_schema` so they show up in the Add Device dialog (mark `password` with `secret: true`).
+
+Validation (enforced at load time — a violating driver won't load):
+
+- `auth` is only valid on `tcp` and `serial` transports. It reads a raw byte stream, so declaring it on `udp`, `http`, or `osc` is an error.
+- `username_prompt` and `password_prompt` are both required. A handshake missing either is rejected rather than silently connecting unauthenticated.
+- All four prompt/pattern regexes are checked for catastrophic backtracking (same rule as response patterns) because they run synchronously against raw pre-auth device bytes. Keep them simple and anchored.
 
 The framework drops the transport's frame parser to raw mode for the duration of the handshake so partial prompts (e.g., `Login: ` without trailing newline) are visible. Each prompt is a regex matched against the buffered bytes, decoded as UTF-8 with replacement. The original parser is restored before `on_connect` runs.
 
@@ -768,15 +849,19 @@ For binary protocols that don't use text delimiters. Overrides the default delim
 ```yaml
 frame_parser:
   type: length_prefix            # length_prefix | fixed_length
-  header_size: 2                 # 1, 2, or 4 bytes (big-endian)
-  header_offset: 0               # Offset added to decoded length value
-  include_header: false          # Include the length header in the returned message
+  header_size: 2                 # bytes holding the body length, big-endian. Must be 1, 2, or 4.
+  header_offset: 0               # added to the length the header decodes to; use a
+                                 # negative value (e.g. -2) when the length field counts
+                                 # the header bytes themselves, so only the body is read
+  include_header: false          # true keeps the header bytes in the parsed frame; false = body only
 
 # OR
 frame_parser:
   type: fixed_length
-  length: 10                     # Exact message length in bytes
+  length: 10                     # exact message length in bytes (must be positive)
 ```
+
+`build_index.py` rejects an out-of-range `header_size` (anything but 1/2/4) or a non-positive `length` — the runtime parser raises on those, which would crash the device's connect.
 
 ---
 
@@ -840,12 +925,22 @@ class MyDriver(BaseDriver):
             "overview": "Controls Acme matrix switchers.",
             "setup": "Connect via Ethernet. Default port 5000.",
         },
+        # Quick Action strip — same shape as YAML (see 2.6.1). Promote the
+        # commands integrators reach for to buttons at the top of the device view.
+        "quick_actions": ["power_on"],
+        "actions": [
+            {"id": "set_input", "kind": "command", "icon": "tv"},
+        ],
         "protocols": ["acme_binary"],
         "discovery": {"port_open": [5000]},
         "device_settings": {},
         "delimiter": "\r",  # Can be overridden by _resolve_delimiter()
     }
 ```
+
+> If `commands` is built dynamically (e.g. assigned to `DRIVER_INFO["commands"]`
+> after the class body), `quick_actions`/`actions` still resolve at runtime —
+> they're matched against commands when the device view loads, not at import.
 
 ### 3.2 Constructor
 
@@ -1151,6 +1246,41 @@ parser = CallableFrameParser(my_parser)
 ```python
 from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16, hex_dump
 ```
+
+### 3.10 Setup Actions (Provisioning Wizards)
+
+A setup action (an `actions` entry with `kind:"setup"`, see 2.6.1) is a wizard
+that can run while the device is **offline**. Unlike a command it brings its own
+transport, reports multi-step progress, and may rewrite the device's connection
+config and reconnect. Use it when a device must be provisioned before OpenAVC
+can connect (turn on a control interface, accept a pairing token, trust a cert,
+set a static IP). Override `run_setup_action`:
+
+```python
+async def run_setup_action(self, action_id, params, progress):
+    # `progress(step, pct=None)` is awaitable and streams a live line to the UI.
+    await progress("Connecting…", 10)
+    conn = await open_my_own_transport(self.config["host"])      # out-of-band
+    try:
+        await progress("Provisioning the device", 50)
+        await do_the_provisioning(conn, params)                  # uses dialog inputs
+    finally:
+        await conn.close()
+    # Persist new connection settings and come back online over them.
+    await self.request_config_update({"transport": "tcp", "port": 4999})
+    await progress("Reconnecting", 90)
+    await self.request_reconnect()
+    return {"provisioned": True}                                  # JSON-safe dict
+```
+
+Contract:
+- **Runs offline.** The device's normal transport is down; `run_setup_action` opens whatever connection it needs itself. The platform suppresses auto-reconnect for the duration so it won't race your transport.
+- **`progress(step, pct=None)`** — `await` it to push a step to the wizard UI. `pct` is an optional 0-100.
+- **`params`** — the values the user entered in the action's `params` dialog (e.g. a one-time admin password). Use them transiently; the platform never persists them. To persist a *chosen* auth method, put it in the `request_config_update` delta (e.g. a key path), not the one-time secret.
+- **`await self.request_config_update(delta)`** — persist a connection/config delta. Connection fields (host, port, transport, credentials…) go to the connections table, the rest to device config; the live driver's `self.config` is updated so the next connect uses them. The same driver instance keeps running.
+- **`await self.request_reconnect()`** — reconnect in place using the updated config. Usually the last step.
+- **Failure** — raise. The wizard shows the error; auto-reconnect resumes.
+- `request_config_update` / `request_reconnect` only work *inside* `run_setup_action` (they raise otherwise).
 
 ---
 

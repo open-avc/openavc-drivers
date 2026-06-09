@@ -70,7 +70,7 @@ The auto-generated simulator will:
 
 **What auto-gen handles:** Commands with parameters, queries, boolean toggles (`mute_on`/`mute_off`), state tracking.
 
-**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions. For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
+**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions, and per-child-entity state (a `child_id` command parameter is matched but the auto-generator has no per-child state model to update — write a Python `_sim.py` and read `self.child_entities` to model each child if you need routing feedback reflected in state). For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
 
 ---
 
@@ -165,8 +165,11 @@ The handler code has access to:
 | `state` | Mutable state dict. Writes trigger UI updates. |
 | `config` | Device config from the project file |
 | `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
-| `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate` | Built-in functions |
+| `re`, `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate` | Built-in functions |
 | `True`, `False`, `None` | Built-in constants |
+| `Exception`, `ValueError`, `TypeError`, `KeyError`, `IndexError`, `AttributeError`, `ZeroDivisionError`, `RuntimeError`, `StopIteration` | Exception types — so `try/except` blocks work |
+
+The same set is available to both TCP/serial and OSC handlers. (For OSC handlers the match-related variable is `address` plus an `args` list, and `respond(address, args)` sends an OSC message.)
 
 State changes made via `state["key"] = value` are reflected in the Simulator UI in real time.
 
@@ -576,6 +579,7 @@ Inside `handle_command` or `handle_request`, you have access to:
 | `self.active_errors` | Set of currently active error mode names |
 | `self.has_error_behavior(name)` | Check if any active error uses the given behavior |
 | `self.config` | Device-specific config passed at startup |
+| `self.child_entities` | Project child entities, `{child_type: {padded_id: {label, config}}}` (empty if none). Use this to model per-child state and answer child-addressed queries — the auto-generator doesn't model child state, so a controller-of-children device needs a Python `_sim.py` here. |
 
 ### Custom Controls in Python
 
@@ -830,3 +834,7 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 5. **Keep it simple.** You don't need to simulate every feature of the device. Focus on the commands your driver actually uses. A simulator that handles power, input, and volume is more useful than no simulator at all.
 
 6. **Test with the actual driver.** The ultimate test is connecting your driver to your simulator. If the driver works against the simulator the same way it works against real hardware, you're done.
+
+## Setup actions and the simulator
+
+A setup action (a Quick Action of `kind:"setup"` — an offline provisioning wizard implemented by a Python driver's `run_setup_action`) targets a *real* device that must be provisioned before it will connect. The simulator has no such provisioning state — a simulated device is reachable from the start — so there's nothing for a setup action to do against it. The simulator does not model setup actions; test `run_setup_action` against the real device (or a throwaway harness that speaks the provisioning side of the protocol), and let the simulator cover the device's normal connected behavior (`commands`, `state_variables`, polling). Quick Actions of `kind:"command"` are just promoted commands, so they exercise against the simulator exactly like any other command.

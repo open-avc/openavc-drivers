@@ -1,0 +1,16 @@
+show poe port info 0/1
+
+        High     Max                      Output  Output
+Intf    Power   Power     Class   Power   Current Voltage      Status            Fault
+                 (mW)              (mW)     (mA)   (V)                           Status
+------ ------- -------- -------- -------  ------- -------  ----------------- -----------------
+0/1      Yes   32000    4        6700     123     55       Delivering Power  No Error
+
+
+Overload Counter .............................. 0
+Short Counter ................................. 0
+Power Denied Counter .......................... 0
+Absent Counter ................................ 0
+Invalid Signature Counter ..................... 0
+
+(M4250-40G8XF-PoE+)#

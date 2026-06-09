@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-02T01:24:23+00:00",
+    "generated_at": "2026-06-09T01:48:03+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 3,
+    "total_drivers": 4,
     "shards": null,
     "category": "utility"
   },
@@ -108,6 +108,78 @@
       "help": {
         "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
         "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
+      }
+    },
+    {
+      "id": "netgear_m4250_m4350",
+      "name": "NETGEAR M4250 / M4350 AV Line Switch",
+      "manufacturer": "NETGEAR",
+      "category": "utility",
+      "version": "1.4.4",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
+      "source_url": "https://www.netgear.com/business/wired/switches/fully-managed/m4250/avline/",
+      "file": "utility/netgear_m4250_m4350.py",
+      "format": "python",
+      "ports": [
+        22,
+        23
+      ],
+      "protocols": [
+        "netgear_cli"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.15.0",
+      "tags": [
+        "network",
+        "switch",
+        "poe",
+        "av-over-ip",
+        "igmp",
+        "multicast"
+      ],
+      "help": {
+        "overview": "Controls a NETGEAR M4250 or M4350 AV Line managed switch. Add it as one device; every physical port appears as a child entity under the Child Entities tab with its link state, PoE draw, and connected device. The driver auto-detects which family you have.",
+        "setup": "New switches ship with SSH turned off, so turn it on before you add the switch here.\n1. Reach the switch. It asks for an IP by DHCP and falls back to 169.254.100.100 if no DHCP server answers. Open its web UI (or a console session). You are prompted to change the default admin password on first login.\n2. Enable SSH: System > Management Access in the web UI, or run 'ip ssh server enable' in the CLI. SSH is the secure transport this driver uses.\n3. Choose auth. Key auth is recommended: set Auth Method to 'key' and install the OpenAVC public key on the switch. Otherwise set Auth Method to 'password' and enter the admin password.\n4. Add it here: enter the switch IP and the admin username (default 'admin'); leave the port at 22.\n5. If the admin account lands in User EXEC mode, set the Enable Password so the driver can enter Privileged EXEC.\n6. Ports, PoE status, and connected devices are discovered automatically once it connects.",
+        "connection": "This switch ships with SSH turned off, so a brand-new switch can't connect until SSH is enabled on it. Use the Enable SSH button below to do that automatically \u2014 it connects over telnet, enables SSH, saves, and switches this device to SSH. Or enable it by hand (switch web UI, System > Management Access, or 'ip ssh server enable' in the CLI), then check the IP, the admin username (default 'admin'), and the password."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "NETGEAR",
+          "models": [
+            "M4250 series"
+          ],
+          "confidence": "full",
+          "notes": "Validated against an M4250-40G8XF-PoE+ (software 13.0.5.14): PoE draw/control, ports, IGMP/multicast, system health, config save, and reboot exercised on hardware."
+        },
+        {
+          "manufacturer": "NETGEAR",
+          "models": [
+            "M4350 series"
+          ],
+          "confidence": "untested",
+          "notes": "Shares the CLI per the M4250/M4350 CLI Reference Manual; not yet validated on M4350 hardware."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 49151,
+          "send_ascii": "GET / HTTP/1.0\r\n\r\n",
+          "expect_regex": "NETGEAR M4(?:250|350)"
+        },
+        "oui": [
+          "28:94:01",
+          "b0:7f:b9",
+          "08:bd:43",
+          "9c:d3:6d",
+          "a0:40:a0",
+          "3c:37:86"
+        ],
+        "manufacturer_alias": [
+          "netgear"
+        ]
       }
     }
   ]

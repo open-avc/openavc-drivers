@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-02T01:24:23+00:00",
+    "generated_at": "2026-06-09T01:48:03+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 61,
+    "total_drivers": 63,
     "shards": null
   },
   "drivers": [
@@ -2434,6 +2434,78 @@
       }
     },
     {
+      "id": "netgear_m4250_m4350",
+      "name": "NETGEAR M4250 / M4350 AV Line Switch",
+      "manufacturer": "NETGEAR",
+      "category": "utility",
+      "version": "1.4.4",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
+      "source_url": "https://www.netgear.com/business/wired/switches/fully-managed/m4250/avline/",
+      "file": "utility/netgear_m4250_m4350.py",
+      "format": "python",
+      "ports": [
+        22,
+        23
+      ],
+      "protocols": [
+        "netgear_cli"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.15.0",
+      "tags": [
+        "network",
+        "switch",
+        "poe",
+        "av-over-ip",
+        "igmp",
+        "multicast"
+      ],
+      "help": {
+        "overview": "Controls a NETGEAR M4250 or M4350 AV Line managed switch. Add it as one device; every physical port appears as a child entity under the Child Entities tab with its link state, PoE draw, and connected device. The driver auto-detects which family you have.",
+        "setup": "New switches ship with SSH turned off, so turn it on before you add the switch here.\n1. Reach the switch. It asks for an IP by DHCP and falls back to 169.254.100.100 if no DHCP server answers. Open its web UI (or a console session). You are prompted to change the default admin password on first login.\n2. Enable SSH: System > Management Access in the web UI, or run 'ip ssh server enable' in the CLI. SSH is the secure transport this driver uses.\n3. Choose auth. Key auth is recommended: set Auth Method to 'key' and install the OpenAVC public key on the switch. Otherwise set Auth Method to 'password' and enter the admin password.\n4. Add it here: enter the switch IP and the admin username (default 'admin'); leave the port at 22.\n5. If the admin account lands in User EXEC mode, set the Enable Password so the driver can enter Privileged EXEC.\n6. Ports, PoE status, and connected devices are discovered automatically once it connects.",
+        "connection": "This switch ships with SSH turned off, so a brand-new switch can't connect until SSH is enabled on it. Use the Enable SSH button below to do that automatically \u2014 it connects over telnet, enables SSH, saves, and switches this device to SSH. Or enable it by hand (switch web UI, System > Management Access, or 'ip ssh server enable' in the CLI), then check the IP, the admin username (default 'admin'), and the password."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "NETGEAR",
+          "models": [
+            "M4250 series"
+          ],
+          "confidence": "full",
+          "notes": "Validated against an M4250-40G8XF-PoE+ (software 13.0.5.14): PoE draw/control, ports, IGMP/multicast, system health, config save, and reboot exercised on hardware."
+        },
+        {
+          "manufacturer": "NETGEAR",
+          "models": [
+            "M4350 series"
+          ],
+          "confidence": "untested",
+          "notes": "Shares the CLI per the M4250/M4350 CLI Reference Manual; not yet validated on M4350 hardware."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 49151,
+          "send_ascii": "GET / HTTP/1.0\r\n\r\n",
+          "expect_regex": "NETGEAR M4(?:250|350)"
+        },
+        "oui": [
+          "28:94:01",
+          "b0:7f:b9",
+          "08:bd:43",
+          "9c:d3:6d",
+          "a0:40:a0",
+          "3c:37:86"
+        ],
+        "manufacturer_alias": [
+          "netgear"
+        ]
+      }
+    },
+    {
       "id": "novastar_h_series",
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
@@ -2877,6 +2949,111 @@
         },
         "oui": [
           "00:60:74"
+        ]
+      }
+    },
+    {
+      "id": "roku_ecp",
+      "name": "Roku (ECP)",
+      "manufacturer": "Roku",
+      "category": "streaming",
+      "version": "1.0.1",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Roku streaming players and Roku TVs over the local network using the External Control Protocol (ECP). Full remote surface, text entry, app launch/install, and TV power, volume, input, and tuner control on supported models.",
+      "source_url": "https://developer.roku.com/docs/developer-program/dev-tools/external-control-api.md",
+      "file": "streaming/roku_ecp.py",
+      "format": "python",
+      "ports": [
+        8060
+      ],
+      "protocols": [
+        "roku_ecp"
+      ],
+      "simulated": true,
+      "tags": [
+        "roku",
+        "streaming",
+        "media-player",
+        "source",
+        "ecp"
+      ],
+      "help": {
+        "overview": "Controls Roku streaming players and Roku TVs over the local network using Roku's External Control Protocol (ECP). Provides the full remote-control surface (navigation, transport, search, and on-screen text entry), app launch and install, and TV power, volume, input, and tuner control on supported models. Reports power state, the currently active app, and media playback status. No Roku account, PIN, or cloud connection is required, and it works with third-party Roku TVs too.",
+        "setup": "1. Connect the Roku to the same network and note its IP address (Settings > Network > About, or the Roku mobile app).\n2. On the Roku, set Settings > System > Control by mobile apps > Network access to 'Default' or 'Permissive' (NOT 'Disabled'). Roku OS 14.1 and later block remote key presses when this is off; the driver then reports Mobile Control Enabled = false and key presses return HTTP 403.\n3. Enter the IP address. The port is 8060 (do not change).\n4. No PIN, password, or account is needed.\n5. To launch an app, use Launch App with its channel ID. Find an installed app's ID by opening it and reading the Active App ID state, or browse http://<roku-ip>:8060/query/apps in a browser. Common IDs: Netflix 12, Amazon Prime Video 13."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Roku",
+          "models": [
+            "Roku Ultra",
+            "Roku Express",
+            "Roku Express 4K",
+            "Roku Streaming Stick",
+            "Roku Streaming Stick 4K",
+            "Roku Premiere",
+            "Roku Streambar",
+            "Roku TV"
+          ],
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 8060,
+          "send_ascii": "GET /query/device-info HTTP/1.0\r\n\r\n",
+          "expect": "<device-info",
+          "extract": {
+            "model": {
+              "regex": "<model-name>([^<]+)</model-name>",
+              "group": 1
+            }
+          }
+        },
+        "ssdp": [
+          "roku:ecp"
+        ],
+        "oui": [
+          "00:0d:4b",
+          "08:05:81",
+          "10:59:32",
+          "20:ef:bd",
+          "34:5e:08",
+          "50:06:f5",
+          "54:4e:f0",
+          "60:92:c8",
+          "7c:67:ab",
+          "84:ea:ed",
+          "88:de:a9",
+          "8c:49:62",
+          "9c:f1:d4",
+          "a8:b5:7c",
+          "ac:3a:7a",
+          "ac:ae:19",
+          "b0:a7:37",
+          "b0:ee:7b",
+          "b8:3e:59",
+          "b8:a1:75",
+          "bc:d7:d4",
+          "c8:3a:6b",
+          "cc:6d:a0",
+          "d0:4d:2c",
+          "d4:be:dc",
+          "d4:e2:2f",
+          "d8:31:34",
+          "dc:3a:5e",
+          "ec:9b:75",
+          "f8:b2:2c"
+        ],
+        "hostname": [
+          "^Roku"
+        ],
+        "port_open": [
+          8060
+        ],
+        "manufacturer_alias": [
+          "Roku"
         ]
       }
     },
@@ -3567,7 +3744,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",

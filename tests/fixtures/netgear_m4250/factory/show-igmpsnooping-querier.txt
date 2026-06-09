@@ -1,0 +1,11 @@
+show igmpsnooping querier
+
+Global IGMP Snooping querier status
+-----------------------------------
+IGMP Snooping Querier Mode..................... Enable
+Querier Address................................ 169.254.100.100
+IGMP Version................................... 2
+Querier Query Interval......................... 60
+Querier Expiry Interval........................ 180
+
+(M4250-40G8XF-PoE+)#

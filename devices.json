@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-02T01:24:23+00:00",
+    "generated_at": "2026-06-09T01:48:03+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 540,
+    "total_devices": 550,
     "shards": null
   },
   "devices": [
@@ -3574,6 +3574,30 @@
       ]
     },
     {
+      "manufacturer": "NETGEAR",
+      "model": "M4250 series",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "netgear_m4250_m4350",
+          "confidence": "full",
+          "notes": "Validated against an M4250-40G8XF-PoE+ (software 13.0.5.14): PoE draw/control, ports, IGMP/multicast, system health, config save, and reboot exercised on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "NETGEAR",
+      "model": "M4350 series",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "netgear_m4250_m4350",
+          "confidence": "untested",
+          "notes": "Shares the CLI per the M4250/M4350 CLI Reference Manual; not yet validated on M4350 hardware."
+        }
+      ]
+    },
+    {
       "manufacturer": "Novastar",
       "model": "H15",
       "category": "video",
@@ -4806,6 +4830,102 @@
           "id": "qsc_qrc",
           "confidence": "untested",
           "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Express",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Express 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Premiere",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Streambar",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Streaming Stick",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Streaming Stick 4K",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku TV",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Roku",
+      "model": "Roku Ultra",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "roku_ecp",
+          "confidence": "untested",
+          "notes": "Any Roku device with 'Control by mobile apps' enabled, including third-party Roku TVs (TCL, Hisense, onn, etc.). Power, volume, and input/tuner keys apply to models that report supports-tv-power-control."
         }
       ]
     },

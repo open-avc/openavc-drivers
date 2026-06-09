@@ -207,7 +207,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.7",
+        "version": "1.4.8",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -295,6 +295,24 @@ class ChazyControlProDriver(BaseDriver):
                 "them here."
             ),
         },
+        # Quick Action strip: promote the device-enrollment workflow (and the
+        # controller reboot) to one-click buttons at the top of the device view,
+        # so they aren't buried in the 200+ entry Send Command list. Labels are
+        # inherited from each command; reboot confirms first (it drops control).
+        "actions": [
+            {"id": "discover_add_all", "kind": "command", "icon": "radar"},
+            {"id": "search", "kind": "command", "icon": "search"},
+            {"id": "add_auto_all", "kind": "command", "icon": "circle-plus"},
+            {
+                "id": "reboot_controller",
+                "kind": "command",
+                "icon": "rotate-ccw",
+                "confirm": (
+                    "Reboot the Chazy controller now? Control is lost until it "
+                    "finishes restarting."
+                ),
+            },
+        ],
         "default_config": {
             "host": "",
             "port": 23,

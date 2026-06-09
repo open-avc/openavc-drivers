@@ -167,6 +167,21 @@
       },
       "description": "Commands this driver can send. Keyed by command name."
     },
+    "quick_actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Command ids promoted to one-click Quick Action buttons at the top of the device view. Sugar for actions of kind \"command\". Each id must name a declared command."
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/actionEntry"
+      },
+      "description": "Driver-declared actions promoted to buttons in the device view. kind:\"command\" promotes a declared command (runs online); kind:\"setup\" is an offline-capable provisioning wizard handled by the driver's run_setup_action()."
+    },
     "responses": {
       "type": "array",
       "items": {
@@ -276,9 +291,14 @@
         "setup": {
           "type": "string",
           "minLength": 1
+        },
+        "connection": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional short troubleshooting hint shown on the device's offline banner when it can't connect (e.g. a remote-access setting that must be enabled on the device first)."
         }
       },
-      "description": "Help text shown in the Add Device dialog and available to the AI assistant. Both fields required."
+      "description": "Help text shown in the Add Device dialog and available to the AI assistant. overview + setup are required; connection is optional."
     },
     "compatibleModelsEntry": {
       "type": "object",
@@ -545,6 +565,109 @@
       "additionalProperties": true,
       "description": "A command must declare one of: send (TCP/serial/UDP), path/method (HTTP), or address (OSC)."
     },
+    "actionEntry": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique action id within the driver."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["command"],
+          "description": "Promotes a declared command (runs online via send_command). Default and only value for .avcdriver drivers. Offline-capable 'setup' provisioning wizards require a Python driver with a run_setup_action() handler."
+        },
+        "label": {
+          "type": "string",
+          "description": "Button label. Defaults to the promoted command's label, else the id."
+        },
+        "icon": {
+          "type": "string",
+          "description": "lucide icon name (kebab-case), e.g. power, shield, search, radar."
+        },
+        "confirm": {
+          "type": ["boolean", "string"],
+          "description": "Confirm before running. true for a generic prompt, or a custom message string."
+        },
+        "availability": {
+          "type": "string",
+          "enum": ["online", "offline", "always"],
+          "description": "When the button shows. online (default) hides while offline; offline shows only while offline; always ignores connection state."
+        },
+        "command": {
+          "type": "string",
+          "description": "kind:\"command\" only — the command id to send. Defaults to the action id."
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/paramEntry"
+          },
+          "description": "Input dialog fields. For kind:\"command\", defaults to the promoted command's params."
+        },
+        "visible_when": {
+          "$ref": "#/$defs/visibleWhen"
+        }
+      },
+      "additionalProperties": true,
+      "description": "A promoted action. kind:\"command\" must resolve to a declared command (the command field, or the id)."
+    },
+    "visibleWhen": {
+      "description": "Show the action only when a state condition holds. A single {key, operator, value} condition, or an {any:[...]} (OR) / {all:[...]} (AND) group. key may use $id for the device's own id.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/visibleWhenCondition"
+        },
+        {
+          "type": "object",
+          "required": ["any"],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/visibleWhenCondition"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["all"],
+          "properties": {
+            "all": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/visibleWhenCondition"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visibleWhenCondition": {
+      "type": "object",
+      "required": ["key"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "State key compared against. May contain $id (replaced with the device id)."
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["eq", "ne", "gt", "lt", "gte", "lte", "truthy", "falsy", "equals", "not_equals", "==", "!=", ">", "<", ">=", "<="],
+          "description": "Comparison operator. Default eq."
+        },
+        "value": {
+          "description": "Value to compare against (not needed for truthy/falsy)."
+        }
+      },
+      "additionalProperties": true
+    },
     "mappingEntry": {
       "type": "object",
       "properties": {
@@ -619,18 +742,21 @@
     },
     "authBlock": {
       "type": "object",
+      "description": "Telnet-style login handshake. Only valid on tcp/serial transports (it reads a raw byte stream); declaring it on udp/http/osc is rejected at load time. username_prompt and password_prompt are required. All four regexes are checked for catastrophic backtracking since they run on raw pre-auth device bytes.",
+      "required": ["username_prompt", "password_prompt"],
       "properties": {
         "type": {
           "type": "string",
-          "description": "Handshake type. Only telnet_login is implemented; other values skip the handshake."
+          "enum": ["telnet_login"],
+          "description": "Handshake type. Only telnet_login is implemented and accepted."
         },
         "username_prompt": {
           "type": "string",
-          "description": "Regex matched against the device's username prompt."
+          "description": "Regex matched against the device's username prompt. Required."
         },
         "password_prompt": {
           "type": "string",
-          "description": "Regex matched against the device's password prompt."
+          "description": "Regex matched against the device's password prompt. Required."
         },
         "success_pattern": {
           "type": "string",
@@ -673,15 +799,16 @@
         },
         "header_size": {
           "type": "integer",
-          "description": "length_prefix: bytes holding the length. Default 2."
+          "enum": [1, 2, 4],
+          "description": "length_prefix: big-endian bytes holding the body length. Must be 1, 2, or 4. Default 2."
         },
         "header_offset": {
           "type": "integer",
-          "description": "length_prefix: offset of the length field. Default 0."
+          "description": "length_prefix: added to the length the header decodes to. Use a negative value (e.g. -header_size) when the length field counts the header bytes themselves, so only the body is read. Default 0."
         },
         "include_header": {
           "type": "boolean",
-          "description": "length_prefix: whether the length includes the header itself. Default false."
+          "description": "length_prefix: whether the parsed frame includes the header bytes (true) or just the body (false). Default false."
         },
         "length": {
           "type": "integer",

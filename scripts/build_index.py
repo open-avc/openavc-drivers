@@ -65,7 +65,10 @@ DRIVER_CATEGORIES = (
     "projector", "display", "switcher", "audio", "camera",
     "video", "streaming", "lighting", "power", "utility",
 )
-DRIVER_TRANSPORTS = ("tcp", "udp", "http", "osc", "serial")
+# "ssh" is for Python CLI drivers using the platform SSH transport (the OS
+# OpenSSH client). Declarative .avcdriver/YAML drivers can't drive an SSH CLI
+# session, so the YAML schema (avcdriver.schema.json) intentionally omits it.
+DRIVER_TRANSPORTS = ("tcp", "udp", "http", "osc", "serial", "ssh")
 CONFIDENCE_VALUES = ("full", "partial", "untested")
 
 DRIVER_DIRS = (
@@ -86,6 +89,8 @@ class HelpBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     overview: str = Field(min_length=1)
     setup: str = Field(min_length=1)
+    # Optional troubleshooting hint shown on the device's offline banner.
+    connection: str | None = Field(default=None, min_length=1)
 
 
 class CompatibleModelsEntry(BaseModel):
@@ -763,6 +768,80 @@ def _validate_amx_ddp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, s
     return (errors, {"make": make, "model_pattern": str(model_pattern)})
 
 
+# Catastrophic-backtracking detection. Mirrors the platform runtime validator
+# (server/drivers/driver_loader.py); kept self-contained (stdlib only) because
+# this script runs in CI without an openavc install.
+_NESTED_QUANT_RE = re.compile(r"\((?:\\.|\[[^\]]*\]|[^()\[\]\\*+?])[*+]\)[*+]")
+_ALT_QUANT_RE = re.compile(r"\(([^()]*\|[^()]*)\)[*+]")
+
+
+def _regex_backtracking_reason(pattern: str) -> str | None:
+    """Return why a regex risks catastrophic backtracking, or None if it looks safe."""
+    if _NESTED_QUANT_RE.search(pattern):
+        return "nested quantifier"
+    for m in _ALT_QUANT_RE.finditer(pattern):
+        alts = m.group(1).split("|")
+        if len(set(alts)) != len(alts):
+            return "duplicate alternatives under a quantifier"
+        for a in alts:
+            for b in alts:
+                if a and a != b and b.startswith(a):
+                    return "overlapping alternatives under a quantifier"
+    return None
+
+
+def _validate_auth_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate a driver's optional `auth:` login handshake.
+
+    Mirrors the runtime rules in driver_loader.validate_driver_definition:
+    telnet_login only, tcp/serial only, both prompts required, and all four
+    prompt/pattern regexes compile and don't risk catastrophic backtracking
+    (they run synchronously on raw pre-auth device bytes).
+    """
+    errors: list[str] = []
+    auth = data.get("auth")
+    if auth is None:
+        return errors
+    if not isinstance(auth, dict):
+        errors.append(f"{file}: auth must be a mapping")
+        return errors
+
+    atype = auth.get("type", "telnet_login")
+    if atype != "telnet_login":
+        errors.append(f"{file}: auth.type '{atype}' is unsupported (only telnet_login)")
+
+    transport = data.get("transport", "")
+    if transport and transport not in ("tcp", "serial"):
+        errors.append(
+            f"{file}: auth login handshake is only valid on tcp/serial "
+            f"transports, not '{transport}'"
+        )
+
+    for required in ("username_prompt", "password_prompt"):
+        if not auth.get(required):
+            errors.append(f"{file}: auth missing required '{required}'")
+
+    for key in ("username_prompt", "password_prompt", "success_pattern", "failure_pattern"):
+        pat = auth.get(key)
+        if not pat:
+            continue
+        if not isinstance(pat, str):
+            errors.append(f"{file}: auth.{key} must be a string")
+            continue
+        try:
+            re.compile(pat)
+        except re.error as exc:
+            errors.append(f"{file}: auth.{key} failed to compile: {exc}")
+            continue
+        reason = _regex_backtracking_reason(pat)
+        if reason:
+            errors.append(
+                f"{file}: auth.{key} has a {reason} that can cause catastrophic "
+                f"backtracking against pre-auth device bytes"
+            )
+    return errors
+
+
 def _validate_discovery_block(
     file: str, raw: dict[str, Any], *, yaml_dir: Path | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
@@ -1309,6 +1388,179 @@ def _load_devices_extra(repo_root: Path) -> list[dict[str, Any]]:
     return data.get("devices", []) if isinstance(data, dict) else []
 
 
+def _validate_frame_parser_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate the optional frame_parser block against the runtime's limits.
+
+    Mirrors server/drivers/driver_loader.validate_driver_definition: the runtime
+    LengthPrefixFrameParser only accepts header_size in {1, 2, 4} and
+    FixedLengthFrameParser needs a positive length. An out-of-range value would
+    crash connect() and wedge the device in a reconnect loop, so reject it at
+    catalog-build time. Stdlib-only so the drivers repo CI stays self-contained.
+    """
+    errors: list[str] = []
+    fp = data.get("frame_parser")
+    if fp is None:
+        return errors
+    if not isinstance(fp, dict):
+        return [f"{file}: frame_parser must be a mapping"]
+    fp_type = fp.get("type", "")
+    if fp_type == "length_prefix":
+        header_size = fp.get("header_size", 2)
+        if header_size not in (1, 2, 4):
+            errors.append(
+                f"{file}: frame_parser.header_size must be 1, 2, or 4 (got {header_size!r})"
+            )
+        offset = fp.get("header_offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, int):
+            errors.append(
+                f"{file}: frame_parser.header_offset must be an integer (got {offset!r})"
+            )
+    elif fp_type == "fixed_length":
+        length = fp.get("length", 1)
+        if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
+            errors.append(
+                f"{file}: frame_parser.length must be a positive integer (got {length!r})"
+            )
+    elif fp_type:
+        errors.append(
+            f"{file}: frame_parser.type '{fp_type}' is not "
+            f"'length_prefix' or 'fixed_length'"
+        )
+    else:
+        errors.append(f"{file}: frame_parser is missing 'type'")
+    return errors
+
+
+_ACTION_KINDS = ("command", "setup")
+_ACTION_AVAILABILITIES = ("online", "offline", "always")
+_VISIBLE_WHEN_OPERATORS = frozenset({
+    "eq", "ne", "gt", "lt", "gte", "lte", "truthy", "falsy",
+    "equals", "not_equals", "==", "!=", ">", "<", ">=", "<=",
+})
+
+
+def _validate_visible_when(where: str, vw: Any) -> list[str]:
+    if vw is None:
+        return []
+    if not isinstance(vw, dict):
+        return [f"{where}: 'visible_when' must be a mapping"]
+
+    def _validate_condition(cwhere: str, cond: Any) -> list[str]:
+        if not isinstance(cond, dict):
+            return [f"{cwhere}: condition must be a mapping"]
+        errs: list[str] = []
+        if not isinstance(cond.get("key"), str) or not cond.get("key"):
+            errs.append(f"{cwhere}: condition missing 'key' (state key string)")
+        op = cond.get("operator", "eq")
+        if op not in _VISIBLE_WHEN_OPERATORS:
+            errs.append(f"{cwhere}: unknown operator '{op}'")
+        return errs
+
+    errors: list[str] = []
+    if "any" in vw or "all" in vw:
+        for group_key in ("any", "all"):
+            if group_key not in vw:
+                continue
+            group = vw[group_key]
+            if not isinstance(group, list) or not group:
+                errors.append(
+                    f"{where}: visible_when.{group_key} must be a non-empty list"
+                )
+                continue
+            for j, cond in enumerate(group):
+                errors.extend(
+                    _validate_condition(f"{where}: visible_when.{group_key}[{j}]", cond)
+                )
+    else:
+        errors.extend(_validate_condition(f"{where}: visible_when", vw))
+    return errors
+
+
+def _validate_actions_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate the optional actions / quick_actions blocks (Quick Action strip).
+
+    Mirrors server/drivers/actions.validate_actions in the platform; kept
+    stdlib-only here so the drivers repo CI stays self-contained.
+    """
+    errors: list[str] = []
+    commands = data.get("commands")
+    command_ids = set(commands.keys()) if isinstance(commands, dict) else set()
+
+    quick = data.get("quick_actions")
+    if quick is not None:
+        if not isinstance(quick, list):
+            errors.append(f"{file}: quick_actions must be a list of command ids")
+        else:
+            for i, cid in enumerate(quick):
+                if not isinstance(cid, str) or not cid:
+                    errors.append(
+                        f"{file}: quick_actions[{i}] must be a non-empty command id"
+                    )
+                elif command_ids and cid not in command_ids:
+                    errors.append(
+                        f"{file}: quick_actions[{i}] '{cid}' is not a declared command"
+                    )
+
+    actions = data.get("actions")
+    if actions is not None:
+        if not isinstance(actions, list):
+            errors.append(f"{file}: actions must be a list")
+            return errors
+        seen: set[str] = set()
+        for i, entry in enumerate(actions):
+            where = f"{file}: actions[{i}]"
+            if not isinstance(entry, dict):
+                errors.append(f"{where}: must be a mapping")
+                continue
+            action_id = entry.get("id")
+            if not isinstance(action_id, str) or not action_id:
+                errors.append(f"{where}: missing required 'id' (non-empty string)")
+            else:
+                if action_id in seen:
+                    errors.append(f"{where}: duplicate action id '{action_id}'")
+                seen.add(action_id)
+            kind = entry.get("kind", "command")
+            if kind not in _ACTION_KINDS:
+                errors.append(
+                    f"{where}: unknown kind '{kind}' (expected {list(_ACTION_KINDS)})"
+                )
+            elif kind == "setup" and file.endswith(".avcdriver"):
+                # A .avcdriver is interpreted by ConfigurableDriver, which has no
+                # run_setup_action handler — kind:"setup" can't do anything there.
+                errors.append(
+                    f"{where}: kind 'setup' requires a Python driver "
+                    f"(a run_setup_action handler); .avcdriver drivers support "
+                    f"kind 'command' only"
+                )
+            if entry.get("label") is not None and not isinstance(entry.get("label"), str):
+                errors.append(f"{where}: 'label' must be a string")
+            if entry.get("icon") is not None and not isinstance(entry.get("icon"), str):
+                errors.append(f"{where}: 'icon' must be a string (lucide icon name)")
+            avail = entry.get("availability")
+            if avail is not None and avail not in _ACTION_AVAILABILITIES:
+                errors.append(
+                    f"{where}: 'availability' must be one of {list(_ACTION_AVAILABILITIES)}"
+                )
+            confirm = entry.get("confirm")
+            if confirm is not None and not isinstance(confirm, (bool, str)):
+                errors.append(f"{where}: 'confirm' must be a boolean or a message string")
+            params = entry.get("params")
+            if params is not None and not isinstance(params, dict):
+                errors.append(f"{where}: 'params' must be a mapping")
+            errors.extend(_validate_visible_when(where, entry.get("visible_when")))
+            if kind == "command" and isinstance(action_id, str) and action_id:
+                command_id = entry.get("command")
+                if command_id is not None and not isinstance(command_id, str):
+                    errors.append(f"{where}: 'command' must be a string")
+                else:
+                    target = command_id or action_id
+                    if command_ids and target not in command_ids:
+                        errors.append(
+                            f"{where}: command '{target}' is not a declared command"
+                        )
+    return errors
+
+
 def _format_validation_errors(file: str, exc: ValidationError) -> list[str]:
     out: list[str] = []
     for err in exc.errors():
@@ -1428,6 +1680,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"`interval:` key from the `polling:` block; set the cadence "
                 f"via `default_config.poll_interval` instead."
             )
+
+        errors.extend(_validate_auth_block(rel, data))
+        errors.extend(_validate_frame_parser_block(rel, data))
+        errors.extend(_validate_actions_block(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

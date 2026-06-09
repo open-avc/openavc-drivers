@@ -1,0 +1,80 @@
+show port all
+
+                 Admin     Physical   Physical   Link   Link    LACP   Flow
+Intf      Type   Mode      Mode       Status     Status Trap    Mode   Mode
+--------- ------ --------- ---------- ---------- ------ ------- ------ -------
+0/1              Enable    Auto                  Down   Enable  Enable Disable
+0/2              Enable    Auto                  Down   Enable  Enable Disable
+0/3              Enable    Auto                  Down   Enable  Enable Disable
+0/4              Enable    Auto                  Down   Enable  Enable Disable
+0/5              Enable    Auto                  Down   Enable  Enable Disable
+0/6              Enable    Auto                  Down   Enable  Enable Disable
+0/7              Enable    Auto                  Down   Enable  Enable Disable
+0/8              Enable    Auto                  Down   Enable  Enable Disable
+0/9              Enable    Auto                  Down   Enable  Enable Disable
+0/10             Enable    Auto                  Down   Enable  Enable Disable
+0/11             Enable    Auto                  Down   Enable  Enable Disable
+0/12             Enable    Auto                  Down   Enable  Enable Disable
+0/13             Enable    Auto                  Down   Enable  Enable Disable
+0/14             Enable    Auto                  Down   Enable  Enable Disable
+0/15             Enable    Auto                  Down   Enable  Enable Disable
+0/16             Enable    Auto                  Down   Enable  Enable Disable
+0/17             Enable    Auto                  Down   Enable  Enable Disable
+0/18             Enable    Auto                  Down   Enable  Enable Disable
+0/19             Enable    Auto                  Down   Enable  Enable Disable
+0/20             Enable    Auto                  Down   Enable  Enable Disable
+0/21             Enable    Auto                  Down   Enable  Enable Disable
+0/22             Enable    Auto                  Down   Enable  Enable Disable
+0/23             Enable    Auto                  Down   Enable  Enable Disable
+0/24             Enable    Auto                  Down   Enable  Enable Disable
+0/25             Enable    Auto                  Down   Enable  Enable Disable
+0/26             Enable    Auto                  Down   Enable  Enable Disable
+0/27             Enable    Auto                  Down   Enable  Enable Disable
+0/28             Enable    Auto                  Down   Enable  Enable Disable
+0/29             Enable    Auto                  Down   Enable  Enable Disable
+0/30             Enable    Auto                  Down   Enable  Enable Disable
+0/31             Enable    Auto                  Down   Enable  Enable Disable
+0/32             Enable    Auto                  Down   Enable  Enable Disable
+0/33             Enable    Auto                  Down   Enable  Enable Disable
+0/34             Enable    Auto                  Down   Enable  Enable Disable
+0/35             Enable    Auto                  Down   Enable  Enable Disable
+0/36             Enable    Auto                  Down   Enable  Enable Disable
+0/37             Enable    Auto       1000 Full  Up     Enable  Enable Disable
+0/38             Enable    Auto                  Down   Enable  Enable Disable
+0/39             Enable    Auto                  Down   Enable  Enable Disable
+0/40             Enable    Auto                  Down   Enable  Enable Disable
+0/41             Enable    10G Full              Down   Enable  Enable Disable
+0/42             Enable    10G Full              Down   Enable  Enable Disable
+0/43             Enable    10G Full              Down   Enable  Enable Disable
+0/44             Enable    10G Full              Down   Enable  Enable Disable
+0/45             Enable    10G Full              Down   Enable  Enable Disable
+0/46             Enable    10G Full              Down   Enable  Enable Disable
+0/47             Enable    10G Full              Down   Enable  Enable Disable
+0/48             Enable    10G Full              Down   Enable  Enable Disable
+lag 1            Enable                          Down   Disable N/A    Disable
+lag 2            Enable                          Down   Disable N/A    Disable
+lag 3            Enable                          Down   Disable N/A    Disable
+lag 4            Enable                          Down   Disable N/A    Disable
+lag 5            Enable                          Down   Disable N/A    Disable
+lag 6            Enable                          Down   Disable N/A    Disable
+lag 7            Enable                          Down   Disable N/A    Disable
+lag 8            Enable                          Down   Disable N/A    Disable
+lag 9            Enable                          Down   Disable N/A    Disable
+lag 10           Enable                          Down   Disable N/A    Disable
+lag 11           Enable                          Down   Disable N/A    Disable
+lag 12           Enable                          Down   Disable N/A    Disable
+lag 13           Enable                          Down   Disable N/A    Disable
+lag 14           Enable                          Down   Disable N/A    Disable
+lag 15           Enable                          Down   Disable N/A    Disable
+lag 16           Enable                          Down   Disable N/A    Disable
+lag 17           Enable                          Down   Disable N/A    Disable
+lag 18           Enable                          Down   Disable N/A    Disable
+lag 19           Enable                          Down   Disable N/A    Disable
+lag 20           Enable                          Down   Disable N/A    Disable
+lag 21           Enable                          Down   Disable N/A    Disable
+lag 22           Enable                          Down   Disable N/A    Disable
+lag 23           Enable                          Down   Disable N/A    Disable
+lag 24           Enable                          Down   Disable N/A    Disable
+vlan 1           Enable                          Up     Enable  N/A    Disable
+
+(M4250-40G8XF-PoE+)#

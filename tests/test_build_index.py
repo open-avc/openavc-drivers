@@ -634,3 +634,48 @@ def test_devices_extra_collision_with_driver_rejected(tmp_path: Path) -> None:
     rc, _, err = _run(tmp_path)
     assert rc != 0
     assert "Model-X" in err
+
+
+# --- frame_parser validation (mirrors the runtime loader's limits) ----------
+
+
+def test_frame_parser_valid_header_sizes() -> None:
+    for size in (1, 2, 4):
+        data = {"frame_parser": {"type": "length_prefix", "header_size": size}}
+        assert build_index._validate_frame_parser_block("x.avcdriver", data) == []
+
+
+def test_frame_parser_bad_header_size() -> None:
+    for bad in (3, 8, 0):
+        data = {"frame_parser": {"type": "length_prefix", "header_size": bad}}
+        errs = build_index._validate_frame_parser_block("x.avcdriver", data)
+        assert any("header_size" in e for e in errs), bad
+
+
+def test_frame_parser_negative_offset_ok() -> None:
+    data = {"frame_parser": {"type": "length_prefix", "header_size": 2,
+                             "header_offset": -2}}
+    assert build_index._validate_frame_parser_block("x.avcdriver", data) == []
+
+
+def test_frame_parser_bad_offset_type() -> None:
+    data = {"frame_parser": {"type": "length_prefix", "header_offset": "two"}}
+    errs = build_index._validate_frame_parser_block("x.avcdriver", data)
+    assert any("header_offset" in e for e in errs)
+
+
+def test_frame_parser_fixed_length() -> None:
+    ok = {"frame_parser": {"type": "fixed_length", "length": 8}}
+    assert build_index._validate_frame_parser_block("x.avcdriver", ok) == []
+    bad = {"frame_parser": {"type": "fixed_length", "length": 0}}
+    assert any("length" in e for e in build_index._validate_frame_parser_block("x.avcdriver", bad))
+
+
+def test_frame_parser_unknown_type() -> None:
+    data = {"frame_parser": {"type": "crc16"}}
+    errs = build_index._validate_frame_parser_block("x.avcdriver", data)
+    assert any("crc16" in e or "type" in e for e in errs)
+
+
+def test_frame_parser_absent_is_ok() -> None:
+    assert build_index._validate_frame_parser_block("x.avcdriver", {}) == []

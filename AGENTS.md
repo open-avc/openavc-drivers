@@ -521,6 +521,7 @@ child_entity_types:
 ```
 
 **Rules:**
+- The child type name (the YAML key, e.g. `encoder`) becomes a state-key segment (`device.<id>.<child_type>...`) and feeds the platform's per-child subscription matching, so it must not contain dots or glob metacharacters (`. * ? [`). Stick to plain identifiers (letters, digits, `_`, `-`). The loader rejects a driver that violates this.
 - `id_format.type` must be `integer`. `min` defaults to 1; `max` is optional (unbounded if omitted); `pad_width` zero-pads the ID in state keys (0 = no padding).
 - `state_variables` uses the same schema as device `state_variables` (types: `string`, `integer`, `number`, `float`, `boolean`, `enum`). The platform always injects a boolean `online` and a string `label` per child — do not declare those.
 - `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.

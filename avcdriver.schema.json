@@ -155,6 +155,10 @@
     },
     "child_entity_types": {
       "type": "object",
+      "propertyNames": {
+        "pattern": "^[^.*?\\[]+$",
+        "description": "Child type names become state-key segments (device.<id>.<child_type>...) and feed fnmatch dispatch, so they must not contain dots or glob metacharacters (. * ? [)."
+      },
       "additionalProperties": {
         "$ref": "#/$defs/childEntityType"
       },

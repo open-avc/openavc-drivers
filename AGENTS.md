@@ -137,6 +137,8 @@ discovery:
     expect_regex: "NovaStar"
     cross_vendor: false
     extract_manufacturer: "NovaStar"
+    timeout_ms: 2000                    # optional, default 2000 for UDP
+                                        # (tcp_probe defaults to 3000), max 10000
 
   python:
     file: ./pjlink_class1_discovery.py  # path relative to driver YAML

@@ -65,6 +65,12 @@ _PAGER_STRIP_RE = re.compile(r"--More-- or \(q\)uit[^\n]*")
 # password for user 'admin'." -> "New password:" -> "Re-enter new password:").
 _FORCED_PW_RE = re.compile(r"new password|change the default password", re.I)
 
+# Telnet IAC option negotiation. A real switch negotiates options the moment a
+# telnet session opens; SSH and the bundled simulator never do. We decline every
+# option (line-oriented CLI needs none) and strip the IAC bytes so they don't
+# pollute prompt matching. Values per RFC 854.
+_IAC, _DONT, _DO, _WONT, _WILL, _SB, _SE = 255, 254, 253, 252, 251, 250, 240
+
 PORT_MAX = 99999  # encoded id ceiling (unit*10000 + slot*1000 + port)
 
 
@@ -533,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.0",
+        "version": "1.4.1",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (
@@ -795,6 +801,7 @@ class NetgearM4250M4350Driver(BaseDriver):
 
     def __init__(self, device_id: str, config: dict[str, Any], state, events) -> None:
         self._rx_buffer = ""
+        self._iac_buf = b""   # unparsed raw bytes (possible partial telnet IAC)
         self._responses: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
         self._cmd_lock = asyncio.Lock()
         self._poll_count = 0
@@ -810,11 +817,59 @@ class NetgearM4250M4350Driver(BaseDriver):
 
     # ── CLI framing ──
 
+    def _demux_telnet_iac(self, data: bytes) -> tuple[str, bytes]:
+        """Pull Telnet IAC negotiation out of the raw byte stream. Returns the
+        cleaned text plus any bytes we owe the peer (refusals: IAC WONT/DONT for
+        every IAC DO/WILL). Partial sequences are buffered across chunks. SSH and
+        the simulator never send IAC, so this fast-paths to a plain decode.
+        """
+        if _IAC not in data and not self._iac_buf:
+            return data.decode("latin-1", errors="replace"), b""
+        b = self._iac_buf + data
+        i = 0
+        cleaned = bytearray()
+        refusals = bytearray()
+        while i < len(b):
+            c = b[i]
+            if c != _IAC:
+                cleaned.append(c)
+                i += 1
+                continue
+            if i + 1 >= len(b):
+                break  # partial IAC — wait for the next chunk
+            cmd = b[i + 1]
+            if cmd in (_DO, _DONT, _WILL, _WONT):
+                if i + 2 >= len(b):
+                    break  # partial option byte
+                opt = b[i + 2]
+                if cmd == _DO:
+                    refusals += bytes([_IAC, _WONT, opt])
+                elif cmd == _WILL:
+                    refusals += bytes([_IAC, _DONT, opt])
+                i += 3
+                continue
+            if cmd == _SB:                       # subnegotiation: skip to IAC SE
+                end = b.find(bytes([_IAC, _SE]), i + 2)
+                if end == -1:
+                    break
+                i = end + 2
+                continue
+            if cmd == _IAC:                      # escaped literal 0xFF
+                cleaned.append(_IAC)
+                i += 2
+                continue
+            i += 2                               # other 2-byte command (NOP/AYT/…)
+        self._iac_buf = b[i:]
+        return cleaned.decode("latin-1", errors="replace"), bytes(refusals)
+
     async def on_data_received(self, data: bytes) -> None:
         """Accumulate the byte stream and emit one (text, boundary) unit each
         time the device pauses at a prompt or interactive sub-prompt.
         """
-        self._rx_buffer += _ANSI_RE.sub("", data.decode("latin-1", errors="replace"))
+        text, refusals = self._demux_telnet_iac(data)
+        if refusals:
+            await self._safe_send(refusals)
+        self._rx_buffer += _ANSI_RE.sub("", text)
 
         # Auto-answer the pager if it ever appears (terminal length 0 normally
         # prevents it). Advance a page with a space.
@@ -904,6 +959,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         detect the switch family. Runs (via BaseDriver.connect) right after the
         transport opens and before the device is marked connected.
         """
+        self._iac_buf = b""   # fresh telnet IAC state for this (re)connect
         # Banner ends at the first prompt/sub-prompt.
         try:
             _text, kind = await asyncio.wait_for(self._responses.get(), timeout=15.0)
@@ -1050,6 +1106,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         CLI framing. The device's normal SSH transport is offline, so
         self.transport is free to borrow for the provisioning run.
         """
+        self._iac_buf = b""   # fresh telnet IAC state for this session
         self.transport = await TCPTransport.create(
             host=host, port=23,
             on_data=self.on_data_received,

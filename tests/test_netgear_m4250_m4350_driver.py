@@ -323,6 +323,10 @@ class _ScriptedSwitch:
 
     async def send(self, data):
         self.sent.append(data)
+        # A telnet IAC refusal (starts with 0xFF) isn't a command, so it must
+        # not consume a scripted response — only real command lines advance.
+        if data[:1] == b"\xff":
+            return
         if self._script:
             await self._on_data(self._script.pop(0))
 
@@ -356,6 +360,62 @@ def test_login_re_frames_user_and_password_prompts():
         await d.on_data_received(b"\r\nPassword: ")
         _text, kind = d._responses.get_nowait()
         assert kind == "password"
+    asyncio.run(run())
+
+
+def test_telnet_iac_negotiation_is_stripped_and_declined():
+    async def run():
+        d, _state = _new_driver()
+        sent = []
+
+        class _Rec:
+            connected = True
+            last_error = ""
+
+            async def send(self, data):
+                sent.append(data)
+
+            async def close(self):
+                self.connected = False
+
+        d.transport = _Rec()
+        IAC, DO, WILL, WONT, DONT, ECHO, SGA = 255, 253, 251, 252, 254, 1, 3
+        # A real switch leads with IAC option negotiation, then the login prompt.
+        await d.on_data_received(
+            bytes([IAC, DO, ECHO, IAC, WILL, SGA]) + b"\r\r\nUser: ")
+        # The prompt frames cleanly as "login" with no IAC bytes leaking in.
+        text, kind = d._responses.get_nowait()
+        assert kind == "login"
+        assert "\xff" not in text
+        # We declined both negotiated options.
+        joined = b"".join(sent)
+        assert bytes([IAC, WONT, ECHO]) in joined
+        assert bytes([IAC, DONT, SGA]) in joined
+    asyncio.run(run())
+
+
+def test_telnet_iac_split_across_chunks_is_buffered():
+    async def run():
+        d, _state = _new_driver()
+
+        class _Rec:
+            connected = True
+            last_error = ""
+
+            async def send(self, data):
+                pass
+
+            async def close(self):
+                pass
+
+        d.transport = _Rec()
+        IAC, DO, ECHO = 255, 253, 1
+        # IAC DO ECHO split mid-sequence across two reads, then the prompt.
+        await d.on_data_received(bytes([IAC, DO]))      # partial — buffered
+        await d.on_data_received(bytes([ECHO]) + b"\r\nUser: ")
+        text, kind = d._responses.get_nowait()
+        assert kind == "login"
+        assert "\xff" not in text
     asyncio.run(run())
 
 
@@ -407,8 +467,12 @@ def _patch_create(monkeypatch_target, switches):
         sw = seq.pop(0)
         sw._on_data = kwargs["on_data"]
         # Defer the banner to the next yield (after the handler's _clear()).
+        # Lead with real telnet IAC negotiation (IAC DO ECHO, IAC WILL SGA) so
+        # the wizard is exercised against the same option negotiation a real
+        # M4250 sends before the "User:" prompt.
         async def _banner():
-            await sw._on_data(b"\r\r\nUser: ")
+            iac = bytes([255, 253, 1, 255, 251, 3])  # IAC DO ECHO, IAC WILL SGA
+            await sw._on_data(iac + b"\r\r\nUser: ")
         asyncio.create_task(_banner())
         return sw
 
@@ -450,7 +514,8 @@ def test_enable_ssh_action_enables_and_switches_to_ssh():
             restore()
 
         assert result["ssh_enabled"] is True
-        sent = [b.strip().decode() for b in sw.sent]
+        # Skip telnet IAC refusals (0xFF…); keep the command lines.
+        sent = [b.strip().decode() for b in sw.sent if not b.startswith(b"\xff")]
         assert "ip ssh server enable" in sent
         assert "crypto key generate rsa 2048" in sent
         assert "write memory confirm" in sent

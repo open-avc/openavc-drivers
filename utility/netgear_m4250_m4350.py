@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.3",
+        "version": "1.4.4",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (
@@ -1220,15 +1220,25 @@ class NetgearM4250M4350Driver(BaseDriver):
         return new_password
 
     async def _enable_ssh_cli(self) -> None:
-        """Generate host keys and enable the SSH server. Grounded in captured
-        M4250 transcripts: a clean switch issues no (y/n) prompt, but one with
-        existing keys asks to overwrite (answer yes); key generation can take a
-        minute, hence the long timeouts.
+        """Generate host keys (only if the switch has none) and enable the SSH
+        server.
+
+        Re-running against a switch that already has host keys must not
+        regenerate them — that would change the SSH host key and break existing
+        trust — so key generation is skipped when ``show ip ssh`` reports keys
+        present. ``ip ssh server enable`` is idempotent (a no-op when already
+        on). Key generation can take a minute, hence the long timeouts.
+        Grounded in captured M4250 ``show ip ssh`` output ("Keys Present: ...
+        None" at factory, "... RSA(2048)" once generated).
         """
-        await self._send_request("configure", timeout=10.0)
-        await self._send_confirmable("crypto key generate rsa 2048", timeout=180.0)
-        await self._send_confirmable("crypto key generate ecdsa 256", timeout=180.0)
-        await self._send_request("exit", timeout=10.0)
+        status = await self._send_request("show ip ssh", timeout=10.0)
+        m = re.search(r"Keys Present:[ .]*([^\r\n]+)", status)
+        keys_present = bool(m) and "None" not in m.group(1)
+        if not keys_present:
+            await self._send_request("configure", timeout=10.0)
+            await self._send_confirmable("crypto key generate rsa 2048", timeout=180.0)
+            await self._send_confirmable("crypto key generate ecdsa 256", timeout=180.0)
+            await self._send_request("exit", timeout=10.0)
         await self._send_request("ip ssh server enable", timeout=10.0)
 
     # ── polling ──

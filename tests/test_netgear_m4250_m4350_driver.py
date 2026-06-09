@@ -489,6 +489,8 @@ def test_enable_ssh_action_enables_and_switches_to_ssh():
             b"\r\nPassword: ",                                  # after username
             b"\r\n(M4250-40G8XF-PoE+) >",                       # after password
             b"\r\n(M4250-40G8XF-PoE+) #",                       # after enable
+            # after show ip ssh (factory: no keys)
+            b"\r\nAdministrative Mode: ... Disabled\r\nKeys Present: ... None\r\n(M4250-40G8XF-PoE+) #",
             b"\r\n(M4250-40G8XF-PoE+) (Config)#",               # after configure
             b"\r\nRSA key generation complete.\r\n(M4250-40G8XF-PoE+) (Config)#",
             b"\r\nECDSA key generation complete.\r\n(M4250-40G8XF-PoE+) (Config)#",
@@ -548,6 +550,7 @@ def test_enable_ssh_action_handles_forced_password_change():
             b"\r\nPassword: ",                                  # after username
             b"\r\n(M4250) >",                                   # after new password
             b"\r\n(M4250) #",                                   # after enable
+            b"\r\nKeys Present: ... None\r\n(M4250) #",         # after show ip ssh
             b"\r\n(M4250) (Config)#",                           # configure
             b"\r\nRSA key generation complete.\r\n(M4250) (Config)#",
             b"\r\nECDSA key generation complete.\r\n(M4250) (Config)#",
@@ -577,6 +580,45 @@ def test_enable_ssh_action_handles_forced_password_change():
         assert sw1.sent.count(b"NewPass99\r\n") == 2
         assert ctx.delta["password"] == "NewPass99"
         assert ctx.reconnected is True
+    asyncio.run(run())
+
+
+def test_enable_ssh_skips_key_gen_when_keys_already_present():
+    async def run():
+        d, _state = _new_driver()
+        # SSH already on with keys -> the wizard must NOT regenerate host keys.
+        sw = _ScriptedSwitch(None, [
+            b"\r\nPassword: ",                                  # after username
+            b"\r\n(M4250) >",                                   # after password (real one)
+            b"\r\n(M4250) #",                                   # after enable
+            b"\r\nAdministrative Mode: ... Enabled\r\n"
+            b"Keys Present: ... RSA(2048)\r\n(M4250) #",        # after show ip ssh
+            b"\r\n(M4250) #",                                   # after ip ssh server enable
+            b"\r\n(M4250) #",                                   # after write memory
+        ])
+        restore = _patch_create(_driver_mod.TCPTransport, [sw])
+        ctx = _RecordingCtx()
+        d._set_setup_context(ctx)
+
+        async def progress(step, pct=None):
+            return None
+
+        try:
+            result = await asyncio.wait_for(
+                d.run_setup_action(
+                    "enable_ssh",
+                    {"username": "admin", "password": "OldPass99"},
+                    progress),
+                timeout=10.0)
+        finally:
+            restore()
+
+        assert result["ssh_enabled"] is True
+        sent = [b.strip().decode() for b in sw.sent if not b.startswith(b"\xff")]
+        assert not any("crypto key generate" in s for s in sent)  # keys kept
+        assert "ip ssh server enable" in sent                     # still ensured on
+        assert "write memory confirm" in sent
+        assert ctx.delta["transport"] == "ssh"
     asyncio.run(run())
 
 

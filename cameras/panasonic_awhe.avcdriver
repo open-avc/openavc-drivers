@@ -40,7 +40,7 @@ id: panasonic_awhe
 name: Panasonic AW-HE/UE/UN PTZ Camera
 manufacturer: Panasonic
 category: camera
-version: 1.1.3
+version: 1.1.4
 author: OpenAVC
 description: >
   Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras

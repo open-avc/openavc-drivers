@@ -504,7 +504,7 @@ commands:
   query_iris_position:
     label: Query Iris Position
     method: GET
-    path: "/cgi-bin/aw_ptz?cmd=%23GI&res=1"
+    path: "/cgi-bin/aw_ptz?cmd=%23AXI&res=1"
 
   query_iris_auto:
     label: Query Auto Iris Mode

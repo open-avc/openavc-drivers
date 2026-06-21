@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-09T01:48:03+00:00",
+    "generated_at": "2026-06-21T03:29:13+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 63,
+    "total_drivers": 64,
     "shards": null
   },
   "drivers": [
@@ -1481,6 +1481,48 @@
           "00:05:a6"
         ]
       }
+    },
+    {
+      "id": "qlab",
+      "name": "QLab Show Control",
+      "manufacturer": "Figure 53",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "osc",
+      "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
+      "source_url": "https://qlab.app/docs/v5/scripting/osc-dictionary-v5/",
+      "file": "video/qlab.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        53000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.19.0",
+      "tags": [
+        "osc",
+        "show-control",
+        "playback",
+        "theatrical",
+        "cue",
+        "qlab"
+      ],
+      "help": {
+        "overview": "Controls QLab, Figure 53's macOS show-playback and show-control app, over OSC. Fire and stop cues, PANIC (fade everything out and stop), pause, resume, reset, select cues, move the playhead, and set per-cue level, arm, and color. The current cue (id, number, and name), whether anything is running, and the QLab version are reported back live. Remote control over OSC is a free feature in QLab 5, so no license is needed to drive it.",
+        "setup": "1. In QLab on the Mac: Workspace Settings > OSC. Turn on \"Use OSC\n   controls\" and note the port (default 53000). Optionally set a passcode.\n2. Enter the Mac's IP address as Host and the port (default 53000). 3. Leave Workspace ID blank to control the front-most workspace, or enter\n   a specific workspace's unique ID to target it (QLab shows the ID in\n   Workspace Settings > OSC). On a Mac running more than one workspace,\n   targeting an explicit ID is recommended.\n4. If the workspace has an OSC passcode, enter it as Passcode. Leave blank\n   if none is set.\n5. Transport: leave at UDP for normal use. Choose TCP for the most\n   reliable feedback (large cue-list replies) \u2014 QLab accepts both on the\n   same port.",
+        "connection": "If commands do nothing, confirm \"Use OSC controls\" is enabled in QLab's Workspace Settings > OSC and that the port matches. A set passcode must be entered here or QLab will reject control messages."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Figure 53",
+          "models": [
+            "QLab 5",
+            "QLab 4"
+          ],
+          "confidence": "untested",
+          "notes": "macOS show-control software. OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting). QLab 4 shares the same OSC address grammar; video-specific addresses differ."
+        }
+      ]
     },
     {
       "id": "artnet_dmx",

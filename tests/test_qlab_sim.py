@@ -91,7 +91,8 @@ def test_version_reply_rootless(sim):
 
 def test_connect_reply_ok(sim):
     resp = sim.handle_message("/workspace/ABC/connect", [("s", "")])
-    assert _reply_data(resp, "/reply/workspace/ABC/connect") == "ok"
+    # Real QLab returns the granted permissions on success, not a bare "ok".
+    assert _reply_data(resp, "/reply/workspace/ABC/connect") == "ok:view|edit|control"
 
 
 # ── Reply address echoes the invoked address (rootless and scoped) ──
@@ -107,6 +108,13 @@ def test_playhead_number_reply_workspace_scoped(sim):
     assert _reply_data(resp, addr) == "1"
 
 
+def test_playhead_uniqueid_reply(sim):
+    # The driver polls /cue/playhead/uniqueID for current_cue_id (QLab 5's
+    # playback-position push is value-less), so the sim must answer it.
+    resp = sim.handle_message("/cue/playhead/uniqueID", [])
+    assert _reply_data(resp, "/reply/cue/playhead/uniqueID") == "cue-1"
+
+
 # ── Running state is a JSON array (driver coerces length -> boolean) ──
 
 def test_running_cues_empty_until_go(sim):
@@ -114,15 +122,16 @@ def test_running_cues_empty_until_go(sim):
     assert _reply_data(resp, "/reply/runningOrPausedCues") == []
 
 
-def test_go_sets_running_and_pushes_playback_position(sim):
+def test_go_sets_running_and_pushes_valueless_playback_position(sim):
     sim.handle_message("/workspace/ABC/updates", [("i", 1)])
     resp = sim.handle_message("/workspace/ABC/go", [])
-    addrs = [a for a, _ in resp]
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
-    assert update in addrs
-    # The push carries the new playhead cue id as a bare string arg.
-    args = dict(resp)[update]
-    assert args == [("s", "cue-2")]
+    assert update in [a for a, _ in resp]
+    # As on real QLab 5, the push is value-less — it signals "re-query" only.
+    assert dict(resp)[update] == []
+    # The driver reads the new playhead via /cue/playhead/uniqueID; GO advanced 1->2.
+    uid = sim.handle_message("/cue/playhead/uniqueID", [])
+    assert _reply_data(uid, "/reply/cue/playhead/uniqueID") == "cue-2"
     # Now something is running.
     run = sim.handle_message("/runningOrPausedCues", [])
     assert _reply_data(run, "/reply/runningOrPausedCues") != []
@@ -140,7 +149,7 @@ def test_start_cue_by_number_moves_playhead(sim):
     sim.handle_message("/workspace/ABC/updates", [("i", 1)])
     resp = sim.handle_message("/workspace/ABC/cue/4/start", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
-    assert dict(resp)[update] == [("s", "cue-4")]
+    assert dict(resp)[update] == []  # value-less push
     num = sim.handle_message("/cue/playhead/number", [])
     assert _reply_data(num, "/reply/cue/playhead/number") == "4"
 
@@ -149,7 +158,9 @@ def test_start_cue_by_id_moves_playhead(sim):
     sim.handle_message("/updates", [("i", 1)])
     resp = sim.handle_message("/cue_id/cue-3/start", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
-    assert dict(resp)[update] == [("s", "cue-3")]
+    assert dict(resp)[update] == []  # value-less push
+    uid = sim.handle_message("/cue/playhead/uniqueID", [])
+    assert _reply_data(uid, "/reply/cue/playhead/uniqueID") == "cue-3"
 
 
 def test_reset_returns_to_top(sim):
@@ -157,7 +168,9 @@ def test_reset_returns_to_top(sim):
     sim.handle_message("/cue/5/start", [])
     resp = sim.handle_message("/reset", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
-    assert dict(resp)[update] == [("s", "cue-1")]
+    assert dict(resp)[update] == []  # value-less push
+    uid = sim.handle_message("/cue/playhead/uniqueID", [])
+    assert _reply_data(uid, "/reply/cue/playhead/uniqueID") == "cue-1"
 
 
 def test_no_playback_push_until_subscribed(sim):

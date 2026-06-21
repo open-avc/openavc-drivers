@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-21T03:29:13+00:00",
+    "generated_at": "2026-06-21T22:26:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 6,
@@ -150,7 +150,7 @@
       "name": "QLab Show Control",
       "manufacturer": "Figure 53",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
@@ -161,6 +161,7 @@
         53000
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.19.0",
       "tags": [
         "osc",
@@ -179,11 +180,18 @@
         {
           "manufacturer": "Figure 53",
           "models": [
-            "QLab 5",
+            "QLab 5"
+          ],
+          "confidence": "full",
+          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode, GO/STOP/PANIC, cue start by number/ID, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
+        },
+        {
+          "manufacturer": "Figure 53",
+          "models": [
             "QLab 4"
           ],
           "confidence": "untested",
-          "notes": "macOS show-control software. OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting). QLab 4 shares the same OSC address grammar; video-specific addresses differ."
+          "notes": "Shares the same OSC address grammar as QLab 5; video-specific addresses differ. Not tested against real QLab 4 hardware."
         }
       ]
     },

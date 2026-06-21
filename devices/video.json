@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-21T03:29:13+00:00",
+    "generated_at": "2026-06-21T22:26:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_devices": 44,
@@ -380,7 +380,7 @@
         {
           "id": "qlab",
           "confidence": "untested",
-          "notes": "macOS show-control software. OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting). QLab 4 shares the same OSC address grammar; video-specific addresses differ."
+          "notes": "Shares the same OSC address grammar as QLab 5; video-specific addresses differ. Not tested against real QLab 4 hardware."
         }
       ]
     },
@@ -391,8 +391,8 @@
       "drivers": [
         {
           "id": "qlab",
-          "confidence": "untested",
-          "notes": "macOS show-control software. OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting). QLab 4 shares the same OSC address grammar; video-specific addresses differ."
+          "confidence": "full",
+          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode, GO/STOP/PANIC, cue start by number/ID, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
         }
       ]
     },

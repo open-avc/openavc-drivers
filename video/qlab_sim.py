@@ -15,9 +15,11 @@ the driver exercises:
   /alwaysReply, /updates, /thump (UDP keepalive), /version.
 - Feedback: /reply/<address> carrying QLab's JSON shape
   ({"workspace_id","address","status","data"}) for playhead displayName /
-  number / uniqueID and runningOrPausedCues; and an unsolicited
+  number / uniqueID and runningOrPausedCues; and an unsolicited, value-less
   /update/workspace/<id>/cueList/<id>/playbackPosition push whenever the
-  playhead moves (driven by /go, /reset, /playhead/*, cue starts).
+  playhead moves (driven by /go, /reset, /playhead/*, cue starts). As on real
+  QLab 5, that push carries no argument — it only signals "re-query", so the
+  driver reads the new playhead from /cue/playhead/uniqueID.
 
 Addressing: incoming messages may be rootless ("/go") or workspace-scoped
 ("/workspace/<id>/go"); both are accepted. Replies echo the address they
@@ -48,6 +50,9 @@ logger = logging.getLogger(__name__)
 _WORKSPACE_ID = "SIMWS"
 _CUELIST_ID = "CL1"
 _VERSION = "5.4.5"
+# QLab returns the granted permissions on a successful /connect (e.g.
+# "ok:view|edit|control"); the simulator sets no passcode, so it grants all.
+_CONNECT_OK = "ok:view|edit|control"
 
 
 class QLabSimulator(OSCSimulator):
@@ -65,7 +70,7 @@ class QLabSimulator(OSCSimulator):
             "current_cue_number": "1",
             "current_cue_name": "Preshow Music",
             "is_running": False,
-            "connected_ok": "ok",
+            "connected_ok": _CONNECT_OK,
         },
     }
 
@@ -135,12 +140,17 @@ class QLabSimulator(OSCSimulator):
         return ("/reply" + address, [("s", payload)])
 
     def _playback_update(self) -> tuple[str, list[tuple[str, Any]]]:
-        """Build the unsolicited playhead-moved push."""
+        """Build the unsolicited playhead-moved push.
+
+        As on real QLab 5, this push is value-less: it signals the playhead
+        moved but carries no cue ID. The driver reacts by polling
+        /cue/playhead/uniqueID for the new cue.
+        """
         addr = (
             f"/update/workspace/{_WORKSPACE_ID}/cueList/{_CUELIST_ID}"
             f"/playbackPosition"
         )
-        return (addr, [("s", self._current_cue()["id"])])
+        return (addr, [])
 
     def _moved_playhead(self, new_index: int) -> list[tuple[str, list]]:
         self._playhead = max(0, min(new_index, len(self._cues) - 1))
@@ -164,8 +174,8 @@ class QLabSimulator(OSCSimulator):
         if method == "/thump":
             return [self._reply(address, "thump")] if self._always_reply else []
         if method == "/connect":
-            self.set_state("connected_ok", "ok")
-            return [self._reply(address, "ok")]
+            self.set_state("connected_ok", _CONNECT_OK)
+            return [self._reply(address, _CONNECT_OK)]
         if method == "/alwaysReply":
             self._always_reply = bool(self._argval(args))
             return []

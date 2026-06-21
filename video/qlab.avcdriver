@@ -25,10 +25,13 @@
 # Transport to "TCP" — the driver then frames OSC with SLIP (RFC 1055) over a
 # TCP connection and replies arrive on the same socket.
 #
-# Feedback: this driver subscribes to QLab updates (/updates 1) so the live
-# playhead position is pushed instantly, and polls the playhead's name/number
-# plus the running state. QLab's /reply payloads carry the value inside a JSON
-# string ({"data": ...}); the json_path field on each response pulls it out.
+# Feedback: QLab's /reply payloads carry the value inside a JSON string
+# ({"data": ...}); the json_path field on each response pulls it out. The driver
+# polls the playhead's unique ID, name, and number plus the running state. QLab
+# also pushes bare /update notifications after /updates 1, but they carry no
+# value (they only signal "something changed, re-query"), so state is
+# poll-driven. Over UDP, QLab sends replies to port 53001 regardless of the
+# sending port, so the driver binds a 53001 listen socket (listen_port).
 #
 # Not modeled: auto-enumerating the whole cue list into browsable per-cue
 # entities. Fire cues by number or unique ID (the normal way to script QLab).
@@ -37,7 +40,7 @@ id: qlab
 name: QLab Show Control
 manufacturer: Figure 53
 category: video
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >-
   Controls Figure 53's QLab show-control / playback software (macOS) over OSC.
@@ -48,18 +51,25 @@ description: >-
 
 source_url: https://qlab.app/docs/v5/scripting/osc-dictionary-v5/
 tags: [osc, show-control, playback, theatrical, cue, qlab]
-verified: false
+verified: true
 simulated: true
 ports: [53000]
 min_platform_version: 0.19.0
 compatible_models:
   - manufacturer: Figure 53
-    models: [QLab 5, QLab 4]
+    models: [QLab 5]
+    confidence: full
+    notes: >-
+      Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode,
+      GO/STOP/PANIC, cue start by number/ID, and live feedback (version,
+      current cue id/number/name, running state). OSC remote control is a free
+      feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting).
+  - manufacturer: Figure 53
+    models: [QLab 4]
     confidence: untested
     notes: >-
-      macOS show-control software. OSC remote control is a free feature in
-      QLab 5 across all license tiers (Free, Audio, Video, Lighting). QLab 4
-      shares the same OSC address grammar; video-specific addresses differ.
+      Shares the same OSC address grammar as QLab 5; video-specific addresses
+      differ. Not tested against real QLab 4 hardware.
 
 transport: osc
 
@@ -102,6 +112,14 @@ default_config:
   passcode: ""
   transport_mode: udp
   poll_interval: 5
+  # QLab sends UDP replies/updates to port 53001 (the sender's IP, fixed port),
+  # so the driver binds a dedicated listen socket there to receive feedback.
+  # Ignored in TCP mode, where replies return on the same connection.
+  listen_port: 53001
+  # QLab does not answer the generic OSC /info reachability probe (and stays
+  # silent until subscribed), so skip the pre-connect probe; the poll loop and,
+  # in TCP mode, the socket handshake are the liveness signal.
+  verify_timeout: 0
 
 config_schema:
   host:
@@ -144,14 +162,15 @@ state_variables:
     type: string
     label: Workspace Connection
     help: >-
-      Result of connecting to the workspace: 'ok' (connected, or no passcode
-      required) or 'badpass' (wrong passcode). Populated from /reply/.../connect.
+      Result of connecting to the workspace, from /reply/.../connect: a string
+      that begins with 'ok' on success (e.g. 'ok:view|edit|control', listing
+      the granted permissions) or 'badpass' if the passcode is wrong.
   current_cue_id:
     type: string
     label: Current Cue ID
     help: >-
-      Unique ID of the cue at the playhead. Updated live as QLab pushes
-      playback-position changes (e.g. each time GO advances the playhead).
+      Unique ID of the cue at the playhead. Refreshed on each poll from the
+      playhead's unique ID (QLab 5's playback-position push carries no value).
   current_cue_number:
     type: string
     label: Current Cue Number
@@ -404,16 +423,18 @@ on_connect:
       - type: i
         value: "1"
   - "/version"
+  - "{ws}/cue/playhead/uniqueID"
   - "{ws}/cue/playhead/displayName"
   - "{ws}/cue/playhead/number"
   - "{ws}/runningOrPausedCues"
 
 # Poll keeps the UDP connection alive (QLab drops UDP after ~31s idle) and
-# refreshes the playhead name/number and running state. The live playhead ID
-# arrives via the /update subscription, so it needs no poll.
+# refreshes the playhead unique ID / name / number and running state. QLab 5's
+# /update pushes are value-less notifications, so the playhead ID is polled too.
 polling:
   queries:
     - "/thump"
+    - "{ws}/cue/playhead/uniqueID"
     - "{ws}/cue/playhead/displayName"
     - "{ws}/cue/playhead/number"
     - "{ws}/runningOrPausedCues"
@@ -422,7 +443,9 @@ polling:
 # containing JSON: {"workspace_id": ..., "address": ..., "status": "ok",
 # "data": <value>}. json_path: data pulls the value out. The * in each reply
 # address absorbs the optional /workspace/<id> segment so both rootless and
-# workspace-scoped replies match. Push updates (/update/...) carry a bare arg.
+# workspace-scoped replies match. (When the playhead is off the end of the list
+# QLab returns {"status":"error"} with no "data"; json_path then finds nothing
+# and the mapping is skipped, leaving the last known value intact.)
 responses:
   # Application version (rootless reply).
   - address: "/reply/version"
@@ -440,7 +463,15 @@ responses:
         state: connected_ok
         type: string
 
-  # Playhead name / number (polled).
+  # Playhead unique ID / name / number (polled). QLab 5's
+  # /update/.../playbackPosition push is a bare notification with no argument,
+  # so the cue ID can't be read from it — the driver polls /cue/playhead/uniqueID.
+  - address: "/reply*/cue/playhead/uniqueID"
+    mappings:
+      - arg: 0
+        json_path: data
+        state: current_cue_id
+        type: string
   - address: "/reply*/cue/playhead/displayName"
     mappings:
       - arg: 0
@@ -462,11 +493,3 @@ responses:
         json_path: data
         state: is_running
         type: boolean
-
-  # Live playhead position pushed by QLab after /updates 1. The single arg is
-  # the cue's unique ID (a bare OSC string, not JSON), so no json_path.
-  - address: "/update/workspace/*/cueList/*/playbackPosition"
-    mappings:
-      - arg: 0
-        state: current_cue_id
-        type: string

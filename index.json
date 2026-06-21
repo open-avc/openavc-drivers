@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-21T22:45:14+00:00",
+    "generated_at": "2026-06-21T23:25:27+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 65,
+    "total_drivers": 66,
     "shards": null
   },
   "drivers": [
@@ -1291,6 +1291,44 @@
           "crestron electronics"
         ]
       }
+    },
+    {
+      "id": "eiki_eip_u4700",
+      "name": "EIKI EIP-U4700 Projector",
+      "manufacturer": "EIKI",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "Controls the EIKI EIP-U4700 WUXGA projector over RS-232 (9600 8N1), directly or through a serial bridge. Power, source select, blank, freeze, picture and lamp modes, projection orientation, image adjust, and front-panel keys.",
+      "source_url": "https://www.eiki.com/rs-232-command-codes/",
+      "file": "projectors/eiki_eip_u4700.avcdriver",
+      "format": "avcdriver",
+      "tags": [
+        "projector",
+        "eiki",
+        "rs232",
+        "rs-232",
+        "serial",
+        "eip-u4700",
+        "dlp",
+        "bridge"
+      ],
+      "help": {
+        "overview": "EIKI EIP-U4700 projector over RS-232. Works on a direct serial port or through a serial bridge (choose \"Through a bridge\" in Connection settings and pick the bridge's RS-232 port). Power, source, blank, freeze, picture and lamp modes, orientation, image adjust, and remote keys.",
+        "setup": "1. Connect the projector's RS-232 port (or wire it to a serial bridge). 2. Serial settings are 9600 baud, 8 data bits, no parity, 1 stop bit. 3. Through a bridge, set the same 9600 8N1 on the binding; the bridge\n   applies it to the line automatically.",
+        "connection": "The projector's RS-232 control port must be enabled in its menu if your unit has a serial/Ethernet control selector."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "EIKI",
+          "models": [
+            "EIP-U4700"
+          ],
+          "confidence": "untested",
+          "notes": "Commands taken from EIKI's EIP-U4700 RS-232 basic serial command sheet. Other EIKI EIP-series models may share this 8-byte command format; verify per model before claiming support."
+        }
+      ]
     },
     {
       "id": "epson_escvp",

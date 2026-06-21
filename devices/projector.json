@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-09T01:48:03+00:00",
+    "generated_at": "2026-06-21T23:25:27+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 148,
+    "total_devices": 149,
     "shards": null,
     "category": "projector"
   },
@@ -389,6 +389,18 @@
           "id": "christie_serial",
           "confidence": "untested",
           "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EIP-U4700",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "eiki_eip_u4700",
+          "confidence": "untested",
+          "notes": "Commands taken from EIKI's EIP-U4700 RS-232 basic serial command sheet. Other EIKI EIP-series models may share this 8-byte command format; verify per model before claiming support."
         }
       ]
     },

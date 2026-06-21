@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-21T22:26:24+00:00",
+    "generated_at": "2026-06-21T22:45:14+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 64,
+    "total_drivers": 65,
     "shards": null
   },
   "drivers": [
@@ -2014,6 +2014,65 @@
       "help": {
         "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
         "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
+      }
+    },
+    {
+      "id": "globalcache_itach_ip2sl",
+      "name": "Global Cache iTach IP2SL Serial Bridge",
+      "manufacturer": "Global Cache",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Ethernet-to-RS-232 bridge. Connect serial devices through the iTach: bind a serial device to this bridge's port and OpenAVC routes it over the transparent pass-through while pushing the right baud and parity to the hardware.",
+      "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
+      "file": "utility/globalcache_itach_ip2sl.py",
+      "format": "python",
+      "ports": [
+        4998,
+        4999
+      ],
+      "protocols": [
+        "global-cache-unified-tcp"
+      ],
+      "verified": true,
+      "min_platform_version": "0.19.0",
+      "tags": [
+        "serial",
+        "rs232",
+        "rs-232",
+        "bridge",
+        "gateway",
+        "ethernet-to-serial",
+        "global-cache",
+        "globalcache",
+        "itach",
+        "ip2sl"
+      ],
+      "help": {
+        "overview": "The iTach IP2SL is an Ethernet-to-RS-232 bridge. Add it as a device, then on any serial device choose 'Through a bridge' in its Connection settings and pick this iTach's RS-232 port.",
+        "setup": "Set the iTach to a static IP or DHCP reservation. No login is required for the control API. The serial line settings are pushed automatically from the bound device's connection.",
+        "connection": "Command API on TCP 4998, transparent serial pass-through on TCP 4999. The bridge holds the line settings in NVRAM."
+      },
+      "discovery": {
+        "amx_ddp": [
+          {
+            "make": "GlobalCache",
+            "model_pattern": "iTachIP2SL"
+          }
+        ],
+        "tcp_probe": {
+          "port": 4998,
+          "send_ascii": "getdevices\r",
+          "expect": "endlistdevices"
+        },
+        "oui": [
+          "00:0C:1E"
+        ],
+        "manufacturer_alias": [
+          "global cache",
+          "globalcache"
+        ]
       }
     },
     {

@@ -24,7 +24,6 @@ import ast
 import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -1245,9 +1244,14 @@ def _entry_dict(entry: DriverEntry) -> dict[str, Any]:
     return d
 
 
-def _meta_block(now: str, total_key: str, total: int, **extra: Any) -> dict[str, Any]:
+# No `generated_at` timestamp: the catalog is a deterministic function of the
+# driver files, so re-running the build produces byte-identical output. CI
+# rebuilds and commits the catalog on merge to main (contributors never commit
+# it), and a wall-clock timestamp would make every run a spurious diff — the
+# exact churn that turned unrelated category shards into merge conflicts. Don't
+# reintroduce it. `generator_version` / `schema_version` carry the provenance.
+def _meta_block(total_key: str, total: int, **extra: Any) -> dict[str, Any]:
     block = {
-        "generated_at": now,
         "generator_version": GENERATOR_VERSION,
         "schema_version": SCHEMA_VERSION,
         total_key: total,
@@ -1267,8 +1271,6 @@ def write_outputs(
     entries: list[DriverEntry],
     devices: list[dict[str, Any]],
 ) -> None:
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-
     sorted_entries = sorted(
         entries, key=lambda e: (e.manufacturer.lower(), e.name.lower())
     )
@@ -1278,7 +1280,7 @@ def write_outputs(
     _write_json(
         repo_root / "index.json",
         {
-            "_meta": _meta_block(now, "total_drivers", len(entry_dicts)),
+            "_meta": _meta_block("total_drivers", len(entry_dicts)),
             "drivers": entry_dicts,
         },
     )
@@ -1287,7 +1289,7 @@ def write_outputs(
     _write_json(
         repo_root / "devices.json",
         {
-            "_meta": _meta_block(now, "total_devices", len(devices)),
+            "_meta": _meta_block("total_devices", len(devices)),
             "devices": devices,
         },
     )
@@ -1298,9 +1300,7 @@ def write_outputs(
         _write_json(
             repo_root / "index" / f"{cat}.json",
             {
-                "_meta": _meta_block(
-                    now, "total_drivers", len(shard), category=cat
-                ),
+                "_meta": _meta_block("total_drivers", len(shard), category=cat),
                 "drivers": shard,
             },
         )
@@ -1311,9 +1311,7 @@ def write_outputs(
         _write_json(
             repo_root / "devices" / f"{cat}.json",
             {
-                "_meta": _meta_block(
-                    now, "total_devices", len(shard), category=cat
-                ),
+                "_meta": _meta_block("total_devices", len(shard), category=cat),
                 "devices": shard,
             },
         )

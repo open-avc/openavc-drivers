@@ -80,6 +80,8 @@ The sections below remain the authoritative field-by-field reference; the schema
 | `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. Optional `connection: "..."` adds a short troubleshooting hint shown on the device's offline banner when it can't connect (e.g. a remote-access setting the device needs enabled first). |
 | `protocols` | list | `[]` | Protocol names for device discovery. (e.g., `["pjlink"]`, `["extron_sis"]`) |
 | `discovery` | object | `{}` | Network discovery hints (see below). |
+| `transports` | list | `[]` | Transports this driver can use interchangeably, e.g. `["tcp", "serial"]`. Marks the device serial-capable so it can connect over a direct serial port or through a bridge. Only declare it when the command/response strings are byte-identical across the listed media. See §2.13. |
+| `bridge` | object | `{}` | Declares this driver as a *bridge* other devices connect through (typed ports). See §2.13. |
 
 ### 2.2 discovery
 
@@ -916,6 +918,54 @@ frame_parser:
 
 ---
 
+### 2.13 transports and bridge (multi-transport + bridges)
+
+**`transports`** lets one driver speak over more than one medium when the
+command/response strings are identical across them. The classic case is a text
+protocol that runs the same over TCP and RS-232: declare `transports: [tcp,
+serial]`. The per-device connection then picks the actual transport — the
+Connection settings show a `Network (IP) / Direct serial / Through a bridge`
+picker for any serial-capable driver (`transport: serial` or `transports`
+includes `serial`). Don't declare it unless the bytes really are the same;
+otherwise ship separate drivers.
+
+**`bridge`** declares a *bridge*: a device that exposes typed ports other
+devices connect through (a serial-to-Ethernet adapter, an IR blaster, a relay
+board). A downstream device binds to a bridge from its own Connection settings
+(`Through a bridge` -> pick the bridge -> pick a port); the platform routes its
+bytes through that port.
+
+```yaml
+bridge:
+  ports:
+    - id: "serial:1"            # referenced by a downstream's bridge_port
+      kind: serial              # serial | ir | relay
+      passthrough_port: 4999    # serial only: the TCP port that transparently
+                                # pipes this line on the bridge host
+      label: "RS-232 Port 1"
+```
+
+For a **serial** port the platform resolves a downstream binding to a plain TCP
+connection to `passthrough_port` on the bridge host — no bridge code runs on the
+data path, so the downstream reuses the standard TCP transport. IR and relay
+ports route commands through the bridge object at send time (not a transport
+rewrite).
+
+Pushing the downstream's line settings (baud/parity) to the hardware is the one
+piece that needs a **Python** driver — override `prepare_bridge_port`:
+
+```python
+async def prepare_bridge_port(self, port_id: str, params: dict) -> None:
+    """Called on the bridge just before a downstream device connects through
+    `port_id`. `params` is the downstream's resolved connection (baudrate,
+    parity, bytesize, stopbits, flow_control, ...). Push them to the hardware
+    here. Best-effort: raising is logged, it never blocks the downstream."""
+```
+
+`is_bridge` (a read-only `BaseDriver` property) is True automatically whenever
+`DRIVER_INFO["bridge"]["ports"]` is non-empty. See
+`utility/globalcache_itach_ip2sl.py` for a complete serial-bridge example.
+
 ## 3. Python Driver API
 
 For complex protocols that YAML can't express. Python drivers subclass `BaseDriver`. They can be created and edited directly in the Programmer IDE's **Code** view with hot-reload support, or placed manually in `driver_repo/`.
@@ -1523,9 +1573,9 @@ openavc-drivers/
 
 ## 7. Driver Metadata (powers index.json and devices.json)
 
-**`index.json` and `devices.json` are generated artifacts. Do NOT edit them by hand.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file. CI verifies they're in sync.
+**`index.json` and `devices.json` are generated artifacts owned by CI. Do NOT edit, regenerate, or commit them.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file, and CI rebuilds and commits them automatically when a driver merges to `main`. A pull request should contain only the driver file (and a `manufacturers.json` entry if the manufacturer is new); CI rejects pull requests that modify the generated catalog.
 
-Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. Run `python scripts/build_index.py` to regenerate the catalog.
+Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. To validate locally, run `python scripts/build_index.py --check` (validates without writing).
 
 ### Required fields
 
@@ -1582,14 +1632,13 @@ The build script reverse-indexes every `compatible_models` entry into `devices.j
 
 ## 8. Validation
 
-Run the build script before submitting. It validates the schema and regenerates `index.json` and `devices.json`:
+Validate the driver before submitting:
 
 ```bash
-python scripts/build_index.py            # Validate + regenerate
-python scripts/build_index.py --check    # Validate only (does not write outputs)
+python scripts/build_index.py --check    # Validate only — does not write outputs
 ```
 
-CI runs `--check` and fails the PR if the generated artifacts differ from what's checked in.
+This is what CI runs on every pull request. Don't commit `index.json`, `devices.json`, or the shards under `index/` and `devices/` — they are generated artifacts that CI rebuilds and commits on merge to `main`, and CI rejects pull requests that modify them.
 
 The validator checks:
 - Required fields present

@@ -575,6 +575,26 @@ def test_python_driver_with_nested_compatible_models(tmp_path: Path) -> None:
     assert by_model["Model-1"]["drivers"][0]["notes"] == "Lacks NDI"
 
 
+def test_python_driver_may_use_ssh_transport(tmp_path: Path) -> None:
+    # ssh is valid for Python drivers (they can drive an SSH CLI session), so
+    # the schema check allows it for .py files even though the .avcdriver schema
+    # omits it. See _python_driver_schema in build_index.py.
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path, info_overrides={"transport": "ssh"})
+    rc, _, err = _run(tmp_path, json_schema_only=True)
+    assert rc == 0, err
+
+
+def test_yaml_driver_may_not_use_ssh_transport(tmp_path: Path) -> None:
+    # The YAML schema deliberately omits ssh: a declarative driver can't drive
+    # an SSH CLI session, so the check keeps catching it at authoring time.
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path, overrides={"transport": "ssh"})
+    rc, _, err = _run(tmp_path, json_schema_only=True)
+    assert rc != 0
+    assert "JSON Schema validation error" in err, err
+
+
 # --- devices-extra ---------------------------------------------------------
 
 

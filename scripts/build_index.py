@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import argparse
 import ast
+import copy
 import json
 import re
 import sys
@@ -417,16 +418,40 @@ def _validate_json_schema(
     return errors
 
 
+def _python_driver_schema(base_schema: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of the avcdriver schema that also allows the ssh transport.
+
+    avcdriver.schema.json describes the YAML (.avcdriver) format, whose
+    transport enum deliberately omits ssh: a declarative driver can't drive an
+    SSH CLI session. Python drivers can, and the runtime allows it, so they are
+    validated against the same schema with ssh added to the transport enum.
+    Everything else stays identical, so a Python driver's metadata is checked
+    just as strictly as a YAML driver's.
+    """
+    schema = copy.deepcopy(base_schema)
+    transport = schema.get("properties", {}).get("transport", {})
+    enum = transport.get("enum")
+    if isinstance(enum, list) and "ssh" not in enum:
+        transport["enum"] = [*enum, "ssh"]
+    return schema
+
+
 def _validate_all_json_schemas(
     raw: list[tuple[Path, dict[str, Any]]],
-    validator: JsonSchemaValidator
+    yaml_validator: JsonSchemaValidator,
+    python_validator: JsonSchemaValidator,
 ) -> list[str]:
-    """Validate all driver_info dicts against the JSON Schema.
+    """Validate each driver_info against the JSON Schema for its format.
+
+    .avcdriver (YAML) drivers use the schema as published; .py (Python) drivers
+    use the variant from _python_driver_schema that also allows the ssh
+    transport.
 
     Returns a list of errors.
     """
     errors: list[str] = []
     for filepath, driver_info in raw:
+        validator = python_validator if filepath.suffix == ".py" else yaml_validator
         errors.extend(_validate_json_schema(filepath.as_posix(), driver_info, validator))
     return errors
 
@@ -1598,6 +1623,9 @@ def main(argv: list[str] | None = None) -> int:
     if jsonschema_validator_for is not None and json_schema_path.is_file():
         json_schema = json.loads(json_schema_path.read_text(encoding="utf-8"))
         json_validator = jsonschema_validator_for(json_schema)
+        python_json_validator = jsonschema_validator_for(
+            _python_driver_schema(json_schema)
+        )
     else:
         if args.check_json_schema:
             # If the user explicitly requested JSON Schema validation,
@@ -1613,6 +1641,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         json_schema = None
         json_validator = None
+        python_json_validator = None
 
     try:
         manufacturers = _load_manufacturers(repo_root)
@@ -1645,7 +1674,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if json_schema is not None:
         assert json_validator is not None
-        schema_errors = _validate_all_json_schemas(raw, json_validator)
+        assert python_json_validator is not None
+        schema_errors = _validate_all_json_schemas(
+            raw, json_validator, python_json_validator
+        )
         if args.check_json_schema and schema_errors:
             # If the user requested JSON Schema validation,
             # report any schema errors and exit with failure.

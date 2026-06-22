@@ -48,7 +48,7 @@ id: sanyo_serial_projector
 name: Sanyo / EIKI / Boxlight Projector (RS-232 Serial)
 manufacturer: Sanyo
 category: projector
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 description: >-
   Controls Sanyo-built projectors that use Sanyo's "Basic Serial Command"
@@ -61,7 +61,7 @@ description: >-
 source_url: https://www.eiki.com/rs232-commands/
 tags: [projector, rs232, rs-232, serial, sanyo, eiki, boxlight, plc, sanyo-serial, basic-serial, ek-307w, bridge]
 verified: true
-simulated: false
+simulated: true
 ports: []
 compatible_models:
   - manufacturer: EIKI
@@ -440,3 +440,91 @@ polling:
 # Read the (static) model name once on connect.
 on_connect:
   - "CR5\r"
+
+# ── Simulator ──
+# Models the EK-307W Basic Serial Command protocol so the driver can be
+# exercised without hardware. Framing note (this protocol is bare-CR, unlike
+# most \r\n drivers): the YAML simulator reads in flexible line mode, splits
+# incoming bytes on CR/LF, and strips the terminator before matching -- so
+# every handler pattern matches the BARE code ("C00", "CR0"), never "C00\r".
+# Script handlers send exactly what respond() is given, so each reply carries
+# its own trailing CR.
+#
+# Functional commands (C..) reply with ACK (0x06) + CR like the projector; the
+# driver's responses: patterns deliberately don't match ACK/NAK, so the
+# simulator validator flags those replies as "unmatched" -- that is expected
+# and correct. Status reads (CRx) reply with the bare value the driver parses.
+# The protocol is poll-only (no unsolicited push), so a power/input change
+# surfaces on the driver's next poll, exactly like the real device.
+simulator:
+  initial_state:
+    power: "80"                     # CR0 code: 80 = Standby (starts powered off)
+    input: "HDMI 1"                 # CR1 text
+    lamp_hours: 1240                # CR3 (4-6 digits)
+    temperatures: "31.5 29.0 30.2"  # CR6: three sensors, deg C, space-separated
+    model: "Coral-EK-307W"          # CR5: matches the hardware-validated reply
+
+  delays:
+    command_response: 0.05
+
+  error_modes:
+    communication_timeout:
+      description: "Projector stops responding (test offline / timeout handling)"
+      behavior: no_response
+    garbled_serial:
+      description: "Corrupted bytes on the RS-232 line"
+      behavior: corrupt_response
+    lamp_warning:
+      description: "Lamp approaching end of life"
+      set_state: { lamp_hours: 4900 }
+
+  command_handlers:
+    # ── Power: update the CR0 status code, then ACK ──
+    - match: 'C00'
+      handler: |
+        state["power"] = "00"        # On
+        respond("\x06\r")
+    - match: 'C01'
+      handler: |
+        state["power"] = "80"        # Standby (immediate off; lamp still cools)
+        respond("\x06\r")
+
+    # ── Input select: update the CR1 status text, then ACK ──
+    - match: 'C(05|06|07|34|33|36|37|15|16|17)'
+      handler: |
+        names = {
+            "05": "VGA 1", "06": "VGA 2", "07": "Video", "34": "S-Video",
+            "33": "Component", "36": "HDMI 1", "37": "HDMI 2(MHL)",
+            "15": "Network", "16": "Memory Viewer", "17": "USB Display",
+        }
+        state["input"] = names[match.group(1)]
+        respond("\x06\r")
+
+    # ── Status reads: bare value + CR, parsed by the responses: patterns ──
+    - match: 'CR0'
+      handler: |
+        respond(str(state["power"]) + "\r")
+    - match: 'CR1'
+      handler: |
+        respond(str(state["input"]) + "\r")
+    - match: 'CR3'
+      handler: |
+        respond(str(state["lamp_hours"]) + "\r")
+    - match: 'CR5'
+      handler: |
+        respond(str(state["model"]) + "\r")
+    - match: 'CR6'
+      handler: |
+        respond(str(state["temperatures"]) + "\r")
+
+    # ── Any other functional C-command (blank, freeze, image, audio, zoom,
+    #    keystone, navigation, power management): ACK, no tracked state ──
+    - match: 'C[0-9A-F]{2}'
+      handler: |
+        respond("\x06\r")
+
+    # ── Unknown / raw command: stay silent. The real projector replies "?",
+    #    which the driver ignores; silence also covers the raw escape hatch. ──
+    - match: '.+'
+      handler: |
+        pass

@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-22T03:14:48+00:00",
+    "generated_at": "2026-06-22T13:23:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 66,
@@ -3230,13 +3230,14 @@
       "name": "Sanyo / EIKI / Boxlight Projector (RS-232 Serial)",
       "manufacturer": "Sanyo",
       "category": "projector",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "serial",
       "description": "Controls Sanyo-built projectors that use Sanyo's \"Basic Serial Command\" RS-232 protocol: Sanyo PLC, EIKI EK / LC, and Boxlight (Eco / Boston / ProjectoWrite) lines. Works on a direct serial port or through a serial bridge. Power, input select, blank, freeze, image modes, audio, zoom, keystone, on-screen navigation, and power management, with polled power / input / lamp-hours / temperature / model status. Baud and cable type vary by model (commonly 19200; both configurable).",
       "source_url": "https://www.eiki.com/rs232-commands/",
       "file": "projectors/sanyo_serial_projector.avcdriver",
       "format": "avcdriver",
+      "simulated": true,
       "verified": true,
       "tags": [
         "projector",

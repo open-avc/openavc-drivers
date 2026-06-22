@@ -1,0 +1,1 @@
+device,0,0 ETHERNETdevice,1,1 SERIALendlistdevices

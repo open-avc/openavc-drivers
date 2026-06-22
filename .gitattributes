@@ -1,0 +1,8 @@
+# Generated catalog files. CI rebuilds and commits these on merge to main;
+# contributors edit driver files only and never hand-edit or commit these.
+# linguist-generated collapses them in GitHub pull-request diffs and excludes
+# them from the repository's language statistics.
+index.json linguist-generated=true
+devices.json linguist-generated=true
+index/** linguist-generated=true
+devices/** linguist-generated=true

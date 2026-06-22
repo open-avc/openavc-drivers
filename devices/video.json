@@ -1,9 +1,8 @@
 {
   "_meta": {
-    "generated_at": "2026-06-09T01:48:03+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 42,
+    "total_devices": 44,
     "shards": null,
     "category": "video"
   },
@@ -369,6 +368,30 @@
           "id": "cisco_roomos_xapi",
           "confidence": "untested",
           "notes": "All models share the same RoomOS xAPI surface; one driver covers the whole family. Verified against the xAPI documentation; no live-hardware verification yet. The xAPI has been stable across CE9 / RoomOS 10 / 11 / 12 \u2014 minor command additions but the core surface used here predates CE9.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Figure 53",
+      "model": "QLab 4",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "qlab",
+          "confidence": "untested",
+          "notes": "Shares the same OSC address grammar as QLab 5; video-specific addresses differ. Not tested against real QLab 4 hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Figure 53",
+      "model": "QLab 5",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "qlab",
+          "confidence": "full",
+          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode, GO/STOP/PANIC, cue start by number/ID, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
         }
       ]
     },

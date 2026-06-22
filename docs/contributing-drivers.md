@@ -27,17 +27,17 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 6. **Add metadata fields to your driver file** (NOT `index.json` — see below)
 
-7. **Run the build script** to regenerate `index.json` and `devices.json`:
+7. **Validate your driver.** You do *not* commit `index.json` / `devices.json` — CI rebuilds them:
    ```bash
-   pip install pyyaml pydantic
-   python scripts/build_index.py
+   pip install -r requirements-dev.txt
+   python scripts/build_index.py --check
    ```
 
-8. **Submit a pull request** — CI will fail if you forgot to run the build script.
+8. **Submit a pull request** with just your driver file (plus a `manufacturers.json` entry if your manufacturer is new). CI validates it, and the catalog is rebuilt automatically when it merges.
 
 ## Driver Metadata
 
-`index.json` and `devices.json` are **generated artifacts**. Do not edit them by hand. The driver file is the single source of truth — add metadata there, then regenerate.
+`index.json` and `devices.json` are **generated artifacts**. Do not edit, regenerate, or commit them. The driver file is the single source of truth — add metadata there, and CI regenerates the catalog from it on merge.
 
 For YAML drivers, metadata sits at the top level alongside `transport` and `commands`. For Python drivers, it goes inside the `DRIVER_INFO` class attribute.
 
@@ -238,7 +238,7 @@ Many drivers ship at `verified: false`, or with `compatible_models` entries mark
 
 - Update `compatible_models`. It is an array of groups, so different models can carry different confidence. A model whose whole command surface worked goes to `confidence: full`; one with quirks gets its own entry at `confidence: partial` with a `notes:` line describing the deviation.
 - Fix any commands or response patterns that did not match, and bump the driver `version`.
-- Run `python scripts/build_index.py` so `index.json` and `devices.json` regenerate.
+- Validate with `python scripts/build_index.py --check`. Don't commit `index.json` / `devices.json`; CI regenerates them on merge.
 
 Link the test-report issue from the pull request so the evidence and the change stay connected.
 
@@ -256,14 +256,15 @@ All contributed drivers must be released under the **MIT License**. By submittin
 
 ## Validation
 
-Run the build script before submitting. It validates the schema and regenerates `index.json` / `devices.json`:
+Validate your driver before submitting:
 
 ```bash
-python scripts/build_index.py            # Validate + regenerate
-python scripts/build_index.py --check    # Validate only (does not write outputs; what CI runs)
+python scripts/build_index.py --check    # Validate only — does not write outputs
 ```
 
-CI runs `--check` and fails the PR if the generated artifacts differ from what's checked in.
+This is what CI runs on every pull request. `index.json`, `devices.json`, and the per-category shards under `index/` and `devices/` are **generated artifacts owned by CI** — it rebuilds and commits them automatically when your driver merges to `main`. A pull request should contain only your driver file (plus a `manufacturers.json` entry if your manufacturer is new); don't run the full build or commit those files. CI rejects pull requests that modify the generated catalog.
+
+Running the full `python scripts/build_index.py` locally is fine if you want to preview the catalog output, but leave the regenerated files out of your commits.
 
 To catch mistakes as you type, point your editor at the JSON Schema for the `.avcdriver` format. Add this line to the top of your driver file and any editor with YAML Language Server support (VS Code, Neovim, JetBrains, and others) will validate it live:
 

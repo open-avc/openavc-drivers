@@ -132,6 +132,13 @@
       "type": "object",
       "description": "Default values for config fields (e.g. host, port, poll_interval, inter_command_delay)."
     },
+    "config_derived": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Computed config values, each a template substituted from other config fields, e.g. {\"ws\": \"/workspace/{workspace_id}\"}. If any {field} the template references is empty or missing, the derived value is \"\" — so an optional prefixed address segment simply disappears. Computed once when the device connects and visible to every command address, on_connect entry, response, and poll query (just like a real config field). Lets one friendly field (e.g. a workspace id) drive both a bare and a prefixed address form without conditional logic in every command."
+    },
     "config_schema": {
       "type": "object",
       "additionalProperties": {
@@ -155,6 +162,10 @@
     },
     "child_entity_types": {
       "type": "object",
+      "propertyNames": {
+        "pattern": "^[^.*?\\[]+$",
+        "description": "Child type names become state-key segments (device.<id>.<child_type>...) and feed fnmatch dispatch, so they must not contain dots or glob metacharacters (. * ? [)."
+      },
       "additionalProperties": {
         "$ref": "#/$defs/childEntityType"
       },
@@ -692,6 +703,10 @@
         "arg": {
           "type": "integer",
           "description": "OSC argument index (for OSC responses)."
+        },
+        "json_path": {
+          "type": "string",
+          "description": "Optional. The matched value is treated as a JSON string: it is parsed and this dot-separated path is walked (object keys and integer list indices, e.g. \"data\" or \"data.name\" or \"data.0\") to the value used before mapping/coercion. A path landing on an array or object yields its length (so a boolean type becomes \"is non-empty?\" and an integer type becomes the count). Omit for today's positional/raw behavior. Common for OSC devices whose replies carry the value inside a JSON string (e.g. QLab's /reply ... {\"data\": ...})."
         }
       },
       "additionalProperties": true

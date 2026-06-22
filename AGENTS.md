@@ -80,6 +80,8 @@ The sections below remain the authoritative field-by-field reference; the schema
 | `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. Optional `connection: "..."` adds a short troubleshooting hint shown on the device's offline banner when it can't connect (e.g. a remote-access setting the device needs enabled first). |
 | `protocols` | list | `[]` | Protocol names for device discovery. (e.g., `["pjlink"]`, `["extron_sis"]`) |
 | `discovery` | object | `{}` | Network discovery hints (see below). |
+| `transports` | list | `[]` | Transports this driver can use interchangeably, e.g. `["tcp", "serial"]`. Marks the device serial-capable so it can connect over a direct serial port or through a bridge. Only declare it when the command/response strings are byte-identical across the listed media. See §2.13. |
+| `bridge` | object | `{}` | Declares this driver as a *bridge* other devices connect through (typed ports). See §2.13. |
 
 ### 2.2 discovery
 
@@ -137,6 +139,8 @@ discovery:
     expect_regex: "NovaStar"
     cross_vendor: false
     extract_manufacturer: "NovaStar"
+    timeout_ms: 2000                    # optional, default 2000 for UDP
+                                        # (tcp_probe defaults to 3000), max 10000
 
   python:
     file: ./pjlink_class1_discovery.py  # path relative to driver YAML
@@ -419,6 +423,21 @@ default_config:
   timeout: 10.0
 ```
 
+#### config_derived (computed config values)
+
+`config_derived` is an optional top-level map of `{name: template}`. Each template is substituted from the device's config to produce an extra config value, computed when the device connects and then visible everywhere a normal config field is — command addresses, `on_connect`, response addresses, and poll queries.
+
+Its main use is an **optional address segment**. If any `{field}` the template references is empty or missing, the whole derived value becomes `""`, so the segment disappears. This lets one friendly field drive both a bare and a prefixed address form (e.g. QLab's rootless `/go` vs workspace-scoped `/workspace/<id>/go`) without conditional logic in every command:
+
+```yaml
+config_derived:
+  ws: "/workspace/{workspace_id}"   # "" when workspace_id is blank
+commands:
+  go:
+    label: GO
+    address: "{ws}/go"              # "/go", or "/workspace/<id>/go"
+```
+
 ### 2.4 config_schema
 
 Defines the fields shown in the Add Device dialog. Each key is a config field name.
@@ -519,6 +538,7 @@ child_entity_types:
 ```
 
 **Rules:**
+- The child type name (the YAML key, e.g. `encoder`) becomes a state-key segment (`device.<id>.<child_type>...`) and feeds the platform's per-child subscription matching, so it must not contain dots or glob metacharacters (`. * ? [`). Stick to plain identifiers (letters, digits, `_`, `-`). The loader rejects a driver that violates this.
 - `id_format.type` must be `integer`. `min` defaults to 1; `max` is optional (unbounded if omitted); `pad_width` zero-pads the ID in state keys (0 = no padding).
 - `state_variables` uses the same schema as device `state_variables` (types: `string`, `integer`, `number`, `float`, `boolean`, `enum`). The platform always injects a boolean `online` and a string `label` per child — do not declare those.
 - `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.
@@ -739,6 +759,39 @@ The `{level_instance_tag}` is replaced with the device's config value when the d
 
 **Important:** The first matching pattern wins. Order your patterns from most specific to most general.
 
+#### OSC responses (`address` + `arg`)
+
+For `transport: osc`, responses match by OSC **address** (with `*` wildcards) instead of a regex, and read arguments by index (`arg`) instead of capture group (`group`):
+
+```yaml
+responses:
+  - address: "/ch/01/mix/fader"     # * wildcards allowed: "/ch/*/mix/fader"
+    mappings:
+      - arg: 0                       # OSC argument index
+        state: ch1_fader
+        type: float
+```
+
+**`json_path` — pull a value out of a JSON reply.** Some OSC devices answer with the useful value inside a JSON string (QLab replies `/reply/<address>` with one string arg holding `{"status":"ok","data": ...}`). Add `json_path` to parse that string and walk to the value before coercion:
+
+```yaml
+responses:
+  - address: "/reply*/cue/playhead/displayName"   # * absorbs the optional /workspace/<id>
+    mappings:
+      - arg: 0
+        json_path: data              # dot path: "data", "data.name", "data.0"
+        state: current_cue_name
+        type: string
+  - address: "/reply*/runningOrPausedCues"
+    mappings:
+      - arg: 0
+        json_path: data              # array -> its length; boolean-coerces to "anything?"
+        state: is_running
+        type: boolean
+```
+
+A path landing on an array/object yields its **length** (so `boolean` = "is non-empty?", `integer` = count). Invalid JSON or an unresolved path skips the mapping (state untouched), never storing a wrong value. Omit `json_path` for the normal positional read. `json_path` also works on regex/text responses (applied to the captured group), so TCP/HTTP JSON replies can use it too.
+
 ### 2.8 auth
 
 Login handshake for Telnet-style devices that present `Username:` / `Password:` prompts before accepting commands. Runs after the TCP connection is established and before `on_connect` commands are sent.
@@ -864,6 +917,54 @@ frame_parser:
 `build_index.py` rejects an out-of-range `header_size` (anything but 1/2/4) or a non-positive `length` — the runtime parser raises on those, which would crash the device's connect.
 
 ---
+
+### 2.13 transports and bridge (multi-transport + bridges)
+
+**`transports`** lets one driver speak over more than one medium when the
+command/response strings are identical across them. The classic case is a text
+protocol that runs the same over TCP and RS-232: declare `transports: [tcp,
+serial]`. The per-device connection then picks the actual transport — the
+Connection settings show a `Network (IP) / Direct serial / Through a bridge`
+picker for any serial-capable driver (`transport: serial` or `transports`
+includes `serial`). Don't declare it unless the bytes really are the same;
+otherwise ship separate drivers.
+
+**`bridge`** declares a *bridge*: a device that exposes typed ports other
+devices connect through (a serial-to-Ethernet adapter, an IR blaster, a relay
+board). A downstream device binds to a bridge from its own Connection settings
+(`Through a bridge` -> pick the bridge -> pick a port); the platform routes its
+bytes through that port.
+
+```yaml
+bridge:
+  ports:
+    - id: "serial:1"            # referenced by a downstream's bridge_port
+      kind: serial              # serial | ir | relay
+      passthrough_port: 4999    # serial only: the TCP port that transparently
+                                # pipes this line on the bridge host
+      label: "RS-232 Port 1"
+```
+
+For a **serial** port the platform resolves a downstream binding to a plain TCP
+connection to `passthrough_port` on the bridge host — no bridge code runs on the
+data path, so the downstream reuses the standard TCP transport. IR and relay
+ports route commands through the bridge object at send time (not a transport
+rewrite).
+
+Pushing the downstream's line settings (baud/parity) to the hardware is the one
+piece that needs a **Python** driver — override `prepare_bridge_port`:
+
+```python
+async def prepare_bridge_port(self, port_id: str, params: dict) -> None:
+    """Called on the bridge just before a downstream device connects through
+    `port_id`. `params` is the downstream's resolved connection (baudrate,
+    parity, bytesize, stopbits, flow_control, ...). Push them to the hardware
+    here. Best-effort: raising is logged, it never blocks the downstream."""
+```
+
+`is_bridge` (a read-only `BaseDriver` property) is True automatically whenever
+`DRIVER_INFO["bridge"]["ports"]` is non-empty. See
+`utility/globalcache_itach_ip2sl.py` for a complete serial-bridge example.
 
 ## 3. Python Driver API
 
@@ -1292,7 +1393,9 @@ Contract:
 | `serial` | `port`, `baudrate`, `bytesize`, `parity`, `stopbits` | RS-232/RS-485 devices |
 | `http` | `host`, `port`, `ssl`, `verify_ssl`, `auth_type`, `username`, `password`, `token`, `api_key` | REST API devices |
 | `udp` | `host`, `port` | Broadcast protocols (Wake-on-LAN, Art-Net) |
-| `osc` | `host`, `port`, `listen_port` | OSC (Open Sound Control) devices — mixing consoles, show control, lighting |
+| `osc` | `host`, `port`, `listen_port`, `transport_mode` | OSC (Open Sound Control) devices — mixing consoles, show control, lighting |
+
+**OSC over UDP or TCP.** `transport: osc` defaults to UDP. To use OSC over TCP (reliable, large replies — e.g. QLab), add a `transport_mode` config field with values `udp`/`tcp` (default `udp`); when set to `tcp` the platform frames OSC with SLIP (RFC 1055) over a TCP connection and replies arrive on the same socket (`listen_port` is unused in TCP mode). OSC drivers that don't declare `transport_mode` stay UDP-only and are unaffected.
 
 **Common config fields (all transports):**
 - `poll_interval` -- Seconds between polls (0 = disabled)
@@ -1470,9 +1573,9 @@ openavc-drivers/
 
 ## 7. Driver Metadata (powers index.json and devices.json)
 
-**`index.json` and `devices.json` are generated artifacts. Do NOT edit them by hand.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file. CI verifies they're in sync.
+**`index.json` and `devices.json` are generated artifacts owned by CI. Do NOT edit, regenerate, or commit them.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file, and CI rebuilds and commits them automatically when a driver merges to `main`. A pull request should contain only the driver file (and a `manufacturers.json` entry if the manufacturer is new); CI rejects pull requests that modify the generated catalog.
 
-Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. Run `python scripts/build_index.py` to regenerate the catalog.
+Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. To validate locally, run `python scripts/build_index.py --check` (validates without writing).
 
 ### Required fields
 
@@ -1529,14 +1632,13 @@ The build script reverse-indexes every `compatible_models` entry into `devices.j
 
 ## 8. Validation
 
-Run the build script before submitting. It validates the schema and regenerates `index.json` and `devices.json`:
+Validate the driver before submitting:
 
 ```bash
-python scripts/build_index.py            # Validate + regenerate
-python scripts/build_index.py --check    # Validate only (does not write outputs)
+python scripts/build_index.py --check    # Validate only — does not write outputs
 ```
 
-CI runs `--check` and fails the PR if the generated artifacts differ from what's checked in.
+This is what CI runs on every pull request. Don't commit `index.json`, `devices.json`, or the shards under `index/` and `devices/` — they are generated artifacts that CI rebuilds and commits on merge to `main`, and CI rejects pull requests that modify them.
 
 The validator checks:
 - Required fields present

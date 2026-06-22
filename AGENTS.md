@@ -421,6 +421,21 @@ default_config:
   timeout: 10.0
 ```
 
+#### config_derived (computed config values)
+
+`config_derived` is an optional top-level map of `{name: template}`. Each template is substituted from the device's config to produce an extra config value, computed when the device connects and then visible everywhere a normal config field is — command addresses, `on_connect`, response addresses, and poll queries.
+
+Its main use is an **optional address segment**. If any `{field}` the template references is empty or missing, the whole derived value becomes `""`, so the segment disappears. This lets one friendly field drive both a bare and a prefixed address form (e.g. QLab's rootless `/go` vs workspace-scoped `/workspace/<id>/go`) without conditional logic in every command:
+
+```yaml
+config_derived:
+  ws: "/workspace/{workspace_id}"   # "" when workspace_id is blank
+commands:
+  go:
+    label: GO
+    address: "{ws}/go"              # "/go", or "/workspace/<id>/go"
+```
+
 ### 2.4 config_schema
 
 Defines the fields shown in the Add Device dialog. Each key is a config field name.
@@ -741,6 +756,39 @@ responses:
 The `{level_instance_tag}` is replaced with the device's config value when the driver connects.
 
 **Important:** The first matching pattern wins. Order your patterns from most specific to most general.
+
+#### OSC responses (`address` + `arg`)
+
+For `transport: osc`, responses match by OSC **address** (with `*` wildcards) instead of a regex, and read arguments by index (`arg`) instead of capture group (`group`):
+
+```yaml
+responses:
+  - address: "/ch/01/mix/fader"     # * wildcards allowed: "/ch/*/mix/fader"
+    mappings:
+      - arg: 0                       # OSC argument index
+        state: ch1_fader
+        type: float
+```
+
+**`json_path` — pull a value out of a JSON reply.** Some OSC devices answer with the useful value inside a JSON string (QLab replies `/reply/<address>` with one string arg holding `{"status":"ok","data": ...}`). Add `json_path` to parse that string and walk to the value before coercion:
+
+```yaml
+responses:
+  - address: "/reply*/cue/playhead/displayName"   # * absorbs the optional /workspace/<id>
+    mappings:
+      - arg: 0
+        json_path: data              # dot path: "data", "data.name", "data.0"
+        state: current_cue_name
+        type: string
+  - address: "/reply*/runningOrPausedCues"
+    mappings:
+      - arg: 0
+        json_path: data              # array -> its length; boolean-coerces to "anything?"
+        state: is_running
+        type: boolean
+```
+
+A path landing on an array/object yields its **length** (so `boolean` = "is non-empty?", `integer` = count). Invalid JSON or an unresolved path skips the mapping (state untouched), never storing a wrong value. Omit `json_path` for the normal positional read. `json_path` also works on regex/text responses (applied to the captured group), so TCP/HTTP JSON replies can use it too.
 
 ### 2.8 auth
 
@@ -1295,7 +1343,9 @@ Contract:
 | `serial` | `port`, `baudrate`, `bytesize`, `parity`, `stopbits` | RS-232/RS-485 devices |
 | `http` | `host`, `port`, `ssl`, `verify_ssl`, `auth_type`, `username`, `password`, `token`, `api_key` | REST API devices |
 | `udp` | `host`, `port` | Broadcast protocols (Wake-on-LAN, Art-Net) |
-| `osc` | `host`, `port`, `listen_port` | OSC (Open Sound Control) devices — mixing consoles, show control, lighting |
+| `osc` | `host`, `port`, `listen_port`, `transport_mode` | OSC (Open Sound Control) devices — mixing consoles, show control, lighting |
+
+**OSC over UDP or TCP.** `transport: osc` defaults to UDP. To use OSC over TCP (reliable, large replies — e.g. QLab), add a `transport_mode` config field with values `udp`/`tcp` (default `udp`); when set to `tcp` the platform frames OSC with SLIP (RFC 1055) over a TCP connection and replies arrive on the same socket (`listen_port` is unused in TCP mode). OSC drivers that don't declare `transport_mode` stay UDP-only and are unaffected.
 
 **Common config fields (all transports):**
 - `poll_interval` -- Seconds between polls (0 = disabled)

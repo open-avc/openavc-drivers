@@ -1,0 +1,498 @@
+# QLab (Figure 53) — Show Control / Playback over OSC
+#
+# Controls Figure 53's QLab, the macOS show-playback / show-control app used
+# in theatre, worship spaces, museums, themed entertainment, and corporate
+# stage shows. An operator builds a list of cues (audio, video, fades, MIDI,
+# light, network) and fires them with GO; this driver puts GO / STOP / PANIC
+# and per-cue control on an OpenAVC panel, with live "current cue" feedback.
+#
+# Protocol: OSC (Open Sound Control). QLab listens on UDP and TCP, default
+# port 53000. Controlling QLab over OSC is a FREE feature in QLab 5 across all
+# license tiers, so any Mac running QLab can receive these messages.
+#
+#   Reference: QLab v5 OSC Dictionary
+#   https://qlab.app/docs/v5/scripting/osc-dictionary-v5/
+#
+# Addressing: messages are either rootless ("/go" -> front-most workspace) or
+# workspace-scoped ("/workspace/<id>/go"). Set the Workspace ID config field
+# to target a specific workspace; leave it blank to control the front one.
+# The {ws} prefix below expands to "/workspace/<id>" when an ID is configured,
+# else to "" (see config_derived). In QLab 5 every open workspace hears the
+# OSC port, so targeting an explicit ID is recommended on multi-workspace Macs.
+#
+# Transport: UDP is the default and is fine for fire-and-forget control. For
+# reliable feedback (QLab's /reply payloads are JSON and can be large), set
+# Transport to "TCP" — the driver then frames OSC with SLIP (RFC 1055) over a
+# TCP connection and replies arrive on the same socket.
+#
+# Feedback: QLab's /reply payloads carry the value inside a JSON string
+# ({"data": ...}); the json_path field on each response pulls it out. The driver
+# polls the playhead's unique ID, name, and number plus the running state. QLab
+# also pushes bare /update notifications after /updates 1, but they carry no
+# value (they only signal "something changed, re-query"), so state is
+# poll-driven. Over UDP, QLab sends replies to port 53001 regardless of the
+# sending port, so the driver binds a 53001 listen socket (listen_port).
+#
+# Not modeled: auto-enumerating the whole cue list into browsable per-cue
+# entities. Fire cues by number or unique ID (the normal way to script QLab).
+
+id: qlab
+name: QLab Show Control
+manufacturer: Figure 53
+category: video
+version: 1.1.1
+author: OpenAVC
+description: >-
+  Controls Figure 53's QLab show-control / playback software (macOS) over OSC.
+  GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by
+  number or unique ID, plus select, playhead, level, arm, color, and load-at.
+  Live feedback: current cue id/number/name, running state, and QLab version.
+  OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.
+
+source_url: https://qlab.app/docs/v5/scripting/osc-dictionary-v5/
+tags: [osc, show-control, playback, theatrical, cue, qlab]
+verified: true
+simulated: true
+ports: [53000]
+min_platform_version: 0.19.0
+compatible_models:
+  - manufacturer: Figure 53
+    models: [QLab 5]
+    confidence: full
+    notes: >-
+      Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode,
+      GO/STOP/PANIC, cue start by number/ID, and live feedback (version,
+      current cue id/number/name, running state). OSC remote control is a free
+      feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting).
+  - manufacturer: Figure 53
+    models: [QLab 4]
+    confidence: untested
+    notes: >-
+      Shares the same OSC address grammar as QLab 5; video-specific addresses
+      differ. Not tested against real QLab 4 hardware.
+
+transport: osc
+
+help:
+  overview: >-
+    Controls QLab, Figure 53's macOS show-playback and show-control app, over
+    OSC. Fire and stop cues, PANIC (fade everything out and stop), pause,
+    resume, reset, select cues, move the playhead, and set per-cue level, arm,
+    and color. The current cue (id, number, and name), whether anything is
+    running, and the QLab version are reported back live. Remote control over
+    OSC is a free feature in QLab 5, so no license is needed to drive it.
+  setup: >-
+    1. In QLab on the Mac: Workspace Settings > OSC. Turn on "Use OSC
+       controls" and note the port (default 53000). Optionally set a passcode.
+    2. Enter the Mac's IP address as Host and the port (default 53000).
+    3. Leave Workspace ID blank to control the front-most workspace, or enter
+       a specific workspace's unique ID to target it (QLab shows the ID in
+       Workspace Settings > OSC). On a Mac running more than one workspace,
+       targeting an explicit ID is recommended.
+    4. If the workspace has an OSC passcode, enter it as Passcode. Leave blank
+       if none is set.
+    5. Transport: leave at UDP for normal use. Choose TCP for the most
+       reliable feedback (large cue-list replies) — QLab accepts both on the
+       same port.
+  connection: >-
+    If commands do nothing, confirm "Use OSC controls" is enabled in QLab's
+    Workspace Settings > OSC and that the port matches. A set passcode must be
+    entered here or QLab will reject control messages.
+
+# ws = "/workspace/<id>" when a Workspace ID is configured, else "" (rootless,
+# front-most workspace). Lets one friendly config field drive both addressing
+# modes without conditional logic in every command.
+config_derived:
+  ws: "/workspace/{workspace_id}"
+
+default_config:
+  host: ""
+  port: 53000
+  workspace_id: ""
+  passcode: ""
+  transport_mode: udp
+  poll_interval: 5
+  # QLab sends UDP replies/updates to port 53001 (the sender's IP, fixed port),
+  # so the driver binds a dedicated listen socket there to receive feedback.
+  # Ignored in TCP mode, where replies return on the same connection.
+  listen_port: 53001
+  # QLab does not answer the generic OSC /info reachability probe (and stays
+  # silent until subscribed), so skip the pre-connect probe; the poll loop and,
+  # in TCP mode, the socket handshake are the liveness signal.
+  verify_timeout: 0
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: Host (Mac IP Address)
+    description: IP address of the Mac running QLab.
+  port:
+    type: integer
+    default: 53000
+    label: OSC Port
+    description: QLab's OSC port (Workspace Settings > OSC). Default 53000.
+  workspace_id:
+    type: string
+    label: Workspace ID
+    description: >-
+      Unique ID of the QLab workspace to control (Workspace Settings > OSC).
+      Leave blank to control the front-most workspace.
+  passcode:
+    type: string
+    secret: true
+    label: OSC Passcode
+    description: >-
+      Workspace OSC passcode, if one is set in QLab. Leave blank if none.
+  transport_mode:
+    type: enum
+    values: [udp, tcp]
+    default: udp
+    label: Transport
+    description: >-
+      UDP (default) for fire-and-forget control, or TCP for the most reliable
+      feedback. QLab accepts both on the same port.
+
+state_variables:
+  qlab_version:
+    type: string
+    label: QLab Version
+    help: "QLab application version, reported on connect from /version."
+  connected_ok:
+    type: string
+    label: Workspace Connection
+    help: >-
+      Result of connecting to the workspace, from /reply/.../connect: a string
+      that begins with 'ok' on success (e.g. 'ok:view|edit|control', listing
+      the granted permissions) or 'badpass' if the passcode is wrong.
+  current_cue_id:
+    type: string
+    label: Current Cue ID
+    help: >-
+      Unique ID of the cue at the playhead. Refreshed on each poll from the
+      playhead's unique ID (QLab 5's playback-position push carries no value).
+  current_cue_number:
+    type: string
+    label: Current Cue Number
+    help: "The cue number shown to the operator for the cue at the playhead (e.g. 12 or 5.1)."
+  current_cue_name:
+    type: string
+    label: Current Cue Name
+    help: "Display name of the cue at the playhead."
+  is_running:
+    type: boolean
+    label: Cues Running
+    help: "True when one or more cues are currently running or paused."
+
+commands:
+  # ── Workspace transport (the day-to-day panel buttons) ──
+  go:
+    label: GO
+    help: "Fire the cue at the playhead and advance to the next cue."
+    address: "{ws}/go"
+
+  stop:
+    label: Stop
+    help: "Stop all running cues (with their stop fades)."
+    address: "{ws}/stop"
+
+  hard_stop:
+    label: Hard Stop
+    help: "Stop all running cues immediately, ignoring stop fades."
+    address: "{ws}/hardStop"
+
+  pause:
+    label: Pause
+    help: "Pause all running cues."
+    address: "{ws}/pause"
+
+  resume:
+    label: Resume
+    help: "Resume all paused cues."
+    address: "{ws}/resume"
+
+  panic:
+    label: Panic
+    help: "Fade everything out over a short time and then stop. The big red button."
+    address: "{ws}/panic"
+
+  reset:
+    label: Reset Workspace
+    help: "Stop everything and move the playhead back to the top of the cue list."
+    address: "{ws}/reset"
+
+  playhead_next:
+    label: Next Cue
+    help: "Move the playhead to the next cue (does not fire it)."
+    address: "{ws}/playhead/next"
+
+  playhead_previous:
+    label: Previous Cue
+    help: "Move the playhead to the previous cue (does not fire it)."
+    address: "{ws}/playhead/previous"
+
+  # ── Per-cue control by cue number (what the operator sees, e.g. 12 or 5.1) ──
+  start_cue:
+    label: Start Cue
+    help: "Start a specific cue by its number."
+    address: "{ws}/cue/{number}/start"
+    params:
+      number:
+        type: string
+        label: Cue Number
+        description: "The cue number as shown in QLab (e.g. 12 or 5.1)."
+
+  stop_cue:
+    label: Stop Cue
+    help: "Stop a specific cue by its number."
+    address: "{ws}/cue/{number}/stop"
+    params:
+      number:
+        type: string
+        label: Cue Number
+
+  load_cue:
+    label: Load Cue
+    help: "Load a cue (arm it at its start, ready to GO) without firing it."
+    address: "{ws}/cue/{number}/load"
+    params:
+      number:
+        type: string
+        label: Cue Number
+
+  preview_cue:
+    label: Preview Cue
+    help: "Preview a cue (fire it in isolation, as the editor's preview does)."
+    address: "{ws}/cue/{number}/preview"
+    params:
+      number:
+        type: string
+        label: Cue Number
+
+  panic_cue:
+    label: Panic Cue
+    help: "Fade out and stop a single cue."
+    address: "{ws}/cue/{number}/panic"
+    params:
+      number:
+        type: string
+        label: Cue Number
+
+  load_cue_at:
+    label: Load Cue At Time
+    help: "Load a cue and pre-position it to a given time, in seconds, from its start."
+    address: "{ws}/cue/{number}/loadAt"
+    args:
+      - type: f
+        value: "{seconds}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+      seconds:
+        type: number
+        label: Time (seconds)
+        min: 0
+
+  # ── Per-cue control by unique ID (stable across renumbering) ──
+  start_cue_id:
+    label: Start Cue (by ID)
+    help: "Start a cue by its unique ID (stable even if cues are renumbered)."
+    address: "{ws}/cue_id/{cue_id}/start"
+    params:
+      cue_id:
+        type: string
+        label: Cue Unique ID
+
+  # ── Selection / playhead ──
+  select_cue:
+    label: Select Cue
+    help: "Select a cue by number (highlights it; does not fire)."
+    address: "{ws}/select/{number}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+
+  set_playhead:
+    label: Set Playhead
+    help: "Move the playhead to a specific cue number (the cue GO will fire next)."
+    address: "{ws}/playhead/{number}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+
+  # ── Per-cue properties ──
+  # QLab 5's audio level addresses require a row index: row 0 is the cue's
+  # master level, rows 1+ are individual audio channels. Without the row,
+  # /cue/<n>/sliderLevel returns an error, so these target the master (row 0).
+  set_cue_level:
+    label: Set Cue Level
+    help: "Set a cue's master audio level, in dB (0 = unity gain, negative = quieter)."
+    address: "{ws}/cue/{number}/sliderLevel/0"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+      level:
+        type: number
+        label: Level (dB)
+        description: "Master audio level in decibels. 0 is unity gain; negative is quieter."
+
+  nudge_cue_level_up:
+    label: Nudge Cue Level Up
+    help: "Raise a cue's master audio level by an amount in dB."
+    address: "{ws}/cue/{number}/sliderLevel/0/+"
+    args:
+      - type: f
+        value: "{delta}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+      delta:
+        type: number
+        label: Increase By (dB)
+
+  nudge_cue_level_down:
+    label: Nudge Cue Level Down
+    help: "Lower a cue's master audio level by an amount in dB."
+    address: "{ws}/cue/{number}/sliderLevel/0/-"
+    args:
+      - type: f
+        value: "{delta}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+      delta:
+        type: number
+        label: Decrease By (dB)
+
+  set_cue_armed:
+    label: Arm / Disarm Cue
+    help: "Arm (1) or disarm (0) a cue. A disarmed cue is skipped by GO."
+    address: "{ws}/cue/{number}/armed"
+    args:
+      - type: i
+        value: "{value}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+      value:
+        type: integer
+        label: Armed
+        values: [0, 1]
+        description: "1 = armed, 0 = disarmed."
+
+  set_cue_color:
+    label: Set Cue Color
+    help: "Set a cue's color label."
+    address: "{ws}/cue/{number}/colorName"
+    args:
+      - type: s
+        value: "{color}"
+    params:
+      number:
+        type: string
+        label: Cue Number
+      color:
+        type: enum
+        label: Color
+        values: [none, red, orange, green, blue, purple]
+
+# Promote the show-critical buttons to one-click Quick Actions on the device view.
+quick_actions: [go, stop, panic]
+
+# On connect: optionally authenticate, enable command replies, subscribe to
+# live updates, then query initial feedback values. The connect/alwaysReply/
+# updates entries carry typed OSC args so they use the {address, args} form.
+on_connect:
+  - address: "{ws}/connect"
+    args:
+      - type: s
+        value: "{passcode}"
+  - address: "/alwaysReply"
+    args:
+      - type: i
+        value: "1"
+  - address: "{ws}/updates"
+    args:
+      - type: i
+        value: "1"
+  - "/version"
+  - "{ws}/cue/playhead/uniqueID"
+  - "{ws}/cue/playhead/displayName"
+  - "{ws}/cue/playhead/number"
+  - "{ws}/runningOrPausedCues"
+
+# Poll keeps the UDP connection alive (QLab drops UDP after ~31s idle) and
+# refreshes the playhead unique ID / name / number and running state. QLab 5's
+# /update pushes are value-less notifications, so the playhead ID is polled too.
+polling:
+  queries:
+    - "/thump"
+    - "{ws}/cue/playhead/uniqueID"
+    - "{ws}/cue/playhead/displayName"
+    - "{ws}/cue/playhead/number"
+    - "{ws}/runningOrPausedCues"
+
+# QLab replies as /reply/<the address you sent> with a single string argument
+# containing JSON: {"workspace_id": ..., "address": ..., "status": "ok",
+# "data": <value>}. json_path: data pulls the value out. The * in each reply
+# address absorbs the optional /workspace/<id> segment so both rootless and
+# workspace-scoped replies match. (When the playhead is off the end of the list
+# QLab returns {"status":"error"} with no "data"; json_path then finds nothing
+# and the mapping is skipped, leaving the last known value intact.)
+responses:
+  # Application version (rootless reply).
+  - address: "/reply/version"
+    mappings:
+      - arg: 0
+        json_path: data
+        state: qlab_version
+        type: string
+
+  # Result of /connect (ok / badpass).
+  - address: "/reply*/connect"
+    mappings:
+      - arg: 0
+        json_path: data
+        state: connected_ok
+        type: string
+
+  # Playhead unique ID / name / number (polled). QLab 5's
+  # /update/.../playbackPosition push is a bare notification with no argument,
+  # so the cue ID can't be read from it — the driver polls /cue/playhead/uniqueID.
+  - address: "/reply*/cue/playhead/uniqueID"
+    mappings:
+      - arg: 0
+        json_path: data
+        state: current_cue_id
+        type: string
+  - address: "/reply*/cue/playhead/displayName"
+    mappings:
+      - arg: 0
+        json_path: data
+        state: current_cue_name
+        type: string
+  - address: "/reply*/cue/playhead/number"
+    mappings:
+      - arg: 0
+        json_path: data
+        state: current_cue_number
+        type: string
+
+  # Running/paused cues: data is a JSON array; json_path lands on it and
+  # yields its length, which boolean-coerces to "anything running?".
+  - address: "/reply*/runningOrPausedCues"
+    mappings:
+      - arg: 0
+        json_path: data
+        state: is_running
+        type: boolean

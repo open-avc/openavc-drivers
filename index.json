@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-10T16:29:00+00:00",
+    "generated_at": "2026-06-22T13:23:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 63,
+    "total_drivers": 66,
     "shards": null
   },
   "drivers": [
@@ -1483,6 +1483,56 @@
       }
     },
     {
+      "id": "qlab",
+      "name": "QLab Show Control",
+      "manufacturer": "Figure 53",
+      "category": "video",
+      "version": "1.1.1",
+      "author": "OpenAVC",
+      "transport": "osc",
+      "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
+      "source_url": "https://qlab.app/docs/v5/scripting/osc-dictionary-v5/",
+      "file": "video/qlab.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        53000
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.19.0",
+      "tags": [
+        "osc",
+        "show-control",
+        "playback",
+        "theatrical",
+        "cue",
+        "qlab"
+      ],
+      "help": {
+        "overview": "Controls QLab, Figure 53's macOS show-playback and show-control app, over OSC. Fire and stop cues, PANIC (fade everything out and stop), pause, resume, reset, select cues, move the playhead, and set per-cue level, arm, and color. The current cue (id, number, and name), whether anything is running, and the QLab version are reported back live. Remote control over OSC is a free feature in QLab 5, so no license is needed to drive it.",
+        "setup": "1. In QLab on the Mac: Workspace Settings > OSC. Turn on \"Use OSC\n   controls\" and note the port (default 53000). Optionally set a passcode.\n2. Enter the Mac's IP address as Host and the port (default 53000). 3. Leave Workspace ID blank to control the front-most workspace, or enter\n   a specific workspace's unique ID to target it (QLab shows the ID in\n   Workspace Settings > OSC). On a Mac running more than one workspace,\n   targeting an explicit ID is recommended.\n4. If the workspace has an OSC passcode, enter it as Passcode. Leave blank\n   if none is set.\n5. Transport: leave at UDP for normal use. Choose TCP for the most\n   reliable feedback (large cue-list replies) \u2014 QLab accepts both on the\n   same port.",
+        "connection": "If commands do nothing, confirm \"Use OSC controls\" is enabled in QLab's Workspace Settings > OSC and that the port matches. A set passcode must be entered here or QLab will reject control messages."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Figure 53",
+          "models": [
+            "QLab 5"
+          ],
+          "confidence": "full",
+          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode, GO/STOP/PANIC, cue start by number/ID, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
+        },
+        {
+          "manufacturer": "Figure 53",
+          "models": [
+            "QLab 4"
+          ],
+          "confidence": "untested",
+          "notes": "Shares the same OSC address grammar as QLab 5; video-specific addresses differ. Not tested against real QLab 4 hardware."
+        }
+      ]
+    },
+    {
       "id": "artnet_dmx",
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
@@ -1964,6 +2014,65 @@
       "help": {
         "overview": "Sends Wake-on-LAN magic packets to power on devices remotely. Works with any Ethernet device that supports WoL (most PCs, NUCs, some displays, and media players).",
         "setup": "1. Enable Wake-on-LAN in the target device's BIOS/UEFI settings\n2. Enable WoL in the OS network adapter settings\n3. Enter the target device's MAC address (e.g. AA:BB:CC:DD:EE:FF)\n4. The broadcast address is usually 255.255.255.255 (default)"
+      }
+    },
+    {
+      "id": "globalcache_itach_ip2sl",
+      "name": "Global Cache iTach IP2SL Serial Bridge",
+      "manufacturer": "Global Cache",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Ethernet-to-RS-232 bridge. Connect serial devices through the iTach: bind a serial device to this bridge's port and OpenAVC routes it over the transparent pass-through while pushing the right baud and parity to the hardware.",
+      "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
+      "file": "utility/globalcache_itach_ip2sl.py",
+      "format": "python",
+      "ports": [
+        4998,
+        4999
+      ],
+      "protocols": [
+        "global-cache-unified-tcp"
+      ],
+      "verified": true,
+      "min_platform_version": "0.19.0",
+      "tags": [
+        "serial",
+        "rs232",
+        "rs-232",
+        "bridge",
+        "gateway",
+        "ethernet-to-serial",
+        "global-cache",
+        "globalcache",
+        "itach",
+        "ip2sl"
+      ],
+      "help": {
+        "overview": "The iTach IP2SL is an Ethernet-to-RS-232 bridge. Add it as a device, then on any serial device choose 'Through a bridge' in its Connection settings and pick this iTach's RS-232 port.",
+        "setup": "Set the iTach to a static IP or DHCP reservation. No login is required for the control API. The serial line settings are pushed automatically from the bound device's connection.",
+        "connection": "Command API on TCP 4998, transparent serial pass-through on TCP 4999. The bridge holds the line settings in NVRAM."
+      },
+      "discovery": {
+        "amx_ddp": [
+          {
+            "make": "GlobalCache",
+            "model_pattern": "iTachIP2SL"
+          }
+        ],
+        "tcp_probe": {
+          "port": 4998,
+          "send_ascii": "getdevices\r",
+          "expect": "endlistdevices"
+        },
+        "oui": [
+          "00:0C:1E"
+        ],
+        "manufacturer_alias": [
+          "global cache",
+          "globalcache"
+        ]
       }
     },
     {
@@ -3115,6 +3224,86 @@
           "d0:03:4b"
         ]
       }
+    },
+    {
+      "id": "sanyo_serial_projector",
+      "name": "Sanyo / EIKI / Boxlight Projector (RS-232 Serial)",
+      "manufacturer": "Sanyo",
+      "category": "projector",
+      "version": "1.1.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "Controls Sanyo-built projectors that use Sanyo's \"Basic Serial Command\" RS-232 protocol: Sanyo PLC, EIKI EK / LC, and Boxlight (Eco / Boston / ProjectoWrite) lines. Works on a direct serial port or through a serial bridge. Power, input select, blank, freeze, image modes, audio, zoom, keystone, on-screen navigation, and power management, with polled power / input / lamp-hours / temperature / model status. Baud and cable type vary by model (commonly 19200; both configurable).",
+      "source_url": "https://www.eiki.com/rs232-commands/",
+      "file": "projectors/sanyo_serial_projector.avcdriver",
+      "format": "avcdriver",
+      "simulated": true,
+      "verified": true,
+      "tags": [
+        "projector",
+        "rs232",
+        "rs-232",
+        "serial",
+        "sanyo",
+        "eiki",
+        "boxlight",
+        "plc",
+        "sanyo-serial",
+        "basic-serial",
+        "ek-307w",
+        "bridge"
+      ],
+      "help": {
+        "overview": "EIKI EK-series projector over RS-232 (the compact \"C-command\" protocol: \"C\" + a 2-character code + carriage return). Works on a direct serial port or through a serial bridge (choose \"Through a bridge\" in Connection settings and pick the bridge's RS-232 port). Power, inputs, blank, freeze, image modes, audio, zoom, keystone, navigation, power management, and polled status.",
+        "setup": "1. Connect the projector's RS-232 port (or wire it to a serial bridge)\n   with an RS-232 CROSS (null-modem) cable.\n2. Serial settings are 19200 baud, 8 data bits, no parity, 1 stop bit,\n   no flow control.\n3. Through a bridge, the binding's 19200 8N1 is applied to the line\n   automatically.",
+        "connection": "The protocol requires a crossover (null-modem) cable between the controller/bridge and the projector. Status reads return on/standby, current input, lamp hours, internal temperatures, and the model name."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "EIKI",
+          "models": [
+            "EK-307W"
+          ],
+          "confidence": "full",
+          "notes": "Hardware-validated: two-way RS-232 control confirmed against an EK-307W (CR5 model read returns \"Coral-EK-307W\") at 19200 8N1 over a Global Cache iTach IP2SL serial bridge with a crossover cable."
+        },
+        {
+          "manufacturer": "EIKI",
+          "models": [
+            "EK-308U",
+            "EK-309W",
+            "EK-1000LU",
+            "EK-850LU",
+            "EK-1100LU"
+          ],
+          "confidence": "untested",
+          "notes": "EIKI EK / LC series projectors using the Sanyo Basic Serial Command protocol (same C00 / CRx command set). Verify baud and cable type per model before relying on it."
+        },
+        {
+          "manufacturer": "Sanyo",
+          "models": [
+            "PLC-WM5500",
+            "PLC-ZM5000",
+            "PLC-XF1000",
+            "PLC-XF47K",
+            "PLC-WL2500",
+            "PLC-XU305",
+            "PLC-XU355"
+          ],
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        },
+        {
+          "manufacturer": "Boxlight",
+          "models": [
+            "Eco Series",
+            "Boston Series",
+            "ProjectoWrite"
+          ],
+          "confidence": "untested",
+          "notes": "Boxlight (Sanyo-built) lines using the same C-command protocol. Note some Boxlight models (e.g. Eco Series) want a DIRECT cable rather than a crossover. Verify per model."
+        }
+      ]
     },
     {
       "id": "sharp_nec_projector",

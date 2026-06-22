@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-10T16:29:00+00:00",
+    "generated_at": "2026-06-22T13:23:24+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 148,
+    "total_devices": 164,
     "shards": null,
     "category": "projector"
   },
@@ -125,6 +125,42 @@
           "id": "pjlink_class1",
           "confidence": "untested",
           "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Boxlight",
+      "model": "Boston Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Boxlight (Sanyo-built) lines using the same C-command protocol. Note some Boxlight models (e.g. Eco Series) want a DIRECT cable rather than a crossover. Verify per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Boxlight",
+      "model": "Eco Series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Boxlight (Sanyo-built) lines using the same C-command protocol. Note some Boxlight models (e.g. Eco Series) want a DIRECT cable rather than a crossover. Verify per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Boxlight",
+      "model": "ProjectoWrite",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Boxlight (Sanyo-built) lines using the same C-command protocol. Note some Boxlight models (e.g. Eco Series) want a DIRECT cable rather than a crossover. Verify per model."
         }
       ]
     },
@@ -389,6 +425,78 @@
           "id": "christie_serial",
           "confidence": "untested",
           "notes": "All series share the same (CODE) message format and the core power / shutter / input / image controls. Series-specific features (e.g. laser-light controls on HS, lens-shift codes on GS) are not exposed here; use send_command with the series' published command list when needed. Boxer / Inspire / 4KHS / Crimson use a newer JSON / Christie API and require a different driver \u2014 they are not covered here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-1000LU",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "EIKI EK / LC series projectors using the Sanyo Basic Serial Command protocol (same C00 / CRx command set). Verify baud and cable type per model before relying on it."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-1100LU",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "EIKI EK / LC series projectors using the Sanyo Basic Serial Command protocol (same C00 / CRx command set). Verify baud and cable type per model before relying on it."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-307W",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "full",
+          "notes": "Hardware-validated: two-way RS-232 control confirmed against an EK-307W (CR5 model read returns \"Coral-EK-307W\") at 19200 8N1 over a Global Cache iTach IP2SL serial bridge with a crossover cable."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-308U",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "EIKI EK / LC series projectors using the Sanyo Basic Serial Command protocol (same C00 / CRx command set). Verify baud and cable type per model before relying on it."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-309W",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "EIKI EK / LC series projectors using the Sanyo Basic Serial Command protocol (same C00 / CRx command set). Verify baud and cable type per model before relying on it."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-850LU",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "EIKI EK / LC series projectors using the Sanyo Basic Serial Command protocol (same C00 / CRx command set). Verify baud and cable type per model before relying on it."
         }
       ]
     },
@@ -1162,6 +1270,90 @@
           "id": "panasonic_pt",
           "confidence": "untested",
           "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sanyo",
+      "model": "PLC-WL2500",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sanyo",
+      "model": "PLC-WM5500",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sanyo",
+      "model": "PLC-XF1000",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sanyo",
+      "model": "PLC-XF47K",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sanyo",
+      "model": "PLC-XU305",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sanyo",
+      "model": "PLC-XU355",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sanyo",
+      "model": "PLC-ZM5000",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "sanyo_serial_projector",
+          "confidence": "untested",
+          "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
         }
       ]
     },

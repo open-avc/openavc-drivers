@@ -1,0 +1,442 @@
+# Sanyo "Basic Serial Command" Projector (RS-232 serial)
+#
+# Controls projectors that speak Sanyo's "Basic Serial Command" RS-232
+# protocol (the compact "C-command" scheme). Sanyo built projectors for
+# several brands, so the same protocol shows up across:
+#   - Sanyo PLC series (PLC-WM5500, PLC-ZM5000, PLC-XF1000, PLC-XF47K,
+#     PLC-WL2500, PLC-XU305/355, ...)
+#   - EIKI EK / LC series (EK-307W, EK-308U, EK-309W, EK-1000LU, ...)
+#   - Boxlight (Eco, Boston, ProjectoWrite lines)
+# Usable on a direct serial port or *through a bridge* (e.g. a Global Cache
+# iTach IP2SL): bind it from the device's Connection settings and the platform
+# routes it over the bridge's serial pass-through.
+#
+# Serial settings: 8 data bits, no parity, 1 stop bit, no flow control.
+# Baud and cable type VARY BY MODEL. 19200 is the common rate (configurable
+# in settings); some models want a CROSS (null-modem) cable (e.g. EIKI
+# EK-308U/309W), others a DIRECT (straight-through) cable (e.g. Boxlight Eco).
+#
+# Command format: ASCII "C" + a 2-character code, terminated with a single
+# carriage return (CR, 0x0D). Two kinds:
+#   - Functional execution (e.g. C00 = power on, C01 = power off). Projector
+#     replies 0x06 (ACK) + CR on success, NAK + CR on failure; an unknown
+#     command replies "?" + CR.
+#   - Status read (e.g. CR0 = power status). Projector replies <value> + CR.
+# This driver appends the CR; command "send" strings carry the trailing \r.
+#
+# The command surface here matches newer EIKI EK units. The core commands
+# (power, basic inputs, blank, freeze, volume, brightness, menu, navigation,
+# status) are common to the whole family; a few inputs (HDMI 2/MHL, Network,
+# Memory Viewer, USB Display) are EK-era extras that older Sanyo PLC units
+# simply NAK.
+#
+# Status replies are bare values with no echo of the query, so the driver
+# can't pattern-match every read unambiguously. It polls the reads whose
+# reply formats are mutually distinguishable: power (2-digit code), input
+# (text), lamp hours (5 digits), temperatures (decimals), model name. The
+# screen-setting (CR4) and lamp-mode (CR7) reads also return 2-digit codes
+# that collide with the power code under fire-and-forget polling, so they are
+# not polled here (they would need correlated query/response, which the
+# declarative runtime does not currently do).
+#
+# Hardware-validated against an EIKI EK-307W (CR5 model read returns
+# "Coral-EK-307W"): two-way comms at 19200 8N1 over a Global Cache iTach
+# IP2SL with a crossover cable. Power on/off, input/lamp/temperature reads,
+# and the ACK reply all verified.
+
+id: sanyo_serial_projector
+name: Sanyo / EIKI / Boxlight Projector (RS-232 Serial)
+manufacturer: Sanyo
+category: projector
+version: 1.0.0
+author: OpenAVC
+description: >-
+  Controls Sanyo-built projectors that use Sanyo's "Basic Serial Command"
+  RS-232 protocol: Sanyo PLC, EIKI EK / LC, and Boxlight (Eco / Boston /
+  ProjectoWrite) lines. Works on a direct serial port or through a serial
+  bridge. Power, input select, blank, freeze, image modes, audio, zoom,
+  keystone, on-screen navigation, and power management, with polled power /
+  input / lamp-hours / temperature / model status. Baud and cable type vary
+  by model (commonly 19200; both configurable).
+source_url: https://www.eiki.com/rs232-commands/
+tags: [projector, rs232, rs-232, serial, sanyo, eiki, boxlight, plc, sanyo-serial, basic-serial, ek-307w, bridge]
+verified: true
+simulated: false
+ports: []
+compatible_models:
+  - manufacturer: EIKI
+    models:
+      - EK-307W
+    confidence: full
+    notes: >-
+      Hardware-validated: two-way RS-232 control confirmed against an EK-307W
+      (CR5 model read returns "Coral-EK-307W") at 19200 8N1 over a Global Cache
+      iTach IP2SL serial bridge with a crossover cable.
+  - manufacturer: EIKI
+    models:
+      - EK-308U
+      - EK-309W
+      - EK-1000LU
+      - EK-850LU
+      - EK-1100LU
+    confidence: untested
+    notes: >-
+      EIKI EK / LC series projectors using the Sanyo Basic Serial Command
+      protocol (same C00 / CRx command set). Verify baud and cable type per
+      model before relying on it.
+  - manufacturer: Sanyo
+    models:
+      - PLC-WM5500
+      - PLC-ZM5000
+      - PLC-XF1000
+      - PLC-XF47K
+      - PLC-WL2500
+      - PLC-XU305
+      - PLC-XU355
+    confidence: untested
+    notes: >-
+      Sanyo PLC series, the origin of this "Basic Serial Command" protocol.
+      Core power / input / status commands are shared; a few EK-era inputs
+      here do not apply. Verify baud and cable type per model.
+  - manufacturer: Boxlight
+    models:
+      - Eco Series
+      - Boston Series
+      - ProjectoWrite
+    confidence: untested
+    notes: >-
+      Boxlight (Sanyo-built) lines using the same C-command protocol. Note
+      some Boxlight models (e.g. Eco Series) want a DIRECT cable rather than a
+      crossover. Verify per model.
+
+transport: serial
+# Replies are CR-terminated; sent commands also carry a trailing CR (in the
+# command "send" strings — the protocol requires a CR after every command).
+delimiter: "\r"
+
+help:
+  overview: >-
+    EIKI EK-series projector over RS-232 (the compact "C-command" protocol:
+    "C" + a 2-character code + carriage return). Works on a direct serial
+    port or through a serial bridge (choose "Through a bridge" in Connection
+    settings and pick the bridge's RS-232 port). Power, inputs, blank,
+    freeze, image modes, audio, zoom, keystone, navigation, power management,
+    and polled status.
+  setup: >-
+    1. Connect the projector's RS-232 port (or wire it to a serial bridge)
+       with an RS-232 CROSS (null-modem) cable.
+    2. Serial settings are 19200 baud, 8 data bits, no parity, 1 stop bit,
+       no flow control.
+    3. Through a bridge, the binding's 19200 8N1 is applied to the line
+       automatically.
+  connection: >-
+    The protocol requires a crossover (null-modem) cable between the
+    controller/bridge and the projector. Status reads return on/standby,
+    current input, lamp hours, internal temperatures, and the model name.
+
+default_config:
+  baudrate: 19200
+  bytesize: 8
+  parity: "N"
+  stopbits: 1
+  poll_interval: 15
+  # The EK protocol requires >=200 ms between commands; keep a safe gap so
+  # back-to-back commands and poll queries are not dropped.
+  inter_command_delay: 0.25
+
+config_schema:
+  baudrate:
+    type: integer
+    default: 19200
+    label: Baud Rate
+    description: Fixed 19200 for the EK serial protocol.
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+    description: How often to poll power / input / lamp / temperature status. 0 disables polling.
+  inter_command_delay:
+    type: number
+    default: 0.25
+    min: 0.2
+    label: Inter-Command Delay (sec)
+    description: Minimum gap between commands. The protocol requires at least 0.2s.
+
+state_variables:
+  power:
+    type: string
+    label: Power
+    help: >-
+      Power state from CR0: On, Standby, Warming Up, Cooling, Power Failure,
+      or a power-management / temperature-fault state. Unmapped codes show the
+      raw two-character code.
+  input:
+    type: string
+    label: Input Source
+    help: "Current input from CR1 (e.g. VGA 1, HDMI 1, HDMI 2(MHL), Video, Network)."
+  lamp_hours:
+    type: integer
+    label: Lamp Hours
+    help: "Cumulative lamp-on hours from CR3."
+  temperatures:
+    type: string
+    label: Temperatures (C)
+    help: "Three internal temperature sensors (deg C) from CR6."
+  model:
+    type: string
+    label: Model
+    help: "Model name reported by CR5 (read once on connect, e.g. Coral-EK-307W)."
+
+commands:
+  # ── Power ──
+  power_on:
+    label: Power On
+    send: "C00\r"
+    help: Turn the projector on.
+  power_off:
+    label: Power Off
+    send: "C01\r"
+    help: >-
+      Turn the projector off. Uses the immediate-off command (C01): a single
+      press powers down with no on-screen confirmation, and the lamp still
+      cools down normally. (The C02 "normal" off requires a front-panel
+      confirmation and is not exposed; use Send Raw Command if you want it.)
+  query_power:
+    label: Query Power Status
+    send: "CR0\r"
+
+  # ── Input select ──
+  input_vga1:
+    label: "Input: VGA 1"
+    send: "C05\r"
+  input_vga2:
+    label: "Input: VGA 2"
+    send: "C06\r"
+  input_video:
+    label: "Input: Video"
+    send: "C07\r"
+  input_svideo:
+    label: "Input: S-Video"
+    send: "C34\r"
+  input_component:
+    label: "Input: Component"
+    send: "C33\r"
+  input_hdmi1:
+    label: "Input: HDMI 1"
+    send: "C36\r"
+  input_hdmi2:
+    label: "Input: HDMI 2 (MHL)"
+    send: "C37\r"
+  input_network:
+    label: "Input: Network"
+    send: "C15\r"
+  input_memory_viewer:
+    label: "Input: Memory Viewer"
+    send: "C16\r"
+  input_usb_display:
+    label: "Input: USB Display"
+    send: "C17\r"
+  query_input:
+    label: Query Input
+    send: "CR1\r"
+
+  # ── Picture ──
+  blank_on:
+    label: Blank On
+    send: "C0D\r"
+  blank_off:
+    label: Blank Off
+    send: "C0E\r"
+  freeze_on:
+    label: Freeze On
+    send: "C43\r"
+  freeze_off:
+    label: Freeze Off
+    send: "C44\r"
+  display_clear:
+    label: Clear On-Screen Display
+    send: "C1E\r"
+  image_toggle:
+    label: Image Mode (Toggle)
+    send: "C27\r"
+  image_dynamic:
+    label: "Image Mode: Dynamic"
+    send: "C19\r"
+  image_standard:
+    label: "Image Mode: Standard"
+    send: "C11\r"
+  image_cinema:
+    label: "Image Mode: Cinema"
+    send: "C13\r"
+  image_colorboard:
+    label: "Image Mode: Colorboard"
+    send: "C39\r"
+  image_blackboard:
+    label: "Image Mode: Blackboard"
+    send: "C18\r"
+  screen_normal:
+    label: "Screen: Normal"
+    send: "C0F\r"
+  screen_wide:
+    label: "Screen: Wide (16:9)"
+    send: "C10\r"
+  brightness_up:
+    label: Brightness +
+    send: "C20\r"
+  brightness_down:
+    label: Brightness -
+    send: "C21\r"
+
+  # ── Audio ──
+  mute_on:
+    label: Mute On
+    send: "C0B\r"
+  mute_off:
+    label: Mute Off
+    send: "C0C\r"
+  volume_up:
+    label: Volume +
+    send: "C09\r"
+  volume_down:
+    label: Volume -
+    send: "C0A\r"
+
+  # ── Zoom / keystone ──
+  digital_zoom_in:
+    label: Digital Zoom +
+    send: "C30\r"
+  digital_zoom_out:
+    label: Digital Zoom -
+    send: "C31\r"
+  keystone_up:
+    label: Keystone +
+    send: "C8E\r"
+    help: Keystone adjustment. Exact axis varies by model.
+  keystone_down:
+    label: Keystone -
+    send: "C8F\r"
+    help: Keystone adjustment. Exact axis varies by model.
+  keystone_alt_up:
+    label: Keystone + (alt axis)
+    send: "C90\r"
+    help: Second keystone axis on models with horizontal keystone.
+  keystone_alt_down:
+    label: Keystone - (alt axis)
+    send: "C91\r"
+    help: Second keystone axis on models with horizontal keystone.
+
+  # ── On-screen navigation ──
+  menu_on:
+    label: "Menu: On"
+    send: "C1C\r"
+  menu_off:
+    label: "Menu: Off"
+    send: "C1D\r"
+  nav_up:
+    label: "Navigate: Up"
+    send: "C3C\r"
+  nav_down:
+    label: "Navigate: Down"
+    send: "C3D\r"
+  nav_left:
+    label: "Navigate: Left"
+    send: "C3B\r"
+  nav_right:
+    label: "Navigate: Right"
+    send: "C3A\r"
+  nav_enter:
+    label: "Navigate: Enter"
+    send: "C3F\r"
+  auto_pc_adjust:
+    label: Auto PC Adjust
+    send: "C89\r"
+  timer:
+    label: Timer
+    send: "C8A\r"
+  timer_exit:
+    label: Timer (Exit)
+    send: "C8B\r"
+
+  # ── Power management ──
+  power_mgmt_ready:
+    label: "Power Mgmt: Ready"
+    send: "C2A\r"
+  power_mgmt_off:
+    label: "Power Mgmt: Off"
+    send: "C2B\r"
+  power_mgmt_shutdown:
+    label: "Power Mgmt: Shut Down"
+    send: "C2E\r"
+  direct_on_enable:
+    label: Direct Power On (Enable)
+    send: "C28\r"
+  direct_on_disable:
+    label: Direct Power On (Disable)
+    send: "C29\r"
+
+  # ── Status reads ──
+  query_lamp_hours:
+    label: Query Lamp Hours
+    send: "CR3\r"
+  query_temperatures:
+    label: Query Temperatures
+    send: "CR6\r"
+  query_model:
+    label: Query Model Name
+    send: "CR5\r"
+
+  # ── Raw escape hatch ──
+  send_command:
+    label: Send Raw Command
+    send: "{raw}\r"
+    params:
+      raw:
+        type: string
+        label: Raw Command
+        description: >-
+          Full command code without the carriage return, e.g. "C00" or "CR0".
+          The driver appends the trailing CR. Use for codes not exposed above.
+
+# Status replies are bare values (no echo of the query), so each pattern is
+# anchored and the formats are mutually exclusive; the runtime stops at the
+# first match. Power is the only 2-digit reply polled, so a 2-digit value is
+# unambiguously the power code; lamp hours are 5 digits; temperatures lead
+# with a decimal; the model is the only "Coral-" reply; any other text is the
+# input name. The ACK (0x06) and "?" replies match nothing and are ignored.
+responses:
+  - match: '^(\d{2})$'
+    mappings:
+      - group: 1
+        state: power
+        map:
+          "00": "On"
+          "80": "Standby"
+          "81": "Standby (Cooled)"
+          "40": "Warming Up"
+          "20": "Cooling"
+          "21": "Cooling (Lamp Off)"
+          "10": "Power Failure"
+          "28": "Cooling (Temp Fault)"
+          "88": "Recovering (Temp Fault)"
+          "24": "Cooling (Power Mgmt)"
+          "04": "Power Mgmt Ready"
+  - match: '^(\d{4,6})$'
+    set: { lamp_hours: "$1" }
+  - match: '^\s*(\d+\.\d[\d.\s]*)$'
+    set: { temperatures: "$1" }
+  - match: '^(Coral-.+)$'
+    set: { model: "$1" }
+  - match: '^([A-Za-z].*)$'
+    set: { input: "$1" }
+
+polling:
+  queries:
+    - "CR0\r"
+    - "CR1\r"
+    - "CR3\r"
+    - "CR6\r"
+
+# Read the (static) model name once on connect.
+on_connect:
+  - "CR5\r"

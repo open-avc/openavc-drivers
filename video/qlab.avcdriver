@@ -40,7 +40,7 @@ id: qlab
 name: QLab Show Control
 manufacturer: Figure 53
 category: video
-version: 1.1.0
+version: 1.1.1
 author: OpenAVC
 description: >-
   Controls Figure 53's QLab show-control / playback software (macOS) over OSC.
@@ -324,10 +324,13 @@ commands:
         label: Cue Number
 
   # ── Per-cue properties ──
+  # QLab 5's audio level addresses require a row index: row 0 is the cue's
+  # master level, rows 1+ are individual audio channels. Without the row,
+  # /cue/<n>/sliderLevel returns an error, so these target the master (row 0).
   set_cue_level:
     label: Set Cue Level
-    help: "Set a cue's master slider level (audio/video cues)."
-    address: "{ws}/cue/{number}/sliderLevel"
+    help: "Set a cue's master audio level, in dB (0 = unity gain, negative = quieter)."
+    address: "{ws}/cue/{number}/sliderLevel/0"
     args:
       - type: f
         value: "{level}"
@@ -337,13 +340,13 @@ commands:
         label: Cue Number
       level:
         type: number
-        label: Level
-        description: "Master slider level for the cue."
+        label: Level (dB)
+        description: "Master audio level in decibels. 0 is unity gain; negative is quieter."
 
   nudge_cue_level_up:
     label: Nudge Cue Level Up
-    help: "Increase a cue's master slider level by an amount."
-    address: "{ws}/cue/{number}/sliderLevel/+"
+    help: "Raise a cue's master audio level by an amount in dB."
+    address: "{ws}/cue/{number}/sliderLevel/0/+"
     args:
       - type: f
         value: "{delta}"
@@ -353,12 +356,12 @@ commands:
         label: Cue Number
       delta:
         type: number
-        label: Increase By
+        label: Increase By (dB)
 
   nudge_cue_level_down:
     label: Nudge Cue Level Down
-    help: "Decrease a cue's master slider level by an amount."
-    address: "{ws}/cue/{number}/sliderLevel/-"
+    help: "Lower a cue's master audio level by an amount in dB."
+    address: "{ws}/cue/{number}/sliderLevel/0/-"
     args:
       - type: f
         value: "{delta}"
@@ -368,7 +371,7 @@ commands:
         label: Cue Number
       delta:
         type: number
-        label: Decrease By
+        label: Decrease By (dB)
 
   set_cue_armed:
     label: Arm / Disarm Cue

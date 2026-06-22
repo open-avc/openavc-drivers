@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generated_at": "2026-06-21T23:25:27+00:00",
+    "generated_at": "2026-06-22T03:00:30+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 553,
+    "total_devices": 555,
     "shards": null
   },
   "devices": [
@@ -2199,13 +2199,37 @@
     },
     {
       "manufacturer": "EIKI",
-      "model": "EIP-U4700",
+      "model": "EK-307W",
       "category": "projector",
       "drivers": [
         {
-          "id": "eiki_eip_u4700",
+          "id": "eiki_ek_series",
+          "confidence": "full",
+          "notes": "Hardware-validated: two-way RS-232 control confirmed against an EK-307W (CR5 model read returns \"Coral-EK-307W\") at 19200 8N1 over an iTach IP2SL serial bridge with a crossover cable."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-308U",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "eiki_ek_series",
           "confidence": "untested",
-          "notes": "Commands taken from EIKI's EIP-U4700 RS-232 basic serial command sheet. Other EIKI EIP-series models may share this 8-byte command format; verify per model before claiming support."
+          "notes": "Documented to share this C-command protocol with the EK-307W (EIKI EK-308U/EK-309W RS-232 command list). Other EK-series and Sanyo-OEM \"Coral\" platform projectors using the same C00 / CRx command set are likely compatible \u2014 verify per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "EIKI",
+      "model": "EK-309W",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "eiki_ek_series",
+          "confidence": "untested",
+          "notes": "Documented to share this C-command protocol with the EK-307W (EIKI EK-308U/EK-309W RS-232 command list). Other EK-series and Sanyo-OEM \"Coral\" platform projectors using the same C00 / CRx command set are likely compatible \u2014 verify per model."
         }
       ]
     },

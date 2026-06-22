@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-21T23:25:27+00:00",
+    "generated_at": "2026-06-22T03:00:30+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 7,
@@ -72,40 +72,53 @@
       }
     },
     {
-      "id": "eiki_eip_u4700",
-      "name": "EIKI EIP-U4700 Projector",
+      "id": "eiki_ek_series",
+      "name": "EIKI EK-Series Projector",
       "manufacturer": "EIKI",
       "category": "projector",
       "version": "1.0.0",
       "author": "OpenAVC",
       "transport": "serial",
-      "description": "Controls the EIKI EIP-U4700 WUXGA projector over RS-232 (9600 8N1), directly or through a serial bridge. Power, source select, blank, freeze, picture and lamp modes, projection orientation, image adjust, and front-panel keys.",
-      "source_url": "https://www.eiki.com/rs-232-command-codes/",
-      "file": "projectors/eiki_eip_u4700.avcdriver",
+      "description": "Controls EIKI EK-series projectors (EK-307W, EK-308U, EK-309W and compatible Sanyo/\"Coral\" platform units) over RS-232 (19200 8N1), directly or through a serial bridge. Power, input select, blank, freeze, image modes, audio, zoom, keystone, on-screen navigation, and power management, with polled power / input / lamp-hours / temperature / model status.",
+      "source_url": "https://www.eiki.com/rs232-commands/",
+      "file": "projectors/eiki_ek_series.avcdriver",
       "format": "avcdriver",
+      "verified": true,
       "tags": [
         "projector",
         "eiki",
         "rs232",
         "rs-232",
         "serial",
-        "eip-u4700",
-        "dlp",
-        "bridge"
+        "ek-307w",
+        "ek-308u",
+        "ek-309w",
+        "bridge",
+        "sanyo",
+        "coral"
       ],
       "help": {
-        "overview": "EIKI EIP-U4700 projector over RS-232. Works on a direct serial port or through a serial bridge (choose \"Through a bridge\" in Connection settings and pick the bridge's RS-232 port). Power, source, blank, freeze, picture and lamp modes, orientation, image adjust, and remote keys.",
-        "setup": "1. Connect the projector's RS-232 port (or wire it to a serial bridge). 2. Serial settings are 9600 baud, 8 data bits, no parity, 1 stop bit. 3. Through a bridge, set the same 9600 8N1 on the binding; the bridge\n   applies it to the line automatically.",
-        "connection": "The projector's RS-232 control port must be enabled in its menu if your unit has a serial/Ethernet control selector."
+        "overview": "EIKI EK-series projector over RS-232 (the compact \"C-command\" protocol: \"C\" + a 2-character code + carriage return). Works on a direct serial port or through a serial bridge (choose \"Through a bridge\" in Connection settings and pick the bridge's RS-232 port). Power, inputs, blank, freeze, image modes, audio, zoom, keystone, navigation, power management, and polled status.",
+        "setup": "1. Connect the projector's RS-232 port (or wire it to a serial bridge)\n   with an RS-232 CROSS (null-modem) cable.\n2. Serial settings are 19200 baud, 8 data bits, no parity, 1 stop bit,\n   no flow control.\n3. Through a bridge, the binding's 19200 8N1 is applied to the line\n   automatically.",
+        "connection": "The protocol requires a crossover (null-modem) cable between the controller/bridge and the projector. Status reads return on/standby, current input, lamp hours, internal temperatures, and the model name."
       },
       "compatible_models": [
         {
           "manufacturer": "EIKI",
           "models": [
-            "EIP-U4700"
+            "EK-307W"
+          ],
+          "confidence": "full",
+          "notes": "Hardware-validated: two-way RS-232 control confirmed against an EK-307W (CR5 model read returns \"Coral-EK-307W\") at 19200 8N1 over an iTach IP2SL serial bridge with a crossover cable."
+        },
+        {
+          "manufacturer": "EIKI",
+          "models": [
+            "EK-308U",
+            "EK-309W"
           ],
           "confidence": "untested",
-          "notes": "Commands taken from EIKI's EIP-U4700 RS-232 basic serial command sheet. Other EIKI EIP-series models may share this 8-byte command format; verify per model before claiming support."
+          "notes": "Documented to share this C-command protocol with the EK-307W (EIKI EK-308U/EK-309W RS-232 command list). Other EK-series and Sanyo-OEM \"Coral\" platform projectors using the same C00 / CRx command set are likely compatible \u2014 verify per model."
         }
       ]
     },

@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-06-21T23:25:27+00:00",
+    "generated_at": "2026-06-22T03:00:30+00:00",
     "generator_version": "1.0.0",
     "schema_version": "1",
     "total_drivers": 6,
@@ -150,7 +150,7 @@
       "name": "QLab Show Control",
       "manufacturer": "Figure 53",
       "category": "video",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",

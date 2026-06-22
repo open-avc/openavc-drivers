@@ -18,9 +18,10 @@ Usage:
 """
 
 from __future__ import annotations
-
+from typing import TYPE_CHECKING
 import argparse
 import ast
+import copy
 import json
 import re
 import sys
@@ -36,7 +37,24 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+try:
+    from jsonschema_rs import validator_for as jsonschema_validator_for
+except ModuleNotFoundError:
+    jsonschema_validator_for = None
 
+# We want to import these for type checks, but `JsonSchemaValidationError`
+# is needed at runtime so we redefine it as BaseException.
+#
+# This ensures that the script can run with or without jsonschema_rs, but we
+# still get proper types when it's available.
+if TYPE_CHECKING:
+    from jsonschema_rs import (
+        Validator as JsonSchemaValidator,
+        ValidationError as JsonSchemaValidationError,
+    )
+else:
+    JsonSchemaValidator = object
+    JsonSchemaValidationError = BaseException
 
 # --- Constants ---------------------------------------------------------------
 
@@ -381,6 +399,61 @@ def _as_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def _validate_json_schema(
+    filepath: str,
+    driver_info: dict[str, Any],
+    validator: JsonSchemaValidator
+) -> list[str]:
+    """Validate driver_info against the JSON Schema.
+
+    Returns a list of errors.
+    """
+    errors: list[str] = []
+    try:
+        validator.validate(driver_info)
+    except JsonSchemaValidationError as e:
+        errors.append(f"{filepath}: JSON Schema validation error: {e.message}")
+    return errors
+
+
+def _python_driver_schema(base_schema: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of the avcdriver schema that also allows the ssh transport.
+
+    avcdriver.schema.json describes the YAML (.avcdriver) format, whose
+    transport enum deliberately omits ssh: a declarative driver can't drive an
+    SSH CLI session. Python drivers can, and the runtime allows it, so they are
+    validated against the same schema with ssh added to the transport enum.
+    Everything else stays identical, so a Python driver's metadata is checked
+    just as strictly as a YAML driver's.
+    """
+    schema = copy.deepcopy(base_schema)
+    transport = schema.get("properties", {}).get("transport", {})
+    enum = transport.get("enum")
+    if isinstance(enum, list) and "ssh" not in enum:
+        transport["enum"] = [*enum, "ssh"]
+    return schema
+
+
+def _validate_all_json_schemas(
+    raw: list[tuple[Path, dict[str, Any]]],
+    yaml_validator: JsonSchemaValidator,
+    python_validator: JsonSchemaValidator,
+) -> list[str]:
+    """Validate each driver_info against the JSON Schema for its format.
+
+    .avcdriver (YAML) drivers use the schema as published; .py (Python) drivers
+    use the variant from _python_driver_schema that also allows the ssh
+    transport.
+
+    Returns a list of errors.
+    """
+    errors: list[str] = []
+    for filepath, driver_info in raw:
+        validator = python_validator if filepath.suffix == ".py" else yaml_validator
+        errors.extend(_validate_json_schema(filepath.as_posix(), driver_info, validator))
+    return errors
 
 
 def _validate_extract_block(file: str, where: str, raw: Any) -> list[str]:
@@ -1527,6 +1600,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Validate only — do not write outputs (used in CI)",
     )
     parser.add_argument(
+        "--check-json-schema",
+        action="store_true",
+        help="Validate driver files against the JSON Schema",
+    )
+    parser.add_argument(
+        "--json-schema-file",
+        type=Path,
+        default=None,
+        help="Path to JSON Schema file (default: avcdriver.schema.json in repo root)",
+    )
+    parser.add_argument(
         "--root",
         type=Path,
         default=Path(__file__).resolve().parent.parent,
@@ -1535,6 +1619,29 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     repo_root: Path = args.root.resolve()
+    json_schema_path = args.json_schema_file or (repo_root / "avcdriver.schema.json")
+    if jsonschema_validator_for is not None and json_schema_path.is_file():
+        json_schema = json.loads(json_schema_path.read_text(encoding="utf-8"))
+        json_validator = jsonschema_validator_for(json_schema)
+        python_json_validator = jsonschema_validator_for(
+            _python_driver_schema(json_schema)
+        )
+    else:
+        if args.check_json_schema:
+            # If the user explicitly requested JSON Schema validation,
+            # treat a missing schema file as an error.
+            print(
+                f"ERROR: JSON Schema file not found at {json_schema_path}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            f"WARNING: JSON Schema file not found at {json_schema_path}, skipping schema validation.",
+            file=sys.stderr,
+        )
+        json_schema = None
+        json_validator = None
+        python_json_validator = None
 
     try:
         manufacturers = _load_manufacturers(repo_root)
@@ -1553,6 +1660,31 @@ def main(argv: list[str] | None = None) -> int:
     if not raw:
         print(f"ERROR: no driver files found under {repo_root}", file=sys.stderr)
         return 1
+
+    def _print_schema_errors(errors: list[str]) -> None:
+        """Print JSON Schema validation errors, if any."""
+        if not errors:
+            return
+        print(
+            f"\nFAILED: {len(errors)} JSON Schema validation error(s):\n",
+            file=sys.stderr,
+        )
+        for err in errors:
+            print(f"  - {err}", file=sys.stderr)
+
+    if json_schema is not None:
+        assert json_validator is not None
+        assert python_json_validator is not None
+        schema_errors = _validate_all_json_schemas(
+            raw, json_validator, python_json_validator
+        )
+        if args.check_json_schema and schema_errors:
+            # If the user requested JSON Schema validation,
+            # report any schema errors and exit with failure.
+            _print_schema_errors(schema_errors)
+            return 1
+    else:
+        schema_errors = []
 
     entries: list[DriverEntry] = []
     errors: list[str] = []
@@ -1607,9 +1739,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR building devices catalog: {e}", file=sys.stderr)
         return 1
 
+    if len(schema_errors) > 0:
+        # If we got here, the schema validation ran with errors not caught by
+        # the above checks (and the `--check-json-schema` flag was not set).
+        # Report those errors and exit with failure. This is done as the
+        # final step to avoid duplicated error reports.
+        _print_schema_errors(schema_errors)
+        return 1
+
     print(f"Validated {len(entries)} driver(s), {len(devices)} device(s).")
 
-    if args.check:
+    if args.check or args.check_json_schema:
         return 0
 
     write_outputs(repo_root, entries, devices)

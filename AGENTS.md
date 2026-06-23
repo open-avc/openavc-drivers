@@ -792,6 +792,20 @@ responses:
 
 A path landing on an array/object yields its **length** (so `boolean` = "is non-empty?", `integer` = count). Invalid JSON or an unresolved path skips the mapping (state untouched), never storing a wrong value. Omit `json_path` for the normal positional read. `json_path` also works on regex/text responses (applied to the captured group), so TCP/HTTP JSON replies can use it too.
 
+**`json: true` — read many fields from one JSON body.** `json_path` pulls *one* value out of a JSON string in a single capture. When the *whole* reply body is a JSON object with several fields you want (an HTTP/REST status endpoint, say), use a `json: true` response. It parses the body once and applies **every** mapping, so one reply populates many state variables — unlike regex rules, where only the first matching rule fires:
+
+```yaml
+responses:
+  - json: true
+    set:
+      in_use:      { key: inUse, type: boolean }
+      sessions:    { key: sessions, type: integer }
+      status_text: { key: status }                  # type defaults to the state var's
+      mode:        { key: video.mode, map: { "1": Extended, "2": Clone } }
+```
+
+A `set` value is the JSON field to read: a string key, a dot path (`video.mode`, `items.0`), or a `{key, type, map}` object. Native JSON bools/ints/floats are preserved (no string round-trip). Missing keys are skipped (state untouched); a key landing on an array/object yields its length, same as `json_path`. Multiple `json: true` rules are additive — each is applied to every body — so split related fields across rules freely. If a body isn't a JSON object the engine falls through to your regex rules. Use this for JSON APIs; reserve mega-regexes for non-JSON text.
+
 ### 2.8 auth
 
 Login handshake for Telnet-style devices that present `Username:` / `Password:` prompts before accepting commands. Runs after the TCP connection is established and before `on_connect` commands are sent.
@@ -2097,7 +2111,7 @@ Every simulator `match:` is compiled as `^{pattern}$` — the pattern must match
 
 ### Response dispatch returns after the first match
 
-Your `responses:` list is tried in order; the first regex that matches the response wins, the rest are skipped. To pull multiple values out of one response line, use **one** regex with multiple capture groups and **one** `set:` block with multiple keys — not two separate response entries.
+Your `responses:` list is tried in order; the first **regex** that matches the response wins, the rest are skipped. To pull multiple values out of one non-JSON response line, use **one** regex with multiple capture groups and **one** `set:` block with multiple keys — not two separate response entries. For a JSON reply body don't fight this with a mega-regex: use a `json: true` response (see §2.7), which parses the body and applies every field mapping, so the first-match rule does not apply.
 
 ### Multi-line responses fan out per line
 

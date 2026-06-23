@@ -246,7 +246,7 @@
       "items": {
         "$ref": "#/$defs/responseEntry"
       },
-      "description": "Patterns for parsing device replies. Checked in order; first match wins."
+      "description": "Patterns for parsing device replies. Regex/OSC rules are checked in order and the first match wins; a json: true rule parses the whole JSON body and applies all of its field mappings, so a multi-field JSON reply fully populates."
     },
     "on_connect": {
       "type": "array",
@@ -770,9 +770,16 @@
         },
         {
           "required": ["address"]
+        },
+        {
+          "required": ["json"]
         }
       ],
       "properties": {
+        "json": {
+          "type": "boolean",
+          "description": "When true, the whole reply body is parsed as a JSON object and every set/mappings key is read from it. Unlike regex responses, all json rules are applied to a body (not just the first match), so one JSON reply can populate many state variables. In this mode a set value is the JSON field to read (a string key, dot path allowed) or a {key, type, map} object, not a capture ref."
+        },
         "match": {
           "type": "string",
           "minLength": 1,
@@ -790,7 +797,7 @@
         },
         "set": {
           "type": "object",
-          "description": "Shorthand: maps state variables to capture groups (\"$1\") or static values."
+          "description": "Shorthand mapping state variables to values. For regex responses, values are capture groups (\"$1\") or static values. For a json: true response, values are JSON field names (dot path allowed) or {key, type, map} specs."
         },
         "mappings": {
           "type": "array",
@@ -801,7 +808,7 @@
         }
       },
       "additionalProperties": true,
-      "description": "A response must declare match or pattern (regex) or address (OSC)."
+      "description": "A response must declare match or pattern (regex), address (OSC), or json: true (JSON-body)."
     },
     "authBlock": {
       "type": "object",

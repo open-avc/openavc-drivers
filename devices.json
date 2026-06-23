@@ -1478,18 +1478,6 @@
     },
     {
       "manufacturer": "Blackmagic Design",
-      "model": "Smart Videohub 12G CleanSwitch 12x12",
-      "category": "switcher",
-      "drivers": [
-        {
-          "id": "blackmagic_videohub",
-          "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
-        }
-      ]
-    },
-    {
-      "manufacturer": "Blackmagic Design",
       "model": "Smart Videohub 16x16",
       "category": "switcher",
       "drivers": [
@@ -1509,6 +1497,18 @@
           "id": "blackmagic_videohub",
           "confidence": "untested",
           "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Blackmagic Design",
+      "model": "Smart Videohub CleanSwitch 12x12",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "blackmagic_videohub",
+          "confidence": "full",
+          "notes": "Confirmed against real hardware (firmware 9.0) via a community test report: video routing, input/output labels, output locks, and unsolicited state updates all work. This model has no monitoring outputs, so monitoring routing does not apply to it."
         }
       ]
     },

@@ -77,7 +77,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "author": "OpenAVC",
         "description": (
             "Controls Blackmagic Design Videohub routers over the Videohub "
@@ -109,11 +109,24 @@ class BlackmagicVideohubDriver(BaseDriver):
             {
                 "manufacturer": "Blackmagic Design",
                 "models": [
+                    "Smart Videohub CleanSwitch 12x12",
+                ],
+                "confidence": "full",
+                "notes": (
+                    "Confirmed against real hardware (firmware 9.0) via a "
+                    "community test report: video routing, input/output "
+                    "labels, output locks, and unsolicited state updates all "
+                    "work. This model has no monitoring outputs, so monitoring "
+                    "routing does not apply to it."
+                ),
+            },
+            {
+                "manufacturer": "Blackmagic Design",
+                "models": [
                     "Blackmagic Videohub 12G 10x10",
                     "Blackmagic Videohub 12G 20x20",
                     "Blackmagic Videohub 12G 40x40",
                     "Blackmagic Videohub 80x80 12G",
-                    "Smart Videohub 12G CleanSwitch 12x12",
                     "Smart Videohub 16x16",
                     "Smart Videohub 20x20",
                     "Universal Videohub 72",
@@ -128,7 +141,7 @@ class BlackmagicVideohubDriver(BaseDriver):
                     "16 video ports + 4 monitoring outputs; routing on wider "
                     "frames still works, additional ports surface as raw keys."
                 ),
-            }
+            },
         ],
         "help": {
             "overview": (

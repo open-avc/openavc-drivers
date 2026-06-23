@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 91,
+    "total_devices": 92,
     "shards": null,
     "category": "camera"
   },
@@ -405,13 +405,25 @@
     },
     {
       "manufacturer": "Panasonic",
+      "model": "AW-HE145",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "panasonic_awhe",
+          "confidence": "full",
+          "notes": "Verified end to end on real hardware, including the iris position query (AW-HE145 firmware V01.28, AW-HE40 firmware V1.94).\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
       "model": "AW-HE40",
       "category": "camera",
       "drivers": [
         {
           "id": "panasonic_awhe",
-          "confidence": "untested",
-          "notes": "All AW-HE / AW-UE / AW-UN PTZ models on firmware 4.x+. The AK-UB300 (box camera) is in the same protocol family but does not support most pan/tilt/zoom commands \u2014 it returns errors for unsupported operations which the driver simply ignores.\n"
+          "confidence": "full",
+          "notes": "Verified end to end on real hardware, including the iris position query (AW-HE145 firmware V01.28, AW-HE40 firmware V1.94).\n"
         }
       ]
     },

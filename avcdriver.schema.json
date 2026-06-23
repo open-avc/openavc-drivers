@@ -59,6 +59,50 @@
       "enum": ["tcp", "serial", "udp", "http", "osc"],
       "description": "Transport the driver uses to reach the device."
     },
+    "transports": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["tcp", "serial", "udp", "http", "osc"]
+      },
+      "description": "Optional. Transports this driver can use interchangeably (e.g. [\"tcp\", \"serial\"] for a text protocol whose command/response strings are byte-identical over the network or a serial line). The per-device connection picks the actual transport; listing \"serial\" makes the device offerable over a direct serial port or through a bridge. Opt-in: only declare it when the strings really are identical across the listed media."
+    },
+    "bridge": {
+      "type": "object",
+      "description": "Optional. Declares this driver as a bridge: a device that exposes typed ports other devices connect through (e.g. a serial-to-Ethernet adapter). The port declaration is valid in YAML; pushing serial line settings to the hardware (the prepare_bridge_port hook) needs a Python driver.",
+      "required": ["ports"],
+      "properties": {
+        "ports": {
+          "type": "array",
+          "description": "The typed ports this bridge advertises.",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Port id referenced by a downstream device's bridge_port (e.g. \"serial:1\")."
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["serial", "ir", "relay"],
+                "description": "Port kind. A serial port vends a transparent TCP pass-through; ir/relay ports route commands through the bridge at send time."
+              },
+              "passthrough_port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535,
+                "description": "For serial ports: the TCP port on the bridge host that transparently pipes this serial line (e.g. 4999)."
+              },
+              "label": {
+                "type": "string",
+                "description": "Human-readable port label shown in the connection picker."
+              }
+            }
+          }
+        }
+      }
+    },
     "description": {
       "type": "string",
       "description": "Brief description of what the driver controls."
@@ -71,6 +115,10 @@
     "delimiter": {
       "type": "string",
       "description": "Message delimiter. Default \"\\r\". Use \"\\r\\n\" for CRLF. Escape sequences \\r and \\n are interpreted."
+    },
+    "inline_protocol": {
+      "type": "boolean",
+      "description": "Built-in generic devices only. When true, the device page shows a no-code Commands & Responses editor that stores commands/responses/state_variables in the device config and merges them into this driver at runtime. Community drivers ship their commands and responses in the driver file and should not set this."
     },
     "ports": {
       "type": "array",

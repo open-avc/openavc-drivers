@@ -699,3 +699,42 @@ def test_frame_parser_unknown_type() -> None:
 
 def test_frame_parser_absent_is_ok() -> None:
     assert build_index._validate_frame_parser_block("x.avcdriver", {}) == []
+
+
+# --- child_entity_types validation (mirrors the runtime loader's key rules) --
+
+
+def test_child_entity_types_valid() -> None:
+    data = {"child_entity_types": {"encoder": {}, "decoder": {}, "zone_1": {}}}
+    assert build_index._validate_child_entity_types("x.avcdriver", data) == []
+
+
+def test_child_entity_types_absent_is_ok() -> None:
+    assert build_index._validate_child_entity_types("x.avcdriver", {}) == []
+
+
+def test_child_entity_types_must_be_mapping() -> None:
+    data = {"child_entity_types": ["encoder", "decoder"]}
+    errs = build_index._validate_child_entity_types("x.avcdriver", data)
+    assert any("mapping" in e for e in errs)
+
+
+def test_child_entity_types_rejects_dots() -> None:
+    # A dot would corrupt device.<id>.<child_type>.<local_id>.<prop> keys.
+    data = {"child_entity_types": {"enc.oder": {}}}
+    errs = build_index._validate_child_entity_types("x.avcdriver", data)
+    assert any("dots" in e for e in errs)
+
+
+def test_child_entity_types_rejects_glob() -> None:
+    # Glob metachars break the fnmatch dispatch routing per-child state changes.
+    for name in ("enc*", "dec?", "zone["):
+        data = {"child_entity_types": {name: {}}}
+        errs = build_index._validate_child_entity_types("x.avcdriver", data)
+        assert any("glob" in e for e in errs), name
+
+
+def test_child_entity_types_rejects_empty_name() -> None:
+    data = {"child_entity_types": {"": {}}}
+    errs = build_index._validate_child_entity_types("x.avcdriver", data)
+    assert any("non-empty" in e for e in errs)

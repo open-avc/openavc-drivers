@@ -866,6 +866,46 @@ def _validate_auth_block(file: str, data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate a driver's optional `child_entity_types:` mapping.
+
+    Mirrors the runtime rules in driver_loader.validate_driver_definition: the
+    block must be a mapping, and each child type name becomes a state-key
+    segment (device.<id>.<child_type>.<local_id>.<prop>) that also feeds the
+    fnmatch dispatch routing per-child state changes — so a name must be a
+    non-empty string with no dots and no glob metacharacters (* ? [). Without
+    this, a malformed child type only fails when an instance loads the driver
+    at runtime, not at catalog-build time.
+    """
+    errors: list[str] = []
+    child_types = data.get("child_entity_types", {})
+    if child_types and not isinstance(child_types, dict):
+        errors.append(f"{file}: child_entity_types must be a mapping")
+        return errors
+    if not isinstance(child_types, dict):
+        return errors
+    for child_type in child_types:
+        if not isinstance(child_type, str) or not child_type:
+            errors.append(
+                f"{file}: child_entity_types type name {child_type!r} must be a "
+                f"non-empty string"
+            )
+            continue
+        if "." in child_type:
+            errors.append(
+                f"{file}: child_entity_types type name '{child_type}' must not "
+                f"contain dots (used as a state-key separator)"
+            )
+        bad = [c for c in "*?[" if c in child_type]
+        if bad:
+            errors.append(
+                f"{file}: child_entity_types type name '{child_type}' must not "
+                f"contain glob metacharacters ({', '.join(bad)}) — they break "
+                f"state-change dispatch"
+            )
+    return errors
+
+
 def _validate_discovery_block(
     file: str, raw: dict[str, Any], *, yaml_dir: Path | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
@@ -1714,6 +1754,7 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(_validate_auth_block(rel, data))
         errors.extend(_validate_frame_parser_block(rel, data))
         errors.extend(_validate_actions_block(rel, data))
+        errors.extend(_validate_child_entity_types(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

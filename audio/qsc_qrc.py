@@ -102,9 +102,19 @@ DEFAULT_INTER_COMMAND_DELAY = 0.02
 
 INITIAL_REQUEST_ID = 1
 
-# Keep-alive interval used only when nothing is subscribed (empty design):
-# the Core closes a session idle for >60 s, so we NoOp well inside that.
-KEEPALIVE_INTERVAL_S = 30.0
+# NoOp keep-alive + liveness probe cadence. The Core closes any connection
+# whose CLIENT has gone silent for 60 s (verified live on a Core 24f) — and an
+# AutoPoll subscription is core->client only, so receiving pushes does NOT
+# reset that timer; the client must still send something. A NoOp every 20 s
+# keeps the session open with a wide margin AND doubles as a liveness probe:
+# its response is awaited, so a Core that vanished from the network (no FIN,
+# just silence) is detected in ~one or two intervals instead of never (a
+# silent AutoPoll socket otherwise looks alive until the OS TCP keep-alive
+# fires, ~2 h later). After KEEPALIVE_MAX_FAILURES consecutive misses the
+# transport is torn down so the platform reconnects / marks the device offline.
+KEEPALIVE_INTERVAL_S = 20.0
+KEEPALIVE_TIMEOUT_S = 5.0
+KEEPALIVE_MAX_FAILURES = 2
 
 # QRC error codes. Negative codes are JSON-RPC standard; positive ones are
 # QSC-specific (see api-docs/qrc-overview.md §7).
@@ -301,7 +311,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.0.0",
+        "version": "4.0.1",
         # Requires the runtime-discovered child-entity platform feature
         # (string local IDs + per-child dynamic schemas), added after 0.19.3.
         "min_platform_version": "0.19.4",
@@ -640,7 +650,8 @@ class QSCQRCDriver(BaseDriver):
         self._runtime_groups: dict[str, list[tuple[str | None, str, str, str]]] = {}
 
         self._subscribed_count = 0
-        self._keepalive_task: asyncio.Task | None = None
+        self._health_task: asyncio.Task | None = None
+        self._health_failures = 0
 
     # ── Lifecycle ──
 
@@ -688,9 +699,15 @@ class QSCQRCDriver(BaseDriver):
         if poll_interval > 0:
             await self.start_polling(poll_interval)
 
+        # Client-side NoOp keep-alive + liveness probe runs for the life of the
+        # connection (see KEEPALIVE_INTERVAL_S): AutoPoll is core->client only,
+        # so without it the Core closes the socket every 60 s (flap) and a
+        # vanished Core is never noticed.
+        self._start_health_loop()
+
     async def disconnect(self) -> None:
         await self.stop_polling()
-        self._stop_keepalive()
+        self._stop_health_loop()
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
@@ -721,7 +738,7 @@ class QSCQRCDriver(BaseDriver):
         log.info(f"[{self.device_id}] Disconnected")
 
     def _handle_transport_disconnect(self) -> None:
-        self._stop_keepalive()
+        self._stop_health_loop()
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
@@ -885,7 +902,8 @@ class QSCQRCDriver(BaseDriver):
                 self.set_state("core_standby", True)
                 self.set_state("core_state", "Standby")
                 log.info(f"[{self.device_id}] Core on Standby; skipping topology")
-                self._ensure_keepalive(force=True)
+                # The health loop (started in connect) keeps this socket alive
+                # and watches for the Core leaving standby / the network.
                 return
             log.warning(f"[{self.device_id}] GetComponents failed: {exc}")
             return
@@ -1182,13 +1200,10 @@ class QSCQRCDriver(BaseDriver):
 
         self._subscribed_count = count
         if count == 0:
-            # Nothing to subscribe (empty/unexposed design) — keep the socket
-            # warm with NoOp so the device stays connected and the integrator
-            # can fix Script Access then Re-import.
-            self._ensure_keepalive(force=True)
+            # Nothing to subscribe (empty/unexposed design). The health loop
+            # (started in connect) keeps the socket warm so the device stays
+            # connected and the integrator can fix Script Access then Re-import.
             return
-
-        self._ensure_keepalive(force=False)  # AutoPoll keeps us alive
         log.info(
             f"[{self.device_id}] Subscribed {count} controls (rate {rate}s)")
 
@@ -1282,30 +1297,57 @@ class QSCQRCDriver(BaseDriver):
                 return True
         return False
 
-    # ── Keep-alive (used only when nothing is subscribed) ──
+    # ── Keep-alive + liveness probe (always on while connected) ──
 
-    def _ensure_keepalive(self, force: bool) -> None:
-        if force:
-            if self._keepalive_task is None or self._keepalive_task.done():
-                self._keepalive_task = asyncio.ensure_future(self._keepalive_loop())
-        else:
-            self._stop_keepalive()
+    def _start_health_loop(self) -> None:
+        if self._health_task is None or self._health_task.done():
+            self._health_failures = 0
+            self._health_task = asyncio.ensure_future(self._health_loop())
 
-    def _stop_keepalive(self) -> None:
-        if self._keepalive_task and not self._keepalive_task.done():
-            self._keepalive_task.cancel()
-        self._keepalive_task = None
+    def _stop_health_loop(self) -> None:
+        if self._health_task and not self._health_task.done():
+            self._health_task.cancel()
+        self._health_task = None
 
-    async def _keepalive_loop(self) -> None:
+    async def _health_loop(self) -> None:
+        """NoOp the Core every KEEPALIVE_INTERVAL_S. This is the client->core
+        traffic the Core needs to keep the session open (AutoPoll pushes don't
+        count), and the awaited response is the liveness probe: a Core that
+        dropped off the network without a FIN stops answering, so after
+        KEEPALIVE_MAX_FAILURES consecutive misses we tear the transport down and
+        let the platform reconnect (otherwise a silent AutoPoll socket looks
+        connected forever)."""
         try:
             while self.transport and self.transport.connected:
                 await asyncio.sleep(KEEPALIVE_INTERVAL_S)
-                try:
-                    await self._send_jsonrpc("NoOp", {}, expect_response=False)
-                except (QRCError, TimeoutError, ConnectionError, OSError):
+                if not (self.transport and self.transport.connected):
                     return
+                try:
+                    await self._send_jsonrpc(
+                        "NoOp", {}, timeout=KEEPALIVE_TIMEOUT_S)
+                    self._health_failures = 0
+                except (QRCError, TimeoutError, ConnectionError, OSError) as exc:
+                    self._health_failures += 1
+                    log.warning(
+                        f"[{self.device_id}] keep-alive NoOp failed "
+                        f"({self._health_failures}/{KEEPALIVE_MAX_FAILURES}): "
+                        f"{exc}")
+                    if self._health_failures >= KEEPALIVE_MAX_FAILURES:
+                        log.warning(
+                            f"[{self.device_id}] Core unresponsive — dropping "
+                            f"connection so the platform can reconnect")
+                        self._force_disconnect()
+                        return
         except asyncio.CancelledError:
             return
+
+    def _force_disconnect(self) -> None:
+        """Tear down a dead transport and fire the disconnect path so the
+        DeviceManager auto-reconnects / classifies the device offline. Called
+        from inside the health loop, so drop our own task ref first to keep the
+        disconnect handler from cancelling the still-running loop."""
+        self._health_task = None
+        self._handle_transport_disconnect()
 
     # ── refresh_children (IDE "Refresh from Device" + reimport action) ──
 

@@ -19,7 +19,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -459,3 +459,63 @@ def test_pa_page_submit_parapi_params():
     assert sent["params"]["Priority"] == 3
     assert sent["params"]["Station"] == 4
     assert sent["params"]["MaxPageTime"] == 45
+
+
+# ── Keep-alive / liveness health loop ──
+# AutoPoll is core->client only, so without client traffic the Core closes the
+# socket at 60s (flap) and a vanished Core is never noticed. The health loop
+# NoOps to keep the session alive and tears down on consecutive failures.
+
+def test_health_loop_tears_down_after_consecutive_failures(monkeypatch):
+    monkeypatch.setattr(qsc, "KEEPALIVE_INTERVAL_S", 0.001)
+    monkeypatch.setattr(qsc, "KEEPALIVE_TIMEOUT_S", 0.001)
+    drv = _make_driver()
+    drv.transport = SimpleNamespace(connected=True)
+    calls = {"noop": 0, "down": 0}
+
+    async def fake_send(method, params=None, expect_response=True, timeout=5.0):
+        if method == "NoOp":
+            calls["noop"] += 1
+            raise TimeoutError("no answer")
+    drv._send_jsonrpc = fake_send  # type: ignore[assignment]
+
+    def fake_down():
+        calls["down"] += 1
+        drv.transport.connected = False
+    drv._handle_transport_disconnect = fake_down  # type: ignore[assignment]
+
+    asyncio.run(asyncio.wait_for(drv._health_loop(), timeout=2))
+    assert calls["down"] == 1
+    assert calls["noop"] == qsc.KEEPALIVE_MAX_FAILURES
+
+
+def test_health_loop_success_resets_failure_count(monkeypatch):
+    monkeypatch.setattr(qsc, "KEEPALIVE_INTERVAL_S", 0.001)
+    drv = _make_driver()
+    drv.transport = SimpleNamespace(connected=True)
+    calls = {"noop": 0, "down": 0}
+
+    async def fake_send(method, params=None, expect_response=True, timeout=5.0):
+        if method == "NoOp":
+            calls["noop"] += 1
+            if calls["noop"] >= 5:          # end the loop after a few good pings
+                drv.transport.connected = False
+    drv._send_jsonrpc = fake_send  # type: ignore[assignment]
+    drv._handle_transport_disconnect = lambda: calls.__setitem__(
+        "down", calls["down"] + 1)  # type: ignore[assignment]
+
+    asyncio.run(asyncio.wait_for(drv._health_loop(), timeout=2))
+    assert calls["down"] == 0
+    assert calls["noop"] >= 5
+    assert drv._health_failures == 0
+
+
+def test_force_disconnect_nulls_task_and_fires_handler():
+    drv = _make_driver()
+    drv._health_task = "sentinel"   # we're notionally inside the loop
+    fired = {"n": 0}
+    drv._handle_transport_disconnect = lambda: fired.__setitem__(
+        "n", fired["n"] + 1)  # type: ignore[assignment]
+    drv._force_disconnect()
+    assert drv._health_task is None   # avoids self-cancel from the handler
+    assert fired["n"] == 1

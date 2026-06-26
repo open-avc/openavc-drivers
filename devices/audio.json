@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 97,
+    "total_devices": 98,
     "shards": null,
     "category": "audio"
   },
@@ -593,7 +593,19 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "QSC",
+      "model": "Core 24f",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "qsc_qrc",
+          "confidence": "full",
+          "notes": "Verified end-to-end against a live Core 24f: auto-discovery (Component.GetComponents / GetControls), change-group push, and round-trips for gain/mute, mixer crosspoint, router, snapshot, and Named Controls."
         }
       ]
     },
@@ -605,7 +617,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
         }
       ]
     },
@@ -617,7 +629,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
         }
       ]
     },
@@ -629,7 +641,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
         }
       ]
     },
@@ -641,7 +653,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
         }
       ]
     },
@@ -653,7 +665,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
         }
       ]
     },
@@ -665,7 +677,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
         }
       ]
     },
@@ -677,7 +689,7 @@
         {
           "id": "qsc_qrc",
           "confidence": "untested",
-          "notes": "Every Q-SYS Core that runs Q-SYS Designer software supports QRC. The driver speaks QRC (TCP 1710), not the legacy ECP (TCP 1702) \u2014 make sure the Core's Q-SYS firmware supports QRC (any version since Q-SYS 5.x). Setup: open your design in Q-SYS Designer, find the Code Names of the Components, Named Controls, Mixers, Routers, and Snapshots you want to control, then declare them in the block list below."
+          "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
         }
       ]
     },

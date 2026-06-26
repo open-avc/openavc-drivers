@@ -1,0 +1,1979 @@
+{
+  "_comment": "Byte-exact QRC captures from a live QSC Core 24f (design 'Untitled'). Used by test_qsc_qrc.py. Do not hand-edit; recapture with qsys-scratch/capture_fixtures.py.",
+  "status_get_result": {
+    "Platform": "Core 24f",
+    "State": "Active",
+    "DesignName": "Untitled",
+    "DesignCode": "zC7NAV3yYeqP",
+    "IsRedundant": false,
+    "IsEmulator": false,
+    "Status": {
+      "Code": 0,
+      "String": "OK"
+    }
+  },
+  "get_components_result": [
+    {
+      "ID": "RoomScenes",
+      "Name": "RoomScenes",
+      "Type": "snapshot_controller",
+      "Properties": [],
+      "Controls": null,
+      "ControlSource": 2
+    },
+    {
+      "ID": "PgmGain",
+      "Name": "PgmGain",
+      "Type": "gain",
+      "Properties": [
+        {
+          "Name": "max_gain",
+          "Value": "20",
+          "PrettyName": "Max Gain (dB)"
+        },
+        {
+          "Name": "min_gain",
+          "Value": "-100",
+          "PrettyName": "Min Gain (dB)"
+        },
+        {
+          "Name": "enable_stepper",
+          "Value": "False",
+          "PrettyName": "Enable Ramp Controls"
+        },
+        {
+          "Name": "step_mode",
+          "Value": "0",
+          "PrettyName": "Mode"
+        },
+        {
+          "Name": "num_steps",
+          "Value": "8",
+          "PrettyName": "Number of Steps"
+        },
+        {
+          "Name": "multi_channel_type",
+          "Value": "2",
+          "PrettyName": "Type"
+        },
+        {
+          "Name": "multi_channel_count",
+          "Value": "8",
+          "PrettyName": "Count"
+        }
+      ],
+      "Controls": null,
+      "ControlSource": 2
+    },
+    {
+      "ID": "PrgMix",
+      "Name": "PrgMix",
+      "Type": "mixer",
+      "Properties": [
+        {
+          "Name": "n_inputs",
+          "Value": "4",
+          "PrettyName": "Mono"
+        },
+        {
+          "Name": "n_stereo_inputs",
+          "Value": "0",
+          "PrettyName": "Stereo"
+        },
+        {
+          "Name": "n_outputs",
+          "Value": "4",
+          "PrettyName": "Mono"
+        },
+        {
+          "Name": "n_stereo_outputs",
+          "Value": "0",
+          "PrettyName": "Stereo"
+        },
+        {
+          "Name": "input_bank_strategy",
+          "Value": "1",
+          "PrettyName": "Input Bank Size"
+        },
+        {
+          "Name": "input_bank_custom",
+          "Value": "32",
+          "PrettyName": ""
+        },
+        {
+          "Name": "output_bank_strategy",
+          "Value": "1",
+          "PrettyName": "Output Bank Size"
+        },
+        {
+          "Name": "output_bank_custom",
+          "Value": "16",
+          "PrettyName": ""
+        },
+        {
+          "Name": "n_cues",
+          "Value": "0",
+          "PrettyName": "Cue Bus Count"
+        },
+        {
+          "Name": "n_vca_groups",
+          "Value": "0",
+          "PrettyName": "VCA Groups"
+        },
+        {
+          "Name": "matrix_panner",
+          "Value": "False",
+          "PrettyName": "2-D Matrix Panner"
+        },
+        {
+          "Name": "spatializer_normalization",
+          "Value": "0",
+          "PrettyName": "Panner Normalization"
+        },
+        {
+          "Name": "pan_strategy",
+          "Value": "1",
+          "PrettyName": "Pan Controls"
+        },
+        {
+          "Name": "label_controls",
+          "Value": "True",
+          "PrettyName": "Label Controls"
+        },
+        {
+          "Name": "crosspoint_mute",
+          "Value": "False",
+          "PrettyName": "Crosspoint Mute Controls"
+        },
+        {
+          "Name": "crosspoint_solo",
+          "Value": "False",
+          "PrettyName": "Crosspoint Solo Controls"
+        },
+        {
+          "Name": "crosspoint_gain_type",
+          "Value": "0",
+          "PrettyName": "Crosspoint Gain Type"
+        }
+      ],
+      "Controls": null,
+      "ControlSource": 2
+    },
+    {
+      "ID": "PrgmRouter",
+      "Name": "PrgmRouter",
+      "Type": "router_with_output",
+      "Properties": [
+        {
+          "Name": "n_inputs",
+          "Value": "4",
+          "PrettyName": "Input Count"
+        },
+        {
+          "Name": "n_outputs",
+          "Value": "4",
+          "PrettyName": "Output Count"
+        },
+        {
+          "Name": "select_strategy",
+          "Value": "2",
+          "PrettyName": "Selection Controls"
+        },
+        {
+          "Name": "output_select",
+          "Value": "0",
+          "PrettyName": "Selection Mode"
+        },
+        {
+          "Name": "multi_channel_type",
+          "Value": "1",
+          "PrettyName": "Type"
+        },
+        {
+          "Name": "multi_channel_count",
+          "Value": "8",
+          "PrettyName": "Count"
+        }
+      ],
+      "Controls": null,
+      "ControlSource": 2
+    },
+    {
+      "ID": "BgmLoop",
+      "Name": "BgmLoop",
+      "Type": "loop_player",
+      "Properties": [
+        {
+          "Name": "io_config",
+          "Value": "0",
+          "PrettyName": "Time Source"
+        },
+        {
+          "Name": "frame_rate",
+          "Value": "29.97002997002997",
+          "PrettyName": "Frame Rate (fps)"
+        },
+        {
+          "Name": "n_outputs",
+          "Value": "8",
+          "PrettyName": "Output Count"
+        },
+        {
+          "Name": "buffer_adjustment",
+          "Value": "1",
+          "PrettyName": "Buffer Adjustment"
+        },
+        {
+          "Name": "utc_offset_rw",
+          "Value": "False",
+          "PrettyName": "User UTC Offset"
+        }
+      ],
+      "Controls": null,
+      "ControlSource": 2
+    }
+  ],
+  "get_controls": {
+    "RoomScenes": {
+      "Name": "RoomScenes",
+      "Controls": [
+        {
+          "Name": "last.1",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "last.2",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "last.3",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "last.4",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "last.5",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "last.6",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "last.7",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "last.8",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "load.1",
+          "Type": "State Trigger",
+          "Value": 2.0,
+          "String": "2",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.2",
+          "Type": "State Trigger",
+          "Value": 0.0,
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.3",
+          "Type": "State Trigger",
+          "Value": 0.0,
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.4",
+          "Type": "State Trigger",
+          "Value": 0.0,
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.5",
+          "Type": "State Trigger",
+          "Value": 0.0,
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.6",
+          "Type": "State Trigger",
+          "Value": 0.0,
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.7",
+          "Type": "State Trigger",
+          "Value": 0.0,
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.8",
+          "Type": "State Trigger",
+          "Value": 0.0,
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.next",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.prev",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.1",
+          "Type": "Integer",
+          "Value": 2,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "2",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.2",
+          "Type": "Integer",
+          "Value": 0,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.3",
+          "Type": "Integer",
+          "Value": 0,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.4",
+          "Type": "Integer",
+          "Value": 0,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.5",
+          "Type": "Integer",
+          "Value": 0,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.6",
+          "Type": "Integer",
+          "Value": 0,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.7",
+          "Type": "Integer",
+          "Value": 0,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.state.8",
+          "Type": "Integer",
+          "Value": 0,
+          "ValueMin": 0.0,
+          "ValueMax": 2.0,
+          "StringMin": "0",
+          "StringMax": "2",
+          "String": "0",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.1",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.2",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.3",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.4",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.5",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.6",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.7",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "load.trigger.8",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "match.1",
+          "Type": "Boolean",
+          "Value": true,
+          "String": "true",
+          "Position": 1.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "match.2",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "match.3",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "match.4",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "match.5",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "match.6",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "match.7",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "match.8",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "ramp.time",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 60.0,
+          "StringMin": "0ms",
+          "StringMax": "60.0s",
+          "String": "0ms",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.1",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.2",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.3",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.4",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.5",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.6",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.7",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "save.8",
+          "Type": "Trigger",
+          "Value": 0.0,
+          "Direction": "Read/Write"
+        }
+      ]
+    },
+    "PgmGain": {
+      "Name": "PgmGain",
+      "Controls": [
+        {
+          "Name": "bypass",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "no",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        }
+      ]
+    },
+    "PrgMix": {
+      "Name": "PrgMix",
+      "Controls": [
+        {
+          "Name": "input.1.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.label",
+          "Type": "Text",
+          "String": "1",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.output.1.gain",
+          "Type": "Float",
+          "Value": 10.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "10.0dB",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.output.2.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.output.3.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.output.4.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.solo",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.1.trim",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -12.0,
+          "ValueMax": 12.0,
+          "StringMin": "-12.0dB",
+          "StringMax": "12.0dB",
+          "String": "0dB",
+          "Position": 0.5,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.label",
+          "Type": "Text",
+          "String": "2",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.output.1.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.output.2.gain",
+          "Type": "Float",
+          "Value": 10.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "10.0dB",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.output.3.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.output.4.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.solo",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.2.trim",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -12.0,
+          "ValueMax": 12.0,
+          "StringMin": "-12.0dB",
+          "StringMax": "12.0dB",
+          "String": "0dB",
+          "Position": 0.5,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.label",
+          "Type": "Text",
+          "String": "3",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.output.1.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.output.2.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.output.3.gain",
+          "Type": "Float",
+          "Value": 10.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "10.0dB",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.output.4.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.solo",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.3.trim",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -12.0,
+          "ValueMax": 12.0,
+          "StringMin": "-12.0dB",
+          "StringMax": "12.0dB",
+          "String": "0dB",
+          "Position": 0.5,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.label",
+          "Type": "Text",
+          "String": "4",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.output.1.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.output.2.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.output.3.gain",
+          "Type": "Float",
+          "Value": -100.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "-100dB",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.output.4.gain",
+          "Type": "Float",
+          "Value": 10.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "10.0dB",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.solo",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "input.4.trim",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -12.0,
+          "ValueMax": 12.0,
+          "StringMin": "-12.0dB",
+          "StringMax": "12.0dB",
+          "String": "0dB",
+          "Position": 0.5,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.label",
+          "Type": "Text",
+          "String": "1",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.pre.post",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "post",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.label",
+          "Type": "Text",
+          "String": "2",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.pre.post",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "post",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.label",
+          "Type": "Text",
+          "String": "3",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.pre.post",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "post",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 10.0,
+          "StringMin": "-100dB",
+          "StringMax": "10.0dB",
+          "String": "0dB",
+          "Position": 0.75,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.invert",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "normal",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.label",
+          "Type": "Text",
+          "String": "4",
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.mute",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.pre.post",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "post",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        }
+      ]
+    },
+    "PrgmRouter": {
+      "Name": "PrgmRouter",
+      "Controls": [
+        {
+          "Name": "mute.1",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "mute.2",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "mute.3",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "mute.4",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "unmuted",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.input.1.select",
+          "Type": "Boolean",
+          "Value": true,
+          "String": "true",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.input.2.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.input.3.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.input.4.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.input.1.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.input.2.select",
+          "Type": "Boolean",
+          "Value": true,
+          "String": "true",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.input.3.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.input.4.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.input.1.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.input.2.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.input.3.select",
+          "Type": "Boolean",
+          "Value": true,
+          "String": "true",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.input.4.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.input.1.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.input.2.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.input.3.select",
+          "Type": "Boolean",
+          "Value": false,
+          "String": "false",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.input.4.select",
+          "Type": "Boolean",
+          "Value": true,
+          "String": "true",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "select.1",
+          "Type": "Integer",
+          "Value": 1,
+          "ValueMin": 1.0,
+          "ValueMax": 4.0,
+          "StringMin": "1",
+          "StringMax": "4",
+          "String": "1",
+          "Position": 0.0,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "select.2",
+          "Type": "Integer",
+          "Value": 2,
+          "ValueMin": 1.0,
+          "ValueMax": 4.0,
+          "StringMin": "1",
+          "StringMax": "4",
+          "String": "2",
+          "Position": 0.33333334,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "select.3",
+          "Type": "Integer",
+          "Value": 3,
+          "ValueMin": 1.0,
+          "ValueMax": 4.0,
+          "StringMin": "1",
+          "StringMax": "4",
+          "String": "3",
+          "Position": 0.66666668,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "select.4",
+          "Type": "Integer",
+          "Value": 4,
+          "ValueMin": 1.0,
+          "ValueMax": 4.0,
+          "StringMin": "1",
+          "StringMax": "4",
+          "String": "4",
+          "Position": 1.0,
+          "Direction": "Read/Write"
+        }
+      ]
+    },
+    "BgmLoop": {
+      "Name": "BgmLoop",
+      "Controls": [
+        {
+          "Name": "output.1.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.1.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.1.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.1.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.1.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.2.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.2.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.2.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.2.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.2.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.3.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.3.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.3.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.3.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.3.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.4.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.4.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.4.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.4.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.4.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.5.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.5.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.5.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.5.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.5.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.6.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.6.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.6.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.6.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.6.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.7.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.7.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.7.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.7.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.7.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.8.elapsed",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.8.gain",
+          "Type": "Float",
+          "Value": 0.0,
+          "ValueMin": -100.0,
+          "ValueMax": 20.0,
+          "StringMin": "-100dB",
+          "StringMax": "20.0dB",
+          "String": "0dB",
+          "Position": 0.83333331,
+          "Direction": "Read/Write"
+        },
+        {
+          "Name": "output.8.next",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.8.remaining",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "output.8.status",
+          "Type": "Text",
+          "String": "",
+          "Direction": "Read Only"
+        },
+        {
+          "Name": "utc",
+          "Type": "Time",
+          "Value": 0.0,
+          "ValueMin": 0.0,
+          "ValueMax": 86399.0,
+          "StringMin": "00:00:00",
+          "StringMax": "23:59:59",
+          "String": "00:00:00",
+          "Position": 0.0,
+          "Direction": "Read Only"
+        }
+      ]
+    }
+  },
+  "control_get_volume_mute_result": [
+    {
+      "Name": "Volume",
+      "String": "-100dB",
+      "Value": -100.0,
+      "Position": 0.0
+    },
+    {
+      "Name": "Mute",
+      "String": "unmuted",
+      "Value": 0.0,
+      "Position": 0.0
+    }
+  ],
+  "control_get_unknown_error": {
+    "code": 8,
+    "message": "control 'NoSuchControl' does not exist"
+  },
+  "autopoll_push_full": {
+    "jsonrpc": "2.0",
+    "method": "ChangeGroup.Poll",
+    "params": {
+      "Id": "cap",
+      "Changes": [
+        {
+          "Component": "PgmGain",
+          "Name": "gain",
+          "String": "-6.00dB",
+          "Value": -6.0,
+          "Position": 0.78333336
+        },
+        {
+          "Component": "PgmGain",
+          "Name": "mute",
+          "String": "unmuted",
+          "Value": 0.0,
+          "Position": 0.0
+        },
+        {
+          "Component": "PgmGain",
+          "Name": "invert",
+          "String": "normal",
+          "Value": 0.0,
+          "Position": 0.0
+        },
+        {
+          "Component": "PgmGain",
+          "Name": "bypass",
+          "String": "no",
+          "Value": 0.0,
+          "Position": 0.0
+        }
+      ]
+    }
+  },
+  "autopoll_push_delta": {
+    "jsonrpc": "2.0",
+    "method": "ChangeGroup.Poll",
+    "params": {
+      "Id": "cap",
+      "Changes": [
+        {
+          "Component": "PgmGain",
+          "Name": "gain",
+          "String": "-18.0dB",
+          "Value": -18.0,
+          "Position": 0.68333333
+        }
+      ]
+    }
+  },
+  "named_push": {
+    "jsonrpc": "2.0",
+    "method": "ChangeGroup.Poll",
+    "params": {
+      "Id": "openavc_named",
+      "Changes": [
+        {
+          "Name": "Volume",
+          "String": "-44.0dB",
+          "Value": -44.0,
+          "Position": 0.46666666
+        },
+        {
+          "Name": "Mute",
+          "String": "unmuted",
+          "Value": 0.0,
+          "Position": 0.0
+        }
+      ]
+    }
+  }
+}

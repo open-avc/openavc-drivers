@@ -33,8 +33,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
-import time
 import uuid
 from typing import Any
 
@@ -49,55 +47,121 @@ FRAME_TERMINATOR = b"\x00"
 # Maximum change groups per connection (per QSC docs).
 MAX_CHANGE_GROUPS = 4
 
-# Sample state values seeded into the simulator. Keys are
-# (component_or_None, control_name). Named Controls have
-# component=None.
-DEFAULT_STATE: dict[tuple[str | None, str], Any] = {
-    # Named Controls
-    (None, "Volume"): 0.0,
-    (None, "Mute"): False,
-    (None, "DoorBell"): False,
+# ── Topology ──
+# A realistic Q-SYS design mirroring the shapes a real Core returns (verified
+# against a live Core 24f): a Gain, a 4x4 Matrix Mixer, an Audio Router with
+# boolean output.N.input.M.select crosspoints (NOT select.N integers — that was
+# the old driver's wrong model), a Snapshot Controller, and a Loop Player, plus
+# two Named Controls. Each control carries a real Type + Direction so the driver
+# under test exercises Float/Integer/Boolean/Text/Time/State-Trigger/Trigger
+# handling and Read Only vs Read/Write.
+#
+# COMPONENT_METADATA[name] = (qsys_type, [control specs]); a control spec is
+# {Name, Type, Direction, ValueMin?, ValueMax?}. DEFAULT_STATE is derived from
+# it (component, control) -> seed value.
 
-    # PgmGain block (Component)
-    ("PgmGain", "gain"): -10.0,
-    ("PgmGain", "mute"): False,
-    ("PgmGain", "invert"): False,
-    ("PgmGain", "bypass"): False,
+_GAIN_RANGE = {"ValueMin": -100.0, "ValueMax": 20.0}
+_XP_RANGE = {"ValueMin": -100.0, "ValueMax": 10.0}
 
-    # RoomMute block
-    ("RoomMute", "mute"): False,
-    ("RoomMute", "bypass"): False,
 
-    # PgmRouter (4 outputs)
-    ("PgmRouter", "select.1"): 1,
-    ("PgmRouter", "select.2"): 2,
-    ("PgmRouter", "select.3"): 0,
-    ("PgmRouter", "select.4"): 0,
+def _build_topology() -> tuple[
+    dict[str, tuple[str, list[dict[str, Any]]]],
+    dict[tuple[str | None, str], Any],
+]:
+    meta: dict[str, tuple[str, list[dict[str, Any]]]] = {}
+    state: dict[tuple[str | None, str], Any] = {}
 
-    # PgmMix 8x4 (only seed a few; the simulator auto-seeds the rest
-    # on first access)
-    ("PgmMix", "input.1.gain"): 0.0,
-    ("PgmMix", "input.1.mute"): False,
-    ("PgmMix", "output.1.gain"): 0.0,
-    ("PgmMix", "output.1.mute"): False,
-    ("PgmMix", "input.1.output.1.gain"): -100.0,
-    ("PgmMix", "input.1.output.1.mute"): False,
-}
+    def ctrl(name, qtype, direction="Read/Write", rng=None, seed=None):
+        spec = {"Name": name, "Type": qtype, "Direction": direction}
+        if rng:
+            spec.update(rng)
+        return spec, seed
 
-# Component metadata used for Component.GetControls / GetComponents.
-# Keyed by component name; value is a list of control specs.
-COMPONENT_METADATA: dict[str, list[dict[str, Any]]] = {
-    "PgmGain": [
-        {"Name": "gain", "Type": "Float", "ValueMin": -100.0, "ValueMax": 20.0},
-        {"Name": "mute", "Type": "Boolean"},
-        {"Name": "invert", "Type": "Boolean"},
-        {"Name": "bypass", "Type": "Boolean"},
-    ],
-    "RoomMute": [
-        {"Name": "mute", "Type": "Boolean"},
-        {"Name": "bypass", "Type": "Boolean"},
-    ],
-}
+    def add(comp, qtype, specs):
+        controls = []
+        for spec, seed in specs:
+            controls.append(spec)
+            if spec["Type"] != "Trigger":
+                if seed is None:
+                    seed = (False if spec["Type"] == "Boolean"
+                            else 0 if spec["Type"] in ("Integer", "State Trigger")
+                            else 0.0 if spec["Type"] in ("Float", "Time")
+                            else "")
+                state[(comp, spec["Name"])] = seed
+        meta[comp] = (qtype, controls)
+
+    # Gain
+    add("PgmGain", "gain", [
+        ctrl("gain", "Float", rng=_GAIN_RANGE, seed=-100.0),
+        ctrl("mute", "Boolean"), ctrl("invert", "Boolean"),
+        ctrl("bypass", "Boolean"),
+    ])
+    # 4x4 Matrix Mixer
+    mix = []
+    for i in range(1, 5):
+        mix += [ctrl(f"input.{i}.gain", "Float", rng=_XP_RANGE, seed=0.0),
+                ctrl(f"input.{i}.mute", "Boolean"),
+                ctrl(f"input.{i}.label", "Text", seed=str(i))]
+        for o in range(1, 5):
+            mix.append(ctrl(f"input.{i}.output.{o}.gain", "Float", rng=_XP_RANGE,
+                            seed=(10.0 if i == o else -100.0)))
+    for o in range(1, 5):
+        mix += [ctrl(f"output.{o}.gain", "Float", rng=_XP_RANGE, seed=0.0),
+                ctrl(f"output.{o}.mute", "Boolean"),
+                ctrl(f"output.{o}.label", "Text", seed=str(o))]
+    add("PrgMix", "mixer", mix)
+    # Audio Router (boolean crosspoints + select.N + mute.N)
+    rt = []
+    for o in range(1, 5):
+        rt.append(ctrl(f"mute.{o}", "Boolean"))
+    for o in range(1, 5):
+        for i in range(1, 5):
+            rt.append(ctrl(f"output.{o}.input.{i}.select", "Boolean",
+                           seed=(i == o)))
+    for o in range(1, 5):
+        rt.append(ctrl(f"select.{o}", "Integer",
+                       rng={"ValueMin": 1.0, "ValueMax": 4.0}, seed=o))
+    add("PrgmRouter", "router_with_output", rt)
+    # Snapshot Controller (8 snapshots)
+    sn = []
+    for n in range(1, 9):
+        sn += [ctrl(f"last.{n}", "Boolean", direction="Read Only"),
+               ctrl(f"load.{n}", "State Trigger", seed=0),
+               ctrl(f"load.state.{n}", "Integer",
+                    rng={"ValueMin": 0.0, "ValueMax": 2.0}, seed=0),
+               ctrl(f"load.trigger.{n}", "Trigger"),
+               ctrl(f"save.{n}", "Trigger")]
+    sn += [ctrl("ramp.time", "Float", rng={"ValueMin": 0.0, "ValueMax": 60.0},
+                seed=0.0),
+           ctrl("load.next", "Trigger"), ctrl("load.prev", "Trigger")]
+    add("RoomScenes", "snapshot_controller", sn)
+    # Loop Player (4 outputs)
+    lp = []
+    for o in range(1, 5):
+        lp += [ctrl(f"output.{o}.gain", "Float", rng=_GAIN_RANGE, seed=0.0),
+               ctrl(f"output.{o}.elapsed", "Time", direction="Read Only"),
+               ctrl(f"output.{o}.remaining", "Time", direction="Read Only"),
+               ctrl(f"output.{o}.status", "Text", direction="Read Only"),
+               ctrl(f"output.{o}.next", "Text", direction="Read Only")]
+    add("BgmLoop", "loop_player", lp)
+
+    # Named Controls (component=None).
+    state[(None, "Volume")] = -10.0
+    state[(None, "Mute")] = False
+    return meta, state
+
+
+# (qsys_type, [control specs]) per component, plus the seeded state.
+COMPONENT_METADATA, DEFAULT_STATE = _build_topology()
+
+# (component_or_None, control_name) -> Q-SYS control Type, so Get/poll
+# responses can format the human String accurately (Time/Text/Boolean).
+_CONTROL_TYPES: dict[tuple[str | None, str], str] = {}
+for _comp, (_qt, _specs) in COMPONENT_METADATA.items():
+    for _spec in _specs:
+        _CONTROL_TYPES[(_comp, _spec["Name"])] = _spec["Type"]
+_CONTROL_TYPES[(None, "Volume")] = "Float"
+_CONTROL_TYPES[(None, "Mute")] = "Boolean"
 
 
 def _coerce_qsys_value(value: Any, target_type: str = "auto") -> Any:
@@ -129,20 +193,28 @@ def _coerce_qsys_value(value: Any, target_type: str = "auto") -> Any:
     return value
 
 
-def _format_string(value: Any) -> str:
+def _format_string(value: Any, qtype: str = "auto") -> str:
     """Build the 'String' field Q-SYS attaches to control values.
 
-    Reasonable best effort — the simulator imitates the formatting
-    real cores use for the common control types. Drivers under test
-    should not rely on exact string content; the *_string state vars
-    are an integrator visibility aid, not an automation surface.
+    Reasonable best effort keyed off the control's declared Type — the
+    simulator imitates the formatting real cores use. Drivers under test
+    should not rely on exact string content; the ``*__str`` state vars are
+    an integrator visibility aid, not an automation surface.
     """
+    if value is None:
+        return ""
+    if qtype == "Time":
+        try:
+            s = int(float(value))
+            return f"{s // 3600:02d}:{(s % 3600) // 60:02d}:{s % 60:02d}"
+        except (ValueError, TypeError):
+            return "00:00:00"
     if isinstance(value, bool):
-        return "muted" if value else "unmuted"
-    if isinstance(value, float):
-        return f"{value:.1f}dB"
-    if isinstance(value, int):
+        return "true" if value else "false"
+    if qtype == "Text" or isinstance(value, str):
         return str(value)
+    if qtype in ("Float",) or isinstance(value, float):
+        return f"{value:.1f}dB"
     return str(value)
 
 
@@ -440,9 +512,9 @@ class QSCQRCSimulator(TCPSimulator):
                 stored = _coerce_qsys_value(value, "integer")
             else:
                 # No prior value — guess from the component metadata.
-                meta = COMPONENT_METADATA.get(comp, [])
+                _qt, specs = COMPONENT_METADATA.get(comp, (None, []))
                 meta_type = next(
-                    (m["Type"] for m in meta if m.get("Name") == cname),
+                    (m["Type"] for m in specs if m.get("Name") == cname),
                     None,
                 )
                 if meta_type == "Boolean":
@@ -470,36 +542,46 @@ class QSCQRCSimulator(TCPSimulator):
         comp = params.get("Name")
         if not isinstance(comp, str):
             raise QRCSimError(-32602, "Component.GetControls requires Name")
-        meta = COMPONENT_METADATA.get(comp)
-        if meta is None:
+        entry = COMPONENT_METADATA.get(comp)
+        if entry is None:
             # Synthesize a minimal control list from any state keys we
-            # already have for this component, so type=component blocks
-            # in the driver get something to subscribe to.
+            # already have for this component.
             keys = [k[1] for k in self._qsys_state if k[0] == comp]
             if not keys:
                 raise QRCSimError(7, f"Unknown component: {comp}")
-            meta = [{"Name": k, "Type": "Float"} for k in keys]
+            specs = [{"Name": k, "Type": "Float", "Direction": "Read/Write"}
+                     for k in keys]
+        else:
+            specs = entry[1]
         controls: list[dict[str, Any]] = []
-        for spec in meta:
+        for spec in specs:
             cname = spec["Name"]
-            value = self._qsys_state.get((comp, cname), self._seed_default(comp, cname))
-            controls.append({
+            qtype = spec.get("Type", "String")
+            out: dict[str, Any] = {
                 "Name": cname,
-                "Type": spec.get("Type", "String"),
-                "Value": value,
-                "ValueMin": spec.get("ValueMin", 0),
-                "ValueMax": spec.get("ValueMax", 1),
-                "String": _format_string(value),
-                "Position": 0.5,
-                "Direction": "Read/Write",
-            })
+                "Type": qtype,
+                "String": _format_string(
+                    self._qsys_state.get((comp, cname)), qtype),
+                "Direction": spec.get("Direction", "Read/Write"),
+            }
+            # Triggers carry no readable value; everything else does.
+            if qtype != "Trigger":
+                value = self._qsys_state.get(
+                    (comp, cname), self._seed_default(comp, cname))
+                out["Value"] = value
+                out["String"] = _format_string(value, qtype)
+                out["Position"] = 0.5
+                if "ValueMin" in spec:
+                    out["ValueMin"] = spec["ValueMin"]
+                    out["ValueMax"] = spec["ValueMax"]
+            controls.append(out)
         return {"Name": comp, "Controls": controls}
 
     def _method_Component_GetComponents(self, client_id: str, params: Any) -> Any:
         out: list[dict[str, Any]] = []
-        for name in COMPONENT_METADATA:
+        for name, (qtype, _specs) in COMPONENT_METADATA.items():
             out.append({
-                "ID": name, "Name": name, "Type": "gain",
+                "ID": name, "Name": name, "Type": qtype,
                 "Properties": [], "Controls": None, "ControlSource": 2,
             })
         return out
@@ -802,9 +884,10 @@ class QSCQRCSimulator(TCPSimulator):
             if value is None:
                 value = self._seed_default(comp, cname)
                 self._qsys_state[(comp, cname)] = value
+            qtype = _CONTROL_TYPES.get((comp, cname), "auto")
             entry: dict[str, Any] = {
                 "Name": cname, "Value": value,
-                "String": _format_string(value),
+                "String": _format_string(value, qtype),
             }
             if comp is not None:
                 entry["Component"] = comp

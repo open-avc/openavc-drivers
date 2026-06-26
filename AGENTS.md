@@ -539,11 +539,12 @@ child_entity_types:
 
 **Rules:**
 - The child type name (the YAML key, e.g. `encoder`) becomes a state-key segment (`device.<id>.<child_type>...`) and feeds the platform's per-child subscription matching, so it must not contain dots or glob metacharacters (`. * ? [`). Stick to plain identifiers (letters, digits, `_`, `-`). The loader rejects a driver that violates this.
-- `id_format.type` must be `integer`. `min` defaults to 1; `max` is optional (unbounded if omitted); `pad_width` zero-pads the ID in state keys (0 = no padding).
+- `id_format.type` is `integer` (default) or `string`. For `integer`: `min` defaults to 1, `max` is optional (unbounded if omitted), `pad_width` zero-pads the ID in state keys (0 = no padding). For `string`: children are keyed by a device-native name (a Q-SYS Code Name, an MQTT topic leaf) restricted to `[A-Za-z0-9_-]` and at most `max_length` chars (default 128) — sanitize the native name to that charset and keep the original in the child's `label`.
 - `state_variables` uses the same schema as device `state_variables` (types: `string`, `integer`, `number`, `float`, `boolean`, `enum`). The platform always injects a boolean `online` and a string `label` per child — do not declare those.
+- `dynamic: true` marks a type whose children have **heterogeneous, runtime-discovered control sets** (e.g. a DSP's user-built components, where each block exposes different controls). Leave its `state_variables` empty (or only shared fields); the Python driver publishes each child's own schema at `register_child(schema=...)` and that child validates/renders against it. Python-only.
 - `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.
 - `summary_fields` lists which fields appear as columns in the list view; `label_field` names the field carrying the controller's own name for the unit (the user-set label is separate and lives in the project file).
-- A YAML driver only declares the types here; it has no way to register instances at runtime. Use a **Python driver** when the controller actually enumerates and updates children (`register_child` / `set_children_state_batch` / `deregister_child` — see §3.5).
+- A YAML driver only declares the types here; it has no way to register instances at runtime (so `string` ids and `dynamic` types are only meaningful for **Python drivers**). Use a Python driver when the controller actually enumerates and updates children (`register_child` / `set_children_state_batch` / `deregister_child` — see §3.5).
 
 ### 2.5.2 Previewable video streams (preview convention)
 
@@ -1239,6 +1240,23 @@ self.deregister_child("encoder", 5)
 # Paginated polling helper: splits registered IDs into batches, calls
 # fetch(batch_ids) per batch, applies results atomically per batch.
 await self.poll_children("encoder", fetch=self._fetch_encoder_state)
+```
+
+**String-id and dynamic children.** If the type declares `id_format.type: string`, `local_id` is the sanitized device-native name (`[A-Za-z0-9_-]`) instead of an int. If the type declares `dynamic: true`, pass each child's discovered control set as `schema=` when registering — the child then validates and renders against *its own* schema, so heterogeneous siblings coexist:
+
+```python
+self.register_child(
+    "component", "PgmGain",                  # string local_id (sanitized Code Name)
+    schema={                                 # this child's discovered controls
+        "gain": {"type": "number", "label": "Gain (dB)"},
+        "mute": {"type": "boolean", "label": "Mute"},
+    },
+    initial_state={"gain": -6.0, "label": "Program Gain"},
+)
+self.set_child_state("component", "PgmGain", "gain", -3.0)   # validated vs THIS child
+# A sibling with a different control set is independent:
+self.register_child("component", "PgmRouter", schema={"select_1": {"type": "integer"}})
+# Topology changed? Deregister then re-register with the new schema.
 ```
 
 Override `async def refresh_children(self)` to support the IDE's "Refresh from Device" button (re-enumerate the controller's children). Without an override it returns HTTP 501.

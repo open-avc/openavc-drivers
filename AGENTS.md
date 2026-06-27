@@ -639,6 +639,27 @@ If you don't declare `headers:`, the transport sets `Content-Type: application/j
 
 **Config substitution:** `{config_key}` placeholders (e.g., `{display_id}`) are replaced with the device's config values. This works in `send` strings, HTTP `path`/`body`/`query_params`/`headers` fields.
 
+#### Param pickers (option providers)
+
+Anywhere the platform already knows a param's valid values, make it a **dropdown** instead of a free-text box the integrator can misspell. Beyond `type: enum` (static list) and `type: child_id` (live child entities), a param can declare where its options come from. These work on command params **and** action params, and the dropdown shows up on every authoring surface (Send Command, Quick Actions, macro steps, UI Builder bindings). They're authoring aids — the runtime still validates the submitted value, and the field stays forgiving (you can type a value the platform can't yet see).
+
+```yaml
+commands:
+  recall_snapshot:
+    label: "Recall Snapshot"
+    send: "RECALL {bank}\r"
+    params:
+      bank:
+        type: string
+        required: true
+        label: "Snapshot Bank"
+        options_state: snapshot_banks   # dropdown from device.<id>.snapshot_banks
+```
+
+- **`options_state: <key>`** — a **device-relative** state key. The IDE reads `device.<id>.<key>` and offers it as a dropdown. The driver publishes the enumerable set as a state variable whose value is a JSON-encoded list — either plain strings (`["Scene A","Scene B"]`) or `{value,label}` objects (`[{"value":"a","label":"Bank A"}]`). Use this for snapshot banks, named controls, router I/O — anything the driver can enumerate at runtime.
+- **`options_source: <key>`** — the same idea but an **absolute** state key, read verbatim (the primitive plugins already use). Prefer `options_state` for per-device lists.
+- **`options_from: { param: <sibling>, source: child_schema }`** — **cascade**. The options come from the child picked in a sibling `child_id` param. With `source: child_schema`, the picker offers that child's controls (its per-instance schema from `register_child(schema=...)`). Selecting the sibling repopulates this param. Use it so a "control name" follows the chosen component instead of being free-typed. (`child_schema` needs `dynamic: true` children — Python drivers; see §3.5.)
+
 ### 2.6.1 actions and quick_actions (Quick Action strip)
 
 By default every command sits in one flat "Send Command" list in the device
@@ -1258,6 +1279,8 @@ self.set_child_state("component", "PgmGain", "gain", -3.0)   # validated vs THIS
 self.register_child("component", "PgmRouter", schema={"select_1": {"type": "integer"}})
 # Topology changed? Deregister then re-register with the new schema.
 ```
+
+Mark a per-child schema var with **`"control": true`** when it's a settable control (not a read-only mirror or a metadata field). A command param that cascades off this child type (`options_from: { source: child_schema }`, see §2.6.1 Param pickers) then offers only the flagged vars — so the control picker shows real controls, not every state key. When no var on a child is flagged, the cascade falls back to offering all keys except the platform-managed `online`/`label`. Example: `"gain": {"type": "number", "label": "Gain (dB)", "control": True}`.
 
 Override `async def refresh_children(self)` to support the IDE's "Refresh from Device" button (re-enumerate the controller's children). Without an override it returns HTTP 501.
 

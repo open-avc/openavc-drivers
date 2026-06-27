@@ -519,3 +519,55 @@ def test_force_disconnect_nulls_task_and_fires_handler():
     drv._force_disconnect()
     assert drv._health_task is None   # avoids self-cancel from the handler
     assert fired["n"] == 1
+
+
+# ── Param pickers (platform §69 Phase 2 adoption) ──
+
+def test_set_component_control_cascades_off_component():
+    cmds = qsc._build_commands()
+    for name in ("set_component_control", "get_component_control"):
+        ctrl = cmds[name]["params"]["control"]
+        assert ctrl["options_from"] == {
+            "param": "component", "source": "child_schema",
+        }
+        # The sibling it names is the component child_id param.
+        assert cmds[name]["params"]["component"]["type"] == "child_id"
+
+
+def test_snapshot_bank_name_uses_options_state():
+    cmds = qsc._build_commands()
+    for name in ("snapshot_load", "snapshot_save"):
+        assert cmds[name]["params"]["bank_name"]["options_state"] == "snapshot_banks"
+
+
+def test_register_component_marks_controls_only():
+    drv = _make_driver()
+    controls = FX["get_controls"]["PgmGain"]["Controls"]
+    drv._register_component("PgmGain", "PgmGain", "gain", controls)
+    sch = drv._schemas[("component", "PgmGain")]
+    # Real, readable controls carry control: True so the cascade picker offers
+    # them.
+    assert sch["gain"].get("control") is True
+    assert sch["mute"].get("control") is True
+    # Metadata + the __str display mirror are NOT controls.
+    for meta in ("name", "category", "qsys_type", "control_count", "gain__str"):
+        assert sch[meta].get("control") is not True
+
+
+def test_discover_topology_publishes_snapshot_banks():
+    drv = _make_driver()
+
+    async def fake_send(method, params=None, **_kw):
+        if method == "Component.GetComponents":
+            return FX["get_components_result"]
+        if method == "Component.GetControls":
+            return FX["get_controls"][params["Name"]]
+        return {}  # ChangeGroup.* / AutoPoll — no changes to fan in
+
+    drv._send_jsonrpc = fake_send  # type: ignore[assignment]
+    asyncio.run(drv._discover_topology())
+
+    # RoomScenes is the only snapshot_controller in the fixture roster.
+    banks = json.loads(drv.get_state("snapshot_banks"))
+    assert banks == ["RoomScenes"]
+    assert drv.get_state("component_count") == 5

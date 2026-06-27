@@ -3012,7 +3012,7 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "4.0.1",
+      "version": "4.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. Auto-discovers the running design's Components and their controls on connect (no manual block list), models each Component as a typed child entity, and streams real-time state via Change Group auto-poll. Covers Component control, Named Controls, Mixer, Audio Router, Snapshot recall/save, Loop Player, and PA Router paging.",

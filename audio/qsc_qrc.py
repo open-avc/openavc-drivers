@@ -311,7 +311,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.0.1",
+        "version": "4.1.0",
         # Requires the runtime-discovered child-entity platform feature
         # (string local IDs + per-child dynamic schemas), added after 0.19.3.
         "min_platform_version": "0.19.4",
@@ -607,6 +607,12 @@ class QSCQRCDriver(BaseDriver):
             },
             "component_count": {"type": "integer", "label": "Components"},
             "named_control_count": {"type": "integer", "label": "Named Controls"},
+            "snapshot_banks": {
+                "type": "string", "label": "Snapshot Banks",
+                "help": "JSON list of discovered Snapshot bank names (the Code "
+                        "Names of Snapshot Controller components). Populates the "
+                        "Recall/Save Snapshot 'bank_name' picker.",
+            },
             "last_error": {
                 "type": "string", "label": "Last QRC Error",
                 "help": "Most recent JSON-RPC error message from the Core.",
@@ -918,6 +924,7 @@ class QSCQRCDriver(BaseDriver):
         used_ids: set[str] = set()
         seen_component_sids: set[str] = set()
         seen_named_sids: set[str] = set()
+        snapshot_banks: list[str] = []
         self._control_route = {}
         self._component_controls = {}
 
@@ -933,6 +940,10 @@ class QSCQRCDriver(BaseDriver):
             ):
                 continue
             qtype = str(comp.get("Type", ""))
+            # Snapshot Controllers are addressed by Code Name in Snapshot.Load /
+            # Save, so collect their names to populate the bank picker.
+            if qtype == "snapshot_controller":
+                snapshot_banks.append(str(codename))
             try:
                 controls = await self._send_jsonrpc(
                     "Component.GetControls", {"Name": codename}, timeout=5.0)
@@ -971,6 +982,10 @@ class QSCQRCDriver(BaseDriver):
 
         self.set_state("component_count", len(seen_component_sids))
         self.set_state("named_control_count", len(seen_named_sids))
+        # Publish the discovered Snapshot bank names so the Recall/Save Snapshot
+        # commands offer a `bank_name` dropdown (options_state) instead of a
+        # free-typed Code Name.
+        self.set_state("snapshot_banks", json.dumps(sorted(snapshot_banks)))
         self.set_state("topology_loaded", True)
         log.info(
             f"[{self.device_id}] Topology: {len(seen_component_sids)} components, "
@@ -1023,7 +1038,12 @@ class QSCQRCDriver(BaseDriver):
             prop = _safe_prop(cname)
             has_str = value_from == "value"  # numeric/bool carry a human String
 
-            var_def: dict[str, Any] = {"type": type_hint, "label": cname}
+            # Mark as a settable control so the set_component_control "control"
+            # picker (options_from: child_schema) offers it — and skips the
+            # metadata / __str display-mirror vars, which aren't controls.
+            var_def: dict[str, Any] = {
+                "type": type_hint, "label": cname, "control": True,
+            }
             if "ValueMin" in ctrl and type_hint in ("number", "integer"):
                 try:
                     var_def["min"] = float(ctrl["ValueMin"])
@@ -1722,6 +1742,20 @@ def _component_param(label: str = "Component") -> dict[str, Any]:
             "required": True, "label": label}
 
 
+def _control_param(help: str | None = None) -> dict[str, Any]:
+    # Cascades off the sibling `component` child_id param: picking a component
+    # populates this with that component's discovered controls (the per-child
+    # schema's control: true vars). Stays free-text-forgiving for controls the
+    # Core hasn't reported.
+    p: dict[str, Any] = {
+        "type": "string", "required": True, "label": "Control Name",
+        "options_from": {"param": "component", "source": "child_schema"},
+    }
+    if help:
+        p["help"] = help
+    return p
+
+
 def _ramp_param() -> dict[str, Any]:
     return {"type": "number", "required": False, "label": "Ramp (sec)",
             "default": 0.0, "min": 0.0,
@@ -1756,11 +1790,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "label": "Set Component Control",
             "params": {
                 "component": _component_param(),
-                "control": {"type": "string", "required": True,
-                            "label": "Control Name",
-                            "help": "QRC control name, e.g. gain, mute, "
-                                    "input.1.gain. See the component's controls "
-                                    "in the Components tab."},
+                "control": _control_param(
+                    "QRC control name, e.g. gain, mute, input.1.gain. Pick the "
+                    "component above to list its controls, or type one."),
                 "value": {"type": "string", "required": True, "label": "Value",
                           "help": "Numbers and true/false are auto-typed."},
                 "ramp": _ramp_param()},
@@ -1770,8 +1802,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "get_component_control": {
             "label": "Get Component Control",
             "params": {"component": _component_param(),
-                       "control": {"type": "string", "required": True,
-                                   "label": "Control Name"}},
+                       "control": _control_param()},
             "help": "Read a control; result lands in last_query_result.",
         },
         "set_named_control": {
@@ -1851,9 +1882,10 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "params": {
                 "bank_name": {"type": "string", "required": True,
                               "label": "Snapshot Bank Name",
+                              "options_state": "snapshot_banks",
                               "help": "The snapshot bank's name in Q-SYS "
-                                      "Designer (often the controller's Code "
-                                      "Name)."},
+                                      "Designer (the controller's Code Name). "
+                                      "Discovered banks are offered as a list."},
                 "bank": {"type": "integer", "required": True,
                          "label": "Snapshot Number", "min": 1, "max": 24},
                 "ramp": _ramp_param()},
@@ -1862,7 +1894,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "label": "Save Snapshot",
             "params": {
                 "bank_name": {"type": "string", "required": True,
-                              "label": "Snapshot Bank Name"},
+                              "label": "Snapshot Bank Name",
+                              "options_state": "snapshot_banks"},
                 "bank": {"type": "integer", "required": True,
                          "label": "Snapshot Number", "min": 1, "max": 24}},
             "help": "Save current control values into a snapshot slot.",

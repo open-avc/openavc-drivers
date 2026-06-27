@@ -661,6 +661,27 @@ commands:
 - **`options_from: { param: <sibling>, source: child_schema }`** — **cascade**. The options come from the child picked in a sibling `child_id` param. With `source: child_schema`, the picker offers that child's controls (its per-instance schema from `register_child(schema=...)`). Selecting the sibling repopulates this param. Use it so a "control name" follows the chosen component instead of being free-typed. (`child_schema` needs `dynamic: true` children — Python drivers; see §3.5.)
 - **`type_from: { param: <sibling> }`** — make a param's input *type* follow the control chosen in a sibling cascade. The named sibling is itself an `options_from: { source: child_schema }` param; once a control is picked there, this param renders as that control's type (a number spinner with its `min`/`max`, a Yes/No for a boolean, etc.) instead of plain text. The `control: true` schema vars carry the `type`/`min`/`max` that drive this. Classic use: a `value` param that follows the picked `control`. Forgiving — stays a text box until a control is chosen, and the runtime still coerces the submitted value.
 
+**Forgiving free-text (params with no enumerable set).** For a value that genuinely can't be listed, keep it a text box but constrain it so a typo can't silently go on the wire:
+
+- **`min` / `max`** (on `integer`/`number` params) — the value must fall in range. The runtime enforces it at command time; the IDE shows an inline error and blocks the dialog's send/save while it's out of range.
+- **`pattern`** — a regex the value must **fully match** (a shape check for an IP, hostname, or fixed-length ID). Same enforcement: runtime + inline IDE error. The pattern must compile and avoid catastrophic backtracking, or the driver fails to load.
+- **Whitespace is trimmed** off string values before they're sent, so a stray leading/trailing space never reaches the device.
+
+```yaml
+params:
+  host:
+    type: string
+    label: "Host"
+    pattern: '^\d{1,3}(\.\d{1,3}){3}$'   # dotted-quad IPv4
+  level:
+    type: integer
+    label: "Level"
+    min: 0
+    max: 100
+```
+
+These are still authoring aids backed by the runtime gate — never the only check. A dynamic `$var/$state` value (macro steps) skips the IDE check and is validated only once resolved at runtime.
+
 ### 2.6.1 actions and quick_actions (Quick Action strip)
 
 By default every command sits in one flat "Send Command" list in the device

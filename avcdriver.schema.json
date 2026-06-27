@@ -564,10 +564,17 @@
           "additionalProperties": false
         },
         "min": {
-          "type": "number"
+          "type": "number",
+          "description": "Minimum for an integer/number param. Enforced by the runtime at command time; the IDE also flags violations while authoring."
         },
         "max": {
-          "type": "number"
+          "type": "number",
+          "description": "Maximum for an integer/number param. Enforced by the runtime at command time; the IDE also flags violations while authoring."
+        },
+        "pattern": {
+          "type": "string",
+          "format": "regex",
+          "description": "Regex a free-text value must fully match — a shape check for values that can't be enumerated (IP, hostname, fixed-length ID). The runtime validates it at command time; the IDE shows an inline error while authoring. Must compile and avoid catastrophic backtracking."
         },
         "default": true
       },

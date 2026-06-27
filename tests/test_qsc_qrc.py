@@ -571,3 +571,12 @@ def test_discover_topology_publishes_snapshot_banks():
     banks = json.loads(drv.get_state("snapshot_banks"))
     assert banks == ["RoomScenes"]
     assert drv.get_state("component_count") == 5
+
+
+def test_set_component_control_value_type_follows_control():
+    cmds = qsc._build_commands()
+    value = cmds["set_component_control"]["params"]["value"]
+    assert value["type_from"] == {"param": "control"}
+    # and the named sibling is the child_schema cascade it chains through
+    control = cmds["set_component_control"]["params"]["control"]
+    assert control["options_from"]["source"] == "child_schema"

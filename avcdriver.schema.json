@@ -551,6 +551,18 @@
           "required": ["param", "source"],
           "additionalProperties": false
         },
+        "type_from": {
+          "type": "object",
+          "description": "Make this param's input type follow the control chosen in a sibling cascade. The named param is itself an options_from child_schema cascade; this param then renders as that control's type (number+range, Yes/No, etc.).",
+          "properties": {
+            "param": {
+              "type": "string",
+              "description": "The sibling options_from(child_schema) param whose chosen control supplies this param's type/min/max."
+            }
+          },
+          "required": ["param"],
+          "additionalProperties": false
+        },
         "min": {
           "type": "number"
         },

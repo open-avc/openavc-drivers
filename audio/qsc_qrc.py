@@ -311,7 +311,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.1.0",
+        "version": "4.2.0",
         # Requires the runtime-discovered child-entity platform feature
         # (string local IDs + per-child dynamic schemas), added after 0.19.3.
         "min_platform_version": "0.19.4",
@@ -1793,7 +1793,10 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                 "control": _control_param(
                     "QRC control name, e.g. gain, mute, input.1.gain. Pick the "
                     "component above to list its controls, or type one."),
+                # The Value field follows the picked control's type (a number
+                # spinner with the gain's range, Yes/No for a mute, etc.).
                 "value": {"type": "string", "required": True, "label": "Value",
+                          "type_from": {"param": "control"},
                           "help": "Numbers and true/false are auto-typed."},
                 "ramp": _ramp_param()},
             "help": "Set any control on any discovered component (escape "

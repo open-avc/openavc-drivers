@@ -1474,6 +1474,8 @@ Contract:
 
 **OSC over UDP or TCP.** `transport: osc` defaults to UDP. To use OSC over TCP (reliable, large replies — e.g. QLab), add a `transport_mode` config field with values `udp`/`tcp` (default `udp`); when set to `tcp` the platform frames OSC with SLIP (RFC 1055) over a TCP connection and replies arrive on the same socket (`listen_port` is unused in TCP mode). OSC drivers that don't declare `transport_mode` stay UDP-only and are unaffected.
 
+**`ssh` and `mqtt` are Python-driver-only transports.** There is no `.avcdriver`/YAML surface for them — an SSH CLI session and MQTT pub/sub don't fit the declarative request/response model, so they're not in the table above or in `avcdriver.schema.json`. Use a Python driver: build the transport in `connect()` (e.g. `MQTTTransport.create(...)` / `SSHTransport.create(...)`) and drive it yourself. For MQTT, register `self.transport.on_message` and use `publish`/`subscribe` rather than `send`/`send_and_wait`.
+
 **Common config fields (all transports):**
 - `poll_interval` -- Seconds between polls (0 = disabled)
 - `inter_command_delay` -- Seconds to wait between sequential commands

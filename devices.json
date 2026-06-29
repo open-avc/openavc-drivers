@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 570,
+    "total_devices": 572,
     "shards": null
   },
   "devices": [
@@ -2997,6 +2997,28 @@
           "id": "artnet_dmx",
           "confidence": "untested",
           "notes": "Art-Net is an open published standard maintained by Artistic Licence. This driver sends ArtDmx and works with any conforming Art-Net receiver. Brand-specific entries below name the major node / gateway / fixture vendors confirmed by their published product literature."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hisense",
+      "model": "VIDAA OS TVs (2020+)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "hisense_vidaa",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hisense",
+      "model": "VIDAA U6 (incl. 65U6KNZ)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "hisense_vidaa",
+          "confidence": "untested"
         }
       ]
     },

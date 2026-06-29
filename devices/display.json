@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 12,
+    "total_devices": 14,
     "shards": null,
     "category": "display"
   },
@@ -16,6 +16,28 @@
           "id": "crestron_nvx",
           "confidence": "untested",
           "notes": "Any Crestron DM NVX endpoint via REST API."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hisense",
+      "model": "VIDAA OS TVs (2020+)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "hisense_vidaa",
+          "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Hisense",
+      "model": "VIDAA U6 (incl. 65U6KNZ)",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "hisense_vidaa",
+          "confidence": "untested"
         }
       ]
     },

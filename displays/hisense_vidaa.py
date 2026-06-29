@@ -134,7 +134,7 @@ class HisenseVidaaDriver(BaseDriver):
         "verified": False,
         "simulated": True,
         "transport": "mqtt",
-        "ports": [DEFAULT_PORT],
+        "ports": [36669],  # literal: the catalog extractor requires literal index fields
         "compatible_models": [
             {
                 "manufacturer": "Hisense",

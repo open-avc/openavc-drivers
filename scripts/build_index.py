@@ -65,10 +65,10 @@ DRIVER_CATEGORIES = (
     "projector", "display", "switcher", "audio", "camera",
     "video", "streaming", "lighting", "power", "utility",
 )
-# "ssh" is for Python CLI drivers using the platform SSH transport (the OS
-# OpenSSH client). Declarative .avcdriver/YAML drivers can't drive an SSH CLI
-# session, so the YAML schema (avcdriver.schema.json) intentionally omits it.
-DRIVER_TRANSPORTS = ("tcp", "udp", "http", "osc", "serial", "ssh")
+# "ssh" and "mqtt" are Python-driver-only transports (the platform SSH CLI and
+# MQTT pub/sub transports). Declarative .avcdriver/YAML drivers can't drive
+# either, so the YAML schema (avcdriver.schema.json) intentionally omits them.
+DRIVER_TRANSPORTS = ("tcp", "udp", "http", "osc", "serial", "ssh", "mqtt")
 CONFIDENCE_VALUES = ("full", "partial", "untested")
 
 DRIVER_DIRS = (

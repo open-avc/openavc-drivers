@@ -419,20 +419,20 @@ def _validate_json_schema(
 
 
 def _python_driver_schema(base_schema: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of the avcdriver schema that also allows the ssh transport.
+    """Return a copy of the avcdriver schema that also allows Python-only transports.
 
     avcdriver.schema.json describes the YAML (.avcdriver) format, whose
-    transport enum deliberately omits ssh: a declarative driver can't drive an
-    SSH CLI session. Python drivers can, and the runtime allows it, so they are
-    validated against the same schema with ssh added to the transport enum.
-    Everything else stays identical, so a Python driver's metadata is checked
-    just as strictly as a YAML driver's.
+    transport enum deliberately omits ssh and mqtt: a declarative driver can't
+    drive an SSH CLI session or MQTT pub/sub. Python drivers can, and the
+    runtime allows it, so they are validated against the same schema with ssh
+    and mqtt added to the transport enum. Everything else stays identical, so a
+    Python driver's metadata is checked just as strictly as a YAML driver's.
     """
     schema = copy.deepcopy(base_schema)
     transport = schema.get("properties", {}).get("transport", {})
     enum = transport.get("enum")
-    if isinstance(enum, list) and "ssh" not in enum:
-        transport["enum"] = [*enum, "ssh"]
+    if isinstance(enum, list):
+        transport["enum"] = [*enum, *(t for t in ("ssh", "mqtt") if t not in enum)]
     return schema
 
 

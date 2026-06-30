@@ -36,6 +36,18 @@ push mechanism in the Sony spec (see "Communication Method of VISCA
 over IP" in the command list). Driver polls the camera's pan/tilt/zoom/
 focus/AE/WB/power state at the configured interval (default 5 s).
 
+Liveness (never-offline fix)
+----------------------------
+UDP is connectionless, so an unplugged camera does not drop a socket —
+the inquiry just stops getting answered. The power inquiry (answered by
+every VISCA camera) doubles as a liveness probe: it gates connect()
+(``_post_connect`` raises a no_response-worded ConnectionError if the
+camera answers nothing, so a dead camera surfaces offline instead of
+phantom-connected, and reconnect attempts keep that reason) and leads
+the poll cycle (``poll()`` raises the same when the camera goes silent,
+so the missed-poll watchdog flips it offline). Previously the swallowed
+UDP timeout left an unplugged camera shown ONLINE forever.
+
 Differences from `ptzoptics`
 ----------------------------
 PTZOptics uses raw VISCA over TCP on port 5678 with no IP wrapper. AVer,
@@ -74,6 +86,17 @@ PAYLOAD_CONTROL_CMD = 0x0200
 PAYLOAD_CONTROL_REPLY = 0x0201
 
 CONTROL_RESET = b"\x01"
+
+# Liveness probe. CAM_PowerInq is answered by every VISCA camera, so it
+# doubles as the "are you still there?" probe. The probe gates connect()
+# (so a dead camera surfaces offline, not phantom-connected) and rides the
+# poll cycle (so an unplugged camera flips offline mid-session). The
+# "is not responding" wording is what the shared connection-fault classifier
+# maps to offline_reason=no_response.
+POWER_INQUIRY = b"\x81\x09\x04\x00\xff"
+PROBE_TIMEOUT_S = 1.5
+PROBE_RETRIES = 3  # connect-time tolerance for a single dropped UDP datagram
+RESET_TIMEOUT_S = 2.0  # Control RESET ACK wait (best-effort; not a liveness gate)
 
 
 def _wrap(payload: bytes, payload_type: int, sequence: int) -> bytes:
@@ -169,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Generic Sony-specification VISCA-over-IP driver (UDP port "
@@ -400,6 +423,56 @@ class VISCAIPDriver(BaseDriver):
                 "label": "Backlight Compensation",
             },
         },
+        # Auto-exposure mode, white-balance mode, and backlight are device-side
+        # configuration the camera persists and reports back (the poll() AE/WB/
+        # backlight inquiries are the read-back), so they get the editable-field
+        # + offline pending-queue treatment of device settings on top of the
+        # transient set_* commands (same dual surface as crestron_nvx). PTZ /
+        # zoom / focus position are live operational state, not settings.
+        "device_settings": {
+            "ae_mode": {
+                "type": "enum",
+                "label": "Auto-Exposure Mode",
+                "help": (
+                    "How the camera meters exposure. full_auto lets the camera "
+                    "choose; manual / shutter / iris / bright fix one or more "
+                    "parameters."
+                ),
+                "values": ["full_auto", "manual", "shutter", "iris", "bright"],
+                "state_key": "ae_mode",
+                "default": "full_auto",
+                "setup": False,
+            },
+            "wb_mode": {
+                "type": "enum",
+                "label": "White Balance Mode",
+                "help": (
+                    "White-balance behavior. auto1 / auto2 track the scene; "
+                    "indoor / outdoor lock a colour temperature; one_push "
+                    "samples once; manual uses fixed R/B gains."
+                ),
+                "values": [
+                    "auto1", "indoor", "outdoor", "one_push", "auto2", "manual",
+                ],
+                "state_key": "wb_mode",
+                "default": "auto1",
+                "setup": False,
+            },
+            "backlight": {
+                "type": "boolean",
+                "label": "Backlight Compensation",
+                "help": (
+                    "Brightens a subject lit from behind. Persisted on the "
+                    "camera."
+                ),
+                "state_key": "backlight",
+                "default": False,
+                "setup": False,
+            },
+        },
+        # Parameterless commissioning actions surfaced as one-tap buttons on the
+        # device card.
+        "quick_actions": ["pt_home", "wb_one_push_trigger", "focus_one_push"],
         "commands": {
             "power_on":  {"label": "Power On",  "params": {}},
             "power_off": {"label": "Power Off (Standby)", "params": {}},
@@ -530,13 +603,24 @@ class VISCAIPDriver(BaseDriver):
         self._inquiry_future: asyncio.Future[bytes] | None = None
         self._control_reply_future: asyncio.Future[None] | None = None
 
-    async def connect(self) -> None:
-        await super().connect()
+    async def _post_connect(self) -> None:
+        """Session setup + liveness gate, run by BaseDriver.connect() after the
+        UDP socket opens and before the device is marked connected.
+
+        A raise here aborts the connect cleanly (BaseDriver stashes the
+        transport error, closes the socket, re-raises). That is how a dead
+        camera surfaces offline with ``no_response`` instead of a phantom-
+        connected session, and how every reconnect attempt against a still-dead
+        camera keeps that reason instead of flapping back online — UDP is
+        connectionless, so the socket "opening" proves nothing.
+        """
         self._inquiry_lock = asyncio.Lock()
         self._sequence = 0
 
         # Send Control RESET to sync the camera's sequence-number state. The
         # camera replies with 0x0201 ACK (payload 0x01) when accepted.
+        # Best-effort: some cameras don't ACK RESET; the liveness gate below
+        # is the real reachability check.
         try:
             await self._send_control_reset()
         except (ConnectionError, OSError, asyncio.TimeoutError):
@@ -545,11 +629,22 @@ class VISCAIPDriver(BaseDriver):
                 "complete; continuing optimistically"
             )
 
-        # Initial poll so state populates immediately.
-        try:
-            await self.poll()
-        except (ConnectionError, OSError):
-            log.warning(f"[{self.device_id}] Initial poll failed")
+        # Liveness gate: the camera must answer the power inquiry. poll()
+        # raises a no_response-worded ConnectionError when it answers nothing;
+        # retry to ride out a single dropped UDP datagram at connect, then
+        # propagate so a truly dead camera is reported offline.
+        last_exc: Exception | None = None
+        for _ in range(max(1, PROBE_RETRIES)):
+            try:
+                await self.poll()
+                return
+            except (ConnectionError, OSError) as e:
+                last_exc = e
+        host = self.config.get("host", "?")
+        port = self.config.get("port", "?")
+        raise ConnectionError(
+            f"Camera at {host}:{port} is not responding to VISCA inquiries"
+        ) from last_exc
 
     async def disconnect(self) -> None:
         if self._inquiry_future and not self._inquiry_future.done():
@@ -633,12 +728,14 @@ class VISCAIPDriver(BaseDriver):
         seq = self._next_seq()
         await self.transport.send(_wrap(visca, PAYLOAD_VISCA_INQUIRY, seq))
 
-    async def _send_control_reset(self, timeout: float = 2.0) -> None:
+    async def _send_control_reset(self, timeout: float | None = None) -> None:
         """Send the Control RESET packet (payload_type=0x0200, payload=0x01).
 
         Per Sony's VISCA over IP spec, this clears the camera's sequence-number
         tracking; the camera replies with 0x0201 ACK (payload 0x01).
         """
+        if timeout is None:
+            timeout = RESET_TIMEOUT_S
         loop = asyncio.get_running_loop()
         self._control_reply_future = loop.create_future()
         try:
@@ -817,16 +914,51 @@ class VISCAIPDriver(BaseDriver):
             case _:
                 raise ValueError(f"Unknown command: {command}")
 
+    # ── Device settings ──
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting. Routes to the matching transient command so
+        the byte-building lives in one place; the platform handles the offline
+        pending queue and the read-back comes from poll()."""
+        if not self.transport or not self.transport.connected:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        if key == "ae_mode":
+            await self.send_command("set_ae_mode", {"mode": str(value)})
+        elif key == "wb_mode":
+            await self.send_command("set_wb_mode", {"mode": str(value)})
+        elif key == "backlight":
+            on = (
+                value if isinstance(value, bool)
+                else str(value).strip().lower() in ("1", "true", "on", "yes")
+            )
+            await self.send_command("set_backlight", {"enabled": on})
+        else:
+            raise ValueError(f"Unknown device setting: {key}")
+
     # ── Polling ──
 
     async def poll(self) -> None:
         if not self.transport or not self.transport.connected:
             return
 
-        # Power — `81 09 04 00 FF` -> `90 50 02|03 FF`
-        reply = await self._inquire(b"\x81\x09\x04\x00\xff")
-        if reply and len(reply) == 4:
+        # Power — `81 09 04 00 FF` -> `90 50 02|03 FF`. This doubles as the
+        # liveness probe: every VISCA camera answers CAM_PowerInq, so a total
+        # non-answer means the camera vanished (unplugged, powered off, wrong
+        # IP, UDP black hole). Raise so the missed-poll watchdog flips the
+        # device offline with no_response wording — previously the swallowed
+        # UDP timeout left an unplugged camera shown ONLINE forever.
+        reply = await self._inquire(POWER_INQUIRY, timeout=PROBE_TIMEOUT_S)
+        if reply is None:
+            host = self.config.get("host", "?")
+            port = self.config.get("port", "?")
+            raise ConnectionError(
+                f"Camera at {host}:{port} is not responding to VISCA inquiries"
+            )
+        if len(reply) == 4:
             self.set_state("power", "on" if reply[2] == 0x02 else "standby")
+
+        # The camera is reachable; individual inquiry timeouts below are benign
+        # (a model may not support a given inquiry) and don't trip the watchdog.
 
         # Pan/Tilt position
         reply = await self._inquire(b"\x81\x09\x06\x12\xff")

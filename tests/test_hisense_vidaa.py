@@ -117,11 +117,27 @@ class FakeTransport:
 @pytest.fixture(scope="module")
 def mod(tmp_path_factory):
     tmp_dir = str(tmp_path_factory.mktemp("vidaa_data"))
+    # These server.* stubs are installed at fixture (run) time, not module-import
+    # time, so conftest.py's collection-time snapshot/rollback does NOT cover
+    # them. Without restoring here they leak into later test modules that use the
+    # REAL platform — e.g. test_netgear, whose BaseDriver.connect() then picks up
+    # this fixture's stubbed server.system_config (a _SysConfig with no .get) and
+    # fails. Snapshot the platform modules and roll them back on teardown.
+    _platform = ("server", "simulator")
+    _before = {
+        n: m for n, m in sys.modules.items() if n.split(".", 1)[0] in _platform
+    }
+    _before_keys = set(sys.modules)
     _install_server_stubs(tmp_dir)
     spec = importlib.util.spec_from_file_location("hisense_vidaa", DRIVER_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module
+    yield module
+    for name in list(sys.modules):
+        if name.split(".", 1)[0] in _platform and name not in _before_keys:
+            del sys.modules[name]
+    for name, m in _before.items():
+        sys.modules[name] = m
 
 
 def _make_driver(mod, **config):

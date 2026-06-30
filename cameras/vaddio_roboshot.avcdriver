@@ -43,7 +43,7 @@ id: vaddio_roboshot
 name: Vaddio RoboSHOT / ConferenceShot
 manufacturer: Vaddio
 category: camera
-version: 1.2.3
+version: 1.3.0
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -263,11 +263,134 @@ state_variables:
     label: Blue Gain (0-255)
     help: "Blue channel gain reported by `camera ccu get blue_gain`, 0–255 (manual white-balance mode only)."
 
+# Device settings: the CCU (color / lighting) surface is device-side
+# configuration the camera persists and reports back (`camera ccu get all` is
+# the read-back, parsed by the responses below into the polled state vars), so
+# each value gets the editable-field + offline-pending-queue treatment on top of
+# the transient ccu_set_* commands (same dual surface as the Python camera
+# drivers). Each write reuses the exact ccu_set_* send string. PTZ / focus drive,
+# presets, scenes, and standby are live operational actions, not settings.
+device_settings:
+  auto_iris:
+    type: enum
+    values: ["on", "off"]
+    label: Auto Iris
+    help: "When on, the camera sets iris and gain automatically. Turn off to set them manually below."
+    state_key: auto_iris
+    default: "on"
+    setup: false
+    write:
+      send: "camera ccu set auto_iris {value}\r\n"
+  iris:
+    type: integer
+    min: 0
+    max: 11
+    label: Iris (0-11)
+    help: "Manual iris setting, 0-11. Auto Iris must be off."
+    state_key: iris
+    default: 6
+    setup: false
+    write:
+      send: "camera ccu set iris {value}\r\n"
+  gain:
+    type: integer
+    min: 0
+    max: 11
+    label: Gain (0-11)
+    help: "Manual gain setting, 0-11. Auto Iris must be off."
+    state_key: gain
+    default: 3
+    setup: false
+    write:
+      send: "camera ccu set gain {value}\r\n"
+  auto_white_balance:
+    type: enum
+    values: ["on", "off"]
+    label: Auto White Balance
+    help: "When on, the camera tracks white balance automatically. Turn off to set red/blue gain manually below."
+    state_key: auto_white_balance
+    default: "on"
+    setup: false
+    write:
+      send: "camera ccu set auto_white_balance {value}\r\n"
+  red_gain:
+    type: integer
+    min: 0
+    max: 255
+    label: Red Gain (0-255)
+    help: "Red channel gain, 0-255. Auto White Balance must be off."
+    state_key: red_gain
+    default: 200
+    setup: false
+    write:
+      send: "camera ccu set red_gain {value}\r\n"
+  blue_gain:
+    type: integer
+    min: 0
+    max: 255
+    label: Blue Gain (0-255)
+    help: "Blue channel gain, 0-255. Auto White Balance must be off."
+    state_key: blue_gain
+    default: 195
+    setup: false
+    write:
+      send: "camera ccu set blue_gain {value}\r\n"
+  detail:
+    type: integer
+    min: 0
+    max: 15
+    label: Detail (0-15)
+    help: "Image detail / sharpness, 0-15."
+    state_key: detail
+    default: 8
+    setup: false
+    write:
+      send: "camera ccu set detail {value}\r\n"
+  chroma:
+    type: integer
+    min: 0
+    max: 14
+    label: Chroma (0-14)
+    help: "Colour saturation, 0-14."
+    state_key: chroma
+    default: 7
+    setup: false
+    write:
+      send: "camera ccu set chroma {value}\r\n"
+  backlight_compensation:
+    type: enum
+    values: ["on", "off"]
+    label: Backlight Compensation
+    help: "Brightens a subject lit from behind. Wide Dynamic Range must be off."
+    state_key: backlight_compensation
+    default: "off"
+    setup: false
+    write:
+      send: "camera ccu set backlight_compensation {value}\r\n"
+  wide_dynamic_range:
+    type: enum
+    values: ["on", "off"]
+    label: Wide Dynamic Range
+    help: "Balances bright and dark areas in mixed lighting. Backlight Compensation must be off."
+    state_key: wide_dynamic_range
+    default: "off"
+    setup: false
+    write:
+      send: "camera ccu set wide_dynamic_range {value}\r\n"
+
+# Parameterless commissioning / operating actions surfaced as one-tap buttons.
+quick_actions:
+  - home
+  - standby_toggle
+
+# on_connect / polling send raw protocol strings (TCP does not resolve command
+# names — only HTTP/UDP do), each with the "\r\n" line terminator the Telnet CLI
+# needs to act on a line. Mirrors the ccu_get_all / query_* command send strings.
 on_connect:
-  - version
-  - camera ccu get all
-  - camera focus mode get
-  - camera standby get
+  - "version\r\n"
+  - "camera ccu get all\r\n"
+  - "camera focus mode get\r\n"
+  - "camera standby get\r\n"
 
 commands:
 
@@ -695,10 +818,10 @@ responses:
 
 polling:
   queries:
-    - ccu_get_all
-    - query_focus_mode
-    - query_standby
-    - query_version
+    - "camera ccu get all\r\n"
+    - "camera focus mode get\r\n"
+    - "camera standby get\r\n"
+    - "version\r\n"
 
 # ── SIMULATOR DEFINITION ──
 simulator:

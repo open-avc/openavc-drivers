@@ -28,6 +28,16 @@ Push vs poll
 Both transports are request/response. AVer publishes no push/subscription
 mechanism for either VISCA-IP or the HTTP CGI; the driver polls.
 
+Device settings + connection faults
+-----------------------------------
+The image / exposure / WB / picture / AI surface is exposed as device
+settings (writable + read back via the bulk ``get_sys_stat`` poll, with an
+offline pending queue) on top of the transient set_* commands. The reboot /
+factory-reset CGI require HTTP Basic auth on the PTZ-S310/S330 SKUs; a 401
+there is now turned into an auth-worded ConnectionError so the shared
+connection-fault classifier reports ``auth_failed`` instead of the command
+silently doing nothing.
+
 Why Python
 ----------
 Two simultaneous transports (HTTP for image-quality + AI, VISCA-over-UDP
@@ -159,7 +169,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP "
@@ -437,6 +447,200 @@ class AVerPTZDriver(BaseDriver):
             "serial_number": {"type": "string", "label": "Serial Number"},
             "mac_address": {"type": "string", "label": "MAC Address"},
         },
+        # The image / exposure / WB / picture / AI surface is device-side
+        # configuration the camera persists and reports back (every entry's
+        # state_key is populated by the bulk get_sys_stat poll), so it gets the
+        # editable-field + offline pending-queue treatment of device settings on
+        # top of the transient set_* commands (same dual surface as
+        # crestron_nvx). PTZ/zoom/focus position, power, presets, RTMP, freeze,
+        # reboot/factory-reset are live operational state or transient actions,
+        # not settings.
+        "device_settings": {
+            "exposure_mode": {
+                "type": "enum",
+                "label": "Exposure Mode",
+                "help": "How the camera meters exposure.",
+                "values": [
+                    "full_auto", "shutter_priority", "iris_priority", "manual",
+                ],
+                "state_key": "exposure_mode",
+                "default": "full_auto",
+                "setup": False,
+            },
+            "exposure_value": {
+                "type": "integer",
+                "label": "Exposure Compensation",
+                "help": "Exposure bias, -4 to +4.",
+                "min": -4,
+                "max": 4,
+                "state_key": "exposure_value",
+                "default": 0,
+                "setup": False,
+            },
+            "shutter_value": {
+                "type": "integer",
+                "label": "Shutter Index",
+                "help": "Index into the shutter table (0-15). Lower = longer shutter.",
+                "min": 0,
+                "max": 15,
+                "state_key": "shutter_value",
+                "default": 0,
+                "setup": False,
+            },
+            "iris_value": {
+                "type": "integer",
+                "label": "Iris Index",
+                "help": "Index into the F-stop table (0-13, F1.6..F14).",
+                "min": 0,
+                "max": 13,
+                "state_key": "iris_value",
+                "default": 0,
+                "setup": False,
+            },
+            "gain_value": {
+                "type": "integer",
+                "label": "Gain Index",
+                "help": "Gain index (0-16, *3 dB).",
+                "min": 0,
+                "max": 16,
+                "state_key": "gain_value",
+                "default": 0,
+                "setup": False,
+            },
+            "gain_limit": {
+                "type": "integer",
+                "label": "Gain Limit Index",
+                "help": "Auto-gain ceiling (0-8, 24..48 dB).",
+                "min": 0,
+                "max": 8,
+                "state_key": "gain_limit",
+                "default": 0,
+                "setup": False,
+            },
+            "slow_shutter": {
+                "type": "boolean",
+                "label": "Slow Shutter",
+                "help": "Allows long exposures in low light (can blur motion).",
+                "state_key": "slow_shutter",
+                "default": False,
+                "setup": False,
+            },
+            "back_light": {
+                "type": "enum",
+                "label": "Back Light Compensation",
+                "help": "Brightens a subject lit from behind.",
+                "values": ["off", "low", "high"],
+                "state_key": "back_light",
+                "default": "off",
+                "setup": False,
+            },
+            "wb_mode": {
+                "type": "enum",
+                "label": "White Balance Mode",
+                "help": (
+                    "auto tracks the scene; indoor / outdoor lock a colour "
+                    "temperature; one_push samples once; manual uses a fixed "
+                    "colour temperature."
+                ),
+                "values": ["auto", "indoor", "outdoor", "one_push", "manual"],
+                "state_key": "wb_mode",
+                "default": "auto",
+                "setup": False,
+            },
+            "color_temperature": {
+                "type": "integer",
+                "label": "Color Temperature (K)",
+                "help": "Manual white-balance colour temperature, 2500-10000 K.",
+                "min": 2500,
+                "max": 10000,
+                "state_key": "color_temperature",
+                "default": 6500,
+                "setup": False,
+            },
+            "saturation": {
+                "type": "integer",
+                "label": "Saturation",
+                "help": "Colour saturation, 0-10.",
+                "min": 0,
+                "max": 10,
+                "state_key": "saturation",
+                "default": 5,
+                "setup": False,
+            },
+            "contrast": {
+                "type": "integer",
+                "label": "Contrast",
+                "help": "Picture contrast, 0-4.",
+                "min": 0,
+                "max": 4,
+                "state_key": "contrast",
+                "default": 2,
+                "setup": False,
+            },
+            "sharpness": {
+                "type": "integer",
+                "label": "Sharpness",
+                "help": "Edge sharpness, 0-3.",
+                "min": 0,
+                "max": 3,
+                "state_key": "sharpness",
+                "default": 1,
+                "setup": False,
+            },
+            "noise_filter": {
+                "type": "enum",
+                "label": "Noise Filter",
+                "help": "2D/3D noise reduction strength.",
+                "values": ["off", "low", "medium", "high"],
+                "state_key": "noise_filter",
+                "default": "low",
+                "setup": False,
+            },
+            "mirror_flip": {
+                "type": "enum",
+                "label": "Mirror / Flip",
+                "help": "Image orientation for ceiling / rear mounting.",
+                "values": ["off", "mirror", "flip", "both"],
+                "state_key": "mirror_flip",
+                "default": "off",
+                "setup": False,
+            },
+            "power_frequency": {
+                "type": "enum",
+                "label": "Power Frequency",
+                "help": "Mains frequency for flicker cancellation.",
+                "values": ["50hz", "60hz", "auto"],
+                "state_key": "power_frequency",
+                "default": "auto",
+                "setup": False,
+            },
+            "pt_slow": {
+                "type": "boolean",
+                "label": "PTZ Slow Mode",
+                "help": "Slows pan/tilt for fine framing.",
+                "state_key": "pt_slow",
+                "default": False,
+                "setup": False,
+            },
+            "smart_shoot": {
+                "type": "boolean",
+                "label": "SmartShoot",
+                "help": "AI presenter auto-tracking.",
+                "state_key": "smart_shoot",
+                "default": False,
+                "setup": False,
+            },
+            "smart_framing": {
+                "type": "boolean",
+                "label": "SmartFraming",
+                "help": "AI auto-framing of people in the scene.",
+                "state_key": "smart_framing",
+                "default": False,
+                "setup": False,
+            },
+        },
+        # Parameterless commissioning actions surfaced as one-tap buttons.
+        "quick_actions": ["pt_home", "wb_one_push_trigger", "focus_one_push"],
         "commands": {
             # ── Power (VISCA) ──
             "power_on": {"label": "Power On", "params": {}},
@@ -900,6 +1104,7 @@ class AVerPTZDriver(BaseDriver):
             raise ConnectionError(
                 f"AVer camera at {self._base_url} not responding: {exc}"
             ) from exc
+        self._raise_on_auth_reject(cmd, resp.status_code)
         if resp.status_code == 200:
             return resp.text
         log.debug(
@@ -916,9 +1121,30 @@ class AVerPTZDriver(BaseDriver):
             raise ConnectionError(
                 f"AVer camera at {self._base_url} not responding: {exc}"
             ) from exc
+        self._raise_on_auth_reject(cmd, resp.status_code)
         if resp.status_code == 200:
             return resp.text
         return None
+
+    def _raise_on_auth_reject(self, cmd: str, status_code: int) -> None:
+        """Turn an HTTP 401/403 into an auth-worded ConnectionError.
+
+        Reboot / factory-reset on the PTZ-S310/S330 require HTTP Basic auth;
+        without (or with wrong) credentials the camera answers 401. The old
+        code swallowed that as a silent no-op. The "authentication failed"
+        wording is what the shared connection-fault classifier maps to
+        auth_failed, so the user gets an actionable message instead of a
+        command that quietly did nothing. (A rejected command does not flip
+        the device offline — the platform emits device.error and re-raises —
+        so a reachable camera is not wrongly marked down.)
+        """
+        if status_code in (401, 403):
+            raise ConnectionError(
+                f"AVer camera at {self._base_url} rejected '{cmd}': HTTP "
+                f"{status_code} - authentication failed. This command needs "
+                f"Basic auth (PTZ-S310/S330); check the username and password "
+                f"in the device config."
+            )
 
     async def _http_get_sys_stat(self) -> bool:
         # Catch ConnectionError so connect() can use the False return to
@@ -1180,6 +1406,59 @@ class AVerPTZDriver(BaseDriver):
 
             case _:
                 raise ValueError(f"Unknown command: {command}")
+
+    # ── Device settings ──
+
+    # setting key -> (command, param name). The image/AI surface routes to the
+    # existing transient commands so byte/CGI-building lives in one place; the
+    # platform handles the offline pending queue and read-back comes from the
+    # bulk get_sys_stat poll.
+    _DS_COMMANDS = {
+        "exposure_mode": ("set_exposure_mode", "mode"),
+        "exposure_value": ("set_exposure_value", "value"),
+        "shutter_value": ("set_shutter", "value"),
+        "iris_value": ("set_iris", "value"),
+        "gain_value": ("set_gain", "value"),
+        "gain_limit": ("set_gain_limit", "value"),
+        "slow_shutter": ("set_slow_shutter", "enabled"),
+        "back_light": ("set_back_light", "mode"),
+        "wb_mode": ("set_wb_mode", "mode"),
+        "color_temperature": ("set_color_temperature", "value"),
+        "saturation": ("set_saturation", "value"),
+        "contrast": ("set_contrast", "value"),
+        "sharpness": ("set_sharpness", "value"),
+        "noise_filter": ("set_noise_filter", "mode"),
+        "mirror_flip": ("set_mirror_flip", "mode"),
+        "power_frequency": ("set_power_frequency", "value"),
+        "pt_slow": ("set_pt_slow", "enabled"),
+        "smart_shoot": ("smart_shoot", "enabled"),
+        "smart_framing": ("smart_framing", "enabled"),
+    }
+
+    @staticmethod
+    def _to_bool(value: Any) -> bool:
+        return (
+            value if isinstance(value, bool)
+            else str(value).strip().lower() in ("1", "true", "on", "yes")
+        )
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write an image/AI device setting by routing to the matching
+        transient command, coercing the value by the declared setting type."""
+        if not self._http:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        spec = self._DS_COMMANDS.get(key)
+        if spec is None:
+            raise ValueError(f"Unknown device setting: {key}")
+        command, param = spec
+        stype = self.DRIVER_INFO["device_settings"][key].get("type")
+        if stype == "boolean":
+            coerced: Any = self._to_bool(value)
+        elif stype == "integer":
+            coerced = int(value)
+        else:
+            coerced = str(value)
+        await self.send_command(command, {param: coerced})
 
     # ── Polling ──
 

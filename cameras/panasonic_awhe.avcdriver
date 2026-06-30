@@ -40,7 +40,7 @@ id: panasonic_awhe
 name: Panasonic AW-HE/UE/UN PTZ Camera
 manufacturer: Panasonic
 category: camera
-version: 1.1.5
+version: 1.2.0
 author: OpenAVC
 description: >
   Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras
@@ -242,6 +242,67 @@ state_variables:
     type: boolean
     label: Zoom-Linked PT Speed
     help: "Zoom-linked pan/tilt speed mode from #LPC (true = pan/tilt slows automatically at high zoom)."
+
+# Device settings: persisted device-side configuration the camera reports back
+# (the matching query_* polls are the read-back), so each gets the editable-field
+# + offline pending-queue treatment on top of the transient set commands. Each
+# write reuses the existing command's CGI path. Booleans format as {value:d}
+# (a JSON bool from the settings editor renders 1/0 for the #TAE/#WLC/#SWZ
+# value byte); preset speed zero-pads to 3 digits with {value:03d}. PTZ / focus /
+# iris position, power, and presets are live operational state, not settings;
+# the red-tally lamp is production-driven (a switcher toggles it live), not a
+# persisted config value -- left as commands.
+device_settings:
+  preset_speed:
+    type: integer
+    min: 1
+    max: 999
+    label: Preset Recall Speed
+    help: >
+      Speed used when recalling presets. AW-HE40/50/60/70/120/130/HR140:
+      250 (slowest) to 999 (fastest). AW-UE150 in time mode: 1-63 seconds.
+    state_key: preset_speed
+    default: 999
+    setup: false
+    write:
+      method: GET
+      path: "/cgi-bin/aw_ptz?cmd=%23UPVS{value:03d}&res=1"
+  tally_input_enabled:
+    type: boolean
+    label: Tally Input Enable
+    help: "Accept external tally input (red tally driven by a production switcher's GPI)."
+    state_key: tally_input_enabled
+    default: true
+    setup: false
+    write:
+      method: GET
+      path: "/cgi-bin/aw_ptz?cmd=%23TAE{value:d}&res=1"
+  wireless_remote_enabled:
+    type: boolean
+    label: Wireless Remote Enable
+    help: "Enable the camera's IR wireless remote-control receiver."
+    state_key: wireless_remote_enabled
+    default: true
+    setup: false
+    write:
+      method: GET
+      path: "/cgi-bin/aw_ptz?cmd=%23WLC{value:d}&res=1"
+  zoom_linked_pt_speed:
+    type: boolean
+    label: Zoom-Linked PT Speed
+    help: "Automatically slow pan/tilt at high zoom for finer framing."
+    state_key: zoom_linked_pt_speed
+    default: false
+    setup: false
+    write:
+      method: GET
+      path: "/cgi-bin/aw_ptz?cmd=%23SWZ{value:d}&res=1"
+
+# Parameterless commissioning / operating actions surfaced as one-tap buttons.
+quick_actions:
+  - pan_tilt_home
+  - power_on
+  - power_standby
 
 # All commands are HTTP GET to /cgi-bin/aw_ptz?cmd=<cmd>&res=1.
 # The leading "#" of each command is URL-encoded as %23.

@@ -261,7 +261,7 @@
       "name": "Panasonic AW-HE/UE/UN PTZ Camera",
       "manufacturer": "Panasonic",
       "category": "camera",
-      "version": "1.1.5",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras via the documented HTTP CGI protocol (port 80). Covers power, pan/tilt drive and absolute positioning, zoom, focus (auto/manual), iris (auto/ manual), 100 presets, tally, wireless remote enable, and zoom-linked pan/tilt speed. Image-quality controls (gain, white balance, scene files, gamma) are install-time setup left to the camera's web UI.\n",

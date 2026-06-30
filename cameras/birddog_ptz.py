@@ -111,7 +111,7 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
@@ -426,7 +426,42 @@ class BirdDogPTZDriver(BaseDriver):
                 "default": "1080p59.94",
                 "setup": False,
             },
+            # Exposure / WB mode are device-side configuration the camera persists
+            # and reports back (the poll's birddogexpsetup / birddogwbsetup reads
+            # are the read-back), so they get the editable-field + offline pending-
+            # queue treatment on top of the transient set_* commands. set_device_
+            # setting routes to those commands so the API call lives in one place.
+            "exposure_mode": {
+                "type": "enum",
+                "label": "Exposure Mode",
+                "help": (
+                    "How the camera meters exposure. FULL AUTO lets the camera "
+                    "choose; MANUAL / SHUTTER Pri / IRIS Pri / BRIGHT fix one or "
+                    "more parameters."
+                ),
+                "values": [
+                    "FULL AUTO", "MANUAL", "SHUTTER Pri", "IRIS Pri", "BRIGHT",
+                ],
+                "state_key": "exposure_mode",
+                "default": "FULL AUTO",
+                "setup": False,
+            },
+            "wb_mode": {
+                "type": "enum",
+                "label": "White Balance Mode",
+                "help": (
+                    "White-balance behavior. AUTO tracks the scene; INDOOR / "
+                    "OUTDOOR lock a colour temperature; ONE PUSH samples once; "
+                    "MANUAL uses fixed red/blue gain."
+                ),
+                "values": ["AUTO", "INDOOR", "OUTDOOR", "ONE PUSH", "MANUAL"],
+                "state_key": "wb_mode",
+                "default": "AUTO",
+                "setup": False,
+            },
         },
+        # Parameterless commissioning actions surfaced as one-tap buttons.
+        "quick_actions": ["pt_home", "focus_one_push"],
         "discovery": {
             # BirdDog devices advertise NDI on `_ndi._tcp` (claimed by
             # the generic ndi_source driver). They also expose a public
@@ -638,6 +673,12 @@ class BirdDogPTZDriver(BaseDriver):
                 await self._api_post("encodesetup", {"VideoFormat": str(value)})
                 self.set_state("video_format", str(value))
                 log.info(f"[{self.device_id}] Set video format to '{value}'")
+
+            case "exposure_mode":
+                await self.send_command("set_exposure_mode", {"mode": str(value)})
+
+            case "wb_mode":
+                await self.send_command("set_wb_mode", {"mode": str(value)})
 
             case _:
                 raise ValueError(f"Unknown device setting: {key}")

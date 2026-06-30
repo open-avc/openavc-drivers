@@ -34,6 +34,16 @@ subscription mechanism in the published Command List, so the driver polls
 the camera's PTZ + camera-setting state at the configured interval
 (default 5 s).
 
+Liveness (never-offline fix)
+----------------------------
+UDP is connectionless, so an unplugged camera does not drop a socket — the
+inquiry just stops getting answered. The power inquiry (answered by every
+VISCA camera) doubles as a liveness probe: it gates connect()
+(``_post_connect`` raises a no_response-worded ConnectionError if the camera
+answers nothing) and leads the poll cycle (``poll()`` raises the same when
+the camera goes silent). Previously the swallowed UDP timeout left an
+unplugged camera shown ONLINE forever.
+
 Why Python (Principle 9)
 ------------------------
 Same as ``visca_ip``: binary framing with a 32-bit sequence counter,
@@ -66,6 +76,17 @@ PAYLOAD_CONTROL_CMD = 0x0200
 PAYLOAD_CONTROL_REPLY = 0x0201
 
 CONTROL_RESET = b"\x01"
+
+# Liveness probe. CAM_PowerInq is answered by every VISCA camera, so it
+# doubles as the "are you still there?" probe. The probe gates connect()
+# (so a dead camera surfaces offline, not phantom-connected) and rides the
+# poll cycle (so an unplugged camera flips offline mid-session). The
+# "is not responding" wording is what the shared connection-fault classifier
+# maps to offline_reason=no_response.
+POWER_INQUIRY = b"\x81\x09\x04\x00\xff"
+PROBE_TIMEOUT_S = 1.5
+PROBE_RETRIES = 3  # connect-time tolerance for a single dropped UDP datagram
+RESET_TIMEOUT_S = 2.0  # Control RESET ACK wait (best-effort; not a liveness gate)
 
 
 def _wrap(payload: bytes, payload_type: int, sequence: int) -> bytes:
@@ -221,7 +242,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port "
@@ -523,6 +544,252 @@ class SonyVISCADriver(BaseDriver):
                 "label": "Tally Lamp",
             },
         },
+        # The picture / image-quality surface is device-side configuration the
+        # camera persists and reports back (every entry's state_key is
+        # populated by a poll() inquiry), so it gets the editable-field +
+        # offline pending-queue treatment of device settings on top of the
+        # transient set_* commands (same dual surface as crestron_nvx). Live
+        # operational state (PTZ/zoom/focus position, power, presets) and
+        # production-driven tally are NOT settings and stay commands.
+        "device_settings": {
+            "picture_profile": {
+                "type": "enum",
+                "label": "Picture Profile",
+                "help": (
+                    "Sony picture-look preset. BRC-X400/X401 expose the full "
+                    "list; smaller SRG models accept a subset."
+                ),
+                "values": list(_PICTURE_PROFILE_TO_BYTE.keys()),
+                "state_key": "picture_profile",
+                "default": "std",
+                "setup": False,
+            },
+            "ae_mode": {
+                "type": "enum",
+                "label": "Auto-Exposure Mode",
+                "help": "How the camera meters exposure.",
+                "values": ["full_auto", "manual", "shutter", "iris", "bright"],
+                "state_key": "ae_mode",
+                "default": "full_auto",
+                "setup": False,
+            },
+            "ae_speed": {
+                "type": "integer",
+                "label": "AE Convergence Speed",
+                "help": "1 = fast convergence, higher = slower / smoother.",
+                "min": 1,
+                "max": 48,
+                "state_key": "ae_speed",
+                "default": 1,
+                "setup": False,
+            },
+            "wb_mode": {
+                "type": "enum",
+                "label": "White Balance Mode",
+                "help": (
+                    "auto1 / auto2 track the scene; indoor / outdoor lock a "
+                    "colour temperature; one_push samples once; manual uses "
+                    "fixed R/B gains."
+                ),
+                "values": list(_WB_MODE_TO_BYTE.keys()),
+                "state_key": "wb_mode",
+                "default": "auto1",
+                "setup": False,
+            },
+            "rgain": {
+                "type": "integer",
+                "label": "Red Gain",
+                "help": "Manual-WB red gain. 0 = -128, 128 = neutral, 255 = +127.",
+                "min": 0,
+                "max": 255,
+                "state_key": "rgain",
+                "default": 128,
+                "setup": False,
+            },
+            "bgain": {
+                "type": "integer",
+                "label": "Blue Gain",
+                "help": "Manual-WB blue gain. 0 = -128, 128 = neutral, 255 = +127.",
+                "min": 0,
+                "max": 255,
+                "state_key": "bgain",
+                "default": 128,
+                "setup": False,
+            },
+            "chroma_suppress": {
+                "type": "integer",
+                "label": "Chroma Suppress",
+                "help": "0 = Off, 1 = Weak, 2 = Mid, 3 = Strong.",
+                "min": 0,
+                "max": 3,
+                "state_key": "chroma_suppress",
+                "default": 0,
+                "setup": False,
+            },
+            "backlight": {
+                "type": "boolean",
+                "label": "Backlight Compensation",
+                "help": "Brightens a subject lit from behind.",
+                "state_key": "backlight",
+                "default": False,
+                "setup": False,
+            },
+            "spotlight": {
+                "type": "boolean",
+                "label": "Spotlight Compensation",
+                "help": "Tames a bright spotlight on the subject.",
+                "state_key": "spotlight",
+                "default": False,
+                "setup": False,
+            },
+            "visibility_enhancer": {
+                "type": "boolean",
+                "label": "Visibility Enhancer",
+                "help": "Lifts shadow detail in high-contrast scenes.",
+                "state_key": "visibility_enhancer",
+                "default": False,
+                "setup": False,
+            },
+            "defog": {
+                "type": "boolean",
+                "label": "Defog (BRC-X400/X401)",
+                "help": "Haze reduction. BRC-X400/X401 only.",
+                "state_key": "defog",
+                "default": False,
+                "setup": False,
+            },
+            "defog_level": {
+                "type": "integer",
+                "label": "Defog Level (BRC-X400/X401)",
+                "help": "1-3, applied when Defog is on.",
+                "min": 1,
+                "max": 3,
+                "state_key": "defog_level",
+                "default": 2,
+                "setup": False,
+            },
+            "low_light": {
+                "type": "boolean",
+                "label": "Low Light Basis",
+                "help": "Low-light brightness mode.",
+                "state_key": "low_light",
+                "default": False,
+                "setup": False,
+            },
+            "low_light_level": {
+                "type": "integer",
+                "label": "Low Light Basis Brightness",
+                "help": "4-10, applied when Low Light Basis is on.",
+                "min": 4,
+                "max": 10,
+                "state_key": "low_light_level",
+                "default": 4,
+                "setup": False,
+            },
+            "high_sensitivity": {
+                "type": "boolean",
+                "label": "High Sensitivity Mode",
+                "help": "Extended gain for very dark rooms.",
+                "state_key": "high_sensitivity",
+                "default": False,
+                "setup": False,
+            },
+            "min_shutter": {
+                "type": "integer",
+                "label": "Min Shutter (raw)",
+                "help": "Lower shutter-speed limit (raw 0-255).",
+                "min": 0,
+                "max": 255,
+                "state_key": "min_shutter",
+                "default": 0,
+                "setup": False,
+            },
+            "max_shutter": {
+                "type": "integer",
+                "label": "Max Shutter (raw)",
+                "help": "Upper shutter-speed limit (raw 0-255).",
+                "min": 0,
+                "max": 255,
+                "state_key": "max_shutter",
+                "default": 0,
+                "setup": False,
+            },
+            "exp_comp": {
+                "type": "boolean",
+                "label": "Exposure Compensation Enabled",
+                "help": "Enables the exposure-compensation offset.",
+                "state_key": "exp_comp",
+                "default": False,
+                "setup": False,
+            },
+            "exp_comp_level": {
+                "type": "integer",
+                "label": "Exposure Compensation Level",
+                "help": "0 = -7 stops, 7 = center, 14 = +7 stops.",
+                "min": 0,
+                "max": 14,
+                "state_key": "exp_comp_level",
+                "default": 7,
+                "setup": False,
+            },
+            "flicker_cancel": {
+                "type": "boolean",
+                "label": "Flicker Cancel",
+                "help": "Cancels banding from mains-frequency lighting.",
+                "state_key": "flicker_cancel",
+                "default": False,
+                "setup": False,
+            },
+            "ir_correction": {
+                "type": "enum",
+                "label": "IR Correction",
+                "help": "Focus correction for IR-heavy lighting.",
+                "values": ["standard", "ir_light"],
+                "state_key": "ir_correction",
+                "default": "standard",
+                "setup": False,
+            },
+            "ir_cut_filter": {
+                "type": "enum",
+                "label": "IR Cut Filter (ICR)",
+                "help": "day = filter in (colour), night = filter out (mono/IR).",
+                "values": ["day", "night"],
+                "state_key": "ir_cut_filter",
+                "default": "day",
+                "setup": False,
+            },
+            "auto_icr": {
+                "type": "boolean",
+                "label": "Auto ICR",
+                "help": "Camera switches the IR cut filter automatically by light level.",
+                "state_key": "auto_icr",
+                "default": False,
+                "setup": False,
+            },
+            "af_mode": {
+                "type": "enum",
+                "label": "AF Mode",
+                "help": "Autofocus behaviour.",
+                "values": list(_AF_MODE_TO_BYTE.keys()),
+                "state_key": "af_mode",
+                "default": "normal",
+                "setup": False,
+            },
+            "preset_mode": {
+                "type": "enum",
+                "label": "PRESET MODE (BRC-X400/X401)",
+                "help": (
+                    "What a preset stores. mode1 = PTZ/F + camera settings, "
+                    "mode2 = PTZ/F only, trace = PTZ paths. BRC-X400/X401 only."
+                ),
+                "values": list(_PRESET_MODE_TO_BYTE.keys()),
+                "state_key": "preset_mode",
+                "default": "mode1",
+                "setup": False,
+            },
+        },
+        # Parameterless commissioning actions surfaced as one-tap buttons.
+        "quick_actions": ["pt_home", "wb_one_push_trigger", "focus_one_push"],
         "commands": {
             # ── Power ──
             "power_on":  {"label": "Power On",  "params": {}},
@@ -868,10 +1135,22 @@ class SonyVISCADriver(BaseDriver):
         self._inquiry_future: asyncio.Future[bytes] | None = None
         self._control_reply_future: asyncio.Future[None] | None = None
 
-    async def connect(self) -> None:
-        await super().connect()
+    async def _post_connect(self) -> None:
+        """Session setup + liveness gate, run by BaseDriver.connect() after the
+        UDP socket opens and before the device is marked connected.
+
+        A raise here aborts the connect cleanly (BaseDriver stashes the
+        transport error, closes the socket, re-raises). That is how a dead
+        camera surfaces offline with ``no_response`` instead of a phantom-
+        connected session, and how every reconnect attempt against a still-dead
+        camera keeps that reason instead of flapping back online — UDP is
+        connectionless, so the socket "opening" proves nothing.
+        """
         self._inquiry_lock = asyncio.Lock()
         self._sequence = 0
+
+        # Best-effort RESET (some cameras don't ACK it); the liveness gate
+        # below is the real reachability check.
         try:
             await self._send_control_reset()
         except (ConnectionError, OSError, asyncio.TimeoutError):
@@ -879,10 +1158,23 @@ class SonyVISCADriver(BaseDriver):
                 f"[{self.device_id}] Sony VISCA-IP RESET handshake did not "
                 "complete; continuing optimistically"
             )
-        try:
-            await self.poll()
-        except (ConnectionError, OSError):
-            log.warning(f"[{self.device_id}] Initial poll failed")
+
+        # Liveness gate: the camera must answer the power inquiry. poll()
+        # raises a no_response-worded ConnectionError when it answers nothing;
+        # retry to ride out a single dropped UDP datagram at connect, then
+        # propagate so a truly dead camera is reported offline.
+        last_exc: Exception | None = None
+        for _ in range(max(1, PROBE_RETRIES)):
+            try:
+                await self.poll()
+                return
+            except (ConnectionError, OSError) as e:
+                last_exc = e
+        host = self.config.get("host", "?")
+        port = self.config.get("port", "?")
+        raise ConnectionError(
+            f"Camera at {host}:{port} is not responding to VISCA inquiries"
+        ) from last_exc
 
     async def disconnect(self) -> None:
         if self._inquiry_future and not self._inquiry_future.done():
@@ -953,7 +1245,9 @@ class SonyVISCADriver(BaseDriver):
         seq = self._next_seq()
         await self.transport.send(_wrap(visca, PAYLOAD_VISCA_INQUIRY, seq))
 
-    async def _send_control_reset(self, timeout: float = 2.0) -> None:
+    async def _send_control_reset(self, timeout: float | None = None) -> None:
+        if timeout is None:
+            timeout = RESET_TIMEOUT_S
         loop = asyncio.get_running_loop()
         self._control_reply_future = loop.create_future()
         try:
@@ -1355,16 +1649,105 @@ class SonyVISCADriver(BaseDriver):
             case _:
                 raise ValueError(f"Unknown command: {command}")
 
+    # ── Device settings ──
+
+    # setting key -> (command, param name). The picture surface routes to the
+    # existing transient commands so byte-building lives in one place; the
+    # platform handles the offline pending queue and read-back comes from
+    # poll(). defog is compound (set_defog takes enabled + level together) and
+    # handled specially below.
+    _DS_COMMANDS = {
+        "picture_profile": ("set_picture_profile", "profile"),
+        "ae_mode": ("set_ae_mode", "mode"),
+        "ae_speed": ("set_ae_speed", "speed"),
+        "wb_mode": ("set_wb_mode", "mode"),
+        "rgain": ("rgain_direct", "value"),
+        "bgain": ("bgain_direct", "value"),
+        "chroma_suppress": ("set_chroma_suppress", "level"),
+        "backlight": ("set_backlight", "enabled"),
+        "spotlight": ("set_spotlight", "enabled"),
+        "visibility_enhancer": ("set_visibility_enhancer", "enabled"),
+        "low_light": ("set_low_light", "enabled"),
+        "low_light_level": ("set_low_light_level", "level"),
+        "high_sensitivity": ("set_high_sensitivity", "enabled"),
+        "min_shutter": ("set_min_shutter", "value"),
+        "max_shutter": ("set_max_shutter", "value"),
+        "exp_comp": ("set_exp_comp", "enabled"),
+        "exp_comp_level": ("set_exp_comp_level", "level"),
+        "flicker_cancel": ("set_flicker_cancel", "enabled"),
+        "ir_correction": ("set_ir_correction", "mode"),
+        "ir_cut_filter": ("set_ir_cut_filter", "mode"),
+        "auto_icr": ("set_auto_icr", "enabled"),
+        "af_mode": ("set_af_mode", "mode"),
+        "preset_mode": ("set_preset_mode", "mode"),
+    }
+
+    @staticmethod
+    def _to_bool(value: Any) -> bool:
+        return (
+            value if isinstance(value, bool)
+            else str(value).strip().lower() in ("1", "true", "on", "yes")
+        )
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a picture/image device setting by routing to the matching
+        transient command, coercing the value by the declared setting type."""
+        if not self.transport or not self.transport.connected:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+
+        # defog is compound: set_defog needs the on/off AND the level together,
+        # so writing either side re-sends both, reading the sibling from state.
+        if key == "defog":
+            await self.send_command("set_defog", {
+                "enabled": self._to_bool(value),
+                "level": int(self.get_state("defog_level") or 2),
+            })
+            return
+        if key == "defog_level":
+            await self.send_command("set_defog", {
+                "enabled": bool(self.get_state("defog")),
+                "level": int(value),
+            })
+            return
+
+        spec = self._DS_COMMANDS.get(key)
+        if spec is None:
+            raise ValueError(f"Unknown device setting: {key}")
+        command, param = spec
+        setting_def = self.DRIVER_INFO["device_settings"][key]
+        stype = setting_def.get("type")
+        if stype == "boolean":
+            coerced: Any = self._to_bool(value)
+        elif stype == "integer":
+            coerced = int(value)
+        else:
+            coerced = str(value)
+        await self.send_command(command, {param: coerced})
+
     # ── Polling ──
 
     async def poll(self) -> None:
         if not self.transport or not self.transport.connected:
             return
 
-        # Power
-        reply = await self._inquire(b"\x81\x09\x04\x00\xff")
-        if reply and len(reply) == 4:
+        # Power doubles as the liveness probe: every VISCA camera answers
+        # CAM_PowerInq, so a total non-answer means the camera vanished
+        # (unplugged, powered off, wrong IP, UDP black hole). Raise so the
+        # missed-poll watchdog flips the device offline with no_response
+        # wording — previously the swallowed UDP timeout left an unplugged
+        # camera shown ONLINE forever.
+        reply = await self._inquire(POWER_INQUIRY, timeout=PROBE_TIMEOUT_S)
+        if reply is None:
+            host = self.config.get("host", "?")
+            port = self.config.get("port", "?")
+            raise ConnectionError(
+                f"Camera at {host}:{port} is not responding to VISCA inquiries"
+            )
+        if len(reply) == 4:
             self.set_state("power", "on" if reply[2] == 0x02 else "standby")
+
+        # The camera is reachable; individual inquiry timeouts below are benign
+        # (a model may not support a given inquiry) and don't trip the watchdog.
 
         # Pan/Tilt position
         reply = await self._inquire(b"\x81\x09\x06\x12\xff")

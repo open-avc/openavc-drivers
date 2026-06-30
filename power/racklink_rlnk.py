@@ -50,6 +50,12 @@ ESCAPE = 0xFD
 MAX_OUTLETS = 16
 MAX_CONTACTS = 8
 
+# Login handshake + liveness watchdog timing.
+LOGIN_TIMEOUT_S = 5.0
+KEEPALIVE_INTERVAL_S = 30.0
+KEEPALIVE_TIMEOUT_S = 5.0
+KEEPALIVE_MAX_FAILURES = 2
+
 # Command codes
 CMD_NACK = 0x10
 CMD_PING = 0x01
@@ -138,29 +144,48 @@ def _build_state_vars() -> dict[str, dict[str, Any]]:
             "label": "Occupancy",
         },
     }
-    for n in range(1, MAX_OUTLETS + 1):
-        out[f"outlet_{n}_state"] = {
-            "type": "boolean",
-            "label": f"Outlet {n} State",
-        }
-        out[f"outlet_{n}_name"] = {
-            "type": "string",
-            "label": f"Outlet {n} Name",
-        }
-        out[f"outlet_{n}_controllable"] = {
-            "type": "boolean",
-            "label": f"Outlet {n} Controllable",
-        }
-    for n in range(1, MAX_CONTACTS + 1):
-        out[f"contact_{n}_state"] = {
-            "type": "boolean",
-            "label": f"Contact {n} Closed",
-        }
-        out[f"contact_{n}_name"] = {
-            "type": "string",
-            "label": f"Contact {n} Name",
-        }
+    # Per-outlet and per-contact values are modelled as child entities
+    # (see CHILD_ENTITY_TYPES) rather than flat outlet_N_* keys, so a
+    # 16-outlet rack and a 4-outlet rack each surface exactly the units
+    # they have, with per-property cloud relay priorities.
     return out
+
+
+# Outlet / contact sub-units are addressable children of the one PDU.
+# State lands at device.<id>.outlet.<NN>.<prop> / .contact.<N>.<prop>.
+# `state` is the operationally-meaningful live value (high cloud tier);
+# `name` and `controllable` change rarely (low tier). Device-side names
+# live here as child state set by the rename commands — not as
+# device_settings (a setting's flat state_key can't point into a child).
+CHILD_ENTITY_TYPES = {
+    "outlet": {
+        "label": "Outlet",
+        "label_plural": "Outlets",
+        "id_format": {"type": "integer", "min": 1, "max": MAX_OUTLETS, "pad_width": 2},
+        "state_variables": {
+            "state": {"type": "boolean", "label": "Powered", "cloud_priority": "high"},
+            "controllable": {
+                "type": "boolean",
+                "label": "Controllable",
+                "cloud_priority": "low",
+            },
+            "name": {"type": "string", "label": "Name", "cloud_priority": "low"},
+        },
+        "summary_fields": ["name", "state", "controllable"],
+        "label_field": "name",
+    },
+    "contact": {
+        "label": "Dry Contact",
+        "label_plural": "Dry Contacts",
+        "id_format": {"type": "integer", "min": 1, "max": MAX_CONTACTS, "pad_width": 1},
+        "state_variables": {
+            "state": {"type": "boolean", "label": "Closed", "cloud_priority": "high"},
+            "name": {"type": "string", "label": "Name", "cloud_priority": "low"},
+        },
+        "summary_fields": ["name", "state"],
+        "label_field": "name",
+    },
+}
 
 
 def _checksum(unescaped: bytes) -> int:
@@ -220,7 +245,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Middle Atlantic / Legrand RackLink RLNK power "
@@ -367,15 +392,35 @@ class RackLinkRLNKDriver(BaseDriver):
             },
         },
         "state_variables": _build_state_vars(),
+        "child_entity_types": CHILD_ENTITY_TYPES,
+        "quick_actions": [
+            "sequence_up",
+            "sequence_down",
+            "epo_initiate",
+            "epo_recover",
+            "refresh",
+        ],
+        "actions": [
+            {"id": "sequence_up", "kind": "command", "icon": "power"},
+            {"id": "sequence_down", "kind": "command", "icon": "power-off"},
+            {
+                "id": "epo_initiate",
+                "kind": "command",
+                "icon": "octagon-alert",
+                "confirm": "Emergency Power Off shuts down every outlet. Continue?",
+            },
+            {"id": "epo_recover", "kind": "command", "icon": "rotate-ccw"},
+            {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
+        ],
         "commands": {
             "outlet_on": {
                 "label": "Turn Outlet On",
                 "params": {
                     "outlet": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "outlet",
                         "required": True,
-                        "min": 1,
-                        "max": MAX_OUTLETS,
+                        "label": "Outlet",
                     },
                 },
             },
@@ -383,10 +428,10 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Turn Outlet Off",
                 "params": {
                     "outlet": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "outlet",
                         "required": True,
-                        "min": 1,
-                        "max": MAX_OUTLETS,
+                        "label": "Outlet",
                     },
                 },
             },
@@ -394,10 +439,10 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Cycle Outlet",
                 "params": {
                     "outlet": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "outlet",
                         "required": True,
-                        "min": 1,
-                        "max": MAX_OUTLETS,
+                        "label": "Outlet",
                     },
                     "delay": {
                         "type": "integer",
@@ -413,10 +458,10 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Rename Outlet",
                 "params": {
                     "outlet": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "outlet",
                         "required": True,
-                        "min": 1,
-                        "max": MAX_OUTLETS,
+                        "label": "Outlet",
                     },
                     "name": {"type": "string", "required": True},
                 },
@@ -454,10 +499,10 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Open Dry Contact",
                 "params": {
                     "contact": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "contact",
                         "required": True,
-                        "min": 1,
-                        "max": MAX_CONTACTS,
+                        "label": "Dry Contact",
                     },
                 },
             },
@@ -465,10 +510,10 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Close Dry Contact",
                 "params": {
                     "contact": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "contact",
                         "required": True,
-                        "min": 1,
-                        "max": MAX_CONTACTS,
+                        "label": "Dry Contact",
                     },
                 },
             },
@@ -476,10 +521,10 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Rename Dry Contact",
                 "params": {
                     "contact": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "contact",
                         "required": True,
-                        "min": 1,
-                        "max": MAX_CONTACTS,
+                        "label": "Dry Contact",
                     },
                     "name": {"type": "string", "required": True},
                 },
@@ -518,6 +563,17 @@ class RackLinkRLNKDriver(BaseDriver):
         self._buffer = bytearray()
         self._authenticated = False
         self._push_subscribed = False
+        # Awaited request/response correlation, keyed by command code.
+        # The binary protocol has no per-message id, but only ONE awaiter
+        # is ever outstanding per command (the login handshake and the
+        # liveness probe) — regular polls are fire-and-forget — so a
+        # single future per command code is sufficient.
+        self._pending: dict[int, asyncio.Future[bytes]] = {}
+        # Liveness watchdog (qsc_qrc pattern): a push/poll-backstop driver
+        # on raw TCP can be silently dropped between pushes; an awaited
+        # NoOp-style probe detects it.
+        self._health_task: asyncio.Task | None = None
+        self._health_failures = 0
         super().__init__(device_id, config, state, events)
 
     async def connect(self) -> None:
@@ -536,39 +592,65 @@ class RackLinkRLNKDriver(BaseDriver):
             name=self.device_id,
         )
 
-        # Send login. We don't block on the response — the auth result
-        # comes back through the normal data path and flips
-        # self._authenticated.
+        # Authenticate and AWAIT the result. The login reply comes back
+        # through the normal data path; resolving it here lets a bad
+        # credential surface as a real auth fault — the worded
+        # ConnectionError below is what the shared connection-fault
+        # classifier maps to offline_reason=auth_failed — instead of a
+        # silent half-connected session that only fails on the next write.
         try:
+            fut = self._prime_response(CMD_LOGIN)
             await self._send_login(username, password)
+            login_data = await self._await_response(fut, CMD_LOGIN, LOGIN_TIMEOUT_S)
+        except asyncio.TimeoutError as e:
+            await self._safe_close()
+            raise ConnectionError(
+                f"RackLink at {host}:{port} did not respond to the login "
+                f"request within {LOGIN_TIMEOUT_S:.0f}s"
+            ) from e
         except (ConnectionError, OSError) as e:
-            await self.transport.close()
-            self.transport = None
+            await self._safe_close()
             raise ConnectionError(
                 f"RackLink login send failed for {host}:{port}: {e}"
             ) from e
+
+        if not (login_data and login_data[:1] == bytes([0x01])):
+            await self._safe_close()
+            raise ConnectionError(
+                f"RackLink authentication failed for {host}:{port} — check "
+                f"the username and password (control protocol account)."
+            )
+        self._authenticated = True
 
         self._connected = True
         self.set_state("connected", True)
         await self.events.emit(f"device.connected.{self.device_id}")
         log.info(f"[{self.device_id}] Connected to RackLink at {host}:{port}")
 
-        # Give the device a beat to authenticate, then subscribe and
-        # do an initial sweep. If push subscription fails (Select-only
-        # gear), polling still keeps state fresh.
-        await asyncio.sleep(0.3)
+        # Subscribe to pushes (Premium) and do an initial sweep. If push
+        # subscription fails (Select-only gear), polling keeps state fresh.
         try:
             await self._register_status_change()
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
+        # Liveness watchdog: this is a push + poll-backstop driver on raw
+        # TCP, so a silently-dropped Premium unit (no FIN between pushes)
+        # needs an awaited probe to be detected.
+        self._start_health_loop()
+
         poll_interval = int(self.config.get("poll_interval", 60))
         if poll_interval > 0:
             await self.start_polling(poll_interval)
 
     async def disconnect(self) -> None:
+        self._stop_health_loop()
         await self.stop_polling()
+        for fut in self._pending.values():
+            if not fut.done():
+                fut.cancel()
+        self._pending.clear()
         if self.transport:
             await self.transport.close()
             self.transport = None
@@ -579,6 +661,83 @@ class RackLinkRLNKDriver(BaseDriver):
         self.set_state("connected", False)
         await self.events.emit(f"device.disconnected.{self.device_id}")
         log.info(f"[{self.device_id}] Disconnected")
+
+    # ── Request/response correlation + liveness watchdog ──
+
+    def _prime_response(self, cmd: int) -> asyncio.Future[bytes]:
+        """Register interest in the next SUB_RESPONSE for ``cmd``.
+
+        Call this BEFORE sending the request so a fast reply can't arrive
+        before the future exists. Only the login handshake and the
+        liveness probe await responses; regular polls are fire-and-forget,
+        so a single outstanding future per command code is sufficient.
+        """
+        fut: asyncio.Future[bytes] = asyncio.get_running_loop().create_future()
+        self._pending[cmd] = fut
+        return fut
+
+    async def _await_response(
+        self, fut: asyncio.Future[bytes], cmd: int, timeout: float
+    ) -> bytes:
+        try:
+            return await asyncio.wait_for(fut, timeout)
+        finally:
+            if self._pending.get(cmd) is fut:
+                self._pending.pop(cmd, None)
+
+    def _start_health_loop(self) -> None:
+        if self._health_task is None or self._health_task.done():
+            self._health_failures = 0
+            self._health_task = asyncio.ensure_future(self._health_loop())
+
+    def _stop_health_loop(self) -> None:
+        if self._health_task and not self._health_task.done():
+            self._health_task.cancel()
+        self._health_task = None
+
+    async def _health_loop(self) -> None:
+        try:
+            while self.transport and self.transport.connected:
+                await asyncio.sleep(KEEPALIVE_INTERVAL_S)
+                if not (self.transport and self.transport.connected):
+                    return
+                try:
+                    await self._probe_once()
+                    self._health_failures = 0
+                except (asyncio.TimeoutError, ConnectionError, OSError) as exc:
+                    self._health_failures += 1
+                    log.warning(
+                        f"[{self.device_id}] Liveness probe failed "
+                        f"({self._health_failures}/{KEEPALIVE_MAX_FAILURES}): {exc}"
+                    )
+                    if self._health_failures >= KEEPALIVE_MAX_FAILURES:
+                        log.warning(
+                            f"[{self.device_id}] PDU unresponsive — forcing reconnect"
+                        )
+                        self._force_disconnect()
+                        return
+        except asyncio.CancelledError:
+            return
+
+    async def _probe_once(self) -> None:
+        """Send a cheap GET and await its reply as a liveness probe."""
+        fut = self._prime_response(CMD_PART_NUMBER)
+        await self._send_get(CMD_PART_NUMBER)
+        await self._await_response(fut, CMD_PART_NUMBER, KEEPALIVE_TIMEOUT_S)
+
+    def _force_disconnect(self) -> None:
+        # Null our own task ref first so the disconnect handler doesn't
+        # cancel the still-running loop out from under us.
+        self._health_task = None
+        self._handle_transport_disconnect()
+
+    async def _safe_close(self) -> None:
+        if self.transport:
+            try:
+                await self.transport.close()
+            except Exception:  # noqa: BLE001
+                pass
+            self.transport = None
 
     # ── Sending ──
 
@@ -803,6 +962,13 @@ class RackLinkRLNKDriver(BaseDriver):
         self._dispatch(cmd, sub, data)
 
     def _dispatch(self, cmd: int, sub: int, data: bytes) -> None:
+        # Resolve any awaiter (login handshake / liveness probe) waiting
+        # on this command's response, before the per-command handling.
+        if sub == SUB_RESPONSE:
+            fut = self._pending.get(cmd)
+            if fut is not None and not fut.done():
+                fut.set_result(bytes(data))
+
         if cmd == CMD_PING and sub == SUB_SET:
             asyncio.create_task(self._send_pong())
             return
@@ -890,6 +1056,12 @@ class RackLinkRLNKDriver(BaseDriver):
         reason = NACK_REASONS.get(data[0], f"reason 0x{data[0]:02x}")
         if data[0] == 0x08:
             self._authenticated = False
+            # If we're mid-login, fail the awaited handshake (rejected)
+            # so connect() raises the auth-worded ConnectionError rather
+            # than waiting for the login timeout.
+            fut = self._pending.get(CMD_LOGIN)
+            if fut is not None and not fut.done():
+                fut.set_result(b"\x00")
             log.warning(
                 f"[{self.device_id}] NACK: {reason} — will reconnect"
             )
@@ -904,12 +1076,16 @@ class RackLinkRLNKDriver(BaseDriver):
         if outlet < 1 or outlet > MAX_OUTLETS:
             return
         state = data[1]
+        self.register_child("outlet", outlet)  # idempotent
         if state == OUTLET_NOT_CONTROLLABLE:
-            self.set_state(f"outlet_{outlet}_controllable", False)
+            self.set_child_state("outlet", outlet, "controllable", False)
             return
         # ON / OFF / cycling — expose as boolean (cycle is transient)
-        self.set_state(f"outlet_{outlet}_state", state == OUTLET_ON)
-        self.set_state(f"outlet_{outlet}_controllable", True)
+        self.set_child_state_batch(
+            "outlet",
+            outlet,
+            {"state": state == OUTLET_ON, "controllable": True},
+        )
 
     def _dispatch_outlet_name(self, data: bytes) -> None:
         if not data:
@@ -918,17 +1094,25 @@ class RackLinkRLNKDriver(BaseDriver):
         if outlet < 1 or outlet > MAX_OUTLETS:
             return
         name = data[1:].decode("utf-8", errors="replace").rstrip("\x00")
-        self.set_state(f"outlet_{outlet}_name", name)
+        self.register_child("outlet", outlet)  # idempotent
+        self.set_child_state("outlet", outlet, "name", name)
 
     def _dispatch_outlet_count(self, data: bytes) -> None:
-        # 16 bytes, each "C" / "N" / "X"
-        controllable = 0
+        # 16 bytes, each "C" (controllable) / "N" (present, not controllable)
+        # / "X" (absent). Reconcile the child roster: register present
+        # outlets, drop absent ones.
+        present = 0
         for i, b in enumerate(data[:MAX_OUTLETS], start=1):
             ch = bytes([b])
-            self.set_state(f"outlet_{i}_controllable", ch == b"C")
-            if ch in (b"C", b"N"):
-                controllable += 1
-        self.set_state("outlet_count", controllable)
+            if ch == b"X":
+                self.deregister_child("outlet", i)  # idempotent if absent
+                continue
+            self.register_child(
+                "outlet", i, initial_state={"controllable": ch == b"C"}
+            )
+            self.set_child_state("outlet", i, "controllable", ch == b"C")
+            present += 1
+        self.set_state("outlet_count", present)
 
     def _dispatch_contact_status(self, data: bytes) -> None:
         if len(data) < 2:
@@ -937,7 +1121,8 @@ class RackLinkRLNKDriver(BaseDriver):
         if contact < 1 or contact > MAX_CONTACTS:
             return
         state = data[1]
-        self.set_state(f"contact_{contact}_state", state == OUTLET_ON)
+        self.register_child("contact", contact)  # idempotent
+        self.set_child_state("contact", contact, "state", state == OUTLET_ON)
 
     def _dispatch_contact_name(self, data: bytes) -> None:
         if not data:
@@ -946,13 +1131,18 @@ class RackLinkRLNKDriver(BaseDriver):
         if contact < 1 or contact > MAX_CONTACTS:
             return
         name = data[1:].decode("utf-8", errors="replace").rstrip("\x00")
-        self.set_state(f"contact_{contact}_name", name)
+        self.register_child("contact", contact)  # idempotent
+        self.set_child_state("contact", contact, "name", name)
 
     def _dispatch_contact_count(self, data: bytes) -> None:
+        # Per-position "C"/"N" present, "X" absent — reconcile the roster.
         present = 0
-        for b in data[:MAX_CONTACTS]:
-            if bytes([b]) in (b"C", b"N"):
-                present += 1
+        for i, b in enumerate(data[:MAX_CONTACTS], start=1):
+            if bytes([b]) == b"X":
+                self.deregister_child("contact", i)  # idempotent if absent
+                continue
+            self.register_child("contact", i)
+            present += 1
         self.set_state("contact_count", present)
 
     def _set_int(self, key: str, data: bytes) -> None:

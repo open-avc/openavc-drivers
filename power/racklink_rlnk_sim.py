@@ -284,6 +284,14 @@ class RackLinkRLNKSimulator(TCPSimulator):
         self, client_id: str, cmd: int, sub: int, data: bytes
     ) -> bytes | None:
         if cmd == CMD_LOGIN and sub == SUB_SET:
+            # `reject_auth` lets a test exercise the driver's auth-fault
+            # path: reply with a rejected login (0x01 -> 0x00) and leave
+            # the client unauthenticated.
+            if self.config.get("reject_auth"):
+                self._authenticated[client_id] = False
+                return build_frame(
+                    _build_envelope(CMD_LOGIN, SUB_RESPONSE, bytes([0x00]))
+                )
             self._authenticated[client_id] = True
             return build_frame(_build_envelope(CMD_LOGIN, SUB_RESPONSE, bytes([0x01])))
 

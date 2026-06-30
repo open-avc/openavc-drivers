@@ -6542,7 +6542,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6554,7 +6554,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6566,7 +6566,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6578,7 +6578,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6590,7 +6590,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6602,7 +6602,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6614,7 +6614,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6626,7 +6626,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6638,7 +6638,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },
@@ -6650,7 +6650,7 @@
         {
           "id": "wattbox_ip",
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ]
     },

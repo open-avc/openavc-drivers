@@ -4217,10 +4217,10 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Supports outlet on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
+      "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Outlets are addressable children with per-outlet state, name, and power metering. Supports on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
       "source_url": "https://www.snapav.com/wcsstore/ExtendedSitesCatalogAssetStore/attachments/documents/PowerManagement/SupportDocuments/SnapAV_Wattbox_API_V1.7.pdf",
       "file": "power/wattbox_ip.py",
       "format": "python",
@@ -4240,7 +4240,7 @@
       ],
       "help": {
         "overview": "WattBox is the SnapAV / Snap One family of IP-controlled power distribution units commonly installed in commercial AV racks. This driver speaks the v1.7 Integration Protocol, letting macros switch outlets on / off / reset, rename outlets, configure auto-reboot, and read live power / UPS telemetry. Use this driver instead of OvrC for local OpenAVC control \u2014 OvrC is a separate cloud product.",
-        "setup": "1. Connect the WattBox to your network via Ethernet.\n2. Find the WattBox's IP from the front panel (where applicable) or from the WattBox web interface.\n3. In the WattBox web interface, ensure the integration protocol is enabled and confirm the admin username and password.\n4. Enter the IP, port 23, and credentials in the device config in OpenAVC.\n5. Outlets are 1-indexed in commands. Outlet 0 with the reset action resets every outlet."
+        "setup": "1. Connect the WattBox to your network via Ethernet.\n2. Find the WattBox's IP from the front panel (where applicable) or from the WattBox web interface.\n3. In the WattBox web interface, ensure the integration protocol is enabled and confirm the admin username and password.\n4. Enter the IP, port 23, and credentials in the device config in OpenAVC.\n5. Outlets are 1-indexed in commands. Use Reset All Outlets to power-cycle the whole unit."
       },
       "compatible_models": [
         {
@@ -4258,7 +4258,7 @@
             "WB-800VS-IPVM-18"
           ],
           "confidence": "untested",
-          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Pre-declared state variables cover 12 outlets; 18-outlet models route correctly, with outlets 13\u201318 surfacing as raw state keys."
+          "notes": "All current IP / IPV / IPVM WattBoxes share the v1.7 Integration Protocol. Outlets are reconciled from the unit's reported outlet count, so 3 / 12 / 18-outlet models each surface exactly their outlets as children."
         }
       ],
       "discovery": {

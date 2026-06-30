@@ -15,9 +15,7 @@ Implements the WattBox Integration Protocol v1.7 server side:
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import re
 
 from simulator.tcp_simulator import TCPSimulator
 
@@ -25,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_OUTLETS = 12
+
+# Sent the moment a client connects, before any command. Partial line (no
+# trailing newline on the "Username: " prompt) on purpose — mirrors the real
+# WattBox banner.
+CONNECT_BANNER = b"Please Login to Continue\nUsername: "
 
 
 class WattBoxIPSimulator(TCPSimulator):
@@ -76,9 +79,15 @@ class WattBoxIPSimulator(TCPSimulator):
 
     # ── Connect: send banner + Username prompt ──
 
+    def connect_banner(self) -> bytes:
+        """The banner sent immediately on connect (sync helper for harnesses
+        that deliver server-initiated data outside the request/response path).
+        """
+        return CONNECT_BANNER
+
     async def on_client_connected(self, client_id: str) -> bytes | None:
         self._auth_state[client_id] = 0  # 0 = waiting for username
-        return b"Please Login to Continue\nUsername: "
+        return CONNECT_BANNER
 
     # ── Per-line handling ──
 
@@ -95,7 +104,12 @@ class WattBoxIPSimulator(TCPSimulator):
             self._auth_state[cid] = 1
             return b"Password: "
         if state == 1:
-            # Password arrived. Acknowledge auth.
+            # Password arrived. On a real unit, bad credentials get the login
+            # prompt again instead of a success banner; `reject_auth` models
+            # that so the driver's auth-fault path can be tested.
+            if self.config.get("reject_auth"):
+                self._auth_state[cid] = 0
+                return CONNECT_BANNER
             self._auth_state[cid] = 2
             return b"Successfully Logged In!\n"
 

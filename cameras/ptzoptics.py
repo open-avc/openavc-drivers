@@ -109,7 +109,7 @@ class PTZOpticsDriver(BaseDriver):
         "name": "PTZOptics Camera",
         "manufacturer": "PTZOptics",
         "category": "camera",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls PTZOptics PTZ cameras over the VISCA-over-IP "
@@ -312,6 +312,90 @@ class PTZOpticsDriver(BaseDriver):
                 "label": "Picture Flip (Vertical)",
             },
         },
+        # Exposure mode, white-balance mode, backlight, and the three image-
+        # orientation toggles are device-side configuration the camera persists
+        # and reports back (the poll() AE/WB/backlight/flip/lr_reverse/
+        # picture_flip inquiries are the read-back), so they get the editable-
+        # field + offline pending-queue treatment of device settings on top of
+        # the transient set_* commands (same dual surface as crestron_nvx). PTZ
+        # / zoom / focus position and presets are live operational state, not
+        # settings.
+        "device_settings": {
+            "ae_mode": {
+                "type": "enum",
+                "label": "Auto-Exposure Mode",
+                "help": (
+                    "How the camera meters exposure. full_auto lets the camera "
+                    "choose; manual / shutter / iris / bright fix one or more "
+                    "parameters."
+                ),
+                "values": ["full_auto", "manual", "shutter", "iris", "bright"],
+                "state_key": "ae_mode",
+                "default": "full_auto",
+                "setup": False,
+            },
+            "wb_mode": {
+                "type": "enum",
+                "label": "White Balance Mode",
+                "help": (
+                    "White-balance behavior. auto tracks the scene; indoor / "
+                    "outdoor lock a colour temperature; one_push samples once; "
+                    "color_temp / manual use fixed values."
+                ),
+                "values": [
+                    "auto", "indoor", "outdoor", "one_push", "manual", "color_temp",
+                ],
+                "state_key": "wb_mode",
+                "default": "auto",
+                "setup": False,
+            },
+            "backlight": {
+                "type": "boolean",
+                "label": "Backlight Compensation",
+                "help": (
+                    "Brightens a subject lit from behind. Persisted on the "
+                    "camera."
+                ),
+                "state_key": "backlight",
+                "default": False,
+                "setup": False,
+            },
+            "flip": {
+                "type": "enum",
+                "label": "Image Flip",
+                "help": (
+                    "Single-command image orientation — off, horizontal, "
+                    "vertical, or both. Set once at install for the mount "
+                    "orientation."
+                ),
+                "values": ["off", "h", "v", "hv"],
+                "state_key": "flip",
+                "default": "off",
+                "setup": False,
+            },
+            "lr_reverse": {
+                "type": "boolean",
+                "label": "L/R Reverse (Horizontal Flip)",
+                "help": "Mirror the image horizontally. Persisted on the camera.",
+                "state_key": "lr_reverse",
+                "default": False,
+                "setup": False,
+            },
+            "picture_flip": {
+                "type": "boolean",
+                "label": "Picture Flip (Vertical)",
+                "help": (
+                    "Flip the image vertically — use when ceiling-mounting. "
+                    "Persisted on the camera."
+                ),
+                "state_key": "picture_flip",
+                "default": False,
+                "setup": False,
+            },
+        },
+        # Parameterless commissioning actions surfaced as one-tap buttons on the
+        # device card.
+        "quick_actions": ["pt_home", "wb_one_push_trigger", "focus_one_push"],
         "commands": {
             # Power
             "power_on": {
@@ -911,6 +995,29 @@ class PTZOpticsDriver(BaseDriver):
 
             case _:
                 raise ValueError(f"Unknown command: {command}")
+
+    # ── Device settings ──
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting. Routes to the matching transient command so
+        the byte-building lives in one place; the platform handles the offline
+        pending queue and the read-back comes from poll()."""
+        if not self.transport or not self.transport.connected:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        if key == "ae_mode":
+            await self.send_command("set_ae_mode", {"mode": str(value)})
+        elif key == "wb_mode":
+            await self.send_command("set_wb_mode", {"mode": str(value)})
+        elif key == "flip":
+            await self.send_command("set_flip", {"mode": str(value)})
+        elif key in ("backlight", "lr_reverse", "picture_flip"):
+            on = (
+                value if isinstance(value, bool)
+                else str(value).strip().lower() in ("1", "true", "on", "yes")
+            )
+            await self.send_command(f"set_{key}", {"enabled": on})
+        else:
+            raise ValueError(f"Unknown device setting: {key}")
 
     # ── Polling ──
 

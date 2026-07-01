@@ -2099,7 +2099,7 @@
       "name": "Global Cache iTach IP2IR (IR Bridge)",
       "manufacturer": "Global Cache",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Network IR bridge with three emitter ports. Bind IR devices (TVs, cable boxes, AVRs) to a port and control them with a learned or database code-set. Learn codes straight from the original remote.",

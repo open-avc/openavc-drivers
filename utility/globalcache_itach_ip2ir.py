@@ -273,7 +273,7 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
         "name": "Global Cache iTach IP2IR (IR Bridge)",
         "manufacturer": "Global Cache",
         "category": "utility",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "transport": "tcp",
         "description": (
@@ -369,6 +369,21 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
         self._learn_writer: asyncio.StreamWriter | None = None
         self._learn_task: asyncio.Task | None = None
         self._learn_queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
+
+    # --- Commands ---
+
+    async def send_command(
+        self, command: str, params: dict[str, Any] | None = None
+    ) -> Any:
+        """The IP2IR bridge has no device-level commands of its own — downstream
+        IR devices carry the code-set and emit through it via ``bridge_emit``.
+        This satisfies the BaseDriver abstract method; ``refresh`` re-reads the
+        firmware for a manual liveness check.
+        """
+        if command == "refresh":
+            await self.poll()
+            return {"status": "ok"}
+        raise ValueError(f"Unknown command: {command}")
 
     # --- Liveness poll (over the auto 4998 TCP transport) ---
 

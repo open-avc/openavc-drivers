@@ -35,7 +35,13 @@ def _install_stubs() -> None:
         sys.modules.setdefault("server.drivers", drivers)
         base = ModuleType("server.drivers.base")
 
-        class _BaseDriver:
+        import abc
+
+        # Mirror the real BaseDriver's abstract contract: send_command is the one
+        # @abstractmethod. Making the stub enforce it means _make_driver() fails
+        # loudly if the driver forgets to implement send_command (as the real
+        # platform does at instantiation) instead of the stub masking it.
+        class _BaseDriver(abc.ABC):
             DRIVER_INFO: dict = {}
 
             def __init__(self, device_id, config, state, events):
@@ -57,6 +63,10 @@ def _install_stubs() -> None:
 
             async def disconnect(self):
                 pass
+
+            @abc.abstractmethod
+            async def send_command(self, command, params=None):
+                ...
 
         base.BaseDriver = _BaseDriver
         sys.modules["server.drivers.base"] = base
@@ -326,6 +336,22 @@ def test_bridge_import_code_rejects_garbage():
     d = _make_driver()
     with pytest.raises(ValueError):
         asyncio.run(d.bridge_import_code("not a sendir string"))
+
+
+def test_driver_is_instantiable_and_send_command_is_implemented():
+    # Regression: the class must implement the BaseDriver abstract send_command,
+    # or the platform can't instantiate it ("Can't instantiate abstract class").
+    # _make_driver() would raise TypeError here if it were missing.
+    d = _make_driver()
+    assert hasattr(d, "send_command")
+
+
+def test_refresh_command_polls_and_unknown_rejects():
+    d = _make_driver()
+    asyncio.run(d.send_command("refresh"))
+    assert d.transport.sent[-1] == b"getversion\r"
+    with pytest.raises(ValueError):
+        asyncio.run(d.send_command("bogus"))
 
 
 def test_is_a_bridge_with_three_ir_ports():

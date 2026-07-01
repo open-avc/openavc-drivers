@@ -186,6 +186,15 @@ REMOTE_KEYS: dict[str, tuple[int, int]] = {
 
 MIN_CMD_DELAY = 0.6
 
+# 060-1 GAIN REQUEST targets. The projector's 060-1 *response* does not echo
+# which target it was asked for, so the driver records the request order and
+# matches replies to it (see _query_gains / _pending_gain). Queries are always
+# sent as a fixed-order group, so a lost reply can only desync within one group,
+# self-healed by the next group's reset.
+GAIN_VOLUME = 0x05
+GAIN_BRIGHTNESS = 0x00
+GAIN_CONTRAST = 0x01
+
 
 # --- Protocol helpers ---
 
@@ -235,7 +244,7 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.4.1",
+        "version": "2.5.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
@@ -293,10 +302,20 @@ class SharpNECProjectorDriver(BaseDriver):
             ),
         },
         "discovery": {
-            # NEC/Sharp projectors also support PJLink — generic detection
-            # goes to the pjlink_class1 driver. This brand-specific driver
-            # surfaces as an OUI-hint candidate for the extra NEC PJ-Net
-            # commands.
+            # Active fingerprint: the NEC binary control port (7142) answers a
+            # 305-3 BASIC INFORMATION request (00 BF 00 00 01 02 C2) with a
+            # success frame that starts 20 BF (status-ok header + echoed cmd).
+            # NEC/Sharp projectors also support PJLink (claimed by
+            # pjlink_class1); the OUI + manufacturer-alias hints surface this
+            # brand-specific driver as a candidate for the richer NEC command
+            # set even when only a PJLink/ARP signal is seen.
+            "tcp_probe": {
+                "port": 7142,
+                "send_hex": "00bf00000102c2",
+                "expect_hex": "20bf",
+                "extract_manufacturer": "Sharp NEC",
+            },
+            "port_open": [7142],
             "oui": [
                 "00:30:13",   # NEC Corporation (Fuchu — display/PC division)
                 "00:60:b9",   # NEC Platforms (Kawasaki — display platforms)
@@ -633,18 +652,71 @@ class SharpNECProjectorDriver(BaseDriver):
                 "help": "Query all projector status immediately.",
             },
         },
+        # Values the projector persists and reports back. Volume / brightness /
+        # contrast read back via 060-1 GAIN (the read-back was fixed in v2.5.0 —
+        # see _query_gains); eco mode via 097-8. Each gets the editable-field +
+        # offline-pending-queue treatment on top of the transient set command
+        # (dual surface). set_device_setting routes to that command. Aspect is
+        # NOT a setting: the NEC protocol exposes an aspect setter but no aspect
+        # read-back this driver can poll, so it stays a fire-and-forget command.
+        "device_settings": {
+            "volume": {
+                "type": "integer",
+                "min": 0,
+                "max": 63,
+                "label": "Volume",
+                "help": "Speaker volume, 0-63.",
+                "state_key": "volume",
+                "default": 30,
+                "setup": False,
+            },
+            "brightness": {
+                "type": "integer",
+                "label": "Brightness",
+                "help": "Picture brightness. The value range is model-dependent.",
+                "state_key": "brightness",
+                "default": 50,
+                "setup": False,
+            },
+            "contrast": {
+                "type": "integer",
+                "label": "Contrast",
+                "help": "Picture contrast. The value range is model-dependent.",
+                "state_key": "contrast",
+                "default": 50,
+                "setup": False,
+            },
+            "eco_mode": {
+                "type": "string",
+                "label": "Eco / Light Mode",
+                "help": (
+                    "Eco / light-source mode code. Values are model-dependent "
+                    "(commonly 0 = Off / Normal, higher = more power saving)."
+                ),
+                "state_key": "eco_mode",
+                "default": "0",
+                "setup": False,
+            },
+        },
+        # High-use one-tap controls.
+        "quick_actions": [
+            "power_on", "power_off", "picture_mute_on", "picture_mute_off",
+        ],
     }
 
     def __init__(
         self,
         device_id: str,
         config: dict[str, Any],
-        state: "StateStore",
-        events: "EventBus",
+        state,
+        events,
     ):
         self._last_cmd_time: float = 0.0
         self._transition_task: asyncio.Task | None = None
         self._poll_count: int = 0
+        # Names of the GAIN targets queried, in send order — the 060-1 response
+        # doesn't echo its target, so replies are matched to this queue.
+        self._pending_gain: list[str] = []
         super().__init__(device_id, config, state, events)
 
     # --- Transport hooks ---
@@ -687,6 +759,20 @@ class SharpNECProjectorDriver(BaseDriver):
         """Query 305-3 BASIC INFO to refresh power, input, mutes, freeze."""
         await self._send(0x00, CMD_BASIC_INFO, bytes([0x02]))
 
+    async def _query_gains(self) -> None:
+        """Read volume / brightness / contrast (060-1 GAIN).
+
+        The 060-1 response doesn't echo which target it answered, so we send the
+        three queries in a fixed order and record that order in ``_pending_gain``;
+        each reply pops the head and updates the matching state var. Resetting the
+        queue here (rather than appending) means a lost reply desyncs at most one
+        group and self-heals on the next call.
+        """
+        self._pending_gain = ["volume", "brightness", "contrast"]
+        await self._send(0x03, CMD_GAIN_REQ, bytes([GAIN_VOLUME, 0x00, 0x00]))
+        await self._send(0x03, CMD_GAIN_REQ, bytes([GAIN_BRIGHTNESS, 0x00, 0x00]))
+        await self._send(0x03, CMD_GAIN_REQ, bytes([GAIN_CONTRAST, 0x00, 0x00]))
+
     async def _lens_drive(self, target: int, direction: int) -> None:
         """053. LENS CONTROL — timed continuous drive.
         target: 00=zoom, 01=focus, 02=shift_h, 03=shift_v
@@ -723,6 +809,7 @@ class SharpNECProjectorDriver(BaseDriver):
 
     async def connect(self) -> None:
         await super().connect()
+        self._pending_gain.clear()
         try:
             # Basic status first — power, input, mutes, freeze (305-3)
             await self._send(0x00, CMD_BASIC_INFO, bytes([0x02]))
@@ -740,12 +827,8 @@ class SharpNECProjectorDriver(BaseDriver):
             await self._send(0x00, CMD_STATUS_78, bytes([0x04]))
             # Serial number (305-2)
             await self._send(0x00, CMD_BASIC_INFO, bytes([0x01, 0x06]))
-            # Read current volume (060-1)
-            await self._send(0x03, CMD_GAIN_REQ, bytes([0x05, 0x00, 0x00]))
-            # Read current brightness (060-1)
-            await self._send(0x03, CMD_GAIN_REQ, bytes([0x00, 0x00, 0x00]))
-            # Read current contrast (060-1)
-            await self._send(0x03, CMD_GAIN_REQ, bytes([0x01, 0x00, 0x00]))
+            # Read current volume / brightness / contrast (060-1)
+            await self._query_gains()
         except ConnectionError:
             log.warning(f"[{self.device_id}] Initial status queries failed")
 
@@ -757,6 +840,7 @@ class SharpNECProjectorDriver(BaseDriver):
             except asyncio.CancelledError:
                 pass
             self._transition_task = None
+        self._pending_gain.clear()
         await super().disconnect()
 
     # --- Command interface ---
@@ -913,6 +997,27 @@ class SharpNECProjectorDriver(BaseDriver):
             case _:
                 log.warning(f"[{self.device_id}] Unknown command: {command}")
 
+    # --- Device settings ---
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting by routing to its transient set command, then
+        re-read so the setting's state_key reflects the on-device value.
+        """
+        if key == "volume":
+            await self.send_command("volume_set", {"level": int(value)})
+            await self._query_gains()
+        elif key == "brightness":
+            await self.send_command("brightness_set", {"level": int(value)})
+            await self._query_gains()
+        elif key == "contrast":
+            await self.send_command("contrast_set", {"level": int(value)})
+            await self._query_gains()
+        elif key == "eco_mode":
+            await self.send_command("eco_mode_set", {"mode": int(value)})
+            await self._send(0x03, CMD_ECO_REQ, bytes([0x07]))
+        else:
+            raise ValueError(f"Unknown device setting: {key}")
+
     # --- Response parsing ---
 
     async def on_data_received(self, data: bytes) -> None:
@@ -925,6 +1030,10 @@ class SharpNECProjectorDriver(BaseDriver):
         payload = data[5 : 5 + data_len] if data_len > 0 else b""
 
         if header in RESP_ERR:
+            # Keep the GAIN correlation queue aligned: an error reply to a
+            # 060-1 query still consumes its slot.
+            if cmd == CMD_GAIN_REQ and self._pending_gain:
+                self._pending_gain.pop(0)
             err1 = payload[0] if len(payload) > 0 else 0
             err2 = payload[1] if len(payload) > 1 else 0
             if err1 == 0x02 and err2 == 0x0D:
@@ -1054,22 +1163,23 @@ class SharpNECProjectorDriver(BaseDriver):
             self.set_state("filter_hours", hours)
             log.info(f"[{self.device_id}] Filter: {hours}h")
 
-        # 060-1 Gain parameter (brightness/contrast/volume read)
+        # 060-1 Gain parameter (brightness/contrast/volume read). The response
+        # doesn't echo its target, so pop the head of the pending-query queue
+        # (populated in send order by _query_gains) to know which one this is.
         elif cmd == CMD_GAIN_REQ and len(payload) >= 9:
+            target = self._pending_gain.pop(0) if self._pending_gain else None
             status = payload[0]
             if status == 0xFF:
                 return  # Gain doesn't exist on this model
             current = payload[7] | (payload[8] << 8)
-            # Figure out which gain this is from the request context
-            # We can't tell from the response alone, so we use the
-            # current state value to detect which parameter was queried.
-            # The gain request response doesn't echo the target byte.
-            # We handle this by updating the state in order of the
-            # queries sent during connect/poll.
-            log.debug(
-                f"[{self.device_id}] Gain response: status={status}, "
-                f"current={current}"
-            )
+            if target in ("volume", "brightness", "contrast"):
+                self.set_state(target, current)
+                log.debug(f"[{self.device_id}] {target}={current}")
+            else:
+                log.debug(
+                    f"[{self.device_id}] Gain response (unmatched): "
+                    f"status={status}, current={current}"
+                )
 
         # 097-8 Eco mode
         elif cmd == CMD_ECO_REQ and len(payload) >= 2:
@@ -1224,5 +1334,8 @@ class SharpNECProjectorDriver(BaseDriver):
                 await self._send(0x03, CMD_FILTER_INFO)
                 await self._send(0x00, CMD_ERROR_STATUS)
                 await self._send(0x03, CMD_ECO_REQ, bytes([0x07]))
+                # Refresh the picture/volume settings so the device_settings
+                # read back their current on-device values.
+                await self._query_gains()
         except ConnectionError:
             log.warning(f"[{self.device_id}] Poll failed — not connected")

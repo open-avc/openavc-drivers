@@ -65,7 +65,7 @@ The sections below remain the authoritative field-by-field reference; the schema
 |-------|------|-------------|
 | `id` | string | Unique identifier. Lowercase, underscores only. (e.g., `extron_sis`) |
 | `name` | string | Human-readable display name. |
-| `transport` | string | One of: `tcp`, `serial`, `http`, `udp`, `osc` |
+| `transport` | string | One of: `tcp`, `serial`, `http`, `udp`, `osc`, `bridge` (`bridge` = a device that emits through a live bridge instead of dialing a host, e.g. an IR device — see §2.13.1) |
 
 #### Optional
 
@@ -82,6 +82,7 @@ The sections below remain the authoritative field-by-field reference; the schema
 | `discovery` | object | `{}` | Network discovery hints (see below). |
 | `transports` | list | `[]` | Transports this driver can use interchangeably, e.g. `["tcp", "serial"]`. Marks the device serial-capable so it can connect over a direct serial port or through a bridge. Only declare it when the command/response strings are byte-identical across the listed media. See §2.13. |
 | `bridge` | object | `{}` | Declares this driver as a *bridge* other devices connect through (typed ports). See §2.13. |
+| `ir_codes` | boolean | `false` | Marks an IR code-set device (controlled by an infrared remote through an IR bridge). Shows the IR Codes editor; each code becomes a device command. Use with `transport: bridge`; ship a code-set in `default_config.ir_codes`. See §2.13.1. |
 
 ### 2.2 discovery
 
@@ -1054,6 +1055,66 @@ async def prepare_bridge_port(self, port_id: str, params: dict) -> None:
 `is_bridge` (a read-only `BaseDriver` property) is True automatically whenever
 `DRIVER_INFO["bridge"]["ports"]` is non-empty. See
 `utility/globalcache_itach_ip2sl.py` for a complete serial-bridge example.
+
+### 2.13.1 IR devices and IR bridges
+
+An **IR device** (a TV, cable box, or AVR driven by an infrared remote) has no
+network address of its own — it emits through an **IR bridge**'s emitter port.
+Its commands are a *code-set*: a map of named IR codes stored canonically as
+vendor-neutral **Pronto hex** plus a per-command repeat. Set `ir_codes: true`
+and `transport: bridge`; each entry in the code-set becomes a normal device
+command (so panel buttons and macros bind to it with no IR-specific UI), and the
+platform is online whenever the bound bridge is online.
+
+Two ways an IR device's code-set comes to exist, one runtime:
+
+```yaml
+# A community IR driver: a pre-authored code-set for one product.
+id: brandx_tv_ir
+name: BrandX TV (IR)
+manufacturer: BrandX
+category: display
+transport: bridge          # no address of its own; emits through a bridge
+ir_codes: true             # shows the IR Codes editor; codes are commands
+default_config:
+  ir_codes:                # the shipped code-set (users can extend per-device)
+    power_on:  { label: "Power On",   pronto: "0000 006D 0000 0022 ...", repeat: 1 }
+    vol_up:    { label: "Volume Up",  pronto: "0000 006D 0000 0022 ...", repeat: 2 }
+    hdmi1:     { label: "Input HDMI1", pronto: "0000 006D 0000 0022 ...", repeat: 1 }
+```
+
+The built-in `generic_ir` driver ("IR Device") is the same shape with an empty
+default code-set — its codes are authored per-device (learned, pasted, or found
+in a database) in the IR Codes editor. Storage lives in the device config's
+`ir_codes` map, so it needs no schema change. **Store Pronto, not a vendor wire
+format** — the bridge driver converts at emit.
+
+An **IR bridge** declares `kind: ir` ports and, unlike a serial bridge, needs a
+**Python** driver for the two send-time capabilities (there's no transparent
+byte pipe — each command is wrapped in the bridge's own wire format):
+
+```python
+async def bridge_emit(self, port_id: str, kind: str, payload: dict):
+    """Emit a downstream IR device's code through `port_id`. For IR,
+    kind == "ir" and payload == {"pronto": <hex>, "repeat": <int>}. Convert
+    the Pronto code to your wire format, send it, and confirm the emit."""
+
+@property
+def can_learn(self) -> bool:
+    return True     # override on a bridge that has an IR learner
+
+async def bridge_learn_start(self): ...          # enable the learner
+async def bridge_learn_poll(self, timeout: float) -> str | None:
+    """Return the next captured code as Pronto hex, or None on timeout."""
+async def bridge_learn_stop(self): ...           # disable + clean up
+```
+
+The platform drives these generically — the learn WebSocket
+(`/api/devices/{bridge}/ir-learn`) never sees your wire format. Use
+`server.transport.ir_codec` (`parse_pronto` / `build_pronto` / `IRCode`) for the
+Pronto ↔ neutral-structure step; do the neutral-structure ↔ wire step in your
+driver. See `utility/globalcache_itach_ip2ir.py` for a complete IR-bridge example
+(sendir emit, get_IRL learning on a dedicated socket, byte-exact fixtures).
 
 ## 3. Python Driver API
 

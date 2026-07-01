@@ -134,6 +134,14 @@ COLOR_MODES = {
     "Photo": "14",
 }
 
+# Reverse maps (hex code -> friendly name) for the device-settings read-back.
+# The projector reports ASPECT / CMODE as a hex code; the settings editor shows
+# the friendly name, so poll() decodes the hex into the *_name state vars the
+# settings point at. An unrecognised (model-specific) code falls back to the
+# raw hex so the field is never blank.
+ASPECT_NAMES = {code: name for name, code in ASPECT_CODES.items()}
+COLOR_MODE_NAMES = {code: name for name, code in COLOR_MODES.items()}
+
 # Common KEY codes (decimal-as-hex on the wire — Epson encodes the
 # remote IR scancode as a two-digit hex number). These are the keys
 # universally available across business and installation projectors.
@@ -166,7 +174,7 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.3.1",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Epson business and installation projectors over "
@@ -182,12 +190,21 @@ class EpsonEscVpDriver(BaseDriver):
         "ports": [3629],
         "transport": "tcp",
         "discovery": {
-            # Epson projectors also support PJLink Class 2 for vendor-
-            # neutral discovery; the generic pjlink_class1 driver claims
-            # that signal. Surface this brand-specific driver as a
-            # candidate when the PJLink response identifies the unit as
-            # an Epson — picks up "EPSON" in firmware-released MNFR
-            # strings and the legacy "Seiko Epson" form.
+            # Active fingerprint: send the 16-byte ESC/VP.net handshake preamble
+            # to TCP 3629 and expect a reply that starts with the "ESC/VP.net"
+            # banner (offset 0-9). Only the status byte at offset 14 differs
+            # between an ok reply and a password-required one, so the banner
+            # prefix identifies the device regardless of whether ESC/VP.net auth
+            # is set. Epson projectors also speak PJLink Class 2 (claimed by
+            # pjlink_class1); the manufacturer-alias hint surfaces this
+            # brand-specific driver as a candidate when a PJLink scan reports
+            # "EPSON" (or the legacy "Seiko Epson").
+            "tcp_probe": {
+                "port": 3629,
+                "send_hex": "4553432f56502e6e6574100300000000",
+                "expect_hex": "4553432f56502e6e6574",
+                "extract_manufacturer": "Epson",
+            },
             "manufacturer_alias": ["EPSON", "Seiko Epson"],
         },
         "compatible_models": [
@@ -304,9 +321,19 @@ class EpsonEscVpDriver(BaseDriver):
                 "type": "string",
                 "label": "Aspect (hex code)",
             },
+            "aspect_name": {
+                "type": "string",
+                "label": "Aspect Ratio",
+                "help": "Aspect ratio decoded from the ASPECT hex code.",
+            },
             "color_mode": {
                 "type": "string",
                 "label": "Color Mode (hex code)",
+            },
+            "color_mode_name": {
+                "type": "string",
+                "label": "Color Mode",
+                "help": "Color mode decoded from the CMODE hex code.",
             },
             "lamp_hours": {
                 "type": "integer",
@@ -404,6 +431,48 @@ class EpsonEscVpDriver(BaseDriver):
             },
             "refresh": {"label": "Refresh Status", "params": {}},
         },
+        # Aspect and color mode are values the projector persists and reports
+        # back (ASPECT? / CMODE? are the read-back — decoded into the *_name
+        # state vars the settings point at), so each gets the editable-field +
+        # offline-pending-queue treatment on top of the transient set_* command.
+        # set_device_setting routes to that command so the hex mapping lives in
+        # one place; the command stays for macro use (dual surface).
+        #
+        # Brightness / contrast are deliberately NOT device settings: ESC/VP21
+        # has BRIGHT / CONTRAST setters but no query verb (no BRIGHT? / CONTRAST?
+        # in the command reference), so there is no read-back to gate on — a
+        # setting with no read-back would show a stale value. They remain
+        # reachable through raw_command.
+        "device_settings": {
+            "aspect": {
+                "type": "enum",
+                "values": list(ASPECT_CODES.keys()),
+                "label": "Aspect Ratio",
+                "help": (
+                    "Image aspect ratio. Models expose only a subset; an "
+                    "unsupported value returns ERR on the projector."
+                ),
+                "state_key": "aspect_name",
+                "default": "Normal",
+                "setup": False,
+            },
+            "color_mode": {
+                "type": "enum",
+                "values": list(COLOR_MODES.keys()),
+                "label": "Color Mode",
+                "help": (
+                    "Picture colour preset. Per-model availability varies; an "
+                    "unsupported value returns ERR on the projector."
+                ),
+                "state_key": "color_mode_name",
+                "default": "Presentation",
+                "setup": False,
+            },
+        },
+        # High-use one-tap controls.
+        "quick_actions": [
+            "power_on", "power_off", "video_mute_on", "video_mute_off",
+        ],
     }
 
     # ── Construction ──
@@ -458,16 +527,24 @@ class EpsonEscVpDriver(BaseDriver):
         except asyncio.TimeoutError:
             await self.transport.close()
             self.transport = None
+            # Socket opened but the projector never answered the handshake ->
+            # no_response (wording matched by core/connection_fault.py).
             raise ConnectionError(
-                f"[{self.device_id}] No ESC/VP.net handshake reply from "
-                f"{host}:{port} within 5s"
+                f"[{self.device_id}] The Epson projector at {host}:{port} is "
+                f"not responding to the ESC/VP.net handshake (no reply within 5s)."
             )
 
         if not self._handshake_ok:
             await self.transport.close()
             self.transport = None
+            # A non-ok handshake status (offset 14 != 0x20) means the projector
+            # has an ESC/VP.net password set or runs an unsupported protocol
+            # version -> auth_failed (wording matched by connection_fault.py).
             raise ConnectionError(
-                f"[{self.device_id}] ESC/VP.net handshake rejected by projector"
+                f"[{self.device_id}] ESC/VP.net handshake rejected by the "
+                f"projector: authentication failed (an ESC/VP.net password is "
+                f"set) or the protocol version is unsupported. Clear the "
+                f"ESC/VP.net password in the projector's web setup."
             )
 
         self._connected = True
@@ -612,6 +689,23 @@ class EpsonEscVpDriver(BaseDriver):
         else:
             log.warning(f"[{self.device_id}] Unknown command: {command}")
 
+    # ── Device settings ──
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting by routing to its transient set_* command.
+
+        The command maps the friendly name to the ESC/VP21 hex code, sends the
+        setter, and queries it back; poll() decodes the returned hex into the
+        *_name state var the setting reads from. The offline pending queue is
+        handled by the platform.
+        """
+        if key == "aspect":
+            await self.send_command("set_aspect", {"aspect": str(value)})
+        elif key == "color_mode":
+            await self.send_command("set_color_mode", {"mode": str(value)})
+        else:
+            raise ValueError(f"Unknown device setting: {key}")
+
     # ── Polling ──
 
     async def poll(self) -> None:
@@ -705,8 +799,12 @@ class EpsonEscVpDriver(BaseDriver):
             self.set_state("freeze", value.upper() == "ON")
         elif pending == "aspect":
             self.set_state("aspect", value)
+            self.set_state("aspect_name", ASPECT_NAMES.get(value, value))
         elif pending == "color_mode":
             self.set_state("color_mode", value)
+            self.set_state(
+                "color_mode_name", COLOR_MODE_NAMES.get(value, value)
+            )
         elif pending == "lamp_hours":
             try:
                 self.set_state("lamp_hours", int(value))

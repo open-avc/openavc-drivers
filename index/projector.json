@@ -81,7 +81,7 @@
       "name": "Epson Projector (ESC/VP21)",
       "manufacturer": "Epson",
       "category": "projector",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Epson business and installation projectors over ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, input, A/V mute, freeze, aspect ratio, color mode, lamp hours, and remote-key passthrough.",
@@ -125,6 +125,12 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 3629,
+          "send_hex": "4553432f56502e6e6574100300000000",
+          "expect_hex": "4553432f56502e6e6574",
+          "extract_manufacturer": "Epson"
+        },
         "manufacturer_alias": [
           "EPSON",
           "Seiko Epson"

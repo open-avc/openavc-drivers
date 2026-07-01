@@ -35,6 +35,10 @@ class BirddogCodecSimulator(HTTPSimulator):
         "default_port": 8080,
         "initial_state": {
             "hostname": "BIRDDOG-CODEC-SIM",
+            # NDI encode name is distinct from the hostname (GET /encodesetup
+            # vs GET /about) — kept different so the read-back can't silently
+            # fall back to the hostname.
+            "ndi_name": "Studio Camera",
             "firmware": "5.0.2",
             "model": "Mini",
             "operation_mode": "Decode",
@@ -68,6 +72,7 @@ class BirddogCodecSimulator(HTTPSimulator):
                 "options": ["NDI Source 1", "NDI Source 2", "NDI Source 3"],
             },
             {"type": "indicator", "key": "hostname", "label": "Hostname"},
+            {"type": "indicator", "key": "ndi_name", "label": "NDI Name"},
             {"type": "indicator", "key": "firmware", "label": "Firmware"},
             {"type": "indicator", "key": "model", "label": "Model"},
         ],
@@ -145,9 +150,9 @@ class BirddogCodecSimulator(HTTPSimulator):
         if clean_path == "/encodesetup":
             if method == "POST" and body_data:
                 if "NDIName" in body_data:
-                    self.set_state("hostname", body_data["NDIName"])
+                    self.set_state("ndi_name", body_data["NDIName"])
             return 200, {
-                "NDIName": self.get_state("hostname", "BIRDDOG-CODEC-SIM"),
+                "NDIName": self.get_state("ndi_name", "BIRDDOG"),
             }
 
         return 404, {"error": "not found"}

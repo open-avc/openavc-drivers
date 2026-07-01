@@ -30,6 +30,7 @@ Reference:
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -48,7 +49,7 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
@@ -113,6 +114,7 @@ class BirdDogCodecDriver(BaseDriver):
         },
         "state_variables": {
             "hostname": {"type": "string", "label": "Hostname"},
+            "ndi_name": {"type": "string", "label": "NDI Source Name"},
             "firmware": {"type": "string", "label": "Firmware Version"},
             "model": {"type": "string", "label": "Model"},
             "operation_mode": {
@@ -128,6 +130,14 @@ class BirdDogCodecDriver(BaseDriver):
                 "type": "integer",
                 "label": "Available NDI Sources",
             },
+            "ndi_sources": {
+                "type": "string",
+                "label": "NDI Source List",
+                "help": (
+                    "JSON list of the NDI source names the device currently "
+                    "sees — powers the Select NDI Source dropdown."
+                ),
+            },
         },
         "commands": {
             "select_source": {
@@ -137,10 +147,12 @@ class BirdDogCodecDriver(BaseDriver):
                         "type": "string",
                         "required": True,
                         "label": "NDI Source Name",
+                        "options_state": "ndi_sources",
                         "help": (
                             "Full NDI source name as it appears on the network "
-                            "(e.g., 'BIRDDOG-P200 (Camera)'). Use 'refresh_sources' "
-                            "to see available sources in the log."
+                            "(e.g., 'BIRDDOG-P200 (Camera)'). The dropdown lists "
+                            "the sources the device currently sees; use "
+                            "'refresh_sources' to update it."
                         ),
                     },
                 },
@@ -180,7 +192,10 @@ class BirdDogCodecDriver(BaseDriver):
                     "Only applies when device is in Encode mode. Must be unique "
                     "across all NDI devices on the network."
                 ),
-                "state_key": "hostname",
+                # Read-back comes from GET /encodesetup (NDIName), NOT /about
+                # (HostName) — those are distinct values. The old state_key
+                # pointed at hostname, so this setting showed the wrong value.
+                "state_key": "ndi_name",
                 "default": "BIRDDOG",
                 "setup": True,
                 "unique": True,
@@ -211,6 +226,26 @@ class BirdDogCodecDriver(BaseDriver):
                 "setup": False,
             },
         },
+        # Quick Action strip: the decoder controls an operator reaches for,
+        # plus the disruptive reboot/restart behind a confirm.
+        "actions": [
+            {"id": "select_source", "kind": "command", "icon": "list"},
+            {"id": "next_source", "kind": "command", "icon": "chevron-right"},
+            {"id": "previous_source", "kind": "command", "icon": "chevron-left"},
+            {"id": "refresh_sources", "kind": "command", "icon": "refresh-cw"},
+            {
+                "id": "restart_video",
+                "kind": "command",
+                "icon": "rotate-ccw",
+                "confirm": "Restart the video engine? Output drops briefly.",
+            },
+            {
+                "id": "reboot",
+                "kind": "command",
+                "icon": "power",
+                "confirm": "Reboot the device? It drops offline until it restarts.",
+            },
+        ],
         "discovery": {
             # BirdDog NDI encoders/decoders advertise NDI on `_ndi._tcp`
             # (claimed by ndi_source) and expose the BirdDog REST API on
@@ -350,6 +385,7 @@ class BirdDogCodecDriver(BaseDriver):
         match key:
             case "ndi_name":
                 await self._api_post("encodesetup", {"NDIName": str(value)})
+                self.set_state("ndi_name", str(value))
                 log.info(f"[{self.device_id}] Set NDI name to '{value}'")
 
             case "hostname":
@@ -403,6 +439,16 @@ class BirdDogCodecDriver(BaseDriver):
             if new_source != old_source and new_source:
                 log.info(f"[{self.device_id}] Current source: {new_source}")
 
+        # NDI encode name — a separate value from the hostname, read from
+        # GET /encodesetup (NDIName). Only meaningful in Encode mode; decoders
+        # 404 the endpoint. This backs the ndi_name device_setting's read-back.
+        if self.get_state("operation_mode") == "Encode":
+            encode = await self._api_get("encodesetup")
+            if encode and isinstance(encode, dict):
+                ndi = encode.get("NDIName")
+                if ndi is not None:
+                    self.set_state("ndi_name", ndi)
+
         # Source list
         await self._update_source_list()
 
@@ -413,6 +459,9 @@ class BirdDogCodecDriver(BaseDriver):
             # The /List endpoint returns {"SourceName1": "addr", "SourceName2": "addr", ...}
             self._sources = list(sources.keys())
             self.set_state("source_count", len(self._sources))
+            # Publish the names as a JSON list so select_source can offer them
+            # as a dropdown (options_state: ndi_sources).
+            self.set_state("ndi_sources", json.dumps(self._sources))
 
     async def _cycle_source(self, direction: int) -> None:
         """Cycle to the next or previous NDI source."""
@@ -472,5 +521,11 @@ class BirdDogCodecDriver(BaseDriver):
             headers={"Content-Type": "application/json"},
         )
         if resp.status_code == 200 and resp.text:
-            return resp.json()
+            # Not every endpoint answers with JSON — /operationmode echoes the
+            # mode as plain text, for one. Tolerate that instead of crashing
+            # the caller (e.g. the operation_mode device-setting write).
+            try:
+                return resp.json()
+            except (json.JSONDecodeError, ValueError):
+                return None
         return None

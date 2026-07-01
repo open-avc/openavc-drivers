@@ -63,7 +63,7 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "
@@ -386,6 +386,18 @@ class SolsticeDriver(BaseDriver):
             },
         },
         "device_settings": {
+            "display_name": {
+                "type": "string",
+                "label": "Display Name",
+                "help": (
+                    "Name shown on the Pod's splash screen and in the Solstice "
+                    "client discovery list. Persisted on the host and reported "
+                    "back in /api/stats."
+                ),
+                "state_key": "display_name",
+                "default": "Solstice",
+                "setup": True,
+            },
             "screen_key_enabled": {
                 "type": "boolean",
                 "label": "Screen Key Required",
@@ -408,6 +420,45 @@ class SolsticeDriver(BaseDriver):
                 "default": False,
             },
         },
+        # Quick Action strip: the end-of-meeting / room controls an operator
+        # reaches for, plus a setup wizard that tests (and optionally saves) the
+        # admin password out-of-band when the Pod is offline on a bad one.
+        "actions": [
+            {"id": "clear", "kind": "command", "icon": "eraser"},
+            {"id": "boot_users", "kind": "command", "icon": "user-x"},
+            {"id": "reset_screen_key", "kind": "command", "icon": "key-round"},
+            {"id": "suspend", "kind": "command", "icon": "moon"},
+            {"id": "wake", "kind": "command", "icon": "sun"},
+            {
+                "id": "reboot",
+                "kind": "command",
+                "icon": "power",
+                "confirm": "Reboot the Pod? It drops offline until it restarts.",
+            },
+            {
+                "id": "test_password",
+                "kind": "setup",
+                "label": "Test Admin Password",
+                "icon": "shield-check",
+                "availability": "always",
+                "params": {
+                    "admin_password": {
+                        "type": "password",
+                        "secret": True,
+                        "label": "Admin Password",
+                        "help": (
+                            "The Pod's OpenControl admin password. Leave blank "
+                            "to test an open (no-password) Pod."
+                        ),
+                    },
+                    "save": {
+                        "type": "boolean",
+                        "default": True,
+                        "label": "Save this password if it works",
+                    },
+                },
+            },
+        ],
         "discovery": {
             # Solstice Pods do not advertise via mDNS, SSDP, or any
             # vendor-specific Bonjour service (Mersive Network Requirements
@@ -453,6 +504,23 @@ class SolsticeDriver(BaseDriver):
 
         try:
             stats = await self._api_get("/api/stats")
+        except httpx.HTTPStatusError as exc:
+            # A wrong (or missing-when-required) admin password is rejected at
+            # the HTTP layer. Word it so the shared classifier reads it as
+            # auth_failed instead of a generic drop. (The OpenControl guide
+            # documents the password mechanism but not the exact status; 401
+            # and 403 are the standard auth rejections, handled here robustly.)
+            status = exc.response.status_code
+            await self._client.aclose()
+            self._client = None
+            if status in (401, 403):
+                raise ConnectionError(
+                    f"[{self.device_id}] Solstice authentication failed - "
+                    "check the admin password"
+                ) from exc
+            raise ConnectionError(
+                f"Solstice at {host}:{port} returned HTTP {status}"
+            ) from exc
         except Exception as exc:
             await self._client.aclose()
             self._client = None
@@ -596,6 +664,13 @@ class SolsticeDriver(BaseDriver):
             raise ConnectionError(f"[{self.device_id}] Not connected")
 
         match key:
+            case "display_name":
+                name = str(value).strip()
+                await self._api_post(
+                    "/api/config",
+                    {"m_displayInformation": {"m_displayName": name}},
+                )
+                self.set_state("display_name", name)
             case "screen_key_enabled":
                 await self._api_post(
                     "/api/config",
@@ -610,6 +685,89 @@ class SolsticeDriver(BaseDriver):
                 self.set_state("power_management_enabled", bool(value))
             case _:
                 raise ValueError(f"Unknown device setting: {key}")
+
+    async def run_setup_action(
+        self,
+        action_id: str,
+        params: dict[str, Any],
+        progress: Any,
+    ) -> dict[str, Any]:
+        """Test the admin password over an out-of-band GET /api/stats.
+
+        The device's normal transport may be down (wrong password), so this
+        opens its own client, GETs /api/stats with the typed password, and
+        reports whether the Pod accepts it (401/403 = rejected). On success,
+        optionally persists the password + reconnects.
+        """
+        if action_id != "test_password":
+            raise ValueError(f"Unknown setup action: {action_id}")
+
+        host = (self.config.get("host") or "").strip()
+        port = int(self.config.get("port") or 80)
+        use_https = bool(self.config.get("use_https", False))
+        password = str(params.get("admin_password", "") or "")
+        save = bool(params.get("save", True))
+        if not host:
+            raise ValueError("No IP address configured")
+
+        scheme = "https" if use_https else "http"
+        base_url = f"{scheme}://{host}:{port}"
+        path = "/api/stats"
+        if password:
+            path += "?password=" + urllib.parse.quote(password, safe="")
+
+        await progress(f"Connecting to {host}:{port}…", 20)
+        async with httpx.AsyncClient(
+            base_url=base_url, timeout=8.0, verify=False
+        ) as client:
+            try:
+                resp = await client.get(path)
+            except Exception as exc:  # noqa: BLE001
+                raise ConnectionError(
+                    f"Could not reach the Pod on {host}:{port} ({exc}). Check "
+                    "the IP and that the host runs Solstice Enterprise Edition."
+                ) from exc
+            await progress("Checking the admin password…", 60)
+            if resp.status_code in (401, 403):
+                raise ConnectionError(
+                    "The Pod rejected this admin password. Check it in the "
+                    "Solstice Dashboard."
+                )
+            if resp.status_code != 200:
+                raise ConnectionError(
+                    f"Unexpected response from the Pod (HTTP {resp.status_code})."
+                )
+            try:
+                data = resp.json()
+            except (ValueError, json.JSONDecodeError):
+                data = {}
+            if not isinstance(data, dict) or "m_displayId" not in data:
+                raise ConnectionError(
+                    "The host responded but isn't exposing the OpenControl API "
+                    "(no m_displayId) — is it Solstice Enterprise Edition?"
+                )
+            name = ""
+            info = data.get("m_displayInformation")
+            if isinstance(info, dict):
+                name = str(info.get("m_displayName", ""))
+            await progress("Admin password accepted", 90)
+
+        saved = False
+        if save:
+            await self.request_config_update({"admin_password": password})
+            saved = True
+            await progress("Saved. Reconnecting…", 95)
+            await self.request_reconnect()
+
+        return {
+            "reachable": True,
+            "auth_ok": True,
+            "saved": saved,
+            "display_name": name,
+            "message": f"Admin password accepted ({name})."
+            if name
+            else "Admin password accepted.",
+        }
 
     async def poll(self) -> None:
         """Refresh state from /api/stats and /api/config.

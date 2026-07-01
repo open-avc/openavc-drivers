@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 68,
+    "total_drivers": 69,
     "shards": null
   },
   "drivers": [
@@ -2084,6 +2084,65 @@
           "port": 4998,
           "send_ascii": "getdevices\r",
           "expect": "RELAY"
+        },
+        "oui": [
+          "00:0C:1E"
+        ],
+        "manufacturer_alias": [
+          "global cache",
+          "globalcache"
+        ]
+      }
+    },
+    {
+      "id": "globalcache_itach_ip2ir",
+      "name": "Global Cache iTach IP2IR (IR Bridge)",
+      "manufacturer": "Global Cache",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Network IR bridge with three emitter ports. Bind IR devices (TVs, cable boxes, AVRs) to a port and control them with a learned or database code-set. Learn codes straight from the original remote.",
+      "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
+      "file": "utility/globalcache_itach_ip2ir.py",
+      "format": "python",
+      "ports": [
+        4998
+      ],
+      "protocols": [
+        "global-cache-unified-tcp"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.22.0",
+      "tags": [
+        "ir",
+        "infrared",
+        "ir-bridge",
+        "ir-blaster",
+        "blaster",
+        "remote",
+        "global-cache",
+        "globalcache",
+        "itach",
+        "ip2ir"
+      ],
+      "help": {
+        "overview": "The iTach IP2IR is a network IR bridge with three emitter ports. Add it, then add an IR Device (or a community IR driver) and bind it to one of the bridge's IR ports. Build the device's code-set by learning from its remote, pasting Pronto hex, or searching a code database.",
+        "setup": "Set the iTach to a static IP or DHCP reservation. No login is required for the control API. Plug an IR emitter into a port and stick it over the target device's IR receiver window.",
+        "connection": "Command API on TCP 4998. Learning uses a second connection and pauses polling for the session (the learner is disabled by any other command on the unit)."
+      },
+      "discovery": {
+        "amx_ddp": [
+          {
+            "make": "GlobalCache",
+            "model_pattern": "iTachIP2IR"
+          }
+        ],
+        "tcp_probe": {
+          "port": 4998,
+          "send_ascii": "getdevices\r",
+          "expect": "IR"
         },
         "oui": [
           "00:0C:1E"

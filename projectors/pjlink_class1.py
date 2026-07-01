@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from typing import Any
 
 from server.drivers.base import BaseDriver
@@ -40,7 +41,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.4.1",
+        "version": "2.5.0",
         "author": "OpenAVC",
         "description": "Controls any PJLink Class 1 compatible projector.",
         "source_url": "https://pjlink.jbmia.or.jp/english/",
@@ -319,6 +320,14 @@ class PJLinkDriver(BaseDriver):
                 "type": "string",
                 "label": "Available Inputs",
             },
+            "input_options": {
+                "type": "string",
+                "label": "Input Options (picker)",
+                "help": (
+                    "JSON list of {value, label} the projector reported via "
+                    "INST — backs the Set Input dropdown."
+                ),
+            },
             "mute_video": {"type": "boolean", "label": "Video Mute"},
             "mute_audio": {"type": "boolean", "label": "Audio Mute"},
             "lamp_hours": {"type": "integer", "label": "Lamp Hours"},
@@ -379,9 +388,12 @@ class PJLinkDriver(BaseDriver):
                     "input": {
                         "type": "string",
                         "required": True,
+                        "options_state": "input_options",
                         "help": (
                             "Input source name (e.g. hdmi1, vga1, digital2) "
-                            "or PJLink code (e.g. 31, 11)"
+                            "or PJLink code (e.g. 31, 11). The dropdown lists "
+                            "the inputs the projector reported via INST; you "
+                            "can still type any value."
                         ),
                     }
                 },
@@ -423,6 +435,12 @@ class PJLinkDriver(BaseDriver):
                 "help": "Query all status from the projector immediately.",
             },
         },
+        # High-use one-tap controls. (No device_settings: PJLink Class 1 exposes
+        # only operational commands + read-only status — there is no persisted,
+        # device-reported writable value to model as a setting.)
+        "quick_actions": [
+            "power_on", "power_off", "mute_video", "unmute_video",
+        ],
     }
 
     # PJLink input code -> friendly name mapping
@@ -475,11 +493,17 @@ class PJLinkDriver(BaseDriver):
         self,
         device_id: str,
         config: dict[str, Any],
-        state: "StateStore",
-        events: "EventBus",
+        state,
+        events,
     ):
         self._auth_prefix = ""
         self._greeting_event = asyncio.Event()
+        # Auth verdict: PJLink verifies the MD5 digest on the FIRST command,
+        # not at the greeting, so connect() sends a probe and waits for the
+        # projector to accept it (a %1 reply) or reject it ("PJLINK ERRA").
+        self._auth_required = False
+        self._auth_failed = False
+        self._auth_verdict = asyncio.Event()
         self._transition_task: asyncio.Task | None = None
         super().__init__(device_id, config, state, events)
 
@@ -488,7 +512,10 @@ class PJLinkDriver(BaseDriver):
         host = self.config.get("host", "")
         port = self.config.get("port", 4352)
         self._greeting_event.clear()
+        self._auth_verdict.clear()
         self._auth_prefix = ""
+        self._auth_required = False
+        self._auth_failed = False
 
         self.transport = await TCPTransport.create(
             host=host,
@@ -507,6 +534,31 @@ class PJLinkDriver(BaseDriver):
             log.warning(
                 f"[{self.device_id}] No PJLink greeting received, proceeding without auth"
             )
+
+        # PJLink checks auth on the first command, not at the greeting. When the
+        # projector requested auth, send a probe and wait for the verdict so a
+        # bad/absent password fails the connect with a classifier-worded reason
+        # instead of silently staying "connected" while every command is
+        # rejected. (No auth requested -> skip; this path is unchanged.)
+        if self._auth_required:
+            try:
+                await self._send_pjlink("%1POWR ?")
+                await asyncio.wait_for(self._auth_verdict.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                log.warning(
+                    f"[{self.device_id}] No PJLink auth verdict within 5s; "
+                    "proceeding"
+                )
+            except ConnectionError:
+                pass
+            if self._auth_failed:
+                if self.transport:
+                    await self.transport.close()
+                    self.transport = None
+                raise ConnectionError(
+                    f"[{self.device_id}] PJLink authentication failed — check "
+                    "the password"
+                )
 
         self._connected = True
         self.set_state("connected", True)
@@ -637,17 +689,27 @@ class PJLinkDriver(BaseDriver):
         """Parse PJLink responses and update state."""
         response = data.decode("ascii", errors="ignore").strip()
 
-        # Handle PJLink greeting
+        # Handle PJLink greeting. "PJLINK ERRA" (the auth-rejected reply) also
+        # begins with "PJLINK", so intercept it here BEFORE the greeting parser
+        # — otherwise it's misread as a no-auth greeting and the auth failure is
+        # swallowed (the device would stay "connected" while every command is
+        # rejected).
         if response.startswith("PJLINK"):
+            if response == "PJLINK ERRA":
+                log.error(
+                    f"[{self.device_id}] PJLink authentication failed — check "
+                    "the password"
+                )
+                self._auth_failed = True
+                self._auth_verdict.set()
+                return
             self._parse_greeting(response)
             return
 
-        # Handle auth error
-        if response == "PJLINK ERRA":
-            log.error(
-                f"[{self.device_id}] PJLink authentication failed — check password"
-            )
-            return
+        # Any non-greeting reply means the projector accepted our (authed)
+        # command — the auth verdict is success.
+        if not self._auth_verdict.is_set():
+            self._auth_verdict.set()
 
         # Log OK acknowledgements
         if response.endswith("=OK"):
@@ -733,6 +795,7 @@ class PJLinkDriver(BaseDriver):
         parts = response.split()
         if len(parts) >= 3 and parts[1] == "1":
             # Auth required: PJLINK 1 <random>
+            self._auth_required = True
             random_key = parts[2]
             password = self.config.get("password", "")
             if password:
@@ -806,13 +869,25 @@ class PJLinkDriver(BaseDriver):
         self.set_state("error_status", ", ".join(issues) if issues else "ok")
 
     def _parse_available_inputs(self, value: str) -> None:
-        """Parse INST response into available input list."""
+        """Parse INST response into the display list + the picker options.
+
+        The Set Input dropdown (``options_state: input_options``) offers the
+        raw PJLink code as the value (``set_input`` accepts a 2-digit code
+        directly) with the friendly name as the label, so every input the
+        projector reports round-trips even when it has no friendly alias.
+        """
         codes = value.split()
         input_names = []
+        options = []
         for code in codes:
-            name = self.INPUT_REVERSE.get(code.strip(), f"input_{code.strip()}")
+            c = code.strip()
+            if not c:
+                continue
+            name = self.INPUT_REVERSE.get(c, f"input_{c}")
             input_names.append(name)
+            options.append({"value": c, "label": name})
         self.set_state("available_inputs", ", ".join(input_names))
+        self.set_state("input_options", json.dumps(options))
         log.info(
             f"[{self.device_id}] Available inputs: {', '.join(input_names)}"
         )

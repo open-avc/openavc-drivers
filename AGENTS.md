@@ -917,6 +917,16 @@ polling:
     - "/api/status"              # GET request to this path; response matched against patterns
 ```
 
+**Command names resolve for HTTP/UDP only.** A query that names a declared
+command runs as that command (so its response is matched) **only on HTTP and
+UDP**. On **TCP/serial the query is sent as a raw string** — so listing a command
+name like `get_status` in a TCP driver's `queries` transmits the literal text
+"get_status" to the device, which can't parse it, and the poll reads nothing back
+(the device's state silently goes stale while it still shows connected). For
+TCP/serial, always write the actual protocol strings (with their line
+terminator), e.g. `"I\r"` above, not the command name. The same rule applies to
+`on_connect`.
+
 ### 2.11 device_settings
 
 Configurable values that live on the device hardware (not in the project file). These are writable and polled. The system queues writes for offline devices and sends them when the device reconnects.
@@ -952,6 +962,27 @@ device_settings:
       path: /api/ndi/name
       body: '{"name": "{value}"}'
 ```
+
+**Value substitution in `write`.** The setting's value fills the `{value}`
+placeholder. The runtime editor sends a real JSON boolean for `type: boolean`
+and a real number for `type: integer`/`number`, so use a Python format spec to
+shape the wire form:
+
+- **Boolean → `1`/`0`:** `{value:d}` (a bool is an int subclass, so `True`
+  formats as `1`, `False` as `0`). Use this when the protocol takes a `1`/`0`
+  flag byte inline — e.g. `send: 'TALLY{value:d}\r'` or
+  `path: /cgi?cmd=TAE{value:d}`. Plain `{value}` on a bool would emit the string
+  `True`/`False`, which most devices reject.
+- **Zero-padded integer:** `{value:03d}` (e.g. `63` → `063`) for protocols that
+  require fixed-width numeric fields.
+- The read-back comes from polling `state_key`; an HTTP write whose response
+  echoes the value also updates state immediately (the response runs through the
+  response matcher). Every `device_settings` entry needs a `state_key` that a
+  poll actually populates — a setting with no read-back shows a stale value.
+
+`state_key` write routing follows the transport: `write.send` (TCP/serial),
+`write.path` + `write.method` (HTTP, default POST), `write.address` +
+`write.args` (OSC).
 
 ### 2.12 frame_parser (Advanced)
 

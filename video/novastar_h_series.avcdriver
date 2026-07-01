@@ -23,7 +23,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.3.2
+version: 1.4.0
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -822,6 +822,53 @@ commands:
         label: Volume
         min: 0
         max: 100
+
+# ── DEVICE SETTINGS ──
+# Screen brightness is the one clean single-scalar setting: it is set live
+# (W0410) and reliably reads back from the get_screen_details (R0401) poll,
+# which populates the `brightness` state var. The `write.send` reuses the
+# set_brightness command string with {value}; on this UDP driver
+# set_device_setting still routes through transport.send (the "TCP/serial"
+# label in the runtime is a docstring artifact — the send branch fires the
+# bytes on any transport).
+#
+# volume / mute / freeze / ftb are NOT viable settings today: the R0401 reply
+# packs all of them into ONE JSON array datagram, and the regex response
+# dispatch stops at the first match (brightness), so only brightness reads
+# back. Fixing that needs the roadmap's json-array response support; until
+# then those stay operational commands (some promoted to quick actions).
+device_settings:
+  brightness:
+    type: integer
+    label: Screen Brightness
+    state_key: brightness
+    default: 100
+    min: 0
+    max: 100
+    setup: false
+    help: >
+      LED screen brightness (0-100). Applied live via the W0410 command and
+      read back from the get_screen_details poll. Use the Save Screen
+      Brightness command to persist the value across a device restart.
+    write:
+      send: '[{"cmd":"W0410","deviceId":{device_id},"screenId":{screen_id},"brightness":{value}}]'
+
+# ── QUICK ACTIONS ──
+# Promote the high-use show controls (blackout, freeze, clear) and a restart.
+actions:
+  - id: fade_to_black
+    icon: eye-off
+  - id: fade_to_black_off
+    icon: eye
+  - id: freeze_screen
+    icon: pause
+  - id: unfreeze_screen
+    icon: play
+  - id: clear_screen
+    icon: square
+  - id: restart_device
+    icon: power
+    confirm: "Restart the splicer? The wall output drops while it reboots."
 
 # ── RESPONSE PATTERNS ──
 # Parse JSON responses from the device. The device wraps all responses

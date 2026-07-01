@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 572,
+    "total_devices": 579,
     "shards": null
   },
   "devices": [
@@ -6255,6 +6255,90 @@
           "id": "symetrix_composer",
           "confidence": "untested",
           "notes": "Every Symetrix DSP that runs Composer 3.0+ shares the same Control Protocol on TCP 48631. Newer NX models require Composer 6.0+. The driver's controller-number coverage is bounded only by the configured num_controllers value (default 64, max 256)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TOA",
+      "model": "A-9060DHM2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "toa_9000m2",
+          "confidence": "untested",
+          "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TOA",
+      "model": "A-9060DIL",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "toa_9000m2",
+          "confidence": "untested",
+          "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TOA",
+      "model": "A-9120DHM2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "toa_9000m2",
+          "confidence": "untested",
+          "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TOA",
+      "model": "A-9120DIL",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "toa_9000m2",
+          "confidence": "untested",
+          "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TOA",
+      "model": "A-9240DHM2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "toa_9000m2",
+          "confidence": "untested",
+          "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TOA",
+      "model": "A-9240DIL",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "toa_9000m2",
+          "confidence": "untested",
+          "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
+        }
+      ]
+    },
+    {
+      "manufacturer": "TOA",
+      "model": "M-9000M2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "toa_9000m2",
+          "confidence": "untested",
+          "notes": "Digital Matrix Mixer. 8 mic/line inputs x 8 outputs. RS-232C, D-sub 9-pin, 9600-57600 8N1, straight cable."
         }
       ]
     },

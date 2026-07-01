@@ -4065,6 +4065,59 @@
       }
     },
     {
+      "id": "toa_9000m2",
+      "name": "TOA 9000M2 Matrix Mixer",
+      "manufacturer": "TOA",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "Controls the TOA M-9000M2 Digital Matrix Mixer and protocol-compatible A-9000M2 Series mixer/amplifiers over RS-232C. 8 mixing inputs x 8 outputs: input/output fader gain, the 8x8 crosspoint matrix, channel on/off, tone, parametric EQ, loudness, HPF/LPF, input sensitivity, phantom power, preset / paging-event recall, speaker presets, and ANC. The device is write-then-echo with no live readback except channel names and ANC reference, so state is tracked optimistically from the confirmations it returns.",
+      "source_url": "https://www.toaelectronics.com/toa-assets/9000M2_PROTOCOL_MANUAL_EN.pdf",
+      "file": "audio/toa_9000m2.py",
+      "format": "python",
+      "protocols": [
+        "toa_9000m2"
+      ],
+      "simulated": true,
+      "tags": [
+        "dsp",
+        "matrix-mixer",
+        "mixer-amplifier",
+        "paging",
+        "install-audio",
+        "serial",
+        "rs232"
+      ],
+      "help": {
+        "overview": "The TOA 9000M2 Series speaks a compact binary RS-232C protocol: every message is <command byte> <length> <data...>. This driver exposes the full control surface for the 8x8 matrix mixer -- faders, the crosspoint matrix, mutes, tone, parametric EQ, filters, loudness, input sensitivity, phantom power, presets, paging events, speaker presets, and ANC.\n\nIMPORTANT -- feedback is limited. The hardware confirms each command by echoing it back, so the driver knows a change was accepted and mirrors it in state. But the protocol has NO way to read most current values back; the only true reads are channel names and the ANC reference level. As a result, changes made at the unit's front panel or by a scene recall will not appear in OpenAVC. Drive the mixer entirely from OpenAVC (or re-send known values on connect) for state to stay accurate. Fader 'nudge' commands are the exception -- the device returns the resulting level, which is read back exactly.",
+        "setup": "1. Wire RS-232C to the unit's D-sub 9-pin port with a STRAIGHT cable (pin 2 = TX, pin 3 = RX, pin 5 = GND).\n2. Set the serial port path in the device config (e.g. COM3 on Windows, /dev/ttyUSB0 on Linux) and pick the baud rate that matches the unit (9600 / 19200 / 38400 / 57600; 8 data bits, no parity, 1 stop bit).\n3. To route the mixer over the network, connect it to an IP-to-serial bridge (e.g. Global Cache iTach) and bind this device to the bridge's serial port -- OpenAVC carries the bytes through transparently.\n\nCommands cannot be received while the unit is powered off (send Power On first)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "TOA",
+          "models": [
+            "M-9000M2"
+          ],
+          "confidence": "untested",
+          "notes": "Digital Matrix Mixer. 8 mic/line inputs x 8 outputs. RS-232C, D-sub 9-pin, 9600-57600 8N1, straight cable."
+        },
+        {
+          "manufacturer": "TOA",
+          "models": [
+            "A-9060DIL",
+            "A-9120DIL",
+            "A-9240DIL",
+            "A-9060DHM2",
+            "A-9120DHM2",
+            "A-9240DHM2"
+          ],
+          "confidence": "untested",
+          "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
+        }
+      ]
+    },
+    {
       "id": "chazy_control",
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",

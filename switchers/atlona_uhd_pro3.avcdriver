@@ -56,7 +56,7 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.2.3
+version: 1.3.0
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -374,7 +374,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 10
+        max: 18
 
   output_off:
     label: Disable Output
@@ -385,7 +385,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 10
+        max: 18
 
   # ── Audio (HDBaseT zone audio) ──
 
@@ -399,7 +399,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 9
+        max: 18
       level:
         type: integer
         required: true
@@ -416,7 +416,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 9
+        max: 18
 
   volume_down:
     label: Volume Down (1 dB)
@@ -427,7 +427,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 9
+        max: 18
 
   query_volume:
     label: Query Output Volume
@@ -438,7 +438,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 9
+        max: 18
 
   mute_on:
     label: Mute Output
@@ -449,7 +449,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 9
+        max: 18
 
   mute_off:
     label: Unmute Output
@@ -460,7 +460,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 9
+        max: 18
 
   query_mute:
     label: Query Output Mute
@@ -471,7 +471,7 @@ commands:
         required: true
         label: Output
         min: 1
-        max: 9
+        max: 18
 
   # ── Presets (1-50) ──
 
@@ -539,6 +539,24 @@ commands:
   query_firmware:
     label: Query Firmware
     send: "Version\r"
+
+# Quick Action strip: routing + power + panel lock. The full command list still
+# shows everything, including presets and per-output audio.
+actions:
+  - id: route
+    icon: route
+  - id: route_all
+    icon: copy
+  - id: route_reset
+    icon: rotate-ccw
+  - id: power_on
+    icon: power
+  - id: power_off
+    icon: power-off
+  - id: lock_panel
+    icon: lock
+  - id: unlock_panel
+    icon: unlock
 
 responses:
 

@@ -357,7 +357,7 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.2.3",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source routing (per output, all outputs, multi-output), per-output volume and mute, power, presets (save / recall / clear), front-panel lock, and identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M outputs 11-18 are routable but not state-mirrored).\n",

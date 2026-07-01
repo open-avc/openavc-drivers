@@ -328,6 +328,22 @@ class PolyStudioSimulator(HTTPSimulator):
             return web.Response(status=200)
 
         # System.
+        if path == "/rest/system" and method == "GET":
+            return web.json_response(
+                {
+                    "systemName": str(
+                        self.state.get("system_name", "Studio X50")
+                    ),
+                    "model": "Studio X50",
+                    "serialNumber": "SIMPOLY0001",
+                    "softwareVersion": "3.7.0-sim",
+                    "hardwareVersion": "1",
+                    "build": "sim",
+                    "state": "READY",
+                    "uptime": 1000,
+                },
+                status=200,
+            )
         if path == "/rest/system/status" and method == "GET":
             return web.json_response(
                 [

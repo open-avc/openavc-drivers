@@ -86,7 +86,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "
@@ -347,6 +347,58 @@ class PolyStudioDriver(BaseDriver):
                 "params": {},
             },
         },
+        # Quick Action strip: the one-tap controls an operator reaches for on a
+        # room panel, plus a setup wizard that tests (and optionally saves) the
+        # admin login out-of-band — useful when the bar is offline on a bad
+        # password.
+        "actions": [
+            {"id": "mute_audio", "kind": "command", "icon": "mic-off"},
+            {"id": "unmute_audio", "kind": "command", "icon": "mic"},
+            {"id": "mute_video", "kind": "command", "icon": "video-off"},
+            {"id": "unmute_video", "kind": "command", "icon": "video"},
+            {
+                "id": "hangup",
+                "kind": "command",
+                "icon": "phone-off",
+                "confirm": "Hang up all active calls on this Poly bar?",
+            },
+            {
+                "id": "reboot",
+                "kind": "command",
+                "icon": "rotate-ccw",
+                "confirm": (
+                    "Reboot the Poly bar? It drops offline until it restarts."
+                ),
+            },
+            {
+                "id": "test_login",
+                "kind": "setup",
+                "label": "Test Admin Login",
+                "icon": "key-round",
+                "availability": "always",
+                "params": {
+                    "username": {
+                        "type": "string",
+                        "default": "admin",
+                        "label": "Admin Username",
+                    },
+                    "password": {
+                        "type": "password",
+                        "secret": True,
+                        "label": "Admin Password",
+                        "help": (
+                            "The bar's admin password. On first boot this is "
+                            "the device serial number until it's changed."
+                        ),
+                    },
+                    "save": {
+                        "type": "boolean",
+                        "default": True,
+                        "label": "Save these credentials if they work",
+                    },
+                },
+            },
+        ],
     }
 
     # Volume step for relative up/down in Poly's 0-50 scale.
@@ -447,6 +499,17 @@ class PolyStudioDriver(BaseDriver):
             body={"user": username, "password": password},
         )
         if not resp.ok:
+            # 403 LOG-IN ATTEMPT FAILED (and 401) mean the credentials were
+            # rejected — word it so the shared classifier reads it as
+            # ``auth_failed`` and the device card says "check the password",
+            # not a generic drop. Anything else is a login failure we can't
+            # attribute to auth.
+            if resp.status_code in (401, 403):
+                raise ConnectionError(
+                    f"[{self.device_id}] VideoOS authentication failed "
+                    f"(HTTP {resp.status_code}) — check the admin username "
+                    "and password"
+                )
             raise ConnectionError(
                 f"[{self.device_id}] VideoOS login failed: "
                 f"HTTP {resp.status_code}"
@@ -457,7 +520,7 @@ class PolyStudioDriver(BaseDriver):
         data = resp.json_data or {}
         if data.get("success") is False:
             raise ConnectionError(
-                f"[{self.device_id}] VideoOS login rejected — "
+                f"[{self.device_id}] VideoOS authentication failed — "
                 "check the admin username and password"
             )
         self._authed = True
@@ -595,49 +658,145 @@ class PolyStudioDriver(BaseDriver):
     async def poll(self) -> None:
         if self._http is None or not self._authed:
             return
-        try:
-            audio = await self._http.get("/rest/audio/muted")
-            if audio.ok:
-                self.set_state(
-                    "audio_mute", _parse_bool(audio.text, audio.json_data)
-                )
-
-            volume = await self._http.get("/rest/audio/volume")
-            if volume.ok:
-                try:
-                    self.set_state("volume", int(volume.text.strip()))
-                except ValueError:
-                    pass
-
-            video = await self._http.get("/rest/video/local/mute")
-            if video.ok:
-                self.set_state(
-                    "video_mute", _parse_bool(video.text, video.json_data)
-                )
-
-            confs = await self._http.get("/rest/conferences")
-            if confs.ok:
-                items = confs.json_data
-                if isinstance(items, list):
-                    count = len(items)
-                elif isinstance(items, dict) and items:
-                    count = 1
-                else:
-                    count = 0
-                self.set_state("active_call_count", count)
-                self.set_state("in_call", count > 0)
-
-            status = await self._http.get("/rest/system/status")
-            if status.ok and isinstance(status.json_data, list):
-                for item in status.json_data:
-                    if item.get("name") == "system.status.ipnetwork":
-                        states = item.get("stateList") or []
-                        if states:
-                            self.set_state("network_status", states[0])
-        except ConnectionError:
-            log.warning(
-                f"[{self.device_id}] Poll failed — not connected"
+        # A transport failure (host went away, session dropped) must
+        # propagate: BaseDriver._poll_loop counts consecutive raises and flips
+        # the device offline after ``max_missed_polls``. Swallowing
+        # ConnectionError here (the old behaviour) meant an unplugged bar stayed
+        # shown online forever. Only the inner value-parse guards below are
+        # caught — a malformed number is a protocol quirk, not a dead link.
+        audio = await self._http.get("/rest/audio/muted")
+        if audio.ok:
+            self.set_state(
+                "audio_mute", _parse_bool(audio.text, audio.json_data)
             )
+
+        volume = await self._http.get("/rest/audio/volume")
+        if volume.ok:
+            try:
+                self.set_state("volume", int(volume.text.strip()))
+            except ValueError:
+                pass
+
+        video = await self._http.get("/rest/video/local/mute")
+        if video.ok:
+            self.set_state(
+                "video_mute", _parse_bool(video.text, video.json_data)
+            )
+
+        confs = await self._http.get("/rest/conferences")
+        if confs.ok:
+            items = confs.json_data
+            if isinstance(items, list):
+                count = len(items)
+            elif isinstance(items, dict) and items:
+                count = 1
+            else:
+                count = 0
+            self.set_state("active_call_count", count)
+            self.set_state("in_call", count > 0)
+
+        # System info: GET /rest/system returns the device envelope
+        # ({systemName, model, serialNumber, softwareVersion, ...}). The
+        # system_name state var was declared but never populated — read it
+        # here so the card shows the bar's configured name.
+        system = await self._http.get("/rest/system")
+        if system.ok and isinstance(system.json_data, dict):
+            name = system.json_data.get("systemName")
+            if name:
+                self.set_state("system_name", str(name))
+
+        status = await self._http.get("/rest/system/status")
+        if status.ok and isinstance(status.json_data, list):
+            for item in status.json_data:
+                if item.get("name") == "system.status.ipnetwork":
+                    states = item.get("stateList") or []
+                    if states:
+                        self.set_state("network_status", states[0])
+
+    # ── Setup wizard ──
+
+    async def run_setup_action(
+        self,
+        action_id: str,
+        params: dict[str, Any],
+        progress: Any,
+    ) -> dict[str, Any]:
+        """Test the admin login over an out-of-band HTTPS session.
+
+        Opens its own HTTP client (the device's normal transport may be down
+        because the password is wrong), POSTs the credentials to
+        ``/rest/session``, and reports whether the bar accepts them (403 =
+        rejected). On success, optionally persists the credentials + reconnects.
+        """
+        if action_id != "test_login":
+            raise ValueError(f"Unknown setup action: {action_id}")
+
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 443))
+        verify_ssl = bool(self.config.get("verify_ssl", False))
+        username = str(params.get("username", "admin") or "admin")
+        password = str(params.get("password", "") or "")
+        save = bool(params.get("save", True))
+        if not host:
+            raise ValueError("No IP address configured")
+
+        scheme = "https" if port in (443, 8443) else "http"
+        base_url = f"{scheme}://{host}:{port}"
+        http = HTTPClientTransport(
+            base_url=base_url,
+            auth_type="none",
+            verify_ssl=verify_ssl,
+            timeout=8.0,
+            name=f"{self.device_id}-setup",
+        )
+
+        await progress(f"Connecting to {host}:{port}…", 20)
+        await http.open()
+        try:
+            await progress("Signing in…", 60)
+            try:
+                resp = await http.post(
+                    "/rest/session",
+                    body={"user": username, "password": password},
+                )
+            except ConnectionError as exc:
+                raise ConnectionError(
+                    f"Could not reach the Poly bar on {host}:{port} ({exc}). "
+                    "Check the IP address and that HTTPS is reachable."
+                ) from exc
+
+            data = resp.json_data or {}
+            auth_ok = resp.ok and data.get("success") is not False
+            if not auth_ok:
+                # 403 LOG-IN ATTEMPT FAILED, or {success:false} with 200.
+                raise ConnectionError(
+                    "Login rejected — check the admin username and password "
+                    f"(HTTP {resp.status_code})."
+                )
+            # Politely end the throwaway session so we don't burn a session slot.
+            try:
+                await http.delete("/rest/session")
+            except Exception:  # noqa: BLE001
+                pass
+            await progress("Credentials accepted", 90)
+        finally:
+            await http.close()
+
+        saved = False
+        if save:
+            await self.request_config_update(
+                {"username": username, "password": password}
+            )
+            saved = True
+            await progress("Saved. Reconnecting…", 95)
+            await self.request_reconnect()
+
+        return {
+            "reachable": True,
+            "auth_ok": True,
+            "saved": saved,
+            "message": "Admin login accepted.",
+        }
 
 
 def _parse_bool(text: str, json_data: Any) -> bool:

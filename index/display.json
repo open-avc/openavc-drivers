@@ -105,11 +105,11 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "1.4.3",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
-      "source_url": "https://www.christiedigital.com/globalassets/resources/public/fhd552-xb-rs232-sicp-guide.pdf",
+      "source_url": "https://aca.im/driver_docs/LG/SM_models.pdf",
       "file": "displays/lg_sicp.avcdriver",
       "format": "avcdriver",
       "ports": [

@@ -548,7 +548,7 @@
       "name": "Sony VPL Projector (ADCP)",
       "manufacturer": "Sony",
       "category": "projector",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sony VPL professional installation projectors over Sony's Advanced Display Control Protocol (ADCP) on TCP port 53595. Power, input, blank, freeze, picture mode, aspect ratio, image-quality (contrast / brightness / colour / sharpness), and the universal remote-key set. Supports SHA-256 challenge-response authentication so the projector can keep its default auth-on web setting.",

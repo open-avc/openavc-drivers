@@ -164,7 +164,7 @@ class SonyVPLDriver(BaseDriver):
         "name": "Sony VPL Projector (ADCP)",
         "manufacturer": "Sony",
         "category": "projector",
-        "version": "1.3.1",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony VPL professional installation projectors "
@@ -472,6 +472,111 @@ class SonyVPLDriver(BaseDriver):
             },
             "refresh": {"label": "Refresh Status", "params": {}},
         },
+        # Image-quality values the projector persists and reports back. Each is
+        # already set by a command and read back by the poll's matching query
+        # (the state_key below is the read-back gate), so each also gets the
+        # editable-field + offline-pending-queue treatment. set_device_setting
+        # routes to the existing set_* command so the ADCP line-building lives in
+        # one place; the transient commands stay for macro use (dual surface).
+        # Power / input / blank / mute / freeze are live operational actions.
+        "device_settings": {
+            "contrast": {
+                "type": "integer",
+                "min": 0,
+                "max": 100,
+                "label": "Contrast",
+                "help": "Picture contrast, 0-100.",
+                "state_key": "contrast",
+                "default": 50,
+                "setup": False,
+            },
+            "brightness": {
+                "type": "integer",
+                "min": 0,
+                "max": 100,
+                "label": "Brightness",
+                "help": "Picture brightness, 0-100.",
+                "state_key": "brightness",
+                "default": 50,
+                "setup": False,
+            },
+            "color": {
+                "type": "integer",
+                "min": 0,
+                "max": 100,
+                "label": "Color",
+                "help": "Colour depth / saturation, 0-100.",
+                "state_key": "color",
+                "default": 50,
+                "setup": False,
+            },
+            "sharpness": {
+                "type": "integer",
+                "min": 0,
+                "max": 100,
+                "label": "Sharpness",
+                "help": "Picture sharpness, 0-100.",
+                "state_key": "sharpness",
+                "default": 50,
+                "setup": False,
+            },
+            "picture_mode": {
+                "type": "enum",
+                "values": PICTURE_MODES,
+                "label": "Picture Mode",
+                "help": (
+                    "Picture preset. Per-model availability varies; an "
+                    "unsupported mode returns err_val on the projector."
+                ),
+                "state_key": "picture_mode",
+                "default": "standard",
+                "setup": False,
+            },
+            "aspect": {
+                "type": "enum",
+                "values": ASPECT_VALUES,
+                "label": "Aspect Ratio",
+                "help": "Image aspect ratio.",
+                "state_key": "aspect",
+                "default": "normal",
+                "setup": False,
+            },
+        },
+        # Quick Action strip: the projector's high-use one-tap controls plus a
+        # setup wizard that tests (and optionally saves) the ADCP password
+        # out-of-band — useful when the device is offline because the password
+        # is wrong.
+        "actions": [
+            {"id": "power_on", "kind": "command", "icon": "power"},
+            {"id": "power_off", "kind": "command", "icon": "power-off"},
+            {"id": "mute_video", "kind": "command", "icon": "eye-off"},
+            {"id": "unmute_video", "kind": "command", "icon": "eye"},
+            {
+                "id": "test_adcp",
+                "kind": "setup",
+                "label": "Test ADCP Password",
+                "icon": "key-round",
+                "availability": "always",
+                "params": {
+                    "password": {
+                        "type": "password",
+                        "secret": True,
+                        "label": "ADCP Password",
+                        "help": (
+                            "The ADCP password from the projector's web UI "
+                            "(Setup > Advanced Menu > ADCP). Sony's factory "
+                            "default is 'Projector'. Leave blank to test a "
+                            "projector with ADCP authentication disabled."
+                        ),
+                    },
+                    "save": {
+                        "type": "boolean",
+                        "default": True,
+                        "label": "Save this password if it works",
+                    },
+                },
+            },
+        ],
     }
 
     def __init__(
@@ -660,6 +765,24 @@ class SonyVPLDriver(BaseDriver):
             await asyncio.sleep(0.05)
             await self._send_query(followup)
 
+    # ── Device settings ──
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting by routing to its transient set_* command.
+
+        The command sends the ADCP setter and issues a follow-up query, so
+        state (the setting's read-back) refreshes from what the projector now
+        reports. The offline pending queue is handled by the platform.
+        """
+        if key in ("contrast", "brightness", "color", "sharpness"):
+            await self.send_command(f"set_{key}", {"value": int(value)})
+        elif key == "picture_mode":
+            await self.send_command("set_picture_mode", {"mode": str(value)})
+        elif key == "aspect":
+            await self.send_command("set_aspect", {"aspect": str(value)})
+        else:
+            raise ValueError(f"Unknown device setting: {key}")
+
     # ── Polling ──
 
     async def poll(self) -> None:
@@ -817,3 +940,110 @@ class SonyVPLDriver(BaseDriver):
             )
         except RuntimeError:
             pass
+
+    # ── Setup wizard: test (and optionally save) the ADCP password ──
+
+    @staticmethod
+    async def _read_line(reader: Any, timeout: float) -> str | None:
+        try:
+            data = await asyncio.wait_for(reader.readline(), timeout=timeout)
+        except asyncio.TimeoutError:
+            return None
+        if not data:
+            return None
+        return data.decode("ascii", errors="ignore")
+
+    async def run_setup_action(
+        self,
+        action_id: str,
+        params: dict[str, Any],
+        progress: Any,
+    ) -> dict[str, Any]:
+        """Test the ADCP password over an out-of-band connection.
+
+        Opens its own socket (the device's normal transport may be down because
+        the password is wrong), reads the greeting, replies to the SHA-256
+        challenge, and reports whether the password is accepted. On success,
+        optionally persists it and reconnects.
+        """
+        if action_id != "test_adcp":
+            raise ValueError(f"Unknown setup action: {action_id}")
+
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 53595))
+        password = str(params.get("password", "") or "")
+        save = bool(params.get("save", True))
+        if not host:
+            raise ValueError("No IP address configured")
+
+        await progress(f"Connecting to {host}:{port}…", 20)
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), timeout=5.0
+            )
+        except (OSError, asyncio.TimeoutError) as exc:
+            raise ConnectionError(
+                f"Could not reach the projector on {host}:{port} ({exc}). "
+                "Check the IP and that Standby Mode is set to Standard so the "
+                "projector answers on the network."
+            ) from exc
+
+        try:
+            await progress("Reading ADCP greeting…", 45)
+            greeting = await self._read_line(reader, timeout=5.0)
+            if greeting is None:
+                raise ConnectionError(
+                    "No ADCP greeting received — the port is open but the "
+                    "device is not speaking ADCP. Check the port (default 53595)."
+                )
+            greeting = greeting.strip()
+
+            if greeting == "NOKEY":
+                auth_enabled = False
+                auth_ok = True
+                message = "ADCP authentication is disabled — no password needed."
+                await progress("Done", 100)
+            else:
+                await progress("Sending authentication response…", 70)
+                digest = hashlib.sha256(
+                    f"{greeting} {password}".encode("ascii", errors="ignore")
+                ).hexdigest()
+                writer.write((digest + "\r\n").encode("ascii"))
+                await writer.drain()
+                verdict = (await self._read_line(reader, timeout=5.0) or "").strip()
+                auth_enabled = True
+                auth_ok = verdict in ("ok", "OK")
+                message = (
+                    "Password accepted."
+                    if auth_ok
+                    else f"Password rejected by the projector "
+                    f"({verdict or 'no reply'})."
+                )
+                await progress("Done", 100)
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (OSError, asyncio.TimeoutError):
+                pass
+
+        if not auth_ok:
+            raise ConnectionError(message)
+
+        saved = False
+        if save:
+            # The ADCP password is the projector's standing credential (not a
+            # one-time token), so persisting it is correct — the next connect
+            # uses it. Only meaningful when auth is actually enabled.
+            await self.request_config_update({"password": password})
+            saved = True
+            await progress("Saved. Reconnecting…", 95)
+            await self.request_reconnect()
+
+        return {
+            "reachable": True,
+            "auth_enabled": auth_enabled,
+            "auth_ok": auth_ok,
+            "saved": saved,
+            "message": message,
+        }

@@ -123,7 +123,7 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.3.1",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) "
@@ -141,10 +141,19 @@ class PanasonicPTDriver(BaseDriver):
         "ports": [1024],
         "transport": "tcp",
         "discovery": {
-            # Panasonic PT projectors also speak PJLink Class 1/2 — generic
-            # detection routes there. Surface this brand-specific driver as
-            # a candidate when the PJLink response carries
-            # ``%1MNFR? -> Panasonic``.
+            # Active fingerprint: NTCONTROL is server-speaks-first — the
+            # projector sends its ``NTCONTROL <mode> [random]`` greeting the
+            # instant a TCP client connects to the command port (default 1024).
+            # A connect-only banner read (no send) that matches "NTCONTROL"
+            # identifies the driver without touching auth. Panasonic PT
+            # projectors also speak PJLink Class 1/2 (claimed by pjlink_class1);
+            # the manufacturer-alias hint surfaces this brand-specific driver as
+            # a candidate when a PJLink scan reports Panasonic.
+            "tcp_probe": {
+                "port": 1024,
+                "expect": "NTCONTROL",
+                "extract_manufacturer": "Panasonic",
+            },
             "manufacturer_alias": ["Panasonic"],
         },
         "compatible_models": [
@@ -308,6 +317,26 @@ class PanasonicPTDriver(BaseDriver):
                 "type": "integer",
                 "label": "Operating Hours",
             },
+            "brightness": {
+                "type": "integer",
+                "label": "Brightness",
+            },
+            "contrast": {
+                "type": "integer",
+                "label": "Contrast",
+            },
+            "color": {
+                "type": "integer",
+                "label": "Color",
+            },
+            "tint": {
+                "type": "integer",
+                "label": "Tint",
+            },
+            "sharpness": {
+                "type": "integer",
+                "label": "Sharpness",
+            },
             "auth_required": {
                 "type": "boolean",
                 "label": "Auth Required",
@@ -335,6 +364,56 @@ class PanasonicPTDriver(BaseDriver):
             "unmute_video": {"label": "Shutter / AV Mute Off", "params": {}},
             "freeze_on": {"label": "Freeze On", "params": {}},
             "freeze_off": {"label": "Freeze Off", "params": {}},
+            "brightness_set": {
+                "label": "Set Brightness",
+                "params": {
+                    "value": {
+                        "type": "integer", "required": True,
+                        "min": 1, "max": 63,
+                    },
+                },
+                "help": "Picture brightness, 1-63.",
+            },
+            "contrast_set": {
+                "label": "Set Contrast",
+                "params": {
+                    "value": {
+                        "type": "integer", "required": True,
+                        "min": 1, "max": 63,
+                    },
+                },
+                "help": "Picture contrast, 1-63.",
+            },
+            "color_set": {
+                "label": "Set Color",
+                "params": {
+                    "value": {
+                        "type": "integer", "required": True,
+                        "min": 1, "max": 63,
+                    },
+                },
+                "help": "Colour saturation, 1-63.",
+            },
+            "tint_set": {
+                "label": "Set Tint",
+                "params": {
+                    "value": {
+                        "type": "integer", "required": True,
+                        "min": 1, "max": 63,
+                    },
+                },
+                "help": "Colour tint / hue, 1-63.",
+            },
+            "sharpness_set": {
+                "label": "Set Sharpness",
+                "params": {
+                    "value": {
+                        "type": "integer", "required": True,
+                        "min": 0, "max": 15,
+                    },
+                },
+                "help": "Picture sharpness, 0-15.",
+            },
             "raw_command": {
                 "label": "Send Raw NTCONTROL Command",
                 "params": {
@@ -355,6 +434,87 @@ class PanasonicPTDriver(BaseDriver):
             },
             "refresh": {"label": "Refresh Status", "params": {}},
         },
+        # Values the projector persists and reports back. Input reads back via
+        # QIN; the picture values via QVR/QVB/QVC/QVT/QVS (all confirmed in the
+        # Control Command List). Each gets the editable-field + offline-pending-
+        # queue treatment on top of the transient command it routes to. Power /
+        # shutter / freeze are live operational actions, not settings.
+        "device_settings": {
+            "input": {
+                "type": "enum",
+                "values": INPUT_VALUES,
+                "label": "Input",
+                "help": (
+                    "Active input. Models expose only a subset; an unsupported "
+                    "value returns ERR2 on the projector."
+                ),
+                "state_key": "input",
+                "default": "hdmi1",
+                "setup": False,
+            },
+            "brightness": {
+                "type": "integer", "min": 1, "max": 63,
+                "label": "Brightness", "help": "Picture brightness, 1-63.",
+                "state_key": "brightness", "default": 32, "setup": False,
+            },
+            "contrast": {
+                "type": "integer", "min": 1, "max": 63,
+                "label": "Contrast", "help": "Picture contrast, 1-63.",
+                "state_key": "contrast", "default": 32, "setup": False,
+            },
+            "color": {
+                "type": "integer", "min": 1, "max": 63,
+                "label": "Color", "help": "Colour saturation, 1-63.",
+                "state_key": "color", "default": 32, "setup": False,
+            },
+            "tint": {
+                "type": "integer", "min": 1, "max": 63,
+                "label": "Tint", "help": "Colour tint / hue, 1-63.",
+                "state_key": "tint", "default": 32, "setup": False,
+            },
+            "sharpness": {
+                "type": "integer", "min": 0, "max": 15,
+                "label": "Sharpness", "help": "Picture sharpness, 0-15.",
+                "state_key": "sharpness", "default": 8, "setup": False,
+            },
+        },
+        # Quick Action strip: high-use one-tap controls + a setup wizard that
+        # tests (and optionally saves) the NTCONTROL admin credentials
+        # out-of-band — useful when the device is offline on a bad password.
+        "actions": [
+            {"id": "power_on", "kind": "command", "icon": "power"},
+            {"id": "power_off", "kind": "command", "icon": "power-off"},
+            {"id": "mute_video", "kind": "command", "icon": "eye-off"},
+            {"id": "unmute_video", "kind": "command", "icon": "eye"},
+            {
+                "id": "test_ntcontrol",
+                "kind": "setup",
+                "label": "Test Admin Credentials",
+                "icon": "key-round",
+                "availability": "always",
+                "params": {
+                    "username": {
+                        "type": "string",
+                        "default": "admin1",
+                        "label": "Web Admin Username",
+                    },
+                    "password": {
+                        "type": "password",
+                        "secret": True,
+                        "label": "Web Admin Password",
+                        "help": (
+                            "The Web Control admin password. Leave blank for a "
+                            "projector in non-protected mode."
+                        ),
+                    },
+                    "save": {
+                        "type": "boolean",
+                        "default": True,
+                        "label": "Save these credentials if they work",
+                    },
+                },
+            },
+        ],
     }
 
     # Match the connect-time greeting line (with or without the leading
@@ -505,6 +665,21 @@ class PanasonicPTDriver(BaseDriver):
         elif command == "freeze_off":
             await self._send_ntcontrol("OFZ:0")
             followup = ("QFZ", "freeze")
+        elif command == "brightness_set":
+            await self._send_ntcontrol(f"VBR:{int(params.get('value', 0)):03d}")
+            followup = ("QVB", "brightness")
+        elif command == "contrast_set":
+            await self._send_ntcontrol(f"VCN:{int(params.get('value', 0)):03d}")
+            followup = ("QVR", "contrast")
+        elif command == "color_set":
+            await self._send_ntcontrol(f"VCO:{int(params.get('value', 0)):03d}")
+            followup = ("QVC", "color")
+        elif command == "tint_set":
+            await self._send_ntcontrol(f"VTN:{int(params.get('value', 0)):03d}")
+            followup = ("QVT", "tint")
+        elif command == "sharpness_set":
+            await self._send_ntcontrol(f"VSR:{int(params.get('value', 0)):03d}")
+            followup = ("QVS", "sharpness")
         elif command == "raw_command":
             body = str(params.get("command", "")).strip()
             if body:
@@ -523,6 +698,20 @@ class PanasonicPTDriver(BaseDriver):
             await asyncio.sleep(0.05)
             await self._send_query(body, name)
 
+    # ── Device settings ──
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting by routing to its transient command. The
+        command issues a follow-up query, so the setting's state_key reads back
+        from what the projector now reports; the pending queue is platform-run.
+        """
+        if key == "input":
+            await self.send_command("set_input", {"input": str(value)})
+        elif key in ("brightness", "contrast", "color", "tint", "sharpness"):
+            await self.send_command(f"{key}_set", {"value": int(value)})
+        else:
+            raise ValueError(f"Unknown device setting: {key}")
+
     # ── Polling ──
 
     async def poll(self) -> None:
@@ -538,6 +727,12 @@ class PanasonicPTDriver(BaseDriver):
                 await self._send_query("QIN", "input")
                 await self._send_query("QSH", "mute_video")
                 await self._send_query("QFZ", "freeze")
+                # Picture settings (device_settings read-back).
+                await self._send_query("QVB", "brightness")
+                await self._send_query("QVR", "contrast")
+                await self._send_query("QVC", "color")
+                await self._send_query("QVT", "tint")
+                await self._send_query("QVS", "sharpness")
             await self._send_query("Q$S", "operating_hours")
         except ConnectionError:
             log.warning(
@@ -690,6 +885,16 @@ class PanasonicPTDriver(BaseDriver):
                 )
             return
 
+        if pending in ("brightness", "contrast", "color", "tint", "sharpness"):
+            # Picture queries (QVB/QVR/QVC/QVT/QVS) return a plain integer.
+            try:
+                self.set_state(pending, int(body))
+            except ValueError:
+                log.debug(
+                    f"[{self.device_id}] Unparseable {pending}: {body!r}"
+                )
+            return
+
         log.debug(
             f"[{self.device_id}] Unmatched response {body!r} "
             f"(pending={pending!r})"
@@ -713,3 +918,116 @@ class PanasonicPTDriver(BaseDriver):
             )
         except RuntimeError:
             pass
+
+    # ── Setup wizard: test (and optionally save) the admin credentials ──
+
+    @staticmethod
+    async def _read_line(reader: Any, timeout: float) -> str | None:
+        try:
+            data = await asyncio.wait_for(reader.readuntil(b"\r"), timeout=timeout)
+        except (asyncio.TimeoutError, asyncio.IncompleteReadError):
+            return None
+        if not data:
+            return None
+        return data.decode("ascii", errors="ignore").strip()
+
+    async def run_setup_action(
+        self,
+        action_id: str,
+        params: dict[str, Any],
+        progress: Any,
+    ) -> dict[str, Any]:
+        """Test the NTCONTROL admin credentials over an out-of-band connection.
+
+        Opens its own socket (the device's normal transport may be down because
+        the password is wrong), reads the greeting, computes the MD5 session
+        prefix, issues QPW, and reports whether the projector accepts it (ERRA =
+        rejected). On success, optionally persists the credentials + reconnects.
+        """
+        if action_id != "test_ntcontrol":
+            raise ValueError(f"Unknown setup action: {action_id}")
+
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 1024))
+        username = str(params.get("username", "admin1") or "admin1")
+        password = str(params.get("password", "") or "")
+        save = bool(params.get("save", True))
+        if not host:
+            raise ValueError("No IP address configured")
+
+        await progress(f"Connecting to {host}:{port}…", 20)
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), timeout=5.0
+            )
+        except (OSError, asyncio.TimeoutError) as exc:
+            raise ConnectionError(
+                f"Could not reach the projector on {host}:{port} ({exc}). "
+                "Check the IP and that Command Control is ON."
+            ) from exc
+
+        try:
+            await progress("Reading NTCONTROL greeting…", 40)
+            greeting = await self._read_line(reader, timeout=5.0)
+            if greeting is None:
+                raise ConnectionError(
+                    "No NTCONTROL greeting received — the port is open but the "
+                    "device is not speaking NTCONTROL. Check the command port."
+                )
+            m = self._GREETING_RE.match(greeting)
+            if not m:
+                raise ConnectionError(
+                    f"Unexpected NTCONTROL greeting: {greeting!r}"
+                )
+
+            if m.group("mode") == "0":
+                auth_enabled = False
+                prefix = ""
+            else:
+                auth_enabled = True
+                random_token = m.group("random") or ""
+                prefix = hashlib.md5(
+                    f"{username}:{password}:{random_token}".encode(
+                        "ascii", errors="ignore"
+                    )
+                ).hexdigest()
+
+            await progress("Verifying credentials…", 70)
+            writer.write(f"{prefix}00QPW\r".encode("ascii"))
+            await writer.drain()
+            reply = (await self._read_line(reader, timeout=5.0)) or ""
+            auth_ok = reply != "ERRA" and reply != ""
+            message = (
+                "Credentials accepted."
+                if auth_ok
+                else "Credentials rejected by the projector (ERRA)."
+                if reply == "ERRA"
+                else "No response to the test command."
+            )
+            await progress("Done", 100)
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (OSError, asyncio.TimeoutError):
+                pass
+
+        if not auth_ok:
+            raise ConnectionError(message)
+
+        saved = False
+        if save:
+            await self.request_config_update(
+                {"username": username, "password": password}
+            )
+            saved = True
+            await progress("Saved. Reconnecting…", 95)
+            await self.request_reconnect()
+
+        return {
+            "reachable": True,
+            "auth_enabled": auth_enabled,
+            "auth_ok": auth_ok,
+            "saved": saved,
+            "message": message,
+        }

@@ -49,6 +49,22 @@ VALID_INPUT_CODES = {
 # Power query response.
 _POWER_REV = {"on": "001", "off": "000"}
 
+# Picture settings: query name -> state key, and setter code -> (key, min, max).
+_PICTURE_QUERY = {
+    "QVB": "brightness",
+    "QVR": "contrast",
+    "QVC": "color",
+    "QVT": "tint",
+    "QVS": "sharpness",
+}
+_PICTURE_SET = {
+    "VBR": ("brightness", 1, 63),
+    "VCN": ("contrast", 1, 63),
+    "VCO": ("color", 1, 63),
+    "VTN": ("tint", 1, 63),
+    "VSR": ("sharpness", 0, 15),
+}
+
 # Pattern for any ``<setter>:<value>`` line.
 _SET_RE = re.compile(r"^([A-Z]{3})(?::(.+))?$")
 # Pattern for query lines ``Q<XX>`` (3 letters) and ``Q$<L>``.
@@ -70,6 +86,11 @@ class PanasonicPtSimulator(TCPSimulator):
             "mute_video": False,
             "freeze": False,
             "operating_hours": 1234,
+            "brightness": 32,
+            "contrast": 32,
+            "color": 32,
+            "tint": 32,
+            "sharpness": 8,
         },
         "controls": [
             {
@@ -213,6 +234,9 @@ class PanasonicPtSimulator(TCPSimulator):
             return self._respond(
                 "1" if self.state.get("freeze") else "0"
             )
+        if name in _PICTURE_QUERY:
+            value = int(self.state.get(_PICTURE_QUERY[name], 0))
+            return self._respond(f"{value:03d}")
         return b"ERR1\r"
 
     # ── Setters ──
@@ -246,6 +270,18 @@ class PanasonicPtSimulator(TCPSimulator):
             if self.state.get("power") != "on":
                 return b"ERR3\r"
             self.set_state("freeze", param == "1")
+            return self._respond(raw_body)
+        if code in _PICTURE_SET:
+            key, lo, hi = _PICTURE_SET[code]
+            if self.state.get("power") != "on":
+                return b"ERR3\r"
+            try:
+                value = int(param) if param is not None else None
+            except ValueError:
+                return b"ERR2\r"
+            if value is None or not (lo <= value <= hi):
+                return b"ERR2\r"
+            self.set_state(key, value)
             return self._respond(raw_body)
         return b"ERR1\r"
 

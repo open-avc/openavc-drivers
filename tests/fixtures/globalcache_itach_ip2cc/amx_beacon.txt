@@ -1,0 +1,1 @@
+AMXB<-UUID=GlobalCache_000C1E075EF1><-SDKClass=Utility><-Make=GlobalCache><-Model=iTachIP2CC><-Revision=710-1008-05><-Pkg_Level=GCPK001><-Config-URL=http://192.168.4.97><-PCB_PN=025-0029-02><-Status=Ready>

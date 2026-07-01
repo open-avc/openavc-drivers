@@ -43,7 +43,7 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.2.3
+version: 1.3.0
 author: OpenAVC
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
@@ -112,6 +112,14 @@ discovery:
   #   Refs:
   #     maclookup.app/vendors/lightware-visual-engineering
   #     Lightware Device Controller User's Manual
+  # Active fingerprint: a cheap LW3 version GET answers with the distinctive
+  # `pr /V1/MANAGEMENT/UID/PACKAGE.Version=` prefix, which no other protocol on
+  # 6107 emits — so a scan can positively identify a Lightware unit.
+  tcp_probe:
+    port: 6107
+    send_ascii: "GET /V1/MANAGEMENT/UID/PACKAGE.Version\r\n"
+    expect_regex: 'pr /V1/MANAGEMENT/UID/PACKAGE\.Version='
+    extract_manufacturer: "Lightware"
   oui:
     - "a8:d2:36"
   port_open:
@@ -248,14 +256,12 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Input
       output:
         type: integer
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
 
   disconnect_video_output:
@@ -268,7 +274,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
 
   set_video_route_all:
@@ -281,7 +286,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Input
 
   set_video_mute:
@@ -294,7 +298,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       state:
         type: string
@@ -312,7 +315,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       state:
         type: string
@@ -330,7 +332,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       state:
         type: string
@@ -348,7 +349,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Input
       version:
         type: string
@@ -366,7 +366,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       mode:
         type: string
@@ -384,7 +383,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       signal_type:
         type: string
@@ -402,7 +400,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       state:
         type: string
@@ -422,14 +419,12 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Input
       output:
         type: integer
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
 
   disconnect_audio_output:
@@ -442,7 +437,6 @@ commands:
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
 
   set_audio_port_mute:
@@ -472,7 +466,6 @@ commands:
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
       level:
         type: number
@@ -491,7 +484,6 @@ commands:
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
       level:
         type: number
@@ -510,7 +502,6 @@ commands:
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
       level:
         type: integer
@@ -529,7 +520,6 @@ commands:
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
       step:
         type: number
@@ -547,7 +537,6 @@ commands:
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
       step:
         type: number
@@ -565,7 +554,6 @@ commands:
         required: true
         default: 4
         min: 1
-        max: 80
         label: Output
       state:
         type: string
@@ -593,7 +581,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Input
 
   set_edid_all:
@@ -644,7 +631,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       command:
         type: string
@@ -662,7 +648,6 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 80
         label: Output
       command:
         type: string
@@ -703,6 +688,37 @@ commands:
         type: string
         required: true
         label: Command
+
+device_settings:
+  # DeviceLabel is set (set_device_label) and polled back (device_label state
+  # var via GET /V1/MANAGEMENT/LABEL.DeviceLabel), so it's a first-class
+  # device setting. The write reuses the same SET string; the device echoes
+  # `pw ...DeviceLabel=<value>` so state updates immediately, and polling is
+  # the steady-state read-back.
+  device_label:
+    type: string
+    label: Device Label
+    help: "Custom label shown on the unit and in LDC (max 49 ASCII characters)."
+    state_key: device_label
+    default: "Lightware"
+    setup: false
+    write:
+      send: "SET /V1/MANAGEMENT/LABEL.DeviceLabel={value}\r\n"
+
+# Quick Action strip: the routing an operator reaches for, physical-locate,
+# and reboot behind a confirm. The full command list still shows everything.
+actions:
+  - id: set_video_route
+    icon: route
+  - id: set_video_route_all
+    icon: copy
+  - id: set_video_mute
+    icon: eye-off
+  - id: identify
+    icon: search
+  - id: reboot
+    icon: power
+    confirm: "Reboot the unit? Active connections are dropped."
 
 responses:
 

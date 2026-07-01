@@ -1050,7 +1050,7 @@
       "name": "Christie Projector",
       "manufacturer": "Christie",
       "category": "projector",
-      "version": "1.2.3",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Christie commercial projectors using the Christie Serial API on TCP 3002. Supports the M, J, HS, H, GS, G, and E series families and their derivatives. Power, shutter, fade-to-black, input select, test patterns, brightness/contrast, freeze, orientation, lamp mode, lamp intensity, and lens focus. Polls for status; the projector also reports model, firmware, and projector hours.",
@@ -1096,6 +1096,12 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 3002,
+          "send_ascii": "(PWR?)\r",
+          "expect_regex": "\\(PWR!",
+          "extract_manufacturer": "Christie"
+        },
         "oui": [
           "00:1a:d7"
         ],

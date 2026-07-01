@@ -27,7 +27,7 @@ id: christie_serial
 name: Christie Projector
 manufacturer: Christie
 category: projector
-version: 1.2.3
+version: 1.3.0
 author: OpenAVC
 description: >-
   Controls Christie commercial projectors using the Christie Serial API
@@ -95,16 +95,24 @@ help:
        panel of the projector.
 
 discovery:
-  # Christie Serial API on TCP 3002 has no documented broadcast or
-  # mDNS announcement, and PJLink Class 2 support is per-model and
-  # per-firmware (the M / J / HS / H / GS / G / E series families
-  # don't blanket-implement it — declaring a PJLink Class 2 mDNS
-  # fingerprint here would false-claim devices). Hint-only via the
-  # registered Christie Digital Systems OUI plus open TCP 3002 +
-  # manufacturer alias.
+  # Active fingerprint: the Christie Serial API answers a (PWR?) query on
+  # TCP 3002 with a paren-framed (PWR!<state>) reply — a cheap deterministic
+  # probe that identifies the driver on its own. Christie has no documented
+  # broadcast or mDNS announcement, and PJLink Class 2 support is per-model
+  # and per-firmware (the M / J / HS / H / GS / G / E series families don't
+  # blanket-implement it — declaring a PJLink Class 2 mDNS fingerprint here
+  # would false-claim devices), so those passive paths stay unclaimed. Hints
+  # (registered Christie Digital Systems OUI + open TCP 3002 + manufacturer
+  # alias) let the device still surface when found via an ARP/port sweep.
   #   Refs:
+  #     020-100224-11 M Series Serial API (PWR command)
   #     maclookup.app/vendors/christie-digital-systems-inc
   #     manualslib.com Christie DWU1052 PJLink table (per-model)
+  tcp_probe:
+    port: 3002
+    send_ascii: "(PWR?)\r"
+    expect_regex: '\(PWR!'
+    extract_manufacturer: "Christie"
   oui:
     - "00:1a:d7"
   port_open:
@@ -180,11 +188,11 @@ state_variables:
   lamp_mode:
     type: integer
     label: Lamp Mode
-    help: "Lamp / light-source operating mode reported by the projector (model-specific code from (LMM?))."
+    help: "Lamp power-control mode from (LPM?): 0=Maximum Brightness, 1=Constant Intensity, 2=Constant Power."
   lamp_intensity:
     type: integer
     label: Lamp Intensity
-    help: "Lamp / light-source intensity percentage reported by (LMI?)."
+    help: "Lamp intensity as a percentage (0-100) from (LPI?)."
   projector_hours:
     type: integer
     label: Projector Hours
@@ -258,6 +266,7 @@ commands:
         description: >-
           Two-digit slot+input code. e.g. 12 = slot 1 input 2,
           45 = slot 4 input 5.
+        pattern: '^\d{2}$'
 
   select_main_input:
     label: Select Main Input
@@ -266,6 +275,7 @@ commands:
       code:
         type: string
         label: Slot+Input Code
+        pattern: '^\d{2}$'
 
   select_pip_input:
     label: Select PIP Input
@@ -274,6 +284,7 @@ commands:
       code:
         type: string
         label: Slot+Input Code
+        pattern: '^\d{2}$'
 
   query_input:
     label: Query Input
@@ -481,6 +492,87 @@ responses:
   # SST+VERS first quoted field is firmware
   - match: '\(SST\+VERS!"([^"]+)"'
     set: { firmware_version: "$1" }
+
+# Device settings: image / lamp / orientation values the projector persists
+# and reports back. Each is already set by a command and read back by polling
+# the matching query (the state_key below), so it also gets the editable-field +
+# offline-pending-queue treatment on top of the transient set_* commands (same
+# dual surface). Each write reuses the exact command send string. Power, shutter,
+# fade, freeze, and input select are live operational actions, not settings.
+device_settings:
+  brightness:
+    type: integer
+    min: -1000
+    max: 1000
+    label: Brightness
+    help: "Brightness setting, -1000 to 1000 (BRT)."
+    state_key: brightness
+    default: 0
+    setup: false
+    write:
+      send: "(BRT {value})\r"
+  contrast:
+    type: integer
+    min: -1000
+    max: 1000
+    label: Contrast
+    help: "Contrast setting, -1000 to 1000 (CON)."
+    state_key: contrast
+    default: 0
+    setup: false
+    write:
+      send: "(CON {value})\r"
+  orientation:
+    type: integer
+    min: 0
+    max: 3
+    label: Screen Orientation
+    help: "Image orientation (SOR): 0=Front, 1=Rear, 2=Front-inverted, 3=Rear-inverted."
+    state_key: orientation
+    default: 0
+    setup: false
+    write:
+      send: "(SOR {value})\r"
+  lamp_mode:
+    type: integer
+    min: 0
+    max: 2
+    label: Lamp Mode
+    help: "Lamp power-control mode (LPM): 0=Maximum Brightness, 1=Constant Intensity, 2=Constant Power."
+    state_key: lamp_mode
+    default: 0
+    setup: false
+    write:
+      send: "(LPM {value})\r"
+  lamp_intensity:
+    type: integer
+    min: 0
+    max: 100
+    label: Lamp Intensity (%)
+    help: "Lamp intensity as a percentage, 0-100 (LPI)."
+    state_key: lamp_intensity
+    default: 100
+    setup: false
+    write:
+      send: "(LPI {value})\r"
+  test_pattern:
+    type: integer
+    min: 0
+    max: 14
+    label: Test Pattern
+    help: "Test pattern code (ITP): 0=Off, 1=Grid, 2=Grayscale16, 3=White, 4=FlatGrey, 5=Black, 6=Checker, 7=13Point, 8=ColorBars, 11=AspectRatio, 12=EdgeBlend, 14=Boresight."
+    state_key: test_pattern
+    default: 0
+    setup: false
+    write:
+      send: "(ITP {value})\r"
+
+# High-use parameterless actions surfaced as one-tap buttons.
+quick_actions:
+  - power_on
+  - power_off
+  - shutter_open
+  - shutter_close
 
 polling:
   queries:

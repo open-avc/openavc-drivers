@@ -56,6 +56,12 @@ class SonyBraviaSimulator(HTTPSimulator):
             "mute": False,
             "app": "",
             "model": "XBR-65X950G-SIM",
+            "led_indicator": "Dark",
+            "picture_mode": "Standard",
+            "brightness": 50,
+            "contrast": 90,
+            "color": 50,
+            "sharpness": 50,
         },
         "delays": {
             "command_response": 0.05,
@@ -111,6 +117,46 @@ class SonyBraviaSimulator(HTTPSimulator):
                 "key": "mute",
                 "label": "Mute",
             },
+            {
+                "type": "select",
+                "key": "led_indicator",
+                "label": "LED Indicator",
+                "options": [
+                    "Demo",
+                    "AutoBrightnessAdjust",
+                    "Dark",
+                    "SimpleResponse",
+                    "Off",
+                ],
+            },
+            {
+                "type": "slider",
+                "key": "brightness",
+                "label": "Brightness",
+                "min": 0,
+                "max": 100,
+            },
+            {
+                "type": "slider",
+                "key": "contrast",
+                "label": "Contrast",
+                "min": 0,
+                "max": 100,
+            },
+            {
+                "type": "slider",
+                "key": "color",
+                "label": "Color",
+                "min": 0,
+                "max": 100,
+            },
+            {
+                "type": "slider",
+                "key": "sharpness",
+                "label": "Sharpness",
+                "min": 0,
+                "max": 100,
+            },
         ],
     }
 
@@ -126,9 +172,16 @@ class SonyBraviaSimulator(HTTPSimulator):
         # Strip query string from path for routing
         clean_path = path.split("?")[0]
 
-        # PSK authentication: if the driver sends X-Auth-PSK, just verify
-        # the header exists (don't validate the actual key in simulation)
-        # Real TVs accept any non-empty PSK that matches the configured value.
+        # PSK authentication. A real TV rejects a wrong Pre-Shared Key with
+        # HTTP 403 on the /sony/* API. The sim mirrors that only when a `psk`
+        # is configured (so untouched sim runs stay permissive): if the
+        # request's X-Auth-PSK header doesn't match, return 403 — this is what
+        # lets the driver's PSK auth-fault path and setup wizard be exercised.
+        configured_psk = str(self.config.get("psk", "") or "")
+        if configured_psk and clean_path.startswith("/sony/"):
+            sent = headers.get("X-Auth-PSK", headers.get("x-auth-psk", ""))
+            if str(sent) != configured_psk:
+                return 403, {"error": [403, "Forbidden"]}
 
         # IRCC endpoint (SOAP XML) — accept anything and return 200
         if clean_path == "/sony/IRCC" and method == "POST":
@@ -185,6 +238,8 @@ class SonyBraviaSimulator(HTTPSimulator):
             return self._handle_av_content(rpc_method, params, req_id)
         elif service == "appControl":
             return self._handle_app_control(rpc_method, params, req_id)
+        elif service == "video":
+            return self._handle_video(rpc_method, params, req_id)
 
         return 404, {"error": [40400, f"Service not found: {service}"], "id": req_id}
 
@@ -235,6 +290,23 @@ class SonyBraviaSimulator(HTTPSimulator):
                 }],
                 "id": req_id,
             }
+
+        if method == "getLEDIndicatorStatus":
+            # Readable regardless of power (the LED is a physical indicator).
+            return 200, {
+                "result": [{
+                    "mode": self.state.get("led_indicator", "Dark"),
+                    "status": "true",
+                }],
+                "id": req_id,
+            }
+
+        if method == "setLEDIndicatorStatus":
+            if params and isinstance(params[0], dict):
+                mode = params[0].get("mode")
+                if mode:
+                    self.set_state("led_indicator", mode)
+            return 200, {"result": [], "id": req_id}
 
         return 200, {"error": [40400, f"Method not found: {method}"], "id": req_id}
 
@@ -386,5 +458,61 @@ class SonyBraviaSimulator(HTTPSimulator):
                 ]],
                 "id": req_id,
             }
+
+        return 200, {"error": [40400, f"Method not found: {method}"], "id": req_id}
+
+    # ── /sony/video ──
+
+    # Picture-quality target name (API) <-> sim state key.
+    _PICTURE_TARGETS = {
+        "pictureMode": "picture_mode",
+        "brightness": "brightness",
+        "contrast": "contrast",
+        "color": "color",
+        "sharpness": "sharpness",
+    }
+    _NUMERIC_PICTURE = {"brightness", "contrast", "color", "sharpness"}
+
+    def _handle_video(self, method: str, params: list, req_id: int) -> tuple[int, dict]:
+        """Handle video service JSON-RPC methods (picture-quality settings)."""
+        power = self.state.get("power", "off")
+
+        if method == "getPictureQualitySettings":
+            if power != "active":
+                return 200, {"error": [7, "Illegal State"], "id": req_id}
+            target = ""
+            if params and isinstance(params[0], dict):
+                target = str(params[0].get("target", "") or "")
+            items = []
+            for api, key in self._PICTURE_TARGETS.items():
+                if target and target != api:
+                    continue
+                value = self.state.get(key, "")
+                items.append({
+                    "target": api,
+                    "currentValue": str(value),
+                    "isAvailable": True,
+                })
+            # Sony wraps the settings list one level: result -> [[...]].
+            return 200, {"result": [items], "id": req_id}
+
+        if method == "setPictureQualitySettings":
+            if power != "active":
+                return 200, {"error": [7, "Illegal State"], "id": req_id}
+            if params and isinstance(params[0], dict):
+                for setting in params[0].get("settings", []) or []:
+                    if not isinstance(setting, dict):
+                        continue
+                    key = self._PICTURE_TARGETS.get(setting.get("target"))
+                    value = setting.get("value")
+                    if key is None or value is None:
+                        continue
+                    if key in self._NUMERIC_PICTURE:
+                        try:
+                            value = int(value)
+                        except (TypeError, ValueError):
+                            continue
+                    self.set_state(key, value)
+            return 200, {"result": [], "id": req_id}
 
         return 200, {"error": [40400, f"Method not found: {method}"], "id": req_id}

@@ -28,7 +28,7 @@ Protocol reference: https://pro-bravia.sony.net/develop/integrate/rest-api/spec/
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from server.drivers.base import BaseDriver
 from server.transport.http_client import HTTPClientTransport
@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony Bravia TVs and professional displays via the "
@@ -288,6 +288,103 @@ class SonyBraviaDriver(BaseDriver):
                 "type": "string",
                 "label": "Model Name",
             },
+            "led_indicator": {
+                "type": "string",
+                "label": "LED Indicator Mode",
+            },
+            "picture_mode": {
+                "type": "string",
+                "label": "Picture Mode",
+            },
+            "brightness": {
+                "type": "integer",
+                "label": "Brightness",
+            },
+            "contrast": {
+                "type": "integer",
+                "label": "Contrast",
+            },
+            "color": {
+                "type": "integer",
+                "label": "Color",
+            },
+            "sharpness": {
+                "type": "integer",
+                "label": "Sharpness",
+            },
+        },
+        "device_settings": {
+            "led_indicator": {
+                "type": "enum",
+                "values": [
+                    "Demo",
+                    "AutoBrightnessAdjust",
+                    "Dark",
+                    "SimpleResponse",
+                    "Off",
+                ],
+                "label": "LED Indicator Mode",
+                "help": (
+                    "Front LED behaviour. AutoBrightnessAdjust dims it to the "
+                    "room; Dark keeps it dim; SimpleResponse blinks on remote "
+                    "input; Off disables it."
+                ),
+                "state_key": "led_indicator",
+                "default": "Dark",
+                "setup": False,
+            },
+            "picture_mode": {
+                "type": "string",
+                "label": "Picture Mode",
+                "help": (
+                    "Picture preset. The available names are model-specific "
+                    "(e.g. Vivid, Standard, Cinema, Custom, Game, Graphics) — "
+                    "enter one your TV lists."
+                ),
+                "state_key": "picture_mode",
+                "default": "Standard",
+                "setup": False,
+            },
+            "brightness": {
+                "type": "integer",
+                "label": "Brightness",
+                "help": "Picture brightness (0-100).",
+                "state_key": "brightness",
+                "default": 50,
+                "min": 0,
+                "max": 100,
+                "setup": False,
+            },
+            "contrast": {
+                "type": "integer",
+                "label": "Contrast",
+                "help": "Picture contrast (0-100).",
+                "state_key": "contrast",
+                "default": 90,
+                "min": 0,
+                "max": 100,
+                "setup": False,
+            },
+            "color": {
+                "type": "integer",
+                "label": "Color",
+                "help": "Color saturation (0-100).",
+                "state_key": "color",
+                "default": 50,
+                "min": 0,
+                "max": 100,
+                "setup": False,
+            },
+            "sharpness": {
+                "type": "integer",
+                "label": "Sharpness",
+                "help": "Picture sharpness (0-100).",
+                "state_key": "sharpness",
+                "default": 50,
+                "min": 0,
+                "max": 100,
+                "setup": False,
+            },
         },
         "commands": {
             # Power
@@ -348,12 +445,150 @@ class SonyBraviaDriver(BaseDriver):
                 },
                 "help": "Switch the display input source.",
             },
+            # Picture / indicator settings (also exposed as device_settings).
+            "set_led_indicator": {
+                "label": "Set LED Indicator Mode",
+                "params": {
+                    "mode": {
+                        "type": "enum",
+                        "values": [
+                            "Demo",
+                            "AutoBrightnessAdjust",
+                            "Dark",
+                            "SimpleResponse",
+                            "Off",
+                        ],
+                        "required": True,
+                        "help": "Front LED indicator behaviour.",
+                    },
+                },
+                "help": "Set the front LED indicator mode.",
+            },
+            "set_picture_mode": {
+                "label": "Set Picture Mode",
+                "params": {
+                    "value": {
+                        "type": "string",
+                        "required": True,
+                        "help": (
+                            "Picture preset name (model-specific, e.g. "
+                            "Standard, Vivid, Cinema, Custom, Game)."
+                        ),
+                    },
+                },
+                "help": "Set the picture-mode preset.",
+            },
+            "set_brightness": {
+                "label": "Set Brightness",
+                "params": {
+                    "value": {
+                        "type": "integer",
+                        "min": 0,
+                        "max": 100,
+                        "required": True,
+                        "help": "Brightness 0-100.",
+                    },
+                },
+                "help": "Set picture brightness.",
+            },
+            "set_contrast": {
+                "label": "Set Contrast",
+                "params": {
+                    "value": {
+                        "type": "integer",
+                        "min": 0,
+                        "max": 100,
+                        "required": True,
+                        "help": "Contrast 0-100.",
+                    },
+                },
+                "help": "Set picture contrast.",
+            },
+            "set_color": {
+                "label": "Set Color",
+                "params": {
+                    "value": {
+                        "type": "integer",
+                        "min": 0,
+                        "max": 100,
+                        "required": True,
+                        "help": "Color saturation 0-100.",
+                    },
+                },
+                "help": "Set color saturation.",
+            },
+            "set_sharpness": {
+                "label": "Set Sharpness",
+                "params": {
+                    "value": {
+                        "type": "integer",
+                        "min": 0,
+                        "max": 100,
+                        "required": True,
+                        "help": "Sharpness 0-100.",
+                    },
+                },
+                "help": "Set picture sharpness.",
+            },
             # IRCC commands (navigation, media, apps, etc.)
             **_IRCC_COMMANDS,
         },
+        # Quick Action strip: high-use room controls + a setup wizard that
+        # tests (and optionally saves) the Pre-Shared Key out-of-band, useful
+        # when the TV is offline on a wrong PSK.
+        "actions": [
+            {"id": "power_on", "kind": "command", "icon": "power"},
+            {"id": "power_off", "kind": "command", "icon": "power-off"},
+            {"id": "mute_on", "kind": "command", "icon": "volume-x"},
+            {"id": "mute_off", "kind": "command", "icon": "volume-2"},
+            {"id": "input_toggle", "kind": "command", "icon": "monitor"},
+            {
+                "id": "test_psk",
+                "kind": "setup",
+                "label": "Test Pre-Shared Key",
+                "icon": "key-round",
+                "availability": "always",
+                "params": {
+                    "psk": {
+                        "type": "password",
+                        "secret": True,
+                        "label": "Pre-Shared Key",
+                        "help": (
+                            "The PSK set on the TV under Settings > Network > "
+                            "Home Network Setup > IP Control."
+                        ),
+                    },
+                    "save": {
+                        "type": "boolean",
+                        "default": True,
+                        "label": "Save this key if it works",
+                    },
+                },
+            },
+        ],
     }
 
     _request_id: int = 1
+
+    # Picture-quality settings: state-var / DS key -> Bravia API target name.
+    _PICTURE_TARGETS = {
+        "picture_mode": "pictureMode",
+        "brightness": "brightness",
+        "contrast": "contrast",
+        "color": "color",
+        "sharpness": "sharpness",
+    }
+    _NUMERIC_PICTURE = {"brightness", "contrast", "color", "sharpness"}
+
+    # device_setting key -> (command, param name) the setting writes through.
+    _DS_COMMANDS = {
+        "led_indicator": ("set_led_indicator", "mode"),
+        "picture_mode": ("set_picture_mode", "value"),
+        "brightness": ("set_brightness", "value"),
+        "contrast": ("set_contrast", "value"),
+        "color": ("set_color", "value"),
+        "sharpness": ("set_sharpness", "value"),
+    }
 
     async def connect(self) -> None:
         """Set up HTTP transport with PSK authentication."""
@@ -387,13 +622,24 @@ class SonyBraviaDriver(BaseDriver):
                 f"Sony Bravia at {base_url} is not responding"
             )
 
+        # Authenticated probe: getSystemInformation returns HTTP 403 when the
+        # Pre-Shared Key is wrong. verify() above only HEADs "/", which isn't
+        # PSK-gated, so a bad key used to connect and then fail every poll with
+        # no reason (the fault surfaced as "not responding"). Classify it as
+        # auth here. Also caches the model name on success.
+        probe = await self._fetch_system_info()
+        if probe is not None and probe.status_code in (401, 403):
+            await self.transport.close()
+            self.transport = None
+            raise ConnectionError(
+                "Sony Bravia authentication failed - check the "
+                "Pre-Shared Key (PSK)"
+            )
+
         self._connected = True
         self.set_state("connected", True)
         await self.events.emit(f"device.connected.{self.device_id}")
         log.info(f"[{self.device_id}] Connected to Sony Bravia at {base_url}")
-
-        # Fetch model info once on connect
-        await self._fetch_system_info()
 
         # Start polling
         poll_interval = self.config.get("poll_interval", 15)
@@ -491,15 +737,72 @@ class SonyBraviaDriver(BaseDriver):
 
     # --- System info ---
 
-    async def _fetch_system_info(self) -> None:
-        """Query and cache the TV model name."""
-        result = await self._jsonrpc("system", "getSystemInformation")
-        if result and isinstance(result, list) and len(result) > 0:
-            info = result[0]
-            model = info.get("model", "")
-            if model:
-                self.set_state("model", model)
-                log.info(f"[{self.device_id}] Model: {model}")
+    async def _fetch_system_info(self):
+        """POST getSystemInformation, cache the model, and return the raw
+        HTTPResponse. Doubles as the connect-time PSK check — a wrong key
+        returns HTTP 403 — so connect() can classify auth failures."""
+        if not self.transport or not self.transport.connected:
+            return None
+        self._request_id += 1
+        response = await self.transport.post(
+            "/sony/system",
+            body={
+                "method": "getSystemInformation",
+                "params": [],
+                "id": self._request_id,
+                "version": "1.0",
+            },
+        )
+        if response.ok:
+            data = response.json_data or {}
+            result = data.get("result")
+            if isinstance(result, list) and result and isinstance(result[0], dict):
+                model = result[0].get("model", "")
+                if model:
+                    self.set_state("model", model)
+                    log.info(f"[{self.device_id}] Model: {model}")
+        return response
+
+    # --- Picture / LED read-back ---
+
+    async def _read_led_indicator(self) -> None:
+        """Poll the LED indicator mode (a system setting, readable in standby)."""
+        result = await self._jsonrpc("system", "getLEDIndicatorStatus")
+        if result and isinstance(result, list) and result:
+            mode = result[0].get("mode")
+            if mode:
+                self.set_state("led_indicator", mode)
+
+    async def _read_picture_settings(self) -> None:
+        """Poll every picture-quality setting in one call and fan out."""
+        result = await self._jsonrpc(
+            "video", "getPictureQualitySettings", [{"target": ""}]
+        )
+        self._apply_picture_settings(result)
+
+    def _apply_picture_settings(self, result: Any) -> None:
+        """Map a getPictureQualitySettings result to the picture state vars.
+
+        The result is ``[[{target, currentValue, ...}, ...]]`` (Sony wraps the
+        list one level); some firmware returns a flat ``[{...}]``. Handle both.
+        """
+        if not result or not isinstance(result, list):
+            return
+        items = result[0] if result and isinstance(result[0], list) else result
+        rev = {api: key for key, api in self._PICTURE_TARGETS.items()}
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            key = rev.get(item.get("target"))
+            value = item.get("currentValue")
+            if not key or value is None:
+                continue
+            if key in self._NUMERIC_PICTURE:
+                try:
+                    value = int(value)
+                except (TypeError, ValueError):
+                    continue
+            self.set_state(key, value)
 
     # --- Commands ---
 
@@ -573,6 +876,27 @@ class SonyBraviaDriver(BaseDriver):
                     await self._jsonrpc(
                         "appControl", "setActiveApp", [{"uri": uri}]
                     )
+            case "set_led_indicator":
+                mode = str(params.get("mode", ""))
+                if mode:
+                    # setLEDIndicatorStatus is a v1.1 method; status may be null.
+                    await self._jsonrpc(
+                        "system",
+                        "setLEDIndicatorStatus",
+                        [{"mode": mode, "status": None}],
+                        version="1.1",
+                    )
+                    self.set_state("led_indicator", mode)
+            case "set_picture_mode":
+                await self._set_picture("pictureMode", str(params.get("value", "")))
+            case "set_brightness":
+                await self._set_picture("brightness", int(params.get("value", 0)))
+            case "set_contrast":
+                await self._set_picture("contrast", int(params.get("value", 0)))
+            case "set_color":
+                await self._set_picture("color", int(params.get("value", 0)))
+            case "set_sharpness":
+                await self._set_picture("sharpness", int(params.get("value", 0)))
             case "send_ircc":
                 code = params.get("code", "")
                 if code:
@@ -581,6 +905,37 @@ class SonyBraviaDriver(BaseDriver):
                 log.warning(f"[{self.device_id}] Unknown command: {command}")
 
         log.debug(f"[{self.device_id}] Sent command: {command} {params}")
+
+    async def _set_picture(self, target: str, value: Any) -> None:
+        """Write one picture-quality setting. Values go on the wire as strings
+        (Sony's setPictureQualitySettings takes string values for every
+        target). Updates the matching state var optimistically."""
+        await self._jsonrpc(
+            "video",
+            "setPictureQualitySettings",
+            [{"settings": [{"target": target, "value": str(value)}]}],
+        )
+        key = {api: k for k, api in self._PICTURE_TARGETS.items()}.get(target)
+        if key:
+            self.set_state(
+                key, int(value) if key in self._NUMERIC_PICTURE else value
+            )
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting through its backing command, then read back
+        so the settings editor reflects the device without waiting for a poll."""
+        entry = self._DS_COMMANDS.get(key)
+        if entry is None:
+            raise ValueError(f"Unknown device setting: {key}")
+        if not self.transport or not self.transport.connected:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        command, param = entry
+        await self.send_command(command, {param: value})
+        if key == "led_indicator":
+            await self._read_led_indicator()
+        else:
+            await self._read_picture_settings()
+        return self.get_state(key)
 
     # --- Polling ---
 
@@ -591,13 +946,18 @@ class SonyBraviaDriver(BaseDriver):
 
         # Power status
         result = await self._jsonrpc("system", "getPowerStatus")
+        powered_on = True
         if result and isinstance(result, list) and len(result) > 0:
             status = result[0].get("status", "")
-            self.set_state("power", "on" if status == "active" else "off")
+            powered_on = status == "active"
+            self.set_state("power", "on" if powered_on else "off")
 
-            # Only poll volume/input if the TV is on
-            if status != "active":
-                return
+        # LED indicator is a system setting — readable even in standby.
+        await self._read_led_indicator()
+
+        # Volume / input / picture only make sense when the TV is on.
+        if not powered_on:
+            return
 
         # Volume and mute
         result = await self._jsonrpc("audio", "getVolumeInformation")
@@ -631,3 +991,95 @@ class SonyBraviaDriver(BaseDriver):
                 # In an app or internal source
                 self.set_state("input", "app")
                 self.set_state("app", title or uri)
+
+        # Picture-quality settings — read-back for the device_settings surface.
+        await self._read_picture_settings()
+
+    # --- Setup wizard ---
+
+    async def run_setup_action(
+        self,
+        action_id: str,
+        params: dict[str, Any],
+        progress: Any,
+    ) -> dict[str, Any]:
+        """Test the Pre-Shared Key over an out-of-band HTTP request.
+
+        The device's normal transport may be down (wrong PSK), so this opens
+        its own client, POSTs getSystemInformation, and reports whether the TV
+        accepts the key (HTTP 403 = rejected). On success, optionally persists
+        the key + reconnects.
+        """
+        if action_id != "test_psk":
+            raise ValueError(f"Unknown setup action: {action_id}")
+
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 80))
+        psk = str(params.get("psk", "") or "")
+        save = bool(params.get("save", True))
+        if not host:
+            raise ValueError("No IP address configured")
+
+        base_url = f"http://{host}:{port}"
+        http = HTTPClientTransport(
+            base_url=base_url,
+            auth_type="api_key",
+            credentials={"header": "X-Auth-PSK", "key": psk},
+            verify_ssl=False,
+            timeout=8.0,
+            name=f"{self.device_id}-setup",
+        )
+
+        await progress(f"Connecting to {host}:{port}…", 20)
+        await http.open()
+        try:
+            await progress("Checking the Pre-Shared Key…", 60)
+            try:
+                resp = await http.post(
+                    "/sony/system",
+                    body={
+                        "method": "getSystemInformation",
+                        "params": [],
+                        "id": 1,
+                        "version": "1.0",
+                    },
+                )
+            except ConnectionError as exc:
+                raise ConnectionError(
+                    f"Could not reach the TV on {host}:{port} ({exc}). Check "
+                    "the IP address and that IP Control is enabled."
+                ) from exc
+            if resp.status_code in (401, 403):
+                raise ConnectionError(
+                    "The TV rejected this Pre-Shared Key. Check the key under "
+                    "Settings > Network > Home Network Setup > IP Control."
+                )
+            if not resp.ok:
+                raise ConnectionError(
+                    f"Unexpected response from the TV (HTTP {resp.status_code})."
+                )
+            model = ""
+            data = resp.json_data or {}
+            result = data.get("result")
+            if isinstance(result, list) and result and isinstance(result[0], dict):
+                model = result[0].get("model", "")
+            await progress("Pre-Shared Key accepted", 90)
+        finally:
+            await http.close()
+
+        saved = False
+        if save:
+            await self.request_config_update({"psk": psk})
+            saved = True
+            await progress("Saved. Reconnecting…", 95)
+            await self.request_reconnect()
+
+        return {
+            "reachable": True,
+            "auth_ok": True,
+            "saved": saved,
+            "model": model,
+            "message": f"Pre-Shared Key accepted ({model})."
+            if model
+            else "Pre-Shared Key accepted.",
+        }

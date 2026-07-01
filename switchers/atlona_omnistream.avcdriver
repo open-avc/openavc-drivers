@@ -41,7 +41,7 @@ id: atlona_omnistream
 name: Atlona OmniStream
 manufacturer: Atlona
 category: switcher
-version: 1.3.3
+version: 1.4.0
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -265,10 +265,39 @@ commands:
         max: 2
         label: HDMI Output
       ip_input:
-        type: string
+        # The VideoInput Y value is a fixed, documented set: ip_input1..16
+        # plus notused / generator / multiview (CLI API §VideoInput). Offered
+        # as a picker so the integrator selects instead of free-typing an
+        # ip_input name they can misspell. The runtime does NOT hard-validate
+        # enum membership (only numeric bounds + string patterns), so the field
+        # stays forgiving — a specific multiview room name can still be typed.
+        type: enum
         required: true
-        label: IP Input Name
-        description: "IP input or multiview name configured on the decoder (e.g. ip_input3)."
+        label: IP Input
+        values:
+          - ip_input1
+          - ip_input2
+          - ip_input3
+          - ip_input4
+          - ip_input5
+          - ip_input6
+          - ip_input7
+          - ip_input8
+          - ip_input9
+          - ip_input10
+          - ip_input11
+          - ip_input12
+          - ip_input13
+          - ip_input14
+          - ip_input15
+          - ip_input16
+          - notused
+          - generator
+          - multiview
+        description: >
+          The decoder's IP input to route to this output. Pick an ip_input
+          slot (configured in the device web UI), notused, generator, or
+          multiview. To route a specific multiview room, type its name.
 
   set_video_enable:
     label: Set Video Output Enable
@@ -541,13 +570,28 @@ commands:
         required: true
         default: 1
         min: 1
-        max: 6
+        max: 2
         label: RS-232 Port
       command:
         type: string
         required: true
         choices: [on, off, "vol+", "vol-"]
         label: RS-232 Command
+
+# Quick actions — promote the high-use decoder controls (route a source,
+# enable/disable video, mute audio, identify, reboot) to the device card.
+actions:
+  - id: set_video_input
+    icon: route
+  - id: set_video_enable
+    icon: eye
+  - id: set_audio_mute
+    icon: volume-x
+  - id: identify
+    icon: search
+  - id: reboot
+    icon: power
+    confirm: "Reboot this OmniStream unit? The stream drops while it restarts."
 
 responses:
 

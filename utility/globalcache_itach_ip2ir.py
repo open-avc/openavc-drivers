@@ -486,6 +486,13 @@ class GlobalCacheItachIP2IRDriver(BaseDriver):
 
     # --- Learn capability (vendor-neutral) ---
 
+    async def bridge_import_code(self, wire: str) -> str:
+        """Convert a typed ``sendir`` string to Pronto for storage.
+
+        Raises ValueError (surfaced as a 400) if it isn't a valid sendir line.
+        """
+        return sendir_to_pronto(wire)
+
     @property
     def can_learn(self) -> bool:
         return True

@@ -311,6 +311,23 @@ def test_bridge_emit_rejects_non_ir_kind():
         asyncio.run(d.bridge_emit("ir:1", "serial", {"pronto": "X"}))
 
 
+def test_bridge_import_code_converts_typed_sendir_to_pronto():
+    d = _make_driver()
+    line = _fixture("learned_2.sendir.txt").decode().strip()
+    pronto = asyncio.run(d.bridge_import_code(line))
+    assert pronto.startswith("0000 ")
+    # And it round-trips back to the same pulses.
+    assert drv.parse_sendir(pronto and drv.pronto_to_sendir(pronto, "1:1", 1, 1))[
+        "bursts"
+    ] == drv.parse_sendir(line)["bursts"]
+
+
+def test_bridge_import_code_rejects_garbage():
+    d = _make_driver()
+    with pytest.raises(ValueError):
+        asyncio.run(d.bridge_import_code("not a sendir string"))
+
+
 def test_is_a_bridge_with_three_ir_ports():
     ports = drv.GlobalCacheItachIP2IRDriver.DRIVER_INFO["bridge"]["ports"]
     assert [p["id"] for p in ports] == ["ir:1", "ir:2", "ir:3"]

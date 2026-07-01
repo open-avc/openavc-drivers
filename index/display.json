@@ -12,7 +12,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "display",
-      "version": "1.3.5",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",

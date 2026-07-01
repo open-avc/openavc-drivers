@@ -40,7 +40,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "display",
-        "version": "1.3.5",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls Crestron DM NVX AV-over-IP encoders and decoders via "
@@ -171,6 +171,35 @@ class CrestronNVXDriver(BaseDriver):
                 "default": True,
                 "setup": False,
             },
+            "video_source": {
+                "type": "enum",
+                "label": "Video Source",
+                "help": (
+                    "Which input the endpoint routes to video: None, the two "
+                    "HDMI inputs, or the received network Stream. Persisted on "
+                    "the device and reported back in DeviceSpecific."
+                ),
+                "values": ["None", "Input1", "Input2", "Stream"],
+                "state_key": "video_source",
+                "default": "Stream",
+                "setup": False,
+            },
+            "audio_source": {
+                "type": "enum",
+                "label": "Audio Source",
+                "help": (
+                    "Which source the endpoint routes to audio. Automatic "
+                    "follows the video source; the rest pin it to a specific "
+                    "input or embedded stream. Persisted and reported back."
+                ),
+                "values": [
+                    "Automatic", "Input1", "Input2", "Analog",
+                    "PrimaryAudio", "SecondaryAudio",
+                ],
+                "state_key": "audio_source",
+                "default": "Automatic",
+                "setup": False,
+            },
         },
         "commands": {
             "set_video_source": {
@@ -233,6 +262,19 @@ class CrestronNVXDriver(BaseDriver):
                 "params": {},
             },
         },
+        # Quick Action strip: the routing controls an operator reaches for,
+        # plus reboot behind a confirm.
+        "actions": [
+            {"id": "set_video_source", "kind": "command", "icon": "monitor"},
+            {"id": "set_audio_source", "kind": "command", "icon": "volume-2"},
+            {"id": "route_stream", "kind": "command", "icon": "route"},
+            {
+                "id": "reboot",
+                "kind": "command",
+                "icon": "power",
+                "confirm": "Reboot the NVX? It drops offline until it restarts.",
+            },
+        ],
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -285,7 +327,8 @@ class CrestronNVXDriver(BaseDriver):
                     await self.start_polling(poll_interval)
             else:
                 raise ConnectionError("Unexpected response from device")
-        except httpx.RequestError as e:
+        except (httpx.RequestError, ConnectionError) as e:
+            # ConnectionError covers a transport failure surfaced by _api_get.
             if self._client:
                 await self._client.aclose()
                 self._client = None
@@ -421,6 +464,20 @@ class CrestronNVXDriver(BaseDriver):
                 })
                 log.info(f"[{self.device_id}] Set LEDs {'enabled' if enabled else 'disabled'}")
 
+            case "video_source":
+                await self._api_post("/Device/DeviceSpecific", {
+                    "Device": {"DeviceSpecific": {"VideoSource": str(value)}}
+                })
+                self.set_state("video_source", str(value))
+                log.info(f"[{self.device_id}] Set video source to '{value}'")
+
+            case "audio_source":
+                await self._api_post("/Device/DeviceSpecific", {
+                    "Device": {"DeviceSpecific": {"AudioSource": str(value)}}
+                })
+                self.set_state("audio_source", str(value))
+                log.info(f"[{self.device_id}] Set audio source to '{value}'")
+
             case _:
                 raise ValueError(f"Unknown device setting: {key}")
 
@@ -430,7 +487,9 @@ class CrestronNVXDriver(BaseDriver):
             return
 
         try:
-            # Get device-specific info (mode, sources, firmware)
+            # Get device-specific info (mode, sources, firmware). A transport
+            # failure here raises ConnectionError (see _api_get) — let it
+            # propagate so the watchdog flips the device offline.
             resp = await self._api_get("/Device/DeviceSpecific")
             if resp:
                 self._parse_device_specific(resp)
@@ -451,8 +510,11 @@ class CrestronNVXDriver(BaseDriver):
                 self._parse_stream_receive(resp)
 
         except ConnectionError:
-            log.warning(f"[{self.device_id}] Poll failed — not connected")
+            # Transport is dead — propagate to the watchdog (do NOT swallow;
+            # that was the never-offline bug).
+            raise
         except Exception:
+            # Protocol/parse hiccup — the device is reachable, just misbehaving.
             log.exception(f"[{self.device_id}] Poll error")
 
     # --- Authentication ---
@@ -488,7 +550,13 @@ class CrestronNVXDriver(BaseDriver):
     # --- API Helpers ---
 
     async def _api_get(self, path: str) -> dict | None:
-        """Send a GET request and return parsed JSON."""
+        """Send a GET request and return parsed JSON.
+
+        A transport-level failure (host down, timeout) is re-raised as a
+        ConnectionError so poll() propagates it and the BaseDriver watchdog can
+        flip the device offline. An HTTP/protocol error returns None (the device
+        answered, just not usefully) — those don't penalize the watchdog.
+        """
         try:
             headers = {"Referer": self._base_url}
             log.debug(f"[{self.device_id}] GET {path}")
@@ -508,6 +576,13 @@ class CrestronNVXDriver(BaseDriver):
                 except Exception:
                     log.warning(f"[{self.device_id}] Re-auth failed")
             return None
+        except httpx.TransportError as e:
+            # Connect refused / timeout / host down — the link is dead. Propagate
+            # so the watchdog reacts instead of silently returning None (which
+            # left an unreachable NVX shown online forever).
+            raise ConnectionError(
+                f"NVX at {self._base_url} not responding: {e}"
+            ) from e
         except Exception as e:
             log.warning(f"[{self.device_id}] GET {path} error: {e}")
             return None

@@ -575,6 +575,11 @@
           "type": "number",
           "description": "Maximum for an integer/number param. Enforced by the runtime at command time; the IDE also flags violations while authoring."
         },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "For a number param: round the value to this many decimal places on the wire (0 = whole number). An integer param always coerces to a whole number, so decimals is not needed there. For fixed-width or hex output, use a format spec on the placeholder instead (e.g. {level:03d}, {addr:02X})."
+        },
         "pattern": {
           "type": "string",
           "format": "regex",

@@ -884,7 +884,8 @@ def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
         return errors
     if not isinstance(child_types, dict):
         return errors
-    for child_type in child_types:
+    valid_var_types = {"string", "integer", "number", "boolean", "enum", "float"}
+    for child_type, type_def in child_types.items():
         if not isinstance(child_type, str) or not child_type:
             errors.append(
                 f"{file}: child_entity_types type name {child_type!r} must be a "
@@ -902,6 +903,112 @@ def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
                 f"{file}: child_entity_types type name '{child_type}' must not "
                 f"contain glob metacharacters ({', '.join(bad)}) — they break "
                 f"state-change dispatch"
+            )
+        # Schema depth (mirrors driver_loader): a malformed id_format used to
+        # fail at connect() on the instance, and an invalid cloud_priority
+        # silently fell to the default relay tier.
+        where = f"{file}: child_entity_types.{child_type}"
+        if not isinstance(type_def, dict):
+            errors.append(f"{where} must be a mapping")
+            continue
+        id_format = type_def.get("id_format")
+        if id_format is not None and not isinstance(id_format, dict):
+            errors.append(f"{where}.id_format must be a mapping")
+        elif isinstance(id_format, dict):
+            id_type = id_format.get("type", "integer")
+            if id_type not in ("integer", "string"):
+                errors.append(
+                    f"{where}.id_format: unknown type '{id_type}' "
+                    f"(expected 'integer' or 'string')"
+                )
+            mn, mx = id_format.get("min"), id_format.get("max")
+            for label, val in (("min", mn), ("max", mx)):
+                if val is not None and (
+                    isinstance(val, bool) or not isinstance(val, int)
+                ):
+                    errors.append(
+                        f"{where}.id_format: {label} must be an integer (got {val!r})"
+                    )
+            if isinstance(mn, int) and isinstance(mx, int) and mn > mx:
+                errors.append(
+                    f"{where}.id_format: min ({mn}) is greater than max ({mx})"
+                )
+            pad = id_format.get("pad_width")
+            if pad is not None and (
+                isinstance(pad, bool) or not isinstance(pad, int) or pad < 1
+            ):
+                errors.append(
+                    f"{where}.id_format: pad_width must be a positive integer "
+                    f"(got {pad!r})"
+                )
+        child_vars = type_def.get("state_variables")
+        if child_vars is not None and not isinstance(child_vars, dict):
+            errors.append(f"{where}.state_variables must be a mapping")
+        elif isinstance(child_vars, dict):
+            for var_name, var_def in child_vars.items():
+                if not isinstance(var_def, dict):
+                    errors.append(
+                        f"{where}.state_variables.{var_name} must be a mapping"
+                    )
+                    continue
+                vt = var_def.get("type", "")
+                if vt and vt not in valid_var_types:
+                    errors.append(
+                        f"{where}.state_variables.{var_name}: unknown type '{vt}'"
+                    )
+                cp = var_def.get("cloud_priority")
+                if cp is not None and cp not in ("low", "high"):
+                    errors.append(
+                        f"{where}.state_variables.{var_name}: cloud_priority "
+                        f"must be 'low' or 'high' (got {cp!r})"
+                    )
+    return errors
+
+
+def _validate_device_settings(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate a YAML driver's optional `device_settings:` mapping.
+
+    Mirrors the runtime rules in driver_loader.validate_driver_definition:
+    every setting needs a `write:` block (ConfigurableDriver raises
+    NotImplementedError without one) and a `state_key` that names a declared
+    state variable — a typo'd state_key used to pass CI and just show
+    "(not set)" forever in the IDE while writes silently fired.
+    """
+    errors: list[str] = []
+    settings = data.get("device_settings")
+    if settings is None:
+        return errors
+    if not isinstance(settings, dict):
+        errors.append(f"{file}: device_settings must be a mapping")
+        return errors
+    declared = data.get("state_variables")
+    declared = declared if isinstance(declared, dict) else {}
+    valid_types = {"string", "integer", "number", "boolean", "enum", "float"}
+    for name, sdef in settings.items():
+        where = f"{file}: device_settings.{name}"
+        if not isinstance(sdef, dict):
+            errors.append(f"{where} must be a mapping")
+            continue
+        stype = sdef.get("type", "")
+        if stype and stype not in valid_types:
+            errors.append(f"{where}: unknown type '{stype}'")
+        state_key = sdef.get("state_key", name)
+        if state_key not in declared:
+            errors.append(
+                f"{where}: state_key '{state_key}' is not a declared state "
+                f"variable — the setting would never read back"
+            )
+        mn, mx = sdef.get("min"), sdef.get("max")
+        if (
+            isinstance(mn, (int, float)) and isinstance(mx, (int, float))
+            and not isinstance(mn, bool) and not isinstance(mx, bool)
+            and mn > mx
+        ):
+            errors.append(f"{where}: min ({mn}) is greater than max ({mx})")
+        if not isinstance(sdef.get("write"), dict):
+            errors.append(
+                f"{where}: missing 'write' block (send / path / address) — a "
+                f"device setting must be writable"
             )
     return errors
 
@@ -1755,6 +1862,7 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(_validate_frame_parser_block(rel, data))
         errors.extend(_validate_actions_block(rel, data))
         errors.extend(_validate_child_entity_types(rel, data))
+        errors.extend(_validate_device_settings(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

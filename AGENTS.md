@@ -880,6 +880,8 @@ Validation (enforced at load time — a violating driver won't load):
 
 The framework drops the transport's frame parser to raw mode for the duration of the handshake so partial prompts (e.g., `Login: ` without trailing newline) are visible. Each prompt is a regex matched against the buffered bytes, decoded as UTF-8 with replacement. The original parser is restored before `on_connect` runs.
 
+**Simulator behavior:** the auto-generated simulator mirrors the handshake — it presents the prompts, honors the declared `line_ending`, and skips authentication in the same cases the driver would (`skip_if_empty` with a blank username in the device config). It accepts any credentials **except the designated bad credential**: a username or password of `invalid` makes the simulator reject the login — emitting `failure_pattern` when declared, otherwise re-prompting for the username — so a driver's auth-failure path can be exercised without hardware.
+
 If the device's auth scheme is not prompt-and-response Telnet (e.g., `LOGIN <password>` command, JSON-RPC `login` method, OAuth, challenge-response), `type: telnet_login` does not fit — use a Python driver. New auth types may be added as the framework grows; declare the new `type:` value in your driver and check `server/drivers/configurable.py` for support.
 
 ### 2.9 on_connect

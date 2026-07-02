@@ -68,9 +68,9 @@ The auto-generated simulator will:
 3. Update its internal `volume` state to 60
 4. Respond with `Vol60` (matching the response format)
 
-**What auto-gen handles:** Commands with parameters, queries, boolean toggles (`mute_on`/`mute_off`), state tracking.
+**What auto-gen handles:** Commands with parameters, queries, boolean toggles (`mute_on`/`mute_off`), state tracking. If the driver declares an `auth: telnet_login` block, the simulator also mirrors the login handshake — it presents the prompts, honors the declared `line_ending`, and skips authentication when the driver would (`skip_if_empty` with a blank username). It accepts any credentials except the designated bad credential: a username or password of `invalid` makes it reject the login (emitting `failure_pattern` when declared, otherwise re-prompting for the username) so you can test the driver's auth-failure path.
 
-**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, authentication, custom push message formats, commands the simulator can't infer from naming conventions, and per-child-entity state (a `child_id` command parameter is matched but the auto-generator has no per-child state model to update — write a Python `_sim.py` and read `self.child_entities` to model each child if you need routing feedback reflected in state). For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
+**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, non-Telnet authentication schemes, custom push message formats, commands the simulator can't infer from naming conventions, and per-child-entity state (a `child_id` command parameter is matched but the auto-generator has no per-child state model to update — write a Python `_sim.py` and read `self.child_entities` to model each child if you need routing feedback reflected in state). For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
 
 ---
 

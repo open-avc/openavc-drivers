@@ -1469,8 +1469,8 @@ await self.transport.open()
 
 # Then make requests:
 resp = await self.transport.get("/api/status")
-resp = await self.transport.post("/api/power", json_body={"power": "on"})
-# resp.status, resp.text, resp.json_data
+resp = await self.transport.post("/api/power", body={"power": "on"})
+# resp.status_code, resp.ok, resp.text, resp.json_data
 ```
 
 ```python

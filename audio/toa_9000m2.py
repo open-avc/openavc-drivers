@@ -306,8 +306,8 @@ def _onoff_param(label: str) -> dict[str, Any]:
 
 
 def _gain_db_param() -> dict[str, Any]:
-    return {"type": "number", "required": True, "label": "Gain (dB)", "min": MUTE_DB, "max": 10.0,
-            "help": "Snapped to the nearest step. -80 dB or below = -inf (silent)."}
+    return {"type": "number", "required": True, "label": "Gain (dB)", "max": 10.0,
+            "help": "Snapped to the nearest step. -80 dB or below = -inf (silent), so no lower bound is enforced."}
 
 
 def _tone_db_param() -> dict[str, Any]:
@@ -485,7 +485,7 @@ class TOA9000M2Driver(BaseDriver):
         "name": "TOA 9000M2 Matrix Mixer",
         "manufacturer": "TOA",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls the TOA M-9000M2 Digital Matrix Mixer and protocol-"

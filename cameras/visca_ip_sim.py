@@ -12,7 +12,7 @@ Implements the Sony-spec wire format on UDP 52381:
   - Honors the stable PTZ command surface: power, pan/tilt drive (continuous +
     absolute + home + reset), zoom (variable + direct + stop), focus
     (variable + direct + stop + mode + one-push), presets (set/recall/
-    reset 0-99), AE mode, WB mode, backlight, WB one-push trigger.
+    reset 0-127), AE mode, WB mode, backlight, WB one-push trigger.
 
 The VISCA byte dispatch is a focused subset of the PTZOptics simulator's
 logic — same protocol family, smaller command surface (no flip / lr_reverse
@@ -298,10 +298,10 @@ class VISCAIPSimulator(UDPSimulator):
             self.set_state("backlight", rest[0] == 0x02)
             return _ack_completion()
 
-        # Presets: 3F 00|01|02 pp
+        # Presets: 3F 00|01|02 pp (0-0x7F; extended-VISCA models take the full byte)
         if op == 0x3F and len(rest) >= 2:
             sub, num = rest[0], rest[1]
-            if 0 <= num <= 99:
+            if 0 <= num <= 127:
                 if sub == 0x00:
                     self._presets.pop(num, None)
                 elif sub == 0x01:

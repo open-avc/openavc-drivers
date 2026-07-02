@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Generic Sony-specification VISCA-over-IP driver (UDP port "
@@ -395,7 +395,7 @@ class VISCAIPDriver(BaseDriver):
                 "type": "integer",
                 "label": "Zoom Position",
                 "min": 0,
-                "max": 16384,
+                "max": 31424,
             },
             "focus_position": {
                 "type": "integer",
@@ -516,7 +516,8 @@ class VISCAIPDriver(BaseDriver):
             "zoom_stop": {"label": "Zoom Stop", "params": {}},
             "zoom_direct": {
                 "label": "Zoom Direct",
-                "params": {"position": {"type": "integer", "required": True, "min": 0, "max": 16384}},
+                "params": {"position": {"type": "integer", "required": True, "min": 0, "max": 31424}},
+                "help": "Optical positions run 0-16384 (0x4000); digital / Clear Image Zoom extends to 31424 (0x7AC0) on models that support it.",
             },
 
             # Focus
@@ -543,19 +544,20 @@ class VISCAIPDriver(BaseDriver):
                 "help": "Trigger one-shot autofocus from manual mode.",
             },
 
-            # Presets (0-99)
+            # Presets (0-127; classic Sony units stop at 99, AVer and other
+            # extended-VISCA models accept the full 0-0x7F byte range)
             "preset_recall": {
                 "label": "Preset Recall",
-                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 99}},
+                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 127}},
             },
             "preset_set": {
                 "label": "Preset Save",
-                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 99}},
+                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 127}},
                 "help": "Store the current PTZ position into the given preset slot.",
             },
             "preset_reset": {
                 "label": "Preset Reset (Erase)",
-                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 99}},
+                "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 127}},
             },
 
             # Exposure
@@ -830,7 +832,7 @@ class VISCAIPDriver(BaseDriver):
             case "zoom_stop":
                 await self._send_visca(b"\x81\x01\x04\x07\x00\xff")
             case "zoom_direct":
-                pos = max(0, min(0x4000, int(params["position"])))
+                pos = max(0, min(0x7AC0, int(params["position"])))
                 await self._send_visca(
                     b"\x81\x01\x04\x47" + _encode_4nibble(pos) + b"\xff"
                 )
@@ -868,17 +870,17 @@ class VISCAIPDriver(BaseDriver):
                 await self._send_visca(b"\x81\x01\x04\x18\x01\xff")
 
             case "preset_recall":
-                num = max(0, min(99, int(params["number"])))
+                num = max(0, min(127, int(params["number"])))
                 await self._send_visca(
                     bytes([0x81, 0x01, 0x04, 0x3F, 0x02, num, 0xFF])
                 )
             case "preset_set":
-                num = max(0, min(99, int(params["number"])))
+                num = max(0, min(127, int(params["number"])))
                 await self._send_visca(
                     bytes([0x81, 0x01, 0x04, 0x3F, 0x01, num, 0xFF])
                 )
             case "preset_reset":
-                num = max(0, min(99, int(params["number"])))
+                num = max(0, min(127, int(params["number"])))
                 await self._send_visca(
                     bytes([0x81, 0x01, 0x04, 0x3F, 0x00, num, 0xFF])
                 )

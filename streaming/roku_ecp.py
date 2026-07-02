@@ -228,7 +228,7 @@ class RokuECPDriver(BaseDriver):
         "name": "Roku (ECP)",
         "manufacturer": "Roku",
         "category": "streaming",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls Roku streaming players and Roku TVs over the local "
@@ -487,7 +487,8 @@ class RokuECPDriver(BaseDriver):
                         "type": "string",
                         "required": True,
                         "label": "Text",
-                        "help": "The text to type.",
+                        "trim": False,
+                        "help": "The text to type. Sent verbatim - leading/trailing spaces are typed too.",
                     },
                 },
             },

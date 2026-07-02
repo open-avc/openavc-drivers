@@ -242,7 +242,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
         "description": (
             "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port "
@@ -395,7 +395,7 @@ class SonyVISCADriver(BaseDriver):
                 "type": "integer",
                 "label": "Zoom Position",
                 "min": 0,
-                "max": 16384,
+                "max": 31424,
             },
             "focus_position": {
                 "type": "integer",
@@ -834,7 +834,8 @@ class SonyVISCADriver(BaseDriver):
             "zoom_stop": {"label": "Zoom Stop", "params": {}},
             "zoom_direct": {
                 "label": "Zoom Direct",
-                "params": {"position": {"type": "integer", "required": True, "min": 0, "max": 16384}},
+                "params": {"position": {"type": "integer", "required": True, "min": 0, "max": 31424}},
+                "help": "Optical positions run 0-16384 (0x4000); Clear Image Zoom / digital extends to 31424 (0x7AC0) on models that support it.",
             },
 
             # ── Focus ──
@@ -1341,7 +1342,7 @@ class SonyVISCADriver(BaseDriver):
             case "zoom_stop":
                 await self._send_visca(b"\x81\x01\x04\x07\x00\xff")
             case "zoom_direct":
-                pos = max(0, min(0x4000, int(params["position"])))
+                pos = max(0, min(0x7AC0, int(params["position"])))
                 await self._send_visca(
                     b"\x81\x01\x04\x47" + _encode_4nibble(pos) + b"\xff"
                 )

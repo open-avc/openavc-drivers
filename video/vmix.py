@@ -85,7 +85,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "1.3.1",
+        "version": "1.3.2",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
@@ -432,7 +432,8 @@ class VMixDriver(BaseDriver):
                 "params": {
                     "input": {"type": "string", "required": True, "help": "Input number or name"},
                     "selectedName": {"type": "string", "required": True, "help": "Title field name"},
-                    "value": {"type": "string", "required": True, "help": "Text value"},
+                    "value": {"type": "string", "required": True, "trim": False,
+                              "help": "Text value (sent verbatim, edge spaces preserved)"},
                 },
                 "help": "Set a text field value in a title input.",
             },

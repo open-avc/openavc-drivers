@@ -216,7 +216,30 @@ async def _make_pair(driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyVISCADriver.DRIVER_INFO["version"] == "1.3.0"
+    assert DRV.SonyVISCADriver.DRIVER_INFO["version"] == "1.3.1"
+
+
+def test_zoom_direct_bound_widened():
+    # v1.3.1: zoom_direct covers Clear Image Zoom / digital positions to
+    # 0x7AC0 (Sony spec); the old 16384 cap blocked the digital range once
+    # bounds became runtime-enforced.
+    pos = DRV.SonyVISCADriver.DRIVER_INFO["commands"]["zoom_direct"]["params"]["position"]
+    assert pos["min"] == 0 and pos["max"] == 31424
+
+
+def test_zoom_direct_full_clear_image_range_round_trip():
+    # Regression: the send clamp used to cap at 0x4000, silently rewriting a
+    # Clear Image Zoom position of 31424 to 16384 before it hit the wire.
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            await driver.send_command("zoom_direct", {"position": 31424})
+            assert sim.get_state("zoom_position") == 31424
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
 
 
 def test_device_settings_declared():

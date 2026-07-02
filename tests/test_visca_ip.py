@@ -235,7 +235,20 @@ async def _make_pair(sim_state=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.VISCAIPDriver.DRIVER_INFO["version"] == "1.3.0"
+    assert DRV.VISCAIPDriver.DRIVER_INFO["version"] == "1.3.1"
+
+
+def test_zoom_and_preset_bounds_widened():
+    # v1.3.1: zoom_direct covers the digital / Clear Image range to 0x7AC0
+    # (Sony spec), and presets cover 0-0x7F (AVer models accept the full byte).
+    # These bounds feed the platform's runtime param gate — too-narrow values
+    # here block valid commands.
+    cmds = DRV.VISCAIPDriver.DRIVER_INFO["commands"]
+    pos = cmds["zoom_direct"]["params"]["position"]
+    assert pos["min"] == 0 and pos["max"] == 31424
+    for c in ("preset_recall", "preset_set", "preset_reset"):
+        num = cmds[c]["params"]["number"]
+        assert num["min"] == 0 and num["max"] == 127, c
 
 
 def test_device_settings_declared():
@@ -301,6 +314,40 @@ def test_set_backlight_round_trip():
             assert sim.get_state("backlight") is True
             await driver.poll()
             assert driver.get_state("backlight") is True
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_zoom_direct_full_digital_range_round_trip():
+    # Regression: the send clamp used to cap at 0x4000, silently rewriting a
+    # digital-zoom position of 31424 to 16384 before it hit the wire.
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            await driver.send_command("zoom_direct", {"position": 31424})
+            assert sim.get_state("zoom_position") == 31424
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_preset_slot_127_round_trip():
+    # Regression: preset slots used to clamp at 99, so slot 127 (valid on the
+    # AVer models in compatible_models) silently saved/recalled slot 99.
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            await driver.send_command("zoom_direct", {"position": 1000})
+            await driver.send_command("preset_set", {"number": 127})
+            await driver.send_command("zoom_direct", {"position": 0})
+            assert sim.get_state("zoom_position") == 0
+            await driver.send_command("preset_recall", {"number": 127})
+            assert sim.get_state("zoom_position") == 1000
         finally:
             await driver.disconnect()
 

@@ -462,12 +462,11 @@ _LEVEL_PARAM = {
 
 _DB_PARAM = {
     "type": "number",
-    "min": DB_MIN,
     "max": DB_MAX,
     "default": 0.0,
     "required": True,
     "label": "Level (dB)",
-    "help": "-54 dB to +10 dB. Below -54 dB is silence.",
+    "help": "-54 dB to +10 dB. Anything at or below -54 dB maps to silence (-inf), so no lower bound is enforced.",
 }
 
 
@@ -847,7 +846,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "

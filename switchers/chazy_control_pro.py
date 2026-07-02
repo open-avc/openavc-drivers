@@ -207,7 +207,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.8",
+        "version": "1.4.9",
         "author": "OpenAVC",
         "min_platform_version": "0.13.0",
         "description": (
@@ -2462,12 +2462,12 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                          "help": "Add every newly-found encoder/decoder to the system."},
         "add_dev_enc": {"label": "Add Encoder from Search", "params": {
             "dev": {"type": "integer", "required": True, "min": 1, "label": "Search Index"},
-            "encoder_id": {"type": "integer", "required": True, "min": 1, "max": ENC_MAX,
-                           "label": "Assign ID"}}},
+            "encoder_id": {"type": "integer", "required": True, "min": 0, "max": ENC_MAX,
+                           "label": "Assign ID", "help": "0 = auto-assign the next free ID."}}},
         "add_dev_dec": {"label": "Add Decoder from Search", "params": {
             "dev": {"type": "integer", "required": True, "min": 1, "label": "Search Index"},
-            "decoder_id": {"type": "integer", "required": True, "min": 1, "max": DEC_MAX,
-                           "label": "Assign ID"}}},
+            "decoder_id": {"type": "integer", "required": True, "min": 0, "max": DEC_MAX,
+                           "label": "Assign ID", "help": "0 = auto-assign the next free ID."}}},
         "add_dev_reset": {"label": "Reset All Devices", "params": {},
                           "help": "Wipe all encoders/decoders/video walls/search from the system."},
 

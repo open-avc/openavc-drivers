@@ -667,7 +667,7 @@ commands:
 - **`min` / `max`** (on `integer`/`number` params) — the value must fall in range. The runtime enforces it at command time; the IDE shows an inline error and blocks the dialog's send/save while it's out of range.
 - **`pattern`** — a regex the value must **fully match** (a shape check for an IP, hostname, or fixed-length ID). Same enforcement: runtime + inline IDE error. The pattern must compile and avoid catastrophic backtracking, or the driver fails to load.
 - **`decimals`** (on `number` params) — round the value to this many decimal places on the wire (`decimals: 0` sends a whole number). An `integer` param always coerces to a whole number, so a value of `26.0` from a slider goes out as `26`, never `26.0`. For fixed-width or hex output, use a format spec on the placeholder instead (`{level:03d}`, `{addr:02X}`).
-- **Whitespace is trimmed** off string values before they're sent, so a stray leading/trailing space never reaches the device.
+- **Whitespace is trimmed** off string values before they're sent, so a stray leading/trailing space never reaches the device. Set **`trim: false`** on a string param to opt out and pass the value through verbatim — for raw payloads where edge whitespace is meaningful (text typed character-by-character into an on-screen keyboard, title text rendered as-is, relay bodies whose trailing `\r\n` terminator is part of the protocol). Requires platform 0.22.0.
 
 ```yaml
 params:
@@ -1258,6 +1258,18 @@ class MyDriver(BaseDriver):
 > If `commands` is built dynamically (e.g. assigned to `DRIVER_INFO["commands"]`
 > after the class body), `quick_actions`/`actions` still resolve at runtime —
 > they're matched against commands when the device view loads, not at import.
+
+> **Command-param `min`/`max`/`pattern` are runtime-enforced for Python drivers
+> too, from platform 0.22.0.** The dispatch path validates every declared bound
+> before your `send_command` runs — exactly like YAML drivers — so an
+> out-of-range or pattern-failing value is rejected with a clear error instead
+> of reaching the device. Declare only bounds the protocol actually documents:
+> a bound narrower than the device's true range now **blocks valid commands**
+> (leave design-dependent or model-dependent limits off entirely). String
+> params are whitespace-trimmed by the same gate; set `trim: false` on a param
+> to pass raw values through verbatim (see the YAML note in 2.6). On older
+> platforms Python bounds remain authoring aids only, so declaring them does
+> not require a `min_platform_version` bump.
 
 ### 3.2 Constructor
 

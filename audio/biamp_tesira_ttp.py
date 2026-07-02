@@ -353,7 +353,6 @@ def expand_state_variables(blocks: list[dict[str, Any]]) -> dict[str, dict[str, 
                 "type": "integer",
                 "label": f"{blk['tag']} Selected Source",
                 "min": 0,
-                "max": 64,
             }
             out[_state_var(blk, "output_level")] = {
                 "type": "number",
@@ -426,7 +425,6 @@ def expand_state_variables(blocks: list[dict[str, Any]]) -> dict[str, dict[str, 
                     "type": "integer",
                     "label": f"{blk['tag']} Output {o} Source",
                     "min": 0,
-                    "max": 256,
                 }
         elif bt == "logic":
             for ch in chans:
@@ -460,7 +458,6 @@ def expand_state_variables(blocks: list[dict[str, Any]]) -> dict[str, dict[str, 
                     "type": "integer",
                     "label": f"{blk['tag']} Wall {w} Group",
                     "min": 0,
-                    "max": 32,
                 }
                 out[_state_var(blk, f"combine_{w}")] = {
                     "type": "boolean",
@@ -829,8 +826,8 @@ def expand_commands(blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
                 "label": f"{tag}: Select Source",
                 "params": {
                     "source": {"type": "integer", "required": True, "label": "Source Index",
-                               "min": 0, "max": 64,
-                               "help": "0 = no source selected; 1..N = pick source N."},
+                               "min": 0,
+                               "help": "0 = no source selected; 1..N = pick source N (N is design-dependent)."},
                 },
             }
             cmds[f"{safe}_set_output_level"] = {
@@ -897,8 +894,8 @@ def expand_commands(blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
                     "output_n": {"type": "integer", "required": True, "label": "Output",
                                  "min": 1, "max": (max(chans) if chans else 8)},
                     "source": {"type": "integer", "required": True, "label": "Source",
-                               "min": 0, "max": 256,
-                               "help": "0 = disconnect; otherwise pick source N."},
+                               "min": 0,
+                               "help": "0 = disconnect; otherwise pick source N (N is design-dependent)."},
                 },
             }
         elif bt == "automixer":
@@ -929,8 +926,8 @@ def expand_commands(blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
                     "wall": {"type": "integer", "required": True, "label": "Wall",
                              "min": 1, "max": wall_max},
                     "group": {"type": "integer", "required": True, "label": "Group",
-                              "min": 0, "max": 32,
-                              "help": "0 = isolated; matching group numbers combine."},
+                              "min": 0,
+                              "help": "0 = isolated; matching group numbers combine (group count is design-dependent)."},
                 },
             }
             cmds[f"{safe}_set_combine"] = {
@@ -1092,7 +1089,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "2.1.2",
+        "version": "2.1.3",
         "min_platform_version": "0.11.0",
         "author": "OpenAVC",
         "description": (

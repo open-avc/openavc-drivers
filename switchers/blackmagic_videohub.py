@@ -9,7 +9,7 @@ Models covered (any unit running Videohub Server v4.9.x or later):
     Blackmagic Videohub 80x80 12G        80x80
     Smart Videohub CleanSwitch 12x12     12x12
     Smart Videohub                       16x16, 20x20
-    Universal Videohub                   modular up to 72x144
+    Universal Videohub                   modular up to 72x144 / 288
     Videohub Master Control Pro          control surface
     Videohub Smart Control Pro           control surface
 
@@ -22,10 +22,28 @@ Protocol: text, lines terminated by LF. Server pushes blocks of the form:
 
 Clients send the same shape to request changes. Server replies ACK / NAK
 to each client request. Source: Videohub Ethernet Protocol v2.3, Nov 2023.
+
+Design:
+  * **Child entities** — inputs, outputs, and monitoring outputs are modeled
+    as addressable child entities, sized from the VIDEOHUB DEVICE block the
+    unit reports on connect. This replaces the earlier flat, hard-capped
+    ``in_16_label`` / ``out_16_input`` / ``mon_4_input`` state keys, which
+    silently truncated on frames wider than 16×16 (a 40×40 or 80×80 unit
+    routed correctly but its ports past 16 landed as undeclared state keys
+    the UI couldn't render). Each port's device-reported label lives in the
+    child's ``name`` prop; routed source and lock state live on the output/
+    monitor children.
+  * **Push + liveness** — the Videohub server pushes every state change
+    unsolicited, so the driver does not poll by default (``poll_interval`` 0).
+    Because a silent link drop (cable pull, frozen unit) produces no TCP FIN,
+    a PING/ACK watchdog force-reconnects after a few missed replies so the
+    device flips offline instead of appearing online forever.
 """
 
 from __future__ import annotations
 
+import asyncio
+import re
 from typing import Any
 
 from server.drivers.base import BaseDriver
@@ -34,39 +52,44 @@ from server.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-# Number of ports we predeclare state variables for. Devices wider than this
-# still route correctly; their additional ports surface as undeclared keys.
-MAX_DECLARED_PORTS = 16
-MAX_DECLARED_MONITOR_PORTS = 4
+# Largest current Videohub is the Universal Videohub 288 (288×288); monitoring
+# output counts are far smaller but share the bound for simplicity. Children
+# are registered to the count the unit actually reports, not this ceiling.
+PORT_MAX = 288
 
 LOCK_MAP = {"U": "unlocked", "O": "owned", "L": "locked"}
 
+# Liveness watchdog (push protocol: no polling, so a silent drop is otherwise
+# invisible). Mirrors the racklink/wattbox PING-style keepalive cadence.
+KEEPALIVE_INTERVAL_S = 30.0
+KEEPALIVE_TIMEOUT_S = 5.0
+KEEPALIVE_MAX_FAILURES = 2
 
-def _build_state_vars() -> dict[str, dict[str, Any]]:
-    """Generate the state_variables dict for declared port range."""
-    out: dict[str, dict[str, Any]] = {
-        "model": {"type": "string", "label": "Model"},
-        "device_present": {"type": "boolean", "label": "Device Present"},
-        "video_inputs": {"type": "integer", "label": "Video Inputs"},
-        "video_outputs": {"type": "integer", "label": "Video Outputs"},
-        "monitoring_outputs": {"type": "integer", "label": "Monitoring Outputs"},
-        "protocol_version": {"type": "string", "label": "Protocol Version"},
+
+def _input_state_vars() -> dict[str, dict[str, Any]]:
+    return {
+        "name": {"type": "string", "label": "Label", "cloud_priority": "low"},
     }
-    for n in range(1, MAX_DECLARED_PORTS + 1):
-        out[f"in_{n}_label"] = {"type": "string", "label": f"Input {n} Label"}
-        out[f"out_{n}_label"] = {"type": "string", "label": f"Output {n} Label"}
-        out[f"out_{n}_input"] = {"type": "integer", "label": f"Output {n} Source"}
-        out[f"out_{n}_lock"] = {
+
+
+def _output_state_vars() -> dict[str, dict[str, Any]]:
+    return {
+        "input": {"type": "integer", "label": "Source", "cloud_priority": "high"},
+        "lock": {
             "type": "enum",
             "values": ["unlocked", "owned", "locked"],
-            "label": f"Output {n} Lock",
-        }
-    for n in range(1, MAX_DECLARED_MONITOR_PORTS + 1):
-        out[f"mon_{n}_input"] = {
-            "type": "integer",
-            "label": f"Monitor Output {n} Source",
-        }
-    return out
+            "label": "Lock",
+            "cloud_priority": "high",
+        },
+        "name": {"type": "string", "label": "Label", "cloud_priority": "low"},
+    }
+
+
+def _monitor_state_vars() -> dict[str, dict[str, Any]]:
+    return {
+        "input": {"type": "integer", "label": "Source", "cloud_priority": "high"},
+        "name": {"type": "string", "label": "Label", "cloud_priority": "low"},
+    }
 
 
 class BlackmagicVideohubDriver(BaseDriver):
@@ -77,13 +100,16 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.2.2",
+        "version": "1.3.0",
         "author": "OpenAVC",
+        # Child entities + child-prop cloud_priority tiers landed in 0.13.0.
+        "min_platform_version": "0.13.0",
         "description": (
             "Controls Blackmagic Design Videohub routers over the Videohub "
-            "Ethernet Protocol (TCP 9990). Supports video output routing, "
-            "monitoring output routing, input/output label editing, and "
-            "output locking across the entire Videohub product line."
+            "Ethernet Protocol (TCP 9990). Video and monitoring outputs, "
+            "inputs, routing, output locks, and labels are modeled as child "
+            "entities sized to the connected frame — from a 12×12 Smart "
+            "Videohub to a 288×288 Universal Videohub."
         ),
         "source_url": "https://documents.blackmagicdesign.com/DeveloperManuals/VideohubEthernetProtocol.pdf",
         "tags": ["matrix-switcher", "sdi", "12g", "videohub", "broadcast"],
@@ -93,17 +119,24 @@ class BlackmagicVideohubDriver(BaseDriver):
         "ports": [9990],
         "transport": "tcp",
         "discovery": {
-            # Videohub routers advertise on `_blackmagic._tcp.local.`
-            # via mDNS, but the mDNS scanner can miss the service on
-            # busy networks or against firewalled VLANs. Hint fallback:
-            # control port + manufacturer alias narrow the device when
-            # discovery captures `manufacturer: Blackmagic Design`
-            # from any source.
+            # Videohub routers advertise on `_blackmagic._tcp.local.` via
+            # mDNS. The active tcp_probe is the reliable identifier: the
+            # server sends its PROTOCOL PREAMBLE + VIDEOHUB DEVICE block the
+            # moment a client connects (no request needed), so a connect-only
+            # probe reads the banner and pulls the model name straight out.
             "mdns": "_blackmagic._tcp.local.",
             "port_open": [9990],
             "manufacturer_alias": [
                 "blackmagic", "blackmagic design", "bmd",
             ],
+            "tcp_probe": {
+                "port": 9990,
+                "expect_regex": r"PROTOCOL PREAMBLE|VIDEOHUB DEVICE",
+                "extract_manufacturer": "Blackmagic Design",
+                "extract": {
+                    "model": {"regex": r"Model name:\s*(.+)"},
+                },
+            },
         },
         "compatible_models": [
             {
@@ -137,9 +170,10 @@ class BlackmagicVideohubDriver(BaseDriver):
                 "confidence": "untested",
                 "notes": (
                     "All current Videohub products share the v2.3 Ethernet "
-                    "Protocol. Pre-declared state variables cover the first "
-                    "16 video ports + 4 monitoring outputs; routing on wider "
-                    "frames still works, additional ports surface as raw keys."
+                    "Protocol. Inputs, outputs, and monitoring outputs are "
+                    "registered as child entities sized to the frame the unit "
+                    "reports, so wide routers (40×40, 80×80, Universal 288) "
+                    "expose every port."
                 ),
             },
         ],
@@ -148,9 +182,9 @@ class BlackmagicVideohubDriver(BaseDriver):
                 "Blackmagic Videohub is a family of SDI matrix routers used "
                 "in broadcast, post-production, and live event facilities. "
                 "This driver speaks the Videohub Ethernet Protocol, used by "
-                "every Videohub server-class device since 2010. It exposes "
-                "video routing, monitoring routing, lock state, and label "
-                "editing as macro-callable commands."
+                "every Videohub server-class device since 2010. Inputs, "
+                "outputs, and monitoring outputs appear as child entities "
+                "with their labels, routed source, and lock state."
             ),
             "setup": (
                 "1. Connect the Videohub to your network via Ethernet.\n"
@@ -160,9 +194,9 @@ class BlackmagicVideohubDriver(BaseDriver):
                 "enabled — no auth, no enable step.\n"
                 "4. Enter the IP address in the device config; leave port "
                 "at 9990.\n"
-                "5. Outputs and inputs are 1-indexed in commands.\n"
-                "6. Routing 'output X to input Y' sends VIDEO OUTPUT "
-                "ROUTING with the protocol's 0-indexed values."
+                "5. Outputs and inputs are 1-indexed. Pick them from the "
+                "input/output dropdowns once the unit connects and its "
+                "children are discovered."
             ),
         },
         "default_config": {
@@ -190,27 +224,73 @@ class BlackmagicVideohubDriver(BaseDriver):
                 "description": (
                     "Set to 0 to disable polling. The Videohub server pushes "
                     "every state change unsolicited, so polling is rarely "
-                    "needed; raise above 0 only if you want a periodic sanity "
-                    "check via PING."
+                    "needed; a PING watchdog handles liveness. Raise above 0 "
+                    "only if you want a periodic full-state resync."
                 ),
             },
         },
-        "state_variables": _build_state_vars(),
+        "state_variables": {
+            "model": {"type": "string", "label": "Model"},
+            "device_present": {"type": "boolean", "label": "Device Present"},
+            "video_inputs": {"type": "integer", "label": "Video Inputs"},
+            "video_outputs": {"type": "integer", "label": "Video Outputs"},
+            "monitoring_outputs": {"type": "integer", "label": "Monitoring Outputs"},
+            "protocol_version": {"type": "string", "label": "Protocol Version"},
+        },
+        "child_entity_types": {
+            "input": {
+                "label": "Input",
+                "label_plural": "Inputs",
+                "id_format": {"type": "integer", "min": 1, "max": PORT_MAX, "pad_width": 3},
+                "state_variables": _input_state_vars(),
+                "summary_fields": ["name"],
+                "label_field": "name",
+            },
+            "output": {
+                "label": "Output",
+                "label_plural": "Outputs",
+                "id_format": {"type": "integer", "min": 1, "max": PORT_MAX, "pad_width": 3},
+                "state_variables": _output_state_vars(),
+                "summary_fields": ["name", "input", "lock"],
+                "label_field": "name",
+            },
+            "monitor": {
+                "label": "Monitor Output",
+                "label_plural": "Monitor Outputs",
+                "id_format": {"type": "integer", "min": 1, "max": PORT_MAX, "pad_width": 3},
+                "state_variables": _monitor_state_vars(),
+                "summary_fields": ["name", "input"],
+                "label_field": "name",
+            },
+        },
+        "quick_actions": ["refresh"],
+        "actions": [
+            {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
+            {
+                "id": "test_connection",
+                "kind": "setup",
+                "label": "Test Connection",
+                "icon": "search",
+                "availability": "always",
+            },
+        ],
         "commands": {
             "route": {
                 "label": "Route Output",
                 "params": {
                     "output": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "output",
                         "required": True,
-                        "min": 1,
-                        "help": "Destination output (1-indexed).",
+                        "label": "Output",
+                        "help": "Destination video output.",
                     },
                     "input": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "input",
                         "required": True,
-                        "min": 1,
-                        "help": "Source input (1-indexed).",
+                        "label": "Input",
+                        "help": "Source video input.",
                     },
                 },
                 "help": "Route a video input to a video output.",
@@ -219,16 +299,18 @@ class BlackmagicVideohubDriver(BaseDriver):
                 "label": "Route Monitor Output",
                 "params": {
                     "output": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "monitor",
                         "required": True,
-                        "min": 1,
-                        "help": "Monitor output (1-indexed).",
+                        "label": "Monitor Output",
+                        "help": "Monitoring output.",
                     },
                     "input": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "input",
                         "required": True,
-                        "min": 1,
-                        "help": "Source input (1-indexed).",
+                        "label": "Input",
+                        "help": "Source video input.",
                     },
                 },
                 "help": (
@@ -240,7 +322,12 @@ class BlackmagicVideohubDriver(BaseDriver):
             "set_input_label": {
                 "label": "Rename Input",
                 "params": {
-                    "input": {"type": "integer", "required": True, "min": 1},
+                    "input": {
+                        "type": "child_id",
+                        "child_type": "input",
+                        "required": True,
+                        "label": "Input",
+                    },
                     "label": {"type": "string", "required": True},
                 },
                 "help": "Set the friendly label shown on the front panel for an input.",
@@ -248,7 +335,12 @@ class BlackmagicVideohubDriver(BaseDriver):
             "set_output_label": {
                 "label": "Rename Output",
                 "params": {
-                    "output": {"type": "integer", "required": True, "min": 1},
+                    "output": {
+                        "type": "child_id",
+                        "child_type": "output",
+                        "required": True,
+                        "label": "Output",
+                    },
                     "label": {"type": "string", "required": True},
                 },
                 "help": "Set the friendly label shown on the front panel for an output.",
@@ -256,7 +348,12 @@ class BlackmagicVideohubDriver(BaseDriver):
             "lock_output": {
                 "label": "Lock Output",
                 "params": {
-                    "output": {"type": "integer", "required": True, "min": 1},
+                    "output": {
+                        "type": "child_id",
+                        "child_type": "output",
+                        "required": True,
+                        "label": "Output",
+                    },
                 },
                 "help": (
                     "Acquire a lock on an output so other clients cannot "
@@ -266,14 +363,24 @@ class BlackmagicVideohubDriver(BaseDriver):
             "unlock_output": {
                 "label": "Unlock Output",
                 "params": {
-                    "output": {"type": "integer", "required": True, "min": 1},
+                    "output": {
+                        "type": "child_id",
+                        "child_type": "output",
+                        "required": True,
+                        "label": "Output",
+                    },
                 },
                 "help": "Release a lock previously acquired by this client.",
             },
             "force_unlock_output": {
                 "label": "Force Unlock Output",
                 "params": {
-                    "output": {"type": "integer", "required": True, "min": 1},
+                    "output": {
+                        "type": "child_id",
+                        "child_type": "output",
+                        "required": True,
+                        "label": "Output",
+                    },
                 },
                 "help": (
                     "Override a lock held by another client. Use sparingly — "
@@ -300,6 +407,9 @@ class BlackmagicVideohubDriver(BaseDriver):
         self._line_buffer = b""
         self._current_block: str | None = None
         self._block_lines: list[str] = []
+        self._health_task: asyncio.Task | None = None
+        self._health_failures = 0
+        self._ping_waiter: asyncio.Future | None = None
         super().__init__(device_id, config, state, events)
 
     async def connect(self) -> None:
@@ -325,11 +435,19 @@ class BlackmagicVideohubDriver(BaseDriver):
             f"[{self.device_id}] Connected to Videohub at {host}:{port}"
         )
 
+        # The server dumps full state on connect; a nudge poll covers the rare
+        # case it does not, and (re)primes the child roster after a reconnect.
+        await self.poll()
+
+        self._health_failures = 0
+        self._start_health_loop()
+
         poll_interval = self.config.get("poll_interval", 0)
         if poll_interval > 0:
             await self.start_polling(poll_interval)
 
     async def disconnect(self) -> None:
+        self._stop_health_loop()
         await self.stop_polling()
         if self.transport:
             await self.transport.close()
@@ -358,10 +476,25 @@ class BlackmagicVideohubDriver(BaseDriver):
         """Send a header + blank line to request a status dump."""
         await self._send_block(header, [])
 
+    def _coerce_child_ids(self, command: str, params: dict[str, Any]) -> None:
+        """Coerce any child_id-typed param to a bare int for the wire format
+        (the IDE hands us a zero-padded string from the child picker)."""
+        cmd_def = self.DRIVER_INFO["commands"].get(command, {})
+        for pname, pdef in cmd_def.get("params", {}).items():
+            if pdef.get("type") == "child_id" and pname in params and params[pname] != "":
+                try:
+                    params[pname] = int(params[pname])
+                except (TypeError, ValueError) as e:
+                    raise ValueError(
+                        f"{command}: parameter {pname!r} must be an integer "
+                        f"id, got {params[pname]!r}"
+                    ) from e
+
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None
     ) -> Any:
         params = params or {}
+        self._coerce_child_ids(command, params)
 
         if command == "route":
             output = int(params["output"])
@@ -407,6 +540,7 @@ class BlackmagicVideohubDriver(BaseDriver):
                 "VIDEOHUB DEVICE:",
                 "INPUT LABELS:",
                 "OUTPUT LABELS:",
+                "MONITORING OUTPUT LABELS:",
                 "VIDEO OUTPUT ROUTING:",
                 "VIDEO OUTPUT LOCKS:",
                 "VIDEO MONITORING OUTPUT ROUTING:",
@@ -415,14 +549,88 @@ class BlackmagicVideohubDriver(BaseDriver):
         except ConnectionError:
             log.warning(f"[{self.device_id}] Poll failed — not connected")
 
+    # ── Child refresh (IDE "Refresh from Device") ──
+
+    async def refresh_children(self) -> dict[str, Any]:
+        """Re-request the full state dump and let it reconcile the roster.
+
+        The Videohub answers a status query within a few hundred ms; give the
+        async dump a beat to arrive, then report the discovered counts.
+        """
+        await self.poll()
+        await asyncio.sleep(0.75)
+        return {
+            "inputs": len(self.list_children("input")),
+            "outputs": len(self.list_children("output")),
+            "monitors": len(self.list_children("monitor")),
+        }
+
+    # ── Liveness watchdog (PING/ACK) ──
+
+    def _start_health_loop(self) -> None:
+        self._stop_health_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._health_task = loop.create_task(self._health_loop())
+
+    def _stop_health_loop(self) -> None:
+        if self._health_task and not self._health_task.done():
+            self._health_task.cancel()
+        self._health_task = None
+
+    async def _health_loop(self) -> None:
+        try:
+            while self.transport and self.transport.connected:
+                await asyncio.sleep(KEEPALIVE_INTERVAL_S)
+                if not (self.transport and self.transport.connected):
+                    return
+                try:
+                    await self._probe_once()
+                    self._health_failures = 0
+                except (asyncio.TimeoutError, ConnectionError, OSError) as exc:
+                    self._health_failures += 1
+                    log.warning(
+                        f"[{self.device_id}] Liveness probe failed "
+                        f"({self._health_failures}/{KEEPALIVE_MAX_FAILURES}): {exc}"
+                    )
+                    if self._health_failures >= KEEPALIVE_MAX_FAILURES:
+                        log.warning(
+                            f"[{self.device_id}] Videohub unresponsive — "
+                            f"forcing reconnect"
+                        )
+                        self._force_disconnect()
+                        return
+        except asyncio.CancelledError:
+            return
+
+    async def _probe_once(self) -> None:
+        """Send a PING block and await the server's ACK as a liveness probe.
+
+        PING has no correlation id; any ACK (even one prompted by another
+        request) proves the link is alive, which is all we need here.
+        """
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future = loop.create_future()
+        self._ping_waiter = fut
+        try:
+            await self._send_block("PING:", [])
+            await asyncio.wait_for(fut, timeout=KEEPALIVE_TIMEOUT_S)
+        finally:
+            self._ping_waiter = None
+
+    def _force_disconnect(self) -> None:
+        # Null our own task ref first so the disconnect handler doesn't cancel
+        # the still-running loop out from under us.
+        self._health_task = None
+        self._handle_transport_disconnect()
+
     # ── Parsing ──
 
     async def on_data_received(self, data: bytes) -> None:
         """Accumulate, split into lines (preserving blank lines), dispatch."""
         self._line_buffer += data
-        # Use splitlines(keepends=False) but only on completed lines.
-        # We need to keep the trailing partial line in the buffer.
-        # Walk byte-by-byte: each \n closes a line.
         while b"\n" in self._line_buffer:
             line_bytes, self._line_buffer = self._line_buffer.split(b"\n", 1)
             # Strip trailing \r (Videohub may send \r\n on some platforms).
@@ -436,7 +644,9 @@ class BlackmagicVideohubDriver(BaseDriver):
         # ACK / NAK arrive as standalone lines outside a block.
         if line in ("ACK", "NAK"):
             if self._current_block is None:
-                if line == "NAK":
+                if line == "ACK":
+                    self._resolve_ping()
+                else:
                     log.warning(f"[{self.device_id}] Server returned NAK")
                 return
             # ACK/NAK that arrives mid-block is a protocol oddity; flush.
@@ -461,6 +671,11 @@ class BlackmagicVideohubDriver(BaseDriver):
         if self._current_block is not None:
             self._block_lines.append(line)
 
+    def _resolve_ping(self) -> None:
+        waiter = self._ping_waiter
+        if waiter is not None and not waiter.done():
+            waiter.set_result(True)
+
     def _finalize_block(self) -> None:
         if self._current_block is None:
             return
@@ -475,64 +690,154 @@ class BlackmagicVideohubDriver(BaseDriver):
                     self.set_state("protocol_version", ln.split(":", 1)[1].strip())
 
         elif block == "VIDEOHUB DEVICE":
-            for ln in lines:
-                if ":" not in ln:
-                    continue
-                k, v = ln.split(":", 1)
-                k, v = k.strip(), v.strip()
-                if k == "Device present":
-                    self.set_state("device_present", v == "true")
-                elif k == "Model name":
-                    self.set_state("model", v)
-                elif k == "Video inputs":
-                    self.set_state("video_inputs", _safe_int(v))
-                elif k == "Video outputs":
-                    self.set_state("video_outputs", _safe_int(v))
-                elif k == "Video monitoring outputs":
-                    self.set_state("monitoring_outputs", _safe_int(v))
+            self._apply_device_block(lines)
 
         elif block == "INPUT LABELS":
-            self._apply_label_block(lines, "in")
+            self._apply_child_block(lines, "input", "name", _as_label)
 
         elif block == "OUTPUT LABELS":
-            self._apply_label_block(lines, "out")
+            self._apply_child_block(lines, "output", "name", _as_label)
+
+        elif block == "MONITORING OUTPUT LABELS":
+            self._apply_child_block(lines, "monitor", "name", _as_label)
 
         elif block == "VIDEO OUTPUT ROUTING":
-            self._apply_routing_block(lines, "out")
+            self._apply_child_block(lines, "output", "input", _as_one_indexed)
 
         elif block == "VIDEO MONITORING OUTPUT ROUTING":
-            self._apply_routing_block(lines, "mon")
+            self._apply_child_block(lines, "monitor", "input", _as_one_indexed)
 
         elif block == "VIDEO OUTPUT LOCKS":
-            self._apply_lock_block(lines, "out")
+            self._apply_child_block(lines, "output", "lock", _as_lock)
 
-        # Other blocks (SERIAL PORT *, MONITORING OUTPUT LABELS, etc.) are
-        # ignored — their state is not exposed in this driver's surface.
+        # Other blocks (SERIAL PORT *, FRAME LABELS, etc.) are ignored —
+        # their state is not exposed in this driver's surface.
 
-    def _apply_label_block(self, lines: list[str], prefix: str) -> None:
+    def _apply_device_block(self, lines: list[str]) -> None:
+        counts: dict[str, int] = {}
         for ln in lines:
-            n, label = _split_index_value(ln)
+            if ":" not in ln:
+                continue
+            k, v = ln.split(":", 1)
+            k, v = k.strip(), v.strip()
+            if k == "Device present":
+                self.set_state("device_present", v == "true")
+            elif k == "Model name":
+                self.set_state("model", v)
+            elif k == "Video inputs":
+                counts["input"] = _safe_int(v) or 0
+                self.set_state("video_inputs", counts["input"])
+            elif k == "Video outputs":
+                counts["output"] = _safe_int(v) or 0
+                self.set_state("video_outputs", counts["output"])
+            elif k == "Video monitoring outputs":
+                counts["monitor"] = _safe_int(v) or 0
+                self.set_state("monitoring_outputs", counts["monitor"])
+        for ctype, count in counts.items():
+            self._reconcile_ports(ctype, count)
+
+    def _reconcile_ports(self, child_type: str, count: int) -> None:
+        """Register children 1..count for a port type, deregistering any the
+        unit no longer reports (a frame swap or module change)."""
+        want = set(range(1, count + 1))
+        current = set(self.list_children(child_type))
+        for cid in sorted(want - current):
+            self.register_child(child_type, cid)
+        for cid in current - want:
+            self.deregister_child(child_type, cid)
+
+    def _apply_child_block(
+        self, lines: list[str], child_type: str, prop: str, transform
+    ) -> None:
+        """Apply an 'index value' block to one child prop across many children
+        in a single atomic transaction. Registers a child on demand if a block
+        arrives before the VIDEOHUB DEVICE reconcile (defensive — the device
+        sends DEVICE first in its dump)."""
+        updates: list[tuple[str, int, dict[str, Any]]] = []
+        for ln in lines:
+            n, raw = _split_index_value(ln)
             if n is None:
                 continue
-            self.set_state(f"{prefix}_{n + 1}_label", label)
+            value = transform(raw)
+            if value is None:
+                continue
+            cid = n + 1
+            if cid > PORT_MAX:
+                continue
+            if not self.is_child_registered(child_type, cid):
+                self.register_child(child_type, cid)
+            updates.append((child_type, cid, {prop: value}))
+        if updates:
+            self.set_children_state_batch(updates)
 
-    def _apply_routing_block(self, lines: list[str], prefix: str) -> None:
-        for ln in lines:
-            n, val = _split_index_value(ln)
-            if n is None:
-                continue
-            src = _safe_int(val)
-            if src is None:
-                continue
-            self.set_state(f"{prefix}_{n + 1}_input", src + 1)
+    # ── Setup action ──
 
-    def _apply_lock_block(self, lines: list[str], prefix: str) -> None:
-        for ln in lines:
-            n, val = _split_index_value(ln)
-            if n is None:
-                continue
-            state_value = LOCK_MAP.get(val.strip(), "unlocked")
-            self.set_state(f"{prefix}_{n + 1}_lock", state_value)
+    async def run_setup_action(
+        self, action_id: str, params: dict[str, Any], progress: Any
+    ) -> dict[str, Any]:
+        if action_id != "test_connection":
+            raise ValueError(f"Unknown setup action: {action_id}")
+
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 9990))
+        if not host:
+            raise ValueError("No IP address configured")
+
+        await progress(f"Connecting to {host}:{port}…", 20)
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), timeout=5.0
+            )
+        except (OSError, asyncio.TimeoutError) as exc:
+            raise ConnectionError(
+                f"Could not reach a Videohub on {host}:{port} ({exc}). Check "
+                f"the IP address and that the unit is powered on."
+            ) from exc
+
+        await progress("Reading device banner…", 60)
+        banner = b""
+        try:
+            deadline = asyncio.get_event_loop().time() + 4.0
+            # The server pushes PROTOCOL PREAMBLE + VIDEOHUB DEVICE on connect;
+            # read until we have the device block or time out.
+            while asyncio.get_event_loop().time() < deadline:
+                try:
+                    chunk = await asyncio.wait_for(reader.read(4096), timeout=2.0)
+                except asyncio.TimeoutError:
+                    break
+                if not chunk:
+                    break
+                banner += chunk
+                if b"Video outputs:" in banner:
+                    break
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (OSError, asyncio.TimeoutError):
+                pass
+
+        text = banner.decode("utf-8", errors="replace")
+        if "VIDEOHUB DEVICE" not in text and "PROTOCOL PREAMBLE" not in text:
+            raise ConnectionError(
+                f"{host}:{port} answered but did not send a Videohub banner — "
+                f"is this a Videohub on port 9990?"
+            )
+
+        model = _grep(text, r"Model name:\s*(.+)") or "Videohub"
+        n_in = _grep(text, r"Video inputs:\s*(\d+)")
+        n_out = _grep(text, r"Video outputs:\s*(\d+)")
+        n_mon = _grep(text, r"Video monitoring outputs:\s*(\d+)")
+        size = ""
+        if n_in and n_out:
+            size = f" — {n_in}×{n_out}"
+            if n_mon and n_mon != "0":
+                size += f", {n_mon} monitoring"
+        await progress("Connected.", 100)
+        return {
+            "success": True,
+            "message": f"Reached {model}{size} on {host}:{port}.",
+        }
 
 
 def _safe_int(v: str) -> int | None:
@@ -552,3 +857,21 @@ def _split_index_value(line: str) -> tuple[int | None, str]:
         return None, ""
     value = parts[1] if len(parts) > 1 else ""
     return n, value
+
+
+def _as_label(raw: str) -> str:
+    return raw
+
+
+def _as_one_indexed(raw: str) -> int | None:
+    n = _safe_int(raw)
+    return None if n is None else n + 1
+
+
+def _as_lock(raw: str) -> str:
+    return LOCK_MAP.get(raw.strip(), "unlocked")
+
+
+def _grep(text: str, pattern: str) -> str | None:
+    m = re.search(pattern, text)
+    return m.group(1).strip() if m else None

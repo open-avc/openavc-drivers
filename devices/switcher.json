@@ -219,7 +219,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -231,7 +231,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -243,7 +243,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -255,7 +255,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -267,7 +267,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -279,7 +279,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -303,7 +303,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -315,7 +315,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -327,7 +327,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },
@@ -339,7 +339,7 @@
         {
           "id": "blackmagic_videohub",
           "confidence": "untested",
-          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Pre-declared state variables cover the first 16 video ports + 4 monitoring outputs; routing on wider frames still works, additional ports surface as raw keys."
+          "notes": "All current Videohub products share the v2.3 Ethernet Protocol. Inputs, outputs, and monitoring outputs are registered as child entities sized to the frame the unit reports, so wide routers (40\u00d740, 80\u00d780, Universal 288) expose every port."
         }
       ]
     },

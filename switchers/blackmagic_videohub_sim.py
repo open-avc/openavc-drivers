@@ -9,7 +9,10 @@ Implements the Videohub Ethernet Protocol v2.3 server side:
     OUTPUT LABELS, VIDEO OUTPUT LOCKS) and PING.
   - Replies ACK / NAK and pushes the resulting status block back.
 
-Simulates a 16x16 Smart Videohub by default (no monitoring or serial ports).
+Simulates a 16x16 Smart Videohub by default (no serial ports). Set the
+``inputs`` / ``outputs`` / ``monitors`` config keys to emulate a wider frame
+(e.g. a 40x40 with 2 monitoring outputs) — useful for exercising the driver's
+device-sized child roster.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_INPUTS = 16
 DEFAULT_OUTPUTS = 16
+DEFAULT_MONITORS = 0
 
 
 class BlackmagicVideohubSimulator(TCPSimulator):
@@ -56,16 +60,23 @@ class BlackmagicVideohubSimulator(TCPSimulator):
         super().__init__(device_id, config)
         n_in = int(self.config.get("inputs", DEFAULT_INPUTS))
         n_out = int(self.config.get("outputs", DEFAULT_OUTPUTS))
+        n_mon = int(self.config.get("monitors", DEFAULT_MONITORS))
         self._n_inputs = n_in
         self._n_outputs = n_out
+        self._n_monitors = n_mon
         self.set_state("video_inputs", n_in)
         self.set_state("video_outputs", n_out)
+        self.set_state("monitoring_outputs", n_mon)
 
         self._input_labels: list[str] = [f"Input {i + 1}" for i in range(n_in)]
         self._output_labels: list[str] = [f"Output {i + 1}" for i in range(n_out)]
+        self._monitor_labels: list[str] = [f"Monitor {i + 1}" for i in range(n_mon)]
         # Identity routing: output i ← input i (clamped to inputs available).
         self._routing: list[int] = [
             min(i, n_in - 1) for i in range(n_out)
+        ]
+        self._monitor_routing: list[int] = [
+            min(i, n_in - 1) for i in range(n_mon)
         ]
         # All outputs unlocked.
         self._locks: list[str] = ["U"] * n_out
@@ -107,12 +118,16 @@ class BlackmagicVideohubSimulator(TCPSimulator):
         out.append(f"Video inputs: {self._n_inputs}")
         out.append("Video processing units: 0")
         out.append(f"Video outputs: {self._n_outputs}")
-        out.append("Video monitoring outputs: 0")
+        out.append(f"Video monitoring outputs: {self._n_monitors}")
         out.append("Serial ports: 0")
         out.append("")
         out.append(self._render_input_labels())
         out.append(self._render_output_labels())
+        if self._n_monitors:
+            out.append(self._render_monitor_labels())
         out.append(self._render_routing())
+        if self._n_monitors:
+            out.append(self._render_monitor_routing())
         out.append(self._render_locks())
         return "\n".join(out) + "\n"
 
@@ -128,9 +143,25 @@ class BlackmagicVideohubSimulator(TCPSimulator):
         body += "\n"
         return body
 
+    def _render_monitor_labels(self) -> str:
+        body = "MONITORING OUTPUT LABELS:\n"
+        body += "\n".join(
+            f"{i} {label}" for i, label in enumerate(self._monitor_labels)
+        )
+        body += "\n"
+        return body
+
     def _render_routing(self) -> str:
         body = "VIDEO OUTPUT ROUTING:\n"
         body += "\n".join(f"{i} {src}" for i, src in enumerate(self._routing))
+        body += "\n"
+        return body
+
+    def _render_monitor_routing(self) -> str:
+        body = "VIDEO MONITORING OUTPUT ROUTING:\n"
+        body += "\n".join(
+            f"{i} {src}" for i, src in enumerate(self._monitor_routing)
+        )
         body += "\n"
         return body
 
@@ -214,6 +245,22 @@ class BlackmagicVideohubSimulator(TCPSimulator):
                 return b"NAK\n\n"
             return ("ACK\n\n" + self._render_locks() + "\n").encode("utf-8")
 
+        if header == "MONITORING OUTPUT LABELS":
+            applied = self._apply_label_block(
+                lines, self._monitor_labels, self._n_monitors
+            )
+            if not applied:
+                return b"NAK\n\n"
+            return ("ACK\n\n" + self._render_monitor_labels() + "\n").encode("utf-8")
+
+        if header == "VIDEO MONITORING OUTPUT ROUTING":
+            applied = self._apply_monitor_routing_block(lines)
+            if not applied:
+                return b"NAK\n\n"
+            return (
+                "ACK\n\n" + self._render_monitor_routing() + "\n"
+            ).encode("utf-8")
+
         # Unknown header.
         return b"NAK\n\n"
 
@@ -226,7 +273,7 @@ class BlackmagicVideohubSimulator(TCPSimulator):
             out += f"Video inputs: {self._n_inputs}\n"
             out += "Video processing units: 0\n"
             out += f"Video outputs: {self._n_outputs}\n"
-            out += "Video monitoring outputs: 0\n"
+            out += f"Video monitoring outputs: {self._n_monitors}\n"
             out += "Serial ports: 0\n"
             return out
         if header == "INPUT LABELS":
@@ -237,10 +284,10 @@ class BlackmagicVideohubSimulator(TCPSimulator):
             return self._render_routing()
         if header == "VIDEO OUTPUT LOCKS":
             return self._render_locks()
+        if header == "MONITORING OUTPUT LABELS":
+            return self._render_monitor_labels()
         if header == "VIDEO MONITORING OUTPUT ROUTING":
-            # Device has no monitoring outputs, but spec says client may ask;
-            # respond with empty block.
-            return "VIDEO MONITORING OUTPUT ROUTING:\n"
+            return self._render_monitor_routing()
         return None
 
     def _apply_routing_block(self, lines: list[str]) -> bool:
@@ -256,6 +303,22 @@ class BlackmagicVideohubSimulator(TCPSimulator):
             if not (0 <= in_idx < self._n_inputs):
                 return False
             self._routing[out_idx] = in_idx
+            applied = True
+        return applied
+
+    def _apply_monitor_routing_block(self, lines: list[str]) -> bool:
+        applied = False
+        for line in lines:
+            m = re.match(r"^(\d+) (\d+)$", line)
+            if not m:
+                return False
+            out_idx = int(m.group(1))
+            in_idx = int(m.group(2))
+            if not (0 <= out_idx < self._n_monitors):
+                return False
+            if not (0 <= in_idx < self._n_inputs):
+                return False
+            self._monitor_routing[out_idx] = in_idx
             applied = True
         return applied
 

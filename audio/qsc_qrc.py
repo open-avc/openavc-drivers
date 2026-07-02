@@ -64,7 +64,7 @@ import json
 import re
 from typing import Any
 
-from server.drivers.base import BaseDriver
+from server.drivers.base import BaseDriver, ConnectionFaultError
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -311,10 +311,10 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.2.0",
-        # Requires the runtime-discovered child-entity platform feature
-        # (string local IDs + per-child dynamic schemas), added after 0.19.3.
-        "min_platform_version": "0.19.4",
+        "version": "4.2.1",
+        # Requires typed connection faults (ConnectionFaultError, 0.22.0) on
+        # top of the runtime-discovered child-entity feature (0.19.4).
+        "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) — "
@@ -674,6 +674,19 @@ class QSCQRCDriver(BaseDriver):
             "inter_command_delay", DEFAULT_INTER_COMMAND_DELAY))
         control_ip = get_system_config().get("network", "control_interface")
 
+        # Clean slate: a custom connect() must do what BaseDriver.connect()
+        # does — close any half-open transport from a previous attempt and
+        # drop stale fault causes so they can't color this attempt's
+        # offline-reason classification.
+        self._last_transport_error = ""
+        self._last_fault = None
+        if self.transport:
+            try:
+                await self.transport.close()
+            except Exception:
+                pass
+            self.transport = None
+
         self.transport = await TCPTransport.create(
             host=host, port=port,
             on_data=self.on_data_received,
@@ -684,19 +697,34 @@ class QSCQRCDriver(BaseDriver):
             local_addr=(control_ip, 0) if control_ip else None,
         )
 
+        # Optional Logon BEFORE reporting connected. Q-SYS uses sticky
+        # session auth — once Logon succeeds every command on this socket is
+        # authenticated. A rejected logon must fail the attempt outright
+        # (close the socket, never emit device.connected); reporting
+        # connected first flapped the device online/offline through the
+        # reconnect backoff and leaked one socket per attempt.
+        username = str(self.config.get("username", "")).strip()
+        password = str(self.config.get("password", ""))
+        try:
+            if username:
+                await self._do_logon(username, password)
+            else:
+                self.set_state("logon_ok", True)
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                try:
+                    await self.transport.close()
+                except Exception:
+                    pass
+                self.transport = None
+            self._connected = False
+            raise
+
         self._connected = True
         self.set_state("connected", True)
         await self.events.emit(f"device.connected.{self.device_id}")
         log.info(f"[{self.device_id}] Connected to Q-SYS Core at {host}:{port}")
-
-        # Optional Logon. Q-SYS uses sticky session auth — once Logon
-        # succeeds every command on this socket is authenticated.
-        username = str(self.config.get("username", "")).strip()
-        password = str(self.config.get("password", ""))
-        if username:
-            await self._do_logon(username, password)
-        else:
-            self.set_state("logon_ok", True)
 
         await self._do_status_get()
         await self._discover_topology()
@@ -849,10 +877,11 @@ class QSCQRCDriver(BaseDriver):
         except QRCError as exc:
             self.set_state("logon_ok", False)
             log.error(f"[{self.device_id}] Logon failed: {exc}")
-            # Phrased so the shared connection-fault classifier tags this
-            # auth_failed (device.<id>.offline_reason).
-            raise ConnectionError(
-                f"Q-SYS Logon authentication failed: {exc}") from exc
+            # Typed fault: the code maps straight to
+            # device.<id>.offline_reason=auth_failed.
+            raise ConnectionFaultError(
+                f"Q-SYS Logon authentication failed: {exc}",
+                code="auth_failed") from exc
         except (TimeoutError, ConnectionError, OSError) as exc:
             self.set_state("logon_ok", False)
             log.error(f"[{self.device_id}] Logon error: {exc}")
@@ -1367,6 +1396,13 @@ class QSCQRCDriver(BaseDriver):
         from inside the health loop, so drop our own task ref first to keep the
         disconnect handler from cancelling the still-running loop."""
         self._health_task = None
+        # Record the typed reason: this disconnect carries no exception and a
+        # silently-dead Core leaves no transport error, so without the stash
+        # the device card would show the generic "connection dropped".
+        self._stash_fault(
+            "no_response",
+            "Connected, but the Core stopped answering keep-alive probes.",
+        )
         self._handle_transport_disconnect()
 
     # ── refresh_children (IDE "Refresh from Device" + reimport action) ──

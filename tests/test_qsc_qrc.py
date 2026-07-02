@@ -56,6 +56,7 @@ def _install_server_stubs() -> None:
             self.transport = None
             self._connected = False
             self.device_state: dict = {}
+            self.stashed_fault: tuple | None = None
             self._children: dict = {}          # (type, id) -> dict(state)
             self._schemas: dict = {}           # (type, id) -> schema
             self._order: dict = {}             # type -> [ids in order]
@@ -128,6 +129,9 @@ def _install_server_stubs() -> None:
                 self._validate(child_type, local_id, prop)
             self._children[(child_type, local_id)].update(updates)
 
+        def _stash_fault(self, code, message=""):
+            self.stashed_fault = (code, message)
+
         def set_children_state_batch(self, updates):
             for ctype, lid, ups in updates:
                 for prop in ups:
@@ -135,7 +139,13 @@ def _install_server_stubs() -> None:
             for ctype, lid, ups in updates:
                 self._children[(ctype, lid)].update(ups)
 
+    class _ConnectionFaultError(ConnectionError):
+        def __init__(self, message="", *, code):
+            super().__init__(message)
+            self.fault_code = code
+
     base.BaseDriver = _BaseDriver
+    base.ConnectionFaultError = _ConnectionFaultError
     sys.modules["server.drivers.base"] = base
 
     transport = ModuleType("server.transport")
@@ -519,6 +529,10 @@ def test_force_disconnect_nulls_task_and_fires_handler():
     drv._force_disconnect()
     assert drv._health_task is None   # avoids self-cancel from the handler
     assert fired["n"] == 1
+    # The typed no_response fault is stashed for the classifier — this
+    # disconnect has no exception to carry the cause.
+    assert drv.stashed_fault is not None
+    assert drv.stashed_fault[0] == "no_response"
 
 
 # ── Param pickers (platform §69 Phase 2 adoption) ──

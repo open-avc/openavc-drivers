@@ -150,7 +150,13 @@ def _install_server_stubs() -> None:
             for t, i, ups in updates:
                 self._children[(t, i)].update(ups)
 
+    class _ConnectionFaultError(ConnectionError):
+        def __init__(self, message="", *, code):
+            super().__init__(message)
+            self.fault_code = code
+
     base.BaseDriver = _BaseDriver
+    base.ConnectionFaultError = _ConnectionFaultError
     sys.modules["server.drivers.base"] = base
 
     transport = ModuleType("server.transport")

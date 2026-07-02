@@ -293,6 +293,15 @@ def test_send_level_addresses_dest_vx():
         [0xB0, 0x63, 0x22, 0xB0, 0x62, 0x20, 0xB0, 0x06, 0x7F, 0xB0, 0x26, 0x01])
 
 
+def test_raw_parameter_bytes():
+    d = _make()
+    _run(d.send_command("set_raw_parameter",
+                        {"ch": 0x20, "param_id": 0x17, "value": 0x62,
+                         "index": 0x07}))
+    assert bytes(d.transport.sent) == bytes(
+        [0xB0, 0x63, 0x20, 0xB0, 0x62, 0x17, 0xB0, 0x06, 0x62, 0xB0, 0x26, 0x07])
+
+
 def test_optimistic_state_on_send():
     # The Qu doesn't echo MIDI-received changes, so a sent command must update
     # our own state immediately (no inbound bytes here).

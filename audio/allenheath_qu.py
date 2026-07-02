@@ -602,6 +602,32 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                 "switch it back on.",
     }
 
+    # Escape hatch for anything the typed commands don't cover (channel DSP —
+    # PEQ / GEQ / gate / compressor / delay — is intentionally not exposed as
+    # its own commands; recall it via scenes, or poke a specific value here).
+    cmds["set_raw_parameter"] = {
+        "label": "Advanced: Set Raw Parameter",
+        "help": "Send any Qu NRPN parameter directly, using the raw 0-127 byte "
+                "values from the Qu MIDI Protocol tables. CH selects the "
+                "channel (e.g. 32 / 0x20 = Input 1), Parameter ID selects the "
+                "function (e.g. 23 / 0x17 = fader), Value is the setting, and "
+                "Index is the second value (7 for most single-destination "
+                "parameters).",
+        "params": {
+            "ch": {"type": "integer", "min": 0, "max": 127, "required": True,
+                   "label": "Channel (CH)",
+                   "help": "Channel-select byte from the protocol table."},
+            "param_id": {"type": "integer", "min": 0, "max": 127,
+                         "required": True, "label": "Parameter ID",
+                         "help": "NRPN parameter id."},
+            "value": {"type": "integer", "min": 0, "max": 127, "required": True,
+                      "label": "Value (VA)"},
+            "index": {"type": "integer", "min": 0, "max": 127, "default": 7,
+                      "required": True, "label": "Index (VX)",
+                      "help": "Second value; 7 for most parameters."},
+        },
+    }
+
     return cmds
 
 
@@ -616,7 +642,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.1.0",
         # Runtime-registered child entities + typed connection faults.
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
@@ -1261,6 +1287,11 @@ class AllenHeathQuDriver(BaseDriver):
                                 ID_REMOTE_SHUTDOWN, b, CC_DATA_MSB, 0x00,
                                 b, CC_DATA_LSB, 0x00]))
 
+    async def _do_raw_parameter(self, params: dict[str, Any]) -> None:
+        await self._send(self._nrpn_set(
+            int(params["ch"]), int(params["param_id"]),
+            int(params["value"]), int(params.get("index", VX_MAIN))))
+
     # ── Incoming MIDI parser ────────────────────────────────────────────────
 
     def on_data_received(self, data: bytes) -> None:
@@ -1497,6 +1528,7 @@ _COMMAND_HANDLERS: dict[str, Any] = {
     "unmute_all_inputs": lambda self, p: self._do_mute_all_inputs(False),
     "identify": lambda self, p: self._identify_and_sync(),
     "remote_shutdown": lambda self, p: self._do_remote_shutdown(),
+    "set_raw_parameter": lambda self, p: self._do_raw_parameter(p),
 }
 for _ct in MUTE_TYPES:
     _COMMAND_HANDLERS[f"mute_{_ct}"] = _mute_handler(_ct)

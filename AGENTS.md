@@ -849,7 +849,7 @@ responses:
       mode:        { key: video.mode, map: { "1": Extended, "2": Clone } }
 ```
 
-A `set` value is the JSON field to read: a string key, a dot path (`video.mode`, `items.0`), or a `{key, type, map}` object. Native JSON bools/ints/floats are preserved (no string round-trip). Missing keys are skipped (state untouched); a key landing on an array/object yields its length, same as `json_path`. Multiple `json: true` rules are additive — each is applied to every body — so split related fields across rules freely. If a body isn't a JSON object the engine falls through to your regex rules. Use this for JSON APIs; reserve mega-regexes for non-JSON text.
+A `set` value is the JSON field to read: a string key, a dot path (`video.mode`, `items.0`), or a `{key, type, map}` object. Native JSON bools/ints/floats are preserved (no string round-trip). Missing keys are skipped (state untouched); a key landing on an array/object yields its length, same as `json_path`. Multiple `json: true` rules are additive — each is applied to every body — so split related fields across rules freely. A reply wrapped in a single-element top-level array (`[{...}]` — some devices wrap every reply that way) is unwrapped to its one object first (platform 0.22.0+); multi-element arrays are ambiguous and are not parsed. If a body isn't a JSON object the engine falls through to your regex rules. Use this for JSON APIs; reserve mega-regexes for non-JSON text.
 
 ### 2.8 auth
 
@@ -1552,6 +1552,32 @@ Contract:
 - **Failure** — raise. The wizard shows the error; auto-reconnect resumes.
 - `request_config_update` / `request_reconnect` only work *inside* `run_setup_action` (they raise otherwise).
 
+### 3.11 Connection Faults (offline reasons)
+
+When a device is offline, the platform publishes `device.<id>.offline_reason` — a stable code automation can match on (`auth_failed`, `connection_refused`, `unreachable`, `host_key_rejected`, `no_response`, `client_missing`, `transport_disconnected`) — and `device.<id>.offline_detail`, the sentence shown on the device card. Standard transport failures (refused socket, no route, DNS, timeout) classify automatically; most drivers never need to do anything.
+
+When your driver detects a failure the transport can't see — a rejected login, a device that accepts the socket but never speaks your protocol — raise a typed fault (requires `min_platform_version: "0.22.0"`):
+
+```python
+from server.drivers.base import BaseDriver, ConnectionFaultError
+
+raise ConnectionFaultError(
+    f"Login rejected for {host}:{port} — check the username and password.",
+    code="auth_failed",
+)
+```
+
+The code becomes `offline_reason` verbatim; the message becomes `offline_detail` (leave it empty to get the platform's standard wording for that code). Unknown codes raise `ValueError` at construction, so a typo can't silently misclassify. Raise it from `connect()` / `_post_connect()` / `poll()`. Don't catch-and-retype transport errors that already carry their cause (a refused socket, a DNS failure) — re-raise those unchanged and let the classifier read them.
+
+For a failure with no exception at all — a keep-alive / health loop that stopped hearing replies and is forcing a reconnect — stash the reason just before triggering the disconnect:
+
+```python
+self._stash_fault("no_response", "Connected, but the device stopped answering probes.")
+self._handle_transport_disconnect()
+```
+
+The stash is cleared at the start of every `connect()` attempt. On older platforms the classifier falls back to substring-matching the error message; that still works, but typed faults are the supported pattern for new drivers.
+
 ---
 
 ## 4. Transport Layer
@@ -1582,7 +1608,7 @@ The runtime decides "is this device actually online?" differently per transport.
 | `serial` | The OS rejects the port open. |
 | `http` | Pre-connect `verify()` HEAD probe; periodic poll on `poll_interval`. |
 | `osc` | Pre-connect `verify()` probe (send + listen); periodic poll on `poll_interval`. |
-| `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. The only signal the runtime gets is your driver's `poll()` succeeding or failing. Set `poll_interval > 0` and implement a `poll()` that round-trips a status query — otherwise the device will sit at `connected: True` forever no matter what's happening on the network. |
+| `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. The only signal the runtime gets is your driver's `poll()` succeeding or failing. Set `poll_interval > 0` and implement a `poll()` that round-trips a status query **and raises when the reply doesn't come back** (a fire-and-forget send never fails) — otherwise the device will sit at `connected: True` forever no matter what's happening on the network. This is a Python-driver pattern: a YAML driver's UDP poll queries are fire-and-forget, so a YAML UDP driver currently has no liveness signal at all. |
 
 For UDP, picking a poll interval is a tradeoff: too tight wastes wire traffic on a connectionless protocol; too loose delays failure detection. 10–30 seconds is reasonable for most AV equipment.
 

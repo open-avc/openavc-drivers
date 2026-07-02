@@ -36,7 +36,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from server.drivers.base import BaseDriver
+from server.drivers.base import BaseDriver, ConnectionFaultError
 from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
@@ -245,7 +245,9 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.0",
+        "version": "1.3.1",
+        # Typed connection faults (ConnectionFaultError) need the 0.22.0 runtime.
+        "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls Middle Atlantic / Legrand RackLink RLNK power "
@@ -594,19 +596,21 @@ class RackLinkRLNKDriver(BaseDriver):
 
         # Authenticate and AWAIT the result. The login reply comes back
         # through the normal data path; resolving it here lets a bad
-        # credential surface as a real auth fault — the worded
-        # ConnectionError below is what the shared connection-fault
-        # classifier maps to offline_reason=auth_failed — instead of a
-        # silent half-connected session that only fails on the next write.
+        # credential surface as a real auth fault instead of a silent
+        # half-connected session that only fails on the next write. The
+        # typed ConnectionFaultError codes map directly to offline_reason
+        # (no_response / auth_failed) — no wording games needed.
         try:
             fut = self._prime_response(CMD_LOGIN)
             await self._send_login(username, password)
             login_data = await self._await_response(fut, CMD_LOGIN, LOGIN_TIMEOUT_S)
         except asyncio.TimeoutError as e:
             await self._safe_close()
-            raise ConnectionError(
-                f"RackLink at {host}:{port} did not respond to the login "
-                f"request within {LOGIN_TIMEOUT_S:.0f}s"
+            raise ConnectionFaultError(
+                f"RackLink at {host}:{port} accepted the connection but "
+                f"didn't answer the login request within "
+                f"{LOGIN_TIMEOUT_S:.0f}s. Is this really a RackLink PDU?",
+                code="no_response",
             ) from e
         except (ConnectionError, OSError) as e:
             await self._safe_close()
@@ -616,9 +620,10 @@ class RackLinkRLNKDriver(BaseDriver):
 
         if not (login_data and login_data[:1] == bytes([0x01])):
             await self._safe_close()
-            raise ConnectionError(
+            raise ConnectionFaultError(
                 f"RackLink authentication failed for {host}:{port} — check "
-                f"the username and password (control protocol account)."
+                f"the username and password (control protocol account).",
+                code="auth_failed",
             )
         self._authenticated = True
 
@@ -729,6 +734,13 @@ class RackLinkRLNKDriver(BaseDriver):
         # Null our own task ref first so the disconnect handler doesn't
         # cancel the still-running loop out from under us.
         self._health_task = None
+        # Record the typed reason: this disconnect carries no exception and
+        # a silently-dead PDU leaves no transport error, so without the
+        # stash the device card would show the generic "connection dropped".
+        self._stash_fault(
+            "no_response",
+            "Connected, but the PDU stopped answering keep-alive probes.",
+        )
         self._handle_transport_disconnect()
 
     async def _safe_close(self) -> None:

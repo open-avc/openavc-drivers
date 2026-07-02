@@ -32,7 +32,7 @@ import asyncio
 import re
 from typing import Any
 
-from server.drivers.base import BaseDriver
+from server.drivers.base import BaseDriver, ConnectionFaultError
 from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
@@ -118,7 +118,9 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.0",
+        "version": "1.3.1",
+        # Typed connection faults (ConnectionFaultError) need the 0.22.0 runtime.
+        "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls SnapAV WattBox IP-controlled power distribution units "
@@ -505,17 +507,18 @@ class WattBoxIPDriver(BaseDriver):
         # normal data path; _drive_auth sends the credentials in order and
         # resolves _login_future True (saw "Successfully Logged In") or
         # False (the WattBox re-prompted = bad credentials). Resolving it
-        # here lets a bad credential surface as a real auth fault — the
-        # "authentication failed"-worded ConnectionError below is what the
-        # shared connection-fault classifier maps to offline_reason=
-        # auth_failed — instead of a silent half-connected session.
+        # here lets a bad credential surface as a real auth fault instead
+        # of a silent half-connected session. The typed ConnectionFaultError
+        # codes map directly to offline_reason (no_response / auth_failed).
         try:
             ok = await asyncio.wait_for(self._login_future, LOGIN_TIMEOUT_S)
         except asyncio.TimeoutError as e:
             await self._safe_close()
-            raise ConnectionError(
-                f"WattBox at {host}:{port} did not complete the login "
-                f"handshake within {LOGIN_TIMEOUT_S:.0f}s"
+            raise ConnectionFaultError(
+                f"WattBox at {host}:{port} accepted the connection but "
+                f"didn't complete the login handshake within "
+                f"{LOGIN_TIMEOUT_S:.0f}s. Is this really a WattBox?",
+                code="no_response",
             ) from e
         except (ConnectionError, OSError) as e:
             await self._safe_close()
@@ -525,9 +528,10 @@ class WattBoxIPDriver(BaseDriver):
 
         if not ok:
             await self._safe_close()
-            raise ConnectionError(
+            raise ConnectionFaultError(
                 f"WattBox authentication failed for {host}:{port} — check "
-                f"the username and password."
+                f"the username and password.",
+                code="auth_failed",
             )
         self._authenticated = True
 
@@ -647,6 +651,13 @@ class WattBoxIPDriver(BaseDriver):
         # Null our own task ref first so the disconnect handler doesn't
         # cancel the still-running loop out from under us.
         self._health_task = None
+        # Record the typed reason: this disconnect carries no exception and
+        # a silently-dead PDU leaves no transport error, so without the
+        # stash the device card would show the generic "connection dropped".
+        self._stash_fault(
+            "no_response",
+            "Connected, but the PDU stopped answering keep-alive probes.",
+        )
         self._handle_transport_disconnect()
 
     async def _safe_close(self) -> None:

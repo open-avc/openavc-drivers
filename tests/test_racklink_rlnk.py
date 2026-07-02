@@ -53,6 +53,14 @@ class _FakeEvents:
         self.emitted.append(name)
 
 
+class _FakeConnectionFaultError(ConnectionError):
+    """Stand-in for the platform's typed connection fault (0.22.0+)."""
+
+    def __init__(self, message: str = "", *, code: str) -> None:
+        super().__init__(message)
+        self.fault_code = code
+
+
 class _FakeBaseDriver:
     """Functional stand-in for the platform BaseDriver child API."""
 
@@ -67,6 +75,7 @@ class _FakeBaseDriver:
         self._children: dict[str, dict[int, dict]] = {}
         self._connected = False
         self.disconnect_calls = 0
+        self.stashed_fault: tuple[str, str] | None = None
 
     def _eff_schema(self, ctype: str) -> dict:
         schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
@@ -140,6 +149,9 @@ class _FakeBaseDriver:
         self.disconnect_calls += 1
         if self.transport is not None:
             self.transport.connected = False
+
+    def _stash_fault(self, code, message="") -> None:
+        self.stashed_fault = (code, message)
 
     async def start_polling(self, interval) -> None:
         pass
@@ -218,6 +230,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"server.{sub}"] = m
     base = ModuleType("server.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = _FakeConnectionFaultError
     sys.modules["server.drivers.base"] = base
     tcp = ModuleType("server.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
@@ -275,7 +288,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.0"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.1"
 
 
 def test_child_entity_types_declared():
@@ -430,8 +443,30 @@ def test_rejected_login_raises_auth_error():
         driver, sim = await _make_pair(sim_config={"reject_auth": True})
         with pytest.raises(ConnectionError) as ei:
             await driver.connect()
-        # The shared connection-fault classifier keys off this wording.
+        # The typed fault code maps straight to offline_reason=auth_failed.
+        assert ei.value.fault_code == "auth_failed"
         assert "authentication failed" in str(ei.value).lower()
+
+    asyncio.run(go())
+
+
+def test_login_timeout_raises_no_response_fault():
+    """A device that accepts TCP but never answers the login request is a
+    no_response fault ('is this really a RackLink?'), not auth — and not the
+    generic 'connection dropped' the old wording fell into."""
+    async def go():
+        global _SWALLOW
+        driver, sim = await _make_pair()
+        old_timeout = DRV.LOGIN_TIMEOUT_S
+        DRV.LOGIN_TIMEOUT_S = 0.05
+        try:
+            _SWALLOW = True  # login reply never arrives
+            with pytest.raises(ConnectionError) as ei:
+                await driver.connect()
+            assert ei.value.fault_code == "no_response"
+        finally:
+            _SWALLOW = False
+            DRV.LOGIN_TIMEOUT_S = old_timeout
 
     asyncio.run(go())
 
@@ -463,6 +498,10 @@ def test_health_loop_forces_reconnect_on_silent_device():
             driver._start_health_loop()
             await asyncio.sleep(0.3)
             assert driver.disconnect_calls >= 1
+            # The typed no_response fault is stashed for the classifier —
+            # this disconnect has no exception to carry the cause.
+            assert driver.stashed_fault is not None
+            assert driver.stashed_fault[0] == "no_response"
         finally:
             _SWALLOW = False
             DRV.KEEPALIVE_INTERVAL_S = 30.0

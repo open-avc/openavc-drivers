@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 70,
+    "total_drivers": 71,
     "shards": null
   },
   "drivers": [
@@ -133,11 +133,81 @@
       }
     },
     {
+      "id": "allenheath_qu",
+      "name": "Allen & Heath Qu Digital Mixer",
+      "manufacturer": "Allen & Heath",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
+      "source_url": "https://www.allen-heath.com/content/uploads/2023/06/Qu_MIDI_Protocol_V1.9.pdf",
+      "file": "audio/allenheath_qu.py",
+      "format": "python",
+      "ports": [
+        51325
+      ],
+      "protocols": [
+        "midi-over-tcp"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.22.0",
+      "tags": [
+        "mixer",
+        "console",
+        "midi",
+        "nrpn",
+        "allen-heath",
+        "qu"
+      ],
+      "help": {
+        "overview": "Controls an Allen & Heath Qu mixer over MIDI-over-TCP. On connect the driver asks the console to identify itself, learns the model and MIDI channel, and lists every channel as a child entity with live mute / fader / pan state and its real name. Bind child state (e.g. device.<id>.input.in05.mute) to panel elements, and drive Set Fader / Mute / Recall Scene from macros and buttons. Console-side moves push straight back into state.",
+        "setup": "1. Connect the Qu to the same network as the OpenAVC server.\n2. On the Qu, go to Setup / Network and note the IP address.\n3. Enter the IP address above. Port 51325 is correct and the model/MIDI channel are detected automatically.\n4. Save. Within a second or two the device connects, the model populates, and each channel appears under the device with its live state and name.\n\nNotes:\n  * The Qu allows only ONE TCP MIDI connection at a time \u2014 close Qu-Pad / other MIDI clients before connecting.\n  * If the model doesn't populate, set it manually in the config as a fallback and run the Re-identify action.\n  * The Qu drops idle MIDI connections; the driver keeps the link alive automatically."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "Qu-16"
+          ],
+          "confidence": "full",
+          "notes": "Verified end-to-end against a real Qu-16 (firmware V1.97): All-Call identify + full-state sync, child-entity registration with live channel names, and mute / fader / pan write round-trips confirmed by re-reading board state."
+        },
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "Qu-24",
+            "Qu-32",
+            "Qu-Pac",
+            "Qu-SB"
+          ],
+          "confidence": "untested",
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "00:04:c4"
+        ],
+        "port_open": [
+          51325
+        ],
+        "manufacturer_alias": [
+          "allen & heath",
+          "allen and heath",
+          "a&h",
+          "allen-heath",
+          "audiotonix"
+        ]
+      }
+    },
+    {
       "id": "allenheath_sq",
       "name": "Allen & Heath SQ Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Full mute / level / pan / assignment control across all 48 inputs, 12 groups, 12 aux outs, 3 matrix outs, 4 FX sends, 8 FX returns, 8 DCAs, and 8 mute groups. Scene recall (1-300), 1 dB increment/decrement, SoftKey triggers, and bidirectional state \u2014 console-side moves push back into OpenAVC state.",

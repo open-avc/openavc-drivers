@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 579,
+    "total_devices": 584,
     "shards": null
   },
   "devices": [
@@ -171,6 +171,66 @@
           "id": "allenheath_dlive",
           "confidence": "untested",
           "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-16",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu",
+          "confidence": "full",
+          "notes": "Verified end-to-end against a real Qu-16 (firmware V1.97): All-Call identify + full-state sync, child-entity registration with live channel names, and mute / fader / pan write round-trips confirmed by re-reading board state."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-24",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu",
+          "confidence": "untested",
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu",
+          "confidence": "untested",
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-Pac",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu",
+          "confidence": "untested",
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-SB",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu",
+          "confidence": "untested",
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
         }
       ]
     },

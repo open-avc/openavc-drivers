@@ -486,6 +486,244 @@ class _ParamMap:
             self.mute[mute_mgrp(n)] = f"mgrp{n}_mute"
 
 
+# ── Command catalog ──────────────────────────────────────────────────────────
+#
+# Generated so it stays in lock-step with the cmd_* methods on the driver
+# class: every entry id maps to a `cmd_<id>` method and each param key matches
+# that method's keyword argument. (An empty catalog here is exactly what made
+# the console show "no commands" — the methods existed but nothing declared
+# them for the UI or the command runner.)
+
+_ACTION_PARAM = {
+    "type": "enum",
+    "values": ["on", "off", "toggle"],
+    "default": "on",
+    "required": True,
+    "label": "Action",
+    "help": "on, off, or toggle (toggle uses the driver's last-known state).",
+}
+
+_DIRECTION_PARAM = {
+    "type": "enum",
+    "values": ["up", "down"],
+    "default": "up",
+    "required": True,
+    "label": "Direction",
+    "help": "Nudge the level one 1 dB step up or down.",
+}
+
+_LEVEL_PARAM = {
+    "type": "number",
+    "min": LEVEL_MIN,
+    "max": LEVEL_MAX,
+    "default": 0.75,
+    "required": True,
+    "label": "Level",
+    "help": "Fader position 0.0 (-inf) to 1.0 (+10 dB at the top of the fader).",
+}
+
+_PAN_PARAM = {
+    "type": "number",
+    "min": PAN_LEFT,
+    "max": PAN_RIGHT,
+    "default": PAN_CENTER,
+    "required": True,
+    "label": "Pan",
+    "help": "-1.0 full left, 0.0 center, +1.0 full right.",
+}
+
+
+def _chan(label: str, maximum: int, help_text: str | None = None) -> dict[str, Any]:
+    return {
+        "type": "integer",
+        "required": True,
+        "min": 1,
+        "max": maximum,
+        "label": label,
+        "help": help_text or f"{label} number (1-{maximum}).",
+    }
+
+
+def _build_commands() -> dict[str, dict[str, Any]]:
+    cmds: dict[str, dict[str, Any]] = {}
+
+    def add(cid: str, label: str, help_text: str,
+            chans: list[tuple[str, str, int]] | None = None,
+            value: dict[str, Any] | None = None,
+            value_key: str | None = None) -> None:
+        params: dict[str, Any] = {}
+        for pname, plabel, pmax in (chans or []):
+            params[pname] = _chan(plabel, pmax)
+        if value is not None and value_key is not None:
+            params[value_key] = dict(value)
+        cmds[cid] = {"label": label, "help": help_text, "params": params}
+
+    # Scene recall.
+    cmds["recall_scene"] = {
+        "label": "Recall Scene",
+        "help": f"Recall a scene {MIN_SCENE}-{MAX_SCENE} via Bank Select + "
+                "Program Change.",
+        "params": {
+            "scene": {
+                "type": "integer", "required": True,
+                "min": MIN_SCENE, "max": MAX_SCENE, "label": "Scene",
+            },
+        },
+    }
+
+    # SoftKeys.
+    sk_param = {
+        "softkey": _chan(
+            "SoftKey", NUM_SOFTKEYS,
+            "SoftKey number (1-16; SQ-5 has 8, so 9-16 are no-ops there)."),
+    }
+    cmds["softkey_press"] = {
+        "label": "SoftKey Press", "help": "Press and hold a SoftKey.",
+        "params": dict(sk_param)}
+    cmds["softkey_release"] = {
+        "label": "SoftKey Release", "help": "Release a held SoftKey.",
+        "params": dict(sk_param)}
+    cmds["softkey_pulse"] = {
+        "label": "SoftKey Pulse",
+        "help": "Press then release a SoftKey — the usual one-shot trigger.",
+        "params": dict(sk_param)}
+
+    # Mutes.
+    add("mute_input", "Mute Input", "Mute, unmute, or toggle an input.",
+        [("input", "Input", NUM_INPUTS)], _ACTION_PARAM, "action")
+    add("mute_group", "Mute Group", "Mute, unmute, or toggle a group.",
+        [("group", "Group", NUM_GROUPS)], _ACTION_PARAM, "action")
+    add("mute_aux_master", "Mute Aux Master",
+        "Mute, unmute, or toggle an aux master.",
+        [("aux", "Aux", NUM_AUX)], _ACTION_PARAM, "action")
+    add("mute_mtx_master", "Mute Matrix Master",
+        "Mute, unmute, or toggle a matrix master.",
+        [("mtx", "Matrix", NUM_MTX)], _ACTION_PARAM, "action")
+    add("mute_fx_send", "Mute FX Send", "Mute, unmute, or toggle an FX send.",
+        [("fx", "FX Send", NUM_FX_SENDS)], _ACTION_PARAM, "action")
+    add("mute_fx_return", "Mute FX Return",
+        "Mute, unmute, or toggle an FX return.",
+        [("fx", "FX Return", NUM_FX_RETURNS)], _ACTION_PARAM, "action")
+    add("mute_dca", "Mute DCA", "Mute, unmute, or toggle a DCA.",
+        [("dca", "DCA", NUM_DCAS)], _ACTION_PARAM, "action")
+    add("mute_mgrp", "Fire Mute Group",
+        "Activate, clear, or toggle a mute group.",
+        [("mgrp", "Mute Group", NUM_MUTE_GROUPS)], _ACTION_PARAM, "action")
+    add("mute_lr", "Mute LR Master",
+        "Mute, unmute, or toggle the LR (main) master.",
+        None, _ACTION_PARAM, "action")
+
+    # Levels (absolute fader position).
+    add("set_input_to_lr_level", "Set Input → LR Level",
+        "Set an input's send level to the LR mix.",
+        [("input", "Input", NUM_INPUTS)], _LEVEL_PARAM, "level")
+    add("set_input_to_aux_level", "Set Input → Aux Level",
+        "Set an input's send level to an aux mix.",
+        [("input", "Input", NUM_INPUTS), ("aux", "Aux", NUM_AUX)],
+        _LEVEL_PARAM, "level")
+    add("set_group_to_lr_level", "Set Group → LR Level",
+        "Set a group's send level to the LR mix.",
+        [("group", "Group", NUM_GROUPS)], _LEVEL_PARAM, "level")
+    add("set_group_to_aux_level", "Set Group → Aux Level",
+        "Set a group's send level to an aux mix.",
+        [("group", "Group", NUM_GROUPS), ("aux", "Aux", NUM_AUX)],
+        _LEVEL_PARAM, "level")
+    add("set_fx_return_to_lr_level", "Set FX Return → LR Level",
+        "Set an FX return's send level to the LR mix.",
+        [("fx", "FX Return", NUM_FX_RETURNS)], _LEVEL_PARAM, "level")
+    add("set_fx_return_to_aux_level", "Set FX Return → Aux Level",
+        "Set an FX return's send level to an aux mix.",
+        [("fx", "FX Return", NUM_FX_RETURNS), ("aux", "Aux", NUM_AUX)],
+        _LEVEL_PARAM, "level")
+    add("set_input_to_fx_send_level", "Set Input → FX Send Level",
+        "Set an input's send level to an FX send.",
+        [("input", "Input", NUM_INPUTS), ("fx", "FX Send", NUM_FX_SENDS)],
+        _LEVEL_PARAM, "level")
+    add("set_group_to_fx_send_level", "Set Group → FX Send Level",
+        "Set a group's send level to an FX send.",
+        [("group", "Group", NUM_GROUPS), ("fx", "FX Send", NUM_FX_SENDS)],
+        _LEVEL_PARAM, "level")
+    add("set_lr_to_mtx_level", "Set LR → Matrix Level",
+        "Set the LR mix's send level to a matrix.",
+        [("mtx", "Matrix", NUM_MTX)], _LEVEL_PARAM, "level")
+    add("set_aux_to_mtx_level", "Set Aux → Matrix Level",
+        "Set an aux master's send level to a matrix.",
+        [("aux", "Aux", NUM_AUX), ("mtx", "Matrix", NUM_MTX)],
+        _LEVEL_PARAM, "level")
+    add("set_group_to_mtx_level", "Set Group → Matrix Level",
+        "Set a group's send level to a matrix.",
+        [("group", "Group", NUM_GROUPS), ("mtx", "Matrix", NUM_MTX)],
+        _LEVEL_PARAM, "level")
+    add("set_lr_master_level", "Set LR Master Level",
+        "Set the LR (main) master fader.",
+        None, _LEVEL_PARAM, "level")
+    add("set_aux_master_level", "Set Aux Master Level",
+        "Set an aux master fader.",
+        [("aux", "Aux", NUM_AUX)], _LEVEL_PARAM, "level")
+    add("set_mtx_master_level", "Set Matrix Master Level",
+        "Set a matrix master fader.",
+        [("mtx", "Matrix", NUM_MTX)], _LEVEL_PARAM, "level")
+    add("set_fx_send_master_level", "Set FX Send Master Level",
+        "Set an FX send master fader.",
+        [("fx", "FX Send", NUM_FX_SENDS)], _LEVEL_PARAM, "level")
+    add("set_dca_level", "Set DCA Level", "Set a DCA fader.",
+        [("dca", "DCA", NUM_DCAS)], _LEVEL_PARAM, "level")
+
+    # Level nudges (1 dB steps).
+    add("step_input_to_lr_level", "Nudge Input → LR Level",
+        "Step an input's LR send up or down 1 dB.",
+        [("input", "Input", NUM_INPUTS)], _DIRECTION_PARAM, "direction")
+    add("step_aux_master_level", "Nudge Aux Master Level",
+        "Step an aux master fader up or down 1 dB.",
+        [("aux", "Aux", NUM_AUX)], _DIRECTION_PARAM, "direction")
+    add("step_lr_master_level", "Nudge LR Master Level",
+        "Step the LR master fader up or down 1 dB.",
+        None, _DIRECTION_PARAM, "direction")
+    add("step_dca_level", "Nudge DCA Level",
+        "Step a DCA fader up or down 1 dB.",
+        [("dca", "DCA", NUM_DCAS)], _DIRECTION_PARAM, "direction")
+
+    # Pan / balance.
+    add("set_input_to_lr_pan", "Set Input → LR Pan",
+        "Pan an input within the LR mix.",
+        [("input", "Input", NUM_INPUTS)], _PAN_PARAM, "pan")
+    add("set_input_to_aux_pan", "Set Input → Aux Pan",
+        "Pan an input within an aux mix.",
+        [("input", "Input", NUM_INPUTS), ("aux", "Aux", NUM_AUX)],
+        _PAN_PARAM, "pan")
+    add("set_group_to_lr_pan", "Set Group → LR Pan",
+        "Pan a group within the LR mix.",
+        [("group", "Group", NUM_GROUPS)], _PAN_PARAM, "pan")
+    add("set_fx_return_to_lr_pan", "Set FX Return → LR Pan",
+        "Pan an FX return within the LR mix.",
+        [("fx", "FX Return", NUM_FX_RETURNS)], _PAN_PARAM, "pan")
+    add("set_lr_to_mtx_balance", "Set LR → Matrix Balance",
+        "Balance the LR send into a matrix.",
+        [("mtx", "Matrix", NUM_MTX)], _PAN_PARAM, "pan")
+    add("set_aux_to_mtx_balance", "Set Aux → Matrix Balance",
+        "Balance an aux send into a matrix.",
+        [("aux", "Aux", NUM_AUX), ("mtx", "Matrix", NUM_MTX)],
+        _PAN_PARAM, "pan")
+
+    # Mix assignments.
+    add("set_input_to_lr_assign", "Assign Input → LR",
+        "Assign or unassign an input to the LR mix.",
+        [("input", "Input", NUM_INPUTS)], _ACTION_PARAM, "action")
+    add("set_input_to_aux_assign", "Assign Input → Aux",
+        "Assign or unassign an input to an aux mix.",
+        [("input", "Input", NUM_INPUTS), ("aux", "Aux", NUM_AUX)],
+        _ACTION_PARAM, "action")
+
+    # Refresh.
+    cmds["refresh"] = {
+        "label": "Refresh State",
+        "help": "Re-query every exposed parameter from the console.",
+        "params": {},
+    }
+
+    return cmds
+
+
 # ── Driver ───────────────────────────────────────────────────────────────────
 
 class AllenHeathSQDriver(BaseDriver):
@@ -496,7 +734,7 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.1",
+        "version": "1.3.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "
@@ -591,11 +829,7 @@ class AllenHeathSQDriver(BaseDriver):
             ),
         },
         "state_variables": _build_state_vars(),
-        "commands": {
-            # See command method names below for command identifiers.
-            # Filled out at class-construction time so the catalog reflects
-            # the actual implementation.
-        },
+        "commands": _build_commands(),
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

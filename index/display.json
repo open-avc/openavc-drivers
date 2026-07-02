@@ -224,10 +224,10 @@
       "name": "Samsung MDC Display",
       "manufacturer": "Samsung",
       "category": "display",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP.",
+      "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP. Each Set ID on the chain is a display child entity with power, volume, mute, input, and picture settings (brightness, contrast, backlight, picture mode, color tone).",
       "source_url": "https://github.com/vgavro/samsung-mdc",
       "file": "displays/samsung_mdc.py",
       "format": "python",
@@ -238,14 +238,16 @@
         "samsung_mdc"
       ],
       "simulated": true,
+      "min_platform_version": "0.13.0",
       "tags": [
         "display",
         "signage",
-        "mdc"
+        "mdc",
+        "video-wall"
       ],
       "help": {
-        "overview": "Controls Samsung commercial displays using the MDC binary protocol. Covers Smart Signage, The Wall, LED, and SMART Signage Platform series.",
-        "setup": "1. Connect the display to the network\n2. Enable MDC protocol in the display's network settings\n3. Default port is 1515\n4. Set the Display ID to match the display's configuration (default 1)"
+        "overview": "Controls Samsung commercial displays using the MDC binary protocol. Covers Smart Signage, The Wall, LED, and SMART Signage Platform series. One connection can address several displays daisy-chained by Set ID \u2014 each appears as a display child entity.",
+        "setup": "1. Connect the display (or the chain's master) to the network.\n2. Enable MDC / network control in the display's settings.\n3. Default port is 1515.\n4. In the display's menu, give each display a unique Set ID (ID). List those IDs in 'Display Set IDs' \u2014 e.g. 1 for a single display, or 1,2,3,4 for a four-panel wall.\n5. Route commands to a display by picking it from the Display dropdown; use All Displays On / Off to drive the whole chain at once."
       },
       "compatible_models": [
         {

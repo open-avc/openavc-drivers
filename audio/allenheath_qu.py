@@ -371,6 +371,12 @@ CHILD_ENTITY_TYPES: dict[str, dict[str, Any]] = {
     },
 }
 
+# Every child is keyed by a sanitized string local-id (in01, mix56, dca1, ...),
+# so declare a string id_format on each type. The platform otherwise defaults to
+# integer child ids and rejects string ids at register_child.
+for _ctype_def in CHILD_ENTITY_TYPES.values():
+    _ctype_def["id_format"] = {"type": "string", "max_length": 64}
+
 # Which per-channel operations each type supports (drives command generation).
 MUTE_TYPES = list(CHILD_ENTITY_TYPES.keys())
 FADER_TYPES = [t for t in CHILD_ENTITY_TYPES if t != "mute_group"]
@@ -610,7 +616,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # Runtime-registered child entities + typed connection faults.
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",

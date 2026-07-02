@@ -66,6 +66,24 @@ def _install_server_stubs() -> None:
 
         def register_child(self, child_type, local_id, initial_state=None,
                            schema=None):
+            # Mirror the platform's child-id validation: types default to
+            # integer ids and only accept strings when they declare
+            # id_format: {type: string}. (Without this the stub was too lenient
+            # and let string ids pass that the real BaseDriver rejects.)
+            tdef = self.DRIVER_INFO.get("child_entity_types", {}).get(
+                child_type, {})
+            id_fmt = tdef.get("id_format")
+            if id_fmt and id_fmt.get("type") == "string":
+                if not isinstance(local_id, str):
+                    raise TypeError(
+                        f"Child {child_type} local_id must be str, got "
+                        f"{type(local_id).__name__}: {local_id!r}")
+                if len(local_id) > id_fmt.get("max_length", 64):
+                    raise ValueError(f"Child {child_type} local_id too long")
+            elif not isinstance(local_id, int):
+                raise TypeError(
+                    f"Child {child_type} local_id must be int, got "
+                    f"{type(local_id).__name__}: {local_id!r}")
             if (child_type, local_id) in self._children:
                 return
             eff = self._eff_schema(child_type, local_id)
@@ -288,6 +306,13 @@ def test_optimistic_state_on_send():
     assert d.get_child_state("input", "in02")["pan"] < -0.9
     _run(d.send_command("mute_lr", {"action": "on"}))
     assert d.get_state("lr_mute") is True
+
+
+def test_child_types_declare_string_id_format():
+    # Children use sanitized string ids (in01, mix56, dca1, ...); the platform
+    # defaults to integer ids and rejects strings without this declaration.
+    for ctype, tdef in qu.CHILD_ENTITY_TYPES.items():
+        assert tdef.get("id_format", {}).get("type") == "string", ctype
 
 
 # ── Topology + identify ──

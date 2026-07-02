@@ -608,6 +608,25 @@ def test_absent_display_does_not_update():
     asyncio.run(go())
 
 
+def test_refresh_children_repolls_roster():
+    async def go():
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": "1,2"},
+            driver_overrides={"display_ids": "1,2"},
+        )
+        await driver.connect()
+        try:
+            # An out-of-band change on display 2 (e.g. the sim UI / front panel).
+            sim._displays[2]["volume"] = 88
+            result = await driver.refresh_children()
+            assert result == {"displays": 2}
+            assert driver.get_child_state("display", 2)["volume"] == 88
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
 def test_status_reflects_ui_driven_change():
     async def go():
         driver, sim = await _make_pair()

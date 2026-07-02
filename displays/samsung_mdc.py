@@ -625,6 +625,17 @@ class SamsungMDCDriver(BaseDriver):
         self._reconcile_displays()
         await self.poll()
 
+    async def refresh_children(self) -> dict[str, Any]:
+        """Re-sync the display roster from config and re-read every display's
+        live state — backs the IDE 'Refresh from Device' button.
+
+        The roster is declared in ``display_ids`` (an MDC bus reports no device
+        list to enumerate), so this reconciles against the current config and
+        re-polls, rather than discovering new units."""
+        self._reconcile_displays()
+        await self.poll()
+        return {"displays": len(self.list_children("display"))}
+
     def _coerce_child_ids(self, command: str, params: dict[str, Any]) -> None:
         """Coerce any child_id-typed param to a bare int (the IDE child picker
         hands back a zero-padded string)."""

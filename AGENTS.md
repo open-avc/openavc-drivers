@@ -929,6 +929,71 @@ TCP/serial, always write the actual protocol strings (with their line
 terminator), e.g. `"I\r"` above, not the command name. The same rule applies to
 `on_connect`.
 
+### 2.10.1 liveness (dead-link watchdog)
+
+Some links die silently. UDP and OSC are connectionless: a send to a dead or
+unplugged unit neither fails nor times out, and a YAML driver's UDP/OSC poll
+queries are fire-and-forget, so without help the device sits at
+`connected: True` forever. Push-mostly TCP has the same hole: a device that
+vanishes without a FIN leaves the socket looking connected until the OS TCP
+keepalive fires hours later. The `liveness:` block arms a watchdog that sends
+a cheap probe on a fixed cadence and awaits a reply; after `max_failures`
+consecutive silent probes the platform drops the connection with a typed
+`no_response` fault (so `offline_reason` / `offline_detail` show the real
+cause on the device card) and starts reconnecting.
+
+```yaml
+liveness:
+  send: "STATUS?\r\n"    # required. Probe payload -- same conventions as
+                         # polling queries: a raw protocol string with escape
+                         # processing and {config} substitution, terminator
+                         # included. On osc: an OSC address (plus optional
+                         # args: list, same shape as command args).
+  expect: "OK"           # optional regex. Only inbound data matching it
+                         # satisfies the probe; without it, ANY inbound data
+                         # during the wait window counts as alive.
+  interval: 30           # seconds between probes (default 30, min 1)
+  timeout: 5             # seconds to await a qualifying reply (default 5, min 0.1)
+  max_failures: 2        # consecutive misses before disconnect (default 2, min 1)
+```
+
+Validation (enforced at load time -- a violating driver won't load):
+
+- `liveness` is only valid on `tcp`, `serial`, `udp`, and `osc` transports.
+  It is rejected on `http` (HTTP polling already awaits every response and
+  raises on failure, so the missed-poll watchdog covers it) and on `bridge`
+  (a bridge-routed device owns no transport).
+- `send` is required and must be a non-empty string.
+- `expect` is checked for catastrophic backtracking (same rule as response
+  patterns).
+- `args` is only valid on `osc`.
+
+"Any inbound data counts" is deliberate: a poll reply or an unsolicited push
+arriving during the wait window proves the device is there just as well as a
+direct answer. Set `expect` when the link carries chatter that should NOT
+count (e.g. traffic from a misconfigured host echoing on the same port) --
+matching the probe's own reply text is the robust choice.
+
+When to use it:
+
+- **Every polled UDP or OSC driver.** Reuse the same status query the
+  `polling:` block sends, with an `expect` matching its reply. Pick an
+  interval near the poll interval; too tight wastes wire traffic, too loose
+  delays offline detection.
+- **Push-mostly TCP devices** (the device streams updates but is rarely sent
+  anything). Regular request/response TCP drivers usually don't need it --
+  the missed-poll watchdog already notices dead polls.
+
+Python drivers get the same watchdog by overriding
+`async def _liveness_probe(self)` and tuning the `HEALTH_*` class attributes
+instead of declaring a block -- see section 3.4.
+
+Related but independent: a TCP driver can also opt into OS-level TCP
+keepalive by adding `tcp_keepalive: true` to `default_config`. That only
+detects a dead peer at the socket layer (probing starts after 60s idle); the
+`liveness:` block detects an application that stopped answering even while
+the socket stays up, and works on connectionless transports. They compose.
+
 ### 2.11 device_settings
 
 Configurable values that live on the device hardware (not in the project file). These are writable and polled. The system queues writes for offline devices and sends them when the device reconnects.
@@ -1301,6 +1366,36 @@ async def connect(self) -> None:
     self.set_state("connected", True)
 ```
 
+#### Liveness probe (dead-link watchdog)
+
+```python
+async def _liveness_probe(self) -> None:
+    """Optional hook: send a cheap request and await the device's reply.
+    Return normally when the device answered; raise on a miss.
+    Default: not implemented (watchdog stays off).
+    """
+```
+
+Overriding `_liveness_probe` is the opt-in for the BaseDriver watchdog: the
+probe runs every `HEALTH_INTERVAL_S` seconds (default 30.0) under a
+`HEALTH_TIMEOUT_S` deadline (default 5.0), and any exception counts as a
+miss. After `HEALTH_MAX_FAILURES` consecutive misses (default 2) the platform
+tears the transport down with a typed `no_response` fault
+(`HEALTH_FAULT_MESSAGE`) so the device card shows the real cause and
+auto-reconnect kicks in. Tune by setting the `HEALTH_*` class attributes on
+your driver class.
+
+Use it where the link can die silently: push-mostly TCP (no FIN when the
+device vanishes) and UDP (see the transport table in section 4). YAML drivers
+get the same watchdog declaratively via the `liveness:` block (section
+2.10.1).
+
+Lifecycle: `BaseDriver.connect()` starts the loop automatically when it runs
+to completion, and both `disconnect()` and the transport-drop cleanup stop
+it. A driver that overrides `connect()` without calling `super().connect()`
+must call `self._start_health_loop()` itself; a custom `disconnect()` that
+skips `super().disconnect()` should call `self._stop_health_loop()`.
+
 #### Device Settings
 
 ```python
@@ -1609,7 +1704,7 @@ The runtime decides "is this device actually online?" differently per transport.
 | `serial` | The OS rejects the port open. |
 | `http` | Pre-connect `verify()` HEAD probe; periodic poll on `poll_interval`. |
 | `osc` | Pre-connect `verify()` probe (send + listen); periodic poll on `poll_interval`. |
-| `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. The only signal the runtime gets is your driver's `poll()` succeeding or failing. Set `poll_interval > 0` and implement a `poll()` that round-trips a status query **and raises when the reply doesn't come back** (a fire-and-forget send never fails) — otherwise the device will sit at `connected: True` forever no matter what's happening on the network. This is a Python-driver pattern: a YAML driver's UDP poll queries are fire-and-forget, so a YAML UDP driver currently has no liveness signal at all. |
+| `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. Give the runtime a liveness signal or the device will sit at `connected: True` forever no matter what's happening on the network. YAML drivers: declare a `liveness:` block (section 2.10.1) -- a YAML driver's UDP poll queries are fire-and-forget, so polling alone proves nothing. Python drivers: override `_liveness_probe()` (section 3.4), or implement a `poll()` that round-trips a status query **and raises when the reply doesn't come back** (a fire-and-forget send never fails). |
 
 For UDP, picking a poll interval is a tradeoff: too tight wastes wire traffic on a connectionless protocol; too loose delays failure detection. 10–30 seconds is reasonable for most AV equipment.
 

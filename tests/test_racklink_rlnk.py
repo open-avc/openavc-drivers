@@ -66,6 +66,13 @@ class _FakeBaseDriver:
 
     DRIVER_INFO: dict = {}
 
+    HEALTH_INTERVAL_S = 30.0
+    HEALTH_TIMEOUT_S = 5.0
+    HEALTH_MAX_FAILURES = 2
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the device stopped answering keep-alive probes."
+    )
+
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
         self.config = config
@@ -76,6 +83,8 @@ class _FakeBaseDriver:
         self._connected = False
         self.disconnect_calls = 0
         self.stashed_fault: tuple[str, str] | None = None
+        self._health_task = None
+        self._health_failures = 0
 
     def _eff_schema(self, ctype: str) -> dict:
         schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
@@ -152,6 +161,56 @@ class _FakeBaseDriver:
 
     def _stash_fault(self, code, message="") -> None:
         self.stashed_fault = (code, message)
+
+    # -- liveness watchdog (mirrors the platform BaseDriver: probe every
+    # HEALTH_INTERVAL_S under a HEALTH_TIMEOUT_S deadline; HEALTH_MAX_FAILURES
+    # misses force a disconnect with a typed no_response fault) --
+
+    async def _liveness_probe(self) -> None:
+        raise NotImplementedError
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
+
+    def _start_health_loop(self) -> None:
+        if self._health_task is None or self._health_task.done():
+            self._health_failures = 0
+            self._health_task = asyncio.ensure_future(self._health_loop())
+
+    def _stop_health_loop(self) -> None:
+        if self._health_task and not self._health_task.done():
+            self._health_task.cancel()
+        self._health_task = None
+
+    async def _health_loop(self) -> None:
+        interval = float(self.HEALTH_INTERVAL_S)
+        timeout = float(self.HEALTH_TIMEOUT_S)
+        max_failures = max(int(self.HEALTH_MAX_FAILURES), 1)
+        try:
+            while self.transport is not None and getattr(
+                    self.transport, "connected", False):
+                await asyncio.sleep(interval)
+                if not (self.transport is not None and getattr(
+                        self.transport, "connected", False)):
+                    return
+                try:
+                    await asyncio.wait_for(self._liveness_probe(), timeout)
+                    self._health_failures = 0
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self._health_failures += 1
+                    if self._health_failures >= max_failures:
+                        self._force_disconnect(
+                            "no_response", self.HEALTH_FAULT_MESSAGE)
+                        return
+        except asyncio.CancelledError:
+            return
+
+    def _force_disconnect(self, code="no_response", message="") -> None:
+        self._health_task = None
+        self._stash_fault(code, message)
+        self._handle_transport_disconnect()
 
     async def start_polling(self, interval) -> None:
         pass
@@ -288,7 +347,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.1"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.2"
 
 
 def test_child_entity_types_declared():
@@ -478,7 +537,7 @@ def test_health_probe_succeeds_when_alive():
         driver, sim = await _make_pair()
         await driver.connect()
         try:
-            await driver._probe_once()  # responds → no raise
+            await driver._liveness_probe()  # responds → no raise
         finally:
             await driver.disconnect()
 
@@ -490,9 +549,10 @@ def test_health_loop_forces_reconnect_on_silent_device():
         global _SWALLOW
         driver, sim = await _make_pair()
         await driver.connect()
-        # Speed the watchdog up and make the device go silent.
-        DRV.KEEPALIVE_INTERVAL_S = 0.01
-        DRV.KEEPALIVE_TIMEOUT_S = 0.05
+        # Speed the watchdog up (instance attrs; the loop reads self.HEALTH_*)
+        # and make the device go silent.
+        driver.HEALTH_INTERVAL_S = 0.01
+        driver.HEALTH_TIMEOUT_S = 0.05
         try:
             _SWALLOW = True  # device stops replying
             driver._start_health_loop()
@@ -504,8 +564,6 @@ def test_health_loop_forces_reconnect_on_silent_device():
             assert driver.stashed_fault[0] == "no_response"
         finally:
             _SWALLOW = False
-            DRV.KEEPALIVE_INTERVAL_S = 30.0
-            DRV.KEEPALIVE_TIMEOUT_S = 5.0
             driver._stop_health_loop()
 
     asyncio.run(go())

@@ -50,11 +50,10 @@ ESCAPE = 0xFD
 MAX_OUTLETS = 16
 MAX_CONTACTS = 8
 
-# Login handshake + liveness watchdog timing.
+# Login handshake timeout + per-probe reply deadline for the liveness
+# watchdog (cadence/misses use the BaseDriver HEALTH_* defaults).
 LOGIN_TIMEOUT_S = 5.0
-KEEPALIVE_INTERVAL_S = 30.0
 KEEPALIVE_TIMEOUT_S = 5.0
-KEEPALIVE_MAX_FAILURES = 2
 
 # Command codes
 CMD_NACK = 0x10
@@ -245,7 +244,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.1",
+        "version": "1.3.2",
         # Typed connection faults (ConnectionFaultError) need the 0.22.0 runtime.
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
@@ -553,6 +552,11 @@ class RackLinkRLNKDriver(BaseDriver):
         },
     }
 
+    # BaseDriver liveness watchdog fault wording (the device is a PDU).
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the PDU stopped answering keep-alive probes."
+    )
+
     # ── Lifecycle ──
 
     def __init__(
@@ -571,11 +575,6 @@ class RackLinkRLNKDriver(BaseDriver):
         # liveness probe) — regular polls are fire-and-forget — so a
         # single future per command code is sufficient.
         self._pending: dict[int, asyncio.Future[bytes]] = {}
-        # Liveness watchdog (qsc_qrc pattern): a push/poll-backstop driver
-        # on raw TCP can be silently dropped between pushes; an awaited
-        # NoOp-style probe detects it.
-        self._health_task: asyncio.Task | None = None
-        self._health_failures = 0
         super().__init__(device_id, config, state, events)
 
     async def connect(self) -> None:
@@ -642,7 +641,8 @@ class RackLinkRLNKDriver(BaseDriver):
 
         # Liveness watchdog: this is a push + poll-backstop driver on raw
         # TCP, so a silently-dropped Premium unit (no FIN between pushes)
-        # needs an awaited probe to be detected.
+        # needs an awaited probe to be detected. Started explicitly because
+        # this custom connect() never runs BaseDriver.connect()'s auto-start.
         self._start_health_loop()
 
         poll_interval = int(self.config.get("poll_interval", 60))
@@ -690,58 +690,17 @@ class RackLinkRLNKDriver(BaseDriver):
             if self._pending.get(cmd) is fut:
                 self._pending.pop(cmd, None)
 
-    def _start_health_loop(self) -> None:
-        if self._health_task is None or self._health_task.done():
-            self._health_failures = 0
-            self._health_task = asyncio.ensure_future(self._health_loop())
+    async def _liveness_probe(self) -> None:
+        """Send a cheap GET and await its reply (BaseDriver watchdog hook).
 
-    def _stop_health_loop(self) -> None:
-        if self._health_task and not self._health_task.done():
-            self._health_task.cancel()
-        self._health_task = None
-
-    async def _health_loop(self) -> None:
-        try:
-            while self.transport and self.transport.connected:
-                await asyncio.sleep(KEEPALIVE_INTERVAL_S)
-                if not (self.transport and self.transport.connected):
-                    return
-                try:
-                    await self._probe_once()
-                    self._health_failures = 0
-                except (asyncio.TimeoutError, ConnectionError, OSError) as exc:
-                    self._health_failures += 1
-                    log.warning(
-                        f"[{self.device_id}] Liveness probe failed "
-                        f"({self._health_failures}/{KEEPALIVE_MAX_FAILURES}): {exc}"
-                    )
-                    if self._health_failures >= KEEPALIVE_MAX_FAILURES:
-                        log.warning(
-                            f"[{self.device_id}] PDU unresponsive — forcing reconnect"
-                        )
-                        self._force_disconnect()
-                        return
-        except asyncio.CancelledError:
-            return
-
-    async def _probe_once(self) -> None:
-        """Send a cheap GET and await its reply as a liveness probe."""
+        This is a push + poll-backstop driver on raw TCP, so a silently
+        dropped unit (no FIN between pushes) is only detectable by an
+        awaited probe. The future is primed BEFORE the send so a fast reply
+        can't arrive before the awaiter exists.
+        """
         fut = self._prime_response(CMD_PART_NUMBER)
         await self._send_get(CMD_PART_NUMBER)
         await self._await_response(fut, CMD_PART_NUMBER, KEEPALIVE_TIMEOUT_S)
-
-    def _force_disconnect(self) -> None:
-        # Null our own task ref first so the disconnect handler doesn't
-        # cancel the still-running loop out from under us.
-        self._health_task = None
-        # Record the typed reason: this disconnect carries no exception and
-        # a silently-dead PDU leaves no transport error, so without the
-        # stash the device card would show the generic "connection dropped".
-        self._stash_fault(
-            "no_response",
-            "Connected, but the PDU stopped answering keep-alive probes.",
-        )
-        self._handle_transport_disconnect()
 
     async def _safe_close(self) -> None:
         if self.transport:

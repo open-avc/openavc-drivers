@@ -44,9 +44,19 @@ def _install_server_stubs() -> None:
 
     class _BaseDriver:
         """Faithful enough stand-in: device + child state in plain dicts, with
-        the same dynamic-schema prop validation the real platform enforces."""
+        the same dynamic-schema prop validation the real platform enforces,
+        plus the liveness watchdog (probe every HEALTH_INTERVAL_S under a
+        HEALTH_TIMEOUT_S deadline; HEALTH_MAX_FAILURES misses force a
+        disconnect with a typed no_response fault)."""
 
         DRIVER_INFO: dict = {}
+
+        HEALTH_INTERVAL_S = 30.0
+        HEALTH_TIMEOUT_S = 5.0
+        HEALTH_MAX_FAILURES = 2
+        HEALTH_FAULT_MESSAGE = (
+            "Connected, but the device stopped answering keep-alive probes."
+        )
 
         def __init__(self, device_id, config, state, events):
             self.device_id = device_id
@@ -57,6 +67,8 @@ def _install_server_stubs() -> None:
             self._connected = False
             self.device_state: dict = {}
             self.stashed_fault: tuple | None = None
+            self._health_task = None
+            self._health_failures = 0
             self._children: dict = {}          # (type, id) -> dict(state)
             self._schemas: dict = {}           # (type, id) -> schema
             self._order: dict = {}             # type -> [ids in order]
@@ -131,6 +143,60 @@ def _install_server_stubs() -> None:
 
         def _stash_fault(self, code, message=""):
             self.stashed_fault = (code, message)
+
+        # -- liveness watchdog (mirrors the platform BaseDriver) --
+        async def _liveness_probe(self):
+            raise NotImplementedError
+
+        def _health_enabled(self):
+            return (
+                type(self)._liveness_probe is not _BaseDriver._liveness_probe
+            )
+
+        def _start_health_loop(self):
+            if self._health_task is None or self._health_task.done():
+                self._health_failures = 0
+                self._health_task = asyncio.ensure_future(self._health_loop())
+
+        def _stop_health_loop(self):
+            if self._health_task and not self._health_task.done():
+                self._health_task.cancel()
+            self._health_task = None
+
+        async def _health_loop(self):
+            interval = float(self.HEALTH_INTERVAL_S)
+            timeout = float(self.HEALTH_TIMEOUT_S)
+            max_failures = max(int(self.HEALTH_MAX_FAILURES), 1)
+            try:
+                while self.transport is not None and getattr(
+                        self.transport, "connected", False):
+                    await asyncio.sleep(interval)
+                    if not (self.transport is not None and getattr(
+                            self.transport, "connected", False)):
+                        return
+                    try:
+                        await asyncio.wait_for(self._liveness_probe(), timeout)
+                        self._health_failures = 0
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self._health_failures += 1
+                        if self._health_failures >= max_failures:
+                            self._force_disconnect(
+                                "no_response", self.HEALTH_FAULT_MESSAGE)
+                            return
+            except asyncio.CancelledError:
+                return
+
+        def _force_disconnect(self, code="no_response", message=""):
+            self._health_task = None
+            self._stash_fault(code, message)
+            self._handle_transport_disconnect()
+
+        def _handle_transport_disconnect(self):
+            self._connected = False
+            if self.transport is not None:
+                self.transport.connected = False
 
         def set_children_state_batch(self, updates):
             for ctype, lid, ups in updates:
@@ -473,13 +539,23 @@ def test_pa_page_submit_parapi_params():
 
 # ── Keep-alive / liveness health loop ──
 # AutoPoll is core->client only, so without client traffic the Core closes the
-# socket at 60s (flap) and a vanished Core is never noticed. The health loop
-# NoOps to keep the session alive and tears down on consecutive failures.
+# socket at 60s (flap) and a vanished Core is never noticed. The driver's
+# _liveness_probe NoOps to keep the session alive; the inherited BaseDriver
+# watchdog tears down on consecutive failures.
 
-def test_health_loop_tears_down_after_consecutive_failures(monkeypatch):
-    monkeypatch.setattr(qsc, "KEEPALIVE_INTERVAL_S", 0.001)
-    monkeypatch.setattr(qsc, "KEEPALIVE_TIMEOUT_S", 0.001)
+def test_liveness_probe_arms_base_watchdog():
     drv = _make_driver()
+    # Overriding _liveness_probe is the opt-in; 20s keeps the client-silent
+    # socket comfortably inside the Core's 60s idle close.
+    assert drv._health_enabled() is True
+    assert drv.HEALTH_INTERVAL_S == 20.0
+    assert "Core" in drv.HEALTH_FAULT_MESSAGE
+
+
+def test_health_loop_tears_down_after_consecutive_failures():
+    drv = _make_driver()
+    drv.HEALTH_INTERVAL_S = 0.001
+    drv.HEALTH_TIMEOUT_S = 0.05
     drv.transport = SimpleNamespace(connected=True)
     calls = {"noop": 0, "down": 0}
 
@@ -496,12 +572,12 @@ def test_health_loop_tears_down_after_consecutive_failures(monkeypatch):
 
     asyncio.run(asyncio.wait_for(drv._health_loop(), timeout=2))
     assert calls["down"] == 1
-    assert calls["noop"] == qsc.KEEPALIVE_MAX_FAILURES
+    assert calls["noop"] == drv.HEALTH_MAX_FAILURES
 
 
-def test_health_loop_success_resets_failure_count(monkeypatch):
-    monkeypatch.setattr(qsc, "KEEPALIVE_INTERVAL_S", 0.001)
+def test_health_loop_success_resets_failure_count():
     drv = _make_driver()
+    drv.HEALTH_INTERVAL_S = 0.001
     drv.transport = SimpleNamespace(connected=True)
     calls = {"noop": 0, "down": 0}
 

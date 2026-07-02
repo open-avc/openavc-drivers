@@ -303,6 +303,9 @@
     "auth": {
       "$ref": "#/$defs/authBlock"
     },
+    "liveness": {
+      "$ref": "#/$defs/livenessBlock"
+    },
     "frame_parser": {
       "$ref": "#/$defs/frameParser"
     },
@@ -908,6 +911,46 @@
         "line_ending": {
           "type": "string",
           "description": "Line ending appended to credentials. Default \"\\r\\n\"."
+        }
+      },
+      "additionalProperties": true
+    },
+    "livenessBlock": {
+      "type": "object",
+      "description": "Dead-link watchdog: send a probe every `interval` seconds and await a reply; after `max_failures` consecutive silent probes the platform drops the connection with a typed no_response fault and reconnects. Only valid on tcp/serial/udp/osc transports (rejected at load time on http, where polling already awaits every response, and on bridge, which owns no transport). Any inbound data during the wait window counts as alive unless `expect` narrows it. Needed for connectionless transports (UDP/OSC, where fire-and-forget polls never notice silence) and push-mostly TCP (no FIN when the device vanishes).",
+      "required": ["send"],
+      "properties": {
+        "send": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Probe payload. Same conventions as polling queries: a raw protocol string with escape processing and {config} substitution (terminator included) for tcp/serial/udp, or an OSC address on osc."
+        },
+        "expect": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional regex; only inbound data matching it satisfies the probe. Without it, any inbound data counts. Checked for catastrophic backtracking."
+        },
+        "interval": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Seconds between probes. Default 30."
+        },
+        "timeout": {
+          "type": "number",
+          "minimum": 0.1,
+          "description": "Seconds to await a qualifying reply. Default 5."
+        },
+        "max_failures": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Consecutive misses before the connection is dropped. Default 2."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/oscArg"
+          },
+          "description": "OSC only: arguments sent with the probe address (same shape as command args)."
         }
       },
       "additionalProperties": true

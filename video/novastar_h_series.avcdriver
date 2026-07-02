@@ -23,7 +23,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.4.0
+version: 1.5.0
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -37,7 +37,9 @@ tags: [videowall, splicer, led-wall, video-processing]
 verified: false
 simulated: true
 ports: [6000]
-min_platform_version: 0.5.13
+# 0.22.0 ships the liveness watchdog runtime; on older platforms the
+# liveness block below is silently inert and a dead unit never goes offline.
+min_platform_version: 0.22.0
 compatible_models:
   - manufacturer: Novastar
     models: [H2, H5, H9, H15, H20]
@@ -931,6 +933,21 @@ responses:
 polling:
   queries:
     - get_screen_details
+
+# ── LIVENESS ──
+# UDP is fire-and-forget: a send to a dead or unplugged unit neither fails
+# nor times out, so without an awaited probe this device would never go
+# offline. The watchdog sends the same R0401 screen-details query the poll
+# uses and requires the R0401 reply back (expect keeps unrelated chatter
+# from counting); after max_failures silent probes the platform drops the
+# connection with a no_response fault and reconnects.
+
+liveness:
+  send: '[{"cmd":"R0401","param0":{device_id},"param1":{screen_id}}]'
+  expect: '"cmd":"R0401"'
+  interval: 15
+  timeout: 5
+  max_failures: 2
 
 # ── SIMULATOR DEFINITION ──
 # JSON-over-UDP protocols cannot use Level 0 auto-generation (the regex

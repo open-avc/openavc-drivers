@@ -45,11 +45,10 @@ MAX_OUTLETS = 18
 
 OUTLET_MODES = {"enabled": 0, "disabled": 1, "reset_only": 2}
 
-# Login handshake + liveness watchdog timing.
+# Login handshake timeout + per-probe reply deadline for the liveness
+# watchdog (cadence/misses use the BaseDriver HEALTH_* defaults).
 LOGIN_TIMEOUT_S = 5.0
-KEEPALIVE_INTERVAL_S = 30.0
 KEEPALIVE_TIMEOUT_S = 5.0
-KEEPALIVE_MAX_FAILURES = 2
 
 
 def _build_state_vars() -> dict[str, dict[str, Any]]:
@@ -118,7 +117,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.1",
+        "version": "1.3.2",
         # Typed connection faults (ConnectionFaultError) need the 0.22.0 runtime.
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
@@ -449,6 +448,11 @@ class WattBoxIPDriver(BaseDriver):
         },
     }
 
+    # BaseDriver liveness watchdog fault wording (the device is a PDU).
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the PDU stopped answering keep-alive probes."
+    )
+
     # ── Lifecycle ──
 
     def __init__(
@@ -472,11 +476,6 @@ class WattBoxIPDriver(BaseDriver):
         # probe ever awaits a reply (regular polls are fire-and-forget), so
         # a single outstanding future per field name is sufficient.
         self._pending: dict[str, asyncio.Future[str]] = {}
-        # Liveness watchdog (qsc_qrc / racklink pattern): WattBox v1.7 has
-        # no push and no protocol keepalive, so a silently-dropped unit on
-        # raw TCP needs an awaited probe to be detected.
-        self._health_task: asyncio.Task | None = None
-        self._health_failures = 0
         super().__init__(device_id, config, state, events)
 
     async def connect(self) -> None:
@@ -552,6 +551,8 @@ class WattBoxIPDriver(BaseDriver):
 
         # Liveness watchdog: no push / keepalive in the protocol, so an
         # awaited probe is the only way to notice a silently-dropped unit.
+        # Started explicitly because this custom connect() never runs
+        # BaseDriver.connect()'s auto-start.
         self._start_health_loop()
 
         poll_interval = int(self.config.get("poll_interval", 30))
@@ -607,58 +608,17 @@ class WattBoxIPDriver(BaseDriver):
         if fut is not None and not fut.done():
             fut.set_result(value)
 
-    def _start_health_loop(self) -> None:
-        if self._health_task is None or self._health_task.done():
-            self._health_failures = 0
-            self._health_task = asyncio.ensure_future(self._health_loop())
+    async def _liveness_probe(self) -> None:
+        """Send a cheap query and await its reply (BaseDriver watchdog hook).
 
-    def _stop_health_loop(self) -> None:
-        if self._health_task and not self._health_task.done():
-            self._health_task.cancel()
-        self._health_task = None
-
-    async def _health_loop(self) -> None:
-        try:
-            while self.transport and self.transport.connected:
-                await asyncio.sleep(KEEPALIVE_INTERVAL_S)
-                if not (self.transport and self.transport.connected):
-                    return
-                try:
-                    await self._probe_once()
-                    self._health_failures = 0
-                except (asyncio.TimeoutError, ConnectionError, OSError) as exc:
-                    self._health_failures += 1
-                    log.warning(
-                        f"[{self.device_id}] Liveness probe failed "
-                        f"({self._health_failures}/{KEEPALIVE_MAX_FAILURES}): {exc}"
-                    )
-                    if self._health_failures >= KEEPALIVE_MAX_FAILURES:
-                        log.warning(
-                            f"[{self.device_id}] WattBox unresponsive — forcing reconnect"
-                        )
-                        self._force_disconnect()
-                        return
-        except asyncio.CancelledError:
-            return
-
-    async def _probe_once(self) -> None:
-        """Send a cheap query and await its reply as a liveness probe."""
+        WattBox v1.7 has no push and no protocol keepalive, so a silently
+        dropped unit on raw TCP is only detectable by an awaited probe. The
+        future is primed BEFORE the send so a fast reply can't arrive before
+        the awaiter exists.
+        """
         fut = self._prime_response("Firmware")
         await self._send("?Firmware")
         await self._await_response(fut, "Firmware", KEEPALIVE_TIMEOUT_S)
-
-    def _force_disconnect(self) -> None:
-        # Null our own task ref first so the disconnect handler doesn't
-        # cancel the still-running loop out from under us.
-        self._health_task = None
-        # Record the typed reason: this disconnect carries no exception and
-        # a silently-dead PDU leaves no transport error, so without the
-        # stash the device card would show the generic "connection dropped".
-        self._stash_fault(
-            "no_response",
-            "Connected, but the PDU stopped answering keep-alive probes.",
-        )
-        self._handle_transport_disconnect()
 
     async def _safe_close(self) -> None:
         if self.transport:

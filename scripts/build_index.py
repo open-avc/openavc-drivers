@@ -866,6 +866,75 @@ def _validate_auth_block(file: str, data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _validate_liveness_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate a driver's optional `liveness:` dead-link watchdog.
+
+    Mirrors the runtime rules in driver_loader.validate_driver_definition:
+    tcp/serial/udp/osc only, `send` required, `expect` compiles without
+    catastrophic backtracking, interval >= 1 / timeout >= 0.1 /
+    max_failures >= 1, and `args` only on osc.
+    """
+    errors: list[str] = []
+    liveness = data.get("liveness")
+    if liveness is None:
+        return errors
+    if not isinstance(liveness, dict):
+        errors.append(f"{file}: liveness must be a mapping")
+        return errors
+
+    transport = data.get("transport", "")
+    if transport and transport not in ("tcp", "serial", "udp", "osc"):
+        errors.append(
+            f"{file}: liveness is not supported on transport '{transport}' "
+            f"(only tcp/serial/udp/osc)"
+        )
+
+    send = liveness.get("send")
+    if not isinstance(send, str) or not send:
+        errors.append(f"{file}: liveness missing required 'send'")
+
+    expect = liveness.get("expect")
+    if expect is not None:
+        if not isinstance(expect, str) or not expect:
+            errors.append(f"{file}: liveness.expect must be a regex string")
+        else:
+            try:
+                re.compile(expect)
+            except re.error as exc:
+                errors.append(f"{file}: liveness.expect failed to compile: {exc}")
+            else:
+                reason = _regex_backtracking_reason(expect)
+                if reason:
+                    errors.append(
+                        f"{file}: liveness.expect has a {reason} that can cause "
+                        f"catastrophic backtracking against raw device bytes"
+                    )
+
+    for key, minimum in (("interval", 1.0), ("timeout", 0.1)):
+        value = liveness.get(key)
+        if value is not None and (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or value < minimum
+        ):
+            errors.append(f"{file}: liveness.{key} must be a number >= {minimum}")
+
+    max_failures = liveness.get("max_failures")
+    if max_failures is not None and (
+        not isinstance(max_failures, int)
+        or isinstance(max_failures, bool)
+        or max_failures < 1
+    ):
+        errors.append(f"{file}: liveness.max_failures must be an integer >= 1")
+
+    if liveness.get("args") is not None:
+        if transport != "osc":
+            errors.append(f"{file}: liveness.args is only valid on osc")
+        elif not isinstance(liveness["args"], list):
+            errors.append(f"{file}: liveness.args must be a list")
+    return errors
+
+
 def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
     """Validate a driver's optional `child_entity_types:` mapping.
 
@@ -1859,6 +1928,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         errors.extend(_validate_auth_block(rel, data))
+        errors.extend(_validate_liveness_block(rel, data))
         errors.extend(_validate_frame_parser_block(rel, data))
         errors.extend(_validate_actions_block(rel, data))
         errors.extend(_validate_child_entity_types(rel, data))

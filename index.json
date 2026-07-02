@@ -469,10 +469,10 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Discover devices, route/unroute audio channels, monitor subscriptions.",
+      "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
       "source_url": "https://www.getdante.com/products/network-management/dante-managed-api/",
       "file": "audio/dante_ddm.py",
       "format": "python",
@@ -480,14 +480,15 @@
         443
       ],
       "simulated": true,
+      "min_platform_version": "0.19.4",
       "tags": [
         "dante",
         "audio-routing",
         "graphql"
       ],
       "help": {
-        "overview": "This driver connects to a Dante Domain Manager (DDM) or Dante Director Professional instance to control audio routing across all Dante devices on the network. It does NOT connect to individual Dante devices \u2014 the DDM/Director acts as the central management point.\n\nYou can route any transmit (Tx) channel to any receive (Rx) channel, clear routes, and monitor subscription status.",
-        "setup": "1. You need Dante Domain Manager (on-premise) or Dante Director Professional (cloud) \u2014 the Standard tier does not include API access.\n2. Generate an API key in the DDM/Director web UI.\n3. Enter the DDM/Director URL (e.g., https://ddm.local or the Director cloud URL).\n4. Enter the API key.\n5. Enter the Dante domain name to manage (shown in DDM/Director).\n6. Use the 'refresh' command to discover devices and channels."
+        "overview": "This driver connects to a Dante Domain Manager (DDM) or Dante Director Professional instance to control audio routing across all Dante devices on the network. It does NOT connect to individual Dante devices \u2014 the DDM/Director acts as the central management point.\n\nEvery Dante device in the domain appears as a child entity. Each device's Rx channels show what they're currently subscribed to, so you can see and drive the whole routing matrix from one device.",
+        "setup": "1. You need Dante Domain Manager (on-premise) or Dante Director Professional (cloud) \u2014 the Standard tier does not include API access.\n2. Generate an API key in the DDM/Director web UI.\n3. Enter the DDM/Director URL (e.g., https://ddm.local or the Director cloud URL).\n4. Enter the API key.\n5. Enter the Dante domain name to manage (shown in DDM/Director).\n6. On connect, the devices and channels are discovered. Use the 'Refresh from Device' button (or the 'refresh' command) after adding gear to the domain."
       },
       "compatible_models": [
         {

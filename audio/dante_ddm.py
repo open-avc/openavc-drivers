@@ -7,10 +7,14 @@ Requires a Dante Domain Manager (on-premise) or Dante Director Professional
 individual Dante devices.
 
 Capabilities:
-  - Discover all Dante devices and their Tx/Rx channels
-  - Route audio: subscribe any Rx channel to a Tx channel
-  - Unroute audio: clear a subscription on an Rx channel
-  - Query subscription status (active, failed, format mismatch, etc.)
+  - Discover all Dante devices and their Tx/Rx channels; each Dante device
+    is modeled as a child entity whose Rx channels carry their live
+    subscription (routing) as child state.
+  - Route audio: subscribe any Rx channel to a Tx channel (with device and
+    channel pickers driven by the discovered topology).
+  - Unroute audio: clear a subscription on an Rx channel.
+  - "Refresh from Device" re-reads the whole domain and reconciles the child
+    roster.
 
 The Managed API is GraphQL over HTTPS. Authentication is via API key,
 generated in the DDM/Director web UI.
@@ -23,6 +27,8 @@ Reference:
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
 
 import httpx
@@ -78,6 +84,19 @@ mutation DeviceRxChannelsSubscriptionSet($input: DeviceRxChannelsSubscriptionSet
 }
 """
 
+
+def _safe_id(name: str) -> str:
+    """Sanitize a Dante device name into a child local-id (the platform
+    requires ``[A-Za-z0-9_-]``). The real name is kept in the child's ``name``
+    state var and the driver's sid->name map."""
+    return re.sub(r"[^A-Za-z0-9_-]", "_", name) or "device"
+
+
+def _rx_prop(index: int) -> str:
+    """Child state-var key for an Rx channel by its 1-based index."""
+    return f"rx{index}"
+
+
 class DanteDDMDriver(BaseDriver):
     """Dante DDM/Director driver via the Audinate Managed API (GraphQL)."""
 
@@ -86,12 +105,16 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.6.0",
+        "version": "1.7.0",
+        # Requires runtime-discovered child entities with string local IDs and
+        # per-child dynamic schemas (added after 0.19.3), same as qsc_qrc.
+        "min_platform_version": "0.19.4",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
             "Requires Dante Domain Manager or Dante Director Professional. "
-            "Discover devices, route/unroute audio channels, monitor subscriptions."
+            "Each Dante device is a child entity; route/unroute any Rx channel "
+            "to a Tx channel and monitor live subscription status."
         ),
         "source_url": "https://www.getdante.com/products/network-management/dante-managed-api/",
         "tags": ["dante", "audio-routing", "graphql"],
@@ -124,8 +147,10 @@ class DanteDDMDriver(BaseDriver):
                 "across all Dante devices on the network. It does NOT connect "
                 "to individual Dante devices — the DDM/Director acts as the "
                 "central management point.\n\n"
-                "You can route any transmit (Tx) channel to any receive (Rx) "
-                "channel, clear routes, and monitor subscription status."
+                "Every Dante device in the domain appears as a child entity. "
+                "Each device's Rx channels show what they're currently "
+                "subscribed to, so you can see and drive the whole routing "
+                "matrix from one device."
             ),
             "setup": (
                 "1. You need Dante Domain Manager (on-premise) or Dante "
@@ -136,7 +161,9 @@ class DanteDDMDriver(BaseDriver):
                 "the Director cloud URL).\n"
                 "4. Enter the API key.\n"
                 "5. Enter the Dante domain name to manage (shown in DDM/Director).\n"
-                "6. Use the 'refresh' command to discover devices and channels."
+                "6. On connect, the devices and channels are discovered. Use "
+                "the 'Refresh from Device' button (or the 'refresh' command) "
+                "after adding gear to the domain."
             ),
         },
         "default_config": {
@@ -205,38 +232,81 @@ class DanteDDMDriver(BaseDriver):
                 "type": "string",
                 "label": "Domain Name",
             },
+            "tx_channel_names": {
+                "type": "string",
+                "label": "Tx Channel Names",
+                "help": (
+                    "JSON list of every Tx channel name across the domain. "
+                    "Populates the Route command's Transmitter Channel picker."
+                ),
+            },
             "last_error": {
                 "type": "string",
                 "label": "Last Error",
             },
         },
+        "child_entity_types": {
+            "device": {
+                "label": "Dante Device",
+                "label_plural": "Dante Devices",
+                "dynamic": True,
+                "id_format": {"type": "string", "max_length": 128},
+                # The per-child schema (published at register_child(schema=…))
+                # adds one rx<index> prop per Rx channel; the type-level schema
+                # carries the shared summary fields.
+                "state_variables": {
+                    "name": {"type": "string", "label": "Device Name", "cloud_priority": "low"},
+                    "rx_channels": {"type": "integer", "label": "Rx Channels", "cloud_priority": "low"},
+                    "tx_channels": {"type": "integer", "label": "Tx Channels", "cloud_priority": "low"},
+                    "subscribed": {"type": "integer", "label": "Active Subscriptions", "cloud_priority": "low"},
+                },
+                "summary_fields": ["name", "subscribed", "rx_channels"],
+                "label_field": "name",
+            },
+        },
+        "quick_actions": ["refresh"],
+        "actions": [
+            {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
+        ],
         "commands": {
             "route": {
                 "label": "Route Audio",
                 "params": {
                     "rx_device": {
-                        "type": "string",
+                        "type": "child_id",
+                        "child_type": "device",
                         "required": True,
                         "label": "Receiver Device",
-                        "help": "Name of the Dante device receiving audio.",
+                        "help": "The Dante device receiving audio.",
                     },
                     "rx_channel": {
                         "type": "string",
                         "required": True,
                         "label": "Receiver Channel",
-                        "help": "Name or index of the Rx channel on the receiver.",
+                        "options_from": {"param": "rx_device", "source": "child_schema"},
+                        "help": (
+                            "Rx channel on the receiver. Pick the receiver "
+                            "above to list its channels, or type a channel "
+                            "name or index."
+                        ),
                     },
                     "tx_device": {
-                        "type": "string",
+                        "type": "child_id",
+                        "child_type": "device",
                         "required": True,
                         "label": "Transmitter Device",
-                        "help": "Name of the Dante device sending audio.",
+                        "help": "The Dante device sending audio.",
                     },
                     "tx_channel": {
                         "type": "string",
                         "required": True,
                         "label": "Transmitter Channel",
-                        "help": "Name or index of the Tx channel on the transmitter.",
+                        "options_state": "tx_channel_names",
+                        "help": (
+                            "Tx channel name on the transmitter. Every Tx "
+                            "channel name in the domain is offered; type one "
+                            "if it isn't listed."
+                        ),
                     },
                 },
                 "help": (
@@ -248,16 +318,18 @@ class DanteDDMDriver(BaseDriver):
                 "label": "Unroute Audio",
                 "params": {
                     "rx_device": {
-                        "type": "string",
+                        "type": "child_id",
+                        "child_type": "device",
                         "required": True,
                         "label": "Receiver Device",
-                        "help": "Name of the Dante device to unroute.",
+                        "help": "The Dante device to unroute.",
                     },
                     "rx_channel": {
                         "type": "string",
                         "required": True,
                         "label": "Receiver Channel",
-                        "help": "Name or index of the Rx channel to clear.",
+                        "options_from": {"param": "rx_device", "source": "child_schema"},
+                        "help": "Rx channel to clear (name, index, or picker).",
                     },
                 },
                 "help": "Clear the subscription on an Rx channel (stop receiving audio).",
@@ -279,6 +351,10 @@ class DanteDDMDriver(BaseDriver):
         self._domain_id: str = ""
         # Cached device data: {device_name: {id, name, txChannels, rxChannels}}
         self._devices: dict[str, dict[str, Any]] = {}
+        # Child roster maps: child local-id (sanitized) <-> real device name,
+        # and the last per-child schema (reconcile guard, qsc pattern).
+        self._device_sid_to_name: dict[str, str] = {}
+        self._device_schemas: dict[str, dict[str, Any]] = {}
 
     async def connect(self) -> None:
         """Connect to the DDM/Director GraphQL API."""
@@ -388,9 +464,9 @@ class DanteDDMDriver(BaseDriver):
 
         match command:
             case "route":
-                rx_device = params.get("rx_device", "")
+                rx_device = self._device_name_for(params.get("rx_device", ""))
                 rx_channel = params.get("rx_channel", "")
-                tx_device = params.get("tx_device", "")
+                tx_device = self._device_name_for(params.get("tx_device", ""))
                 tx_channel = params.get("tx_channel", "")
 
                 if not all([rx_device, rx_channel, tx_device, tx_channel]):
@@ -405,7 +481,7 @@ class DanteDDMDriver(BaseDriver):
                 )
 
             case "unroute":
-                rx_device = params.get("rx_device", "")
+                rx_device = self._device_name_for(params.get("rx_device", ""))
                 rx_channel = params.get("rx_channel", "")
 
                 if not all([rx_device, rx_channel]):
@@ -421,6 +497,16 @@ class DanteDDMDriver(BaseDriver):
 
             case _:
                 log.warning(f"[{self.device_id}] Unknown command: {command}")
+
+    async def refresh_children(self) -> dict[str, Any]:
+        """Re-query the domain and reconcile the device child roster.
+
+        Backs the IDE "Refresh from Device" button for this device.
+        """
+        if not self._client:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        await self._refresh_devices()
+        return {"devices": len(self._devices)}
 
     async def poll(self) -> None:
         """Periodically refresh device and subscription status.
@@ -453,12 +539,13 @@ class DanteDDMDriver(BaseDriver):
             resp = await self._client.post("/graphql", json=payload)
 
             if resp.status_code == 401:
+                # Worded for the shared connection-fault classifier -> auth_failed.
                 self.set_state("last_error", "Authentication failed — check API key")
-                raise ConnectionError("Authentication failed — check API key")
+                raise ConnectionError("Authentication failed — check the API key")
 
             if resp.status_code == 403:
-                self.set_state("last_error", "Access denied — check API permissions")
-                raise ConnectionError("Access denied — check API permissions")
+                self.set_state("last_error", "Access denied — check API key permissions")
+                raise ConnectionError("Access denied — the API key lacks permission")
 
             resp.raise_for_status()
             result = resp.json()
@@ -481,7 +568,8 @@ class DanteDDMDriver(BaseDriver):
             raise
 
     async def _refresh_devices(self) -> None:
-        """Query all devices and channels from the managed domain."""
+        """Query all devices and channels from the managed domain, then
+        reconcile the device child roster and republish the picker lists."""
         try:
             result = await self._graphql(
                 _QUERY_DEVICES, {"domainIDInput": self._domain_id}
@@ -508,6 +596,8 @@ class DanteDDMDriver(BaseDriver):
                     if rx.get("subscribedDevice"):
                         subscription_count += 1
 
+            self._reconcile_device_children(devices)
+
             self.set_state("device_count", len(self._devices))
             self.set_state("subscription_count", subscription_count)
             self.set_state("last_error", None)
@@ -523,6 +613,121 @@ class DanteDDMDriver(BaseDriver):
         except Exception:
             log.exception(f"[{self.device_id}] Refresh error")
 
+    # --- Child entities (Dante devices) ---
+
+    @staticmethod
+    def _subscription_value(rx: dict[str, Any]) -> str:
+        """Render one Rx channel's live subscription as a display string.
+
+        "" when unrouted; "<TxDevice>: <TxChannel>" when subscribed; the raw
+        status is appended when it isn't a clean connection (so a broken route
+        is visible without inventing a status enum)."""
+        dev = str(rx.get("subscribedDevice") or "")
+        if not dev:
+            return ""
+        ch = str(rx.get("subscribedChannel") or "")
+        val = f"{dev}: {ch}" if ch else dev
+        status = str(rx.get("status") or "")
+        if status and status.strip().lower() != "connected":
+            val = f"{val} ({status})"
+        return val
+
+    def _build_device_child(
+        self, dev: dict[str, Any]
+    ) -> tuple[str, dict[str, dict[str, Any]], dict[str, Any], int]:
+        """Return (sid, schema, initial_state, subscribed_count) for a device."""
+        name = str(dev.get("name", ""))
+        sid = _safe_id(name)
+        rx_channels = dev.get("rxChannels", []) or []
+        tx_channels = dev.get("txChannels", []) or []
+
+        schema: dict[str, dict[str, Any]] = {
+            "name": {"type": "string", "label": "Device Name", "cloud_priority": "low"},
+            "rx_channels": {"type": "integer", "label": "Rx Channels", "cloud_priority": "low"},
+            "tx_channels": {"type": "integer", "label": "Tx Channels", "cloud_priority": "low"},
+            "subscribed": {"type": "integer", "label": "Active Subscriptions", "cloud_priority": "low"},
+        }
+        initial: dict[str, Any] = {
+            "name": name,
+            "rx_channels": len(rx_channels),
+            "tx_channels": len(tx_channels),
+        }
+
+        subscribed = 0
+        for rx in rx_channels:
+            idx = rx.get("index")
+            if idx is None:
+                continue
+            prop = _rx_prop(int(idx))
+            label = str(rx.get("name") or f"Rx {idx}")
+            # `control: true` opts this prop into the rx_channel picker cascade;
+            # `high` cloud priority because a live route is the operational state.
+            schema[prop] = {
+                "type": "string",
+                "label": label,
+                "control": True,
+                "cloud_priority": "high",
+            }
+            value = self._subscription_value(rx)
+            initial[prop] = value
+            if value:
+                subscribed += 1
+
+        initial["subscribed"] = subscribed
+        return sid, schema, initial, subscribed
+
+    def _reconcile_device_children(self, devices: list[dict[str, Any]]) -> None:
+        """Register a child per Dante device (re-registering only when its
+        channel schema changed), deregister devices no longer present, and
+        publish the Tx-channel picker list."""
+        seen: set[str] = set()
+        tx_names: set[str] = set()
+
+        for dev in devices:
+            if not isinstance(dev, dict) or not dev.get("name"):
+                continue
+            sid, schema, initial, _ = self._build_device_child(dev)
+            seen.add(sid)
+            self._device_sid_to_name[sid] = str(dev.get("name", ""))
+            for tx in dev.get("txChannels", []) or []:
+                nm = tx.get("name")
+                if nm:
+                    tx_names.add(str(nm))
+
+            prev = self._device_schemas.get(sid)
+            if (
+                prev is not None
+                and prev == schema
+                and self.is_child_registered("device", sid)
+            ):
+                # Same channel set — just refresh values, keep the child.
+                try:
+                    self.set_child_state_batch("device", sid, initial)
+                except ValueError:
+                    pass
+            else:
+                if self.is_child_registered("device", sid):
+                    self.deregister_child("device", sid)
+                self.register_child(
+                    "device", sid, schema=schema, initial_state=initial
+                )
+            self._device_schemas[sid] = schema
+
+        # Drop children for devices that left the domain.
+        for sid in list(self._device_sid_to_name):
+            if sid not in seen:
+                self.deregister_child("device", sid)
+                self._device_sid_to_name.pop(sid, None)
+                self._device_schemas.pop(sid, None)
+
+        self.set_state("tx_channel_names", json.dumps(sorted(tx_names)))
+
+    def _device_name_for(self, value: Any) -> str:
+        """Resolve a child local-id (from the device picker) back to the real
+        Dante device name; fall back to treating the value as a literal name."""
+        s = str(value)
+        return self._device_sid_to_name.get(s, s)
+
     def _find_device(self, device_name: str) -> dict | None:
         """Look up a device by name (case-insensitive)."""
         # Exact match first
@@ -536,17 +741,21 @@ class DanteDDMDriver(BaseDriver):
         return None
 
     def _find_rx_channel_index(self, device: dict, channel: str) -> int | None:
-        """Resolve a channel name or index string to a numeric index."""
-        # Try as integer index
+        """Resolve a channel picker value / name / index to a numeric index."""
+        s = str(channel).strip()
+        # The rx_channel picker hands back the schema prop key, e.g. "rx3".
+        m = re.match(r"^rx(\d+)$", s, re.IGNORECASE)
+        if m:
+            return int(m.group(1))
+        # A bare index.
         try:
-            return int(channel)
+            return int(s)
         except ValueError:
             pass
-
-        # Match by name (case-insensitive)
-        lower = channel.lower()
+        # Match by channel name (case-insensitive).
+        lower = s.lower()
         for ch in device.get("rxChannels", []):
-            if ch.get("name", "").lower() == lower:
+            if str(ch.get("name", "")).lower() == lower:
                 return ch["index"]
         return None
 

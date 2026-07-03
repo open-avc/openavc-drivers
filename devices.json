@@ -2900,7 +2900,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },
@@ -2912,7 +2912,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },
@@ -2924,7 +2924,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },
@@ -2936,7 +2936,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },
@@ -2948,7 +2948,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },
@@ -2960,7 +2960,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },
@@ -2972,7 +2972,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },
@@ -2984,7 +2984,7 @@
         {
           "id": "extron_sis",
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ]
     },

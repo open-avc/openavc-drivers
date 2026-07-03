@@ -310,10 +310,10 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.4.3",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
+      "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
       "source_url": "https://www.extron.com/article/sisseries",
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
@@ -324,6 +324,7 @@
         "extron_sis"
       ],
       "simulated": true,
+      "min_platform_version": "0.22.0",
       "tags": [
         "matrix-switcher",
         "scaler",
@@ -332,8 +333,8 @@
         "generic"
       ],
       "help": {
-        "overview": "Universal control for Extron products using the SIS protocol. Works with 200+ products including crosspoint matrix switchers, presentation switchers, scalers, distribution amplifiers, and DSPs.\n",
-        "setup": "1. Connect the Extron device to the network or via RS-232 (9600 8N1). 2. For TCP control, set the device's IP address and use port 23 (default). 3. Extron recommends a 100ms delay between commands (pre-configured).\n"
+        "overview": "Universal control for Extron products using the SIS protocol. Works with 200+ products including crosspoint matrix switchers, presentation switchers, scalers, distribution amplifiers, and DSPs. On matrix switchers, configure the frame size (Input Count / Output Count) and every output becomes a child entity tracking its routed input and mute state, with per-input source detection.\n",
+        "setup": "1. Connect the Extron device to the network or via RS-232 (9600 8N1). 2. For TCP control, set the device's IP address and use port 23 (default). 3. Matrix switchers (DXP, CrossPoint, XTP): set Input Count and Output Count to the frame size (e.g. 8 and 4 for a DXP 84). Each output and input becomes a child entity. Leave both at 0 for single-output devices (scalers, presentation switchers, DAs) \u2014 they use the plain Select Input / volume / mute commands. 4. Extron recommends a 100ms delay between commands (pre-configured).\n"
       },
       "compatible_models": [
         {
@@ -349,7 +350,7 @@
             "DMP Series DSPs"
           ],
           "confidence": "untested",
-          "notes": "Any Extron product implementing the SIS protocol (~200 products)."
+          "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
         }
       ],
       "discovery": {

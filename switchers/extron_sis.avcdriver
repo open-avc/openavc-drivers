@@ -6,33 +6,54 @@
 #
 # Protocol reference: Extron SIS Command/Response Reference
 # https://www.extron.com/article/sisseries
+# (Matrix dialect verified against the DXP HD 4K PLUS user guide, 68-2939-01.)
 #
-# Command format: <command><CR> or <command><LF>
-# Response format: varies by command, terminated with CR+LF
+# Command format: SIS commands execute as typed (no terminator); Esc-prefixed
+# commands end with <CR>. Responses are terminated with CR+LF.
 #
-# Common across all SIS devices:
-#   {input}*{output}!  — Route input to output (tie)
-#   {input}!           — Route input to all outputs
-#   {level}*{channel}V — Set volume level on channel
-#   {channel}*{state}Z — Set mute (0=unmute, 1=mute)
-#   0!                 — Query current input routing
-#   V                  — Query volume
-#   Z                  — Query mute
-#   I                  — Query input status
-#   *Q                 — Query firmware version
-#   33*1I              — Query signal presence on input 1 (DTP/DXP)
+# The SIS family has two dialects this driver spans:
+#
+#   Single-output devices (scalers, presentation switchers, DAs):
+#     {input}!           — Select input           -> "In{i} All"
+#     {level}V           — Set volume             -> "Vol{level}"
+#     1Z / 0Z / Z        — Mute / unmute / query  -> "Amt1" / "Amt0"
+#     1B / 0B            — Video mute / unmute    -> "Vmt1" / "Vmt0"
+#
+#   Matrix switchers (DXP, CrossPoint, XTP):
+#     {input}*{output}!  — Tie AV                 -> "Out{o} In{i} All"
+#     {input}*{output}%  — Tie video only         -> "Out{o} In{i} Vid"
+#     {input}*{output}$  — Tie audio only         -> "Out{o} In{i} Aud"
+#     {input}*!          — Tie input to all       -> "In{i} All"
+#     {output}%/$        — View a tie (verbose 2/3 answers "Out{o} In{i} ...")
+#     {output}*{s}B      — Video mute an output   -> "Vmt{o}*{s}"
+#     {output}*{s}Z      — Audio mute an output   -> "Amt{o}*{s}"
+#     {output}B/Z        — View an output's mute state
+#     Esc I{n}HDCP<CR>   — Input HDCP/source status -> "HdcpI{n}*{0|1|2}"
+#     Front panel pushes: "{oo}Vmt{s}" / "{oo}Amt{s}" / "Qik"
+#
+#   CAUTION (why per-output polling is roster-gated): the bare view forms
+#   ("2!", "2Z", "2B") are ACTIONS in the single-output dialect (select
+#   input 2 / mute on). Per-output queries are only sent for configured
+#   output/input children, so a scaler with the default counts of 0 never
+#   receives them.
+#
+# On connect the driver sets verbose mode 3 (Esc 3CV) so view queries get
+# the tagged "Out{o} In{i} ..." responses the per-output parsing needs.
 
 id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.4.3
+version: 1.5.0
 author: OpenAVC
+min_platform_version: "0.22.0"
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
   Covers crosspoint matrix switchers (DXP, CrossPoint), presentation
   switchers (IN Series), scalers (DSC, DVS), distribution amplifiers,
-  and DSP products. Works over TCP (port 23) or RS-232 (9600 8N1).
+  and DSP products. On matrix models each configured output and input is
+  a child entity with per-output routing and mute state. Works over TCP
+  (port 23) or RS-232 (9600 8N1).
 
 source_url: https://www.extron.com/article/sisseries
 tags: [matrix-switcher, scaler, distribution-amplifier, sis, generic]
@@ -52,7 +73,11 @@ compatible_models:
       - DA Series distribution amplifiers
       - DMP Series DSPs
     confidence: untested
-    notes: Any Extron product implementing the SIS protocol (~200 products).
+    notes: >
+      Any Extron product implementing the SIS protocol (~200 products).
+      For matrix switchers, set Input Count / Output Count to the frame
+      size to get per-output routing and mute state; leave both 0 for
+      single-output devices.
 
 transport: tcp
 delimiter: "\r\n"
@@ -61,11 +86,19 @@ help:
   overview: >
     Universal control for Extron products using the SIS protocol. Works with
     200+ products including crosspoint matrix switchers, presentation switchers,
-    scalers, distribution amplifiers, and DSPs.
+    scalers, distribution amplifiers, and DSPs. On matrix switchers, configure
+    the frame size (Input Count / Output Count) and every output becomes a
+    child entity tracking its routed input and mute state, with per-input
+    source detection.
   setup: >
     1. Connect the Extron device to the network or via RS-232 (9600 8N1).
     2. For TCP control, set the device's IP address and use port 23 (default).
-    3. Extron recommends a 100ms delay between commands (pre-configured).
+    3. Matrix switchers (DXP, CrossPoint, XTP): set Input Count and Output
+    Count to the frame size (e.g. 8 and 4 for a DXP 84). Each output and
+    input becomes a child entity. Leave both at 0 for single-output devices
+    (scalers, presentation switchers, DAs) — they use the plain Select
+    Input / volume / mute commands.
+    4. Extron recommends a 100ms delay between commands (pre-configured).
 
 discovery:
   # Extron telnet (port 23) emits a copyright banner the moment the
@@ -90,6 +123,8 @@ discovery:
 default_config:
   host: ""
   port: 23
+  input_count: 0
+  output_count: 0
   poll_interval: 10
   inter_command_delay: 0.1
 
@@ -102,6 +137,23 @@ config_schema:
     type: integer
     default: 23
     label: Port
+  input_count:
+    type: integer
+    default: 0
+    min: 0
+    label: Input Count
+    description: >
+      Number of inputs on a matrix switcher — each becomes an Input child
+      with source-detect state. Leave 0 for single-output devices.
+  output_count:
+    type: integer
+    default: 0
+    min: 0
+    label: Output Count
+    description: >
+      Number of outputs on a matrix switcher — each becomes an Output child
+      tracking its routed input and mute state. Leave 0 for single-output
+      devices (scalers, presentation switchers, DAs).
   poll_interval:
     type: integer
     default: 10
@@ -120,15 +172,19 @@ state_variables:
   input:
     type: integer
     label: Current Input
-    help: "Input number currently routed to the active output."
+    help: "Single-output devices: the selected input. On a matrix, the last input routed to all outputs."
   volume:
     type: integer
     label: Volume Level
-    help: "Audio output volume on a 0–100 scale."
+    help: "Audio output volume on a 0–100 scale (single-output devices)."
   mute:
     type: boolean
     label: Audio Mute
-    help: "True when the audio output is muted."
+    help: "True when the audio output is muted (single-output devices)."
+  video_mute:
+    type: boolean
+    label: Video Mute
+    help: "True when the video output is blanked (single-output devices; matrix mute-all acks also land here)."
   firmware:
     type: string
     label: Firmware Version
@@ -138,18 +194,66 @@ state_variables:
     label: Signal Detected
     help: "True when the device detects a valid signal on the active input ('Sig1' / 'Sig0' notification)."
 
+child_entity_types:
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 128 }
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        help: "Input currently tied to this output for video (0 = untied)."
+        cloud_priority: high
+      audio_input:
+        type: integer
+        label: Routed Audio Input
+        help: "Input currently tied to this output for audio (0 = untied; follows video on AV ties)."
+      video_mute:
+        type: boolean
+        label: Video Muted
+        help: "True when this output's video (and embedded audio) is muted."
+        cloud_priority: high
+      audio_mute:
+        type: boolean
+        label: Audio Muted
+        help: "True when any of this output's audio paths is muted (models report HDMI/analog/S-PDIF mute combinations; any non-zero state reads as muted)."
+    summary_fields: [input, video_mute]
+    instances:
+      count_from: output_count
+      label: "Output {id}"
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 128 }
+    state_variables:
+      signal:
+        type: boolean
+        label: Source Detected
+        help: "True when a source is detected on this input (from the HDCP status query; DXP-class matrices)."
+        cloud_priority: high
+      hdcp:
+        type: enum
+        values: ["unknown", "none", "hdcp", "non_hdcp"]
+        label: HDCP Status
+        help: "HDCP state of the detected source: none = no source, hdcp = HDCP-compliant source, non_hdcp = source without HDCP."
+    summary_fields: [signal]
+    instances:
+      count_from: input_count
+      label: "Input {id}"
+
 commands:
   route:
     label: Route Input to Output
     send: "{input}*{output}!"
-    help: "Route a specific input to a specific output on the switcher."
+    help: "Tie an input to an output for video and audio (matrix switchers). Input 0 unties the output."
     params:
       input:
         type: integer
         required: true
         label: Input Number
-        min: 1
-        help: "Source input number"
+        min: 0
+        help: "Source input number (0 = untie)"
       output:
         type: integer
         required: true
@@ -157,10 +261,53 @@ commands:
         min: 1
         help: "Destination output number"
 
+  route_video:
+    label: Route Video Only
+    send: "{input}*{output}%"
+    help: "Tie an input to an output for video only (breakaway; matrix switchers). Input 0 unties."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 0
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+
+  route_audio:
+    label: Route Audio Only
+    send: "{input}*{output}$"
+    help: "Tie an input to an output for audio only (breakaway; matrix switchers). Input 0 unties."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 0
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+
   route_all:
     label: Route Input to All Outputs
+    send: "{input}*!"
+    help: "Tie a single input to every output (matrix switchers). Per-output state refreshes on the next poll."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 1
+
+  select_input:
+    label: Select Input
     send: "{input}!"
-    help: "Route a single input to all outputs simultaneously."
+    help: "Select the active input on a single-output device (scaler, presentation switcher). On DXP-class matrices this form views an output's tie instead — use Route there."
     params:
       input:
         type: integer
@@ -171,7 +318,7 @@ commands:
   set_volume:
     label: Set Volume
     send: "{level}V"
-    help: "Set the audio volume level."
+    help: "Set the audio volume level (single-output devices)."
     params:
       level:
         type: integer
@@ -184,79 +331,190 @@ commands:
   mute_on:
     label: Mute Audio
     send: "1Z"
-    help: "Mute the audio output."
+    help: "Mute the audio output (single-output devices; on a matrix use Output Audio Mute)."
 
   mute_off:
     label: Unmute Audio
     send: "0Z"
-    help: "Unmute the audio output."
+    help: "Unmute the audio output (single-output devices)."
 
-  mute_toggle:
-    label: Toggle Mute
-    send: "Z"
-    help: "Toggle audio mute on/off."
-
-  # Video mute (AV mute) - available on many SIS devices
   video_mute_on:
     label: Video Mute On
     send: "1B"
-    help: "Blank the video output (audio continues)."
+    help: "Blank the video output (single-output devices; on a matrix use Output Video Mute)."
 
   video_mute_off:
     label: Video Mute Off
     send: "0B"
-    help: "Restore the video output."
+    help: "Restore the video output (single-output devices)."
+
+  output_video_mute_on:
+    label: Output Video Mute On
+    send: "{output}*1B"
+    help: "Mute an output's video and embedded audio (matrix switchers)."
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+
+  output_video_mute_off:
+    label: Output Video Mute Off
+    send: "{output}*0B"
+    help: "Unmute an output's video (matrix switchers)."
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+
+  output_audio_mute_on:
+    label: Output Audio Mute On
+    send: "{output}*1Z"
+    help: "Mute an output's audio (matrix switchers). Models with multiple audio paths treat value 1 as the HDMI/primary path — deeper mute combinations are model-specific."
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
+
+  output_audio_mute_off:
+    label: Output Audio Mute Off
+    send: "{output}*0Z"
+    help: "Unmute an output's audio (matrix switchers)."
+    params:
+      output:
+        type: integer
+        required: true
+        label: Output Number
+        min: 1
 
   recall_preset:
     label: Recall Preset
     send: "{preset}."
-    help: "Recall a saved routing preset."
+    help: "Recall a saved routing preset. The valid preset range is model-specific (e.g. 16 global presets on DXP HD 4K PLUS; more on larger frames) — the device rejects an invalid number."
     params:
       preset:
         type: integer
         required: true
         label: Preset Number
         min: 1
-        max: 32
-        help: "Preset number 1-32"
 
   save_preset:
     label: Save Preset
     send: "{preset},."
-    help: "Save the current routing configuration to a preset."
+    help: "Save the current routing configuration to a preset. The valid preset range is model-specific."
     params:
       preset:
         type: integer
         required: true
         label: Preset Number
         min: 1
-        max: 32
-        help: "Preset number 1-32"
+
+# Quick actions — routing and preset recall are the everyday matrix moves;
+# audio mute covers the single-output devices.
+actions:
+  - id: route
+    icon: shuffle
+  - id: route_all
+    icon: fast-forward
+  - id: recall_preset
+    icon: bookmark
+  - id: mute_on
+    icon: volume-x
+  - id: mute_off
+    icon: volume-2
 
 responses:
-  # Input routing response: "In1 All" or "In1 Out2"
-  - match: 'In(\d+) All'
+  # ── Matrix tie acks / verbose view-tie responses ──
+  # "Out2 In1 All" (AV tie), "Out2 In1 Vid" (video breakaway),
+  # "Out2 In1 Aud" (audio breakaway). These must come before the flat
+  # In-rule: the old unanchored 'In(\d+) All' matched INSIDE the tie ack
+  # and stored the input while discarding the output number.
+  - match: '^Out(\d+) In(\d+) All$'
+    child_set:
+      - { type: output, id: "$1", state: { input: "$2", audio_input: "$2" } }
+  - match: '^Out(\d+) In(\d+) Vid$'
+    child_set:
+      - { type: output, id: "$1", state: { input: "$2" } }
+  - match: '^Out(\d+) In(\d+) Aud$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_input: "$2" } }
+
+  # Input select / input-to-all ack: "In1 All" (also "In1 Vid"/"In1 Aud"
+  # from breakaway-to-all forms). Single-output devices report their
+  # selected input here.
+  - match: '^In(\d+) (?:All|Vid|Aud)$'
     set: { input: "$1" }
-  - match: 'In(\d+) Out'
-    set: { input: "$1" }
+
+  # ── Per-output mute acks / views (matrix): "Vmt2*1", "Amt2*3" ──
+  - match: '^Vmt(\d+)\*([01])$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          video_mute: { group: 2, map: { "1": "true", "0": "false" } }
+  - match: '^Amt(\d+)\*0$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_mute: "false" } }
+  # Audio mute values 1-7 are model-specific path combinations (HDMI,
+  # analog, S/PDIF) — any non-zero state reads as muted.
+  - match: '^Amt(\d+)\*[1-7]$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_mute: "true" } }
+
+  # Front-panel push notifications (matrix): "02Vmt1" / "02Amt0"
+  - match: '^(\d+)Vmt([01])$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          video_mute: { group: 2, map: { "1": "true", "0": "false" } }
+  - match: '^(\d+)Amt([01])$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          audio_mute: { group: 2, map: { "1": "true", "0": "false" } }
+
+  # Flat mute acks (single-output devices; a matrix mute-all ack "Vmt1"
+  # also lands here). Flat set: takes $N refs or statics only, so the
+  # on/off values are split into static rules.
+  - match: '^Amt1$'
+    set: { mute: "true" }
+  - match: '^Amt0$'
+    set: { mute: "false" }
+  - match: '^Vmt1$'
+    set: { video_mute: "true" }
+  - match: '^Vmt0$'
+    set: { video_mute: "false" }
+
+  # ── Per-input source/HDCP status (matrix): "HdcpI3*1" ──
+  # 0 = no source detected, 1 = HDCP source, 2 = non-HDCP source.
+  - match: '^HdcpI(\d+)\*0$'
+    child_set:
+      - { type: input, id: "$1", state: { signal: "false", hdcp: "none" } }
+  - match: '^HdcpI(\d+)\*1$'
+    child_set:
+      - { type: input, id: "$1", state: { signal: "true", hdcp: "hdcp" } }
+  - match: '^HdcpI(\d+)\*2$'
+    child_set:
+      - { type: input, id: "$1", state: { signal: "true", hdcp: "non_hdcp" } }
 
   # Volume response: "Vol50" or "Ds50"
-  - match: 'Vol(\d+)'
+  - match: '^Vol(\d+)$'
     set: { volume: "$1" }
-  - match: 'Ds(\d+)'
+  - match: '^Ds(\d+)$'
     set: { volume: "$1" }
 
-  # Mute response: "Amt1" (muted) or "Amt0" (unmuted)
-  - match: 'Amt1'
-    set: { mute: "true" }
-  - match: 'Amt0'
-    set: { mute: "false" }
-
-  # Firmware: "1.02.0001"
+  # Firmware: "Ver1.02.0001" (legacy unanchored — format varies by family)
   - match: 'Ver(\S+)'
     set: { firmware: "$1" }
 
-  # Signal presence (0=no signal, 1=signal)
+  # Signal presence notification (single-output devices; 0=no signal)
   - match: 'Sig1'
     set: { signal_active: true }
   - match: 'Sig0'
@@ -264,25 +522,56 @@ responses:
 
 polling:
   queries:
+    # Single-output dialect (matrices answer these with info strings or
+    # errors, which is benign — their state rides the per-output queries).
     - "I"
     - "V"
     - "Z"
+    # Matrix dialect — only sent for configured children (counts > 0).
+    # Bare {n}% / {n}$ / {n}B / {n}Z are VIEWS on matrices; verbose mode 3
+    # (set on connect) makes the responses carry the output number.
+    - { each_child: output, send: "{child_id}%" }
+    - { each_child: output, send: "{child_id}$" }
+    - { each_child: output, send: "{child_id}B" }
+    - { each_child: output, send: "{child_id}Z" }
+    - { each_child: input, send: "\x1bI{child_id}HDCP\r" }
 
 # ── SIMULATOR DEFINITION ──
-# Enhances auto-generated simulation with realistic behavior.
-# Without this section, auto-gen still works (Level 0).
+# Models an 8x4 DXP-style matrix in verbose mode 3 (tagged responses), with
+# the single-output dialect's volume kept so the flat commands round-trip.
 simulator:
   push_state: true
   initial_state:
     input: 1
     volume: 50
     mute: false
+    video_mute: false
     firmware: "1.04"
     signal_active: true
     route_1: 1
     route_2: 1
     route_3: 1
     route_4: 1
+    audio_route_1: 1
+    audio_route_2: 1
+    audio_route_3: 1
+    audio_route_4: 1
+    vmute_1: 0
+    vmute_2: 0
+    vmute_3: 0
+    vmute_4: 0
+    amute_1: 0
+    amute_2: 0
+    amute_3: 0
+    amute_4: 0
+    insig_1: 1
+    insig_2: 1
+    insig_3: 2
+    insig_4: 0
+    insig_5: 0
+    insig_6: 0
+    insig_7: 0
+    insig_8: 0
 
   delays:
     command_response: 0.02   # 20ms — realistic for Extron SIS over TCP
@@ -321,55 +610,155 @@ simulator:
       'false': 'Amt0'
 
   command_handlers:
-    # Route input to specific output: {input}*{output}!
+    # Verbose mode select: Esc 3CV
+    - match: '\x1b3CV.*'
+      handler: |
+        respond("Vrb3\r\n")
+
+    # AV tie: {input}*{output}!  ->  "Out{o} In{i} All"
     - match: '(\d+)\*(\d+)!'
       handler: |
         inp = int(match.group(1))
         out = int(match.group(2))
-        state["input"] = inp
-        route_key = f"route_{out}"
-        if route_key in state:
-            state[route_key] = inp
-        respond(f"In{inp} Out{out}\r\n")
+        if f"route_{out}" in state:
+            state[f"route_{out}"] = inp
+            state[f"audio_route_{out}"] = inp
+            respond(f"Out{out} In{inp} All\r\n")
+        else:
+            respond("E01\r\n")
 
-    # Route input to all outputs: {input}!
-    - match: '(\d+)!'
+    # Video-only tie: {input}*{output}% (or &)
+    - match: '(\d+)\*(\d+)[%&]'
+      handler: |
+        inp = int(match.group(1))
+        out = int(match.group(2))
+        if f"route_{out}" in state:
+            state[f"route_{out}"] = inp
+            respond(f"Out{out} In{inp} Vid\r\n")
+        else:
+            respond("E01\r\n")
+
+    # Audio-only tie: {input}*{output}$
+    - match: '(\d+)\*(\d+)\$'
+      handler: |
+        inp = int(match.group(1))
+        out = int(match.group(2))
+        if f"audio_route_{out}" in state:
+            state[f"audio_route_{out}"] = inp
+            respond(f"Out{out} In{inp} Aud\r\n")
+        else:
+            respond("E01\r\n")
+
+    # Input to all outputs: {input}*!  ->  "In{i} All"
+    - match: '(\d+)\*!'
       handler: |
         inp = int(match.group(1))
         state["input"] = inp
         for i in range(1, 5):
             state[f"route_{i}"] = inp
+            state[f"audio_route_{i}"] = inp
         respond(f"In{inp} All\r\n")
 
-    # Volume set: {level}V
+    # Per-output video mute set: {output}*{0|1}B  ->  "Vmt{o}*{s}"
+    - match: '(\d+)\*([01])B'
+      handler: |
+        out = int(match.group(1))
+        val = int(match.group(2))
+        if f"vmute_{out}" in state:
+            state[f"vmute_{out}"] = val
+            respond(f"Vmt{out}*{val}\r\n")
+        else:
+            respond("E01\r\n")
+
+    # Per-output audio mute set: {output}*{0-7}Z  ->  "Amt{o}*{s}"
+    - match: '(\d+)\*([0-7])Z'
+      handler: |
+        out = int(match.group(1))
+        val = int(match.group(2))
+        if f"amute_{out}" in state:
+            state[f"amute_{out}"] = val
+            respond(f"Amt{out}*{val}\r\n")
+        else:
+            respond("E01\r\n")
+
+    # View video tie: {output}% (verbose 3 -> tagged response)
+    - match: '(\d+)[%&]'
+      handler: |
+        out = int(match.group(1))
+        if f"route_{out}" in state:
+            respond(f"Out{out} In{state[f'route_{out}']} Vid\r\n")
+        else:
+            respond("E01\r\n")
+
+    # View audio tie: {output}$
+    - match: '(\d+)\$'
+      handler: |
+        out = int(match.group(1))
+        if f"audio_route_{out}" in state:
+            respond(f"Out{out} In{state[f'audio_route_{out}']} Aud\r\n")
+        else:
+            respond("E01\r\n")
+
+    # View AV tie — on DXP-class units a bare "{output}!" is a view,
+    # NOT input-to-all (that form is "{input}*!").
+    - match: '(\d+)!'
+      handler: |
+        out = int(match.group(1))
+        if f"route_{out}" in state:
+            respond(f"Out{out} In{state[f'route_{out}']} All\r\n")
+        else:
+            respond("E01\r\n")
+
+    # View per-output video mute: {output}B
+    - match: '(\d+)B'
+      handler: |
+        out = int(match.group(1))
+        if f"vmute_{out}" in state:
+            respond(f"Vmt{out}*{state[f'vmute_{out}']}\r\n")
+        else:
+            respond("E01\r\n")
+
+    # View per-output audio mute: {output}Z
+    - match: '(\d+)Z'
+      handler: |
+        out = int(match.group(1))
+        if f"amute_{out}" in state:
+            respond(f"Amt{out}*{state[f'amute_{out}']}\r\n")
+        else:
+            respond("E01\r\n")
+
+    # Input HDCP/source status: Esc I{n}HDCP<CR>  ->  "HdcpI{n}*{0|1|2}"
+    - match: '\x1bI(\d+)HDCP.*'
+      handler: |
+        inp = int(match.group(1))
+        if f"insig_{inp}" in state:
+            respond(f"HdcpI{inp}*{state[f'insig_{inp}']}\r\n")
+        else:
+            respond("E01\r\n")
+
+    # Volume set: {level}V (single-output dialect, kept for the flat surface)
     - match: '(\d+)V'
       handler: |
         level = int(match.group(1))
         state["volume"] = max(0, min(100, level))
         respond(f"Vol{state['volume']}\r\n")
 
-    # Mute on/off: 1Z / 0Z
-    - match: '([01])Z'
-      handler: |
-        state["mute"] = match.group(1) == "1"
-        val = "1" if state["mute"] else "0"
-        respond(f"Amt{val}\r\n")
-
-    # Query input
-    - match: 'I'
-      handler: |
-        respond(f"In{state['input']} All\r\n")
-
     # Query volume
     - match: 'V'
       handler: |
         respond(f"Vol{state['volume']}\r\n")
 
-    # Query mute
+    # Query flat mute status (bare Z is the status view; SIS has no toggle
+    # verb — set mute with 1Z/0Z on single-output devices)
     - match: 'Z'
       handler: |
         val = "1" if state["mute"] else "0"
         respond(f"Amt{val}\r\n")
+
+    # Information query — matrices answer with the frame size string
+    - match: 'I'
+      handler: |
+        respond("V8X4 A8X4\r\n")
 
     # Model name
     - receive: "N"

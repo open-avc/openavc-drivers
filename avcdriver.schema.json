@@ -260,6 +260,9 @@
             "type": "string"
           },
           {
+            "$ref": "#/$defs/eachChildQuery"
+          },
+          {
             "type": "object",
             "properties": {
               "address": {
@@ -275,7 +278,7 @@
           }
         ]
       },
-      "description": "Commands sent immediately after connect, before polling. Strings for TCP/serial/UDP; {address, args} mappings for OSC."
+      "description": "Commands sent immediately after connect, before polling. Strings for TCP/serial/UDP; {address, args} mappings for OSC; {each_child, send} templates expand to one query per registered child."
     },
     "polling": {
       "type": "object",
@@ -288,11 +291,11 @@
                 "type": "string"
               },
               {
-                "type": "object"
+                "$ref": "#/$defs/eachChildQuery"
               }
             ]
           },
-          "description": "Query strings (or command names) sent each poll cycle. Cadence comes from default_config.poll_interval."
+          "description": "Query strings (or command names) sent each poll cycle; {each_child, send} templates expand to one query per registered child. Cadence comes from default_config.poll_interval."
         }
       },
       "not": {
@@ -506,9 +509,79 @@
         },
         "label_field": {
           "type": "string"
+        },
+        "instances": {
+          "$ref": "#/$defs/childInstances"
         }
       },
       "additionalProperties": true
+    },
+    "childInstances": {
+      "type": "object",
+      "description": "Declarative roster — makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), or ids_from (a comma-separated config field; sparse IDs). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
+      "oneOf": [
+        { "required": ["count"] },
+        { "required": ["count_from"] },
+        { "required": ["ids_from"] }
+      ],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Fixed roster: registers integer IDs 1..count."
+        },
+        "count_from": {
+          "type": "string",
+          "description": "Name of an integer config field (config_schema / default_config) holding the count — lets one driver cover different frame sizes."
+        },
+        "ids_from": {
+          "type": "string",
+          "description": "Name of a comma-separated config field listing the IDs (e.g. \"1,2,4\") — for sparse or installer-chosen rosters."
+        },
+        "label": {
+          "type": "string",
+          "description": "Initial label template; {id} substitutes the local ID. A user-set project label always wins."
+        }
+      },
+      "additionalProperties": false
+    },
+    "childSetEntry": {
+      "type": "object",
+      "required": ["type", "id", "state"],
+      "description": "Routes a regex response's captures into one child's state. id is a capture ref ($1) or a literal; each state value is a capture ref or a literal, coerced by the child property's declared type.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "A declared child_entity_types name."
+        },
+        "id": {
+          "type": ["string", "integer"],
+          "description": "Capture ref ($1, $2, ...) or a literal child ID."
+        },
+        "state": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Child property -> capture ref or literal value."
+        }
+      },
+      "additionalProperties": false
+    },
+    "eachChildQuery": {
+      "type": "object",
+      "required": ["each_child", "send"],
+      "description": "Per-child query template: expands to one query per registered child of the named type, substituting {child_id} with the unpadded local ID.",
+      "properties": {
+        "each_child": {
+          "type": "string",
+          "description": "A declared child_entity_types name (must have an instances: roster)."
+        },
+        "send": {
+          "type": "string",
+          "pattern": "\\{child_id\\}",
+          "description": "Query template; must contain {child_id}."
+        }
+      },
+      "additionalProperties": false
     },
     "paramEntry": {
       "type": "object",
@@ -865,6 +938,14 @@
             "$ref": "#/$defs/mappingEntry"
           },
           "description": "Verbose mapping form, supporting type coercion and value maps."
+        },
+        "child_set": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/childSetEntry"
+          },
+          "description": "Route captures into child-entity state. Regex responses only (not OSC or json: true). May coexist with set/mappings on the same entry."
         }
       },
       "additionalProperties": true,

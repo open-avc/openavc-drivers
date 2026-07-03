@@ -549,7 +549,52 @@ child_entity_types:
 - `dynamic: true` marks a type whose children have **heterogeneous, runtime-discovered control sets** (e.g. a DSP's user-built components, where each block exposes different controls). Leave its `state_variables` empty (or only shared fields); the Python driver publishes each child's own schema at `register_child(schema=...)` and that child validates/renders against it. Python-only.
 - `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.
 - `summary_fields` lists which fields appear as columns in the list view; `label_field` names the field carrying the controller's own name for the unit (the user-set label is separate and lives in the project file).
-- A YAML driver only declares the types here; it has no way to register instances at runtime (so `string` ids and `dynamic` types are only meaningful for **Python drivers**). Use a Python driver when the controller actually enumerates and updates children (`register_child` / `set_children_state_batch` / `deregister_child` — see §3.5).
+- A YAML driver creates children by adding an `instances:` roster to the type (see §2.5.1a below). Without one, the declaration is types-only and children exist only if a Python driver registers them. `dynamic` types and device-enumerated rosters (the controller reports what exists) remain **Python-only** (`register_child` / `set_children_state_batch` / `deregister_child` — see §3.5).
+
+### 2.5.1a Declarative children in YAML (`instances`, `child_set`, `each_child`) — platform ≥ 0.22.0
+
+Three companion fields make a declared child type real at runtime in a YAML driver. Any driver using them must set `min_platform_version: "0.22.0"`.
+
+**`instances:`** on the type declaration — the roster. Exactly one source; children register right after connect (and after any `auth:` handshake), reconcile as a config-want-set, and back the device's "Refresh from Device" button automatically:
+
+```yaml
+child_entity_types:
+  output:
+    label: Output
+    id_format: { type: integer, min: 1, max: 16, pad_width: 2 }
+    state_variables:
+      input:  { type: integer, label: Routed Input, cloud_priority: high }
+      volume: { type: integer, label: Volume (dB) }
+    instances:
+      count: 6                    # fixed: IDs 1..6
+      # count_from: output_count  # or an integer config field (frame size varies by model)
+      # ids_from: zone_ids        # or a comma-separated config field ("1,2,4" — sparse IDs)
+      label: "Output {id}"        # optional initial label; a user's project label always wins
+```
+
+**`child_set:`** on a regex response entry — routes captures into child state. `id` is a capture ref (`$1`) or a literal; values are capture refs or literals, coerced by the child property's declared type. May coexist with `set:`/`mappings:` on the same entry; first-match-wins dispatch is unchanged. Unregistered IDs skip quietly. Not supported on OSC or `json: true` responses.
+
+```yaml
+responses:
+  - match: 'Out(\d+) In(\d+)'          # device echoes the output number
+    child_set:
+      - { type: output, id: $1, state: { input: $2 } }
+  - match: '^x(\d+)AVx1,\s*x(\d+)AVx2$'   # combined line -> literal IDs
+    child_set:
+      - { type: output, id: 1, state: { input: $1 } }
+      - { type: output, id: 2, state: { input: $2 } }
+```
+
+**`each_child:`** entries in `polling.queries` (and `on_connect`) — one query per registered child, `{child_id}` substituting the unpadded local ID:
+
+```yaml
+polling:
+  queries:
+    - "PWR?\r"
+    - { each_child: output, send: "?VOUT{child_id}\r" }
+```
+
+Per-child **writes** need nothing new: declare a command with a `child_id` param (§2.6). Per-child persisted values (zone volume, output mute) are child state variables + a `child_id` command, **not** `device_settings` (a setting's flat `state_key` can't address a child). The catalog validator enforces all three shapes (roster source rules, declared types/props, capture-ref bounds, `{child_id}` presence).
 
 ### 2.5.2 Previewable video streams (preview convention)
 

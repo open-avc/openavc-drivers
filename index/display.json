@@ -105,7 +105,7 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Each Set ID on an RS-232 daisy chain is a display child entity with power, input, volume, mute, screen-off, signal status, picture settings, and panel health. Covers webOS Signage, LED, and OLED commercial series.",

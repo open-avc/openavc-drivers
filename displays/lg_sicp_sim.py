@@ -153,8 +153,11 @@ class LgSicpSimulator(TCPSimulator):
                     "No signal detected on the current input (source "
                     "unplugged or powered off)"
                 ),
-                "behavior": "custom_state",
-                "state": {"signal": "none"},
+                # No "behavior" key on purpose: the sim keeps answering;
+                # the visible effect is the state change (sv then reports
+                # no signal). Only "no_response" / "corrupt_response" are
+                # wired behaviors, and the runtime applies "set_state".
+                "set_state": {"signal": "none"},
             },
         },
         "controls": [

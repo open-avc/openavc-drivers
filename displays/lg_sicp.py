@@ -281,7 +281,7 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         # Child entities + child-prop cloud_priority tiers landed in 0.13.0.
         "min_platform_version": "0.13.0",

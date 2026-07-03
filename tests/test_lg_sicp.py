@@ -350,7 +350,7 @@ def test_parse_frame_multiple_and_garbage():
 
 def test_version_and_platform_floor():
     info = DRV.LGSICPDriver.DRIVER_INFO
-    assert info["version"] == "2.0.0"
+    assert info["version"] == "2.0.1"
     # Child entities + child-prop cloud tiers are the hard runtime need.
     assert info["min_platform_version"] == "0.13.0"
 
@@ -942,6 +942,18 @@ def test_stray_ack_does_not_break_correlation():
             await driver.disconnect()
 
     asyncio.run(go())
+
+
+def test_error_modes_are_wired():
+    # The old YAML driver's no_signal error mode used "behavior:
+    # custom_state" + "state:" — both silently inert (only no_response /
+    # corrupt_response are wired behaviors, and the runtime applies
+    # "set_state"). Keep every declared mode functional.
+    modes = SIM.LgSicpSimulator.SIMULATOR_INFO["error_modes"]
+    for name, mode in modes.items():
+        assert "state" not in mode, name
+        assert mode.get("behavior") in (None, "no_response", "corrupt_response"), name
+    assert modes["no_signal"]["set_state"] == {"signal": "none"}
 
 
 def test_broadcast_applies_to_all_with_no_ack():

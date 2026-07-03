@@ -366,9 +366,13 @@ engine's existing scan covers it; the companion stays small.
 
 #### Safety
 
-- The runtime wraps every `probe()` invocation in `asyncio.wait_for`
-  with a hard cap (default 10 s, max 30 s). Hung companions are
-  logged and cut off.
+- The runtime runs every `probe()` invocation on its own event loop
+  in a worker thread, with a hard cap (default 10 s, max 30 s). Hung
+  companions are logged and cut off. A probe that blocks in
+  synchronous I/O (`socket.recv()` without `await`, `time.sleep()`)
+  stalls only itself — the runtime abandons it shortly after the cap
+  — but write async I/O anyway so your probe is cancelled cleanly at
+  the deadline instead of left to die.
 - The companion **must** bind every socket to `ctx.source_ip`. The
   runner doesn't sandbox Python — the contract is explicit through
   the `source_ip` argument and the community-trust model that already

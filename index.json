@@ -2435,25 +2435,30 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "1.5.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls LG commercial displays via SICP over TCP (port 9761). Supports power, input, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
+      "description": "Controls LG commercial displays via SICP over TCP (port 9761). Each Set ID on an RS-232 daisy chain is a display child entity with power, input, volume, mute, screen-off, signal status, picture settings, and panel health. Covers webOS Signage, LED, and OLED commercial series.",
       "source_url": "https://aca.im/driver_docs/LG/SM_models.pdf",
-      "file": "displays/lg_sicp.avcdriver",
-      "format": "avcdriver",
+      "file": "displays/lg_sicp.py",
+      "format": "python",
       "ports": [
         9761
       ],
+      "protocols": [
+        "lg_sicp"
+      ],
       "simulated": true,
+      "min_platform_version": "0.13.0",
       "tags": [
         "display",
         "signage",
-        "sicp"
+        "sicp",
+        "video-wall"
       ],
       "help": {
-        "overview": "Controls LG commercial displays via the SICP protocol. Supports power, input selection, volume, mute, and screen mute. Covers webOS Signage, LED, and OLED commercial series.\n",
-        "setup": "1. Connect the LG display to the network. 2. Default control port is 9761. 3. Set the Display ID (01-99, or 00 for broadcast to all displays).\n"
+        "overview": "Controls LG commercial displays using the SICP protocol. One connection can address several displays daisy-chained over RS-232 by Set ID \u2014 each appears as a display child entity with power, input, volume, mute, screen blank, signal status, picture settings, and panel health.",
+        "setup": "1. Connect the display (or the chain's first display) to the network.\n2. Default control port is 9761.\n3. In each display's OSD (Settings > General), give it a unique Set ID. List those IDs in 'Display Set IDs' \u2014 e.g. 1 for a single display, or 1,2,3,4 for a daisy-chained video wall. Enter the IDs exactly as the OSD shows them (decimal); the driver handles the protocol's hex encoding.\n4. Route commands to a display by picking it from the Display dropdown; use All Displays On / Off to drive the whole chain at once."
       },
       "compatible_models": [
         {
@@ -2467,6 +2472,12 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 9761,
+          "send_ascii": "ka 01 FF\r",
+          "expect": "a 01 OK",
+          "extract_manufacturer": "LG"
+        },
         "oui": [
           "00:05:c9",
           "00:e0:91",

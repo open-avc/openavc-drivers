@@ -43,19 +43,25 @@
 #   Telnet Login Mode is disabled on the unit. Same prompt strings as
 #   atlona_uhd_pro3 / atlona_omnistream.
 #
-# State coverage limitation:
-#   The Status response is a single line with both outputs comma-separated
-#   ("x3AVx1, x2AVx2"). YAML response dispatch returns on the first matching
-#   pattern, so we use one combined regex with two capture groups to fan the
-#   single line into route_1 + route_2. See rules.md "YAML response dispatch".
+# Child entities:
+#   The device's sub-units are modeled as child entities with declarative
+#   rosters (instances:) — video outputs (2), audio zones (4), analog audio
+#   outputs (2), and inputs (6). Per-unit responses route into child state
+#   via child_set (the echoed unit number is the child id); the combined
+#   Status line ("x3AVx1, x2AVx2") uses one regex with two capture groups
+#   and literal child ids, because response dispatch returns on the first
+#   matching pattern. Per-unit polling uses each_child query templates.
+#   Zone numbering: zone 1 = HDBaseT Out audio, 2 = HDMI Out audio,
+#   3 = Analog Out 1, 4 = Analog Out 2 (analog_out N carries zone N+2's
+#   source/mono controls).
 
 id: atlona_ome_ps62
 name: Atlona AT-OME-PS62 Matrix Switcher
 manufacturer: Atlona
 category: switcher
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
-min_platform_version: "0.9.0"
+min_platform_version: "0.22.0"
 description: >
   Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher
   over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT)
@@ -172,88 +178,6 @@ state_variables:
     type: boolean
     label: Front Panel Locked
     help: "True when the front-panel buttons are locked (Lock / Unlock)."
-  route_1:
-    type: integer
-    label: Output 1 (HDBaseT) — Source
-    help: "Input (1-6) currently routed to output 1 (HDBaseT)."
-  route_2:
-    type: integer
-    label: Output 2 (HDMI) — Source
-    help: "Input (1-6) currently routed to output 2 (HDMI)."
-  audio_1:
-    type: enum
-    values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
-    label: Analog Out 1 — Audio Source
-    help: "Source feeding the analog audio output 1 (HDBaseT, HDMI, or analog AUX 1-3)."
-  audio_2:
-    type: enum
-    values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
-    label: Analog Out 2 — Audio Source
-    help: "Source feeding the analog audio output 2 (HDBaseT, HDMI, or analog AUX 1-3)."
-  volume_1:
-    type: integer
-    label: Zone 1 (HDBaseT Out) — Volume (dB)
-    help: "Audio volume on zone 1 (HDBaseT output) in dB."
-  volume_2:
-    type: integer
-    label: Zone 2 (HDMI Out) — Volume (dB)
-    help: "Audio volume on zone 2 (HDMI output) in dB."
-  volume_3:
-    type: integer
-    label: Zone 3 (Analog Out 1) — Volume (dB)
-    help: "Audio volume on zone 3 (analog output 1) in dB."
-  volume_4:
-    type: integer
-    label: Zone 4 (Analog Out 2) — Volume (dB)
-    help: "Audio volume on zone 4 (analog output 2) in dB."
-  mute_1:
-    type: boolean
-    label: Zone 1 (HDBaseT Out) — Mute
-    help: "True when zone 1 (HDBaseT output) audio is muted."
-  mute_2:
-    type: boolean
-    label: Zone 2 (HDMI Out) — Mute
-    help: "True when zone 2 (HDMI output) audio is muted."
-  mute_3:
-    type: boolean
-    label: Zone 3 (Analog Out 1) — Mute
-    help: "True when zone 3 (analog output 1) audio is muted."
-  mute_4:
-    type: boolean
-    label: Zone 4 (Analog Out 2) — Mute
-    help: "True when zone 4 (analog output 2) audio is muted."
-  mono_1:
-    type: boolean
-    label: Analog Out 1 — Mono
-    help: "True when analog output 1 is summed to mono."
-  mono_2:
-    type: boolean
-    label: Analog Out 2 — Mono
-    help: "True when analog output 2 is summed to mono."
-  input_signal_1:
-    type: boolean
-    label: Input 1 — Signal
-    help: "True when input 1 detects a valid HDMI/USB-C signal."
-  input_signal_2:
-    type: boolean
-    label: Input 2 — Signal
-    help: "True when input 2 detects a valid HDMI/USB-C signal."
-  input_signal_3:
-    type: boolean
-    label: Input 3 — Signal
-    help: "True when input 3 detects a valid HDMI/USB-C signal."
-  input_signal_4:
-    type: boolean
-    label: Input 4 — Signal
-    help: "True when input 4 detects a valid HDMI/USB-C signal."
-  input_signal_5:
-    type: boolean
-    label: Input 5 — Signal
-    help: "True when input 5 detects a valid HDMI/USB-C signal."
-  input_signal_6:
-    type: boolean
-    label: Input 6 — Signal
-    help: "True when input 6 detects a valid HDMI/USB-C signal."
   usb_mode:
     type: integer
     label: USB Mode (0=Follow USB, 1=Manual, 2=Follow Video)
@@ -262,6 +186,73 @@ state_variables:
     type: integer
     label: USB Host Source
     help: "Currently-selected USB host port (1 = USB-C, 2 = USB-B)."
+
+child_entity_types:
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 2 }
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        help: "Input (1-6) currently routed to this output. Output 1 = HDBaseT, output 2 = HDMI."
+        cloud_priority: high
+    summary_fields: [input]
+    instances:
+      count: 2
+      label: "Output {id}"
+  zone:
+    label: Audio Zone
+    label_plural: Audio Zones
+    id_format: { type: integer, min: 1, max: 4 }
+    state_variables:
+      volume:
+        type: integer
+        label: Volume (dB)
+        min: -90
+        max: 10
+        help: "Zone volume in dB (-90..+10). Zone 1 = HDBaseT Out, 2 = HDMI Out, 3 = Analog Out 1, 4 = Analog Out 2."
+      mute:
+        type: boolean
+        label: Muted
+        cloud_priority: high
+    summary_fields: [volume, mute]
+    instances:
+      count: 4
+      label: "Zone {id}"
+  analog_out:
+    label: Analog Audio Out
+    label_plural: Analog Audio Outs
+    id_format: { type: integer, min: 1, max: 2 }
+    state_variables:
+      source:
+        type: enum
+        values: ["HDBaseT", "HDMI", "AUX1", "AUX2", "AUX3"]
+        label: Audio Source
+        help: "Source feeding this analog output (HDBaseT, HDMI, or analog AUX 1-3). Its volume/mute live on zone N+2."
+      mono:
+        type: boolean
+        label: Mono
+        help: "True when this analog output is summed to mono."
+    summary_fields: [source, mono]
+    instances:
+      count: 2
+      label: "Analog Out {id}"
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 6 }
+    state_variables:
+      signal:
+        type: boolean
+        label: Signal Present
+        help: "True when this input detects a valid HDMI/USB-C/HDBaseT signal."
+        cloud_priority: high
+    summary_fields: [signal]
+    instances:
+      count: 6
+      label: "Input {id}"
 
 commands:
 
@@ -273,17 +264,15 @@ commands:
     help: "Route a single input (1-6) to a single output (1=HDBaseT, 2=HDMI)."
     params:
       input:
-        type: integer
+        type: child_id
+        child_type: input
         required: true
         label: Input
-        min: 1
-        max: 6
       output:
-        type: integer
+        type: child_id
+        child_type: output
         required: true
         label: Output
-        min: 1
-        max: 2
 
   route_all:
     label: Route Input to All Outputs
@@ -291,11 +280,10 @@ commands:
     help: "Route a single input to both outputs simultaneously."
     params:
       input:
-        type: integer
+        type: child_id
+        child_type: input
         required: true
         label: Input
-        min: 1
-        max: 6
 
   route_reset:
     label: Reset Routing (1-to-1)
@@ -315,11 +303,10 @@ commands:
     help: "Pick the audio source feeding an analog output."
     params:
       output:
-        type: integer
+        type: child_id
+        child_type: analog_out
         required: true
         label: Analog Output
-        min: 1
-        max: 2
       source:
         type: enum
         required: true
@@ -334,11 +321,10 @@ commands:
     help: "Set the volume on a zone in dB. Range -90 to +10."
     params:
       zone:
-        type: integer
+        type: child_id
+        child_type: zone
         required: true
         label: Zone
-        min: 1
-        max: 4
       level:
         type: integer
         required: true
@@ -351,33 +337,30 @@ commands:
     send: "VOUT{zone} +\r"
     params:
       zone:
-        type: integer
+        type: child_id
+        child_type: zone
         required: true
         label: Zone
-        min: 1
-        max: 4
 
   volume_down:
     label: Volume Down (1 dB)
     send: "VOUT{zone} -\r"
     params:
       zone:
-        type: integer
+        type: child_id
+        child_type: zone
         required: true
         label: Zone
-        min: 1
-        max: 4
 
   query_volume:
     label: Query Zone Volume
     send: "VOUT{zone} sta\r"
     params:
       zone:
-        type: integer
+        type: child_id
+        child_type: zone
         required: true
         label: Zone
-        min: 1
-        max: 4
 
   # ── Mute (per zone 1-4) ──
 
@@ -386,33 +369,30 @@ commands:
     send: "VOUTMute{zone} on\r"
     params:
       zone:
-        type: integer
+        type: child_id
+        child_type: zone
         required: true
         label: Zone
-        min: 1
-        max: 4
 
   mute_off:
     label: Unmute Zone
     send: "VOUTMute{zone} off\r"
     params:
       zone:
-        type: integer
+        type: child_id
+        child_type: zone
         required: true
         label: Zone
-        min: 1
-        max: 4
 
   query_mute:
     label: Query Zone Mute
     send: "VOUTMute{zone} sta\r"
     params:
       zone:
-        type: integer
+        type: child_id
+        child_type: zone
         required: true
         label: Zone
-        min: 1
-        max: 4
 
   # ── Mono / Stereo (analog only) ──
 
@@ -421,22 +401,20 @@ commands:
     send: "SetMono{output} on\r"
     params:
       output:
-        type: integer
+        type: child_id
+        child_type: analog_out
         required: true
         label: Analog Output
-        min: 1
-        max: 2
 
   mono_off:
     label: Set Analog Output Stereo
     send: "SetMono{output} off\r"
     params:
       output:
-        type: integer
+        type: child_id
+        child_type: analog_out
         required: true
         label: Analog Output
-        min: 1
-        max: 2
 
   # ── Input signal detection ──
 
@@ -446,11 +424,10 @@ commands:
     help: "Check whether a source is presenting signal on the specified input (1-6)."
     params:
       input:
-        type: integer
+        type: child_id
+        child_type: input
         required: true
         label: Input
-        min: 1
-        max: 6
 
   # ── USB switching ──
 
@@ -533,84 +510,50 @@ actions:
 responses:
 
   # Routing — Status returns "x?AVx1, x?AVx2" on a single line. The combined
-  # regex must come first so first-match-wins captures both outputs in one
-  # entry. Per-output forms below cover individual command echoes.
+  # regex must come first (first-match-wins) and fans into both output
+  # children with literal ids. The per-echo form below captures the output
+  # number as the child id.
   - match: '^x(\d+)AVx1,\s*x(\d+)AVx2$'
-    set: { route_1: "$1", route_2: "$2" }
-  - match: '^x(\d+)AVx1$'
-    set: { route_1: "$1" }
-  - match: '^x(\d+)AVx2$'
-    set: { route_2: "$1" }
+    child_set:
+      - { type: output, id: 1, state: { input: "$1" } }
+      - { type: output, id: 2, state: { input: "$2" } }
+  - match: '^x(\d+)AVx([12])$'
+    child_set:
+      - { type: output, id: "$2", state: { input: "$1" } }
 
-  # Audio source routing: "AUD1 HDMI", "AUD2 AUX3"
-  - match: '^AUD1\s+(\S+)$'
-    set: { audio_1: "$1" }
-  - match: '^AUD2\s+(\S+)$'
-    set: { audio_2: "$1" }
+  # Audio source routing echo/status: "AUD1 HDMI", "AUD2 AUX3"
+  - match: '^AUD([12])\s+(HDBaseT|HDMI|AUX[123])$'
+    child_set:
+      - { type: analog_out, id: "$1", state: { source: "$2" } }
 
   # Volume: "VOUT1 -20" (echoed after set, +/-, or sta)
-  - match: '^VOUT1\s+(-?\d+)$'
-    set: { volume_1: "$1" }
-  - match: '^VOUT2\s+(-?\d+)$'
-    set: { volume_2: "$1" }
-  - match: '^VOUT3\s+(-?\d+)$'
-    set: { volume_3: "$1" }
-  - match: '^VOUT4\s+(-?\d+)$'
-    set: { volume_4: "$1" }
+  - match: '^VOUT([1-4])\s+(-?\d+)$'
+    child_set:
+      - { type: zone, id: "$1", state: { volume: "$2" } }
 
   # Mute: "VOUTMute1 on" / "VOUTMute1 off"
-  - match: '^VOUTMute1\s+on$'
-    set: { mute_1: "true" }
-  - match: '^VOUTMute1\s+off$'
-    set: { mute_1: "false" }
-  - match: '^VOUTMute2\s+on$'
-    set: { mute_2: "true" }
-  - match: '^VOUTMute2\s+off$'
-    set: { mute_2: "false" }
-  - match: '^VOUTMute3\s+on$'
-    set: { mute_3: "true" }
-  - match: '^VOUTMute3\s+off$'
-    set: { mute_3: "false" }
-  - match: '^VOUTMute4\s+on$'
-    set: { mute_4: "true" }
-  - match: '^VOUTMute4\s+off$'
-    set: { mute_4: "false" }
+  - match: '^VOUTMute([1-4])\s+(on|off)$'
+    child_set:
+      - type: zone
+        id: "$1"
+        state:
+          mute: { group: 2, map: { "on": "true", "off": "false" } }
 
   # Mono / stereo
-  - match: '^SetMono1\s+on$'
-    set: { mono_1: "true" }
-  - match: '^SetMono1\s+off$'
-    set: { mono_1: "false" }
-  - match: '^SetMono2\s+on$'
-    set: { mono_2: "true" }
-  - match: '^SetMono2\s+off$'
-    set: { mono_2: "false" }
+  - match: '^SetMono([12])\s+(on|off)$'
+    child_set:
+      - type: analog_out
+        id: "$1"
+        state:
+          mono: { group: 2, map: { "on": "true", "off": "false" } }
 
   # InputStatus N — feedback "InputStatus<N> 1" (signal) or " 0" (no signal).
-  - match: '^InputStatus1\s+1$'
-    set: { input_signal_1: "true" }
-  - match: '^InputStatus1\s+0$'
-    set: { input_signal_1: "false" }
-  - match: '^InputStatus2\s+1$'
-    set: { input_signal_2: "true" }
-  - match: '^InputStatus2\s+0$'
-    set: { input_signal_2: "false" }
-  - match: '^InputStatus3\s+1$'
-    set: { input_signal_3: "true" }
-  - match: '^InputStatus3\s+0$'
-    set: { input_signal_3: "false" }
-  - match: '^InputStatus4\s+1$'
-    set: { input_signal_4: "true" }
-  - match: '^InputStatus4\s+0$'
-    set: { input_signal_4: "false" }
-  - match: '^InputStatus5\s+1$'
-    set: { input_signal_5: "true" }
-  - match: '^InputStatus5\s+0$'
-    set: { input_signal_5: "false" }
-  - match: '^InputStatus6\s+1$'
-    set: { input_signal_6: "true" }
-  - match: '^InputStatus6\s+0$'
-    set: { input_signal_6: "false" }
+  - match: '^InputStatus([1-6])\s+([01])$'
+    child_set:
+      - type: input
+        id: "$1"
+        state:
+          signal: { group: 2, map: { "1": "true", "0": "false" } }
 
   # USB
   - match: '^UsbMode\s+(\d+)$'
@@ -637,22 +580,10 @@ polling:
     - "Status\r"
     - "Type\r"
     - "Version\r"
-    - "AUD1 sta\r"
-    - "AUD2 sta\r"
-    - "VOUT1 sta\r"
-    - "VOUT2 sta\r"
-    - "VOUT3 sta\r"
-    - "VOUT4 sta\r"
-    - "VOUTMute1 sta\r"
-    - "VOUTMute2 sta\r"
-    - "VOUTMute3 sta\r"
-    - "VOUTMute4 sta\r"
-    - "InputStatus1\r"
-    - "InputStatus2\r"
-    - "InputStatus3\r"
-    - "InputStatus4\r"
-    - "InputStatus5\r"
-    - "InputStatus6\r"
+    - { each_child: analog_out, send: "AUD{child_id} sta\r" }
+    - { each_child: zone, send: "VOUT{child_id} sta\r" }
+    - { each_child: zone, send: "VOUTMute{child_id} sta\r" }
+    - { each_child: input, send: "InputStatus{child_id}\r" }
 
 # ── SIMULATOR DEFINITION ──
 simulator:

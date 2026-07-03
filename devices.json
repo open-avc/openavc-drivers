@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 584,
+    "total_devices": 583,
     "shards": null
   },
   "devices": [
@@ -3132,37 +3132,25 @@
     },
     {
       "manufacturer": "Kramer",
-      "model": "Via wireless presentation systems",
-      "category": "switcher",
-      "drivers": [
-        {
-          "id": "kramer_p3000",
-          "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000."
-        }
-      ]
-    },
-    {
-      "manufacturer": "Kramer",
       "model": "VM Series distribution amplifiers",
       "category": "switcher",
       "drivers": [
         {
           "id": "kramer_p3000",
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000."
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
         }
       ]
     },
     {
       "manufacturer": "Kramer",
-      "model": "VP Series scalers",
+      "model": "VP Series scalers and presentation switchers",
       "category": "switcher",
       "drivers": [
         {
           "id": "kramer_p3000",
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000."
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
         }
       ]
     },
@@ -3174,7 +3162,7 @@
         {
           "id": "kramer_p3000",
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000."
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
         }
       ]
     },

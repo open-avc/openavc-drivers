@@ -2376,11 +2376,11 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.3.4",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000). Covers matrix switchers (VS series), scalers (VP series), distribution amplifiers, and Via wireless presentation systems.\n",
-      "source_url": "https://www.kramerav.com/support/protocols",
+      "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
+      "source_url": "https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf",
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "ports": [
@@ -2391,15 +2391,16 @@
         "kramer_p3000"
       ],
       "simulated": true,
+      "min_platform_version": "0.22.0",
       "tags": [
         "matrix-switcher",
         "scaler",
-        "wireless-presentation",
+        "distribution-amplifier",
         "generic"
       ],
       "help": {
-        "overview": "Controls Kramer matrix switchers, scalers, distribution amplifiers, and Via wireless presentation systems via Protocol 3000. Common in corporate AV, education, and houses of worship.\n",
-        "setup": "1. Connect the switcher to the network via Ethernet. 2. Set the IP address via the front panel menu or Kramer Network. 3. Enter the IP address and port 5000 (default) in the device config. 4. Machine number defaults to 01. Change it if multiple Kramer units\n   share the same port.\n"
+        "overview": "Controls Kramer matrix switchers, scalers, presentation switchers, and distribution amplifiers via Protocol 3000. Common in corporate AV, education, and houses of worship. On matrix switchers, configure the frame size (Input Count / Output Count) and every output becomes a child entity tracking its routed input, mutes, volume, and connected sink, with per-input signal and HDCP detection. Front-panel switches are pushed by the device and reflected immediately.\n",
+        "setup": "1. Connect the switcher to the network via Ethernet. 2. Set the IP address via the front panel menu or Kramer Network. 3. Enter the IP address and port 5000 (default) in the device config. 4. Matrix switchers: set Input Count and Output Count to the frame size (e.g. 8 and 8 for a VS-88H2). Each output and input becomes a child entity. Leave both at 0 for single-output devices (scalers, presentation switchers, DAs). 5. Machine number defaults to 01. Change it if multiple daisy-chained Kramer units share one serial line. 6. If the device supports Protocol 3000 security (#SECUR), leave it disabled \u2014 the driver does not send #LOGIN.\n"
       },
       "compatible_models": [
         {
@@ -2407,11 +2408,10 @@
           "models": [
             "VS Series matrix switchers",
             "VM Series distribution amplifiers",
-            "VP Series scalers",
-            "Via wireless presentation systems"
+            "VP Series scalers and presentation switchers"
           ],
           "confidence": "untested",
-          "notes": "Any Kramer product implementing Protocol 3000."
+          "notes": "Any Kramer product implementing Protocol 3000. For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices. VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect, VP-series scalers the layer-based ROUTE dialect \u2014 the driver's routing commands send both forms, and the unsupported one answers a benign error. Device security (#SECUR), where present, must be left disabled.\n"
         }
       ],
       "discovery": {

@@ -1,34 +1,77 @@
 # Kramer Protocol 3000 Driver
 #
 # Controls Kramer products over TCP (port 5000) or RS-232 (115200 8N1).
-# Covers matrix switchers, scalers, distribution amplifiers, and
-# Via wireless presentation systems.
+# Covers matrix switchers, scalers, presentation switchers, and
+# distribution amplifiers.
 #
-# Protocol reference: Kramer Protocol 3000 Specification
-# https://www.kramerav.com/support/protocols
+# Protocol reference: Kramer Protocol 3000 Reference Guide v3.0 (master)
+# https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf
+# (Matrix dialect verified against the VS-88H2 user manual; scaler dialect
+# verified against the VP-440X Protocol 3000 command list.)
 #
-# Command format: #<CMD> <PARAM1>,<PARAM2>,...<CR>
-# Response format: ~<NN>@<CMD> <PARAM1>,<PARAM2>,...<CR><LF>
-#   NN = machine number (01 by default)
+# Command format:  #<CMD> <PARAMS><CR>       (LF after CR is ignored)
+# Response format: ~<NN>@<CMD> <PARAMS><CR><LF>   NN = machine number (01)
+# Errors:          ~NN@ERR <code> (general) / ~NN@<CMD> ERR <code> (command)
+#                  002 = command not available, 003 = parameter out of range
+# Handshake:       #<CR> -> ~NN@ok
+# Chaining:        #CMD1|CMD2<CR> — '#' and <CR> once, commands separated by
+#                  '|'; the device answers each chained command separately.
 #
-# Notes:
-#   - Commands are prefixed with # (request) or ~ (response)
-#   - Machine number defaults to 01, configurable per device
-#   - Error responses: ~NN@ERR <error_code><CR><LF>
+# The Protocol 3000 family has two ROUTING dialects (verified):
+#
+#   VS-series HDMI matrices (VS-42H2/66H2/84H2/88H2, VS-88HN, ...):
+#     #AV in>out / #VID in>out / #AUD in>out   (out '*' = all, in 0 = untie)
+#     #VID? out -> ~nn@VID in>out              (#ROUTE is NOT implemented)
+#
+#   VP-series scalers + newer layer-routing devices (VP-440X, ...):
+#     #ROUTE layer,dest,src  (layer 1 = video, 2 = audio; dest '*' = all)
+#     #ROUTE? layer,dest -> ~nn@ROUTE layer,dest,src   (#VID is NOT implemented)
+#
+#   Routing commands and per-output route queries therefore CHAIN BOTH
+#   FORMS (#AV 1>2|ROUTE 1,2,1). The unsupported half answers a benign
+#   "~nn@CMD ERR 002" line that matches no response rule; on devices that
+#   implement both, the duplicate tie is idempotent.
+#
+# Shared commands (both dialects, verified in both product docs):
+#   #VMUTE out,flag   flag: 0 = video enabled, 1 = disabled, 2 = blank.
+#     (The parameter tables in the master spec, VS-88H2, and VP-440X docs
+#     all agree 1 = muted; the prose examples in both product docs show
+#     ",0" as "disable" — a copy-paste artifact, the tables win.)
+#   #MUTE ch,mode     audio mute; ch = output number (0 on VP-440X-class)
+#   #AUD-LVL stage,ch,vol   stage 1 = output; vol envelope is MODEL-SPECIFIC
+#     (0..100 on VP-440X, -80..10 dB per the master spec; '++'/'--' = step)
+#   #SIGNAL? in / #DISPLAY? out / #HDCP-STAT? io,idx / #MODEL? / #VERSION?
+#   #PRST-RCL n / #PRST-STO n / #LOCK-FP 0|1
+#
+# Push vs poll: Protocol 3000 is bidirectional — front-panel / IR actions
+# emit the same ~nn@ lines to every connected controller (master spec
+# "Device Initiated Messages": ~nn@AV/VID/AUD in>out; SIGNAL and DISPLAY
+# also push on change). The response rules below double as push handlers;
+# polling covers values that don't push.
+#
+# Device security: some units support #LOGIN/#SECUR command-based
+# authentication (off by default). The driver does not authenticate —
+# use it with security disabled. (A 'send_login' auth extension would
+# cover it; tracked in the workspace roadmap.)
 
 id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.3.4
+version: 1.4.0
 author: OpenAVC
+min_platform_version: "0.22.0"
 description: >
-  Controls Kramer products via Protocol 3000 over TCP (port 5000).
-  Covers matrix switchers (VS series), scalers (VP series),
-  distribution amplifiers, and Via wireless presentation systems.
+  Controls Kramer products via Protocol 3000 over TCP (port 5000) or
+  RS-232. Covers matrix switchers (VS series), scalers and presentation
+  switchers (VP series), and distribution amplifiers. On matrix models
+  each configured output and input is a child entity with per-output
+  routing, mute, volume, and sink state. Routing commands speak both
+  Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based
+  ROUTE), so one driver covers the whole family.
 
-source_url: https://www.kramerav.com/support/protocols
-tags: [matrix-switcher, scaler, wireless-presentation, generic]
+source_url: https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf
+tags: [matrix-switcher, scaler, distribution-amplifier, generic]
 verified: false
 simulated: true
 protocols: [kramer_p3000]
@@ -38,25 +81,42 @@ compatible_models:
     models:
       - VS Series matrix switchers
       - VM Series distribution amplifiers
-      - VP Series scalers
-      - Via wireless presentation systems
+      - VP Series scalers and presentation switchers
     confidence: untested
-    notes: Any Kramer product implementing Protocol 3000.
+    notes: >
+      Any Kramer product implementing Protocol 3000. For matrix switchers,
+      set Input Count / Output Count to the frame size to get per-output
+      routing and mute state; leave both 0 for single-output devices.
+      VS-series HDMI matrices use the legacy VID/AUD/AV routing dialect,
+      VP-series scalers the layer-based ROUTE dialect — the driver's
+      routing commands send both forms, and the unsupported one answers
+      a benign error. Device security (#SECUR), where present, must be
+      left disabled.
 
 transport: tcp
 delimiter: "\r\n"
 
 help:
   overview: >
-    Controls Kramer matrix switchers, scalers, distribution amplifiers, and
-    Via wireless presentation systems via Protocol 3000. Common in corporate
-    AV, education, and houses of worship.
+    Controls Kramer matrix switchers, scalers, presentation switchers, and
+    distribution amplifiers via Protocol 3000. Common in corporate AV,
+    education, and houses of worship. On matrix switchers, configure the
+    frame size (Input Count / Output Count) and every output becomes a
+    child entity tracking its routed input, mutes, volume, and connected
+    sink, with per-input signal and HDCP detection. Front-panel switches
+    are pushed by the device and reflected immediately.
   setup: >
     1. Connect the switcher to the network via Ethernet.
     2. Set the IP address via the front panel menu or Kramer Network.
     3. Enter the IP address and port 5000 (default) in the device config.
-    4. Machine number defaults to 01. Change it if multiple Kramer units
-       share the same port.
+    4. Matrix switchers: set Input Count and Output Count to the frame
+    size (e.g. 8 and 8 for a VS-88H2). Each output and input becomes a
+    child entity. Leave both at 0 for single-output devices (scalers,
+    presentation switchers, DAs).
+    5. Machine number defaults to 01. Change it if multiple daisy-chained
+    Kramer units share one serial line.
+    6. If the device supports Protocol 3000 security (#SECUR), leave it
+    disabled — the driver does not send #LOGIN.
 
 discovery:
   # `#MODEL?` is the Protocol 3000 model query and returns a structured
@@ -78,6 +138,8 @@ default_config:
   host: ""
   port: 5000
   machine_number: "01"
+  input_count: 0
+  output_count: 0
   poll_interval: 10
 
 config_schema:
@@ -93,249 +155,798 @@ config_schema:
     type: string
     default: "01"
     label: Machine Number
-    description: "01-99, used in Protocol 3000 responses"
+    description: "01-99; only meaningful on daisy-chained RS-232 units"
+  input_count:
+    type: integer
+    default: 0
+    min: 0
+    label: Input Count
+    description: >
+      Number of inputs on a matrix switcher — each becomes an Input child
+      with signal and HDCP detection. Leave 0 for single-output devices.
+  output_count:
+    type: integer
+    default: 0
+    min: 0
+    label: Output Count
+    description: >
+      Number of outputs on a matrix switcher — each becomes an Output
+      child tracking its routed input, mutes, volume, and sink. Leave 0
+      for single-output devices (scalers, presentation switchers, DAs).
   poll_interval:
     type: integer
     default: 10
     min: 0
     label: Poll Interval (sec)
 
+on_connect:
+  - "#\r"
+  - "#MODEL?\r"
+  - "#VERSION?\r"
+
 state_variables:
   input:
     type: integer
-    label: Current Input (Layer 1)
-    help: "Input currently routed on the video layer (layer 1)."
-  output:
+    label: Current Input
+    help: >
+      Single-output devices: the selected input. On a matrix, the input
+      of the most recent route report (use the Output children there).
+  volume:
     type: integer
-    label: Current Output (Layer 1)
-    help: "Output destination of the most recent layer-1 route reported by the device."
+    label: Volume Level
+    help: >
+      Audio output level as reported by the device (single-output
+      devices; scale is model-specific). On a matrix, echoes the most
+      recent per-output level report.
   video_mute:
     type: boolean
     label: Video Mute
-    help: "True when video output is muted (blanked)."
+    help: >
+      True when video output is disabled (single-output devices; on a
+      matrix, echoes the most recent per-output mute report).
   audio_mute:
     type: boolean
     label: Audio Mute
-    help: "True when audio output is muted."
+    help: >
+      True when audio output is muted (single-output devices; on a
+      matrix, echoes the most recent per-output mute report).
   signal_present:
     type: boolean
     label: Signal Present
-    help: "True when the device reports a valid signal on the active input (#SIGNAL response)."
+    help: >
+      True when the device reports a valid input signal (single-output
+      devices; on a matrix, echoes the most recent per-input report —
+      also pushed by the device on every signal change).
+  model:
+    type: string
+    label: Model
+    help: "Device model name reported by #MODEL?."
+  firmware:
+    type: string
+    label: Firmware Version
+    help: "Firmware version reported by #VERSION?."
+
+child_entity_types:
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 128 }
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        help: "Input currently routed to this output for video (0 = untied)."
+        cloud_priority: high
+      audio_input:
+        type: integer
+        label: Routed Audio Input
+        help: "Input currently routed to this output for audio (0 = untied; follows video on AV ties)."
+      video_mute:
+        type: boolean
+        label: Video Muted
+        help: "True when this output's video is disabled or blanked (#VMUTE flag 1 or 2)."
+        cloud_priority: high
+      audio_mute:
+        type: boolean
+        label: Audio Muted
+        help: "True when this output's audio is muted (#MUTE; not implemented on all models)."
+      volume:
+        type: integer
+        label: Volume
+        help: "Audio output level (#AUD-LVL; scale is model-specific — 0-100 or dB. Not implemented on all models)."
+      sink:
+        type: boolean
+        label: Sink Connected
+        help: "True when a display/sink is detected on this output (#DISPLAY? HPD status; pushed by the device on change)."
+    summary_fields: [input, video_mute]
+    instances:
+      count_from: output_count
+      label: "Output {id}"
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 128 }
+    state_variables:
+      signal:
+        type: boolean
+        label: Signal Present
+        help: "True when a valid signal is detected on this input (#SIGNAL?; pushed by the device on change)."
+        cloud_priority: high
+      hdcp:
+        type: boolean
+        label: HDCP Source
+        help: "True when the source on this input is HDCP-encrypted (#HDCP-STAT? on the input stage)."
+    summary_fields: [signal]
+    instances:
+      count_from: input_count
+      label: "Input {id}"
 
 commands:
   route:
     label: Route Input to Output
-    help: "Route an input to an output on a given layer (1=video, 2=audio)."
-    send: "#ROUTE {layer},{output},{input}\r"
+    send: "#AV {input}>{output}|ROUTE 1,{output},{input}\r"
+    help: >
+      Route an input to an output for audio and video. Sends both Protocol
+      3000 routing dialects (AV and ROUTE); the one the device doesn't
+      implement answers a benign error. Input 0 unties the output.
     params:
       input:
         type: integer
         required: true
         label: Input Number
-        min: 1
+        min: 0
+        help: "Source input number (0 = untie)"
       output:
         type: integer
         required: true
         label: Output Number
         min: 1
-      layer:
-        type: integer
-        default: 1
-        label: Layer (1=Video, 2=Audio)
+        help: "Destination output number"
 
   route_video:
-    label: Route Video
-    help: "Route a video input to an output."
-    send: "#ROUTE 1,{output},{input}\r"
+    label: Route Video Only
+    send: "#VID {input}>{output}|ROUTE 1,{output},{input}\r"
+    help: "Route an input to an output for video only (breakaway on matrices). Input 0 unties."
     params:
       input:
         type: integer
         required: true
         label: Input Number
+        min: 0
       output:
         type: integer
         required: true
         label: Output Number
+        min: 1
 
   route_audio:
-    label: Route Audio
-    help: "Route an audio input to an output."
-    send: "#ROUTE 2,{output},{input}\r"
+    label: Route Audio Only
+    send: "#AUD {input}>{output}|ROUTE 2,{output},{input}\r"
+    help: "Route an input to an output for audio only (breakaway on matrices). Input 0 unties."
     params:
       input:
         type: integer
         required: true
         label: Input Number
+        min: 0
       output:
         type: integer
         required: true
         label: Output Number
+        min: 1
+
+  route_all:
+    label: Route Input to All Outputs
+    send: "#AV {input}>*|ROUTE 1,*,{input}\r"
+    help: "Route a single input to every output (matrix switchers). Per-output state refreshes on the next poll."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 1
+
+  select_input:
+    label: Select Input
+    send: "#ROUTE 1,1,{input}|VID {input}>1\r"
+    help: "Select the active input on a single-output device (scaler, presentation switcher, DA)."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input Number
+        min: 1
 
   video_mute_on:
     label: Video Mute On
-    help: "Blank the video output."
-    send: "#VMUTE 1,1\r"
+    send: "#VMUTE {output},1\r"
+    help: "Disable an output's video (flag 1 per the Protocol 3000 Video Mute table)."
+    params:
+      output:
+        type: integer
+        default: 1
+        label: Output Number
+        min: 0
+        help: "Output number (single-output devices use 1)"
 
   video_mute_off:
     label: Video Mute Off
-    help: "Restore the video output."
-    send: "#VMUTE 1,0\r"
+    send: "#VMUTE {output},0\r"
+    help: "Re-enable an output's video."
+    params:
+      output:
+        type: integer
+        default: 1
+        label: Output Number
+        min: 0
+        help: "Output number (single-output devices use 1)"
 
   audio_mute_on:
     label: Audio Mute On
-    help: "Mute audio output."
-    send: "#MUTE 1,1\r"
+    send: "#MUTE {output},1\r"
+    help: "Mute an output's audio. The output index is model-specific — 1..n on most units, 0 on VP-440X-class scalers."
+    params:
+      output:
+        type: integer
+        default: 1
+        label: Output Number
+        min: 0
 
   audio_mute_off:
     label: Audio Mute Off
-    help: "Unmute audio output."
-    send: "#MUTE 1,0\r"
+    send: "#MUTE {output},0\r"
+    help: "Unmute an output's audio."
+    params:
+      output:
+        type: integer
+        default: 1
+        label: Output Number
+        min: 0
 
   set_volume:
     label: Set Volume
-    send: "#AUD-LVL 1,1,{level}\r"
+    send: "#AUD-LVL 1,{output},{level}\r"
+    help: >
+      Set an audio output's level. The level envelope is model-specific
+      (0-100 on VP-440X-class scalers, -80..10 dB on others) — the device
+      rejects out-of-range values with ERR 003.
     params:
+      output:
+        type: integer
+        default: 1
+        label: Output Number
+        min: 0
+        help: "Audio output number (model-specific; VP-440X-class uses 0)"
       level:
         type: integer
         required: true
         label: Volume Level
-        min: -100
-        max: 15
-        description: "Level in dB (-100 to +15)"
+        help: "Level in the device's native scale (0-100 or dB, model-specific)"
+
+  volume_up:
+    label: Volume Up
+    send: "#AUD-LVL 1,{output},++\r"
+    help: "Step an audio output's level up 1 (on models supporting relative steps)."
+    params:
+      output:
+        type: integer
+        default: 1
+        label: Output Number
+        min: 0
+
+  volume_down:
+    label: Volume Down
+    send: "#AUD-LVL 1,{output},--\r"
+    help: "Step an audio output's level down 1 (on models supporting relative steps)."
+    params:
+      output:
+        type: integer
+        default: 1
+        label: Output Number
+        min: 0
+
+  recall_preset:
+    label: Recall Preset
+    send: "#PRST-RCL {preset}\r"
+    help: >
+      Recall a saved connection preset (video and audio together on most
+      units). The valid preset range is model-specific — the device
+      rejects an invalid number.
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+
+  save_preset:
+    label: Save Preset
+    send: "#PRST-STO {preset}\r"
+    help: "Store the current connections, volumes and modes to a preset. The valid preset range is model-specific."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+
+  lock_front_panel:
+    label: Lock Front Panel
+    send: "#LOCK-FP 1\r"
+    help: "Lock the front panel buttons."
+
+  unlock_front_panel:
+    label: Unlock Front Panel
+    send: "#LOCK-FP 0\r"
+    help: "Unlock the front panel buttons."
+
+# Quick actions — routing and preset recall are the everyday matrix moves;
+# the video mute pair covers presentation muting.
+actions:
+  - id: route
+    icon: shuffle
+  - id: route_all
+    icon: fast-forward
+  - id: recall_preset
+    icon: bookmark
+  - id: video_mute_on
+    icon: eye-off
+  - id: video_mute_off
+    icon: eye
 
 responses:
-  # Route response: ~01@ROUTE 1,1,3  (layer 1, output 1, input 3)
-  - match: '~\d+@ROUTE 1,\d+,(\d+)'
+  # ── Route-to-all acks: "~01@AV 3>*" / "~01@ROUTE 1,*,3" ──
+  # Per-output state refreshes on the next poll.
+  - match: '^~\d+@(?:AV|VID) (\d+)>\*$'
+    set: { input: "$1" }
+  - match: '^~\d+@ROUTE 1,\*,(\d+)$'
     set: { input: "$1" }
 
-  # Video mute: ~01@VMUTE 1,1  (output 1, muted)
-  - match: '~\d+@VMUTE 1,1'
-    set: { video_mute: "true" }
-  - match: '~\d+@VMUTE 1,0'
+  # ── Legacy-dialect tie acks / pushes: "~01@AV 3>2" ──
+  # Also emitted unsolicited on front-panel / IR switches (master spec
+  # "Device Initiated Messages"). Error lines ("~01@VID ERR 002") don't
+  # match — every rule is anchored to the full response line.
+  - match: '^~\d+@AV (\d+)>(\d+)$'
+    set: { input: "$1" }
+    child_set:
+      - { type: output, id: "$2", state: { input: "$1", audio_input: "$1" } }
+  - match: '^~\d+@VID (\d+)>(\d+)$'
+    set: { input: "$1" }
+    child_set:
+      - { type: output, id: "$2", state: { input: "$1" } }
+  - match: '^~\d+@AUD (\d+)>(\d+)$'
+    child_set:
+      - { type: output, id: "$2", state: { audio_input: "$1" } }
+
+  # ── ROUTE-dialect acks / query responses: "~01@ROUTE 1,2,3" ──
+  # Layer 1 = video, layer 2 = audio. The flat input echo serves
+  # single-output devices (their dest is the only output).
+  - match: '^~\d+@ROUTE 1,(\d+),(\d+)$'
+    set: { input: "$2" }
+    child_set:
+      - { type: output, id: "$1", state: { input: "$2" } }
+  - match: '^~\d+@ROUTE 2,(\d+),(\d+)$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_input: "$2" } }
+
+  # ── Video mute: "~01@VMUTE 2,1" (0 = enabled, 1 = disabled, 2 = blank) ──
+  # Flat set: takes only $N refs or statics, so on/off are split rules.
+  - match: '^~\d+@VMUTE (\d+),0$'
     set: { video_mute: "false" }
+    child_set:
+      - { type: output, id: "$1", state: { video_mute: "false" } }
+  - match: '^~\d+@VMUTE (\d+),[12]$'
+    set: { video_mute: "true" }
+    child_set:
+      - { type: output, id: "$1", state: { video_mute: "true" } }
 
-  # Audio mute: ~01@MUTE 1,1
-  - match: '~\d+@MUTE 1,1'
-    set: { audio_mute: "true" }
-  - match: '~\d+@MUTE 1,0'
+  # ── Audio mute: "~01@MUTE 2,1" ──
+  - match: '^~\d+@MUTE (\d+),0$'
     set: { audio_mute: "false" }
+    child_set:
+      - { type: output, id: "$1", state: { audio_mute: "false" } }
+  - match: '^~\d+@MUTE (\d+),1$'
+    set: { audio_mute: "true" }
+    child_set:
+      - { type: output, id: "$1", state: { audio_mute: "true" } }
 
-  # Signal presence: ~01@SIGNAL 1,1  (input 1, signal present)
-  - match: '~\d+@SIGNAL \d+,1'
+  # ── Output volume: "~01@AUD-LVL 1,2,50" (stage 1 = output) ──
+  - match: '^~\d+@AUD-LVL 1,(\d+),(-?\d+)$'
+    set: { volume: "$2" }
+    child_set:
+      - { type: output, id: "$1", state: { volume: "$2" } }
+
+  # ── Output sink / HPD: "~01@DISPLAY 2,1" (0 = none, 1 = valid, 2 = valid+EDID) ──
+  # Pushed by the device on every HPD change.
+  - match: '^~\d+@DISPLAY (\d+),([012])$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          sink: { group: 2, map: { "0": "false", "1": "true", "2": "true" } }
+
+  # ── Input signal: "~01@SIGNAL 3,1" — pushed by the device on change ──
+  - match: '^~\d+@SIGNAL (\d+),1$'
     set: { signal_present: "true" }
-  - match: '~\d+@SIGNAL \d+,0'
+    child_set:
+      - { type: input, id: "$1", state: { signal: "true" } }
+  - match: '^~\d+@SIGNAL (\d+),0$'
     set: { signal_present: "false" }
+    child_set:
+      - { type: input, id: "$1", state: { signal: "false" } }
+
+  # ── Input HDCP status: "~01@HDCP-STAT 0,3,1" (io_mode 0 = input/source) ──
+  - match: '^~\d+@HDCP-STAT 0,(\d+),([01])$'
+    child_set:
+      - type: input
+        id: "$1"
+        state:
+          hdcp: { group: 2, map: { "0": "false", "1": "true" } }
+
+  # ── Identity ──
+  - match: '^~\d+@MODEL (.+)$'
+    set: { model: "$1" }
+  - match: '^~\d+@VERSION (\S+)$'
+    set: { firmware: "$1" }
 
 polling:
   queries:
-    - "#ROUTE? 1,1\r"
+    # Flat surface (single-output devices). Matrices answer the output-1 /
+    # layer-1 forms too — the flat vars echo them (documented per-var).
+    # The unsupported dialect's half of each chain errs benignly.
+    - "#ROUTE? 1,1|VID? 1\r"
     - "#VMUTE? 1\r"
-    - "#MUTE? 1\r"
+    - "#MUTE? 0|MUTE? 1\r"
+    - "#AUD-LVL? 1,0|AUD-LVL? 1,1\r"
     - "#SIGNAL? 1\r"
+    # Matrix surface — only sent for configured children (counts > 0).
+    - { each_child: output, send: "#VID? {child_id}|ROUTE? 1,{child_id}\r" }
+    - { each_child: output, send: "#AUD? {child_id}|ROUTE? 2,{child_id}\r" }
+    - { each_child: output, send: "#VMUTE? {child_id}|MUTE? {child_id}\r" }
+    - { each_child: output, send: "#AUD-LVL? 1,{child_id}|DISPLAY? {child_id}\r" }
+    - { each_child: input, send: "#SIGNAL? {child_id}|HDCP-STAT? 0,{child_id}\r" }
 
 # ── SIMULATOR DEFINITION ──
+# Models a VS-88H2-style 8x8 matrix that also implements the ROUTE dialect
+# (dual-dialect, like newer frames). One master script handler parses the
+# full Protocol 3000 line — including #CMD1|CMD2 chains, which the driver's
+# routing commands and per-output queries rely on — and answers each
+# chained command separately, exactly like hardware. The 'dialect' state
+# key ("both" / "vid" / "route") makes the unsupported form answer
+# "~nn@CMD ERR 002" so single-dialect devices can be simulated too.
 
 simulator:
+  push_state: true
   initial_state:
+    dialect: "both"
+    model: "VS-88H2"
+    firmware: "1.13.4"
     input: 1
-    output: 1
-    video_mute: false
+    volume: 50
     audio_mute: false
+    video_mute: false
     signal_present: true
+    lock_fp: 0
+    route_1: 1
+    route_2: 1
+    route_3: 1
+    route_4: 1
+    route_5: 1
+    route_6: 1
+    route_7: 1
+    route_8: 1
+    audio_route_1: 1
+    audio_route_2: 1
+    audio_route_3: 1
+    audio_route_4: 1
+    audio_route_5: 1
+    audio_route_6: 1
+    audio_route_7: 1
+    audio_route_8: 1
+    vmute_1: 0
+    vmute_2: 0
+    vmute_3: 0
+    vmute_4: 0
+    vmute_5: 0
+    vmute_6: 0
+    vmute_7: 0
+    vmute_8: 0
+    amute_1: 0
+    amute_2: 0
+    amute_3: 0
+    amute_4: 0
+    amute_5: 0
+    amute_6: 0
+    amute_7: 0
+    amute_8: 0
+    vol_1: 50
+    vol_2: 50
+    vol_3: 50
+    vol_4: 50
+    vol_5: 50
+    vol_6: 50
+    vol_7: 50
+    vol_8: 50
+    sink_1: 1
+    sink_2: 2
+    sink_3: 0
+    sink_4: 0
+    sink_5: 0
+    sink_6: 0
+    sink_7: 0
+    sink_8: 0
+    insig_1: 1
+    insig_2: 1
+    insig_3: 0
+    insig_4: 0
+    insig_5: 0
+    insig_6: 0
+    insig_7: 0
+    insig_8: 0
+    inhdcp_1: 1
+    inhdcp_2: 0
+    inhdcp_3: 0
+    inhdcp_4: 0
+    inhdcp_5: 0
+    inhdcp_6: 0
+    inhdcp_7: 0
+    inhdcp_8: 0
 
   delays:
     command_response: 0.02
 
   controls:
-    - type: select
-      key: input
-      label: Input
-      options: ["1", "2", "3", "4", "5", "6", "7", "8"]
-    - type: toggle
-      key: video_mute
-      label: Video Mute
-    - type: toggle
-      key: audio_mute
-      label: Audio Mute
+    - type: matrix
+      label: Video Routing
+      inputs: 8
+      outputs: 8
+      state_pattern: "route_{output}"
     - type: indicator
-      key: signal_present
-      label: Signal
+      key: insig_1
+      label: In 1 Signal
       color_map:
-        "true": "#22c55e"
-        "false": "#6b7089"
+        "1": "#22c55e"
+        "0": "#6b7089"
+    - type: indicator
+      key: insig_2
+      label: In 2 Signal
+      color_map:
+        "1": "#22c55e"
+        "0": "#6b7089"
+    - type: indicator
+      key: model
+      label: Model
+    - type: select
+      key: dialect
+      label: Routing Dialect
+      options: ["both", "vid", "route"]
+
+  # Front-panel push fidelity: route / video-mute / signal changes made in
+  # the sim UI push the same device-initiated lines real hardware emits.
+  notifications:
+    route_1: "~01@VID {value}>1"
+    route_2: "~01@VID {value}>2"
+    route_3: "~01@VID {value}>3"
+    route_4: "~01@VID {value}>4"
+    route_5: "~01@VID {value}>5"
+    route_6: "~01@VID {value}>6"
+    route_7: "~01@VID {value}>7"
+    route_8: "~01@VID {value}>8"
+    vmute_1: "~01@VMUTE 1,{value}"
+    vmute_2: "~01@VMUTE 2,{value}"
+    insig_1: "~01@SIGNAL 1,{value}"
+    insig_2: "~01@SIGNAL 2,{value}"
 
   command_handlers:
-    # Route query (#ROUTE? layer,output) — respond with current route
-    - match: '#ROUTE\? (\d+),(\d+)'
+    # Master Protocol 3000 parser — handles every #-prefixed line,
+    # splitting '|' chains and answering each command separately in ONE
+    # respond() call (the line delimiter splits them driver-side).
+    - match: '#.*'
       handler: |
         mn = config.get("machine_number", "01")
-        layer = match.group(1)
-        output = match.group(2)
-        respond(f"~{mn}@ROUTE {layer},{output},{state['input']}\r\n")
+        dia = state.get("dialect", "both")
+        text = match.group(0).strip()
+        body = text[1:].strip()
+        out = []
 
-    # Route set (#ROUTE layer,output,input) — update state and respond
-    - match: '#ROUTE (\d+),(\d+),(\d+)'
-      handler: |
-        mn = config.get("machine_number", "01")
-        layer = match.group(1)
-        output = match.group(2)
-        inp = int(match.group(3))
-        state["input"] = inp
-        state["output"] = int(output)
-        respond(f"~{mn}@ROUTE {layer},{output},{inp}\r\n")
+        def emit(s):
+            out.append("~" + mn + "@" + s + "\r\n")
 
-    # Video mute query (#VMUTE? output)
-    - match: '#VMUTE\? (\d+)'
-      handler: |
-        mn = config.get("machine_number", "01")
-        output = match.group(1)
-        val = "1" if state["video_mute"] else "0"
-        respond(f"~{mn}@VMUTE {output},{val}\r\n")
+        def tie(layer, dest, src):
+            # layer 1 = video, 2 = audio; dest may be '*'
+            if dest == "*":
+                dests = list(range(1, 9))
+            else:
+                dests = [int(dest)]
+            prefix = "route_" if layer == 1 else "audio_route_"
+            ok = True
+            for d in dests:
+                if (prefix + str(d)) not in state:
+                    ok = False
+                    continue
+                state[prefix + str(d)] = int(src)
+            return ok
 
-    # Video mute set (#VMUTE output,state)
-    - match: '#VMUTE (\d+),(\d+)'
-      handler: |
-        mn = config.get("machine_number", "01")
-        output = match.group(1)
-        val = match.group(2)
-        state["video_mute"] = val == "1"
-        respond(f"~{mn}@VMUTE {output},{val}\r\n")
-
-    # Audio mute query (#MUTE? output)
-    - match: '#MUTE\? (\d+)'
-      handler: |
-        mn = config.get("machine_number", "01")
-        output = match.group(1)
-        val = "1" if state["audio_mute"] else "0"
-        respond(f"~{mn}@MUTE {output},{val}\r\n")
-
-    # Audio mute set (#MUTE output,state)
-    - match: '#MUTE (\d+),(\d+)'
-      handler: |
-        mn = config.get("machine_number", "01")
-        output = match.group(1)
-        val = match.group(2)
-        state["audio_mute"] = val == "1"
-        respond(f"~{mn}@MUTE {output},{val}\r\n")
-
-    # Volume set (#AUD-LVL output,type,level)
-    - match: '#AUD-LVL (\d+),(\d+),(-?\d+)'
-      handler: |
-        mn = config.get("machine_number", "01")
-        output = match.group(1)
-        atype = match.group(2)
-        level = match.group(3)
-        respond(f"~{mn}@AUD-LVL {output},{atype},{level}\r\n")
-
-    # Signal query (#SIGNAL? input)
-    - match: '#SIGNAL\? (\d+)'
-      handler: |
-        mn = config.get("machine_number", "01")
-        inp = match.group(1)
-        val = "1" if state["signal_present"] else "0"
-        respond(f"~{mn}@SIGNAL {inp},{val}\r\n")
+        if body == "":
+            emit("ok")
+        else:
+            for part in body.split("|"):
+                part = part.strip()
+                m = re.match(r'^(AV|VID|AUD) (\d+)>(\*|\d+)$', part)
+                if m:
+                    cmd, src, dest = m.group(1), m.group(2), m.group(3)
+                    if dia == "route":
+                        emit(cmd + " ERR 002")
+                        continue
+                    if cmd in ("AV", "VID"):
+                        tie(1, dest, src)
+                    if cmd in ("AV", "AUD"):
+                        tie(2, dest, src)
+                    emit(cmd + " " + src + ">" + dest)
+                    continue
+                m = re.match(r'^(AV|VID|AUD)\? (\*|\d+)$', part)
+                if m:
+                    cmd, dest = m.group(1), m.group(2)
+                    if dia == "route":
+                        emit(cmd + " ERR 002")
+                        continue
+                    prefix = "audio_route_" if cmd == "AUD" else "route_"
+                    if dest == "*":
+                        pairs = []
+                        for d in range(1, 9):
+                            pairs.append(str(state[prefix + str(d)]) + ">" + str(d))
+                        emit(cmd + " " + ",".join(pairs))
+                    elif (prefix + dest) in state:
+                        emit(cmd + " " + str(state[prefix + dest]) + ">" + dest)
+                    else:
+                        emit(cmd + " ERR 003")
+                    continue
+                m = re.match(r'^ROUTE ([12]),(\*|\d+),(\d+)$', part)
+                if m:
+                    if dia == "vid":
+                        emit("ROUTE ERR 002")
+                        continue
+                    layer = int(m.group(1))
+                    dest = m.group(2)
+                    src = m.group(3)
+                    if tie(layer, dest, src):
+                        emit("ROUTE " + str(layer) + "," + dest + "," + src)
+                    else:
+                        emit("ROUTE ERR 003")
+                    continue
+                m = re.match(r'^ROUTE\? ([12]),(\d+)$', part)
+                if m:
+                    if dia == "vid":
+                        emit("ROUTE ERR 002")
+                        continue
+                    layer = int(m.group(1))
+                    dest = m.group(2)
+                    prefix = "route_" if layer == 1 else "audio_route_"
+                    if (prefix + dest) in state:
+                        emit("ROUTE " + str(layer) + "," + dest + "," + str(state[prefix + dest]))
+                    else:
+                        emit("ROUTE ERR 003")
+                    continue
+                m = re.match(r'^VMUTE (\d+),([012])$', part)
+                if m:
+                    o = m.group(1)
+                    f = m.group(2)
+                    if ("vmute_" + o) in state:
+                        state["vmute_" + o] = int(f)
+                        emit("VMUTE " + o + "," + f)
+                    else:
+                        emit("VMUTE ERR 003")
+                    continue
+                m = re.match(r'^VMUTE\? (\d+)$', part)
+                if m:
+                    o = m.group(1)
+                    if ("vmute_" + o) in state:
+                        emit("VMUTE " + o + "," + str(state["vmute_" + o]))
+                    else:
+                        emit("VMUTE ERR 003")
+                    continue
+                m = re.match(r'^MUTE (\d+),([01])$', part)
+                if m:
+                    o = m.group(1)
+                    f = m.group(2)
+                    if ("amute_" + o) in state:
+                        state["amute_" + o] = int(f)
+                        emit("MUTE " + o + "," + f)
+                    else:
+                        emit("MUTE ERR 003")
+                    continue
+                m = re.match(r'^MUTE\? (\d+)$', part)
+                if m:
+                    o = m.group(1)
+                    if ("amute_" + o) in state:
+                        emit("MUTE " + o + "," + str(state["amute_" + o]))
+                    else:
+                        emit("MUTE ERR 003")
+                    continue
+                m = re.match(r'^AUD-LVL 1,(\d+),(\+\+|--|-?\d+)$', part)
+                if m:
+                    o = m.group(1)
+                    v = m.group(2)
+                    if ("vol_" + o) not in state:
+                        emit("AUD-LVL ERR 003")
+                        continue
+                    if v == "++":
+                        state["vol_" + o] = min(100, state["vol_" + o] + 1)
+                    elif v == "--":
+                        state["vol_" + o] = max(0, state["vol_" + o] - 1)
+                    else:
+                        state["vol_" + o] = max(0, min(100, int(v)))
+                    emit("AUD-LVL 1," + o + "," + str(state["vol_" + o]))
+                    continue
+                m = re.match(r'^AUD-LVL\? 1,(\d+)$', part)
+                if m:
+                    o = m.group(1)
+                    if ("vol_" + o) in state:
+                        emit("AUD-LVL 1," + o + "," + str(state["vol_" + o]))
+                    else:
+                        emit("AUD-LVL ERR 003")
+                    continue
+                m = re.match(r'^DISPLAY\? (\d+)$', part)
+                if m:
+                    o = m.group(1)
+                    if ("sink_" + o) in state:
+                        emit("DISPLAY " + o + "," + str(state["sink_" + o]))
+                    else:
+                        emit("DISPLAY ERR 003")
+                    continue
+                m = re.match(r'^SIGNAL\? (\d+)$', part)
+                if m:
+                    i = m.group(1)
+                    if ("insig_" + i) in state:
+                        emit("SIGNAL " + i + "," + str(state["insig_" + i]))
+                    else:
+                        emit("SIGNAL ERR 003")
+                    continue
+                m = re.match(r'^HDCP-STAT\? ([01]),(\d+)$', part)
+                if m:
+                    io = m.group(1)
+                    idx = m.group(2)
+                    if io == "0" and ("inhdcp_" + idx) in state:
+                        emit("HDCP-STAT 0," + idx + "," + str(state["inhdcp_" + idx]))
+                    elif io == "1" and ("sink_" + idx) in state:
+                        emit("HDCP-STAT 1," + idx + ",1")
+                    else:
+                        emit("HDCP-STAT ERR 003")
+                    continue
+                if part == "MODEL?":
+                    emit("MODEL " + str(state["model"]))
+                    continue
+                if part == "VERSION?":
+                    emit("VERSION " + str(state["firmware"]))
+                    continue
+                if part == "SN?":
+                    emit("SN 12345678901234")
+                    continue
+                if part == "PROT-VER?":
+                    emit("PROT-VER 3000:3.0")
+                    continue
+                m = re.match(r'^PRST-RCL (\d+)$', part)
+                if m:
+                    emit("PRST-RCL " + m.group(1))
+                    continue
+                m = re.match(r'^PRST-STO (\d+)$', part)
+                if m:
+                    emit("PRST-STO " + m.group(1))
+                    continue
+                m = re.match(r'^LOCK-FP ([01])$', part)
+                if m:
+                    state["lock_fp"] = int(m.group(1))
+                    emit("LOCK-FP " + m.group(1))
+                    continue
+                # Unknown command — general P3000 "not available" error
+                first = part.split(" ")[0].split(",")[0].rstrip("?")
+                emit((first + " " if first else "") + "ERR 002")
+        respond("".join(out))
 
   error_modes:
     communication_timeout:
+      description: "Device stops responding to commands"
       behavior: no_response
-      description: "Device stops responding to all commands (network issue or device reboot)"
+    garbled_response:
+      description: "Corrupted network data on the wire"
+      behavior: corrupt_response

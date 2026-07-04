@@ -43,7 +43,7 @@ id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.2.3
+version: 1.2.4
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -844,7 +844,7 @@ simulator:
     - type: indicator
       key: serial_number
       label: Serial
-    - type: number
+    - type: slider
       key: uptime_seconds
       label: Uptime (sec)
       min: 0
@@ -853,7 +853,7 @@ simulator:
       key: standby_state
       label: Standby
       options: ["Off", "Standby", "EnteringStandby", "Halfwake"]
-    - type: number
+    - type: slider
       key: audio_volume
       label: Volume
       min: 0
@@ -878,7 +878,7 @@ simulator:
       key: people_presence
       label: Occupied
       options: ["Yes", "No", "Unknown"]
-    - type: number
+    - type: slider
       key: people_count
       label: People Count
       min: -1

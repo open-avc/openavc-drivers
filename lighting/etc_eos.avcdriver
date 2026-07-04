@@ -25,7 +25,7 @@ id: etc_eos
 name: ETC Eos Family Console
 manufacturer: ETC
 category: lighting
-version: 1.2.2
+version: 1.2.3
 author: OpenAVC
 description: >-
   Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2,
@@ -567,6 +567,21 @@ simulator:
           respond("/eos/out/active/cue/text", [("s", state["active_cue_text"])])
           respond("/eos/out/pending/cue/text", [("s", state["pending_cue_text"])])
           respond("/eos/out/active/cue", [("f", 0.0)])
+          respond("/eos/out/cmd", [("s", state["command_line"])])
+
+    # Select a cue without firing it: becomes the pending cue.
+    # Must stay below the /fire handler — handlers match in order, and this
+    # wildcard would otherwise swallow /eos/cue/<list>/<cue>/fire too.
+    - address: "/eos/cue/*/*"
+      handler: |
+        # address format: /eos/cue/<list>/<cue>
+        parts = address.split("/")
+        if len(parts) == 5:
+          cue_list = parts[3]
+          cue_num = parts[4]
+          state["pending_cue_text"] = "{0}/{1} Cue {1} Pending  3.0  3.0".format(cue_list, cue_num)
+          state["command_line"] = "LIVE: Cue {0}".format(cue_num)
+          respond("/eos/out/pending/cue/text", [("s", state["pending_cue_text"])])
           respond("/eos/out/cmd", [("s", state["command_line"])])
 
     # Press the Go hardkey: advance to the pending cue

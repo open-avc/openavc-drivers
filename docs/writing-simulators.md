@@ -767,10 +767,16 @@ python -m simulator.validate ../openavc-drivers/ --summary
 | Check | What it catches |
 |-------|----------------|
 | **State coverage** | State variables missing from `simulator.initial_state` |
-| **Command coverage** | Commands with no matching simulator handler |
+| **Command coverage** | Commands with no matching simulator handler. For OSC drivers this checks command addresses against handler `address:` patterns, response addresses, and the simulator's built-in system addresses (`/xremote`, `/info`, `/status`, `/-action/`, `/-show/`) |
 | **Response parsing** | Simulator responses that don't match any driver response pattern |
-| **Poll coverage** | Polling queries with no matching handler |
+| **Poll coverage** | Polling queries with no matching handler. `each_child` queries are checked with a sample child id; OSC queries that name a command are checked as that command |
 | **Type consistency** | Boolean state used in `respond:` templates (produces `True` not `true`), wrong initial value types, enum values not in the allowed list |
+| **State machines** | Malformed `state_machines` entries (missing states/initial/transitions, off-list states, transitions that can never fire) |
+| **Handler syntax** | `handler:` bodies that don't compile — the simulator silently skips those at runtime |
+| **Explicit handlers** | `set_state:` targets that aren't state keys, `{N}` capture references beyond what the `receive:` pattern captures, `{state.X}` references to unknown keys, invalid `receive:` regexes |
+| **Notifications** | `notifications:` keys that aren't state keys, boolean value keys that never match (must be quoted lowercase `'true'`/`'false'`), `{value}` templates on boolean variables (emit `True` not `true`), and templates whose output no driver response pattern parses |
+| **Controls** | `controls:` entries with unknown types, missing per-type required fields (`min`/`max`, `options`, `state_pattern`, …), or keys that don't exist in state |
+| **Child entities** | A heads-up for drivers with `child_entity_types`: per-child state is not auto-generated, so simulator handlers must cover child-addressed commands and polls |
 
 **For Python drivers (`.py` + `_sim.py`):**
 

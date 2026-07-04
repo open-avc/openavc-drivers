@@ -494,7 +494,7 @@
         {
           "id": "atlona_uhd_pro3",
           "confidence": "untested",
-          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Set Output IDs and Audio Zone IDs to the model's shape: 44M \"1,2,3,4\" / \"1,2,3,4\"; 66M \"1,2,3,4,5,6\" / \"1,2,3,4,5,6\"; 88M (default) outputs \"1,2,3,4,5,6,7,8,9,10\" (HDBaseT 1-7,9 + HDMI mirrors 8,10) with audio zones \"1,2,3,4,5,6,7,9\"; 1616M per its API doc (16 HDBaseT + mirrors). Extra IDs answer \"Command FAILED\" on poll, which is benign. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
       ]
     },
@@ -506,7 +506,7 @@
         {
           "id": "atlona_uhd_pro3",
           "confidence": "untested",
-          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Set Output IDs and Audio Zone IDs to the model's shape: 44M \"1,2,3,4\" / \"1,2,3,4\"; 66M \"1,2,3,4,5,6\" / \"1,2,3,4,5,6\"; 88M (default) outputs \"1,2,3,4,5,6,7,8,9,10\" (HDBaseT 1-7,9 + HDMI mirrors 8,10) with audio zones \"1,2,3,4,5,6,7,9\"; 1616M per its API doc (16 HDBaseT + mirrors). Extra IDs answer \"Command FAILED\" on poll, which is benign. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
       ]
     },
@@ -518,7 +518,7 @@
         {
           "id": "atlona_uhd_pro3",
           "confidence": "untested",
-          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Set Output IDs and Audio Zone IDs to the model's shape: 44M \"1,2,3,4\" / \"1,2,3,4\"; 66M \"1,2,3,4,5,6\" / \"1,2,3,4,5,6\"; 88M (default) outputs \"1,2,3,4,5,6,7,8,9,10\" (HDBaseT 1-7,9 + HDMI mirrors 8,10) with audio zones \"1,2,3,4,5,6,7,9\"; 1616M per its API doc (16 HDBaseT + mirrors). Extra IDs answer \"Command FAILED\" on poll, which is benign. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
       ]
     },
@@ -530,7 +530,7 @@
         {
           "id": "atlona_uhd_pro3",
           "confidence": "untested",
-          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Set Output IDs and Audio Zone IDs to the model's shape: 44M \"1,2,3,4\" / \"1,2,3,4\"; 66M \"1,2,3,4,5,6\" / \"1,2,3,4,5,6\"; 88M (default) outputs \"1,2,3,4,5,6,7,8,9,10\" (HDBaseT 1-7,9 + HDMI mirrors 8,10) with audio zones \"1,2,3,4,5,6,7,9\"; 1616M per its API doc (16 HDBaseT + mirrors). Extra IDs answer \"Command FAILED\" on poll, which is benign. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
       ]
     },

@@ -427,10 +427,10 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source routing (per output, all outputs, multi-output), per-output volume and mute, power, presets (save / recall / clear), front-panel lock, and identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M outputs 11-18 are routable but not state-mirrored).\n",
+      "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Every output is a child entity tracking its routed source, and every HDBaseT audio zone a child with volume and mute \u2014 the Output IDs / Audio Zone IDs config lists match the roster to the model (defaults describe the 88M, including its HDMI mirror outputs). Also covers power, presets (save / recall / clear), HDMI output mirroring, front-panel lock, and identify.\n",
       "source_url": "https://atlona.com/pdf/AT-UHD-PRO3-88M_API.pdf",
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
@@ -441,7 +441,7 @@
         "atlona_pro3"
       ],
       "simulated": true,
-      "min_platform_version": "0.9.0",
+      "min_platform_version": "0.22.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -450,8 +450,8 @@
         "telnet"
       ],
       "help": {
-        "overview": "Atlona PRO3 matrices route HDMI sources to HDBaseT extender outputs over a Cat5e/6 link to remote receivers. Use the Route command to send a source to a specific output, the Route to All command to send one source everywhere, and per-output volume / mute for HDBaseT zone audio. Save up to 50 routing presets.\n",
-        "setup": "1. Set a static IP on the matrix via its web UI (or DHCP reservation). 2. If IPLogin is enabled (factory default), enter the Username and\n   Password configured on the matrix in this driver's config \u2014 the\n   driver handles the \"Login:\" / \"Password:\" handshake automatically.\n   Leave both blank if you've turned IPLogin off (per KB01392).\n3. Atlona requires a 500 ms minimum delay between commands; the\n   driver sends commands at that rate by default.\n4. To activate a routing preset from a macro: configure the routing\n   you want via individual Route commands, then send the Save Preset\n   command with a preset number. Recall later with Recall Preset.\n"
+        "overview": "Atlona PRO3 matrices route HDMI sources to HDBaseT extender outputs over a Cat5e/6 link to remote receivers. Each output is a child entity showing its routed source; each HDBaseT audio zone is a child with volume and mute. Use the Route command to send a source to a specific output, the Route to All command to send one source everywhere, and the HDMI mirror commands to make an HDMI output follow an HDBaseT output. Save up to 50 routing presets.\n",
+        "setup": "1. Set a static IP on the matrix via its web UI (or DHCP reservation). 2. If IPLogin is enabled (factory default), enter the Username and\n   Password configured on the matrix in this driver's config \u2014 the\n   driver handles the \"Login:\" / \"Password:\" handshake automatically.\n   Leave both blank if you've turned IPLogin off (per KB01392).\n3. Match Output IDs and Audio Zone IDs to the model (the defaults\n   describe the 88M) \u2014 each ID becomes a child entity that is polled\n   for state.\n4. Atlona requires a 500 ms minimum delay between commands; the\n   driver sends commands at that rate by default.\n5. To activate a routing preset from a macro: configure the routing\n   you want via individual Route commands, then send the Save Preset\n   command with a preset number. Recall later with Recall Preset.\n"
       },
       "compatible_models": [
         {
@@ -463,7 +463,7 @@
             "AT-UHD-PRO3-1616M"
           ],
           "confidence": "untested",
-          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10 HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs 1-10. Larger 1616M outputs (11-18) accept routing commands but don't update state. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
+          "notes": "AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Set Output IDs and Audio Zone IDs to the model's shape: 44M \"1,2,3,4\" / \"1,2,3,4\"; 66M \"1,2,3,4,5,6\" / \"1,2,3,4,5,6\"; 88M (default) outputs \"1,2,3,4,5,6,7,8,9,10\" (HDBaseT 1-7,9 + HDMI mirrors 8,10) with audio zones \"1,2,3,4,5,6,7,9\"; 1616M per its API doc (16 HDBaseT + mirrors). Extra IDs answer \"Command FAILED\" on poll, which is benign. Send a \"Mreset\" or \"All#\" to recover from surprising routing if a manual front-panel change happens.\n"
         }
       ],
       "discovery": {

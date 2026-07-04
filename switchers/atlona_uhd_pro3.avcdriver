@@ -19,9 +19,21 @@
 #   Failed commands return "Command FAILED" (benign for unsupported commands
 #   on smaller models — e.g. Statusx 12 on a 44M).
 #
+# Output numbering (88M API doc, verified):
+#   Routing (x?AVx?) targets the HDBaseT outputs        -> 1-7, 9
+#   HDMI mirror outputs (MirrorHdmiX / UnMirrorX)       -> 8, 10
+#   Statusx covers ALL outputs including mirrors        -> 1-10
+#   Zone audio (VOUT / VOUTMute)                        -> 1-7, 9
+#   Model shapes differ (44M: 1-4; 66M: 1-6; 1616M: 1-16 + mirrors), so the
+#   Output IDs / Audio Zone IDs config lists size the child rosters — the
+#   defaults describe the 88M.
+#
 # Routing:
 #   xXAVxY      route input X to output Y
-#   xXAVxY,xZ   route input X to outputs Y and Z (multi-output, comma-separated, no spaces)
+#   xXAVxY,xZ   route input X to outputs Y and Z (multi-output, comma-separated,
+#               no spaces). The multi-output ack echoes the same one-line form,
+#               which the per-output rules deliberately don't match — the next
+#               poll refreshes the affected outputs.
 #   xXAll       route input X to all outputs
 #   Status      one-line dump: "x1AVx1,x2AVx2,..." (not parsed for state — see below)
 #   Statusx X   query routing for a single output → "xYAVxX" (parsed for state)
@@ -56,16 +68,18 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
-min_platform_version: "0.9.0"
+min_platform_version: "0.22.0"
 description: >
   Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers
-  (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Supports source
-  routing (per output, all outputs, multi-output), per-output volume and
-  mute, power, presets (save / recall / clear), front-panel lock, and
-  identify. State is mirrored for outputs 1-10 (covers 88M fully; 1616M
-  outputs 11-18 are routable but not state-mirrored).
+  (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Every output is a
+  child entity tracking its routed source, and every HDBaseT audio zone a
+  child with volume and mute — the Output IDs / Audio Zone IDs config
+  lists match the roster to the model (defaults describe the 88M,
+  including its HDMI mirror outputs). Also covers power, presets
+  (save / recall / clear), HDMI output mirroring, front-panel lock, and
+  identify.
 
 source_url: https://atlona.com/pdf/AT-UHD-PRO3-88M_API.pdf
 tags: [matrix-switcher, hdbaset, atlona, pro3, telnet]
@@ -82,12 +96,14 @@ compatible_models:
       - AT-UHD-PRO3-1616M
     confidence: untested
     notes: >
-      AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Output ranges
-      vary by model (44M: 1-4, 66M: 1-6, 88M: 1-7+9 HDBaseT plus 8/10
-      HDMI mirrors, 1616M: 1-16+ mirrors). Driver state mirrors outputs
-      1-10. Larger 1616M outputs (11-18) accept routing commands but
-      don't update state. Send a "Mreset" or "All#" to recover from
-      surprising routing if a manual front-panel change happens.
+      AT-UHD-PRO3 series HDMI-to-HDBaseT matrix switchers. Set Output IDs
+      and Audio Zone IDs to the model's shape: 44M "1,2,3,4" / "1,2,3,4";
+      66M "1,2,3,4,5,6" / "1,2,3,4,5,6"; 88M (default) outputs
+      "1,2,3,4,5,6,7,8,9,10" (HDBaseT 1-7,9 + HDMI mirrors 8,10) with
+      audio zones "1,2,3,4,5,6,7,9"; 1616M per its API doc (16 HDBaseT +
+      mirrors). Extra IDs answer "Command FAILED" on poll, which is
+      benign. Send a "Mreset" or "All#" to recover from surprising
+      routing if a manual front-panel change happens.
 
 transport: tcp
 delimiter: "\r\n"
@@ -95,19 +111,24 @@ delimiter: "\r\n"
 help:
   overview: >
     Atlona PRO3 matrices route HDMI sources to HDBaseT extender outputs
-    over a Cat5e/6 link to remote receivers. Use the Route command to
-    send a source to a specific output, the Route to All command to send
-    one source everywhere, and per-output volume / mute for HDBaseT zone
-    audio. Save up to 50 routing presets.
+    over a Cat5e/6 link to remote receivers. Each output is a child
+    entity showing its routed source; each HDBaseT audio zone is a child
+    with volume and mute. Use the Route command to send a source to a
+    specific output, the Route to All command to send one source
+    everywhere, and the HDMI mirror commands to make an HDMI output
+    follow an HDBaseT output. Save up to 50 routing presets.
   setup: >
     1. Set a static IP on the matrix via its web UI (or DHCP reservation).
     2. If IPLogin is enabled (factory default), enter the Username and
        Password configured on the matrix in this driver's config — the
        driver handles the "Login:" / "Password:" handshake automatically.
        Leave both blank if you've turned IPLogin off (per KB01392).
-    3. Atlona requires a 500 ms minimum delay between commands; the
+    3. Match Output IDs and Audio Zone IDs to the model (the defaults
+       describe the 88M) — each ID becomes a child entity that is polled
+       for state.
+    4. Atlona requires a 500 ms minimum delay between commands; the
        driver sends commands at that rate by default.
-    4. To activate a routing preset from a macro: configure the routing
+    5. To activate a routing preset from a macro: configure the routing
        you want via individual Route commands, then send the Save Preset
        command with a preset number. Recall later with Recall Preset.
 
@@ -125,6 +146,8 @@ default_config:
   port: 23
   username: ""
   password: ""
+  output_ids: "1,2,3,4,5,6,7,8,9,10"
+  audio_zone_ids: "1,2,3,4,5,6,7,9"
   poll_interval: 30
   inter_command_delay: 0.5
 
@@ -148,12 +171,30 @@ config_schema:
     label: Password
     secret: true
     description: "Telnet password. Same credentials as the matrix web GUI."
+  output_ids:
+    type: string
+    default: "1,2,3,4,5,6,7,8,9,10"
+    label: Output IDs
+    description: >
+      Comma-separated output numbers — each becomes an Output child
+      tracking its routed source. Default is the 88M shape (HDBaseT
+      outputs 1-7 and 9 plus HDMI mirror outputs 8 and 10). Use
+      "1,2,3,4" for a 44M, "1,2,3,4,5,6" for a 66M, the 1616M's list
+      per its API doc.
+  audio_zone_ids:
+    type: string
+    default: "1,2,3,4,5,6,7,9"
+    label: Audio Zone IDs
+    description: >
+      Comma-separated HDBaseT audio zone numbers — each becomes an Audio
+      Zone child with volume and mute. Default is the 88M shape (zones
+      1-7 and 9; the HDMI mirror outputs 8 and 10 have no zone audio).
   poll_interval:
     type: integer
     default: 30
     min: 0
     label: Poll Interval (sec)
-    description: "Set to 0 to disable polling. Polling refreshes routing for outputs 1-10 plus power state."
+    description: "Set to 0 to disable polling. Polling refreshes routing per output, audio per zone, and power state."
   inter_command_delay:
     type: number
     default: 0.5
@@ -189,110 +230,40 @@ state_variables:
     type: boolean
     label: Front Panel Locked
     help: "True when the front-panel buttons are locked (Lock / Unlock)."
-  route_1:
-    type: integer
-    label: Output 1 — Source
-    help: "Input number currently routed to output 1."
-  route_2:
-    type: integer
-    label: Output 2 — Source
-    help: "Input number currently routed to output 2."
-  route_3:
-    type: integer
-    label: Output 3 — Source
-    help: "Input number currently routed to output 3."
-  route_4:
-    type: integer
-    label: Output 4 — Source
-    help: "Input number currently routed to output 4."
-  route_5:
-    type: integer
-    label: Output 5 — Source
-    help: "Input number currently routed to output 5."
-  route_6:
-    type: integer
-    label: Output 6 — Source
-    help: "Input number currently routed to output 6."
-  route_7:
-    type: integer
-    label: Output 7 — Source
-    help: "Input number currently routed to output 7."
-  route_8:
-    type: integer
-    label: Output 8 — Source
-    help: "Input number currently routed to output 8."
-  route_9:
-    type: integer
-    label: Output 9 — Source
-    help: "Input number currently routed to output 9 (mirror output)."
-  route_10:
-    type: integer
-    label: Output 10 — Source
-    help: "Input number currently routed to output 10 (mirror output)."
-  volume_1:
-    type: integer
-    label: Output 1 — Volume (dB)
-    help: "Audio volume on output 1 in dB."
-  volume_2:
-    type: integer
-    label: Output 2 — Volume (dB)
-    help: "Audio volume on output 2 in dB."
-  volume_3:
-    type: integer
-    label: Output 3 — Volume (dB)
-    help: "Audio volume on output 3 in dB."
-  volume_4:
-    type: integer
-    label: Output 4 — Volume (dB)
-    help: "Audio volume on output 4 in dB."
-  volume_5:
-    type: integer
-    label: Output 5 — Volume (dB)
-    help: "Audio volume on output 5 in dB."
-  volume_6:
-    type: integer
-    label: Output 6 — Volume (dB)
-    help: "Audio volume on output 6 in dB."
-  volume_7:
-    type: integer
-    label: Output 7 — Volume (dB)
-    help: "Audio volume on output 7 in dB."
-  volume_9:
-    type: integer
-    label: Output 9 — Volume (dB)
-    help: "Audio volume on output 9 in dB."
-  mute_1:
-    type: boolean
-    label: Output 1 — Mute
-    help: "True when output 1 audio is muted."
-  mute_2:
-    type: boolean
-    label: Output 2 — Mute
-    help: "True when output 2 audio is muted."
-  mute_3:
-    type: boolean
-    label: Output 3 — Mute
-    help: "True when output 3 audio is muted."
-  mute_4:
-    type: boolean
-    label: Output 4 — Mute
-    help: "True when output 4 audio is muted."
-  mute_5:
-    type: boolean
-    label: Output 5 — Mute
-    help: "True when output 5 audio is muted."
-  mute_6:
-    type: boolean
-    label: Output 6 — Mute
-    help: "True when output 6 audio is muted."
-  mute_7:
-    type: boolean
-    label: Output 7 — Mute
-    help: "True when output 7 audio is muted."
-  mute_9:
-    type: boolean
-    label: Output 9 — Mute
-    help: "True when output 9 audio is muted."
+
+child_entity_types:
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 18 }
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        help: "Input number currently routed to this output (HDMI mirror outputs show the source they carry)."
+        cloud_priority: high
+    summary_fields: [input]
+    instances:
+      ids_from: output_ids
+      label: "Output {id}"
+  audio_zone:
+    label: Audio Zone
+    label_plural: Audio Zones
+    id_format: { type: integer, min: 1, max: 18 }
+    state_variables:
+      volume:
+        type: integer
+        label: Volume (dB)
+        help: "HDBaseT zone audio volume, -79 to +15 dB."
+      mute:
+        type: boolean
+        label: Muted
+        help: "True when this zone's audio is muted."
+        cloud_priority: high
+    summary_fields: [volume, mute]
+    instances:
+      ids_from: audio_zone_ids
+      label: "Zone {id}"
 
 commands:
 
@@ -315,7 +286,7 @@ commands:
   route:
     label: Route Input to Output
     send: "x{input}AVx{output}\r"
-    help: "Route a single input to a single output (HDBaseT or HDMI mirror)."
+    help: "Route a single input to a single HDBaseT output. (HDMI mirror outputs follow an HDBaseT output via the Mirror HDMI Output command instead.)"
     params:
       input:
         type: integer
@@ -333,7 +304,7 @@ commands:
   route_all:
     label: Route Input to All Outputs
     send: "x{input}All\r"
-    help: "Route a single input to every output on the matrix."
+    help: "Route a single input to every output on the matrix. Per-output state refreshes on the next poll."
     params:
       input:
         type: integer
@@ -360,6 +331,39 @@ commands:
         type: integer
         required: true
         label: Output
+        min: 1
+        max: 18
+
+  # ── HDMI output mirroring (88M: outputs 8 and 10) ──
+
+  mirror_hdmi:
+    label: Mirror HDMI Output
+    send: "MirrorHdmi{output} Out{target}\r"
+    help: "Make an HDMI mirror output (88M: 8 or 10) follow an HDBaseT video output (88M: 1-7, 9)."
+    params:
+      output:
+        type: integer
+        required: true
+        label: HDMI Output
+        min: 1
+        max: 18
+        help: "HDMI mirror output number (88M: 8 or 10)"
+      target:
+        type: integer
+        required: true
+        label: HDBaseT Output to Mirror
+        min: 1
+        max: 18
+
+  unmirror_hdmi:
+    label: Unmirror HDMI Output
+    send: "UnMirror{output}\r"
+    help: "Disable mirroring on an HDMI mirror output."
+    params:
+      output:
+        type: integer
+        required: true
+        label: HDMI Output
         min: 1
         max: 18
 
@@ -390,14 +394,14 @@ commands:
   # ── Audio (HDBaseT zone audio) ──
 
   set_volume:
-    label: Set Output Volume
+    label: Set Zone Volume
     send: "VOUT{output} {level}\r"
-    help: "Set output volume in decibels. Range -79 to +15 dB."
+    help: "Set an audio zone's volume in decibels. Range -79 to +15 dB."
     params:
       output:
         type: integer
         required: true
-        label: Output
+        label: Zone
         min: 1
         max: 18
       level:
@@ -414,7 +418,7 @@ commands:
       output:
         type: integer
         required: true
-        label: Output
+        label: Zone
         min: 1
         max: 18
 
@@ -425,51 +429,51 @@ commands:
       output:
         type: integer
         required: true
-        label: Output
+        label: Zone
         min: 1
         max: 18
 
   query_volume:
-    label: Query Output Volume
+    label: Query Zone Volume
     send: "VOUT{output} sta\r"
     params:
       output:
         type: integer
         required: true
-        label: Output
+        label: Zone
         min: 1
         max: 18
 
   mute_on:
-    label: Mute Output
+    label: Mute Zone
     send: "VOUTMute{output} on\r"
     params:
       output:
         type: integer
         required: true
-        label: Output
+        label: Zone
         min: 1
         max: 18
 
   mute_off:
-    label: Unmute Output
+    label: Unmute Zone
     send: "VOUTMute{output} off\r"
     params:
       output:
         type: integer
         required: true
-        label: Output
+        label: Zone
         min: 1
         max: 18
 
   query_mute:
-    label: Query Output Mute
+    label: Query Zone Mute
     send: "VOUTMute{output} sta\r"
     params:
       output:
         type: integer
         required: true
-        label: Output
+        label: Zone
         min: 1
         max: 18
 
@@ -541,7 +545,7 @@ commands:
     send: "Version\r"
 
 # Quick Action strip: routing + power + panel lock. The full command list still
-# shows everything, including presets and per-output audio.
+# shows everything, including presets and per-zone audio.
 actions:
   - id: route
     icon: route
@@ -580,98 +584,40 @@ responses:
   - match: '^Unlock$'
     set: { front_panel_locked: "false" }
 
-  # Routing per output: "xYAVxN" where Y is input and N is output.
-  # One regex per output so the captured input lands in the right state key.
-  - match: '^x(\d+)AVx1$'
-    set: { route_1: "$1" }
-  - match: '^x(\d+)AVx2$'
-    set: { route_2: "$1" }
-  - match: '^x(\d+)AVx3$'
-    set: { route_3: "$1" }
-  - match: '^x(\d+)AVx4$'
-    set: { route_4: "$1" }
-  - match: '^x(\d+)AVx5$'
-    set: { route_5: "$1" }
-  - match: '^x(\d+)AVx6$'
-    set: { route_6: "$1" }
-  - match: '^x(\d+)AVx7$'
-    set: { route_7: "$1" }
-  - match: '^x(\d+)AVx8$'
-    set: { route_8: "$1" }
-  - match: '^x(\d+)AVx9$'
-    set: { route_9: "$1" }
-  - match: '^x(\d+)AVx10$'
-    set: { route_10: "$1" }
+  # Routing per output: "xYAVxN" where Y is input and N is output — route
+  # acks and Statusx responses share this shape. Multi-output acks
+  # ("x3AVx2,x4,x7") deliberately don't match (anchored single-pair rule);
+  # the next poll refreshes those outputs.
+  - match: '^x(\d+)AVx(\d+)$'
+    child_set:
+      - { type: output, id: "$2", state: { input: "$1" } }
 
-  # Volume: "VOUT2 -20" (after set or sta).
-  - match: '^VOUT1\s+(-?\d+)'
-    set: { volume_1: "$1" }
-  - match: '^VOUT2\s+(-?\d+)'
-    set: { volume_2: "$1" }
-  - match: '^VOUT3\s+(-?\d+)'
-    set: { volume_3: "$1" }
-  - match: '^VOUT4\s+(-?\d+)'
-    set: { volume_4: "$1" }
-  - match: '^VOUT5\s+(-?\d+)'
-    set: { volume_5: "$1" }
-  - match: '^VOUT6\s+(-?\d+)'
-    set: { volume_6: "$1" }
-  - match: '^VOUT7\s+(-?\d+)'
-    set: { volume_7: "$1" }
-  - match: '^VOUT9\s+(-?\d+)'
-    set: { volume_9: "$1" }
+  # Zone volume: "VOUT2 -20" (after set, +/-, or sta).
+  - match: '^VOUT(\d+)\s+(-?\d+)$'
+    child_set:
+      - { type: audio_zone, id: "$1", state: { volume: "$2" } }
 
-  # Mute: "VOUTMute2 on" / "VOUTMute2 off"
-  - match: '^VOUTMute1\s+on'
-    set: { mute_1: "true" }
-  - match: '^VOUTMute1\s+off'
-    set: { mute_1: "false" }
-  - match: '^VOUTMute2\s+on'
-    set: { mute_2: "true" }
-  - match: '^VOUTMute2\s+off'
-    set: { mute_2: "false" }
-  - match: '^VOUTMute3\s+on'
-    set: { mute_3: "true" }
-  - match: '^VOUTMute3\s+off'
-    set: { mute_3: "false" }
-  - match: '^VOUTMute4\s+on'
-    set: { mute_4: "true" }
-  - match: '^VOUTMute4\s+off'
-    set: { mute_4: "false" }
-  - match: '^VOUTMute5\s+on'
-    set: { mute_5: "true" }
-  - match: '^VOUTMute5\s+off'
-    set: { mute_5: "false" }
-  - match: '^VOUTMute6\s+on'
-    set: { mute_6: "true" }
-  - match: '^VOUTMute6\s+off'
-    set: { mute_6: "false" }
-  - match: '^VOUTMute7\s+on'
-    set: { mute_7: "true" }
-  - match: '^VOUTMute7\s+off'
-    set: { mute_7: "false" }
-  - match: '^VOUTMute9\s+on'
-    set: { mute_9: "true" }
-  - match: '^VOUTMute9\s+off'
-    set: { mute_9: "false" }
+  # Zone mute: "VOUTMute2 on" / "VOUTMute2 off"
+  - match: '^VOUTMute(\d+)\s+on$'
+    child_set:
+      - { type: audio_zone, id: "$1", state: { mute: "true" } }
+  - match: '^VOUTMute(\d+)\s+off$'
+    child_set:
+      - { type: audio_zone, id: "$1", state: { mute: "false" } }
 
 polling:
   queries:
     - "PWSTA\r"
     - "Type\r"
     - "Version\r"
-    - "Statusx1\r"
-    - "Statusx2\r"
-    - "Statusx3\r"
-    - "Statusx4\r"
-    - "Statusx5\r"
-    - "Statusx6\r"
-    - "Statusx7\r"
-    - "Statusx8\r"
-    - "Statusx9\r"
-    - "Statusx10\r"
+    - { each_child: output, send: "Statusx{child_id}\r" }
+    - { each_child: audio_zone, send: "VOUT{child_id} sta\r" }
+    - { each_child: audio_zone, send: "VOUTMute{child_id} sta\r" }
 
 # ── SIMULATOR DEFINITION ──
+# Models an 88M: HDBaseT outputs 1-7 and 9, HDMI mirror outputs 8 and 10,
+# zone audio on 1-7 and 9 only (audio commands on 8/10 answer
+# "Command FAILED", like hardware).
 simulator:
   push_state: false
   initial_state:
@@ -729,20 +675,20 @@ simulator:
       label: Panel Lock
     - type: slider
       key: volume_1
-      label: Out 1 Volume
+      label: Zone 1 Volume
       min: -79
       max: 15
     - type: slider
       key: volume_9
-      label: Out 9 Volume
+      label: Zone 9 Volume
       min: -79
       max: 15
     - type: toggle
       key: mute_1
-      label: Out 1 Mute
+      label: Zone 1 Mute
     - type: toggle
       key: mute_9
-      label: Out 9 Mute
+      label: Zone 9 Mute
 
   command_handlers:
 
@@ -805,6 +751,24 @@ simulator:
             inp = state.get(f"route_{out}", out)
             respond(f"x{inp}AVx{out}\r\n")
 
+    # ── HDMI mirror: MirrorHdmiX OutY / UnMirrorX (88M: X = 8 or 10) ──
+    - match: '^MirrorHdmi(\d+)\s+Out(\d+)$'
+      handler: |
+        out = int(match.group(1))
+        target = int(match.group(2))
+        if out in (8, 10) and f"route_{target}" in state:
+            state[f"route_{out}"] = state[f"route_{target}"]
+            respond(f"MirrorHdmi{out} Out{target}\r\n")
+        else:
+            respond("Command FAILED\r\n")
+    - match: '^UnMirror(\d+)$'
+      handler: |
+        out = int(match.group(1))
+        if out in (8, 10):
+            respond(f"UnMirror{out}\r\n")
+        else:
+            respond("Command FAILED\r\n")
+
     # ── Output enable: x?$ on/off/sta ──
     - match: '^x(\d+)\$\s+(on|off|sta)$'
       handler: |
@@ -812,42 +776,41 @@ simulator:
         val = match.group(2)
         respond(f"x{out}$ {val}\r\n")
 
-    # ── Volume: VOUT<N> <level> ──
+    # ── Volume: VOUT<N> <level> — zone audio exists on 1-7 and 9 only ──
     - match: '^VOUT(\d+)\s+(\S+)$'
       handler: |
         out = match.group(1)
         val = match.group(2)
         key = f"volume_{out}"
-        if val == "sta":
-            cur = state.get(key, 0)
-            respond(f"VOUT{out} {cur}\r\n")
+        if key not in state:
+            respond("Command FAILED\r\n")
+        elif val == "sta":
+            respond(f"VOUT{out} {state[key]}\r\n")
         elif val in ("+", "-"):
-            cur = state.get(key, 0)
-            new = max(-79, min(15, cur + (1 if val == "+" else -1)))
-            if key in state:
-                state[key] = new
+            new = max(-79, min(15, state[key] + (1 if val == "+" else -1)))
+            state[key] = new
             respond(f"VOUT{out} {new}\r\n")
         else:
             try:
                 level = max(-79, min(15, int(val)))
-                if key in state:
-                    state[key] = level
+                state[key] = level
                 respond(f"VOUT{out} {level}\r\n")
             except ValueError:
                 respond("Command FAILED\r\n")
 
-    # ── Mute: VOUTMute<N> on/off/sta ──
+    # ── Mute: VOUTMute<N> on/off/sta — zone audio on 1-7 and 9 only ──
     - match: '^VOUTMute(\d+)\s+(on|off|sta)$'
       handler: |
         out = match.group(1)
         val = match.group(2)
         key = f"mute_{out}"
-        if val == "sta":
-            cur = "on" if state.get(key, False) else "off"
+        if key not in state:
+            respond("Command FAILED\r\n")
+        elif val == "sta":
+            cur = "on" if state[key] else "off"
             respond(f"VOUTMute{out} {cur}\r\n")
         else:
-            if key in state:
-                state[key] = (val == "on")
+            state[key] = (val == "on")
             respond(f"VOUTMute{out} {val}\r\n")
 
     # ── Lock / Unlock / Blink ──

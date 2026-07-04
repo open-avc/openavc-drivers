@@ -483,7 +483,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -495,7 +495,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -507,7 +507,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -519,7 +519,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -531,7 +531,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -543,7 +543,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -555,7 +555,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -567,7 +567,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -579,7 +579,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -591,7 +591,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -603,7 +603,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },
@@ -615,7 +615,7 @@
         {
           "id": "lightware_lw3",
           "confidence": "untested",
-          "notes": "Any Lightware product that implements LW3 (most products since 2012). Polled state covers ports I1..I4 and O1..O4 \u2014 adequate for UCX, Taurus, and MMX2; commands accept any port number for larger MX2M frames.\n"
+          "notes": "Any Lightware product that implements LW3 (most products since 2012). Set Input Count / Output Count to the frame size \u2014 each port becomes a child entity with per-port state (default 4/4 covers UCX, Taurus, and MMX2). Commands accept any port number regardless; ports a model doesn't have answer LW3 errors on poll, which is benign.\n"
         }
       ]
     },

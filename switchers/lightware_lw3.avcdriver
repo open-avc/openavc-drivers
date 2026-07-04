@@ -31,26 +31,36 @@
 #
 # Notes:
 #   - Switching '0' to an output disconnects: CALL ...XP:switch(0:O1)
-#   - The driver polls outputs O1..O4 and inputs I1..I4 by default, which
-#     covers UCX/Taurus/MMX2. Routing commands accept any port number.
+#   - Input Count / Output Count size the child rosters (default 4/4, which
+#     covers UCX/Taurus/MMX2; set the frame size on MX2M routers). Every
+#     configured output/input is polled per port; routing commands accept
+#     any port number regardless.
 #   - Authentication is not handled by this driver. If the unit has IPLogin
 #     or 6107 authentication enabled, disable it in LDC or switch the unit
 #     to its WSS interface (not supported here).
 #   - The protocol echoes both SET and GET on writable properties with the
-#     `pw` prefix. SignalPresent is read-only and uses `pr`.
+#     `pw` prefix — one response rule therefore covers the SET ack, the GET
+#     poll read-back, and (for OPENed nodes) the CHG notification body.
+#     SignalPresent is read-only and uses `pr`.
+#   - Subscriptions (OPEN) are exposed as manual commands; the driver does
+#     not auto-subscribe (push arming is planned together with the liveness
+#     watchdog). CHG lines for video-XP properties parse into child state
+#     if a subscription is opened.
 
 id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
+min_platform_version: "0.22.0"
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
-  TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Provides
-  video and audio crosspoint switching, mute, lock, HDCP, output 5V, embedded-
-  audio mute, EDID switching, analog audio level/mute/balance, and CEC command
-  sending.
+  TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each
+  configured output and input is a child entity tracking its routed source,
+  mute, lock, HDCP, 5V and signal-type state per port. Provides video and
+  audio crosspoint switching, EDID switching, analog audio
+  level/mute/balance, and CEC command sending.
 
 source_url: https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf
 tags: [matrix-switcher, hdbaset, av-over-ip, lw3, hdmi, edid, cec]
@@ -76,8 +86,10 @@ compatible_models:
     confidence: untested
     notes: >
       Any Lightware product that implements LW3 (most products since 2012).
-      Polled state covers ports I1..I4 and O1..O4 — adequate for UCX, Taurus,
-      and MMX2; commands accept any port number for larger MX2M frames.
+      Set Input Count / Output Count to the frame size — each port becomes
+      a child entity with per-port state (default 4/4 covers UCX, Taurus,
+      and MMX2). Commands accept any port number regardless; ports a model
+      doesn't have answer LW3 errors on poll, which is benign.
 
 transport: tcp
 delimiter: "\r\n"
@@ -97,10 +109,11 @@ help:
        and that authentication (IPLogin) is OFF — this driver does not
        authenticate.
     4. Enter the IP address and port 6107 in the device config.
-    5. Use input/output port numbers as integers (I3 → input=3, O2 → output=2).
+    5. Set Input Count and Output Count to the frame size (default 4/4
+       covers UCX, Taurus, and MMX2) — each port becomes a child entity
+       with per-port routing, mute, lock, HDCP, 5V and signal state.
+    6. Use input/output port numbers as integers (I3 → input=3, O2 → output=2).
        Setting input=0 disconnects an output.
-    6. Polled state covers I1..I4 and O1..O4. Larger devices respond to
-       routing commands on any valid port number.
 
 discovery:
   # Lightware Device Controller (LDC) confirms mDNS is used for
@@ -131,6 +144,8 @@ discovery:
 default_config:
   host: ""
   port: 6107
+  input_count: 4
+  output_count: 4
   poll_interval: 30
 
 config_schema:
@@ -143,6 +158,23 @@ config_schema:
     default: 6107
     label: TCP Port
     description: "6107 for LW3 over raw TCP. WS (80) and WSS (443) interfaces are not used by this driver."
+  input_count:
+    type: integer
+    default: 4
+    min: 0
+    label: Input Count
+    description: >
+      Number of input ports — each becomes an Input child with signal and
+      HDCP state. Default 4 covers UCX/Taurus/MMX2; set the frame size on
+      MX2M routers (e.g. 80 for an FR80).
+  output_count:
+    type: integer
+    default: 4
+    min: 0
+    label: Output Count
+    description: >
+      Number of output ports — each becomes an Output child tracking its
+      routed source, mute, lock, HDCP mode, 5V mode, and signal type.
   poll_interval:
     type: integer
     default: 30
@@ -159,54 +191,6 @@ state_variables:
     type: string
     label: Firmware Version
     help: "Package firmware version reported by /V1/MANAGEMENT/UID/PACKAGE.Version."
-  source_o1:
-    type: string
-    label: Output 1 — Connected Source
-    help: "Input node currently routed to output 1 (e.g. 'I1', 'I2')."
-  source_o2:
-    type: string
-    label: Output 2 — Connected Source
-    help: "Input node currently routed to output 2."
-  source_o3:
-    type: string
-    label: Output 3 — Connected Source
-    help: "Input node currently routed to output 3."
-  source_o4:
-    type: string
-    label: Output 4 — Connected Source
-    help: "Input node currently routed to output 4."
-  signal_i1:
-    type: boolean
-    label: Input 1 — Signal Present
-    help: "True when input 1 reports a valid sync/signal (SignalPresent)."
-  signal_i2:
-    type: boolean
-    label: Input 2 — Signal Present
-    help: "True when input 2 reports a valid sync/signal."
-  signal_i3:
-    type: boolean
-    label: Input 3 — Signal Present
-    help: "True when input 3 reports a valid sync/signal."
-  signal_i4:
-    type: boolean
-    label: Input 4 — Signal Present
-    help: "True when input 4 reports a valid sync/signal."
-  mute_o1:
-    type: boolean
-    label: Output 1 — Video Mute
-    help: "True when output 1's video path is muted (image blanked)."
-  mute_o2:
-    type: boolean
-    label: Output 2 — Video Mute
-    help: "True when output 2's video path is muted."
-  mute_o3:
-    type: boolean
-    label: Output 3 — Video Mute
-    help: "True when output 3's video path is muted."
-  mute_o4:
-    type: boolean
-    label: Output 4 — Video Mute
-    help: "True when output 4's video path is muted."
   audio_volume_percent:
     type: number
     label: Analog Audio Out (O4) — Volume (%)
@@ -219,6 +203,61 @@ state_variables:
     type: boolean
     label: Analog Audio Out (O4) — Mute
     help: "True when the analog audio output on the O4 port is muted."
+
+child_entity_types:
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 128 }
+    state_variables:
+      source:
+        type: string
+        label: Connected Source
+        help: "Input node currently routed to this output (e.g. 'I1'; '0' = disconnected)."
+        cloud_priority: high
+      mute:
+        type: boolean
+        label: Video Muted
+        help: "True when this output's video path is muted (image blanked)."
+        cloud_priority: high
+      lock:
+        type: boolean
+        label: Crosspoint Locked
+        help: "True when this output's crosspoint is locked against route changes."
+      hdcp_mode:
+        type: string
+        label: HDCP Mode
+        help: "Output HDCP mode (Auto encrypts only when the input is encrypted; Always forces HDCP)."
+      output_5v:
+        type: string
+        label: 5V Mode
+        help: "HDMI +5V power mode on this output (On / Auto / Off)."
+      signal_type:
+        type: string
+        label: Signal Type
+        help: "Forced output signal type (Auto or DVI)."
+    summary_fields: [source, mute]
+    instances:
+      count_from: output_count
+      label: "Output {id}"
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 128 }
+    state_variables:
+      signal:
+        type: boolean
+        label: Signal Present
+        help: "True when this input reports a valid sync/signal (SignalPresent)."
+        cloud_priority: high
+      hdcp_version:
+        type: string
+        label: Allowed HDCP Version
+        help: "HDCP version this input advertises to sources (HDCP 1.4 / HDCP 2.2 / Off)."
+    summary_fields: [signal]
+    instances:
+      count_from: input_count
+      label: "Input {id}"
 
 commands:
 
@@ -723,99 +762,75 @@ actions:
 responses:
 
   # Firmware version: pr /V1/MANAGEMENT/UID/PACKAGE.Version=1.3.3b3
-  - match: 'pr /V1/MANAGEMENT/UID/PACKAGE\.Version=(\S+)'
+  - match: '^pr /V1/MANAGEMENT/UID/PACKAGE\.Version=(\S+)$'
     set: { firmware: "$1" }
 
   # Device label: pw /V1/MANAGEMENT/LABEL.DeviceLabel=<name>
-  - match: 'pw /V1/MANAGEMENT/LABEL\.DeviceLabel=(.*)'
+  - match: '^pw /V1/MANAGEMENT/LABEL\.DeviceLabel=(.*)$'
     set: { device_label: "$1" }
 
   # Connected source per output: pw /V1/MEDIA/VIDEO/XP/O1.ConnectedSource=I3
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O1\.ConnectedSource=(\S+)'
-    set: { source_o1: "$1" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O2\.ConnectedSource=(\S+)'
-    set: { source_o2: "$1" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O3\.ConnectedSource=(\S+)'
-    set: { source_o3: "$1" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O4\.ConnectedSource=(\S+)'
-    set: { source_o4: "$1" }
-
-  # Notifications echo the same property on subscribed nodes:
-  # CHG /V1/MEDIA/VIDEO/XP/O1.ConnectedSource=I3
-  - match: 'CHG /V1/MEDIA/VIDEO/XP/O1\.ConnectedSource=(\S+)'
-    set: { source_o1: "$1" }
-  - match: 'CHG /V1/MEDIA/VIDEO/XP/O2\.ConnectedSource=(\S+)'
-    set: { source_o2: "$1" }
-  - match: 'CHG /V1/MEDIA/VIDEO/XP/O3\.ConnectedSource=(\S+)'
-    set: { source_o3: "$1" }
-  - match: 'CHG /V1/MEDIA/VIDEO/XP/O4\.ConnectedSource=(\S+)'
-    set: { source_o4: "$1" }
+  # ('pw' covers the SET ack and the GET poll read-back; 'CHG' the push
+  # notification on OPENed nodes — same value grammar.)
+  - match: '^(?:pw|CHG) /V1/MEDIA/VIDEO/XP/O(\d+)\.ConnectedSource=(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { source: "$2" } }
 
   # Signal present per input (read-only): pr /V1/MEDIA/VIDEO/I1.SignalPresent=true
-  - match: 'pr /V1/MEDIA/VIDEO/I1\.SignalPresent=true'
-    set: { signal_i1: "true" }
-  - match: 'pr /V1/MEDIA/VIDEO/I1\.SignalPresent=false'
-    set: { signal_i1: "false" }
-  - match: 'pr /V1/MEDIA/VIDEO/I2\.SignalPresent=true'
-    set: { signal_i2: "true" }
-  - match: 'pr /V1/MEDIA/VIDEO/I2\.SignalPresent=false'
-    set: { signal_i2: "false" }
-  - match: 'pr /V1/MEDIA/VIDEO/I3\.SignalPresent=true'
-    set: { signal_i3: "true" }
-  - match: 'pr /V1/MEDIA/VIDEO/I3\.SignalPresent=false'
-    set: { signal_i3: "false" }
-  - match: 'pr /V1/MEDIA/VIDEO/I4\.SignalPresent=true'
-    set: { signal_i4: "true" }
-  - match: 'pr /V1/MEDIA/VIDEO/I4\.SignalPresent=false'
-    set: { signal_i4: "false" }
+  - match: '^(?:pr|CHG) /V1/MEDIA/VIDEO/I(\d+)\.SignalPresent=(true|false)$'
+    child_set:
+      - { type: input, id: "$1", state: { signal: "$2" } }
 
-  # Output mute (read-write): pw /V1/MEDIA/VIDEO/XP/O1.Mute=false
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O1\.Mute=true'
-    set: { mute_o1: "true" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O1\.Mute=false'
-    set: { mute_o1: "false" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O2\.Mute=true'
-    set: { mute_o2: "true" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O2\.Mute=false'
-    set: { mute_o2: "false" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O3\.Mute=true'
-    set: { mute_o3: "true" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O3\.Mute=false'
-    set: { mute_o3: "false" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O4\.Mute=true'
-    set: { mute_o4: "true" }
-  - match: 'pw /V1/MEDIA/VIDEO/XP/O4\.Mute=false'
-    set: { mute_o4: "false" }
+  # Input allowed HDCP version: pw /V1/MEDIA/VIDEO/I1/HDCP.AllowedHdcpVersion=HDCP 2.2
+  - match: '^(?:pw|CHG) /V1/MEDIA/VIDEO/I(\d+)/HDCP\.AllowedHdcpVersion=(.+)$'
+    child_set:
+      - { type: input, id: "$1", state: { hdcp_version: "$2" } }
+
+  # Output crosspoint mute / lock: pw /V1/MEDIA/VIDEO/XP/O1.Mute=false
+  - match: '^(?:pw|CHG) /V1/MEDIA/VIDEO/XP/O(\d+)\.Mute=(true|false)$'
+    child_set:
+      - { type: output, id: "$1", state: { mute: "$2" } }
+  - match: '^(?:pw|CHG) /V1/MEDIA/VIDEO/XP/O(\d+)\.Lock=(true|false)$'
+    child_set:
+      - { type: output, id: "$1", state: { lock: "$2" } }
+
+  # Output port properties: pw /V1/MEDIA/VIDEO/O1.HdcpMode=Auto
+  - match: '^(?:pw|CHG) /V1/MEDIA/VIDEO/O(\d+)\.HdcpMode=(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { hdcp_mode: "$2" } }
+  - match: '^(?:pw|CHG) /V1/MEDIA/VIDEO/O(\d+)\.Output5VMode=(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { output_5v: "$2" } }
+  - match: '^(?:pw|CHG) /V1/MEDIA/VIDEO/O(\d+)\.OutputSignalType=(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { signal_type: "$2" } }
 
   # Analog audio (output O4): pw /V1/MEDIA/AUDIO/O4.VolumePercent=50.00
-  - match: 'pw /V1/MEDIA/AUDIO/O4\.VolumePercent=([\d.\-]+)'
+  - match: '^pw /V1/MEDIA/AUDIO/O4\.VolumePercent=([\d.\-]+)$'
     set: { audio_volume_percent: "$1" }
-  - match: 'pw /V1/MEDIA/AUDIO/O4\.VolumedB=([\d.\-]+)'
+  - match: '^pw /V1/MEDIA/AUDIO/O4\.VolumedB=([\d.\-]+)$'
     set: { audio_volume_db: "$1" }
-  - match: 'pw /V1/MEDIA/AUDIO/O4\.Mute=true'
+  - match: '^pw /V1/MEDIA/AUDIO/O4\.Mute=true$'
     set: { audio_mute: "true" }
-  - match: 'pw /V1/MEDIA/AUDIO/O4\.Mute=false'
+  - match: '^pw /V1/MEDIA/AUDIO/O4\.Mute=false$'
     set: { audio_mute: "false" }
 
 polling:
   queries:
     - "GET /V1/MANAGEMENT/UID/PACKAGE.Version\r\n"
     - "GET /V1/MANAGEMENT/LABEL.DeviceLabel\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O1.ConnectedSource\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O2.ConnectedSource\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O3.ConnectedSource\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O4.ConnectedSource\r\n"
-    - "GET /V1/MEDIA/VIDEO/I1.SignalPresent\r\n"
-    - "GET /V1/MEDIA/VIDEO/I2.SignalPresent\r\n"
-    - "GET /V1/MEDIA/VIDEO/I3.SignalPresent\r\n"
-    - "GET /V1/MEDIA/VIDEO/I4.SignalPresent\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O1.Mute\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O2.Mute\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O3.Mute\r\n"
-    - "GET /V1/MEDIA/VIDEO/XP/O4.Mute\r\n"
     - "GET /V1/MEDIA/AUDIO/O4.VolumePercent\r\n"
     - "GET /V1/MEDIA/AUDIO/O4.VolumedB\r\n"
     - "GET /V1/MEDIA/AUDIO/O4.Mute\r\n"
+    # Per-port state — one GET per property per configured child.
+    - { each_child: output, send: "GET /V1/MEDIA/VIDEO/XP/O{child_id}.ConnectedSource\r\n" }
+    - { each_child: output, send: "GET /V1/MEDIA/VIDEO/XP/O{child_id}.Mute\r\n" }
+    - { each_child: output, send: "GET /V1/MEDIA/VIDEO/XP/O{child_id}.Lock\r\n" }
+    - { each_child: output, send: "GET /V1/MEDIA/VIDEO/O{child_id}.HdcpMode\r\n" }
+    - { each_child: output, send: "GET /V1/MEDIA/VIDEO/O{child_id}.Output5VMode\r\n" }
+    - { each_child: output, send: "GET /V1/MEDIA/VIDEO/O{child_id}.OutputSignalType\r\n" }
+    - { each_child: input, send: "GET /V1/MEDIA/VIDEO/I{child_id}.SignalPresent\r\n" }
+    - { each_child: input, send: "GET /V1/MEDIA/VIDEO/I{child_id}/HDCP.AllowedHdcpVersion\r\n" }
 
 # ── SIMULATOR DEFINITION ──
 simulator:
@@ -835,6 +850,26 @@ simulator:
     mute_o2: false
     mute_o3: false
     mute_o4: false
+    lock_o1: false
+    lock_o2: false
+    lock_o3: false
+    lock_o4: false
+    hdcp_o1: "Auto"
+    hdcp_o2: "Auto"
+    hdcp_o3: "Auto"
+    hdcp_o4: "Auto"
+    v5_o1: "Auto"
+    v5_o2: "Auto"
+    v5_o3: "Auto"
+    v5_o4: "Auto"
+    sigtype_o1: "Auto"
+    sigtype_o2: "Auto"
+    sigtype_o3: "Auto"
+    sigtype_o4: "Auto"
+    ihdcp_i1: "HDCP 2.2"
+    ihdcp_i2: "HDCP 2.2"
+    ihdcp_i3: "HDCP 1.4"
+    ihdcp_i4: "Off"
     audio_volume_percent: 75.0
     audio_volume_db: -10.0
     audio_mute: false
@@ -983,31 +1018,101 @@ simulator:
       handler: |
         o = match.group(1)
         v = match.group(2)
-        respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.Lock={v}\r\n")
+        key = f"lock_o{o}"
+        if key in state:
+            state[key] = (v == "true")
+            respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.Lock={v}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/XP/O{o}.Lock %E002:Not exist\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/XP/O(\d+)\.Lock\s*$'
+      handler: |
+        o = match.group(1)
+        key = f"lock_o{o}"
+        if key in state:
+            respond(f"pw /V1/MEDIA/VIDEO/XP/O{o}.Lock={'true' if state[key] else 'false'}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/XP/O{o}.Lock %E002:Not exist\r\n")
 
     - match: '^SET\s+/V1/MEDIA/VIDEO/O(\d+)\.Output5VMode=(\S+)\s*$'
       handler: |
         o = match.group(1)
         v = match.group(2)
-        respond(f"pw /V1/MEDIA/VIDEO/O{o}.Output5VMode={v}\r\n")
+        key = f"v5_o{o}"
+        if key in state:
+            state[key] = v
+            respond(f"pw /V1/MEDIA/VIDEO/O{o}.Output5VMode={v}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/O{o}.Output5VMode %E002:Not exist\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/O(\d+)\.Output5VMode\s*$'
+      handler: |
+        o = match.group(1)
+        key = f"v5_o{o}"
+        if key in state:
+            respond(f"pw /V1/MEDIA/VIDEO/O{o}.Output5VMode={state[key]}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/O{o}.Output5VMode %E002:Not exist\r\n")
 
     - match: '^SET\s+/V1/MEDIA/VIDEO/I(\d+)/HDCP\.AllowedHdcpVersion=(.+)$'
       handler: |
         i = match.group(1)
         v = match.group(2).strip()
-        respond(f"pw /V1/MEDIA/VIDEO/I{i}/HDCP.AllowedHdcpVersion={v}\r\n")
+        key = f"ihdcp_i{i}"
+        if key in state:
+            state[key] = v
+            respond(f"pw /V1/MEDIA/VIDEO/I{i}/HDCP.AllowedHdcpVersion={v}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/I{i}/HDCP.AllowedHdcpVersion %E002:Not exist\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/I(\d+)/HDCP\.AllowedHdcpVersion\s*$'
+      handler: |
+        i = match.group(1)
+        key = f"ihdcp_i{i}"
+        if key in state:
+            respond(f"pw /V1/MEDIA/VIDEO/I{i}/HDCP.AllowedHdcpVersion={state[key]}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/I{i}/HDCP.AllowedHdcpVersion %E002:Not exist\r\n")
 
     - match: '^SET\s+/V1/MEDIA/VIDEO/O(\d+)\.HdcpMode=(\S+)\s*$'
       handler: |
         o = match.group(1)
         v = match.group(2)
-        respond(f"pw /V1/MEDIA/VIDEO/O{o}.HdcpMode={v}\r\n")
+        key = f"hdcp_o{o}"
+        if key in state:
+            state[key] = v
+            respond(f"pw /V1/MEDIA/VIDEO/O{o}.HdcpMode={v}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/O{o}.HdcpMode %E002:Not exist\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/O(\d+)\.HdcpMode\s*$'
+      handler: |
+        o = match.group(1)
+        key = f"hdcp_o{o}"
+        if key in state:
+            respond(f"pw /V1/MEDIA/VIDEO/O{o}.HdcpMode={state[key]}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/O{o}.HdcpMode %E002:Not exist\r\n")
 
     - match: '^SET\s+/V1/MEDIA/VIDEO/O(\d+)\.OutputSignalType=(\S+)\s*$'
       handler: |
         o = match.group(1)
         v = match.group(2)
-        respond(f"pw /V1/MEDIA/VIDEO/O{o}.OutputSignalType={v}\r\n")
+        key = f"sigtype_o{o}"
+        if key in state:
+            state[key] = v
+            respond(f"pw /V1/MEDIA/VIDEO/O{o}.OutputSignalType={v}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/O{o}.OutputSignalType %E002:Not exist\r\n")
+
+    - match: '^GET\s+/V1/MEDIA/VIDEO/O(\d+)\.OutputSignalType\s*$'
+      handler: |
+        o = match.group(1)
+        key = f"sigtype_o{o}"
+        if key in state:
+            respond(f"pw /V1/MEDIA/VIDEO/O{o}.OutputSignalType={state[key]}\r\n")
+        else:
+            respond(f"pE /V1/MEDIA/VIDEO/O{o}.OutputSignalType %E002:Not exist\r\n")
 
     - match: '^SET\s+/V1/MEDIA/VIDEO/XP/O(\d+)\.EmbeddedAudioMute=(true|false)\s*$'
       handler: |

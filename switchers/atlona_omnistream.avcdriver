@@ -41,15 +41,17 @@ id: atlona_omnistream
 name: Atlona OmniStream
 manufacturer: Atlona
 category: switcher
-version: 1.4.0
+version: 1.5.0
 author: OpenAVC
-min_platform_version: "0.9.0"
+min_platform_version: "0.22.0"
 description: >
   Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP
-  encoders and decoders via the Telnet CLI (port 23). Supports source
-  routing, audio mute/volume, video enable, HDCP, analog speaker power,
-  and CEC/RS-232 display triggers. Runtime control surface only —
-  install-time setup is configured in the device's web UI.
+  encoders and decoders via the Telnet CLI (port 23). Each HDMI output
+  is a child entity tracking its active video/audio source and status,
+  audio mute/volume, analog speaker power, and HDCP version. Supports
+  source routing, video enable, and CEC/RS-232 display triggers.
+  Runtime control surface only — install-time setup is configured in
+  the device's web UI.
 
 source_url: https://atlona.com/pdf/OmniStream_CLI-JSON_API.pdf
 tags: [av-over-ip, encoder, decoder, omnistream, telnet]
@@ -116,6 +118,7 @@ default_config:
   port: 23
   username: ""
   password: ""
+  output_count: 2
   poll_interval: 30
   inter_command_delay: 0.5
 
@@ -140,6 +143,15 @@ config_schema:
     label: Password
     secret: true
     description: "Telnet password when IPLogin is enabled."
+  output_count:
+    type: integer
+    default: 2
+    min: 0
+    label: HDMI Output Count
+    description: >
+      Number of HDMI outputs — each becomes an HDMI Output child with
+      active source/status, audio, analog power, and HDCP state. 2 covers
+      dual-output decoders (OMNI-122); set 1 for single-output units.
   poll_interval:
     type: integer
     default: 30
@@ -176,62 +188,51 @@ state_variables:
     type: number
     label: System Temperature (°C)
     help: "Internal system temperature in °C, reported by `Temperature`."
-  video_active_input_1:
-    type: string
-    label: HDMI Out 1 — Active Input
-    help: "Name of the IP video source currently routed to HDMI output 1."
-  video_active_input_2:
-    type: string
-    label: HDMI Out 2 — Active Input
-    help: "Name of the IP video source currently routed to HDMI output 2."
-  video_active_status_1:
-    type: string
-    label: HDMI Out 1 — Video Status
-    help: "Video pipeline status text for output 1 (Active / Inactive / No Signal)."
-  video_active_status_2:
-    type: string
-    label: HDMI Out 2 — Video Status
-    help: "Video pipeline status text for output 2."
-  audio_active_input_1:
-    type: string
-    label: HDMI Out 1 — Active Audio Input
-    help: "Name of the IP audio source currently routed to HDMI output 1."
-  audio_active_input_2:
-    type: string
-    label: HDMI Out 2 — Active Audio Input
-    help: "Name of the IP audio source currently routed to HDMI output 2."
-  audio_active_status_1:
-    type: string
-    label: HDMI Out 1 — Audio Status
-    help: "Audio pipeline status text for output 1."
-  audio_active_status_2:
-    type: string
-    label: HDMI Out 2 — Audio Status
-    help: "Audio pipeline status text for output 2."
-  audio_mute_1:
-    type: boolean
-    label: HDMI Out 1 — Audio Mute
-    help: "True when audio output 1 is muted."
-  audio_mute_2:
-    type: boolean
-    label: HDMI Out 2 — Audio Mute
-    help: "True when audio output 2 is muted."
-  audio_volume_1:
-    type: integer
-    label: HDMI Out 1 — Audio Volume (0–15)
-    help: "Audio volume on HDMI output 1 (0–15 step scale)."
-  audio_volume_2:
-    type: integer
-    label: HDMI Out 2 — Audio Volume (0–15)
-    help: "Audio volume on HDMI output 2 (0–15 step scale)."
-  analog_power_1:
-    type: boolean
-    label: HDMI Out 1 — Analog Speaker Power
-    help: "True when the analog speaker output associated with HDMI 1 is powered on."
-  analog_power_2:
-    type: boolean
-    label: HDMI Out 2 — Analog Speaker Power
-    help: "True when the analog speaker output associated with HDMI 2 is powered on."
+
+child_entity_types:
+  output:
+    label: HDMI Output
+    label_plural: HDMI Outputs
+    id_format: { type: integer, min: 1, max: 8 }
+    state_variables:
+      video_input:
+        type: string
+        label: Active Video Input
+        help: "Name of the IP video source currently active on this output (VideoActiveInput — reflects failover, not just the configured primary)."
+        cloud_priority: high
+      video_status:
+        type: string
+        label: Video Status
+        help: "Video pipeline status text (Active / Inactive / No Signal)."
+        cloud_priority: high
+      audio_input:
+        type: string
+        label: Active Audio Input
+        help: "Name of the IP audio source currently active on this output."
+      audio_status:
+        type: string
+        label: Audio Status
+        help: "Audio pipeline status text."
+      audio_mute:
+        type: boolean
+        label: Audio Muted
+        help: "True when this output's audio is muted (Pro units)."
+      audio_volume:
+        type: integer
+        label: Audio Volume
+        help: "Audio volume on this output, 0-15 (Pro units)."
+      analog_power:
+        type: boolean
+        label: Analog Speaker Power
+        help: "True when the analog speaker amplifier for this output is powered on (Pro units)."
+      hdcp:
+        type: string
+        label: HDCP Version
+        help: "HDCP version set on this HDMI port (1.4 / 2.2 / none; HDCPSet sta read-back)."
+    summary_fields: [video_input, video_status]
+    instances:
+      count_from: output_count
+      label: "HDMI Out {id}"
 
 commands:
 
@@ -607,75 +608,73 @@ responses:
   - match: 'System temperature:\s+[\d.]+\s+F\s+\(([\d.]+)\s+C\)'
     set: { temperature_c: "$1" }
 
-  # VideoActiveInput<N> <input>
-  - match: 'VideoActiveInput1\s+(\S+)'
-    set: { video_active_input_1: "$1" }
-  - match: 'VideoActiveInput2\s+(\S+)'
-    set: { video_active_input_2: "$1" }
+  # Per-output active state. The VideoInput set-ack is deliberately NOT
+  # parsed — the ack echoes the configured primary, while video_input
+  # mirrors VideoActiveInput (which reflects backup failover); the next
+  # poll picks the route change up from the active query.
+  - match: '^VideoActiveInput(\d+)\s+(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { video_input: "$2" } }
+  - match: '^VideoActiveStatus(\d+)\s+(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { video_status: "$2" } }
+  - match: '^AudioActiveInput(\d+)\s+(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_input: "$2" } }
+  - match: '^AudioActiveStatus(\d+)\s+(\S+)$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_status: "$2" } }
 
-  # VideoActiveStatus<N> <active|inactive>
-  - match: 'VideoActiveStatus1\s+(\S+)'
-    set: { video_active_status_1: "$1" }
-  - match: 'VideoActiveStatus2\s+(\S+)'
-    set: { video_active_status_2: "$1" }
+  # AudioMute<N> on|off — the "sta" answer has no suffix, the set-ack
+  # appends " set"; one rule covers both.
+  - match: '^AudioMute(\d+)\s+(on|off)(?:\s+set)?$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          audio_mute: { group: 2, map: { "on": "true", "off": "false" } }
 
-  # AudioActiveInput<N> <input>
-  - match: 'AudioActiveInput1\s+(\S+)'
-    set: { audio_active_input_1: "$1" }
-  - match: 'AudioActiveInput2\s+(\S+)'
-    set: { audio_active_input_2: "$1" }
+  # AudioVolume<N> <level>[ set]
+  - match: '^AudioVolume(\d+)\s+(\d+)(?:\s+set)?$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_volume: "$2" } }
 
-  # AudioActiveStatus<N> <Active|Inactive>
-  - match: 'AudioActiveStatus1\s+(\S+)'
-    set: { audio_active_status_1: "$1" }
-  - match: 'AudioActiveStatus2\s+(\S+)'
-    set: { audio_active_status_2: "$1" }
+  # Analog speaker power — status query answers active/inactive; the
+  # AnalogPowerEnable set-ack answers on/off + " set".
+  - match: '^AnalogPowerStatus(\d+)\s+(active|inactive)$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          analog_power: { group: 2, map: { "active": "true", "inactive": "false" } }
+  - match: '^AnalogPowerEnable(\d+)\s+(on|off)(?:\s+set)?$'
+    child_set:
+      - type: output
+        id: "$1"
+        state:
+          analog_power: { group: 2, map: { "on": "true", "off": "false" } }
 
-  # AudioMute<N> on|off
-  - match: 'AudioMute1\s+on'
-    set: { audio_mute_1: "true" }
-  - match: 'AudioMute1\s+off'
-    set: { audio_mute_1: "false" }
-  - match: 'AudioMute2\s+on'
-    set: { audio_mute_2: "true" }
-  - match: 'AudioMute2\s+off'
-    set: { audio_mute_2: "false" }
-
-  # AudioVolume<N> <level>
-  - match: 'AudioVolume1\s+(\d+)'
-    set: { audio_volume_1: "$1" }
-  - match: 'AudioVolume2\s+(\d+)'
-    set: { audio_volume_2: "$1" }
-
-  # AnalogPowerStatus<N> <active|inactive>
-  - match: 'AnalogPowerStatus1\s+active'
-    set: { analog_power_1: "true" }
-  - match: 'AnalogPowerStatus1\s+inactive'
-    set: { analog_power_1: "false" }
-  - match: 'AnalogPowerStatus2\s+active'
-    set: { analog_power_2: "true" }
-  - match: 'AnalogPowerStatus2\s+inactive'
-    set: { analog_power_2: "false" }
+  # HDCP version per HDMI port: "HDCPSet HDMI1 2.2 set" (ack) or
+  # "HDCPSet HDMI1 2.2" (sta answer). The space after HDCPSet is optional
+  # (the CLI accepts and some firmware echoes the compact form).
+  - match: '^HDCPSet\s*HDMI(\d+)\s+(\S+?)(?:\s+set)?$'
+    child_set:
+      - { type: output, id: "$1", state: { hdcp: "$2" } }
 
 polling:
   queries:
     - "Type\r"
     - "Version\r"
     - "Temperature\r"
-    - "VideoActiveInput1\r"
-    - "VideoActiveInput2\r"
-    - "VideoActiveStatus1\r"
-    - "VideoActiveStatus2\r"
-    - "AudioActiveInput1\r"
-    - "AudioActiveInput2\r"
-    - "AudioActiveStatus1\r"
-    - "AudioActiveStatus2\r"
-    - "AudioMute1 sta\r"
-    - "AudioMute2 sta\r"
-    - "AudioVolume1 sta\r"
-    - "AudioVolume2 sta\r"
-    - "AnalogPowerStatus1\r"
-    - "AnalogPowerStatus2\r"
+    # Per-output state — roster-gated (output_count).
+    - { each_child: output, send: "VideoActiveInput{child_id}\r" }
+    - { each_child: output, send: "VideoActiveStatus{child_id}\r" }
+    - { each_child: output, send: "AudioActiveInput{child_id}\r" }
+    - { each_child: output, send: "AudioActiveStatus{child_id}\r" }
+    - { each_child: output, send: "AudioMute{child_id} sta\r" }
+    - { each_child: output, send: "AudioVolume{child_id} sta\r" }
+    - { each_child: output, send: "AnalogPowerStatus{child_id}\r" }
+    - { each_child: output, send: "HDCPSet HDMI{child_id} sta\r" }
 
 # ── SIMULATOR DEFINITION ──
 simulator:
@@ -698,6 +697,8 @@ simulator:
     audio_volume_2: 8
     analog_power_1: true
     analog_power_2: true
+    hdcp_1: "2.2"
+    hdcp_2: "1.4"
 
   delays:
     command_response: 0.05
@@ -885,12 +886,20 @@ simulator:
         out = match.group(1)
         respond(f"AnalogPowerStatus{out} {'active' if state[f'analog_power_{out}'] else 'inactive'}\r\n")
 
-    # HDCPSet HDMI<N> <ver>
-    - match: '^HDCPSet\s*(HDMI\d+|\d+)\s+(\S+)\s*$'
+    # HDCPSet HDMI<N> <ver>|sta — sta answers the current value (no "set"
+    # suffix); a set stores and acks with " set".
+    - match: '^HDCPSet\s*HDMI(\d+)\s+(\S+)\s*$'
       handler: |
         port = match.group(1)
         ver = match.group(2)
-        respond(f"HDCPSet {port} {ver} set\r\n")
+        key = f"hdcp_{port}"
+        if key not in state:
+            respond("! Command not found\r\n")
+        elif ver == "sta":
+            respond(f"HDCPSet HDMI{port} {state[key]}\r\n")
+        else:
+            state[key] = ver
+            respond(f"HDCPSet HDMI{port} {ver} set\r\n")
 
     # DisplayBtn<N> on|off|toggle
     - match: '^DisplayBtn([12])\s+(on|off|toggle)\s*$'

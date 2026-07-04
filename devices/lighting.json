@@ -639,7 +639,7 @@
         {
           "id": "philips_hue",
           "confidence": "untested",
-          "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional."
+          "notes": "Exposes the same V1 REST API on port 80. End-of-life for new firmware but still functional."
         }
       ]
     },
@@ -650,8 +650,8 @@
       "drivers": [
         {
           "id": "philips_hue",
-          "confidence": "untested",
-          "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional."
+          "confidence": "full",
+          "notes": "Verified against a BSB002 bridge (API 1.77.0): discovery probe, link-button pairing wizard, light/group/scene enumeration, and control. The V2 bridge also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only."
         }
       ]
     }

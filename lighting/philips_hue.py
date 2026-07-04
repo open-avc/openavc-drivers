@@ -158,7 +158,7 @@ class PhilipsHueDriver(BaseDriver):
         "name": "Philips Hue Bridge",
         "manufacturer": "Signify",
         "category": "lighting",
-        "version": "2.0.0",
+        "version": "2.0.1",
         # Typed connection faults (ConnectionFaultError) landed in 0.22.0;
         # dynamic per-child schemas (0.19.4) are covered by the same gate.
         "min_platform_version": "0.22.0",
@@ -171,7 +171,7 @@ class PhilipsHueDriver(BaseDriver):
         ),
         "source_url": "https://github.com/home-assistant-libs/aiohue/tree/master/aiohue/v1",
         "tags": ["hue", "philips", "signify", "lighting", "residential", "bridge", "scenes"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["hue_v1"],
         "ports": [80],
@@ -180,16 +180,25 @@ class PhilipsHueDriver(BaseDriver):
                 "manufacturer": "Signify",
                 "models": [
                     "Hue Bridge V2 (BSB002)",
+                ],
+                "confidence": "full",
+                "notes": (
+                    "Verified against a BSB002 bridge (API 1.77.0): discovery "
+                    "probe, link-button pairing wizard, light/group/scene "
+                    "enumeration, and control. The V2 bridge also supports "
+                    "the V2 / CLIP V2 API over HTTPS — this driver targets "
+                    "V1 only."
+                ),
+            },
+            {
+                "manufacturer": "Signify",
+                "models": [
                     "Hue Bridge V1 (BSB001)",
                 ],
                 "confidence": "untested",
                 "notes": (
-                    "Both bridge generations expose the V1 REST API on port "
-                    "80. The V2 bridge (square, BSB002) is the current "
-                    "production model and also supports the V2 / CLIP V2 API "
-                    "over HTTPS — this driver targets V1 only. The V1 bridge "
-                    "(round, BSB001) is end-of-life for new firmware but "
-                    "still functional."
+                    "Exposes the same V1 REST API on port 80. End-of-life "
+                    "for new firmware but still functional."
                 ),
             },
         ],

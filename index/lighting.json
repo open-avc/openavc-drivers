@@ -302,7 +302,7 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Philips Hue lights, rooms, zones, and scenes via the local REST API V1 on a Hue Bridge (HTTP, port 80). Every light and group is a child entity with live state; pair with the bridge's link button straight from the device page.",
@@ -316,6 +316,7 @@
         "hue_v1"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.22.0",
       "tags": [
         "hue",
@@ -334,11 +335,18 @@
         {
           "manufacturer": "Signify",
           "models": [
-            "Hue Bridge V2 (BSB002)",
+            "Hue Bridge V2 (BSB002)"
+          ],
+          "confidence": "full",
+          "notes": "Verified against a BSB002 bridge (API 1.77.0): discovery probe, link-button pairing wizard, light/group/scene enumeration, and control. The V2 bridge also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only."
+        },
+        {
+          "manufacturer": "Signify",
+          "models": [
             "Hue Bridge V1 (BSB001)"
           ],
           "confidence": "untested",
-          "notes": "Both bridge generations expose the V1 REST API on port 80. The V2 bridge (square, BSB002) is the current production model and also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only. The V1 bridge (round, BSB001) is end-of-life for new firmware but still functional."
+          "notes": "Exposes the same V1 REST API on port 80. End-of-life for new firmware but still functional."
         }
       ],
       "discovery": {

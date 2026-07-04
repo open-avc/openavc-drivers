@@ -305,7 +305,7 @@ async def _close(driver):
 
 def test_version_and_min_platform():
     info = DRV.PhilipsHueDriver.DRIVER_INFO
-    assert info["version"] == "2.0.0"
+    assert info["version"] == "2.0.1"
     assert info["min_platform_version"] == "0.22.0"
     assert info["transport"] == "http"
 

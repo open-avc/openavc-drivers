@@ -17,6 +17,11 @@ well enough to exercise the driver:
     Set (cmd 04 / 06), Pad Get / Reply / Set (cmd 07 / 08 / 09), 48V
     Get / Reply / Set (cmd 0A / 0B / 0C), Send Level Set (cmd 0D),
     Send Assign Set (cmd 0E), MMC transport.
+  - The Get-status family (cmd 05): mute Get (sub 09) answers with the
+    Note-On mute message, fader Get (sub 0B param 17) with the NRPN
+    fader message, and preamp-gain Get (sub 0B param 19) with the
+    Pitchbend EN MP GV message — the shapes the driver's connect sweep
+    and liveness probe rely on.
   - Pitchbend (EN MP GV) for socket preamp gain across 128 sockets.
   - Bank Select + Program Change for scene recall (1..500, 4 banks)
     AND cue list recall (1..2000, 16 banks). The simulator updates
@@ -65,6 +70,7 @@ CHANNEL_TYPES: dict[str, tuple[int, int, int]] = {
 
 NRPN_PARAM_FADER = 0x17
 NRPN_PARAM_MAIN_ASSIGN = 0x18
+NRPN_PARAM_PREAMP_GAIN = 0x19
 NRPN_PARAM_HPF_FREQ = 0x30
 NRPN_PARAM_HPF_ONOFF = 0x31
 NRPN_PARAM_BUS_ASSIGN = 0x40
@@ -466,9 +472,45 @@ class AllenHeathDLiveSimulator(TCPSimulator):
                 self._send_assign[(src, tgt)] = v >= 0x40
             return None
 
-        # Generic Get-status family (cmd 0x05) — ignore in v1.0.0; the
-        # real device would respond with the queried current value but
-        # the driver doesn't issue these queries today.
+        # Get-status family (cmd 0x05): the driver's connect sweep and
+        # liveness probe issue these; reply with the current value in the
+        # same shape a real console uses.
+        if cmd == 0x05 and rest:
+            sub = rest[0]
+            if sub == 0x09 and len(rest) >= 2:
+                # Get Mute Status — reply is the Note-On mute message.
+                ch_note = rest[1] & 0x7F
+                target = self._resolve(midi_ch_byte, ch_note)
+                if target is None:
+                    return None
+                on = self._mute.get(target, False)
+                n = 0x90 | (midi_ch_byte & 0x0F)
+                return bytes([n, ch_note, 0x7F if on else 0x3F,
+                              n, ch_note, 0x00])
+            if sub == 0x0B and len(rest) >= 3:
+                param = rest[1] & 0x7F
+                ch_note = rest[2] & 0x7F
+                if param == NRPN_PARAM_FADER:
+                    # Reply is the NRPN fader message. Untouched faders
+                    # read back 0 (bottom of travel).
+                    target = self._resolve(midi_ch_byte, ch_note)
+                    if target is None:
+                        return None
+                    lv = self._fader.get(target, 0)
+                    return self._build_nrpn(midi_ch_byte, ch_note,
+                                            NRPN_PARAM_FADER, lv)
+                if param == NRPN_PARAM_PREAMP_GAIN:
+                    # Get Socket Preamp Gain — reply is the Pitchbend
+                    # EN MP GV message on the same channel.
+                    mp = ch_note
+                    gv = self._gain.get(mp, 0)
+                    return bytes([0xE0 | (midi_ch_byte & 0x0F), mp, gv])
+                # Main assign / HPF / PEQ Gets would answer on real
+                # hardware; the driver doesn't issue them.
+                return None
+            # Send-level / send-assign Gets (sub 0x0F) — not issued.
+            return None
+
         return None
 
     # ── Wire builders ───────────────────────────────────────────────────
@@ -524,6 +566,14 @@ class AllenHeathDLiveSimulator(TCPSimulator):
         lv = max(0, min(0x7F, lv))
         self._fader[(ctype, n)] = lv
         await self.push(self._build_nrpn(ch, note, NRPN_PARAM_FADER, lv))
+
+    async def push_gain(self, socket: int, gv: int) -> None:
+        """Test hook — simulate a console-side preamp gain move
+        (Pitchbend EN MP GV on the base channel)."""
+        mp = (socket - 1) & 0x7F
+        gv = max(0, min(0x7F, gv))
+        self._gain[mp] = gv
+        await self.push(bytes([0xE0 | self._midi_ch_byte(0), mp, gv]))
 
 
 SIMULATOR_CLASS = AllenHeathDLiveSimulator

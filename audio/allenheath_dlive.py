@@ -1,49 +1,45 @@
 """
-OpenAVC Allen & Heath dLive Driver.
+OpenAVC Allen & Heath dLive Driver — first-class child-entity edition.
 
 Controls Allen & Heath dLive digital mixing systems (MixRack + Surface)
 over MIDI-over-TCP/IP on port 51325. The protocol is the standard MIDI
 1.0 wire format carried over a raw TCP stream (MIDI running status
 supported), with vendor-specific SysEx (header F0 00 00 1A 50 10 01 00).
-The dLive command surface is closely related to Avantis's but with
-larger channel counts and a richer feature set:
 
-  - Inputs 1-128, Mono Groups 1-62, Stereo Groups 1-31, Mono Aux 1-62,
-    Stereo Aux 1-31, Mono Matrix 1-62, Stereo Matrix 1-31, Mono FX
-    Send 1-16, Stereo FX Send 1-16, FX Return 1-16, Mains 1-6, DCAs
-    1-24, Mute Groups 1-8 (at CH 4E-55, shifted up from Avantis's 46
-    range to make room for the larger DCA bank), 8 stereo UFX sends
-    and 8 stereo UFX returns.
-  - Mutes are Note On / Note Off pairs (9N CH 7F / 9N CH 00) — same as
-    Avantis.
-  - Faders are 7-bit LV via NRPN parameter ID 17 (BN 63 CH, BN 62 17,
-    BN 06 LV), formula LV = round(((dB + 54) / 64) * 127).
-  - Send levels (Aux / FX / Matrix sends) are SysEx 0D — same shape as
-    Avantis. dLive additionally exposes Input-to-Group/Aux assign
-    on/off via SysEx 0E.
-  - Preamp control: socket gain via Pitchbend (EN MP GV) over MP socket
-    numbers (MixRack 1-64, DX1/2 1-32, DX3/4 1-32 = 128 total), Pad
-    on/off via SysEx 09, 48V on/off via SysEx 0C.
-  - HPF: cutoff frequency via NRPN parameter ID 30, on/off via
-    parameter ID 31. Frequency uses the spec formula
-    `vv = INT(127 * ((4608 * log10(F/4) / log10(2)) - 10699) / 41314)`.
-  - Channel Name (SysEx cmd 03) and Colour (SysEx cmd 06) Set, with
-    Get-reply mirroring deferred (same approach as Avantis).
-  - Scene Recall: Bank Select + Program Change for 4 banks × 128 = 500
-    scenes (MixRack only). Cue List Recall: 16 banks × 128 = 2000
-    user-defined Recall Ids (Surface only).
-  - MMC transport (real-time SysEx F0 7F 7F 06 TC F7).
-  - UFX Global Key (CC 0C) / Scale (CC 0D) on the base MIDI channel.
+What makes this driver first-class
+-----------------------------------
+* **Channels as typed child entities.** Every input, group, aux, matrix,
+  FX send/return, main, DCA, mute group and UFX send/return is a child
+  with live mute / fader / name / colour state, and every preamp socket
+  is a child with live gain / pad / 48V state. Per-channel commands take
+  a channel picker instead of a free-typed number, and console-side
+  moves push into child state so panels stay in sync.
+* **Console names as labels.** dLive exposes SysEx Get/Reply for channel
+  name and colour; the driver sweeps them on connect and mirrors them
+  into per-child ``name`` / ``colour`` props (``label_field: name`` —
+  the console's own channel names become the display labels in OpenAVC).
+* **Get-watchdog liveness.** dLive answers SysEx Get queries; the driver
+  probes the Main 1 fader on a timer and awaits the reply. A console
+  that vanished without closing the socket stops answering, and after
+  two misses the driver tears the connection down with a typed
+  ``no_response`` fault so the platform reconnects and the device card
+  shows the real cause.
 
 Push vs poll:
-    The MixRack pushes parameter-change echoes on the same socket — the
-    driver listens for Note On / NRPN / Bank-Select-plus-Program-Change
-    pushes and reflects them into state. Unlike Avantis, dLive
-    *does* expose explicit SysEx Get queries (mute, fader, main assign,
-    send level, preamp pad/48V, EQ, HPF), but issuing a sweep on
-    connect would require ~1500 queries; we keep state populating
-    lazily from echoes. The Get parsers exist in `_handle_sysex` so a
-    future refresh implementation can wire them up.
+    Hybrid. When a console-side control moves the dLive emits the
+    matching Note-On / NRPN / Pitchbend message, which the driver fans
+    into child state immediately. On connect the driver sweeps SysEx
+    Get queries across every parameter it mirrors (mute, fader, name,
+    colour per channel; gain, pad, 48V per socket — ~2400 queries,
+    pipelined with periodic yields); a slow polling re-sweep (default
+    60 s) is the backstop for updates missed during transient drops.
+
+    Writes apply optimistically: sibling Qu hardware demonstrated that
+    A&H consoles do NOT echo changes they receive over MIDI (only
+    surface-side moves are transmitted), so after sending a set the
+    driver mirrors the commanded value into its own state. Mute toggle
+    computes the target from the driver's last-known state and follows
+    with a Get read-back to correct any staleness.
 
 Format choice:
     Python rather than YAML for the same reasons as the Avantis driver
@@ -54,14 +50,27 @@ Format choice:
     `ConfigurableDriver`. Sibling: `audio/allenheath_avantis.py`.
 
 TLS / auth:
-    dLive supports TLS on port 51327 with a UserProfile + UserPassword
-    handshake; the plain-TCP port 51325 has no auth. v1.0.0 ships
-    plain-TCP. TLS+auth is a future extension once the platform has a
-    TLS transport primitive that fits this shape.
+    dLive supports TLS on ports 51327 (MixRack) / 51329 (Surface) with
+    a UserProfile + UserPassword handshake; the plain-TCP ports have no
+    auth. This driver ships plain-TCP. TLS+auth is a future extension
+    once the platform has a TLS transport primitive that fits this
+    shape.
+
+Scope notes:
+    - Send levels / send assigns, main / DCA / mute-group assigns, HPF
+      and preamp gain remain commands; send-level matrix cells are not
+      mirrored as state (~25k keys with little practical value).
+    - PEQ control (NRPN 1A-29, four bands x four params) is documented
+      in the protocol but not exposed — a generic four-band surface
+      needs a UI design pass first.
+    - UFX Global Scale is Major / Minor only (protocol value 00-01).
+    - MIDI fader strips / Soft Rotaries / DAW-control CC traffic and
+      the per-UFX-unit MIDI channel are end-user surface assignments
+      configured on the console, not integrator-addressable functions.
 
 Models covered:
-    dLive S-series consoles + DM MixRacks (MIDI control surface is the
-    same across the family). Requires firmware V2.0 or later for
+    dLive S-series / C-series Surfaces + DM MixRacks (same MIDI command
+    surface across the family). Requires firmware V2.0 or later for
     TCP/IP control.
 
 Source:
@@ -70,6 +79,7 @@ Source:
 
 from __future__ import annotations
 
+import asyncio
 import math
 from typing import Any
 
@@ -105,8 +115,9 @@ MAX_SCENE = 500
 MIN_CUE = 1
 MAX_CUE = 2000
 
-# Sockets (preamp addressing — MP byte)
-NUM_SOCKETS = 128       # MixRack 1-64 + DX1/2 1-32 + DX3/4 1-32
+# Sockets (preamp addressing — MP byte: MixRack 1-64 = 00-3F,
+# DX1/2 1-32 = 40-5F, DX3/4 1-32 = 60-7F)
+NUM_SOCKETS = 128
 
 # Fader
 LV_MIN = 0
@@ -115,6 +126,7 @@ LV_MAX = 0x7F  # 127
 # NRPN parameter IDs
 NRPN_PARAM_FADER = 0x17           # 23 — fader level
 NRPN_PARAM_MAIN_ASSIGN = 0x18     # 24 — channel-to-main assign
+NRPN_PARAM_PREAMP_GAIN = 0x19     # 25 — socket preamp gain (Get only; Set is Pitchbend)
 NRPN_PARAM_BUS_ASSIGN = 0x40      # 64 — DCA / mute-group assign
 NRPN_PARAM_HPF_FREQ = 0x30        # 48 — HPF cutoff frequency
 NRPN_PARAM_HPF_ONOFF = 0x31       # 49 — HPF on/off
@@ -127,13 +139,13 @@ CC_DATA_ENTRY_MSB = 0x06
 CC_UFX_GLOBAL_KEY = 0x0C
 CC_UFX_GLOBAL_SCALE = 0x0D
 
-# SysEx
+# SysEx command bytes (after the vendor header + 0N MIDI-channel byte).
 SYSEX_HEADER = bytes([0x00, 0x00, 0x1A, 0x50, 0x10, 0x01, 0x00])
 SYSEX_CMD_NAME_GET = 0x01
 SYSEX_CMD_NAME_REPLY = 0x02
 SYSEX_CMD_NAME_SET = 0x03
 SYSEX_CMD_COLOUR_GET = 0x04
-SYSEX_CMD_COLOUR_REPLY = 0x05    # also "generic Get response" — see _handle_sysex
+SYSEX_CMD_COLOUR_REPLY = 0x05    # reply only — as a REQUEST, 0x05 opens the Get family
 SYSEX_CMD_COLOUR_SET = 0x06
 SYSEX_CMD_PAD_GET = 0x07
 SYSEX_CMD_PAD_REPLY = 0x08
@@ -143,10 +155,16 @@ SYSEX_CMD_48V_REPLY = 0x0B
 SYSEX_CMD_48V_SET = 0x0C
 SYSEX_CMD_SEND_LEVEL = 0x0D
 SYSEX_CMD_SEND_ASSIGN = 0x0E
-SYSEX_CMD_GENERIC_GET = 0x05      # 0N, 05, ... family for mute/fader/main/etc
+# Get-request family (driver -> console only; the console never sends these):
+#   0N 05 09 CH          — Get Mute Status (reply: the Note-On mute message)
+#   0N 05 0B <param> CH  — Get an NRPN-backed value (fader 17, main assign 18,
+#                          preamp gain 19, HPF freq 30, HPF on/off 31, PEQ nn);
+#                          reply: the matching NRPN (or Pitchbend for gain 19)
+#   0N 05 0F <0D|0E> ... — Get send level / send assign (reply: SysEx 0D / 0E)
+SYSEX_CMD_GET = 0x05
 SYSEX_GET_SUBKIND_MUTE = 0x09
-SYSEX_GET_SUBKIND_NRPN = 0x0B     # body: subkind, NRPN_param, CH
-SYSEX_GET_SUBKIND_SEND = 0x0F     # body: subkind, send_kind (0D or 0E), src CH, snd N, snd CH
+SYSEX_GET_SUBKIND_NRPN = 0x0B
+SYSEX_GET_SUBKIND_SEND = 0x0F
 
 
 # ── Channel-type address tables ──────────────────────────────────────────────
@@ -188,6 +206,24 @@ CHANNEL_TYPES: dict[str, tuple[int, int, int, str]] = {
     "mute_group":     (4, 0x4E, NUM_MUTE_GROUPS, "Mute Group"),
     "ufx_send":       (4, 0x56, NUM_UFX_SENDS, "UFX Send"),
     "ufx_return":     (4, 0x5E, NUM_UFX_RETURNS, "UFX Return"),
+}
+
+_PLURAL_LABELS = {
+    "input": "Inputs",
+    "mono_group": "Mono Groups",
+    "stereo_group": "Stereo Groups",
+    "mono_aux": "Mono Auxes",
+    "stereo_aux": "Stereo Auxes",
+    "mono_matrix": "Mono Matrices",
+    "stereo_matrix": "Stereo Matrices",
+    "mono_fx_send": "Mono FX Sends",
+    "stereo_fx_send": "Stereo FX Sends",
+    "fx_return": "FX Returns",
+    "main": "Mains",
+    "dca": "DCAs",
+    "mute_group": "Mute Groups",
+    "ufx_send": "UFX Sends",
+    "ufx_return": "UFX Returns",
 }
 
 # Channels that have a fader (everything except mute_group).
@@ -245,8 +281,9 @@ _ABBREV = {
 }
 
 
-def state_key(ctype: str, n: int, suffix: str) -> str:
-    """Build a state-variable key like ``in001_mute`` or ``dca24_fader``."""
+def child_sid(ctype: str, n: int) -> str:
+    """Build a child local-id like ``in001`` or ``dca24`` (zero-padded to
+    the type's count width, matching the v1 flat state-key convention)."""
     abbrev = _ABBREV[ctype]
     count = CHANNEL_TYPES[ctype][2]
     if count >= 100:
@@ -255,12 +292,29 @@ def state_key(ctype: str, n: int, suffix: str) -> str:
         fmt = "{:02d}"
     else:
         fmt = "{}"
-    return f"{abbrev}{fmt.format(n)}_{suffix}"
+    return f"{abbrev}{fmt.format(n)}"
+
+
+def socket_sid(socket: int) -> str:
+    """Preamp socket local-id: ``skt001``..``skt128``."""
+    return f"skt{socket:03d}"
+
+
+def socket_label(socket: int) -> str:
+    """Sockets are physical preamp positions: MixRack 1-64, then the DX
+    expander banks. Which input CHANNEL a socket feeds is patch-dependent
+    — sockets are deliberately modeled separately from input channels."""
+    if socket <= 64:
+        return f"MixRack Socket {socket}"
+    if socket <= 96:
+        return f"DX1/2 Socket {socket - 64}"
+    return f"DX3/4 Socket {socket - 96}"
 
 
 # ── Fader value encode / decode ──────────────────────────────────────────────
 #
-# Same formula as Avantis: LV = round(((dB + 54) / 64) * 127).
+# LV = round(((dB + 54) / 64) * 127) — matches the spec lookup table to
+# +/-1 LSB at every documented point.
 
 LEVEL_MIN = 0.0
 LEVEL_MAX = 1.0
@@ -291,7 +345,7 @@ def lv_to_db(lv: int) -> float:
     return (lv / 127.0) * 64.0 - 54.0
 
 
-# ── Preamp gain (Pitchbend 0..127, MixRack range +5..+60 dB) ─────────────────
+# ── Preamp gain (Pitchbend 0..127, socket range +5..+60 dB) ──────────────────
 #
 # The reference table maps GV bytes to socket gain in dB:
 #   +5 dB → 0x00, +60 dB → 0x7F, formula GV = round(((gain - 5) / 55) * 127).
@@ -336,7 +390,7 @@ def vv_to_hpf_freq(vv: int) -> float:
     return 4.0 * (2.0 ** log_arg)
 
 
-# ── Scene recall ─────────────────────────────────────────────────────────────
+# ── Scene / cue banking ──────────────────────────────────────────────────────
 
 def scene_to_bank_program(scene: int) -> tuple[int, int]:
     """Convert 1-based scene (1..500) to (bank, program). Bank 0 = scenes
@@ -359,10 +413,36 @@ def cue_to_bank_program(cue: int) -> tuple[int, int]:
     return idx // 128, idx % 128
 
 
+# ── Channel colours ──────────────────────────────────────────────────────────
+#
+# Reference table: Off 00, Red 01, Green 02, Yellow 03, Blue 04, Purple 05,
+# Lt Blue 06, White 07.
+
+COLOUR_NAMES = [
+    "off", "red", "green", "yellow", "blue", "purple", "light_blue", "white",
+]
+
+
+def colour_to_value(name: str) -> int:
+    try:
+        return COLOUR_NAMES.index((name or "").lower())
+    except ValueError as e:
+        raise ValueError(f"Unknown colour: {name}") from e
+
+
+def value_to_colour(value: int) -> str:
+    if 0 <= value < len(COLOUR_NAMES):
+        return COLOUR_NAMES[value]
+    return str(value)
+
+
 # ── UFX Global Key / Scale ───────────────────────────────────────────────────
+#
+# Global Scale is 00-01 (Major / Minor) per the spec + reference table —
+# Chromatic exists only for per-UFX-unit CC parameters, not the global scale.
 
 UFX_KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-UFX_SCALE_NAMES = ["Major", "Minor", "Chromatic"]
+UFX_SCALE_NAMES = ["Major", "Minor"]
 
 
 def ufx_key_to_value(name: str) -> int:
@@ -390,41 +470,70 @@ MMC_CODES = {
 }
 
 
-# ── State-variable construction ──────────────────────────────────────────────
+# ── Child entity types ───────────────────────────────────────────────────────
+#
+# Mutes relay at high cloud priority (a muted program feed is an incident),
+# as does 48V phantom (dropped phantom kills a condenser mic mid-show);
+# continuous faders / gains and cosmetic name / colour are low.
 
-def _build_state_vars() -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {
-        "current_scene": {
-            "type": "integer",
-            "label": "Current Scene",
-            "min": 0,
-            "max": MAX_SCENE,
+def _mute_prop() -> dict[str, Any]:
+    return {"type": "boolean", "label": "Mute", "cloud_priority": "high"}
+
+
+def _fader_prop() -> dict[str, Any]:
+    return {"type": "number", "label": "Fader", "min": LEVEL_MIN,
+            "max": LEVEL_MAX, "cloud_priority": "low"}
+
+
+def _name_prop() -> dict[str, Any]:
+    return {"type": "string", "label": "Name", "cloud_priority": "low"}
+
+
+def _colour_prop() -> dict[str, Any]:
+    return {"type": "string", "label": "Colour", "cloud_priority": "low"}
+
+
+def _build_child_types() -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for ctype, (_, _, _, label) in CHANNEL_TYPES.items():
+        svars: dict[str, Any] = {"mute": _mute_prop()}
+        if ctype != "mute_group":
+            svars["fader"] = _fader_prop()
+        svars["name"] = _name_prop()
+        svars["colour"] = _colour_prop()
+        summary = ["mute"] if ctype == "mute_group" else ["mute", "fader"]
+        out[ctype] = {
+            "label": label,
+            "label_plural": _PLURAL_LABELS[ctype],
+            "state_variables": svars,
+            "summary_fields": summary,
+            # The console's own channel name (swept + pushed via SysEx)
+            # is the display label.
+            "label_field": "name",
+            "id_format": {"type": "string", "max_length": 64},
+        }
+    out["socket"] = {
+        "label": "Preamp Socket",
+        "label_plural": "Preamp Sockets",
+        "state_variables": {
+            "gain_db": {"type": "number", "label": "Gain (dB)",
+                        "min": GAIN_DB_MIN, "max": GAIN_DB_MAX,
+                        "cloud_priority": "low"},
+            "pad": {"type": "boolean", "label": "Pad (-20 dB)",
+                    "cloud_priority": "low"},
+            "phantom": {"type": "boolean", "label": "48V Phantom",
+                        "cloud_priority": "high"},
         },
-        "current_cue": {
-            "type": "integer",
-            "label": "Current Cue",
-            "min": 0,
-            "max": MAX_CUE,
-        },
+        "summary_fields": ["gain_db", "phantom"],
+        "id_format": {"type": "string", "max_length": 64},
     }
-    for ctype, (_, _, count, label) in CHANNEL_TYPES.items():
-        for n in range(1, count + 1):
-            out[state_key(ctype, n, "mute")] = {
-                "type": "boolean",
-                "label": f"{label} {n} Mute",
-            }
-            if ctype == "mute_group":
-                continue
-            out[state_key(ctype, n, "fader")] = {
-                "type": "number",
-                "label": f"{label} {n} Fader",
-                "min": LEVEL_MIN,
-                "max": LEVEL_MAX,
-            }
     return out
 
 
-# ── Reverse address map (incoming MIDI → state key) ──────────────────────────
+CHILD_ENTITY_TYPES: dict[str, dict[str, Any]] = _build_child_types()
+
+
+# ── Reverse address map (incoming MIDI → child) ──────────────────────────────
 
 class _AddressMap:
     """Maps wire (midi_ch_offset, ch_note) to (ctype, n)."""
@@ -447,7 +556,8 @@ _ACTION_PARAM = {
     "default": "on",
     "required": True,
     "label": "Action",
-    "help": "on, off, or toggle (toggle uses the driver's last-known state).",
+    "help": "on, off, or toggle (toggle flips the driver's last-known state "
+            "and reads the result back).",
 }
 
 _LEVEL_PARAM = {
@@ -470,28 +580,21 @@ _DB_PARAM = {
 }
 
 
-def _channel_n_param(ctype: str) -> dict[str, Any]:
-    _, _, count, label = CHANNEL_TYPES[ctype]
-    return {
-        "type": "integer",
-        "min": 1,
-        "max": count,
-        "required": True,
-        "label": label,
-        "help": f"{label} number (1..{count}).",
-    }
+def _child_param(ctype: str, label: str | None = None) -> dict[str, Any]:
+    return {"type": "child_id", "child_type": ctype, "required": True,
+            "label": label or CHILD_ENTITY_TYPES[ctype]["label"]}
 
 
 def _build_commands() -> dict[str, dict[str, Any]]:
     cmds: dict[str, dict[str, Any]] = {}
 
-    # Mute commands — one per channel type.
+    # Mute commands — one per channel type, channel picker.
     for ctype, (_, _, _, label) in CHANNEL_TYPES.items():
         cmds[f"mute_{ctype}"] = {
             "label": f"Mute {label}",
             "help": f"Mute, unmute, or toggle a {label.lower()}.",
             "params": {
-                "channel": _channel_n_param(ctype),
+                "channel": _child_param(ctype),
                 "action": dict(_ACTION_PARAM),
             },
         }
@@ -503,7 +606,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "label": f"Set {label} Fader",
             "help": f"Set the fader position for a {label.lower()}.",
             "params": {
-                "channel": _channel_n_param(ctype),
+                "channel": _child_param(ctype),
                 "level": dict(_LEVEL_PARAM),
             },
         }
@@ -511,12 +614,25 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "label": f"Set {label} Fader (dB)",
             "help": f"Set the {label.lower()} fader using a dB value.",
             "params": {
-                "channel": _channel_n_param(ctype),
+                "channel": _child_param(ctype),
                 "db": dict(_DB_PARAM),
             },
         }
 
+    cmds["mute_all_inputs"] = {
+        "label": "Mute All Inputs",
+        "help": "Mute every input channel.",
+        "params": {},
+    }
+    cmds["unmute_all_inputs"] = {
+        "label": "Unmute All Inputs",
+        "help": "Unmute every input channel.",
+        "params": {},
+    }
+
     # Send level — generic command across every documented source/target.
+    # A send cell is a relationship between two channels, not a child, so
+    # these keep type + integer params.
     cmds["set_send_level"] = {
         "label": "Set Send Level",
         "help": (
@@ -647,12 +763,14 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         },
     }
 
-    # Channel name / colour set.
+    # Channel name / colour set. These take a channel type + number pair
+    # because one command spans all fifteen channel types (a child picker
+    # binds to a single child type).
     cmds["set_channel_name"] = {
         "label": "Set Channel Name",
         "help": (
-            "Write a channel name (up to 8 characters). State mirroring "
-            "of the Get reply is deferred."
+            "Write a channel name (up to 8 characters). The name is "
+            "mirrored into the channel's `name` child prop."
         ),
         "params": {
             "channel_type": {
@@ -668,7 +786,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
     }
     cmds["set_channel_colour"] = {
         "label": "Set Channel Colour",
-        "help": "Set a channel colour (0 = no colour, 1-7 = colour preset).",
+        "help": "Set a channel display colour.",
         "params": {
             "channel_type": {
                 "type": "enum", "values": list(CHANNEL_TYPES.keys()),
@@ -676,13 +794,13 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             },
             "channel": {"type": "integer", "required": True, "min": 1, "label": "Channel Number"},
             "colour": {
-                "type": "integer", "required": True,
-                "min": 0, "max": 7, "label": "Colour (0-7)",
+                "type": "enum", "values": list(COLOUR_NAMES),
+                "default": "off", "required": True, "label": "Colour",
             },
         },
     }
 
-    # Preamp Gain / Pad / 48V (per-socket, MP 1..128).
+    # Preamp Gain / Pad / 48V (per-socket children).
     cmds["set_preamp_gain"] = {
         "label": "Set Preamp Gain",
         "help": (
@@ -691,10 +809,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "DX1/2 inputs 1-32, 97-128 are DX3/4 inputs 1-32."
         ),
         "params": {
-            "socket": {
-                "type": "integer", "required": True,
-                "min": 1, "max": NUM_SOCKETS, "label": "Socket",
-            },
+            "socket": _child_param("socket"),
             "gain_db": {
                 "type": "number", "required": True,
                 "min": GAIN_DB_MIN, "max": GAIN_DB_MAX,
@@ -707,10 +822,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "label": "Set Preamp Pad",
         "help": "Engage or disengage the 20 dB pad on a socket preamp.",
         "params": {
-            "socket": {
-                "type": "integer", "required": True,
-                "min": 1, "max": NUM_SOCKETS, "label": "Socket",
-            },
+            "socket": _child_param("socket"),
             "action": {
                 "type": "enum", "values": ["on", "off"], "default": "off",
                 "required": True, "label": "Action",
@@ -721,10 +833,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "label": "Set Preamp 48V",
         "help": "Engage or disengage 48V phantom power on a socket preamp.",
         "params": {
-            "socket": {
-                "type": "integer", "required": True,
-                "min": 1, "max": NUM_SOCKETS, "label": "Socket",
-            },
+            "socket": _child_param("socket"),
             "action": {
                 "type": "enum", "values": ["on", "off"], "default": "off",
                 "required": True, "label": "Action",
@@ -812,7 +921,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
     }
     cmds["set_ufx_global_scale"] = {
         "label": "Set UFX Global Scale",
-        "help": "Set the global UFX scale (Major / Minor / Chromatic).",
+        "help": "Set the global UFX scale (Major / Minor).",
         "params": {
             "scale": {
                 "type": "enum", "values": list(UFX_SCALE_NAMES),
@@ -821,14 +930,13 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         },
     }
 
-    # Refresh — kept for parity with sibling mixers; see docstring.
+    # Refresh — full SysEx Get re-sweep.
     cmds["refresh"] = {
         "label": "Refresh State",
         "help": (
-            "dLive does support SysEx Get queries but issuing a sweep on "
-            "connect would require thousands of round-trips; state "
-            "populates lazily from console-side and driver-initiated "
-            "change echoes. This command is a no-op for now."
+            "Re-query every mirrored parameter (mute / fader / name / "
+            "colour per channel, gain / pad / 48V per socket) from the "
+            "console."
         ),
         "params": {},
     }
@@ -841,26 +949,33 @@ def _build_commands() -> dict[str, dict[str, Any]]:
 class AllenHeathDLiveDriver(BaseDriver):
     """Allen & Heath dLive MIDI-over-TCP driver."""
 
+    # Liveness: a SysEx Get for the Main 1 fader, awaited by parameter
+    # address. Two missed replies force a typed no_response reconnect.
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the dLive stopped answering Get requests — "
+        "connection lost."
+    )
+
     DRIVER_INFO = {
         "id": "allenheath_dlive",
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.2",
+        "version": "2.0.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "
             "(MixRack + Surface) via MIDI over TCP/IP on port 51325. "
-            "Mute / fader / send level / send assign / channel assign "
-            "across 128 inputs, 62 mono and 31 stereo groups, 62 mono "
-            "and 31 stereo aux outs, 62 mono and 31 stereo matrix outs, "
-            "16 mono and 16 stereo FX sends, 16 FX returns, 6 mains, 24 "
-            "DCAs, 8 mute groups, 8 stereo UFX sends, 8 stereo UFX "
-            "returns. Adds dLive-specific surface: 128 socket preamps "
-            "(gain via Pitchbend, Pad, 48V), per-channel HPF, Cue List "
-            "Recall (Surface, 1-2000), Scene Recall (MixRack, 1-500), "
-            "channel name and colour set, MMC transport, UFX global key "
-            "and scale, plus bidirectional state from console-side echoes."
+            "Every input, group, aux, matrix, FX send/return, main, DCA, "
+            "mute group and UFX send/return is a child entity with live "
+            "mute / fader / name / colour state, and all 128 preamp "
+            "sockets are children with live gain / pad / 48V state — the "
+            "console's own channel names become the labels in OpenAVC. "
+            "Send levels and assigns, per-channel HPF, Scene Recall "
+            "(MixRack, 1-500), Cue List Recall (Surface, 1-2000), MMC "
+            "transport and UFX global key / scale, with bidirectional "
+            "state from console-side moves and a Get-probe watchdog that "
+            "flips the device offline if the console vanishes."
         ),
         "source_url": (
             "https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf"
@@ -882,7 +997,8 @@ class AllenHeathDLiveDriver(BaseDriver):
                 "allen-heath", "audiotonix",
             ],
         },
-        "min_platform_version": "0.6.0",
+        # Child entities + cloud_priority tiers + the liveness watchdog hook.
+        "min_platform_version": "0.22.0",
         "compatible_models": [
             {
                 "manufacturer": "Allen & Heath",
@@ -896,16 +1012,18 @@ class AllenHeathDLiveDriver(BaseDriver):
                     "Same MIDI command surface across the dLive S- and "
                     "C-class Surfaces and DM-series MixRacks. Requires "
                     "firmware V2.0 or later for TCP/IP control. Plain-TCP "
-                    "(port 51325) only in v1.0.0; TLS+UserProfile auth on "
-                    "port 51327 is a future extension."
+                    "only (port 51325 MixRack / 51328 Surface); the TLS+"
+                    "UserProfile ports (51327 / 51329) are a future "
+                    "extension."
                 ),
             },
         ],
+        "child_entity_types": CHILD_ENTITY_TYPES,
         "default_config": {
             "host": "",
             "port": 51325,
             "base_midi_channel": 1,
-            "poll_interval": 0,
+            "poll_interval": 60,
         },
         "config_schema": {
             "host": {
@@ -921,7 +1039,7 @@ class AllenHeathDLiveDriver(BaseDriver):
                 "description": (
                     "MIDI over TCP/IP port. 51325 for MixRack plain-TCP, "
                     "51328 for Surface plain-TCP. TLS ports (51327 / "
-                    "51329) are not supported in v1.0.0."
+                    "51329) are not supported."
                 ),
             },
             "base_midi_channel": {
@@ -934,23 +1052,38 @@ class AllenHeathDLiveDriver(BaseDriver):
                 ),
             },
             "poll_interval": {
-                "type": "integer", "default": 0, "min": 0,
+                "type": "integer", "default": 60, "min": 0,
                 "label": "Poll Interval (s)",
                 "description": (
-                    "dLive pushes parameter changes; polling is unused. "
-                    "Leave at 0 unless debugging."
+                    "Periodic full re-sweep backstop. Push keeps state "
+                    "live; the sweep catches updates missed during "
+                    "transient drops. 0 disables it."
                 ),
             },
         },
+        "quick_actions": [
+            "recall_scene", "recall_cue", "mute_all_inputs",
+            "unmute_all_inputs", "refresh",
+        ],
+        "actions": [
+            {"id": "recall_scene", "kind": "command", "icon": "layers"},
+            {"id": "recall_cue", "kind": "command", "icon": "list"},
+            {"id": "mute_all_inputs", "kind": "command", "icon": "volume-x"},
+            {"id": "unmute_all_inputs", "kind": "command", "icon": "volume-2"},
+            {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
+        ],
         "help": {
             "overview": (
                 "Controls an Allen & Heath dLive digital mixing system "
-                "over the network using MIDI over TCP/IP. Full mute, "
-                "fader, send-level, send-assign, channel-assign, preamp "
-                "(gain / pad / 48V), HPF, scene / cue recall, MMC and "
-                "UFX global key / scale. Console-side moves push back "
-                "into OpenAVC state so faders and mute LEDs on a touch "
-                "panel stay in sync."
+                "over the network using MIDI over TCP/IP. Every channel "
+                "strip and preamp socket is listed as a child entity with "
+                "live state — bind child state (e.g. "
+                "device.<id>.input.in001.mute) to panel elements and "
+                "drive mutes, faders, preamps and scene recall from "
+                "macros and buttons. The console's channel names and "
+                "colours are read on connect and become the labels shown "
+                "in OpenAVC; console-side moves push straight back into "
+                "state."
             ),
             "setup": (
                 "1. Confirm the dLive system is running firmware V2.0 "
@@ -967,11 +1100,25 @@ class AllenHeathDLiveDriver(BaseDriver):
                 "5. Enter the IP address and matching base MIDI channel "
                 "in the device config. Use port 51325 for MixRack, "
                 "51328 for Surface.\n"
-                "6. The driver listens for console-side push "
-                "automatically; no further setup is required."
+                "6. Save. The channels and preamp sockets appear under "
+                "the device with live state; channel names and colours "
+                "sync from the console automatically."
             ),
         },
-        "state_variables": _build_state_vars(),
+        "state_variables": {
+            "current_scene": {
+                "type": "integer",
+                "label": "Current Scene",
+                "min": 0,
+                "max": MAX_SCENE,
+            },
+            "current_cue": {
+                "type": "integer",
+                "label": "Current Cue",
+                "min": 0,
+                "max": MAX_CUE,
+            },
+        },
         "commands": _build_commands(),
     }
 
@@ -984,6 +1131,17 @@ class AllenHeathDLiveDriver(BaseDriver):
             ch: {"msb": 0, "lsb": 0, "vc": 0} for ch in range(16)
         }
         self._last_bank: dict[int, int] = {ch: 0 for ch in range(16)}
+
+        # Child routing, built by _register_topology():
+        #   _child_sid: (ctype, n) -> child local id
+        #   _child_num: (ctype, sid) -> 1-based channel / socket number
+        self._child_sid: dict[tuple[str, int], str] = {}
+        self._child_num: dict[tuple[str, str], int] = {}
+
+        # Liveness probe bookkeeping (see _liveness_probe): the probed
+        # channel address + a future resolved by the matching NRPN fader.
+        self._probe_addr = channel_address("main", 1)
+        self._probe_fut: asyncio.Future[None] | None = None
 
     # ── Connection lifecycle ────────────────────────────────────────────
 
@@ -998,12 +1156,13 @@ class AllenHeathDLiveDriver(BaseDriver):
         if not host:
             raise ValueError("host is required")
 
+        self._probe_fut = None
         self.transport = await TCPTransport.create(
             host=host,
             port=port,
             on_data=self.on_data_received,
             on_disconnect=self._on_disconnect,
-            delimiter=None,
+            delimiter=None,                 # raw MIDI byte stream, not line-framed
             name=self.device_id,
         )
         self._connected = True
@@ -1011,9 +1170,21 @@ class AllenHeathDLiveDriver(BaseDriver):
         await self.events.emit(f"device.{self.device_id}.connected", {})
         log.info("[%s] connected to %s:%d", self.device_id, host, port)
 
+        # Register the (static) child roster, then sweep every parameter.
+        self._register_topology()
+        await asyncio.sleep(0.1)
+        await self._refresh_all()
+
+        # This connect() doesn't run BaseDriver.connect(), so start the
+        # polling backstop and the liveness watchdog ourselves.
+        poll_interval = float(self.config.get("poll_interval", 60) or 0)
+        if poll_interval > 0:
+            await self.start_polling(poll_interval)
+        self._start_health_loop()
+
     async def disconnect(self) -> None:
-        if self._poll_task and not self._poll_task.done():
-            self._poll_task.cancel()
+        self._stop_health_loop()
+        await self.stop_polling()
         if self.transport:
             try:
                 await self.transport.close()
@@ -1023,10 +1194,62 @@ class AllenHeathDLiveDriver(BaseDriver):
         self._connected = False
         self.set_state("connected", False)
 
-    async def _on_disconnect(self) -> None:
+    def _on_disconnect(self) -> None:
         self._connected = False
         self.set_state("connected", False)
-        await self.events.emit(f"device.{self.device_id}.disconnected", {})
+        # BaseDriver's bookkeeping stops the health loop / polling and
+        # schedules the reconnect.
+        super()._handle_transport_disconnect()
+
+    # ── Topology registration ───────────────────────────────────────────
+
+    def _register_topology(self) -> None:
+        """Register the fixed channel + socket roster as children. Safe to
+        re-run — register_child is idempotent, and a driver-seeded label
+        never overrides one the user set in the project. The generic label
+        is a pre-sweep placeholder; once the name sweep answers, the
+        console's own channel name displays via ``label_field``."""
+        self._child_sid = {}
+        self._child_num = {}
+
+        for ctype, (_, _, count, label) in CHANNEL_TYPES.items():
+            for n in range(1, count + 1):
+                sid = child_sid(ctype, n)
+                self._child_sid[(ctype, n)] = sid
+                self._child_num[(ctype, sid)] = n
+                initial = None
+                project = self._project_child_entities.get(ctype, {}).get(sid)
+                if not (project and project.get("label")):
+                    initial = {"label": f"{label} {n}"}
+                self.register_child(ctype, sid, initial_state=initial)
+
+        for s in range(1, NUM_SOCKETS + 1):
+            sid = socket_sid(s)
+            self._child_sid[("socket", s)] = sid
+            self._child_num[("socket", sid)] = s
+            initial = None
+            project = self._project_child_entities.get("socket", {}).get(sid)
+            if not (project and project.get("label")):
+                initial = {"label": socket_label(s)}
+            self.register_child("socket", sid, initial_state=initial)
+
+    async def refresh_children(self) -> dict[str, Any]:
+        """IDE 'Refresh from Device' + the Refresh quick action: re-sweep
+        every mirrored parameter."""
+        if not (self.transport and self._connected):
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        await self._refresh_all()
+        return {"channels": len(self._child_num)}
+
+    # ── Polling backstop ────────────────────────────────────────────────
+
+    async def poll(self) -> None:
+        """Periodic re-sweep. Push covers the live case; this catches the
+        occasional missed update during reconnects or transient drops.
+        """
+        if not self.connected:
+            return
+        await self._refresh_all()
 
     # ── Send helpers ────────────────────────────────────────────────────
 
@@ -1054,6 +1277,71 @@ class AllenHeathDLiveDriver(BaseDriver):
     def _build_sysex(self, body: bytes) -> bytes:
         return bytes([0xF0]) + SYSEX_HEADER + body + bytes([0xF7])
 
+    # SysEx Get builders (byte formats verified against the V2.0 PDF).
+
+    def _build_get_mute(self, midi_ch_offset: int, ch_note: int) -> bytes:
+        return self._build_sysex(bytes([
+            self._midi_ch_byte(midi_ch_offset), SYSEX_CMD_GET,
+            SYSEX_GET_SUBKIND_MUTE, ch_note & 0x7F,
+        ]))
+
+    def _build_get_nrpn(self, midi_ch_offset: int, param_id: int,
+                        ch_note: int) -> bytes:
+        return self._build_sysex(bytes([
+            self._midi_ch_byte(midi_ch_offset), SYSEX_CMD_GET,
+            SYSEX_GET_SUBKIND_NRPN, param_id & 0x7F, ch_note & 0x7F,
+        ]))
+
+    def _build_get_name(self, midi_ch_offset: int, ch_note: int) -> bytes:
+        return self._build_sysex(bytes([
+            self._midi_ch_byte(midi_ch_offset), SYSEX_CMD_NAME_GET,
+            ch_note & 0x7F,
+        ]))
+
+    def _build_get_colour(self, midi_ch_offset: int, ch_note: int) -> bytes:
+        return self._build_sysex(bytes([
+            self._midi_ch_byte(midi_ch_offset), SYSEX_CMD_COLOUR_GET,
+            ch_note & 0x7F,
+        ]))
+
+    def _build_get_pad(self, mp: int) -> bytes:
+        return self._build_sysex(bytes([
+            self._midi_ch_byte(0), SYSEX_CMD_PAD_GET, mp & 0x7F,
+        ]))
+
+    def _build_get_48v(self, mp: int) -> bytes:
+        return self._build_sysex(bytes([
+            self._midi_ch_byte(0), SYSEX_CMD_48V_GET, mp & 0x7F,
+        ]))
+
+    def _build_get_gain(self, mp: int) -> bytes:
+        # Sockets are addressed on the base MIDI channel; the reply is the
+        # Pitchbend EN MP GV message.
+        return self._build_get_nrpn(0, NRPN_PARAM_PREAMP_GAIN, mp)
+
+    # ── Liveness watchdog (BaseDriver health loop) ──────────────────────
+
+    async def _liveness_probe(self) -> None:
+        """Send a SysEx Get for the Main 1 fader and await the reply.
+
+        Pushes only happen when a console-side control moves, and sweep
+        Gets are fire-and-forget, so a dLive that vanished without a FIN
+        would otherwise stay "online" forever. Replies aren't tagged, so
+        the probe correlates by parameter address: any NRPN fader message
+        for the probed channel resolves it (the Get reply — or a console-
+        side move of that same fader, which equally proves the console is
+        alive). A push of any other parameter does NOT satisfy it.
+        """
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[None] = loop.create_future()
+        self._probe_fut = fut
+        try:
+            offset, note = self._probe_addr
+            await self._send(self._build_get_nrpn(offset, NRPN_PARAM_FADER, note))
+            await fut
+        finally:
+            self._probe_fut = None
+
     # ── send_command dispatch ───────────────────────────────────────────
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
@@ -1063,31 +1351,63 @@ class AllenHeathDLiveDriver(BaseDriver):
             raise ValueError(f"Unknown command: {command}")
         return await method(**params)
 
+    # ── Channel resolution ──────────────────────────────────────────────
+
+    def _resolve_n(self, ctype: str, sid: Any) -> int:
+        n = self._child_num.get((ctype, str(sid)))
+        if n is None:
+            raise ValueError(f"Unknown {ctype}: {sid!r}")
+        return n
+
     # ── Mutes ───────────────────────────────────────────────────────────
 
-    async def _do_mute(self, ctype: str, channel: int, action: str) -> None:
-        offset, ch_note = channel_address(ctype, int(channel))
+    async def _do_mute(self, ctype: str, channel: Any, action: str) -> None:
+        n = self._resolve_n(ctype, channel)
+        offset, ch_note = channel_address(ctype, n)
         action = (action or "on").lower()
-        key = state_key(ctype, int(channel), "mute")
+        followup_get = False
         if action == "toggle":
-            cur = bool(self.get_state(key))
-            action = "off" if cur else "on"
-        velocity = 0x7F if action == "on" else 0x3F
-        await self._send(self._build_note_pair(offset, ch_note, velocity))
+            cur = bool(self.get_child_state(ctype, str(channel)).get("mute"))
+            on = not cur
+            followup_get = True   # cached state may be stale — read back
+        else:
+            on = action == "on"
+        await self._send(self._build_note_pair(offset, ch_note, 0x7F if on else 0x3F))
+        # Optimistic: mirror the commanded value (A&H consoles don't echo
+        # changes they receive over MIDI — confirmed on Qu hardware).
+        self._apply_mute(offset, ch_note, on)
+        if followup_get:
+            await self._send(self._build_get_mute(offset, ch_note))
 
-    # Mute method generation is at the bottom of the file (one cmd_mute_<ctype>
-    # for every channel type).
+    async def _do_mute_all_inputs(self, on: bool) -> None:
+        for n in range(1, NUM_INPUTS + 1):
+            offset, ch_note = channel_address("input", n)
+            await self._send(self._build_note_pair(offset, ch_note, 0x7F if on else 0x3F))
+            self._apply_mute(offset, ch_note, on)
+            if n % 16 == 0:
+                await asyncio.sleep(0.01)
+
+    async def cmd_mute_all_inputs(self) -> None:
+        await self._do_mute_all_inputs(True)
+
+    async def cmd_unmute_all_inputs(self) -> None:
+        await self._do_mute_all_inputs(False)
+
+    # Mute / fader method generation is at the bottom of the file (one
+    # cmd_mute_<ctype> / cmd_set_<ctype>_fader[_db] per channel type).
 
     # ── Faders (NRPN param 17, 7-bit LV) ────────────────────────────────
 
-    async def _do_fader(self, ctype: str, channel: int, lv: int) -> None:
-        offset, ch_note = channel_address(ctype, int(channel))
+    async def _do_fader(self, ctype: str, channel: Any, lv: int) -> None:
+        n = self._resolve_n(ctype, channel)
+        offset, ch_note = channel_address(ctype, n)
         await self._send(self._build_nrpn_set(offset, ch_note, NRPN_PARAM_FADER, lv))
+        self._apply_fader(offset, ch_note, lv)
 
-    async def _do_fader_position(self, ctype: str, channel: int, level: float) -> None:
+    async def _do_fader_position(self, ctype: str, channel: Any, level: float) -> None:
         await self._do_fader(ctype, channel, level_to_lv(float(level)))
 
-    async def _do_fader_db(self, ctype: str, channel: int, db: float) -> None:
+    async def _do_fader_db(self, ctype: str, channel: Any, db: float) -> None:
         await self._do_fader(ctype, channel, db_to_lv(float(db)))
 
     # ── Send levels (SysEx 0D) and Send assigns (SysEx 0E) ──────────────
@@ -1179,18 +1499,20 @@ class AllenHeathDLiveDriver(BaseDriver):
     async def cmd_set_channel_name(self, channel_type: str, channel: int,
                                    name: str) -> None:
         offset, ch_note = channel_address(channel_type, int(channel))
-        encoded = (name or "")[:8].encode("ascii", errors="replace")
+        cleaned = (name or "")[:8]
+        encoded = cleaned.encode("ascii", errors="replace")
         body = bytes([
             self._midi_ch_byte(offset) & 0x0F,
             SYSEX_CMD_NAME_SET,
             ch_note & 0x7F,
         ]) + encoded
         await self._send(self._build_sysex(body))
+        self._apply_name(offset, ch_note, cleaned)
 
     async def cmd_set_channel_colour(self, channel_type: str, channel: int,
-                                     colour: int) -> None:
+                                     colour: str) -> None:
         offset, ch_note = channel_address(channel_type, int(channel))
-        col = max(0, min(7, int(colour)))
+        col = colour_to_value(colour)
         body = bytes([
             self._midi_ch_byte(offset) & 0x0F,
             SYSEX_CMD_COLOUR_SET,
@@ -1198,43 +1520,41 @@ class AllenHeathDLiveDriver(BaseDriver):
             col,
         ])
         await self._send(self._build_sysex(body))
+        self._apply_colour(offset, ch_note, col)
 
-    # ── Preamp Gain / Pad / 48V ─────────────────────────────────────────
+    # ── Preamp Gain / Pad / 48V (socket children) ───────────────────────
 
-    async def cmd_set_preamp_gain(self, socket: int, gain_db: float) -> None:
-        mp = int(socket)
-        if mp < 1 or mp > NUM_SOCKETS:
-            raise ValueError(f"Socket {mp} outside 1..{NUM_SOCKETS}")
+    async def cmd_set_preamp_gain(self, socket: Any, gain_db: float) -> None:
+        mp = self._resolve_n("socket", socket) - 1
         gv = gain_to_gv(float(gain_db))
         # Pitchbend EN MP GV — base channel.
         e = 0xE0 | self._midi_ch_byte(0)
-        await self._send(bytes([e, (mp - 1) & 0x7F, gv & 0x7F]))
+        await self._send(bytes([e, mp & 0x7F, gv & 0x7F]))
+        self._apply_gain(mp, gv)
 
-    async def cmd_set_preamp_pad(self, socket: int, action: str = "off") -> None:
-        mp = int(socket)
-        if mp < 1 or mp > NUM_SOCKETS:
-            raise ValueError(f"Socket {mp} outside 1..{NUM_SOCKETS}")
-        v = 0x7F if (action or "off").lower() == "on" else 0x00
+    async def cmd_set_preamp_pad(self, socket: Any, action: str = "off") -> None:
+        mp = self._resolve_n("socket", socket) - 1
+        on = (action or "off").lower() == "on"
         body = bytes([
             self._midi_ch_byte(0) & 0x0F,
             SYSEX_CMD_PAD_SET,
-            (mp - 1) & 0x7F,
-            v & 0x7F,
+            mp & 0x7F,
+            0x7F if on else 0x00,
         ])
         await self._send(self._build_sysex(body))
+        self._apply_socket_bool(mp, "pad", on)
 
-    async def cmd_set_preamp_48v(self, socket: int, action: str = "off") -> None:
-        mp = int(socket)
-        if mp < 1 or mp > NUM_SOCKETS:
-            raise ValueError(f"Socket {mp} outside 1..{NUM_SOCKETS}")
-        v = 0x7F if (action or "off").lower() == "on" else 0x00
+    async def cmd_set_preamp_48v(self, socket: Any, action: str = "off") -> None:
+        mp = self._resolve_n("socket", socket) - 1
+        on = (action or "off").lower() == "on"
         body = bytes([
             self._midi_ch_byte(0) & 0x0F,
             SYSEX_CMD_48V_SET,
-            (mp - 1) & 0x7F,
-            v & 0x7F,
+            mp & 0x7F,
+            0x7F if on else 0x00,
         ])
         await self._send(self._build_sysex(body))
+        self._apply_socket_bool(mp, "phantom", on)
 
     # ── HPF (NRPN 30 / 31) ──────────────────────────────────────────────
 
@@ -1254,16 +1574,12 @@ class AllenHeathDLiveDriver(BaseDriver):
         v = 0x7F if (action or "on").lower() == "on" else 0x00
         await self._send(self._build_nrpn_set(offset, ch_note, NRPN_PARAM_HPF_ONOFF, v))
 
-    # ── Scene recall ────────────────────────────────────────────────────
+    # ── Scene / cue recall ──────────────────────────────────────────────
 
     async def cmd_recall_scene(self, scene: int) -> None:
         bank, program = scene_to_bank_program(int(scene))
         b = 0xB0 | self._midi_ch_byte(0)
         c = 0xC0 | self._midi_ch_byte(0)
-        # Scene recall: BN, 00, 00, BN, 00, Bank, CN, SS — the spec
-        # writes "BN 00 00, CN SS" but we follow the reference "Select
-        # bank / Recall Scene" form: BN 00 Bank, CN SS. The simulator
-        # mirrors this.
         await self._send(bytes([b, CC_BANK_SELECT_MSB, bank, c, program]))
         self.set_state("current_scene", int(scene))
 
@@ -1298,8 +1614,43 @@ class AllenHeathDLiveDriver(BaseDriver):
         b = 0xB0 | self._midi_ch_byte(0)
         await self._send(bytes([b, CC_UFX_GLOBAL_SCALE, value & 0x7F]))
 
+    # ── Refresh (SysEx Get sweep) ───────────────────────────────────────
+
     async def cmd_refresh(self) -> None:
-        return None
+        """Manually re-sweep state. Same as the on-connect query."""
+        await self._refresh_all()
+
+    async def _refresh_all(self) -> None:
+        """Issue SysEx Get queries for every parameter mirrored as state:
+        mute / fader / name / colour per channel, gain / pad / 48V per
+        socket (~2400 queries). Pipelined with a yield every 16 messages
+        to keep the socket flowing on a fresh connect.
+        """
+        if not self.connected:
+            return
+
+        queries: list[bytes] = []
+        for ctype, (_, _, count, _) in CHANNEL_TYPES.items():
+            for n in range(1, count + 1):
+                offset, ch_note = channel_address(ctype, n)
+                queries.append(self._build_get_mute(offset, ch_note))
+                if ctype != "mute_group":
+                    queries.append(self._build_get_nrpn(
+                        offset, NRPN_PARAM_FADER, ch_note))
+                queries.append(self._build_get_name(offset, ch_note))
+                queries.append(self._build_get_colour(offset, ch_note))
+        for mp in range(NUM_SOCKETS):
+            queries.append(self._build_get_gain(mp))
+            queries.append(self._build_get_pad(mp))
+            queries.append(self._build_get_48v(mp))
+
+        for i, q in enumerate(queries):
+            try:
+                await self._send(q)
+            except Exception:  # noqa: BLE001
+                break
+            if i % 16 == 15:
+                await asyncio.sleep(0.01)
 
     # ── Incoming MIDI parser ────────────────────────────────────────────
 
@@ -1358,6 +1709,8 @@ class AllenHeathDLiveDriver(BaseDriver):
                     self._handle_note_on(ch, d1, d2)
                 elif high == 0xB0:
                     self._handle_cc(ch, d1, d2)
+                elif high == 0xE0:
+                    self._handle_pitchbend(ch, d1, d2)
             elif high in (0xC0, 0xD0):
                 if i >= len(buf):
                     break
@@ -1388,12 +1741,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         offset = self._midi_offset_for_ch(ch)
         if offset is None:
             return
-        target = self._addr_map.lookup(offset, note)
-        if target is None:
-            return
-        ctype, n = target
-        on = velocity >= 0x40
-        self.set_state(state_key(ctype, n, "mute"), on)
+        self._apply_mute(offset, note, velocity >= 0x40)
 
     def _handle_cc(self, ch: int, controller: int, value: int) -> None:
         if controller == CC_BANK_SELECT_MSB:
@@ -1412,21 +1760,28 @@ class AllenHeathDLiveDriver(BaseDriver):
         offset = self._midi_offset_for_ch(ch)
         if offset is None:
             return
-        target = self._addr_map.lookup(offset, ch_note)
-        if target is None:
-            return
-        ctype, n = target
 
         if param_id == NRPN_PARAM_FADER:
-            if ctype == "mute_group":
-                return
-            self.set_state(state_key(ctype, n, "fader"), lv_to_level(value))
+            # Resolve the liveness probe on a fader message for the probed
+            # channel (the Get reply — or a console-side move of the same
+            # fader, which equally proves the console is alive).
+            if (self._probe_fut is not None and not self._probe_fut.done()
+                    and (offset, ch_note) == self._probe_addr):
+                self._probe_fut.set_result(None)
+            self._apply_fader(offset, ch_note, value)
             return
 
         # Main assign / DCA assign / mute-group assign / HPF echoes are
-        # accepted (no-op) — exposing them as named state vars is a future
-        # extension.
+        # accepted (no-op) — those aren't mirrored as state.
         return
+
+    def _handle_pitchbend(self, ch: int, mp: int, gv: int) -> None:
+        # dLive preamp gain: EN MP GV on the base channel — MP is the
+        # socket byte and GV the gain byte (byte semantics, not the MIDI
+        # 14-bit pitchbend value).
+        if ch != self._midi_ch_byte(0):
+            return
+        self._apply_gain(mp & 0x7F, gv & 0x7F)
 
     def _handle_program_change(self, ch: int, program: int) -> None:
         if ch != self._midi_ch_byte(0):
@@ -1444,13 +1799,105 @@ class AllenHeathDLiveDriver(BaseDriver):
             self.set_state("current_cue", cue)
 
     def _handle_sysex(self, message: bytes) -> None:
-        """SysEx parsing in v1.0.0: accept and discard. Pad/48V replies
-        (cmd 0x08 / 0x0B) and Name/Colour replies (0x02 / 0x05) are
-        documented but not state-mirrored yet; the parser drops them.
-        Generic Get-response messages (cmd 0x05 with sub-kinds 0x09 /
-        0x0B / 0x0F) are likewise accepted and dropped.
+        """Parse Get replies into child state. The console only sends the
+        reply forms — the request forms (name/colour Get, the 0x05 Get
+        family) originate from the controller, so a body starting 0N 05
+        on the receive side is always a Colour Reply (0N 05 CH Col).
+        Send-level / send-assign frames (0D / 0E) may arrive as console-
+        side move echoes; send cells aren't mirrored as state, so they
+        are accepted and dropped.
         """
+        if len(message) < 2 or message[0] != 0xF0 or message[-1] != 0xF7:
+            return
+        body = message[1:-1]
+        if not body.startswith(SYSEX_HEADER):
+            return
+        body = body[len(SYSEX_HEADER):]
+        if len(body) < 3:
+            return
+
+        midi_ch = body[0] & 0x0F
+        cmd = body[1]
+        rest = body[2:]
+        offset = self._midi_offset_for_ch(midi_ch)
+        if offset is None:
+            return
+
+        if cmd == SYSEX_CMD_NAME_REPLY:
+            # 0N 02 CH <name ASCII...>
+            ch_note = rest[0] & 0x7F
+            name = rest[1:].decode("ascii", errors="replace").rstrip(" \x00")
+            self._apply_name(offset, ch_note, name)
+            return
+
+        if cmd == SYSEX_CMD_COLOUR_REPLY and len(rest) == 2:
+            # 0N 05 CH Col
+            self._apply_colour(offset, rest[0] & 0x7F, rest[1] & 0x7F)
+            return
+
+        if cmd == SYSEX_CMD_PAD_REPLY and len(rest) >= 2:
+            # 0N 08 MP Pad
+            self._apply_socket_bool(rest[0] & 0x7F, "pad", rest[1] >= 0x40)
+            return
+
+        if cmd == SYSEX_CMD_48V_REPLY and len(rest) >= 2:
+            # 0N 0B MP 48V
+            self._apply_socket_bool(rest[0] & 0x7F, "phantom", rest[1] >= 0x40)
+            return
+
+        # Send level / assign echoes (0D / 0E) and anything else: drop.
         return
+
+    # ── State fan-out ───────────────────────────────────────────────────
+    #
+    # Shared by the inbound parser AND the optimistic write path, so a
+    # sent value and a received value land in state identically.
+
+    def _child_at(self, offset: int, ch_note: int) -> tuple[str, str] | None:
+        target = self._addr_map.lookup(offset, ch_note)
+        if target is None:
+            return None
+        ctype, n = target
+        sid = self._child_sid.get((ctype, n))
+        if sid is None:
+            return None
+        return ctype, sid
+
+    def _set_child(self, ctype: str, sid: str, prop: str, value: Any) -> None:
+        try:
+            self.set_child_state_batch(ctype, sid, {prop: value})
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _apply_mute(self, offset: int, ch_note: int, on: bool) -> None:
+        child = self._child_at(offset, ch_note)
+        if child:
+            self._set_child(*child, "mute", bool(on))
+
+    def _apply_fader(self, offset: int, ch_note: int, lv: int) -> None:
+        child = self._child_at(offset, ch_note)
+        if child and child[0] != "mute_group":
+            self._set_child(*child, "fader", lv_to_level(lv))
+
+    def _apply_name(self, offset: int, ch_note: int, name: str) -> None:
+        child = self._child_at(offset, ch_note)
+        if child:
+            self._set_child(*child, "name", name)
+
+    def _apply_colour(self, offset: int, ch_note: int, col: int) -> None:
+        child = self._child_at(offset, ch_note)
+        if child:
+            self._set_child(*child, "colour", value_to_colour(col))
+
+    def _apply_gain(self, mp: int, gv: int) -> None:
+        sid = self._child_sid.get(("socket", mp + 1))
+        if sid:
+            self._set_child("socket", sid, "gain_db", round(gv_to_gain(gv), 1))
+
+    def _apply_socket_bool(self, mp: int, prop: str, on: bool) -> None:
+        sid = self._child_sid.get(("socket", mp + 1))
+        if sid:
+            self._set_child("socket", sid, prop, bool(on))
 
 
 # Class export expected by the loader.
@@ -1461,25 +1908,25 @@ DRIVER_CLASS = AllenHeathDLiveDriver
 #
 # We declare cmd_mute_<ctype>, cmd_set_<ctype>_fader, and
 # cmd_set_<ctype>_fader_db on the driver class for every channel type.
-# Doing this in code avoids 45 near-identical hand-written method
+# Doing this in code avoids 43 near-identical hand-written method
 # definitions while keeping the dispatcher's getattr lookup fast.
 
 def _make_mute_cmd(ctype: str):
-    async def _cmd(self, channel: int, action: str = "on") -> None:
+    async def _cmd(self, channel: Any, action: str = "on") -> None:
         await self._do_mute(ctype, channel, action)
     _cmd.__name__ = f"cmd_mute_{ctype}"
     return _cmd
 
 
 def _make_fader_cmd(ctype: str):
-    async def _cmd(self, channel: int, level: float) -> None:
+    async def _cmd(self, channel: Any, level: float) -> None:
         await self._do_fader_position(ctype, channel, level)
     _cmd.__name__ = f"cmd_set_{ctype}_fader"
     return _cmd
 
 
 def _make_fader_db_cmd(ctype: str):
-    async def _cmd(self, channel: int, db: float) -> None:
+    async def _cmd(self, channel: Any, db: float) -> None:
         await self._do_fader_db(ctype, channel, db)
     _cmd.__name__ = f"cmd_set_{ctype}_fader_db"
     return _cmd

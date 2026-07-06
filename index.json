@@ -70,10 +70,10 @@
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.2.2",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Mute / fader / send level / send assign / channel assign across 128 inputs, 62 mono and 31 stereo groups, 62 mono and 31 stereo aux outs, 62 mono and 31 stereo matrix outs, 16 mono and 16 stereo FX sends, 16 FX returns, 6 mains, 24 DCAs, 8 mute groups, 8 stereo UFX sends, 8 stereo UFX returns. Adds dLive-specific surface: 128 socket preamps (gain via Pitchbend, Pad, 48V), per-channel HPF, Cue List Recall (Surface, 1-2000), Scene Recall (MixRack, 1-500), channel name and colour set, MMC transport, UFX global key and scale, plus bidirectional state from console-side echoes.",
+      "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, main, DCA, mute group and UFX send/return is a child entity with live mute / fader / name / colour state, and all 128 preamp sockets are children with live gain / pad / 48V state \u2014 the console's own channel names become the labels in OpenAVC. Send levels and assigns, per-channel HPF, Scene Recall (MixRack, 1-500), Cue List Recall (Surface, 1-2000), MMC transport and UFX global key / scale, with bidirectional state from console-side moves and a Get-probe watchdog that flips the device offline if the console vanishes.",
       "source_url": "https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf",
       "file": "audio/allenheath_dlive.py",
       "format": "python",
@@ -84,7 +84,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.6.0",
+      "min_platform_version": "0.22.0",
       "tags": [
         "mixer",
         "console",
@@ -94,8 +94,8 @@
         "allen-heath"
       ],
       "help": {
-        "overview": "Controls an Allen & Heath dLive digital mixing system over the network using MIDI over TCP/IP. Full mute, fader, send-level, send-assign, channel-assign, preamp (gain / pad / 48V), HPF, scene / cue recall, MMC and UFX global key / scale. Console-side moves push back into OpenAVC state so faders and mute LEDs on a touch panel stay in sync.",
-        "setup": "1. Confirm the dLive system is running firmware V2.0 or later. TCP/IP control is unavailable on earlier firmware.\n2. Connect the MixRack (or Surface, if controlling the Surface directly) to the same network as the OpenAVC server.\n3. On the dLive, go to Utility / Network and note the IP address.\n4. Go to Utility / Control / MIDI and note the base MIDI channel. The console reserves the next four channels above the base for output buses.\n5. Enter the IP address and matching base MIDI channel in the device config. Use port 51325 for MixRack, 51328 for Surface.\n6. The driver listens for console-side push automatically; no further setup is required."
+        "overview": "Controls an Allen & Heath dLive digital mixing system over the network using MIDI over TCP/IP. Every channel strip and preamp socket is listed as a child entity with live state \u2014 bind child state (e.g. device.<id>.input.in001.mute) to panel elements and drive mutes, faders, preamps and scene recall from macros and buttons. The console's channel names and colours are read on connect and become the labels shown in OpenAVC; console-side moves push straight back into state.",
+        "setup": "1. Confirm the dLive system is running firmware V2.0 or later. TCP/IP control is unavailable on earlier firmware.\n2. Connect the MixRack (or Surface, if controlling the Surface directly) to the same network as the OpenAVC server.\n3. On the dLive, go to Utility / Network and note the IP address.\n4. Go to Utility / Control / MIDI and note the base MIDI channel. The console reserves the next four channels above the base for output buses.\n5. Enter the IP address and matching base MIDI channel in the device config. Use port 51325 for MixRack, 51328 for Surface.\n6. Save. The channels and preamp sockets appear under the device with live state; channel names and colours sync from the console automatically."
       },
       "compatible_models": [
         {
@@ -113,7 +113,7 @@
             "DM64"
           ],
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ],
       "discovery": {

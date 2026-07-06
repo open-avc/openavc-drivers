@@ -39,7 +39,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -51,7 +51,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -63,7 +63,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -75,7 +75,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -87,7 +87,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -99,7 +99,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -111,7 +111,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -123,7 +123,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -135,7 +135,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },
@@ -147,7 +147,7 @@
         {
           "id": "allenheath_dlive",
           "confidence": "untested",
-          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP (port 51325) only in v1.0.0; TLS+UserProfile auth on port 51327 is a future extension."
+          "notes": "Same MIDI command surface across the dLive S- and C-class Surfaces and DM-series MixRacks. Requires firmware V2.0 or later for TCP/IP control. Plain-TCP only (port 51325 MixRack / 51328 Surface); the TLS+UserProfile ports (51327 / 51329) are a future extension."
         }
       ]
     },

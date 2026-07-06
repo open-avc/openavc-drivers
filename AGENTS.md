@@ -77,6 +77,8 @@ The sections below remain the authoritative field-by-field reference; the schema
 | `author` | string | `"Community"` | Driver author. |
 | `description` | string | `""` | Brief description. |
 | `delimiter` | string | `"\r"` | Message delimiter. Supports escape sequences: `\r`, `\n`, `\r\n`, or a literal character. |
+| `command_prefix` | string | — | Opt-in constant prepended to every command's `send` (a fixed packet header). Byte-stream transports only (tcp/serial/udp). Supports the same escapes and `{config}` substitution as `send`. See §2.6. Requires platform 0.23.0. |
+| `command_suffix` | string | — | Opt-in constant appended to every command's `send` (its terminator — set it once instead of typing `\r` on each command). Byte-stream transports only. See §2.6. Requires platform 0.23.0. |
 | `help` | object | `{}` | `{overview: "...", setup: "..."}` shown in the Add Device dialog. Optional `connection: "..."` adds a short troubleshooting hint shown on the device's offline banner when it can't connect (e.g. a remote-access setting the device needs enabled first). |
 | `protocols` | list | `[]` | Protocol names for device discovery. (e.g., `["pjlink"]`, `["extron_sis"]`) |
 | `discovery` | object | `{}` | Network discovery hints (see below). |
@@ -641,6 +643,34 @@ commands:
         max: 100
 ```
 
+**Command framing (`command_prefix` / `command_suffix`).** When a text protocol wraps every command in the same header and terminator, declare them once at the driver level and author bare `send` strings instead of repeating the frame on each command:
+
+```yaml
+command_prefix: "!1"     # a fixed packet header
+command_suffix: "\r"     # the terminator — no more \r on every send
+commands:
+  power_on:  { label: "Power On",  send: "PWR01" }   # -> !1PWR01\r on the wire
+  raw_ping:  { label: "Ping", send: "PING\r", raw: true }  # raw: skips the frame
+```
+
+Both are opt-in and byte-stream only (tcp/serial/udp) — an OSC or HTTP command is never framed. A single command opts out with `raw: true`. To poll a framed command, list its **name** in `polling.queries` (it runs as that command, so the frame is applied) rather than re-typing the framed wire string. Requires platform 0.23.0.
+
+**Enum labels.** An `enum` param's `values` entries may be plain strings or `{value, label}` pairs. The **label** is what the operator picks and reads in a macro; the **value** goes on the wire — so you label a code set once instead of defining one command per code. A caller may pass either the label or the wire value (picker, macro `$var`, REST/cloud API); the runtime normalizes to the value. Requires platform 0.23.0.
+
+```yaml
+  set_dsp:
+    label: "DSP Mode"
+    send: "LMD{mode}"
+    params:
+      mode:
+        type: enum
+        required: true
+        values:
+          - { value: "00", label: "Stereo" }
+          - { value: "0f", label: "Multi Channel Stereo" }
+          - "ff"    # a plain string is still fine (value == label)
+```
+
 #### HTTP Commands
 
 ```yaml
@@ -1101,6 +1131,8 @@ shape the wire form:
 `state_key` write routing follows the transport: `write.send` (TCP/serial),
 `write.path` + `write.method` (HTTP, default POST), `write.address` +
 `write.args` (OSC).
+
+**Enum labels.** An `enum` setting's `values` entries may be plain strings or `{value, label}` pairs (`- { value: "0f", label: "Multi Channel Stereo" }`) — the editor shows the label and writes the wire value, and a write passing the label is normalized to the value. Unlike a command picker, a setting write that resolves to nothing in the set is **rejected** (persisted device config, not forgiving free text). Requires platform 0.23.0.
 
 ### 2.12 frame_parser (Advanced)
 

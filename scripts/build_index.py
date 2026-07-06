@@ -1236,6 +1236,21 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _validate_command_framing(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate the optional send-side command framing fields.
+
+    Mirrors driver_loader.validate_driver_definition: `command_prefix` /
+    `command_suffix` wrap every byte-stream command and must be strings when
+    present (a list or number would break the send path).
+    """
+    errors: list[str] = []
+    for key in ("command_prefix", "command_suffix"):
+        val = data.get(key)
+        if val is not None and not isinstance(val, str):
+            errors.append(f"{file}: {key} must be a string")
+    return errors
+
+
 def _validate_device_settings(file: str, data: dict[str, Any]) -> list[str]:
     """Validate a YAML driver's optional `device_settings:` mapping.
 
@@ -2136,6 +2151,7 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(_validate_child_entity_types(rel, data))
         errors.extend(_validate_child_routing(rel, data))
         errors.extend(_validate_device_settings(rel, data))
+        errors.extend(_validate_command_framing(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

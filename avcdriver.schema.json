@@ -116,6 +116,14 @@
       "type": "string",
       "description": "Message delimiter. Default \"\\r\". Use \"\\r\\n\" for CRLF. Escape sequences \\r and \\n are interpreted."
     },
+    "command_prefix": {
+      "type": "string",
+      "description": "Opt-in constant string prepended to every command's send string (a fixed packet header). Set it once instead of repeating it on each command. Byte-stream transports only (tcp/serial/udp); never applied to OSC or HTTP. Supports the same escape sequences and {config} substitution as send. A command can opt out with raw: true. Requires platform 0.23.0."
+    },
+    "command_suffix": {
+      "type": "string",
+      "description": "Opt-in constant string appended to every command's send string (its terminator). Set it once so you don't type \\r on each command. Byte-stream transports only (tcp/serial/udp). Supports the same escape sequences and {config} substitution as send. A command can opt out with raw: true. Requires platform 0.23.0."
+    },
     "inline_protocol": {
       "type": "boolean",
       "description": "Built-in generic devices only. When true, the device page shows a no-code Commands & Responses editor that stores commands/responses/state_variables in the device config and merges them into this driver at runtime. Community drivers ship their commands and responses in the driver file and should not set this."
@@ -349,6 +357,29 @@
     }
   ],
   "$defs": {
+    "enumValue": {
+      "description": "One enum option: a bare wire value, or a {value, label} pair where the label is shown in pickers (and read in macros) while the value goes on the wire. A plain scalar means value == label.",
+      "oneOf": [
+        {
+          "type": ["string", "number", "boolean"]
+        },
+        {
+          "type": "object",
+          "required": ["value"],
+          "properties": {
+            "value": {
+              "type": ["string", "number", "boolean"],
+              "description": "The value sent on the wire."
+            },
+            "label": {
+              "type": "string",
+              "description": "Human-readable label shown in the picker. Defaults to the value."
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "helpBlock": {
       "type": "object",
       "required": ["overview", "setup"],
@@ -601,7 +632,11 @@
           "type": "string"
         },
         "values": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/enumValue"
+          },
+          "description": "Allowed values for an enum param. Each entry is a bare wire value or a {value, label} pair (label shown in the picker, value sent on the wire). The runtime accepts either the label or the value from any caller and normalizes to the value."
         },
         "child_type": {
           "type": "string",
@@ -711,6 +746,10 @@
         "send": {
           "type": "string",
           "description": "Raw bytes to send (TCP/serial/UDP). {param} and {config} placeholders substituted at runtime."
+        },
+        "raw": {
+          "type": "boolean",
+          "description": "Send this command's send string exactly as written, skipping the driver's command_prefix / command_suffix framing. Use it for the odd command that doesn't share the common frame. Requires platform 0.23.0."
         },
         "string": {
           "type": "string",
@@ -1136,7 +1175,11 @@
           "description": "Generate a non-clashing default (appends device ID). Default false."
         },
         "values": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/enumValue"
+          },
+          "description": "Allowed values for an enum setting. Each entry is a bare wire value or a {value, label} pair (label shown in the editor, value written to the device). A write that resolves to nothing in the set is rejected."
         },
         "min": {
           "type": "number"

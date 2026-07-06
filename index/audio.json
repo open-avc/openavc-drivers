@@ -365,7 +365,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.3.3",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP. Supports input/output level and mute control, preset recall, and SmartMix configuration.\n",
@@ -376,6 +376,7 @@
         17300
       ],
       "simulated": true,
+      "min_platform_version": "0.22.0",
       "tags": [
         "mixer",
         "smartmixer",
@@ -383,8 +384,8 @@
         "automixer"
       ],
       "help": {
-        "overview": "Controls Audio-Technica ATDM-0604 Digital SmartMixer. The ATDM-0604 is a 6-input, 4-output automatic mixer designed for conference and installed sound applications.\n",
-        "setup": "1. Connect the ATDM-0604 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Input channels: 1-6 (mic/line), ST (stereo). 5. Output channels: 1-4, ST (stereo).\n"
+        "overview": "Controls Audio-Technica ATDM-0604 Digital SmartMixer. The ATDM-0604 is a 6-input automatic mixer designed for conference and installed sound applications.\n",
+        "setup": "1. Connect the ATDM-0604 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Enable \"IP Control Setting Notification\" in the device's network\n   settings so the mixer pushes level and mute changes to OpenAVC.\n5. Input channels: 1-6 (mic/line), ST (stereo). 6. Output channels: 1-2 and ST (stereo).\n"
       },
       "compatible_models": [
         {
@@ -414,7 +415,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.3.3",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP. Supports input/output level and mute control, bus assign, SmartMix configuration, operator faders, and preset recall.\n",
@@ -425,6 +426,7 @@
         17300
       ],
       "simulated": true,
+      "min_platform_version": "0.22.0",
       "tags": [
         "mixer",
         "smartmixer",
@@ -434,7 +436,7 @@
       ],
       "help": {
         "overview": "Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers. The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses, designed for conference rooms, courtrooms, and council chambers. The DAN variant adds Dante audio networking.\n",
-        "setup": "1. Connect the ATDM-1012 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8. 5. Output channels: 1-8, ST1, ST2. 6. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
+        "setup": "1. Connect the ATDM-1012 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Enable \"IP Control Setting Notification\" in the device's network\n   settings so the mixer pushes level and mute changes to OpenAVC.\n5. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8. 6. Output channels: 1-8, ST1, ST2. 7. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
       },
       "compatible_models": [
         {
@@ -447,6 +449,12 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 17300,
+          "send_ascii": "g_deviceid O 0000 00 NC \r",
+          "expect_regex": "g_deviceid 0000",
+          "extract_manufacturer": "Audio-Technica"
+        },
         "oui": [
           "00:0a:45"
         ],

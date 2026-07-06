@@ -2,8 +2,7 @@
 #
 # Controls Audio-Technica ATDM-0604 automatic mixers over TCP (port 17300).
 #
-# Protocol reference: IP Control Protocol Specification ATDM-0604 V1.0.2
-# Working reference: Bitfocus companion-module-audiotechnica-digitalmixer
+# Protocol reference: IP Control Protocol Specification ATDM-0604 (docs.audio-technica.com)
 #
 # Command format (Set):  <command> S <modelID> <unitNo> NC <params>\r
 # Command format (Get):  <command> O <modelID> <unitNo> NC <params>\r
@@ -12,12 +11,24 @@
 # Answer:                <command> <modelID> <unitNo> NC <params>\r
 # Notification:          MD <command> <modelID> <unitNo> NC <params>\r
 #
-# All fields are space-delimited (0x20). Parameters are comma-separated.
+# All fields are space-delimited (0x20). Parameters are comma-separated;
+# a parameter may be omitted (left empty between commas) to leave that
+# field unchanged on a Set.
 #
 # Key concepts:
-#   - 6 mic/line inputs (0-5), 1 stereo input (10), 4 outputs (0-3), 1 stereo output (10)
-#   - Fader values: 0 = mute(-inf), 1-511 = -120dB to +10dB (0.25dB steps)
-#   - SmartMixer: automatic gain sharing / gating for conferencing
+#   - 6 mic/line inputs (0-5) plus 1 stereo input (10)
+#   - 2 mono outputs (0-1) plus 1 stereo output (10) — the protocol has no
+#     output channels 2-9 (the spec's output-channel tables list exactly
+#     0 = Output 1, 1 = Output 2, 10 = Output ST)
+#   - Fader values: 0 = mute(-inf), 1-511 = -120dB to +10dB (411 = 0 dB)
+#   - SmartMixer: automatic gain sharing / gating for conferencing.
+#     Per-channel settings via s_smart_mix (8 fields: channel, gain-share
+#     weight, 3 reserved, gate priority, can cut, off attenuation); common
+#     settings via s_smart_mix_general (6 fields: mode, last mic on, gate
+#     hold time, NOMA, number of open mics, priority mode). Both have g_*
+#     read-back verbs.
+#   - MD push notifications are only sent when "IP Control Setting
+#     Notification" is enabled in the device's network settings.
 #   - Max 5 simultaneous TCP connections
 #   - Asynchronous: can send commands without waiting for ACK/NAK
 
@@ -25,8 +36,9 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 1.3.3
+version: 1.4.0
 author: OpenAVC
+min_platform_version: "0.22.0"
 description: >
   Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP.
   Supports input/output level and mute control, preset recall,
@@ -48,21 +60,25 @@ delimiter: "\r"
 help:
   overview: >
     Controls Audio-Technica ATDM-0604 Digital SmartMixer. The ATDM-0604 is a
-    6-input, 4-output automatic mixer designed for conference and installed
+    6-input automatic mixer designed for conference and installed
     sound applications.
   setup: >
     1. Connect the ATDM-0604 to the network.
     2. The default control port is 17300.
     3. Configure the device's IP address via the front panel or web interface.
-    4. Input channels: 1-6 (mic/line), ST (stereo).
-    5. Output channels: 1-4, ST (stereo).
+    4. Enable "IP Control Setting Notification" in the device's network
+       settings so the mixer pushes level and mute changes to OpenAVC.
+    5. Input channels: 1-6 (mic/line), ST (stereo).
+    6. Output channels: 1-2 and ST (stereo).
 
 discovery:
-  # ATDM-0604 is the non-Dante variant — no network announcement
-  # exists for the bare control protocol on TCP 17300, and no
-  # Dante mDNS service is advertised since the 0604 doesn't have a
-  # Dante card. Hint-only via Audio-Technica OUI + control port +
-  # manufacturer alias.
+  # Hint-only on purpose. The natural active probe (g_firmware_version on
+  # TCP 17300) is answered identically by the ATDM-1012 — its command list
+  # marks g_firmware_version as ATDM-0604-compatible — and the 0604 has no
+  # documented read the 1012 lacks, so a probe cannot distinguish the two
+  # models. (The 1012 driver probes g_deviceid, which the 0604 does not
+  # implement.) No network announcement exists for the bare control
+  # protocol, and the 0604 has no Dante card to advertise mDNS.
   oui:
     - "00:0a:45"
   port_open:
@@ -126,6 +142,10 @@ state_variables:
     type: number
     label: Input 6 Level
     help: "Fader level on input 6 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+  input_st_level:
+    type: number
+    label: Input ST Level
+    help: "Fader level on the stereo input (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_1_level:
     type: number
     label: Output 1 Level
@@ -134,14 +154,10 @@ state_variables:
     type: number
     label: Output 2 Level
     help: "Fader level on output 2 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_3_level:
+  output_st_level:
     type: number
-    label: Output 3 Level
-    help: "Fader level on output 3 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_4_level:
-    type: number
-    label: Output 4 Level
-    help: "Fader level on output 4 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+    label: Output ST Level
+    help: "Fader level on the stereo output (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
   output_1_mute:
     type: boolean
     label: Output 1 Mute
@@ -150,14 +166,34 @@ state_variables:
     type: boolean
     label: Output 2 Mute
     help: "True when output 2 is muted."
-  output_3_mute:
+  output_st_mute:
     type: boolean
-    label: Output 3 Mute
-    help: "True when output 3 is muted."
-  output_4_mute:
+    label: Output ST Mute
+    help: "True when the stereo output is muted."
+  smart_mix_mode:
+    type: integer
+    label: SmartMix Mode
+    help: "SmartMix operating mode (0 = Off, 1 = Gate, 2 = Gain Share)."
+  last_mic_on:
     type: boolean
-    label: Output 4 Mute
-    help: "True when output 4 is muted."
+    label: Last Mic On
+    help: "True when Last Mic On is enabled (the last open mic stays open in Gate mode)."
+  gate_hold_time:
+    type: string
+    label: Gate Hold Time (ms)
+    help: "Gate hold time in milliseconds (100-500 in 100 ms steps, 1000-10000 in 500 ms steps)."
+  noma:
+    type: boolean
+    label: NOM Attenuation
+    help: "True when NOM attenuation is enabled (output level compensates for the number of open mics)."
+  open_mic_count:
+    type: integer
+    label: Open Mic Count
+    help: "Maximum number of simultaneously open microphones in Gate mode (1-6)."
+  priority_mode:
+    type: integer
+    label: Priority Mode
+    help: "Gate priority mode (0 = Mode 1, 1 = Mode 2)."
 
 commands:
   # ── Input Level Control ──
@@ -170,12 +206,11 @@ commands:
       maps to +20dB to +60dB for mic or -20dBu to -60dBu for line).
     params:
       channel:
-        type: integer
+        type: enum
         required: true
         label: Input Channel
-        min: 0
-        max: 10
-        help: "0-5 = Input 1-6, 10 = Input ST"
+        values: ["0", "1", "2", "3", "4", "5", "10"]
+        help: "0-5 = Input 1-6, 10 = Input ST (channels 6-9 do not exist)"
       gain:
         type: integer
         default: 0
@@ -200,12 +235,11 @@ commands:
       1=-120dB, 511=+10dB).
     params:
       channel:
-        type: integer
+        type: enum
         required: true
         label: Output Channel
-        min: 0
-        max: 10
-        help: "0-3 = Output 1-4, 10 = Output ST"
+        values: ["0", "1", "10"]
+        help: "0 = Output 1, 1 = Output 2, 10 = Output ST (the 0604 has no other outputs)"
       level:
         type: integer
         required: true
@@ -221,12 +255,11 @@ commands:
     help: "Mute an output channel."
     params:
       channel:
-        type: integer
+        type: enum
         required: true
         label: Output Channel
-        min: 0
-        max: 10
-        help: "0-3 = Output 1-4, 10 = Output ST"
+        values: ["0", "1", "10"]
+        help: "0 = Output 1, 1 = Output 2, 10 = Output ST"
 
   output_mute_off:
     label: Output Mute Off
@@ -234,18 +267,20 @@ commands:
     help: "Unmute an output channel."
     params:
       channel:
-        type: integer
+        type: enum
         required: true
         label: Output Channel
-        min: 0
-        max: 10
-        help: "0-3 = Output 1-4, 10 = Output ST"
+        values: ["0", "1", "10"]
+        help: "0 = Output 1, 1 = Output 2, 10 = Output ST"
 
   # ── Smart Mix Control ──
   set_smart_mix:
-    label: Set SmartMix
-    send: 's_smart_mix S 0000 00 NC {channel},{weight},{off_attenuation}\r'
-    help: "Configure SmartMix settings for an input channel."
+    label: Set SmartMix Channel
+    send: 's_smart_mix S 0000 00 NC {channel},{weight},,,,{priority},{can_cut},{off_attenuation}\r'
+    help: >
+      Configure the per-channel SmartMix settings for an input. Writes the
+      full documented field set: gain-share weight, gate priority, can cut,
+      and off attenuation (the three reserved fields are left empty).
     params:
       channel:
         type: integer
@@ -256,23 +291,37 @@ commands:
         help: "0-5 = Input 1-6"
       weight:
         type: integer
-        default: 3
-        label: Weight
+        default: 30
+        label: Gain Share Weight
         min: 0
-        max: 6
-        help: "0=-18dB, 1=-12dB, 2=-6dB, 3=0dB, 4=+6dB, 5=+12dB, 6=+18dB"
+        max: 60
+        help: "0-60 = -15 dB to +15 dB in 0.5 dB steps (30 = 0 dB); used in Gain Share mode"
+      priority:
+        type: integer
+        default: 0
+        label: Gate Priority
+        min: 0
+        max: 1
+        help: "1 = priority channel in Gate mode"
+      can_cut:
+        type: integer
+        default: 0
+        label: Can Cut
+        min: 0
+        max: 1
+        help: "1 = channel can be cut in Gate mode"
       off_attenuation:
         type: integer
-        default: 10
+        default: 40
         label: Off Attenuation
         min: 0
-        max: 20
-        help: "Attenuation in dB when mic is off"
+        max: 60
+        help: "0-60 = 0 to -60 dB attenuation (1 dB steps) when the mic is gated off"
 
   set_smart_mix_mode:
     label: Set SmartMix Mode
-    send: 's_smart_mix_general S 0000 00 NC {mode},{nom}\r'
-    help: "Set the SmartMix operating mode and number of open mics."
+    send: 's_smart_mix_general S 0000 00 NC {mode},,,,,\r'
+    help: "Set the SmartMix operating mode (other common settings are left unchanged)."
     params:
       mode:
         type: integer
@@ -281,13 +330,19 @@ commands:
         min: 0
         max: 2
         help: "0=Off, 1=Gate, 2=Gain Share"
-      nom:
+
+  set_open_mic_count:
+    label: Set Open Mic Count
+    send: 's_smart_mix_general S 0000 00 NC ,,,,{count},\r'
+    help: "Set the maximum number of simultaneously open microphones (Gate mode)."
+    params:
+      count:
         type: integer
-        default: 4
-        label: Number of Open Mics
+        required: true
+        label: Open Mic Count
         min: 1
         max: 6
-        help: "Max simultaneous open microphones (Gate mode)"
+        help: "1-6 mics"
 
   # ── Preset Control ──
   recall_preset:
@@ -327,12 +382,102 @@ commands:
     send: 'reboot S 0000 00 NC \r'
     help: "Reboots the ATDM-0604."
 
+# ── Device settings (SmartMix common settings — writable + read back via
+#    g_smart_mix_general; each write changes only its own field, using the
+#    protocol's omitted-parameter convention) ──
+device_settings:
+  smart_mix_mode:
+    type: integer
+    min: 0
+    max: 2
+    label: SmartMix Mode
+    help: "0 = Off, 1 = Gate, 2 = Gain Share."
+    state_key: smart_mix_mode
+    default: 0
+    setup: false
+    write:
+      send: 's_smart_mix_general S 0000 00 NC {value},,,,,\r'
+  last_mic_on:
+    type: boolean
+    label: Last Mic On
+    help: "Keep the last open microphone open in Gate mode."
+    state_key: last_mic_on
+    default: false
+    setup: false
+    write:
+      send: 's_smart_mix_general S 0000 00 NC ,{value:d},,,,\r'
+  gate_hold_time:
+    type: enum
+    values: ["100", "200", "300", "400", "500", "1000", "1500", "2000", "2500", "3000", "3500", "4000", "4500", "5000", "5500", "6000", "6500", "7000", "7500", "8000", "8500", "9000", "9500", "10000"]
+    label: Gate Hold Time (ms)
+    help: "How long a gated mic stays open after the signal drops."
+    state_key: gate_hold_time
+    default: "2500"
+    setup: false
+    write:
+      send: 's_smart_mix_general S 0000 00 NC ,,{value},,,\r'
+  noma:
+    type: boolean
+    label: NOM Attenuation
+    help: "Attenuate the output as more microphones open (number-of-open-mics compensation)."
+    state_key: noma
+    default: false
+    setup: false
+    write:
+      send: 's_smart_mix_general S 0000 00 NC ,,,{value:d},,\r'
+  open_mic_count:
+    type: integer
+    min: 1
+    max: 6
+    label: Open Mic Count
+    help: "Maximum number of simultaneously open microphones in Gate mode."
+    state_key: open_mic_count
+    default: 4
+    setup: false
+    write:
+      send: 's_smart_mix_general S 0000 00 NC ,,,,{value},\r'
+  priority_mode:
+    type: integer
+    min: 0
+    max: 1
+    label: Priority Mode
+    help: "Gate priority behavior: 0 = Mode 1, 1 = Mode 2."
+    state_key: priority_mode
+    default: 0
+    setup: false
+    write:
+      send: 's_smart_mix_general S 0000 00 NC ,,,,,{value}\r'
+
+# ── Quick actions ──
+actions:
+  - id: recall_preset
+    icon: bookmark
+  - id: output_mute_on
+    icon: volume-x
+  - id: output_mute_off
+    icon: volume-2
+  - id: identify
+    icon: sun
+
 responses:
   # ── Firmware version answer ──
   - match: 'g_firmware_version 0000 \S+ NC (.+)'
     set: { firmware_version: "$1" }
 
-  # ── Input level answers (channels 0-5 map to input_1_level through input_6_level) ──
+  # ── SmartMix common settings answer (one line fans out into six vars) ──
+  - match: 'g_smart_mix_general 0000 \S+ NC (\d+),(\d+),(\d+),(\d+),(\d+),(\d+)'
+    set:
+      smart_mix_mode: "$1"
+      last_mic_on: "$2"
+      gate_hold_time: "$3"
+      noma: "$4"
+      open_mic_count: "$5"
+      priority_mode: "$6"
+
+  # ── Input level answers (channels 0-5 map to input_1_level through
+  #    input_6_level; channel 10 is the stereo input) ──
+  - match: 'g_input_gain_level 0000 \S+ NC 10,\d+,\d+,(\d+)'
+    set: { input_st_level: "$1" }
   - match: 'g_input_gain_level 0000 \S+ NC 0,\d+,\d+,(\d+)'
     set: { input_1_level: "$1" }
   - match: 'g_input_gain_level 0000 \S+ NC 1,\d+,\d+,(\d+)'
@@ -346,17 +491,19 @@ responses:
   - match: 'g_input_gain_level 0000 \S+ NC 5,\d+,\d+,(\d+)'
     set: { input_6_level: "$1" }
 
-  # ── Output level answers (channels 0-3) ──
+  # ── Output level answers (channels 0, 1, 10=ST) ──
+  - match: 'g_output_level 0000 \S+ NC 10,(\d+)'
+    set: { output_st_level: "$1" }
   - match: 'g_output_level 0000 \S+ NC 0,(\d+)'
     set: { output_1_level: "$1" }
   - match: 'g_output_level 0000 \S+ NC 1,(\d+)'
     set: { output_2_level: "$1" }
-  - match: 'g_output_level 0000 \S+ NC 2,(\d+)'
-    set: { output_3_level: "$1" }
-  - match: 'g_output_level 0000 \S+ NC 3,(\d+)'
-    set: { output_4_level: "$1" }
 
-  # ── Output mute answers (channels 0-3) ──
+  # ── Output mute answers (channels 0, 1, 10=ST) ──
+  - match: 'g_output_mute 0000 \S+ NC 10,1'
+    set: { output_st_mute: "true" }
+  - match: 'g_output_mute 0000 \S+ NC 10,0'
+    set: { output_st_mute: "false" }
   - match: 'g_output_mute 0000 \S+ NC 0,1'
     set: { output_1_mute: "true" }
   - match: 'g_output_mute 0000 \S+ NC 0,0'
@@ -365,16 +512,13 @@ responses:
     set: { output_2_mute: "true" }
   - match: 'g_output_mute 0000 \S+ NC 1,0'
     set: { output_2_mute: "false" }
-  - match: 'g_output_mute 0000 \S+ NC 2,1'
-    set: { output_3_mute: "true" }
-  - match: 'g_output_mute 0000 \S+ NC 2,0'
-    set: { output_3_mute: "false" }
-  - match: 'g_output_mute 0000 \S+ NC 3,1'
-    set: { output_4_mute: "true" }
-  - match: 'g_output_mute 0000 \S+ NC 3,0'
-    set: { output_4_mute: "false" }
 
-  # ── MD push notifications (state changes multicast to all connected hosts) ──
+  # ── MD push notifications (state changes multicast to all connected hosts;
+  #    requires "IP Control Setting Notification" enabled on the device) ──
+  - match: 'MD output_mute_notice 0000 \S+ NC 10,1'
+    set: { output_st_mute: "true" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 10,0'
+    set: { output_st_mute: "false" }
   - match: 'MD output_mute_notice 0000 \S+ NC 0,1'
     set: { output_1_mute: "true" }
   - match: 'MD output_mute_notice 0000 \S+ NC 0,0'
@@ -383,15 +527,10 @@ responses:
     set: { output_2_mute: "true" }
   - match: 'MD output_mute_notice 0000 \S+ NC 1,0'
     set: { output_2_mute: "false" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 2,1'
-    set: { output_3_mute: "true" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 2,0'
-    set: { output_3_mute: "false" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 3,1'
-    set: { output_4_mute: "true" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 3,0'
-    set: { output_4_mute: "false" }
 
+  # Input notice params: channel, mic gain, line gain, level, mute
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 10,\d+,\d+,(\d+)'
+    set: { input_st_level: "$1" }
   - match: 'MD input_gain_level_notice 0000 \S+ NC 0,\d+,\d+,(\d+)'
     set: { input_1_level: "$1" }
   - match: 'MD input_gain_level_notice 0000 \S+ NC 1,\d+,\d+,(\d+)'
@@ -405,32 +544,45 @@ responses:
   - match: 'MD input_gain_level_notice 0000 \S+ NC 5,\d+,\d+,(\d+)'
     set: { input_6_level: "$1" }
 
+  - match: 'MD output_level_notice 0000 \S+ NC 10,(\d+)'
+    set: { output_st_level: "$1" }
   - match: 'MD output_level_notice 0000 \S+ NC 0,(\d+)'
     set: { output_1_level: "$1" }
   - match: 'MD output_level_notice 0000 \S+ NC 1,(\d+)'
     set: { output_2_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 2,(\d+)'
-    set: { output_3_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 3,(\d+)'
-    set: { output_4_level: "$1" }
 
 polling:
   queries:
     - 'g_firmware_version O 0000 00 NC \r'
+    - 'g_smart_mix_general O 0000 00 NC \r'
     - 'g_input_gain_level O 0000 00 NC 0\r'
     - 'g_input_gain_level O 0000 00 NC 1\r'
     - 'g_input_gain_level O 0000 00 NC 2\r'
     - 'g_input_gain_level O 0000 00 NC 3\r'
     - 'g_input_gain_level O 0000 00 NC 4\r'
     - 'g_input_gain_level O 0000 00 NC 5\r'
+    - 'g_input_gain_level O 0000 00 NC 10\r'
     - 'g_output_level O 0000 00 NC 0\r'
     - 'g_output_level O 0000 00 NC 1\r'
-    - 'g_output_level O 0000 00 NC 2\r'
-    - 'g_output_level O 0000 00 NC 3\r'
+    - 'g_output_level O 0000 00 NC 10\r'
     - 'g_output_mute O 0000 00 NC 0\r'
     - 'g_output_mute O 0000 00 NC 1\r'
-    - 'g_output_mute O 0000 00 NC 2\r'
-    - 'g_output_mute O 0000 00 NC 3\r'
+    - 'g_output_mute O 0000 00 NC 10\r'
+
+# ── LIVENESS WATCHDOG ──
+# The ATDM protocol is asynchronous and push-capable: between polls a quiet
+# room produces no traffic, and fire-and-forget poll queries never notice a
+# mixer that dropped without a FIN. Probe the documented firmware-version
+# query (the same one polling uses) and require its answer within 5 s; two
+# silent probes force a reconnect with a typed no_response fault. The expect
+# is unanchored — the poll cycle's own g_firmware_version answer satisfies a
+# pending probe too, but MD pushes cannot.
+liveness:
+  send: 'g_firmware_version O 0000 00 NC \r'
+  expect: 'g_firmware_version 0000'
+  interval: 30
+  timeout: 5
+  max_failures: 2
 
 # ── SIMULATOR DEFINITION ──
 simulator:
@@ -443,14 +595,19 @@ simulator:
     input_4_level: 411
     input_5_level: 411
     input_6_level: 411
+    input_st_level: 411
     output_1_level: 411
     output_2_level: 411
-    output_3_level: 411
-    output_4_level: 411
+    output_st_level: 411
     output_1_mute: false
     output_2_mute: false
-    output_3_mute: false
-    output_4_mute: false
+    output_st_mute: false
+    smart_mix_mode: 0
+    last_mic_on: 0
+    gate_hold_time: 2500
+    noma: 0
+    open_mic_count: 4
+    priority_mode: 0
 
   delays:
     command_response: 0.03
@@ -493,6 +650,12 @@ simulator:
       max: 511
       step: 1
     - type: slider
+      key: input_st_level
+      label: Input ST Level
+      min: 0
+      max: 511
+      step: 1
+    - type: slider
       key: output_1_level
       label: Output 1 Level
       min: 0
@@ -505,14 +668,8 @@ simulator:
       max: 511
       step: 1
     - type: slider
-      key: output_3_level
-      label: Output 3 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: slider
-      key: output_4_level
-      label: Output 4 Level
+      key: output_st_level
+      label: Output ST Level
       min: 0
       max: 511
       step: 1
@@ -523,45 +680,40 @@ simulator:
       key: output_2_mute
       label: Output 2 Mute
     - type: toggle
-      key: output_3_mute
-      label: Output 3 Mute
-    - type: toggle
-      key: output_4_mute
-      label: Output 4 Mute
+      key: output_st_mute
+      label: Output ST Mute
 
   notifications:
+    # Notice params per the spec: channel, mic gain, line gain, level, mute
     input_1_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 0,20,20,{value},0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,20,20,{value},0'
     input_2_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 1,20,20,{value},0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,20,20,{value},0'
     input_3_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 2,20,20,{value},0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,20,20,{value},0'
     input_4_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 3,20,20,{value},0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,20,20,{value},0'
     input_5_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 4,20,20,{value},0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,20,20,{value},0'
     input_6_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 5,20,20,{value},0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,20,20,{value},0'
+    input_st_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 10,20,20,{value},0'
     output_1_level:
       '*': 'MD output_level_notice 0000 00 NC 0,{value}'
     output_2_level:
       '*': 'MD output_level_notice 0000 00 NC 1,{value}'
-    output_3_level:
-      '*': 'MD output_level_notice 0000 00 NC 2,{value}'
-    output_4_level:
-      '*': 'MD output_level_notice 0000 00 NC 3,{value}'
+    output_st_level:
+      '*': 'MD output_level_notice 0000 00 NC 10,{value}'
     output_1_mute:
       'true': 'MD output_mute_notice 0000 00 NC 0,1'
       'false': 'MD output_mute_notice 0000 00 NC 0,0'
     output_2_mute:
       'true': 'MD output_mute_notice 0000 00 NC 1,1'
       'false': 'MD output_mute_notice 0000 00 NC 1,0'
-    output_3_mute:
-      'true': 'MD output_mute_notice 0000 00 NC 2,1'
-      'false': 'MD output_mute_notice 0000 00 NC 2,0'
-    output_4_mute:
-      'true': 'MD output_mute_notice 0000 00 NC 3,1'
-      'false': 'MD output_mute_notice 0000 00 NC 3,0'
+    output_st_mute:
+      'true': 'MD output_mute_notice 0000 00 NC 10,1'
+      'false': 'MD output_mute_notice 0000 00 NC 10,0'
 
   command_handlers:
     # Firmware version query
@@ -569,56 +721,98 @@ simulator:
       handler: |
         respond(f'g_firmware_version 0000 00 NC {state["firmware_version"]}\r')
 
-    # Input gain/level query
+    # SmartMix common settings query
+    - match: 'g_smart_mix_general O 0000 00 NC'
+      handler: |
+        respond(
+            f'g_smart_mix_general 0000 00 NC {state["smart_mix_mode"]},'
+            f'{state["last_mic_on"]},{state["gate_hold_time"]},'
+            f'{state["noma"]},{state["open_mic_count"]},{state["priority_mode"]}\r'
+        )
+
+    # SmartMix common settings set (omitted fields stay unchanged)
+    - match: 's_smart_mix_general S 0000 00 NC (.*)'
+      handler: |
+        parts = match.group(1).split(',')
+        keys = ['smart_mix_mode', 'last_mic_on', 'gate_hold_time',
+                'noma', 'open_mic_count', 'priority_mode']
+        for i, value in enumerate(parts):
+            if i < len(keys) and value.strip():
+                state[keys[i]] = int(value)
+        respond('s_smart_mix_general ACK\r')
+
+    # Input gain/level query (channel 10 = stereo input)
     - match: 'g_input_gain_level O 0000 00 NC (\d+)'
       handler: |
-        ch = int(match.group(1))
-        key = f'input_{ch+1}_level'
+        ch = match.group(1)
+        key = 'input_st_level' if ch == '10' else f'input_{int(ch)+1}_level'
         level = state.get(key, 411)
         respond(f'g_input_gain_level 0000 00 NC {ch},20,20,{level},0,0,0\r')
 
-    # Input gain/level set (7 params: ch, mic_gain, line_gain, level, max_en, max_vol, mute)
+    # Input gain/level set (7 params: ch, mic gain, line gain, level, max_en, max_vol, mute)
     - match: 's_input_gain_level S 0000 00 NC (\d+),\d+,\d+,(\d+).*'
       handler: |
-        ch = int(match.group(1))
-        level = int(match.group(2))
-        key = f'input_{ch+1}_level'
-        state[key] = level
+        ch = match.group(1)
+        key = 'input_st_level' if ch == '10' else f'input_{int(ch)+1}_level'
+        state[key] = int(match.group(2))
         respond('s_input_gain_level ACK\r')
 
-    # Output level query
+    # Output level query (valid channels: 0, 1, 10 — others NAK like the device)
     - match: 'g_output_level O 0000 00 NC (\d+)'
       handler: |
-        ch = int(match.group(1))
-        key = f'output_{ch+1}_level'
-        level = state.get(key, 411)
-        respond(f'g_output_level 0000 00 NC {ch},{level},0,0\r')
+        ch = match.group(1)
+        if ch == '10':
+            respond(f'g_output_level 0000 00 NC 10,{state.get("output_st_level", 411)},0,0\r')
+        elif ch in ('0', '1'):
+            key = f'output_{int(ch)+1}_level'
+            respond(f'g_output_level 0000 00 NC {ch},{state.get(key, 411)},0,0\r')
+        else:
+            respond('g_output_level NAK 01\r')
 
     # Output level set
-    - match: 's_output_level S 0000 00 NC (\d+),(\d+)'
+    - match: 's_output_level S 0000 00 NC (\d+),(\d+).*'
       handler: |
-        ch = int(match.group(1))
-        level = int(match.group(2))
-        key = f'output_{ch+1}_level'
-        state[key] = level
-        respond('s_output_level ACK\r')
+        ch = match.group(1)
+        if ch == '10':
+            state['output_st_level'] = int(match.group(2))
+            respond('s_output_level ACK\r')
+        elif ch in ('0', '1'):
+            state[f'output_{int(ch)+1}_level'] = int(match.group(2))
+            respond('s_output_level ACK\r')
+        else:
+            respond('s_output_level NAK 01\r')
 
     # Output mute query
     - match: 'g_output_mute O 0000 00 NC (\d+)'
       handler: |
-        ch = int(match.group(1))
-        key = f'output_{ch+1}_mute'
-        val = 1 if state.get(key, False) else 0
-        respond(f'g_output_mute 0000 00 NC {ch},{val}\r')
+        ch = match.group(1)
+        if ch == '10':
+            val = 1 if state.get('output_st_mute', False) else 0
+            respond(f'g_output_mute 0000 00 NC 10,{val}\r')
+        elif ch in ('0', '1'):
+            val = 1 if state.get(f'output_{int(ch)+1}_mute', False) else 0
+            respond(f'g_output_mute 0000 00 NC {ch},{val}\r')
+        else:
+            respond('g_output_mute NAK 01\r')
 
     # Output mute set
     - match: 's_output_mute S 0000 00 NC (\d+),(\d+)'
       handler: |
-        ch = int(match.group(1))
+        ch = match.group(1)
         mute = match.group(2) == '1'
-        key = f'output_{ch+1}_mute'
-        state[key] = mute
-        respond('s_output_mute ACK\r')
+        if ch == '10':
+            state['output_st_mute'] = mute
+            respond('s_output_mute ACK\r')
+        elif ch in ('0', '1'):
+            state[f'output_{int(ch)+1}_mute'] = mute
+            respond('s_output_mute ACK\r')
+        else:
+            respond('s_output_mute NAK 01\r')
+
+    # Per-channel SmartMix set (8 fields incl. reserved; not tracked as state)
+    - match: 's_smart_mix S 0000 00 NC.*'
+      handler: |
+        respond('s_smart_mix ACK\r')
 
     # Preset recall
     - match: 'call_preset S 0000 00 NC.*'
@@ -629,16 +823,6 @@ simulator:
     - match: 'save_preset S 0000 00 NC.*'
       handler: |
         respond('save_preset ACK\r')
-
-    # SmartMix set
-    - match: 's_smart_mix S 0000 00 NC.*'
-      handler: |
-        respond('s_smart_mix ACK\r')
-
-    # SmartMix mode set
-    - match: 's_smart_mix_general S 0000 00 NC.*'
-      handler: |
-        respond('s_smart_mix_general ACK\r')
 
     # Identify
     - match: 'identify S 0000 00 NC.*'

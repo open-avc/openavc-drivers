@@ -4,7 +4,6 @@
 # over TCP (port 17300).
 #
 # Protocol reference: IP Control Protocol Specification ATDM-1012 V1.0
-# Working reference: Bitfocus companion-module-audiotechnica-digitalmixer
 #
 # Command format (Set):  <command> S <modelID> <unitNo> NC <params>\r
 # Command format (Get):  <command> O <modelID> <unitNo> NC <params>\r
@@ -29,14 +28,23 @@
 #   - 8 operator pages with 8 faders each
 #   - 8 presets + 40 partial presets
 #   - Fader values: 0 = mute(-inf), 1-511 = -120dB to +10dB (0.25dB steps)
+#   - MD push notifications are only sent when "IP Control Setting
+#     Notification" is enabled in the device's network settings.
 #   - Max 5 simultaneous TCP connections
+#
+# No device_settings on purpose: every writable-and-readable config surface
+# (bus assign GBUS, SmartMix GSMM/GNOOM + per-group s_smart_mix_general,
+# operator faders GOPL/GOPM) carries a channel/group/page dimension, and a
+# flat setting cannot take a dimension. Modeling those axes is child-entity
+# territory — the audio-consoles CE pass decides that.
 
 id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 1.3.3
+version: 1.4.0
 author: OpenAVC
+min_platform_version: "0.22.0"
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
   via TCP. Supports input/output level and mute control, bus assign,
@@ -65,18 +73,26 @@ help:
     1. Connect the ATDM-1012 to the network.
     2. The default control port is 17300.
     3. Configure the device's IP address via the front panel or web interface.
-    4. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8.
-    5. Output channels: 1-8, ST1, ST2.
-    6. The ATDM-1012DAN uses the same protocol with added Dante settings.
+    4. Enable "IP Control Setting Notification" in the device's network
+       settings so the mixer pushes level and mute changes to OpenAVC.
+    5. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8.
+    6. Output channels: 1-8, ST1, ST2.
+    7. The ATDM-1012DAN uses the same protocol with added Dante settings.
 
 discovery:
-  # ATDM-1012 ships with control on TCP 17300; no Audio-Technica
-  # specific announcement on that port. The ATDM-1012DAN variant
+  # Active probe: g_deviceid is documented on the ATDM-1012 and absent
+  # from the ATDM-0604's command list, so a Device ID answer positively
+  # identifies the 1012 family (a 0604 either ignores the unknown command
+  # or NAKs — neither matches the expect). The ATDM-1012DAN variant
   # adds a Dante card and would advertise Dante's `_netaudio._tcp`
   # mDNS service alongside other Dante-enabled gear, but that's a
   # generic Dante signal not specific to this driver — claiming it
-  # would over-match. Hint-only via OUI + control port +
-  # manufacturer alias.
+  # would over-match.
+  tcp_probe:
+    port: 17300
+    send_ascii: "g_deviceid O 0000 00 NC \r"
+    expect_regex: 'g_deviceid 0000'
+    extract_manufacturer: "Audio-Technica"
   oui:
     - "00:0a:45"
   port_open:
@@ -553,6 +569,21 @@ commands:
     send: 'reboot S 0000 00 NC \r'
     help: "Reboots the ATDM-1012."
 
+# ── Quick actions ──
+actions:
+  - id: recall_preset
+    icon: bookmark
+  - id: input_mute_on
+    icon: mic-off
+  - id: input_mute_off
+    icon: mic
+  - id: output_mute_on
+    icon: volume-x
+  - id: output_mute_off
+    icon: volume-2
+  - id: identify
+    icon: sun
+
 responses:
   # ── Firmware version answer ──
   - match: 'g_firmware_version 0000 \S+ NC (.+)'
@@ -786,6 +817,21 @@ polling:
     - 'GOCM O 0000 00 NC 6\r'
     - 'GOCM O 0000 00 NC 7\r'
 
+# ── LIVENESS WATCHDOG ──
+# The ATDM protocol is asynchronous and push-capable: between polls a quiet
+# room produces no traffic, and fire-and-forget poll queries never notice a
+# mixer that dropped without a FIN. Probe the documented firmware-version
+# query (the same one polling uses) and require its answer within 5 s; two
+# silent probes force a reconnect with a typed no_response fault. The expect
+# is unanchored — the poll cycle's own g_firmware_version answer satisfies a
+# pending probe too, but MD pushes cannot.
+liveness:
+  send: 'g_firmware_version O 0000 00 NC \r'
+  expect: 'g_firmware_version 0000'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
 # ── SIMULATOR DEFINITION ──
 simulator:
   push_state: true
@@ -997,25 +1043,25 @@ simulator:
 
   notifications:
     input_1_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 0,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,20,20,{value},0'
     input_2_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 1,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,20,20,{value},0'
     input_3_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 2,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,20,20,{value},0'
     input_4_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 3,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,20,20,{value},0'
     input_5_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 4,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,20,20,{value},0'
     input_6_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 5,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,20,20,{value},0'
     input_7_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 6,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 6,20,20,{value},0'
     input_8_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 7,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 7,20,20,{value},0'
     input_9_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 8,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 8,20,20,{value},0'
     input_10_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 9,20,20,{value},0,0,0,0,0,0'
+      '*': 'MD input_gain_level_notice 0000 00 NC 9,20,20,{value},0'
     output_1_level:
       '*': 'MD output_level_notice 0000 00 NC 0,{value}'
     output_2_level:
@@ -1062,6 +1108,11 @@ simulator:
     - match: 'g_firmware_version O 0000 00 NC'
       handler: |
         respond(f'g_firmware_version 0000 00 NC {state["firmware_version"]}\r')
+
+    # Device ID query (1012-only command — backs the discovery probe)
+    - match: 'g_deviceid O 0000 00 NC'
+      handler: |
+        respond('g_deviceid 0000 00 NC 00\r')
 
     # Input level query (short command)
     - match: 'GICL O 0000 00 NC (\d+)'

@@ -37,10 +37,10 @@ tags: [videowall, splicer, led-wall, video-processing]
 verified: false
 simulated: true
 ports: [6000]
-# 0.22.0 ships the liveness watchdog runtime and the json-body response
-# parsing that unwraps this device's array-wrapped replies; on older
-# platforms the liveness block is silently inert and nothing reads back.
-min_platform_version: 0.22.0
+# 0.23.0 ships the driver-validation fix that accepts json-body response
+# rules (the runtime json parsing and the liveness watchdog landed in
+# 0.22.0, but its validator refused to load a driver declaring them).
+min_platform_version: 0.23.0
 compatible_models:
   - manufacturer: Novastar
     models: [H2, H5, H9, H15, H20]

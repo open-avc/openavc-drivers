@@ -210,7 +210,7 @@
         6000
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.23.0",
       "tags": [
         "videowall",
         "splicer",

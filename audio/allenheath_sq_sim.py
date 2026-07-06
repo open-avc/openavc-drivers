@@ -22,7 +22,6 @@ Driver side: ``audio/allenheath_sq.py``.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -217,7 +216,11 @@ class AllenHeathSQSimulator(TCPSimulator):
         return self._build_nrpn(ch, msb, lsb, (new >> 7) & 0x7F, new & 0x7F)
 
     def _reply_get(self, ch: int, msb: int, lsb: int) -> bytes:
-        cur = self._params.get((msb, lsb), 0)
+        cur = self._params.get((msb, lsb))
+        if cur is None:
+            # Untouched parameter: pans/balances rest at center on a real
+            # console (CTR = 3F 7F); everything else starts at 0.
+            cur = 0x1FFF if self._is_pan_param(msb, lsb) else 0
         if self._is_mute_param(msb, lsb):
             return self._build_nrpn(ch, msb, lsb, 0, cur & 0x01)
         return self._build_nrpn(ch, msb, lsb, (cur >> 7) & 0x7F, cur & 0x7F)
@@ -228,6 +231,11 @@ class AllenHeathSQSimulator(TCPSimulator):
         # 04 (Mute Groups) — and assigns sit at MSB 0x60+. Levels at
         # 0x40-0x4F, pans 0x50-0x5F.
         return msb in (0x00, 0x02, 0x04) or (0x60 <= msb <= 0x6F)
+
+    @staticmethod
+    def _is_pan_param(msb: int, lsb: int) -> bool:
+        # Pan/balance parameter numbers all live at MSB 0x50-0x5F.
+        return 0x50 <= msb <= 0x5F
 
     def _handle_program_change(self, ch: int, program: int) -> None:
         if ch != self._midi_channel:

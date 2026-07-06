@@ -1,5 +1,5 @@
 """
-OpenAVC Allen & Heath SQ Driver.
+OpenAVC Allen & Heath SQ Driver — first-class child-entity edition.
 
 Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles
 over MIDI-over-TCP/IP on port 51325. The protocol is the standard
@@ -8,15 +8,34 @@ MIDI 1.0 wire format carried over a raw TCP stream. Mixer parameters
 (Non-Registered Parameter Number) sequences; scene recall uses Bank
 Select + Program Change; SoftKeys use Note On/Off.
 
+What makes this driver first-class
+-----------------------------------
+* **Channels as typed child entities.** Every input, group, aux master,
+  matrix master, FX send/return, DCA and mute group is a child with live
+  mute / level / pan state. Per-channel commands take a channel picker
+  instead of a free-typed number, and console-side moves push into child
+  state so panels stay in sync.
+* **Get-watchdog liveness.** The SQ answers NRPN Get requests; the
+  driver probes the LR master level on a timer and awaits the reply.
+  A console that vanished without closing the socket (power pull, link
+  drop) stops answering, and after two misses the driver tears the
+  connection down with a typed ``no_response`` fault so the platform
+  reconnects and the device card shows the real cause. Pure push
+  monitoring alone would leave a silently-dead SQ "online" forever.
+
 Push vs poll:
-    The SQ both sends and receives NRPN updates. When a console-side
-    control moves (fader, mute key, etc.) the console emits the
-    matching NRPN sequence on its configured MIDI channel. The driver
-    listens for these and reflects them into state immediately. On
-    connect the driver sweeps "get" requests across every parameter
-    in its state surface to populate initial values; thereafter
-    state stays current via push, with a slow polling backstop in
-    case packets are missed during a transient disconnect.
+    Hybrid. When a console-side control moves the SQ emits the matching
+    NRPN sequence, which the driver fans into child state immediately.
+    On connect the driver sweeps NRPN "get" requests across every
+    parameter in its state surface; a slow polling re-sweep (default
+    60 s) is the backstop for updates missed during transient drops.
+
+    Writes apply optimistically: sibling Qu hardware demonstrated that
+    A&H consoles do NOT echo changes they receive over MIDI (only
+    surface-side moves are transmitted), so after sending a set the
+    driver mirrors the commanded value into its own state. Toggle and
+    1 dB step commands instead follow the native increment/decrement
+    with a Get, because their outcome depends on device-side state.
 
 Format choice:
     Python rather than YAML because (a) the wire format is binary
@@ -24,15 +43,15 @@ Format choice:
     tables span 624 source/destination cells that are best computed
     programmatically rather than enumerated, and (c) push handling
     requires fanning each incoming NRPN sequence out to the right
-    state key based on a reverse lookup. None of this fits
-    ConfigurableDriver cleanly today.
+    child state key based on a reverse lookup. None of this fits
+    ConfigurableDriver today.
 
 Models covered:
     SQ-5  — 8 SoftKeys, 0 Soft Rotaries
     SQ-6  — 16 SoftKeys, 4 Soft Rotaries
     SQ-7  — 16 SoftKeys, 8 Soft Rotaries
-    All three share the same MIDI command set; per-model differences
-    are physical I/O and surface controls only.
+    All three share the same MIDI command set and channel counts;
+    per-model differences are physical I/O and surface controls only.
 
 Scope notes:
     - Linear NRPN Fader Law only (the SQ default). Audio Taper has
@@ -42,6 +61,13 @@ Scope notes:
       Control-channel CC/Note traffic are intentionally not exposed.
       Those are end-user surface controls on the console, not
       integrator-addressable mixer functions.
+    - The protocol has no channel-name access and no model identify,
+      so children carry static labels ("Input 1") that the user can
+      rename in the project.
+    - The manual's §3.7 "LR Mute" Get example shows parameter 00 00,
+      which per its own §3.3 examples and reference tables is Input 1;
+      LR mute is 00 44. The reference tables are authoritative and are
+      what this driver (and its address helpers) follow.
 
 Source:
     https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf
@@ -254,15 +280,15 @@ def pan_group_to_mtx(n: int, m: int) -> tuple[int, int]:
 
 
 def pan_lr_master() -> tuple[int, int]:
-    return _addr(0x5F, 0x00)
+    return _addr(0x5F, 0x00)                           # LR master balance → 5F 00
 
 
 def pan_aux_master(n: int) -> tuple[int, int]:
-    return _addr(0x5F, 0x01 + (n - 1))
+    return _addr(0x5F, 0x01 + (n - 1))                 # Aux1..12 balance → 5F 01..0C
 
 
 def pan_mtx_master(n: int) -> tuple[int, int]:
-    return _addr(0x5F, 0x11 + (n - 1))
+    return _addr(0x5F, 0x11 + (n - 1))                 # Mtx1..3 balance → 5F 11..13
 
 
 # Mix assignments — MSB 0x60
@@ -298,9 +324,11 @@ def pan_to_vcvf(pan: float) -> tuple[int, int]:
     """Map pan (-1.0 full L .. 0.0 center .. +1.0 full R) to (VC, VF).
 
     Doc: L100% = 00 00, CTR = 3F 7F (8191), R100% = 7F 7F (16383).
+    Floor (not round) hits all three documented anchors — the doc's center
+    sits at 8191, half an LSB left of the arithmetic midpoint.
     """
     pan = max(PAN_LEFT, min(PAN_RIGHT, pan))
-    value = round((pan + 1.0) / 2.0 * VALUE_MAX)
+    value = min(VALUE_MAX, int((pan + 1.0) / 2.0 * VALUE_MAX))
     return (value >> 7) & 0x7F, value & 0x7F
 
 
@@ -328,171 +356,145 @@ def softkey_to_note(sk: int) -> int:
     return 0x30 + (sk - 1)
 
 
-# ── State variable construction ──────────────────────────────────────────────
+# ── Child entity types ───────────────────────────────────────────────────────
+#
+# Mutes relay at high cloud priority (a muted program feed is an incident);
+# continuous levels/pans are low (chatty, dashboard-grade).
 
-def _build_state_vars() -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {
-        "current_scene": {
-            "type": "integer",
-            "label": "Current Scene",
-            "min": 0,
-            "max": MAX_SCENE,
+def _mute_prop() -> dict[str, Any]:
+    return {"type": "boolean", "label": "Mute", "cloud_priority": "high"}
+
+
+def _level_prop(label: str) -> dict[str, Any]:
+    return {"type": "number", "label": label, "min": LEVEL_MIN,
+            "max": LEVEL_MAX, "cloud_priority": "low"}
+
+
+def _pan_prop(label: str) -> dict[str, Any]:
+    return {"type": "number", "label": label, "min": PAN_LEFT,
+            "max": PAN_RIGHT, "cloud_priority": "low"}
+
+
+CHILD_ENTITY_TYPES: dict[str, dict[str, Any]] = {
+    "input": {
+        "label": "Input", "label_plural": "Inputs",
+        "state_variables": {
+            "mute": _mute_prop(),
+            "lr_level": _level_prop("Level (to LR)"),
+            "lr_pan": _pan_prop("Pan (to LR)"),
         },
-        "lr_mute": {"type": "boolean", "label": "LR Master Mute"},
-        "lr_fader": {
-            "type": "number",
-            "label": "LR Master Fader",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
+        "summary_fields": ["mute", "lr_level"],
+    },
+    "group": {
+        "label": "Group", "label_plural": "Groups",
+        "state_variables": {
+            "mute": _mute_prop(),
+            "lr_level": _level_prop("Level (to LR)"),
+            "lr_pan": _pan_prop("Pan (to LR)"),
         },
-    }
+        "summary_fields": ["mute", "lr_level"],
+    },
+    "aux": {
+        "label": "Aux", "label_plural": "Auxes",
+        "state_variables": {
+            "mute": _mute_prop(),
+            "fader": _level_prop("Master Fader"),
+            "balance": _pan_prop("Balance"),
+        },
+        "summary_fields": ["mute", "fader"],
+    },
+    "matrix": {
+        "label": "Matrix", "label_plural": "Matrices",
+        "state_variables": {
+            "mute": _mute_prop(),
+            "fader": _level_prop("Master Fader"),
+            "balance": _pan_prop("Balance"),
+        },
+        "summary_fields": ["mute", "fader"],
+    },
+    "fx_send": {
+        "label": "FX Send", "label_plural": "FX Sends",
+        "state_variables": {
+            "mute": _mute_prop(),
+            "fader": _level_prop("Master Fader"),
+        },
+        "summary_fields": ["mute", "fader"],
+    },
+    "fx_return": {
+        "label": "FX Return", "label_plural": "FX Returns",
+        "state_variables": {
+            "mute": _mute_prop(),
+            "lr_level": _level_prop("Level (to LR)"),
+            "lr_pan": _pan_prop("Pan (to LR)"),
+        },
+        "summary_fields": ["mute", "lr_level"],
+    },
+    "dca": {
+        "label": "DCA", "label_plural": "DCAs",
+        "state_variables": {
+            "mute": _mute_prop(),
+            "fader": _level_prop("Fader"),
+        },
+        "summary_fields": ["mute", "fader"],
+    },
+    "mute_group": {
+        "label": "Mute Group", "label_plural": "Mute Groups",
+        "state_variables": {
+            "mute": _mute_prop(),
+        },
+        "summary_fields": ["mute"],
+    },
+}
 
-    for n in range(1, NUM_INPUTS + 1):
-        out[f"in{n:02d}_mute"] = {"type": "boolean", "label": f"Input {n} Mute"}
-        out[f"in{n:02d}_to_lr_level"] = {
-            "type": "number",
-            "label": f"Input {n} → LR Level",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
-        }
-        out[f"in{n:02d}_to_lr_pan"] = {
-            "type": "number",
-            "label": f"Input {n} → LR Pan",
-            "min": PAN_LEFT,
-            "max": PAN_RIGHT,
-        }
-
-    for n in range(1, NUM_GROUPS + 1):
-        out[f"grp{n:02d}_mute"] = {"type": "boolean", "label": f"Group {n} Mute"}
-        out[f"grp{n:02d}_to_lr_level"] = {
-            "type": "number",
-            "label": f"Group {n} → LR Level",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
-        }
-        out[f"grp{n:02d}_to_lr_pan"] = {
-            "type": "number",
-            "label": f"Group {n} → LR Pan",
-            "min": PAN_LEFT,
-            "max": PAN_RIGHT,
-        }
-
-    for n in range(1, NUM_AUX + 1):
-        out[f"aux{n:02d}_mute"] = {"type": "boolean", "label": f"Aux {n} Master Mute"}
-        out[f"aux{n:02d}_fader"] = {
-            "type": "number",
-            "label": f"Aux {n} Master Fader",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
-        }
-
-    for n in range(1, NUM_MTX + 1):
-        out[f"mtx{n}_mute"] = {"type": "boolean", "label": f"Matrix {n} Master Mute"}
-        out[f"mtx{n}_fader"] = {
-            "type": "number",
-            "label": f"Matrix {n} Master Fader",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
-        }
-
-    for n in range(1, NUM_FX_SENDS + 1):
-        out[f"fxs{n}_mute"] = {"type": "boolean", "label": f"FX Send {n} Mute"}
-        out[f"fxs{n}_fader"] = {
-            "type": "number",
-            "label": f"FX Send {n} Master Fader",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
-        }
-
-    for n in range(1, NUM_FX_RETURNS + 1):
-        out[f"fxr{n}_mute"] = {"type": "boolean", "label": f"FX Return {n} Mute"}
-        out[f"fxr{n}_to_lr_level"] = {
-            "type": "number",
-            "label": f"FX Return {n} → LR Level",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
-        }
-        out[f"fxr{n}_to_lr_pan"] = {
-            "type": "number",
-            "label": f"FX Return {n} → LR Pan",
-            "min": PAN_LEFT,
-            "max": PAN_RIGHT,
-        }
-
-    for n in range(1, NUM_DCAS + 1):
-        out[f"dca{n}_mute"] = {"type": "boolean", "label": f"DCA {n} Mute"}
-        out[f"dca{n}_fader"] = {
-            "type": "number",
-            "label": f"DCA {n} Fader",
-            "min": LEVEL_MIN,
-            "max": LEVEL_MAX,
-        }
-
-    for n in range(1, NUM_MUTE_GROUPS + 1):
-        out[f"mgrp{n}_mute"] = {"type": "boolean", "label": f"Mute Group {n} Active"}
-
-    return out
+# Children are keyed by string local-ids (in01, aux03, dca1, ...) — declare a
+# string id_format on each type; the platform otherwise defaults to integer
+# ids and rejects strings at register_child.
+for _ctype_def in CHILD_ENTITY_TYPES.values():
+    _ctype_def["id_format"] = {"type": "string", "max_length": 64}
 
 
-# ── Reverse parameter lookup (incoming NRPN → state key) ─────────────────────
+# The static roster: (child_type, count, sid template, label template).
+# The SQ protocol has no model identify and all three SQ models share the
+# same addressable channel set, so the roster is fixed.
+_ROSTER: list[tuple[str, int, str, str]] = [
+    ("input", NUM_INPUTS, "in{n:02d}", "Input {n}"),
+    ("group", NUM_GROUPS, "grp{n:02d}", "Group {n}"),
+    ("aux", NUM_AUX, "aux{n:02d}", "Aux {n}"),
+    ("matrix", NUM_MTX, "mtx{n}", "Matrix {n}"),
+    ("fx_send", NUM_FX_SENDS, "fxs{n}", "FX Send {n}"),
+    ("fx_return", NUM_FX_RETURNS, "fxr{n}", "FX Return {n}"),
+    ("dca", NUM_DCAS, "dca{n}", "DCA {n}"),
+    ("mute_group", NUM_MUTE_GROUPS, "mg{n}", "Mute Group {n}"),
+]
 
-class _ParamMap:
-    """Maps every (MSB, LSB) we care about back to the state key it drives.
+# Per-type (prop -> address function) for the parameters mirrored as child
+# state. Drives registration-time route building AND the Get sweep.
+_TYPE_ADDRS: dict[str, dict[str, Any]] = {
+    "input": {"mute": mute_input, "lr_level": level_input_to_lr,
+              "lr_pan": pan_input_to_lr},
+    "group": {"mute": mute_group, "lr_level": level_group_to_lr,
+              "lr_pan": pan_group_to_lr},
+    "aux": {"mute": mute_aux_master, "fader": level_aux_master,
+            "balance": pan_aux_master},
+    "matrix": {"mute": mute_mtx_master, "fader": level_mtx_master,
+               "balance": pan_mtx_master},
+    "fx_send": {"mute": mute_fx_send, "fader": level_fx_send_master},
+    "fx_return": {"mute": mute_fx_return, "lr_level": level_fx_return_to_lr,
+                  "lr_pan": pan_fx_return_to_lr},
+    "dca": {"mute": mute_dca, "fader": level_dca},
+    "mute_group": {"mute": mute_mgrp},
+}
 
-    Built once at driver construction. Used by the MIDI parser to fan
-    incoming NRPN sequences into state updates.
-    """
-
-    def __init__(self) -> None:
-        self.mute: dict[tuple[int, int], str] = {}
-        self.level: dict[tuple[int, int], str] = {}
-        self.pan: dict[tuple[int, int], str] = {}
-
-        self.mute[mute_lr()] = "lr_mute"
-        self.level[level_lr_master()] = "lr_fader"
-
-        for n in range(1, NUM_INPUTS + 1):
-            self.mute[mute_input(n)] = f"in{n:02d}_mute"
-            self.level[level_input_to_lr(n)] = f"in{n:02d}_to_lr_level"
-            self.pan[pan_input_to_lr(n)] = f"in{n:02d}_to_lr_pan"
-
-        for n in range(1, NUM_GROUPS + 1):
-            self.mute[mute_group(n)] = f"grp{n:02d}_mute"
-            self.level[level_group_to_lr(n)] = f"grp{n:02d}_to_lr_level"
-            self.pan[pan_group_to_lr(n)] = f"grp{n:02d}_to_lr_pan"
-
-        for n in range(1, NUM_AUX + 1):
-            self.mute[mute_aux_master(n)] = f"aux{n:02d}_mute"
-            self.level[level_aux_master(n)] = f"aux{n:02d}_fader"
-
-        for n in range(1, NUM_MTX + 1):
-            self.mute[mute_mtx_master(n)] = f"mtx{n}_mute"
-            self.level[level_mtx_master(n)] = f"mtx{n}_fader"
-
-        for n in range(1, NUM_FX_SENDS + 1):
-            self.mute[mute_fx_send(n)] = f"fxs{n}_mute"
-            self.level[level_fx_send_master(n)] = f"fxs{n}_fader"
-
-        for n in range(1, NUM_FX_RETURNS + 1):
-            self.mute[mute_fx_return(n)] = f"fxr{n}_mute"
-            self.level[level_fx_return_to_lr(n)] = f"fxr{n}_to_lr_level"
-            self.pan[pan_fx_return_to_lr(n)] = f"fxr{n}_to_lr_pan"
-
-        for n in range(1, NUM_DCAS + 1):
-            self.mute[mute_dca(n)] = f"dca{n}_mute"
-            self.level[level_dca(n)] = f"dca{n}_fader"
-
-        for n in range(1, NUM_MUTE_GROUPS + 1):
-            self.mute[mute_mgrp(n)] = f"mgrp{n}_mute"
+# Which value semantics each child prop carries (for inbound decoding).
+_MUTE_PROPS = {"mute"}
+_PAN_PROPS = {"lr_pan", "balance"}
 
 
 # ── Command catalog ──────────────────────────────────────────────────────────
 #
 # Generated so it stays in lock-step with the cmd_* methods on the driver
 # class: every entry id maps to a `cmd_<id>` method and each param key matches
-# that method's keyword argument. (An empty catalog here is exactly what made
-# the console show "no commands" — the methods existed but nothing declared
-# them for the UI or the command runner.)
+# that method's keyword argument.
 
 _ACTION_PARAM = {
     "type": "enum",
@@ -500,7 +502,8 @@ _ACTION_PARAM = {
     "default": "on",
     "required": True,
     "label": "Action",
-    "help": "on, off, or toggle (toggle uses the driver's last-known state).",
+    "help": "on, off, or toggle (toggle flips the console's current state "
+            "and reads the result back).",
 }
 
 _DIRECTION_PARAM = {
@@ -533,6 +536,11 @@ _PAN_PARAM = {
 }
 
 
+def _child_param(ctype: str, label: str | None = None) -> dict[str, Any]:
+    return {"type": "child_id", "child_type": ctype, "required": True,
+            "label": label or CHILD_ENTITY_TYPES[ctype]["label"]}
+
+
 def _chan(label: str, maximum: int, help_text: str | None = None) -> dict[str, Any]:
     return {
         "type": "integer",
@@ -548,28 +556,15 @@ def _build_commands() -> dict[str, dict[str, Any]]:
     cmds: dict[str, dict[str, Any]] = {}
 
     def add(cid: str, label: str, help_text: str,
-            chans: list[tuple[str, str, int]] | None = None,
-            value: dict[str, Any] | None = None,
-            value_key: str | None = None) -> None:
-        params: dict[str, Any] = {}
-        for pname, plabel, pmax in (chans or []):
-            params[pname] = _chan(plabel, pmax)
-        if value is not None and value_key is not None:
-            params[value_key] = dict(value)
+            params: dict[str, Any]) -> None:
         cmds[cid] = {"label": label, "help": help_text, "params": params}
 
     # Scene recall.
-    cmds["recall_scene"] = {
-        "label": "Recall Scene",
-        "help": f"Recall a scene {MIN_SCENE}-{MAX_SCENE} via Bank Select + "
-                "Program Change.",
-        "params": {
-            "scene": {
-                "type": "integer", "required": True,
-                "min": MIN_SCENE, "max": MAX_SCENE, "label": "Scene",
-            },
-        },
-    }
+    add("recall_scene", "Recall Scene",
+        f"Recall a scene {MIN_SCENE}-{MAX_SCENE} via Bank Select + Program "
+        "Change. The scene must exist as a saved scene on the SQ.",
+        {"scene": {"type": "integer", "required": True,
+                   "min": MIN_SCENE, "max": MAX_SCENE, "label": "Scene"}})
 
     # SoftKeys.
     sk_param = {
@@ -577,149 +572,158 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "SoftKey", NUM_SOFTKEYS,
             "SoftKey number (1-16; SQ-5 has 8, so 9-16 are no-ops there)."),
     }
-    cmds["softkey_press"] = {
-        "label": "SoftKey Press", "help": "Press and hold a SoftKey.",
-        "params": dict(sk_param)}
-    cmds["softkey_release"] = {
-        "label": "SoftKey Release", "help": "Release a held SoftKey.",
-        "params": dict(sk_param)}
-    cmds["softkey_pulse"] = {
-        "label": "SoftKey Pulse",
-        "help": "Press then release a SoftKey — the usual one-shot trigger.",
-        "params": dict(sk_param)}
+    add("softkey_press", "SoftKey Press", "Press and hold a SoftKey.",
+        dict(sk_param))
+    add("softkey_release", "SoftKey Release", "Release a held SoftKey.",
+        dict(sk_param))
+    add("softkey_pulse", "SoftKey Pulse",
+        "Press then release a SoftKey — the usual one-shot trigger.",
+        dict(sk_param))
 
-    # Mutes.
+    # Mutes (channel pickers).
     add("mute_input", "Mute Input", "Mute, unmute, or toggle an input.",
-        [("input", "Input", NUM_INPUTS)], _ACTION_PARAM, "action")
+        {"input": _child_param("input"), "action": dict(_ACTION_PARAM)})
     add("mute_group", "Mute Group", "Mute, unmute, or toggle a group.",
-        [("group", "Group", NUM_GROUPS)], _ACTION_PARAM, "action")
+        {"group": _child_param("group"), "action": dict(_ACTION_PARAM)})
     add("mute_aux_master", "Mute Aux Master",
         "Mute, unmute, or toggle an aux master.",
-        [("aux", "Aux", NUM_AUX)], _ACTION_PARAM, "action")
+        {"aux": _child_param("aux"), "action": dict(_ACTION_PARAM)})
     add("mute_mtx_master", "Mute Matrix Master",
         "Mute, unmute, or toggle a matrix master.",
-        [("mtx", "Matrix", NUM_MTX)], _ACTION_PARAM, "action")
+        {"mtx": _child_param("matrix"), "action": dict(_ACTION_PARAM)})
     add("mute_fx_send", "Mute FX Send", "Mute, unmute, or toggle an FX send.",
-        [("fx", "FX Send", NUM_FX_SENDS)], _ACTION_PARAM, "action")
+        {"fx": _child_param("fx_send"), "action": dict(_ACTION_PARAM)})
     add("mute_fx_return", "Mute FX Return",
         "Mute, unmute, or toggle an FX return.",
-        [("fx", "FX Return", NUM_FX_RETURNS)], _ACTION_PARAM, "action")
+        {"fx": _child_param("fx_return"), "action": dict(_ACTION_PARAM)})
     add("mute_dca", "Mute DCA", "Mute, unmute, or toggle a DCA.",
-        [("dca", "DCA", NUM_DCAS)], _ACTION_PARAM, "action")
+        {"dca": _child_param("dca"), "action": dict(_ACTION_PARAM)})
     add("mute_mgrp", "Fire Mute Group",
         "Activate, clear, or toggle a mute group.",
-        [("mgrp", "Mute Group", NUM_MUTE_GROUPS)], _ACTION_PARAM, "action")
+        {"mgrp": _child_param("mute_group"), "action": dict(_ACTION_PARAM)})
     add("mute_lr", "Mute LR Master",
         "Mute, unmute, or toggle the LR (main) master.",
-        None, _ACTION_PARAM, "action")
+        {"action": dict(_ACTION_PARAM)})
+    add("mute_all_inputs", "Mute All Inputs", "Mute every input channel.", {})
+    add("unmute_all_inputs", "Unmute All Inputs",
+        "Unmute every input channel.", {})
 
-    # Levels (absolute fader position).
+    # Levels (absolute fader position; channel pickers on the channel's own
+    # strip, integer pairs on the send matrix).
     add("set_input_to_lr_level", "Set Input → LR Level",
         "Set an input's send level to the LR mix.",
-        [("input", "Input", NUM_INPUTS)], _LEVEL_PARAM, "level")
+        {"input": _child_param("input"), "level": dict(_LEVEL_PARAM)})
     add("set_input_to_aux_level", "Set Input → Aux Level",
         "Set an input's send level to an aux mix.",
-        [("input", "Input", NUM_INPUTS), ("aux", "Aux", NUM_AUX)],
-        _LEVEL_PARAM, "level")
+        {"input": _chan("Input", NUM_INPUTS), "aux": _chan("Aux", NUM_AUX),
+         "level": dict(_LEVEL_PARAM)})
     add("set_group_to_lr_level", "Set Group → LR Level",
         "Set a group's send level to the LR mix.",
-        [("group", "Group", NUM_GROUPS)], _LEVEL_PARAM, "level")
+        {"group": _child_param("group"), "level": dict(_LEVEL_PARAM)})
     add("set_group_to_aux_level", "Set Group → Aux Level",
         "Set a group's send level to an aux mix.",
-        [("group", "Group", NUM_GROUPS), ("aux", "Aux", NUM_AUX)],
-        _LEVEL_PARAM, "level")
+        {"group": _chan("Group", NUM_GROUPS), "aux": _chan("Aux", NUM_AUX),
+         "level": dict(_LEVEL_PARAM)})
     add("set_fx_return_to_lr_level", "Set FX Return → LR Level",
         "Set an FX return's send level to the LR mix.",
-        [("fx", "FX Return", NUM_FX_RETURNS)], _LEVEL_PARAM, "level")
+        {"fx": _child_param("fx_return"), "level": dict(_LEVEL_PARAM)})
     add("set_fx_return_to_aux_level", "Set FX Return → Aux Level",
         "Set an FX return's send level to an aux mix.",
-        [("fx", "FX Return", NUM_FX_RETURNS), ("aux", "Aux", NUM_AUX)],
-        _LEVEL_PARAM, "level")
+        {"fx": _chan("FX Return", NUM_FX_RETURNS), "aux": _chan("Aux", NUM_AUX),
+         "level": dict(_LEVEL_PARAM)})
     add("set_input_to_fx_send_level", "Set Input → FX Send Level",
         "Set an input's send level to an FX send.",
-        [("input", "Input", NUM_INPUTS), ("fx", "FX Send", NUM_FX_SENDS)],
-        _LEVEL_PARAM, "level")
+        {"input": _chan("Input", NUM_INPUTS),
+         "fx": _chan("FX Send", NUM_FX_SENDS), "level": dict(_LEVEL_PARAM)})
     add("set_group_to_fx_send_level", "Set Group → FX Send Level",
         "Set a group's send level to an FX send.",
-        [("group", "Group", NUM_GROUPS), ("fx", "FX Send", NUM_FX_SENDS)],
-        _LEVEL_PARAM, "level")
+        {"group": _chan("Group", NUM_GROUPS),
+         "fx": _chan("FX Send", NUM_FX_SENDS), "level": dict(_LEVEL_PARAM)})
+    add("set_fx_return_to_fx_send_level", "Set FX Return → FX Send Level",
+        "Set an FX return's send level to an FX send.",
+        {"fx_return": _chan("FX Return", NUM_FX_RETURNS),
+         "fx": _chan("FX Send", NUM_FX_SENDS), "level": dict(_LEVEL_PARAM)})
     add("set_lr_to_mtx_level", "Set LR → Matrix Level",
         "Set the LR mix's send level to a matrix.",
-        [("mtx", "Matrix", NUM_MTX)], _LEVEL_PARAM, "level")
+        {"mtx": _chan("Matrix", NUM_MTX), "level": dict(_LEVEL_PARAM)})
     add("set_aux_to_mtx_level", "Set Aux → Matrix Level",
         "Set an aux master's send level to a matrix.",
-        [("aux", "Aux", NUM_AUX), ("mtx", "Matrix", NUM_MTX)],
-        _LEVEL_PARAM, "level")
+        {"aux": _chan("Aux", NUM_AUX), "mtx": _chan("Matrix", NUM_MTX),
+         "level": dict(_LEVEL_PARAM)})
     add("set_group_to_mtx_level", "Set Group → Matrix Level",
         "Set a group's send level to a matrix.",
-        [("group", "Group", NUM_GROUPS), ("mtx", "Matrix", NUM_MTX)],
-        _LEVEL_PARAM, "level")
+        {"group": _chan("Group", NUM_GROUPS), "mtx": _chan("Matrix", NUM_MTX),
+         "level": dict(_LEVEL_PARAM)})
     add("set_lr_master_level", "Set LR Master Level",
-        "Set the LR (main) master fader.",
-        None, _LEVEL_PARAM, "level")
+        "Set the LR (main) master fader.", {"level": dict(_LEVEL_PARAM)})
     add("set_aux_master_level", "Set Aux Master Level",
         "Set an aux master fader.",
-        [("aux", "Aux", NUM_AUX)], _LEVEL_PARAM, "level")
+        {"aux": _child_param("aux"), "level": dict(_LEVEL_PARAM)})
     add("set_mtx_master_level", "Set Matrix Master Level",
         "Set a matrix master fader.",
-        [("mtx", "Matrix", NUM_MTX)], _LEVEL_PARAM, "level")
+        {"mtx": _child_param("matrix"), "level": dict(_LEVEL_PARAM)})
     add("set_fx_send_master_level", "Set FX Send Master Level",
         "Set an FX send master fader.",
-        [("fx", "FX Send", NUM_FX_SENDS)], _LEVEL_PARAM, "level")
+        {"fx": _child_param("fx_send"), "level": dict(_LEVEL_PARAM)})
     add("set_dca_level", "Set DCA Level", "Set a DCA fader.",
-        [("dca", "DCA", NUM_DCAS)], _LEVEL_PARAM, "level")
+        {"dca": _child_param("dca"), "level": dict(_LEVEL_PARAM)})
 
     # Level nudges (1 dB steps).
     add("step_input_to_lr_level", "Nudge Input → LR Level",
         "Step an input's LR send up or down 1 dB.",
-        [("input", "Input", NUM_INPUTS)], _DIRECTION_PARAM, "direction")
+        {"input": _child_param("input"), "direction": dict(_DIRECTION_PARAM)})
     add("step_aux_master_level", "Nudge Aux Master Level",
         "Step an aux master fader up or down 1 dB.",
-        [("aux", "Aux", NUM_AUX)], _DIRECTION_PARAM, "direction")
+        {"aux": _child_param("aux"), "direction": dict(_DIRECTION_PARAM)})
     add("step_lr_master_level", "Nudge LR Master Level",
         "Step the LR master fader up or down 1 dB.",
-        None, _DIRECTION_PARAM, "direction")
+        {"direction": dict(_DIRECTION_PARAM)})
     add("step_dca_level", "Nudge DCA Level",
         "Step a DCA fader up or down 1 dB.",
-        [("dca", "DCA", NUM_DCAS)], _DIRECTION_PARAM, "direction")
+        {"dca": _child_param("dca"), "direction": dict(_DIRECTION_PARAM)})
 
     # Pan / balance.
     add("set_input_to_lr_pan", "Set Input → LR Pan",
         "Pan an input within the LR mix.",
-        [("input", "Input", NUM_INPUTS)], _PAN_PARAM, "pan")
+        {"input": _child_param("input"), "pan": dict(_PAN_PARAM)})
     add("set_input_to_aux_pan", "Set Input → Aux Pan",
         "Pan an input within an aux mix.",
-        [("input", "Input", NUM_INPUTS), ("aux", "Aux", NUM_AUX)],
-        _PAN_PARAM, "pan")
+        {"input": _chan("Input", NUM_INPUTS), "aux": _chan("Aux", NUM_AUX),
+         "pan": dict(_PAN_PARAM)})
     add("set_group_to_lr_pan", "Set Group → LR Pan",
         "Pan a group within the LR mix.",
-        [("group", "Group", NUM_GROUPS)], _PAN_PARAM, "pan")
+        {"group": _child_param("group"), "pan": dict(_PAN_PARAM)})
     add("set_fx_return_to_lr_pan", "Set FX Return → LR Pan",
         "Pan an FX return within the LR mix.",
-        [("fx", "FX Return", NUM_FX_RETURNS)], _PAN_PARAM, "pan")
+        {"fx": _child_param("fx_return"), "pan": dict(_PAN_PARAM)})
     add("set_lr_to_mtx_balance", "Set LR → Matrix Balance",
         "Balance the LR send into a matrix.",
-        [("mtx", "Matrix", NUM_MTX)], _PAN_PARAM, "pan")
+        {"mtx": _chan("Matrix", NUM_MTX), "pan": dict(_PAN_PARAM)})
     add("set_aux_to_mtx_balance", "Set Aux → Matrix Balance",
         "Balance an aux send into a matrix.",
-        [("aux", "Aux", NUM_AUX), ("mtx", "Matrix", NUM_MTX)],
-        _PAN_PARAM, "pan")
+        {"aux": _chan("Aux", NUM_AUX), "mtx": _chan("Matrix", NUM_MTX),
+         "pan": dict(_PAN_PARAM)})
+    add("set_lr_balance", "Set LR Master Balance",
+        "Balance the LR (main) master output.", {"pan": dict(_PAN_PARAM)})
+    add("set_aux_master_balance", "Set Aux Master Balance",
+        "Balance an aux master output.",
+        {"aux": _child_param("aux"), "pan": dict(_PAN_PARAM)})
+    add("set_mtx_master_balance", "Set Matrix Master Balance",
+        "Balance a matrix master output.",
+        {"mtx": _child_param("matrix"), "pan": dict(_PAN_PARAM)})
 
     # Mix assignments.
     add("set_input_to_lr_assign", "Assign Input → LR",
         "Assign or unassign an input to the LR mix.",
-        [("input", "Input", NUM_INPUTS)], _ACTION_PARAM, "action")
+        {"input": _chan("Input", NUM_INPUTS), "action": dict(_ACTION_PARAM)})
     add("set_input_to_aux_assign", "Assign Input → Aux",
         "Assign or unassign an input to an aux mix.",
-        [("input", "Input", NUM_INPUTS), ("aux", "Aux", NUM_AUX)],
-        _ACTION_PARAM, "action")
+        {"input": _chan("Input", NUM_INPUTS), "aux": _chan("Aux", NUM_AUX),
+         "action": dict(_ACTION_PARAM)})
 
     # Refresh.
-    cmds["refresh"] = {
-        "label": "Refresh State",
-        "help": "Re-query every exposed parameter from the console.",
-        "params": {},
-    }
+    add("refresh", "Refresh State",
+        "Re-query every exposed parameter from the console.", {})
 
     return cmds
 
@@ -729,21 +733,29 @@ def _build_commands() -> dict[str, dict[str, Any]]:
 class AllenHeathSQDriver(BaseDriver):
     """Allen & Heath SQ-5 / SQ-6 / SQ-7 MIDI-over-TCP driver."""
 
+    # Liveness: an NRPN Get for the LR master level, awaited by parameter
+    # address. Two missed replies force a typed no_response reconnect.
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the SQ stopped answering Get requests — "
+        "connection lost."
+    )
+
     DRIVER_INFO = {
         "id": "allenheath_sq",
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.3.0",
+        "version": "2.0.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "
-            "consoles via MIDI over TCP/IP on port 51325. Full mute / "
-            "level / pan / assignment control across all 48 inputs, "
-            "12 groups, 12 aux outs, 3 matrix outs, 4 FX sends, 8 FX "
-            "returns, 8 DCAs, and 8 mute groups. Scene recall (1-300), "
-            "1 dB increment/decrement, SoftKey triggers, and bidirectional "
-            "state — console-side moves push back into OpenAVC state."
+            "consoles via MIDI over TCP/IP on port 51325. Every input, "
+            "group, aux, matrix, FX send/return, DCA and mute group is a "
+            "child entity with live mute / level / pan state and a channel "
+            "picker on its commands. Scene recall (1-300), 1 dB nudges, "
+            "SoftKey triggers, master balances, and bidirectional state — "
+            "console-side moves push back into OpenAVC, and a Get-probe "
+            "watchdog flips the device offline if the console vanishes."
         ),
         "source_url": "https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf",
         "tags": ["mixer", "console", "midi", "nrpn", "allen-heath"],
@@ -764,23 +776,26 @@ class AllenHeathSQDriver(BaseDriver):
                 "allen-heath", "audiotonix",
             ],
         },
-        "min_platform_version": "0.6.0",
+        # Child entities + cloud_priority tiers + the liveness watchdog hook.
+        "min_platform_version": "0.22.0",
         "compatible_models": [
             {
                 "manufacturer": "Allen & Heath",
                 "models": ["SQ-5", "SQ-6", "SQ-7"],
                 "confidence": "untested",
                 "notes": (
-                    "Same MIDI command set across all three. SQ-5 has 8 "
-                    "SoftKeys (triggers 9-16 are no-ops). SoftKeys are "
-                    "addressed by integer 1-16."
+                    "Same MIDI command set and channel counts across all "
+                    "three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). "
+                    "SoftKeys are addressed by integer 1-16."
                 ),
             },
         ],
+        "child_entity_types": CHILD_ENTITY_TYPES,
         "default_config": {
             "host": "",
             "port": 51325,
             "midi_channel": 1,
+            "poll_interval": 60,
         },
         "config_schema": {
             "host": {
@@ -806,14 +821,36 @@ class AllenHeathSQDriver(BaseDriver):
                     "(Utility → General → MIDI). Default 1."
                 ),
             },
+            "poll_interval": {
+                "type": "integer",
+                "default": 60,
+                "min": 0,
+                "label": "Poll Interval (s)",
+                "description": (
+                    "Periodic full re-sweep backstop. Push keeps state "
+                    "live; the sweep catches updates missed during "
+                    "transient drops. 0 disables it."
+                ),
+            },
         },
+        "quick_actions": [
+            "recall_scene", "mute_all_inputs", "unmute_all_inputs", "refresh",
+        ],
+        "actions": [
+            {"id": "recall_scene", "kind": "command", "icon": "layers"},
+            {"id": "mute_all_inputs", "kind": "command", "icon": "volume-x"},
+            {"id": "unmute_all_inputs", "kind": "command", "icon": "volume-2"},
+            {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
+        ],
         "help": {
             "overview": (
                 "Controls an Allen & Heath SQ digital mixing console over "
-                "the network using MIDI over TCP/IP. Full mute, level, pan "
-                "and assignment control plus scene recall and SoftKey "
-                "triggers. Console-side moves push back into OpenAVC state "
-                "so faders and mute LEDs on a touch panel stay in sync."
+                "the network using MIDI over TCP/IP. Every channel strip is "
+                "listed as a child entity with live mute, level and pan "
+                "state — bind child state (e.g. device.<id>.input.in05.mute) "
+                "to panel elements and drive mutes, faders and scene recall "
+                "from macros and buttons. Console-side moves push straight "
+                "back into OpenAVC state."
             ),
             "setup": (
                 "1. Connect the SQ to the same network as the OpenAVC "
@@ -824,17 +861,38 @@ class AllenHeathSQDriver(BaseDriver):
                 "Channel.\n"
                 "4. Enter the IP address and matching MIDI channel in the "
                 "device config. The default port (51325) is correct.\n"
-                "5. The driver subscribes to console-side updates "
-                "automatically; no further setup is required."
+                "5. Save. The channels appear under the device with live "
+                "state; rename them in the project as needed (the SQ MIDI "
+                "protocol does not expose console channel names)."
             ),
         },
-        "state_variables": _build_state_vars(),
+        "state_variables": {
+            "current_scene": {
+                "type": "integer",
+                "label": "Current Scene",
+                "min": 0,
+                "max": MAX_SCENE,
+            },
+            "lr_mute": {"type": "boolean", "label": "LR Master Mute",
+                        "cloud_priority": "high"},
+            "lr_fader": {
+                "type": "number",
+                "label": "LR Master Fader",
+                "min": LEVEL_MIN,
+                "max": LEVEL_MAX,
+            },
+            "lr_balance": {
+                "type": "number",
+                "label": "LR Master Balance",
+                "min": PAN_LEFT,
+                "max": PAN_RIGHT,
+            },
+        },
         "commands": _build_commands(),
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._param_map = _ParamMap()
         self._rx_buf = bytearray()
         # NRPN aggregator: tracks the last MSB and LSB seen on each MIDI
         # channel so a 4-message sequence (BN 63, BN 62, BN 06, BN 26)
@@ -842,7 +900,18 @@ class AllenHeathSQDriver(BaseDriver):
         self._nrpn_state: dict[int, dict[str, int]] = {
             ch: {"msb": 0, "lsb": 0, "vc": 0} for ch in range(16)
         }
-        self._poll_interval = float(self.config.get("poll_interval", 60.0))
+        self._running_status = 0
+        self._last_bank = 0
+
+        # Child routing, built by _register_topology():
+        #   _route: (MSB, LSB) -> (kind, ctype, sid, prop); ctype "lr" = flat.
+        #   _child_num: (ctype, sid) -> 1-based channel number.
+        self._route: dict[tuple[int, int], tuple[str, str, str, str]] = {}
+        self._child_num: dict[tuple[str, str], int] = {}
+
+        # Liveness probe bookkeeping (see _liveness_probe).
+        self._probe_addr = level_lr_master()
+        self._probe_fut: asyncio.Future[None] | None = None
 
     # ── Connection lifecycle ────────────────────────────────────────────
 
@@ -852,6 +921,7 @@ class AllenHeathSQDriver(BaseDriver):
         if not host:
             raise ValueError("host is required")
 
+        self._probe_fut = None
         self.transport = await TCPTransport.create(
             host=host,
             port=port,
@@ -865,13 +935,21 @@ class AllenHeathSQDriver(BaseDriver):
         await self.events.emit(f"device.{self.device_id}.connected", {})
         log.info("[%s] connected to %s:%d", self.device_id, host, port)
 
-        # Initial sweep — query every parameter we expose as state.
+        # Register the (static) child roster, then sweep every parameter.
+        self._register_topology()
         await asyncio.sleep(0.1)
         await self._refresh_all()
 
+        # This connect() doesn't run BaseDriver.connect(), so start the
+        # polling backstop and the liveness watchdog ourselves.
+        poll_interval = float(self.config.get("poll_interval", 60) or 0)
+        if poll_interval > 0:
+            await self.start_polling(poll_interval)
+        self._start_health_loop()
+
     async def disconnect(self) -> None:
-        if self._poll_task and not self._poll_task.done():
-            self._poll_task.cancel()
+        self._stop_health_loop()
+        await self.stop_polling()
         if self.transport:
             try:
                 await self.transport.close()
@@ -881,10 +959,51 @@ class AllenHeathSQDriver(BaseDriver):
         self._connected = False
         self.set_state("connected", False)
 
-    async def _on_disconnect(self) -> None:
+    def _on_disconnect(self) -> None:
         self._connected = False
         self.set_state("connected", False)
-        await self.events.emit(f"device.{self.device_id}.disconnected", {})
+        # BaseDriver's bookkeeping stops the health loop / polling and
+        # schedules the reconnect.
+        super()._handle_transport_disconnect()
+
+    # ── Topology registration ───────────────────────────────────────────
+
+    def _register_topology(self) -> None:
+        """Register the fixed channel roster as children and (re)build the
+        inbound (MSB, LSB) -> child-prop route map. Safe to re-run —
+        register_child is idempotent, and a driver-seeded label never
+        overrides one the user set in the project."""
+        self._route = {}
+        self._child_num = {}
+
+        for ctype, count, sid_tpl, label_tpl in _ROSTER:
+            addrs = _TYPE_ADDRS[ctype]
+            for n in range(1, count + 1):
+                sid = sid_tpl.format(n=n)
+                self._child_num[(ctype, sid)] = n
+                for prop, addr_fn in addrs.items():
+                    kind = ("mute" if prop in _MUTE_PROPS
+                            else "pan" if prop in _PAN_PROPS
+                            else "level")
+                    self._route[addr_fn(n)] = (kind, ctype, sid, prop)
+                initial = None
+                project = self._project_child_entities.get(ctype, {}).get(sid)
+                if not (project and project.get("label")):
+                    initial = {"label": label_tpl.format(n=n)}
+                self.register_child(ctype, sid, initial_state=initial)
+
+        # LR master routes to flat device state.
+        self._route[mute_lr()] = ("mute", "lr", "lr", "lr_mute")
+        self._route[level_lr_master()] = ("level", "lr", "lr", "lr_fader")
+        self._route[pan_lr_master()] = ("pan", "lr", "lr", "lr_balance")
+
+    async def refresh_children(self) -> dict[str, Any]:
+        """IDE 'Refresh from Device' + the Refresh quick action: re-sweep
+        every exposed parameter."""
+        if not (self.transport and self._connected):
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        await self._refresh_all()
+        return {"channels": len(self._child_num)}
 
     # ── Polling backstop ────────────────────────────────────────────────
 
@@ -936,6 +1055,28 @@ class AllenHeathSQDriver(BaseDriver):
     def _build_assign(self, msb: int, lsb: int, on: bool) -> bytes:
         return self._build_nrpn(msb, lsb, 0x00, 0x01 if on else 0x00)
 
+    # ── Liveness watchdog (BaseDriver health loop) ──────────────────────
+
+    async def _liveness_probe(self) -> None:
+        """Send an NRPN Get for the LR master level and await the reply.
+
+        Pushes only happen when a console-side control moves, and poll
+        Gets are fire-and-forget, so an SQ that vanished without a FIN
+        would otherwise stay "online" forever. Replies aren't tagged, so
+        the probe correlates by parameter address: any absolute for the
+        probed address resolves it (the Get reply — or a console-side
+        move of that same fader, which equally proves the console is
+        alive). A push of any other parameter does NOT satisfy it.
+        """
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[None] = loop.create_future()
+        self._probe_fut = fut
+        try:
+            await self._send(self._build_nrpn_get(*self._probe_addr))
+            await fut
+        finally:
+            self._probe_fut = None
+
     # ── Send-command dispatch ───────────────────────────────────────────
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
@@ -945,6 +1086,14 @@ class AllenHeathSQDriver(BaseDriver):
         if method is None:
             raise ValueError(f"Unknown command: {command}")
         return await method(**params)
+
+    # ── Channel resolution ──────────────────────────────────────────────
+
+    def _addr_of(self, ctype: str, sid: Any, addr_fn: Any) -> tuple[int, int]:
+        n = self._child_num.get((ctype, str(sid)))
+        if n is None:
+            raise ValueError(f"Unknown {ctype}: {sid!r}")
+        return addr_fn(n)
 
     # ── Commands: scene / SoftKeys ──────────────────────────────────────
 
@@ -974,57 +1123,79 @@ class AllenHeathSQDriver(BaseDriver):
     async def _do_mute(self, msb: int, lsb: int, action: str) -> None:
         action = (action or "on").lower()
         if action == "toggle":
+            # Native toggle, then read the result back — its outcome depends
+            # on console-side state, and the console doesn't echo changes it
+            # received over MIDI (A&H behavior confirmed on Qu hardware).
             await self._send(self._build_nrpn_inc(msb, lsb))
+            await self._send(self._build_nrpn_get(msb, lsb))
         else:
-            await self._send(self._build_mute(msb, lsb, action == "on"))
+            on = action == "on"
+            await self._send(self._build_mute(msb, lsb, on))
+            # Optimistic: mirror the commanded value (no echo on hardware).
+            self._dispatch_absolute(msb, lsb, 0x00, 0x01 if on else 0x00)
 
-    async def cmd_mute_input(self, input: int, action: str = "on") -> None:
-        await self._do_mute(*mute_input(int(input)), action)
+    async def cmd_mute_input(self, input: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("input", input, mute_input), action)
 
-    async def cmd_mute_group(self, group: int, action: str = "on") -> None:
-        await self._do_mute(*mute_group(int(group)), action)
+    async def cmd_mute_group(self, group: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("group", group, mute_group), action)
 
-    async def cmd_mute_aux_master(self, aux: int, action: str = "on") -> None:
-        await self._do_mute(*mute_aux_master(int(aux)), action)
+    async def cmd_mute_aux_master(self, aux: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("aux", aux, mute_aux_master), action)
 
-    async def cmd_mute_mtx_master(self, mtx: int, action: str = "on") -> None:
-        await self._do_mute(*mute_mtx_master(int(mtx)), action)
+    async def cmd_mute_mtx_master(self, mtx: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("matrix", mtx, mute_mtx_master), action)
 
-    async def cmd_mute_fx_send(self, fx: int, action: str = "on") -> None:
-        await self._do_mute(*mute_fx_send(int(fx)), action)
+    async def cmd_mute_fx_send(self, fx: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("fx_send", fx, mute_fx_send), action)
 
-    async def cmd_mute_fx_return(self, fx: int, action: str = "on") -> None:
-        await self._do_mute(*mute_fx_return(int(fx)), action)
+    async def cmd_mute_fx_return(self, fx: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("fx_return", fx, mute_fx_return), action)
 
-    async def cmd_mute_dca(self, dca: int, action: str = "on") -> None:
-        await self._do_mute(*mute_dca(int(dca)), action)
+    async def cmd_mute_dca(self, dca: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("dca", dca, mute_dca), action)
 
-    async def cmd_mute_mgrp(self, mgrp: int, action: str = "on") -> None:
-        await self._do_mute(*mute_mgrp(int(mgrp)), action)
+    async def cmd_mute_mgrp(self, mgrp: Any, action: str = "on") -> None:
+        await self._do_mute(*self._addr_of("mute_group", mgrp, mute_mgrp), action)
 
     async def cmd_mute_lr(self, action: str = "on") -> None:
         await self._do_mute(*mute_lr(), action)
+
+    async def _do_mute_all_inputs(self, on: bool) -> None:
+        for n in range(1, NUM_INPUTS + 1):
+            msb, lsb = mute_input(n)
+            await self._send(self._build_mute(msb, lsb, on))
+            self._dispatch_absolute(msb, lsb, 0x00, 0x01 if on else 0x00)
+            if n % 16 == 0:
+                await asyncio.sleep(0.01)
+
+    async def cmd_mute_all_inputs(self) -> None:
+        await self._do_mute_all_inputs(True)
+
+    async def cmd_unmute_all_inputs(self) -> None:
+        await self._do_mute_all_inputs(False)
 
     # ── Commands: levels (absolute) ─────────────────────────────────────
 
     async def _do_level(self, msb: int, lsb: int, level: float) -> None:
         vc, vf = level_to_vcvf(float(level))
         await self._send(self._build_nrpn(msb, lsb, vc, vf))
+        self._dispatch_absolute(msb, lsb, vc, vf)
 
-    async def cmd_set_input_to_lr_level(self, input: int, level: float) -> None:
-        await self._do_level(*level_input_to_lr(int(input)), level)
+    async def cmd_set_input_to_lr_level(self, input: Any, level: float) -> None:
+        await self._do_level(*self._addr_of("input", input, level_input_to_lr), level)
 
     async def cmd_set_input_to_aux_level(self, input: int, aux: int, level: float) -> None:
         await self._do_level(*level_input_to_aux(int(input), int(aux)), level)
 
-    async def cmd_set_group_to_lr_level(self, group: int, level: float) -> None:
-        await self._do_level(*level_group_to_lr(int(group)), level)
+    async def cmd_set_group_to_lr_level(self, group: Any, level: float) -> None:
+        await self._do_level(*self._addr_of("group", group, level_group_to_lr), level)
 
     async def cmd_set_group_to_aux_level(self, group: int, aux: int, level: float) -> None:
         await self._do_level(*level_group_to_aux(int(group), int(aux)), level)
 
-    async def cmd_set_fx_return_to_lr_level(self, fx: int, level: float) -> None:
-        await self._do_level(*level_fx_return_to_lr(int(fx)), level)
+    async def cmd_set_fx_return_to_lr_level(self, fx: Any, level: float) -> None:
+        await self._do_level(*self._addr_of("fx_return", fx, level_fx_return_to_lr), level)
 
     async def cmd_set_fx_return_to_aux_level(self, fx: int, aux: int, level: float) -> None:
         await self._do_level(*level_fx_return_to_aux(int(fx), int(aux)), level)
@@ -1034,6 +1205,10 @@ class AllenHeathSQDriver(BaseDriver):
 
     async def cmd_set_group_to_fx_send_level(self, group: int, fx: int, level: float) -> None:
         await self._do_level(*level_group_to_fx_send(int(group), int(fx)), level)
+
+    async def cmd_set_fx_return_to_fx_send_level(self, fx_return: int, fx: int,
+                                                 level: float) -> None:
+        await self._do_level(*level_fx_return_to_fx_send(int(fx_return), int(fx)), level)
 
     async def cmd_set_lr_to_mtx_level(self, mtx: int, level: float) -> None:
         await self._do_level(*level_lr_to_mtx(int(mtx)), level)
@@ -1047,17 +1222,17 @@ class AllenHeathSQDriver(BaseDriver):
     async def cmd_set_lr_master_level(self, level: float) -> None:
         await self._do_level(*level_lr_master(), level)
 
-    async def cmd_set_aux_master_level(self, aux: int, level: float) -> None:
-        await self._do_level(*level_aux_master(int(aux)), level)
+    async def cmd_set_aux_master_level(self, aux: Any, level: float) -> None:
+        await self._do_level(*self._addr_of("aux", aux, level_aux_master), level)
 
-    async def cmd_set_mtx_master_level(self, mtx: int, level: float) -> None:
-        await self._do_level(*level_mtx_master(int(mtx)), level)
+    async def cmd_set_mtx_master_level(self, mtx: Any, level: float) -> None:
+        await self._do_level(*self._addr_of("matrix", mtx, level_mtx_master), level)
 
-    async def cmd_set_fx_send_master_level(self, fx: int, level: float) -> None:
-        await self._do_level(*level_fx_send_master(int(fx)), level)
+    async def cmd_set_fx_send_master_level(self, fx: Any, level: float) -> None:
+        await self._do_level(*self._addr_of("fx_send", fx, level_fx_send_master), level)
 
-    async def cmd_set_dca_level(self, dca: int, level: float) -> None:
-        await self._do_level(*level_dca(int(dca)), level)
+    async def cmd_set_dca_level(self, dca: Any, level: float) -> None:
+        await self._do_level(*self._addr_of("dca", dca, level_dca), level)
 
     # ── Commands: levels (relative 1 dB step) ───────────────────────────
 
@@ -1066,42 +1241,54 @@ class AllenHeathSQDriver(BaseDriver):
             await self._send(self._build_nrpn_inc(msb, lsb))
         else:
             await self._send(self._build_nrpn_dec(msb, lsb))
+        # Read the result back — the console doesn't echo received changes.
+        await self._send(self._build_nrpn_get(msb, lsb))
 
-    async def cmd_step_input_to_lr_level(self, input: int, direction: str = "up") -> None:
-        await self._do_step(*level_input_to_lr(int(input)), direction)
+    async def cmd_step_input_to_lr_level(self, input: Any, direction: str = "up") -> None:
+        await self._do_step(*self._addr_of("input", input, level_input_to_lr), direction)
 
-    async def cmd_step_aux_master_level(self, aux: int, direction: str = "up") -> None:
-        await self._do_step(*level_aux_master(int(aux)), direction)
+    async def cmd_step_aux_master_level(self, aux: Any, direction: str = "up") -> None:
+        await self._do_step(*self._addr_of("aux", aux, level_aux_master), direction)
 
     async def cmd_step_lr_master_level(self, direction: str = "up") -> None:
         await self._do_step(*level_lr_master(), direction)
 
-    async def cmd_step_dca_level(self, dca: int, direction: str = "up") -> None:
-        await self._do_step(*level_dca(int(dca)), direction)
+    async def cmd_step_dca_level(self, dca: Any, direction: str = "up") -> None:
+        await self._do_step(*self._addr_of("dca", dca, level_dca), direction)
 
     # ── Commands: panning ───────────────────────────────────────────────
 
     async def _do_pan(self, msb: int, lsb: int, pan: float) -> None:
         vc, vf = pan_to_vcvf(float(pan))
         await self._send(self._build_nrpn(msb, lsb, vc, vf))
+        self._dispatch_absolute(msb, lsb, vc, vf)
 
-    async def cmd_set_input_to_lr_pan(self, input: int, pan: float) -> None:
-        await self._do_pan(*pan_input_to_lr(int(input)), pan)
+    async def cmd_set_input_to_lr_pan(self, input: Any, pan: float) -> None:
+        await self._do_pan(*self._addr_of("input", input, pan_input_to_lr), pan)
 
     async def cmd_set_input_to_aux_pan(self, input: int, aux: int, pan: float) -> None:
         await self._do_pan(*pan_input_to_aux(int(input), int(aux)), pan)
 
-    async def cmd_set_group_to_lr_pan(self, group: int, pan: float) -> None:
-        await self._do_pan(*pan_group_to_lr(int(group)), pan)
+    async def cmd_set_group_to_lr_pan(self, group: Any, pan: float) -> None:
+        await self._do_pan(*self._addr_of("group", group, pan_group_to_lr), pan)
 
-    async def cmd_set_fx_return_to_lr_pan(self, fx: int, pan: float) -> None:
-        await self._do_pan(*pan_fx_return_to_lr(int(fx)), pan)
+    async def cmd_set_fx_return_to_lr_pan(self, fx: Any, pan: float) -> None:
+        await self._do_pan(*self._addr_of("fx_return", fx, pan_fx_return_to_lr), pan)
 
     async def cmd_set_lr_to_mtx_balance(self, mtx: int, pan: float) -> None:
         await self._do_pan(*pan_lr_to_mtx(int(mtx)), pan)
 
     async def cmd_set_aux_to_mtx_balance(self, aux: int, mtx: int, pan: float) -> None:
         await self._do_pan(*pan_aux_to_mtx(int(aux), int(mtx)), pan)
+
+    async def cmd_set_lr_balance(self, pan: float) -> None:
+        await self._do_pan(*pan_lr_master(), pan)
+
+    async def cmd_set_aux_master_balance(self, aux: Any, pan: float) -> None:
+        await self._do_pan(*self._addr_of("aux", aux, pan_aux_master), pan)
+
+    async def cmd_set_mtx_master_balance(self, mtx: Any, pan: float) -> None:
+        await self._do_pan(*self._addr_of("matrix", mtx, pan_mtx_master), pan)
 
     # ── Commands: mix assignments ───────────────────────────────────────
 
@@ -1133,37 +1320,7 @@ class AllenHeathSQDriver(BaseDriver):
         if not self.connected:
             return
 
-        targets: list[tuple[int, int]] = []
-        targets.append(mute_lr())
-        targets.append(level_lr_master())
-
-        for n in range(1, NUM_INPUTS + 1):
-            targets.append(mute_input(n))
-            targets.append(level_input_to_lr(n))
-            targets.append(pan_input_to_lr(n))
-        for n in range(1, NUM_GROUPS + 1):
-            targets.append(mute_group(n))
-            targets.append(level_group_to_lr(n))
-            targets.append(pan_group_to_lr(n))
-        for n in range(1, NUM_AUX + 1):
-            targets.append(mute_aux_master(n))
-            targets.append(level_aux_master(n))
-        for n in range(1, NUM_MTX + 1):
-            targets.append(mute_mtx_master(n))
-            targets.append(level_mtx_master(n))
-        for n in range(1, NUM_FX_SENDS + 1):
-            targets.append(mute_fx_send(n))
-            targets.append(level_fx_send_master(n))
-        for n in range(1, NUM_FX_RETURNS + 1):
-            targets.append(mute_fx_return(n))
-            targets.append(level_fx_return_to_lr(n))
-            targets.append(pan_fx_return_to_lr(n))
-        for n in range(1, NUM_DCAS + 1):
-            targets.append(mute_dca(n))
-            targets.append(level_dca(n))
-        for n in range(1, NUM_MUTE_GROUPS + 1):
-            targets.append(mute_mgrp(n))
-
+        targets: list[tuple[int, int]] = list(self._route.keys())
         for i, (msb, lsb) in enumerate(targets):
             try:
                 await self._send(self._build_nrpn_get(msb, lsb))
@@ -1194,7 +1351,7 @@ class AllenHeathSQDriver(BaseDriver):
         # Running status (a status byte applies until a new one arrives)
         # is supported.
         buf = self._rx_buf
-        running_status = getattr(self, "_running_status", 0)
+        running_status = self._running_status
 
         i = 0
         while i < len(buf):
@@ -1321,19 +1478,11 @@ class AllenHeathSQDriver(BaseDriver):
             pass
 
     def _handle_program_change(self, ch: int, program: int) -> None:
-        # The console-side scene change emits Bank Select (B0 00 BK) followed
-        # by Program Change (CN PG). We track only the program for state
-        # purposes — bank is rare enough and we cache the last bank seen
-        # via CC if needed. For simplicity, infer the scene from current
-        # program plus 1 within bank 0; banked scenes need the full
-        # sequence which the parser collects below.
+        # Console-side scene change: Bank Select (B0 00 BK) then Program
+        # Change (CN PG). The bank is cached from the preceding CC 0x00.
         if ch != self._ch:
             return
-        # The bank value is the most recent CC 0x00 (Bank MSB) on this
-        # channel — cached in nrpn["msb"] only if a Bank Select was just
-        # received, which can collide with NRPN. Track it separately.
-        bank = getattr(self, "_last_bank", 0)
-        scene = bank * 128 + program + 1
+        scene = self._last_bank * 128 + program + 1
         if MIN_SCENE <= scene <= MAX_SCENE:
             self.set_state("current_scene", scene)
 
@@ -1341,36 +1490,59 @@ class AllenHeathSQDriver(BaseDriver):
         if ch == self._ch:
             self._last_bank = value
 
+    # ── State fan-out ───────────────────────────────────────────────────
+
     def _dispatch_absolute(self, msb: int, lsb: int, vc: int, vf: int) -> None:
-        """Map an absolute (MSB, LSB, VC, VF) tuple to a state update."""
+        """Map an absolute (MSB, LSB, VC, VF) tuple to a state update.
+
+        Shared by the inbound parser AND the optimistic write path, so a
+        sent value and a received value land in state identically.
+        """
         key = (msb, lsb)
 
-        # Mutes use VC=0, VF=0/1.
-        if key in self._param_map.mute:
-            self.set_state(self._param_map.mute[key], bool(vf & 0x01))
-            return
+        # Resolve the liveness probe on a reply for the probed address.
+        if (self._probe_fut is not None and not self._probe_fut.done()
+                and key == self._probe_addr):
+            self._probe_fut.set_result(None)
 
-        # Levels: 14-bit fader position.
-        if key in self._param_map.level:
-            self.set_state(self._param_map.level[key], vcvf_to_level(vc, vf))
+        route = self._route.get(key)
+        if route is None:
+            # Unknown parameter — ignore. (E.g. send-level matrix cells we
+            # don't expose as state but that another client may set.)
             return
+        kind, ctype, sid, prop = route
 
-        # Pans: 14-bit pan position.
-        if key in self._param_map.pan:
-            self.set_state(self._param_map.pan[key], vcvf_to_pan(vc, vf))
+        if kind == "mute":
+            value: Any = bool(vf & 0x01)
+        elif kind == "pan":
+            value = vcvf_to_pan(vc, vf)
+        else:
+            value = vcvf_to_level(vc, vf)
+
+        if ctype == "lr":
+            self.set_state(prop, value)
             return
-
-        # Unknown parameter — ignore. (E.g. send-level matrix cells we
-        # didn't expose as state but that the console may still echo.)
+        try:
+            self.set_child_state_batch(ctype, sid, {prop: value})
+        except Exception:  # noqa: BLE001
+            pass
 
     def _dispatch_toggle(self, msb: int, lsb: int) -> None:
-        """Console-side mute/assign toggle echo. Flip the state we hold."""
-        key = (msb, lsb)
-        state_key = self._param_map.mute.get(key)
-        if state_key is None:
+        """Console-side mute toggle echo. Flip the state we hold."""
+        route = self._route.get((msb, lsb))
+        if route is None:
             return
-        cur = self.get_state(state_key)
-        self.set_state(state_key, not bool(cur))
+        kind, ctype, sid, prop = route
+        if kind != "mute":
+            return
+        if ctype == "lr":
+            self.set_state(prop, not bool(self.get_state(prop)))
+            return
+        try:
+            cur = bool(self.get_child_state(ctype, sid).get(prop))
+            self.set_child_state_batch(ctype, sid, {prop: not cur})
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # Class export expected by the loader.

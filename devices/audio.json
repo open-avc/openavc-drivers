@@ -219,7 +219,7 @@
         {
           "id": "allenheath_sq",
           "confidence": "untested",
-          "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
         }
       ]
     },
@@ -231,7 +231,7 @@
         {
           "id": "allenheath_sq",
           "confidence": "untested",
-          "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
         }
       ]
     },
@@ -243,7 +243,7 @@
         {
           "id": "allenheath_sq",
           "confidence": "untested",
-          "notes": "Same MIDI command set across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
+          "notes": "Same MIDI command set and channel counts across all three. SQ-5 has 8 SoftKeys (triggers 9-16 are no-ops). SoftKeys are addressed by integer 1-16."
         }
       ]
     },

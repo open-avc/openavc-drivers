@@ -32,6 +32,20 @@ Wire format:
     Atlona requires a 500 ms minimum delay between commands; the driver
     enforces this with an asyncio lock + sleep.
 
+Device settings:
+    Volume, both mutes, external audio source, USB routing mode, and
+    matrix mode are set-and-polled values, so they're exposed as device
+    settings (editable field + offline pending queue) with their polled
+    state vars as the read-back. Matrix mode's Get reports only on/off,
+    so the setting is boolean; static-routing mode stays on the Set
+    Matrix Mode command.
+
+Liveness:
+    Sends are fire-and-forget on raw TCP, so a matrix that drops without
+    a FIN used to stay "online" indefinitely. The BaseDriver watchdog
+    probes Misc:Model:Get and awaits the parsed reply; two silent probes
+    force a reconnect with a typed no_response fault.
+
 Protocol reference: AT-OME-MS52W Application Programming Interface 2.9.6
     https://atlona.com/pdf/AT-OME-MS52W_API.pdf
 The MS42 / MS42-HDBT / MS52 use the same dotted command vocabulary; the
@@ -119,7 +133,10 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.2.1",
+        "version": "1.3.0",
+        # 0.22.0 ships the BaseDriver awaited-probe watchdog; on older
+        # platforms the liveness hook would never run.
+        "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls the Atlona AT-OME-MS family of 4K/UHD matrix "
@@ -437,7 +454,101 @@ class AtlonaOmeMsDriver(BaseDriver):
                 "help": "Re-poll model, firmware, routing, audio, and signal states.",
             },
         },
+        # Device settings: every entry is already both written and polled
+        # by the commands above, so each gets the editable-field + offline
+        # pending-queue treatment with its polled state var as the
+        # read-back. Matrix mode's Get reports only on/off (a boolean), so
+        # the setting is the on/off pair — static-routing mode is still
+        # available through the Set Matrix Mode command.
+        "device_settings": {
+            "volume": {
+                "type": "integer",
+                "label": "Volume (dB)",
+                "min": VOLUME_MIN,
+                "max": VOLUME_MAX,
+                "state_key": "volume",
+                "default": -40,
+                "setup": False,
+                "help": "Overall audio output level in decibels (-80..0).",
+            },
+            "mute_hdmi": {
+                "type": "boolean",
+                "label": "HDMI Audio Mute",
+                "state_key": "mute_hdmi",
+                "default": False,
+                "setup": False,
+            },
+            "mute_analog": {
+                "type": "boolean",
+                "label": "Analog Audio Mute",
+                "state_key": "mute_analog",
+                "default": False,
+                "setup": False,
+            },
+            "audio_source": {
+                "type": "enum",
+                "values": ["digital", "analog"],
+                "label": "External Audio Source",
+                "state_key": "audio_source",
+                "default": "digital",
+                "setup": False,
+                "help": (
+                    "Whether external (non-embedded) audio comes from the "
+                    "digital or analog input."
+                ),
+            },
+            "usb_mode": {
+                "type": "enum",
+                "values": ["follow", "manual"],
+                "label": "USB Routing Mode",
+                "state_key": "usb_mode",
+                "default": "follow",
+                "setup": False,
+                "help": (
+                    "follow = USB host tracks the active video input; "
+                    "manual = USB host stays on the input picked with Set "
+                    "USB Host Source."
+                ),
+            },
+            "matrix_mode": {
+                "type": "boolean",
+                "label": "Matrix Mode",
+                "state_key": "matrix_mode",
+                "default": False,
+                "setup": False,
+                "help": (
+                    "Off = single-input mode (both outputs follow the "
+                    "active input). On = independent per-output routing. "
+                    "The static-routing variant is available via the Set "
+                    "Matrix Mode command."
+                ),
+            },
+        },
+        # Quick Action strip: display power is the daily surface; restart
+        # confirms because the room goes dark until the matrix is back.
+        "actions": [
+            {"id": "display_on", "kind": "command", "icon": "monitor"},
+            {"id": "display_off", "kind": "command", "icon": "monitor-off"},
+            {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
+            {
+                "id": "platform_restart", "kind": "command", "icon": "power",
+                "confirm": (
+                    "Reboot the matrix? Video and audio drop until it "
+                    "finishes restarting."
+                ),
+            },
+        ],
     }
+
+    # BaseDriver liveness watchdog fault wording (typed no_response).
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the matrix stopped answering status queries."
+    )
+    # The 500 ms inter-command lock means a probe that fires while a full
+    # poll cycle (15 queries ~= 7.5 s) holds the lock can legitimately
+    # wait ~8 s before its answer arrives. Give the probe headroom past
+    # that worst case so a busy cycle can't read as a dead matrix.
+    HEALTH_TIMEOUT_S = 10.0
 
     def __init__(self, device_id, config, state, events):
         self._line_buffer = b""
@@ -446,6 +557,9 @@ class AtlonaOmeMsDriver(BaseDriver):
         # behind a lock + sleep so back-to-back commands don't collide.
         self._send_lock = asyncio.Lock()
         self._inter_cmd_delay = 0.5
+        # Liveness probe correlation: the watchdog awaits the next parsed
+        # Misc:Model:Get reply through this future.
+        self._probe_future: asyncio.Future[None] | None = None
         super().__init__(device_id, config, state, events)
 
     # ── Lifecycle ──
@@ -504,8 +618,18 @@ class AtlonaOmeMsDriver(BaseDriver):
         if poll_interval > 0:
             await self.start_polling(poll_interval)
 
+        # This connect() doesn't run BaseDriver.connect(), so arm the
+        # liveness watchdog explicitly. Sends here are fire-and-forget on
+        # raw TCP — without an awaited probe, a matrix that drops without
+        # a FIN (power cut, network partition) would stay "online" forever.
+        self._start_health_loop()
+
     async def disconnect(self) -> None:
+        self._stop_health_loop()
         await self.stop_polling()
+        if self._probe_future is not None and not self._probe_future.done():
+            self._probe_future.cancel()
+        self._probe_future = None
         if self.transport:
             await self.transport.close()
             self.transport = None
@@ -588,6 +712,60 @@ class AtlonaOmeMsDriver(BaseDriver):
             await self.poll()
         else:
             log.warning(f"[{self.device_id}] Unknown command: {command}")
+
+    async def set_device_setting(self, key: str, value: Any) -> Any:
+        """Write a device setting; read-back rides the polled state_key.
+
+        Every setting reuses the wire command its transient counterpart
+        sends, so byte-building stays in one place. The set-ack echo
+        (``_dispatch_set_ack``) updates state immediately; polling is the
+        steady-state read-back.
+        """
+        if not self.transport or not self.transport.connected:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        if key == "volume":
+            level = max(VOLUME_MIN, min(VOLUME_MAX, int(value)))
+            await self._send(f"Audio:Volume:Set {level}")
+        elif key in ("mute_hdmi", "mute_analog"):
+            ch = key.split("_", 1)[1]
+            flag = (
+                value if isinstance(value, bool)
+                else str(value).strip().lower() in ("1", "true", "on", "yes")
+            )
+            await self._send(f"Audio:Mute:Set {ch} {'true' if flag else 'false'}")
+        elif key == "audio_source":
+            src = str(value)
+            if src not in ("digital", "analog"):
+                raise ValueError(f"audio_source must be digital/analog: {value!r}")
+            await self._send(f"Audio:SetSource {src}")
+        elif key == "usb_mode":
+            mode = str(value)
+            if mode not in ("follow", "manual"):
+                raise ValueError(f"usb_mode must be follow/manual: {value!r}")
+            await self._send(f"USBRouting:Mode:Set {mode}")
+        elif key == "matrix_mode":
+            flag = (
+                value if isinstance(value, bool)
+                else str(value).strip().lower() in ("1", "true", "on", "yes")
+            )
+            await self._send(f"Display:Matrix:Mode:Set {1 if flag else 0}")
+        else:
+            raise ValueError(f"Unknown device setting: {key}")
+
+    async def _liveness_probe(self) -> None:
+        """Send Misc:Model:Get and await its parsed reply (watchdog hook).
+
+        Sends are fire-and-forget on raw TCP, so a silently dead matrix is
+        only detectable by awaiting an answer. The future is primed before
+        the send so a fast reply can't beat the awaiter.
+        """
+        loop = asyncio.get_running_loop()
+        self._probe_future = loop.create_future()
+        try:
+            await self._send("Misc:Model:Get")
+            await self._probe_future
+        finally:
+            self._probe_future = None
 
     async def poll(self) -> None:
         if not self.transport or not self.transport.connected:
@@ -677,6 +855,11 @@ class AtlonaOmeMsDriver(BaseDriver):
 
         # ── Misc:Model:Get ──
         if method_key == "misc:model:get":
+            # A parsed model reply is the liveness probe's answer. The
+            # poll cycle's own Misc:Model:Get satisfies a concurrent
+            # probe too — any correlated answer proves the link is alive.
+            if self._probe_future is not None and not self._probe_future.done():
+                self._probe_future.set_result(None)
             model = str(result.get("model", "")).replace(" ", "")
             if model:
                 self.set_state("model", model)

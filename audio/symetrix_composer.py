@@ -18,6 +18,14 @@ Push vs poll:
     pushes — no polling required, though ``refresh`` re-issues PUR on
     demand.
 
+Liveness watchdog:
+    A push session sends nothing once refreshed, so a link that dies
+    without a FIN is invisible to the transport. The BaseDriver health
+    loop probes ``V`` (firmware version) and awaits the reply — the
+    version-shaped response is unique among the protocol's line forms,
+    so a controller push can't spoof it. Consecutive misses force a
+    reconnect with a typed ``no_response`` fault.
+
 Source:
     https://audiobrains.com/data/symetrix/others/Composer-Control-Protocol-v7.0-080918.pdf
 """
@@ -69,7 +77,8 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.2.1",
+        "version": "1.3.0",
+        "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, "
@@ -330,7 +339,17 @@ class SymetrixComposerDriver(BaseDriver):
                 ),
             },
         },
+        "quick_actions": ["load_preset", "flash_unit", "refresh"],
+        "actions": [
+            {"id": "load_preset", "kind": "command", "icon": "play"},
+            {"id": "flash_unit", "kind": "command", "icon": "lightbulb"},
+            {"id": "refresh", "kind": "command", "icon": "refresh-cw"},
+        ],
     }
+
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the DSP stopped answering version probes."
+    )
 
     # ── Lifecycle ──
 
@@ -342,6 +361,8 @@ class SymetrixComposerDriver(BaseDriver):
         events,
     ):
         self._line_buffer = bytearray()
+        # Resolved when a version-shaped reply arrives (see _liveness_probe).
+        self._probe_fut: asyncio.Future[None] | None = None
         self._num_controllers = max(
             1,
             min(
@@ -394,7 +415,12 @@ class SymetrixComposerDriver(BaseDriver):
         if poll_interval > 0:
             await self.start_polling(poll_interval)
 
+        # Push-only session: a silently dead link would otherwise never
+        # flip the device offline (see the docstring's liveness note).
+        self._start_health_loop()
+
     async def disconnect(self) -> None:
+        self._stop_health_loop()
         await self.stop_polling()
         if self.transport:
             try:
@@ -445,12 +471,23 @@ class SymetrixComposerDriver(BaseDriver):
             log.warning(f"[{self.device_id}] Unknown command: {command}")
 
     async def poll(self) -> None:
-        # Polling is purely a backstop — push is the source of truth.
+        # Polling is purely a backstop — push is the source of truth. A
+        # send failure propagates so the poll loop can flag the device
+        # offline (swallowing it here hid dead links from the platform).
         if self.transport and self.transport.connected:
-            try:
-                await self._send("PUR")
-            except ConnectionError:
-                pass
+            await self._send("PUR")
+
+    # ── Liveness watchdog (BaseDriver health loop) ──
+
+    async def _liveness_probe(self) -> None:
+        """Send ``V`` and await the version reply (see docstring note)."""
+        fut: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        self._probe_fut = fut
+        try:
+            await self._send("V")
+            await fut
+        finally:
+            self._probe_fut = None
 
     # ── Receiving ──
 
@@ -502,7 +539,11 @@ class SymetrixComposerDriver(BaseDriver):
             return
 
         # Version response: any other ASCII string with a dot and a
-        # leading digit — e.g. "1.0.7 (3.6.4)".
+        # leading digit — e.g. "1.0.7 (3.6.4)". Also the liveness signal
+        # the health loop's probe awaits.
         if line[:1].isdigit() and "." in line and len(line) <= 64 and "=" not in line:
             self.set_state("firmware_version", line)
+            fut = self._probe_fut
+            if fut is not None and not fut.done():
+                fut.set_result(None)
             return

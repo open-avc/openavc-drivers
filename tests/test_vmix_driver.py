@@ -351,3 +351,100 @@ def test_fade_to_black():
         await asyncio.sleep(0.2)
         assert state.get("device.vmix_test.fadeToBlack") is True
     _scenario(s)
+
+
+# --- Input list (options_state picker feed) + pruning ---
+
+
+def test_input_list_published():
+    """The XML poll publishes input_list as a JSON {value,label} list."""
+    import json
+
+    async def s(d, state, sim):
+        await d.poll()
+        await asyncio.sleep(0.3)
+        raw = state.get("device.vmix_test.input_list")
+        assert isinstance(raw, str) and raw
+        options = json.loads(raw)
+        assert [o["value"] for o in options] == ["1", "2", "3", "4"]
+        assert options[0]["label"] == "1: Camera 1"
+        assert options[2]["label"] == "3: Slides"
+    _scenario(s)
+
+
+def test_input_removed_prunes_state():
+    """An input removed from the production leaves the picker AND its
+    per-input state keys are deleted (not left stale)."""
+    import json
+
+    async def s(d, state, sim):
+        await d.poll()
+        await asyncio.sleep(0.3)
+        assert state.get("device.vmix_test.input.4.title") == "Video Clip"
+
+        # Operator deletes input 4 in vMix
+        sim.inputs = [i for i in sim.inputs if i["number"] != "4"]
+        await d.poll()
+        await asyncio.sleep(0.3)
+
+        options = json.loads(state.get("device.vmix_test.input_list"))
+        assert [o["value"] for o in options] == ["1", "2", "3"]
+        assert state.get("device.vmix_test.input_count") == 3
+        # Every per-input key for the removed input is gone from the store
+        for prop in ("title", "type", "state", "muted", "loop",
+                     "position", "duration"):
+            key = f"device.vmix_test.input.4.{prop}"
+            assert state.get(key) is None
+        assert state.get("device.vmix_test.tally.4") is None
+    _scenario(s)
+
+
+def test_input_added_appears_in_list():
+    """An input added mid-show appears in the picker on the next poll."""
+    import json
+
+    async def s(d, state, sim):
+        sim.inputs.append({
+            "number": "5", "title": "Late Guest", "type": "Capture",
+            "state": "Running", "muted": False, "loop": False,
+            "position": 0, "duration": 0, "volume": 100,
+        })
+        await d.poll()
+        await asyncio.sleep(0.3)
+        options = json.loads(state.get("device.vmix_test.input_list"))
+        assert {"value": "5", "label": "5: Late Guest"} in options
+    _scenario(s)
+
+
+# --- Quick actions + picker metadata integrity (static) ---
+
+
+def test_actions_reference_real_commands():
+    """Every declared quick action promotes an existing command and uses
+    only state vars the driver declares in its visible_when keys."""
+    info = VMixDriver.DRIVER_INFO
+    commands = info["commands"]
+    state_vars = info["state_variables"]
+    actions = info["actions"]
+    assert actions, "driver declares a quick-action strip"
+    for entry in actions:
+        assert entry["id"] in commands, entry["id"]
+        assert entry["kind"] == "command"
+        vw = entry.get("visible_when")
+        if vw:
+            key = vw["key"]
+            assert key.startswith("device.$id.")
+            assert key.split("device.$id.")[1] in state_vars, key
+
+
+def test_every_input_param_has_options_state():
+    """Every command param named 'input' offers the live input picker."""
+    info = VMixDriver.DRIVER_INFO
+    missing = [
+        cmd_id
+        for cmd_id, cmd in info["commands"].items()
+        if "input" in cmd.get("params", {})
+        and cmd["params"]["input"].get("options_state") != "input_list"
+    ]
+    assert missing == [], f"input params without options_state: {missing}"
+    assert "input_list" in info["state_variables"]

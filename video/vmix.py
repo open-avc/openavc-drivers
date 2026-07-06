@@ -17,11 +17,21 @@ Protocol overview:
 
 Mixed framing: normal messages are CRLF-delimited text. XML responses
 use a length-prefixed binary body after the "XML <length>" header line.
+
+Inputs are surfaced as a live dropdown (the XML poll publishes an
+``input_list`` JSON state var that every ``input`` command param reads via
+``options_state``), not as child entities: a vMix input list is session
+content the operator edits during the show — inputs come and go and their
+numbers reshuffle — so a persisted child roster would churn constantly and
+go stale mid-production. The rebuilt-per-poll picker plus per-input state
+keys (``input.<n>.*``, pruned when an input is removed) carry the same
+information without persisting any of it.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import xml.etree.ElementTree as ET
 from typing import Any, Optional
 
@@ -85,7 +95,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "1.3.2",
+        "version": "1.4.0",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
@@ -177,26 +187,59 @@ class VMixDriver(BaseDriver):
             "external": {"type": "boolean", "label": "External Output"},
             "fadeToBlack": {"type": "boolean", "label": "Fade to Black"},
             "input_count": {"type": "integer", "label": "Input Count"},
+            "input_list": {
+                "type": "string",
+                "label": "Input List",
+                "help": (
+                    "JSON list of the production's current inputs "
+                    "(number + title), rebuilt on every state poll. Feeds "
+                    "the input dropdowns on this driver's commands."
+                ),
+            },
             "version": {"type": "string", "label": "vMix Version"},
         },
+        # Quick Action strip: the daily production surface. The record /
+        # stream pairs swap on live state so the button always shows the
+        # next action; the stops confirm because they end a live capture.
+        "actions": [
+            {
+                "id": "start_recording", "kind": "command", "icon": "circle",
+                "visible_when": {"key": "device.$id.recording", "operator": "falsy"},
+            },
+            {
+                "id": "stop_recording", "kind": "command", "icon": "square",
+                "visible_when": {"key": "device.$id.recording", "operator": "truthy"},
+                "confirm": "Stop the current recording?",
+            },
+            {
+                "id": "start_streaming", "kind": "command", "icon": "radio",
+                "visible_when": {"key": "device.$id.streaming", "operator": "falsy"},
+            },
+            {
+                "id": "stop_streaming", "kind": "command", "icon": "square",
+                "visible_when": {"key": "device.$id.streaming", "operator": "truthy"},
+                "confirm": "Stop the live stream?",
+            },
+            {"id": "fade_to_black", "kind": "command", "icon": "eye-off"},
+        ],
         "commands": {
             # --- Transitions ---
             "cut": {
                 "label": "Cut",
-                "params": {"input": {"type": "string", "help": "Input number or name (optional, omit for current preview)"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "help": "Input number or name (optional, omit for current preview)"}},
                 "help": "Instant cut transition to the specified input or current preview.",
             },
             "fade": {
                 "label": "Fade",
                 "params": {
-                    "input": {"type": "string", "help": "Input number or name (optional)"},
+                    "input": {"type": "string", "options_state": "input_list", "help": "Input number or name (optional)"},
                     "duration": {"type": "integer", "help": "Fade duration in milliseconds"},
                 },
                 "help": "Fade transition to the specified input.",
             },
             "cut_direct": {
                 "label": "Cut Direct",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Cut directly to an input without changing preview.",
             },
             "fade_to_black": {
@@ -207,7 +250,7 @@ class VMixDriver(BaseDriver):
             "transition": {
                 "label": "Transition",
                 "params": {
-                    "input": {"type": "string", "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "help": "Input number or name"},
                     "effect": {"type": "string", "help": "Transition effect name (e.g., Fade, Zoom, Wipe)"},
                     "duration": {"type": "integer", "help": "Duration in milliseconds"},
                 },
@@ -216,7 +259,7 @@ class VMixDriver(BaseDriver):
             "stinger": {
                 "label": "Stinger",
                 "params": {
-                    "input": {"type": "string", "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "help": "Input number or name"},
                     "index": {"type": "integer", "help": "Stinger index (1-4)"},
                 },
                 "help": "Execute a stinger transition.",
@@ -229,12 +272,12 @@ class VMixDriver(BaseDriver):
             # --- Input Switching ---
             "preview_input": {
                 "label": "Preview Input",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Send an input to preview.",
             },
             "active_input": {
                 "label": "Active Input (Cut)",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Cut an input directly to program output.",
             },
             "preview_input_next": {
@@ -250,23 +293,23 @@ class VMixDriver(BaseDriver):
             # --- Audio ---
             "audio": {
                 "label": "Audio Toggle",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Toggle audio on/off for an input.",
             },
             "audio_on": {
                 "label": "Audio On",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Enable audio for an input.",
             },
             "audio_off": {
                 "label": "Audio Off",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Disable audio for an input.",
             },
             "set_volume": {
                 "label": "Set Volume",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "Volume 0-100"},
                 },
                 "help": "Set volume level for an input (0-100).",
@@ -274,7 +317,7 @@ class VMixDriver(BaseDriver):
             "set_volume_fade": {
                 "label": "Set Volume (Fade)",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "Target volume 0-100"},
                     "duration": {"type": "integer", "help": "Fade duration in ms"},
                 },
@@ -283,7 +326,7 @@ class VMixDriver(BaseDriver):
             "set_gain": {
                 "label": "Set Gain",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "Gain in dB (0-24)"},
                 },
                 "help": "Set audio gain for an input.",
@@ -291,20 +334,20 @@ class VMixDriver(BaseDriver):
             "set_balance": {
                 "label": "Set Balance",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "Balance -100 (left) to 100 (right)"},
                 },
                 "help": "Set audio balance/pan for an input.",
             },
             "solo": {
                 "label": "Solo",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Toggle solo for an input in the audio mixer.",
             },
             "bus_audio": {
                 "label": "Bus Audio Toggle",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "required": True, "help": "Bus letter (A, B, C, etc.)"},
                 },
                 "help": "Toggle an input's audio routing to a bus.",
@@ -312,7 +355,7 @@ class VMixDriver(BaseDriver):
             "bus_audio_on": {
                 "label": "Bus Audio On",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "required": True, "help": "Bus letter"},
                 },
                 "help": "Route an input's audio to a bus.",
@@ -320,7 +363,7 @@ class VMixDriver(BaseDriver):
             "bus_audio_off": {
                 "label": "Bus Audio Off",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "required": True, "help": "Bus letter"},
                 },
                 "help": "Remove an input's audio routing from a bus.",
@@ -357,7 +400,7 @@ class VMixDriver(BaseDriver):
             "overlay_input": {
                 "label": "Overlay Toggle",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "Overlay channel 1-4"},
                 },
                 "help": "Toggle an overlay input on a channel.",
@@ -365,7 +408,7 @@ class VMixDriver(BaseDriver):
             "overlay_input_in": {
                 "label": "Overlay In",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "Overlay channel 1-4"},
                 },
                 "help": "Transition an overlay input in.",
@@ -423,14 +466,14 @@ class VMixDriver(BaseDriver):
             },
             "snapshot_input": {
                 "label": "Snapshot Input",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Take a snapshot of a specific input.",
             },
             # --- Titles / Text ---
             "set_text": {
                 "label": "Set Text",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "selectedName": {"type": "string", "required": True, "help": "Title field name"},
                     "value": {"type": "string", "required": True, "trim": False,
                               "help": "Text value (sent verbatim, edge spaces preserved)"},
@@ -440,7 +483,7 @@ class VMixDriver(BaseDriver):
             "set_image": {
                 "label": "Set Image",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "selectedName": {"type": "string", "required": True, "help": "Image field name"},
                     "value": {"type": "string", "required": True, "help": "Image file path"},
                 },
@@ -449,56 +492,56 @@ class VMixDriver(BaseDriver):
             "set_countdown": {
                 "label": "Set Countdown",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "required": True, "help": "Time value (e.g., 00:05:00)"},
                 },
                 "help": "Set a countdown timer value.",
             },
             "start_countdown": {
                 "label": "Start Countdown",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Start a countdown timer.",
             },
             "stop_countdown": {
                 "label": "Stop Countdown",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Stop a countdown timer.",
             },
             # --- Input Control ---
             "play": {
                 "label": "Play",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Start playback of a video/audio input.",
             },
             "pause": {
                 "label": "Pause",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Pause playback of an input.",
             },
             "play_pause": {
                 "label": "Play/Pause",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Toggle play/pause for an input.",
             },
             "restart": {
                 "label": "Restart",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Restart playback from the beginning.",
             },
             "loop_on": {
                 "label": "Loop On",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Enable loop mode for an input.",
             },
             "loop_off": {
                 "label": "Loop Off",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Disable loop mode for an input.",
             },
             "set_position": {
                 "label": "Set Position",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "Position in milliseconds"},
                 },
                 "help": "Set the playback position of an input.",
@@ -506,7 +549,7 @@ class VMixDriver(BaseDriver):
             "set_rate": {
                 "label": "Set Rate",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "required": True, "help": "Playback rate (e.g., 1, 0.5, 2)"},
                 },
                 "help": "Set the playback speed/rate of an input.",
@@ -561,7 +604,7 @@ class VMixDriver(BaseDriver):
             "ptz_move_up": {
                 "label": "PTZ Up",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "help": "Speed 0-1 (default 0.5)"},
                 },
                 "help": "Pan/tilt camera up.",
@@ -569,7 +612,7 @@ class VMixDriver(BaseDriver):
             "ptz_move_down": {
                 "label": "PTZ Down",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "help": "Speed 0-1"},
                 },
                 "help": "Pan/tilt camera down.",
@@ -577,7 +620,7 @@ class VMixDriver(BaseDriver):
             "ptz_move_left": {
                 "label": "PTZ Left",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "help": "Speed 0-1"},
                 },
                 "help": "Pan/tilt camera left.",
@@ -585,20 +628,20 @@ class VMixDriver(BaseDriver):
             "ptz_move_right": {
                 "label": "PTZ Right",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "help": "Speed 0-1"},
                 },
                 "help": "Pan/tilt camera right.",
             },
             "ptz_move_stop": {
                 "label": "PTZ Stop",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Stop camera movement.",
             },
             "ptz_zoom_in": {
                 "label": "PTZ Zoom In",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "help": "Speed 0-1"},
                 },
                 "help": "Zoom camera in.",
@@ -606,24 +649,24 @@ class VMixDriver(BaseDriver):
             "ptz_zoom_out": {
                 "label": "PTZ Zoom Out",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "help": "Speed 0-1"},
                 },
                 "help": "Zoom camera out.",
             },
             "ptz_zoom_stop": {
                 "label": "PTZ Zoom Stop",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Stop camera zoom.",
             },
             "ptz_home": {
                 "label": "PTZ Home",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Return camera to home position.",
             },
             "ptz_focus_auto": {
                 "label": "PTZ Auto Focus",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Trigger auto focus on the camera.",
             },
             # --- Misc ---
@@ -634,13 +677,13 @@ class VMixDriver(BaseDriver):
             },
             "remove_input": {
                 "label": "Remove Input",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Remove an input from the production.",
             },
             "set_input_name": {
                 "label": "Set Input Name",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number"},
                     "value": {"type": "string", "required": True, "help": "New input name"},
                 },
                 "help": "Rename an input.",
@@ -648,25 +691,25 @@ class VMixDriver(BaseDriver):
             "select_index": {
                 "label": "Select Index",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "integer", "required": True, "help": "List item index"},
                 },
                 "help": "Select a specific item index within a list/playlist input.",
             },
             "next_item": {
                 "label": "Next Item",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Advance to the next item in a list/playlist input.",
             },
             "previous_item": {
                 "label": "Previous Item",
-                "params": {"input": {"type": "string", "required": True, "help": "Input number or name"}},
+                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Go to the previous item in a list/playlist input.",
             },
             "browser_navigate": {
                 "label": "Browser Navigate",
                 "params": {
-                    "input": {"type": "string", "required": True, "help": "Input number or name"},
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "string", "required": True, "help": "URL to navigate to"},
                 },
                 "help": "Navigate a browser input to a URL.",
@@ -784,6 +827,9 @@ class VMixDriver(BaseDriver):
         self._cmd_response: asyncio.Queue[str] = asyncio.Queue()
         self._tally_subscribed = False
         self._acts_subscribed = False
+        # Input numbers seen in the last XML state — lets the next parse
+        # clear per-input keys for inputs removed from the production.
+        self._known_inputs: set[str] = set()
 
     def _create_frame_parser(self) -> Optional[FrameParser]:
         """Use callable parser for vMix mixed-mode framing."""
@@ -1074,6 +1120,8 @@ class VMixDriver(BaseDriver):
         inputs = root.find("inputs")
         if inputs is not None:
             input_count = 0
+            input_options: list[dict[str, str]] = []
+            seen: set[str] = set()
             for inp in inputs.findall("input"):
                 input_count += 1
                 num = inp.get("number", str(input_count))
@@ -1084,6 +1132,11 @@ class VMixDriver(BaseDriver):
                 loop_val = inp.get("loop", "False")
                 position = inp.get("position", "0")
                 duration = inp.get("duration", "0")
+
+                seen.add(num)
+                input_options.append(
+                    {"value": num, "label": f"{num}: {title}" if title else num}
+                )
 
                 self.set_state(f"input.{num}.title", title)
                 self.set_state(f"input.{num}.type", inp_type)
@@ -1100,6 +1153,27 @@ class VMixDriver(BaseDriver):
                     pass
 
             self.set_state("input_count", input_count)
+            # The command dropdowns read this JSON list (options_state).
+            # Rebuilt from scratch each poll so inputs removed in vMix
+            # drop out of the picker immediately.
+            self.set_state("input_list", json.dumps(input_options))
+
+            # Inputs are a live editing surface — clear per-input keys for
+            # inputs that left the production so their state doesn't linger.
+            for gone in self._known_inputs - seen:
+                for prop in (
+                    "title", "type", "state", "muted", "loop",
+                    "position", "duration",
+                ):
+                    self.state.delete(
+                        f"device.{self.device_id}.input.{gone}.{prop}",
+                        source=f"device.{self.device_id}",
+                    )
+                self.state.delete(
+                    f"device.{self.device_id}.tally.{gone}",
+                    source=f"device.{self.device_id}",
+                )
+            self._known_inputs = seen
 
         # Overlays
         overlays = root.find("overlays")

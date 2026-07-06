@@ -47,14 +47,21 @@
 #   - LIP enables push monitoring by default for buttons, LEDs, zones,
 #     occupancy, and scenes. Unsolicited ~OUTPUT/~DEVICE/~AREA responses
 #     are parsed into last_* state variables — useful for triggers.
+#   - Liveness: the processor only pushes when something happens, so a
+#     quiet system is indistinguishable from a dead link (no TCP FIN on a
+#     silent drop). The watchdog probes with ?SYSTEM,1 (system time — valid
+#     regardless of integration IDs) and flags the processor offline
+#     (no_response) after consecutive silent probes.
 
 id: lutron_homeworks_qs
 name: Lutron HomeWorks QS
 manufacturer: Lutron
 category: lighting
-version: 1.2.2
+version: 1.3.0
 author: OpenAVC
-min_platform_version: "0.9.0"
+# 0.22.0 ships the liveness watchdog runtime (the telnet_login auth block
+# needs 0.9.0); on older platforms the liveness block is silently inert.
+min_platform_version: "0.22.0"
 description: >
   Controls Lutron HomeWorks QS Processors (HQP6-2, HQP7) over Telnet
   using the Lutron Integration Protocol (LIP). Supports zone level
@@ -536,6 +543,21 @@ responses:
       last_shadegrp_id: "$1"
       last_shadegrp_preset: "$2"
 
+# Push-only link watchdog: the processor pushes monitoring events but a
+# quiet system can go hours without traffic, so a silent drop would leave
+# the device "connected" forever. ?SYSTEM,1 (system time) answers on any
+# HomeWorks QS processor regardless of integration IDs; only its ~SYSTEM
+# reply satisfies the probe (pushes don't reset the watchdog, but a system
+# that answers the probe is alive by definition). After max_failures silent
+# probes the platform drops the connection with a typed no_response fault
+# and reconnects through the login handshake.
+liveness:
+  send: "?SYSTEM,1\r\n"
+  expect: '~SYSTEM,1'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
 # ── SIMULATOR DEFINITION ──
 simulator:
   push_state: false
@@ -671,6 +693,11 @@ simulator:
         sid = int(match.group(1))
         lvl = state.get('last_shadegrp_level', 0) if state.get('last_shadegrp_id') == sid else 0
         respond(f"~SHADEGRP,{sid},1,{lvl:.2f}\r\n")
+
+    # ?SYSTEM,1 (system time — the liveness probe)
+    - match: '^\?SYSTEM,1\s*$'
+      handler: |
+        respond("~SYSTEM,1,11:05:00\r\n")
 
     # Catch-all — must stay last
     - match: '.+'

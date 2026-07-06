@@ -23,7 +23,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.5.0
+version: 1.6.0
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -37,8 +37,9 @@ tags: [videowall, splicer, led-wall, video-processing]
 verified: false
 simulated: true
 ports: [6000]
-# 0.22.0 ships the liveness watchdog runtime; on older platforms the
-# liveness block below is silently inert and a dead unit never goes offline.
+# 0.22.0 ships the liveness watchdog runtime and the json-body response
+# parsing that unwraps this device's array-wrapped replies; on older
+# platforms the liveness block is silently inert and nothing reads back.
 min_platform_version: 0.22.0
 compatible_models:
   - manufacturer: Novastar
@@ -826,19 +827,19 @@ commands:
         max: 100
 
 # ── DEVICE SETTINGS ──
-# Screen brightness is the one clean single-scalar setting: it is set live
-# (W0410) and reliably reads back from the get_screen_details (R0401) poll,
-# which populates the `brightness` state var. The `write.send` reuses the
-# set_brightness command string with {value}; on this UDP driver
-# set_device_setting still routes through transport.send (the "TCP/serial"
-# label in the runtime is a docstring artifact — the send branch fires the
-# bytes on any transport).
+# Brightness and volume are set live (W0410 / W041C) and read back from the
+# get_screen_details (R0401) poll, whose json-body rule populates their
+# state vars. Each `write.send` reuses the matching command string with
+# {value}; on this UDP driver set_device_setting still routes through
+# transport.send (the "TCP/serial" label in the runtime is a docstring
+# artifact — the send branch fires the bytes on any transport).
 #
-# volume / mute / freeze / ftb are NOT viable settings today: the R0401 reply
-# packs all of them into ONE JSON array datagram, and the regex response
-# dispatch stops at the first match (brightness), so only brightness reads
-# back. Fixing that needs the roadmap's json-array response support; until
-# then those stay operational commands (some promoted to quick actions).
+# mute is NOT a setting even though it now reads back: the W041C write
+# carries volume and isMute together, and a declarative write can only
+# substitute {value} + config — it can't supply the current volume alongside
+# a mute flag (even the protocol's own unmute needs a volume to restore).
+# freeze / ftb are live show controls, not persisted config — they stay
+# commands and quick actions.
 device_settings:
   brightness:
     type: integer
@@ -854,6 +855,20 @@ device_settings:
       Brightness command to persist the value across a device restart.
     write:
       send: '[{"cmd":"W0410","deviceId":{device_id},"screenId":{screen_id},"brightness":{value}}]'
+  volume:
+    type: integer
+    label: Volume
+    state_key: volume
+    default: 100
+    min: 0
+    max: 100
+    setup: false
+    help: >
+      Output volume level (0-100). Applied live via the W041C command and
+      read back from the get_screen_details poll. The protocol writes volume
+      and mute together, so changing the volume also unmutes the audio.
+    write:
+      send: '[{"cmd":"W041C","deviceId":{device_id},"screenId":{screen_id},"volume":{value},"isMute":0}]'
 
 # ── QUICK ACTIONS ──
 # Promote the high-use show controls (blackout, freeze, clear) and a restart.
@@ -877,47 +892,22 @@ actions:
 # in a JSON array. These regex patterns match against the raw response text.
 
 responses:
-  # Brightness from screen details query (R0401)
-  - match: '"brightness"\s*:\s*(\d+)'
-    mappings:
-      - group: 1
-        state: brightness
-        type: integer
+  # Screen details (R0401): ONE array-wrapped JSON datagram packing every
+  # screen status field. Parsed as a whole body (json: true) so all five
+  # fields populate from a single reply — the earlier per-field regex rules
+  # stopped at the first match, so only brightness ever read back.
+  - json: true
+    set:
+      brightness: brightness
+      freeze: Freeze.enable
+      ftb: Ftb.enable
+      volume: audio.volume
+      mute: audio.isMute
 
-  # Freeze state from screen details
-  - match: '"Freeze"\s*:\s*\{\s*"enable"\s*:\s*(\d)'
-    mappings:
-      - group: 1
-        state: freeze
-        type: boolean
-
-  # FTB state from screen details
-  - match: '"Ftb"\s*:\s*\{\s*"enable"\s*:\s*(\d)'
-    mappings:
-      - group: 1
-        state: ftb
-        type: boolean
-
-  # Volume from screen details (audio section)
-  - match: '"volume"\s*:\s*(\d+)'
-    mappings:
-      - group: 1
-        state: volume
-        type: integer
-
-  # Mute state from screen details
-  - match: '"isMute"\s*:\s*(\d)'
-    mappings:
-      - group: 1
-        state: mute
-        type: boolean
-
-  # Layer input name from layer details (R0501)
-  - match: '"source"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"'
-    mappings:
-      - group: 1
-        state: input_name
-        type: string
+  # Layer details (R0501): the active layer's routed source name.
+  - json: true
+    set:
+      input_name: source.name
 
   # Ack/error catch-alls — must be last so specific patterns match first
   - match: '"ack"\s*:\s*"Ok"'

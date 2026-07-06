@@ -14,8 +14,9 @@
 #   messages on parameter changes, preset/snapshot recalls, run-mode changes,
 #   sample-rate changes, etc. NO explicit "subscribe" command is needed -
 #   NOTIFY is unsolicited and global. The driver listens for NOTIFY lines and
-#   updates state immediately. Polling is a refresh backstop for liveness
-#   detection (devstatus runmode) and to backfill state at connect.
+#   updates state immediately. Polling is a refresh backstop and backfills
+#   state at connect; the liveness: block (below) is what actually detects a
+#   dead link.
 #
 # Address model:
 #   MRX7-D parameters are addressed by an "Index" assigned in the Remote
@@ -43,21 +44,34 @@
 #   Disabled by default in the device. Most installations don't need it; if
 #   enabled, the device closes the connection if no command/heart-beat arrives
 #   within the configured timeout. Driver default leaves it off.
+#
+# Liveness:
+#   RCP keepalive (above) protects the DEVICE from a dead controller; the
+#   liveness: block protects the CONTROLLER from a dead device. NOTIFY
+#   monitoring is pure push and poll queries are fire-and-forget on TCP, so
+#   a processor that drops without a FIN (power cut, network partition) used
+#   to stay "online" indefinitely — especially with poll_interval 0. The
+#   watchdog probes `devstatus runmode` every 30 s and flips the device
+#   offline with a typed no_response fault after 2 silent probes.
 
 
 id: yamaha_mtx_mrx
 name: Yamaha MTX/MRX/XMV
 manufacturer: Yamaha
 category: audio
-version: 1.1.3
+version: 1.2.0
 author: OpenAVC
+# 0.22.0 ships the liveness watchdog runtime; on older platforms the
+# liveness block is silently inert.
+min_platform_version: "0.22.0"
 description: >
   Controls Yamaha install-audio processors (MTX3, MTX5-D, MRX7-D) and the
   XMV power amps + EXi8 / EXo8 audio expanders over the Remote Control
   Protocol (RCP) on TCP port 49280. Push-capable: NOTIFY messages from the
-  device drive state immediately; polling backstops liveness and refresh.
-  MRX7-D parameters are addressed via Remote Control Setup List Index numbers
-  (1..32); MTX/XMV use full parameter paths via generic set_param / get_param.
+  device drive state immediately; polling backstops refresh and a liveness
+  watchdog detects a silently dead link. MRX7-D parameters are addressed via
+  Remote Control Setup List Index numbers (1..32); MTX/XMV use full parameter
+  paths via generic set_param / get_param.
 
 source_url: https://usa.yamaha.com/files/download/other_assets/5/1343735/200330_mtx_mrx_xmv_ex_rcps_v400_rev14_en.pdf
 tags: [dsp, install-audio, matrix-processor, dante, paging, ducking, zone-mixer, rcp]
@@ -595,13 +609,12 @@ commands:
   recall_preset:
     label: Recall Preset
     send: "ssrecall {index}\n"
-    help: "Recall the preset at the given index (1..50, MTX/MRX only)."
+    help: "Recall the preset at the given index (MTX/MRX only). The spec doesn't fix a ceiling — query the actual count with query_preset_count (ssnum); the device rejects an out-of-range index itself."
     params:
       index:
         type: integer
         required: true
         min: 1
-        max: 50
         label: Preset Index
 
   query_preset_count:
@@ -651,7 +664,7 @@ commands:
   set_index_normalized:
     label: Set Index Value (Normalized)
     send: "setn MTX:Index_{index} 0 0 {value}\n"
-    help: "Set parameter assigned to Index N using a normalized value (0..1000, default resolution)."
+    help: "Set parameter assigned to Index N using a normalized value: 0..1000 at the default resolution; the special value 1023 selects raw-value resolution (spec section 6.1 fader table covers 0-1023)."
     params:
       index:
         type: integer
@@ -995,6 +1008,38 @@ polling:
     - "get MTX:Index_30 0 0\n"
     - "get MTX:Index_31 0 0\n"
     - "get MTX:Index_32 0 0\n"
+
+# ── QUICK ACTIONS ──
+# The high-use commands promoted onto the device card. Preset/snapshot
+# recall is what most installs touch daily; the run-mode pair is the
+# emergency-broadcast switch (confirmed — it interrupts normal routing).
+
+actions:
+  - id: recall_preset
+    icon: bookmark
+  - id: recall_snapshot
+    icon: camera
+  - id: set_normal_mode
+    icon: play
+  - id: set_emergency_mode
+    icon: siren
+    confirm: "Switch the processor to emergency broadcast mode? Normal audio routing is interrupted until normal mode is restored."
+
+# ── LIVENESS WATCHDOG ──
+# NOTIFY monitoring is pure push and TCP poll queries are fire-and-forget,
+# so a processor that drops without a FIN used to stay "online" forever
+# (especially with poll_interval 0). Probe `devstatus runmode` — the same
+# documented query the discovery probe and polling use — and require a
+# runmode line back within 5 s. The expect is unanchored on purpose: the
+# OK reply and a NOTIFY runmode push both satisfy it. Two silent probes
+# force a reconnect with a typed no_response fault.
+
+liveness:
+  send: "devstatus runmode\n"
+  expect: 'devstatus runmode'
+  interval: 30
+  timeout: 5
+  max_failures: 2
 
 # ── SIMULATOR DEFINITION ──
 

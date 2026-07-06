@@ -10,6 +10,17 @@
 # every <=10 seconds to receive feedback. This driver handles that
 # automatically via polling.
 #
+# Liveness: /xremote gets no direct reply and UDP sends always "succeed",
+# so a console that dropped off the network stayed online forever. The
+# liveness: block probes /info (a documented request/response) every 15 s
+# and flips the device offline with a typed no_response fault after two
+# silent probes.
+#
+# Read-back note: the console echoes parameter changes only to OTHER
+# subscribed clients, never back to the sender. Device-setting writes
+# (channel/bus names) therefore read back via the name queries in the
+# poll cycle, not from a write echo.
+#
 # Querying values: send any address with no arguments to get the
 # current value back.
 #
@@ -20,19 +31,22 @@ id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.5.3
+version: 1.6.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
   32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs,
-  8 FX returns, main stereo and mono outputs. Also compatible with Midas M32.
+  8 FX returns, main stereo and mono outputs, channel/bus name settings,
+  and a liveness watchdog. Also compatible with Midas M32.
 
 source_url: https://sites.google.com/site/patrickmaillot/x32
 tags: [mixer, console, osc, midas]
 verified: false
 simulated: true
 ports: [10023]
-min_platform_version: 0.6.0
+# 0.22.0 ships the liveness watchdog runtime + OSC device-setting writes
+# are validated at load since then; older platforms ignore both blocks.
+min_platform_version: "0.22.0"
 compatible_models:
   - manufacturer: Behringer
     models: [X32, X32 Compact, X32 Producer, X32 Rack, X32 Core]
@@ -571,6 +585,10 @@ state_variables:
     type: boolean
     label: Bus 01 Mute
     help: "True when mix bus 1 is muted."
+  bus01_name:
+    type: string
+    label: Bus 01 Name
+    help: "Display name for mix bus 1."
   bus02_fader:
     type: number
     label: Bus 02 Fader
@@ -581,6 +599,10 @@ state_variables:
     type: boolean
     label: Bus 02 Mute
     help: "True when mix bus 2 is muted."
+  bus02_name:
+    type: string
+    label: Bus 02 Name
+    help: "Display name for mix bus 2."
   bus03_fader:
     type: number
     label: Bus 03 Fader
@@ -591,6 +613,10 @@ state_variables:
     type: boolean
     label: Bus 03 Mute
     help: "True when mix bus 3 is muted."
+  bus03_name:
+    type: string
+    label: Bus 03 Name
+    help: "Display name for mix bus 3."
   bus04_fader:
     type: number
     label: Bus 04 Fader
@@ -601,6 +627,10 @@ state_variables:
     type: boolean
     label: Bus 04 Mute
     help: "True when mix bus 4 is muted."
+  bus04_name:
+    type: string
+    label: Bus 04 Name
+    help: "Display name for mix bus 4."
   bus05_fader:
     type: number
     label: Bus 05 Fader
@@ -611,6 +641,10 @@ state_variables:
     type: boolean
     label: Bus 05 Mute
     help: "True when mix bus 5 is muted."
+  bus05_name:
+    type: string
+    label: Bus 05 Name
+    help: "Display name for mix bus 5."
   bus06_fader:
     type: number
     label: Bus 06 Fader
@@ -621,6 +655,10 @@ state_variables:
     type: boolean
     label: Bus 06 Mute
     help: "True when mix bus 6 is muted."
+  bus06_name:
+    type: string
+    label: Bus 06 Name
+    help: "Display name for mix bus 6."
   bus07_fader:
     type: number
     label: Bus 07 Fader
@@ -631,6 +669,10 @@ state_variables:
     type: boolean
     label: Bus 07 Mute
     help: "True when mix bus 7 is muted."
+  bus07_name:
+    type: string
+    label: Bus 07 Name
+    help: "Display name for mix bus 7."
   bus08_fader:
     type: number
     label: Bus 08 Fader
@@ -641,6 +683,10 @@ state_variables:
     type: boolean
     label: Bus 08 Mute
     help: "True when mix bus 8 is muted."
+  bus08_name:
+    type: string
+    label: Bus 08 Name
+    help: "Display name for mix bus 8."
   bus09_fader:
     type: number
     label: Bus 09 Fader
@@ -651,6 +697,10 @@ state_variables:
     type: boolean
     label: Bus 09 Mute
     help: "True when mix bus 9 is muted."
+  bus09_name:
+    type: string
+    label: Bus 09 Name
+    help: "Display name for mix bus 9."
   bus10_fader:
     type: number
     label: Bus 10 Fader
@@ -661,6 +711,10 @@ state_variables:
     type: boolean
     label: Bus 10 Mute
     help: "True when mix bus 10 is muted."
+  bus10_name:
+    type: string
+    label: Bus 10 Name
+    help: "Display name for mix bus 10."
   bus11_fader:
     type: number
     label: Bus 11 Fader
@@ -671,6 +725,10 @@ state_variables:
     type: boolean
     label: Bus 11 Mute
     help: "True when mix bus 11 is muted."
+  bus11_name:
+    type: string
+    label: Bus 11 Name
+    help: "Display name for mix bus 11."
   bus12_fader:
     type: number
     label: Bus 12 Fader
@@ -681,6 +739,10 @@ state_variables:
     type: boolean
     label: Bus 12 Mute
     help: "True when mix bus 12 is muted."
+  bus12_name:
+    type: string
+    label: Bus 12 Name
+    help: "Display name for mix bus 12."
   bus13_fader:
     type: number
     label: Bus 13 Fader
@@ -691,6 +753,10 @@ state_variables:
     type: boolean
     label: Bus 13 Mute
     help: "True when mix bus 13 is muted."
+  bus13_name:
+    type: string
+    label: Bus 13 Name
+    help: "Display name for mix bus 13."
   bus14_fader:
     type: number
     label: Bus 14 Fader
@@ -701,6 +767,10 @@ state_variables:
     type: boolean
     label: Bus 14 Mute
     help: "True when mix bus 14 is muted."
+  bus14_name:
+    type: string
+    label: Bus 14 Name
+    help: "Display name for mix bus 14."
   bus15_fader:
     type: number
     label: Bus 15 Fader
@@ -711,6 +781,10 @@ state_variables:
     type: boolean
     label: Bus 15 Mute
     help: "True when mix bus 15 is muted."
+  bus15_name:
+    type: string
+    label: Bus 15 Name
+    help: "Display name for mix bus 15."
   bus16_fader:
     type: number
     label: Bus 16 Fader
@@ -721,6 +795,10 @@ state_variables:
     type: boolean
     label: Bus 16 Mute
     help: "True when mix bus 16 is muted."
+  bus16_name:
+    type: string
+    label: Bus 16 Name
+    help: "Display name for mix bus 16."
 
   # ── Matrices 1-6 ──
   mtx01_fader:
@@ -1072,6 +1150,8 @@ commands:
     params:
       scene:
         type: integer
+        min: 0
+        max: 99
         label: Scene Number (0-99)
 
   recall_snippet:
@@ -1083,6 +1163,8 @@ commands:
     params:
       snippet:
         type: integer
+        min: 0
+        max: 99
         label: Snippet Number (0-99)
 
   recall_cue:
@@ -1094,6 +1176,8 @@ commands:
     params:
       cue:
         type: integer
+        min: 0
+        max: 99
         label: Cue Number (0-99)
 
   clear_solo:
@@ -1113,9 +1197,9 @@ commands:
         value: "{level}"
     params:
       channel:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"]
         label: Channel (01-32)
-        description: "Two-digit format: 01, 02, ... 32"
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1132,7 +1216,8 @@ commands:
         value: "0"
     params:
       channel:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"]
         label: Channel (01-32)
 
   unmute_ch:
@@ -1143,7 +1228,8 @@ commands:
         value: "1"
     params:
       channel:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"]
         label: Channel (01-32)
 
   # ── Bus commands ──
@@ -1155,9 +1241,9 @@ commands:
         value: "{level}"
     params:
       bus:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16"]
         label: Bus (01-16)
-        description: "Two-digit format: 01, 02, ... 16"
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1173,7 +1259,8 @@ commands:
         value: "0"
     params:
       bus:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16"]
         label: Bus (01-16)
 
   unmute_bus:
@@ -1184,7 +1271,8 @@ commands:
         value: "1"
     params:
       bus:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16"]
         label: Bus (01-16)
 
   # ── Matrix commands ──
@@ -1196,9 +1284,9 @@ commands:
         value: "{level}"
     params:
       mtx:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06"]
         label: Matrix (01-06)
-        description: "Two-digit format: 01, 02, ... 06"
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1214,7 +1302,8 @@ commands:
         value: "0"
     params:
       mtx:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06"]
         label: Matrix (01-06)
 
   unmute_mtx:
@@ -1225,7 +1314,8 @@ commands:
         value: "1"
     params:
       mtx:
-        type: string
+        type: enum
+        values: ["01", "02", "03", "04", "05", "06"]
         label: Matrix (01-06)
 
   # ── DCA commands ──
@@ -1237,9 +1327,9 @@ commands:
         value: "{level}"
     params:
       dca:
-        type: string
+        type: enum
+        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
         label: DCA (1-8)
-        description: "Single digit: 1, 2, ... 8"
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1255,7 +1345,8 @@ commands:
         value: "0"
     params:
       dca:
-        type: string
+        type: enum
+        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
         label: DCA (1-8)
 
   unmute_dca:
@@ -1266,7 +1357,8 @@ commands:
         value: "1"
     params:
       dca:
-        type: string
+        type: enum
+        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
         label: DCA (1-8)
 
   # ── Main stereo output ──
@@ -1327,15 +1419,675 @@ commands:
       - type: i
         value: "1"
 
+# ── DEVICE SETTINGS ──
+# Channel and bus names are persisted console-side config with a query
+# read-back (/.../config/name with no args), so they're first-class
+# device settings (editable field + offline pending queue). The console
+# does NOT echo a client's own set back; the name queries in the poll
+# cycle are the read-back path (names cap at 12 characters on-console).
+device_settings:
+  ch01_name:
+    type: string
+    label: Ch 01 Name
+    help: "Display name for input channel 1 (12 characters max)."
+    state_key: ch01_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/01/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch02_name:
+    type: string
+    label: Ch 02 Name
+    help: "Display name for input channel 2 (12 characters max)."
+    state_key: ch02_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/02/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch03_name:
+    type: string
+    label: Ch 03 Name
+    help: "Display name for input channel 3 (12 characters max)."
+    state_key: ch03_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/03/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch04_name:
+    type: string
+    label: Ch 04 Name
+    help: "Display name for input channel 4 (12 characters max)."
+    state_key: ch04_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/04/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch05_name:
+    type: string
+    label: Ch 05 Name
+    help: "Display name for input channel 5 (12 characters max)."
+    state_key: ch05_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/05/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch06_name:
+    type: string
+    label: Ch 06 Name
+    help: "Display name for input channel 6 (12 characters max)."
+    state_key: ch06_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/06/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch07_name:
+    type: string
+    label: Ch 07 Name
+    help: "Display name for input channel 7 (12 characters max)."
+    state_key: ch07_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/07/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch08_name:
+    type: string
+    label: Ch 08 Name
+    help: "Display name for input channel 8 (12 characters max)."
+    state_key: ch08_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/08/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch09_name:
+    type: string
+    label: Ch 09 Name
+    help: "Display name for input channel 9 (12 characters max)."
+    state_key: ch09_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/09/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch10_name:
+    type: string
+    label: Ch 10 Name
+    help: "Display name for input channel 10 (12 characters max)."
+    state_key: ch10_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/10/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch11_name:
+    type: string
+    label: Ch 11 Name
+    help: "Display name for input channel 11 (12 characters max)."
+    state_key: ch11_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/11/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch12_name:
+    type: string
+    label: Ch 12 Name
+    help: "Display name for input channel 12 (12 characters max)."
+    state_key: ch12_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/12/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch13_name:
+    type: string
+    label: Ch 13 Name
+    help: "Display name for input channel 13 (12 characters max)."
+    state_key: ch13_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/13/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch14_name:
+    type: string
+    label: Ch 14 Name
+    help: "Display name for input channel 14 (12 characters max)."
+    state_key: ch14_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/14/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch15_name:
+    type: string
+    label: Ch 15 Name
+    help: "Display name for input channel 15 (12 characters max)."
+    state_key: ch15_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/15/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch16_name:
+    type: string
+    label: Ch 16 Name
+    help: "Display name for input channel 16 (12 characters max)."
+    state_key: ch16_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/16/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch17_name:
+    type: string
+    label: Ch 17 Name
+    help: "Display name for input channel 17 (12 characters max)."
+    state_key: ch17_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/17/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch18_name:
+    type: string
+    label: Ch 18 Name
+    help: "Display name for input channel 18 (12 characters max)."
+    state_key: ch18_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/18/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch19_name:
+    type: string
+    label: Ch 19 Name
+    help: "Display name for input channel 19 (12 characters max)."
+    state_key: ch19_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/19/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch20_name:
+    type: string
+    label: Ch 20 Name
+    help: "Display name for input channel 20 (12 characters max)."
+    state_key: ch20_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/20/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch21_name:
+    type: string
+    label: Ch 21 Name
+    help: "Display name for input channel 21 (12 characters max)."
+    state_key: ch21_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/21/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch22_name:
+    type: string
+    label: Ch 22 Name
+    help: "Display name for input channel 22 (12 characters max)."
+    state_key: ch22_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/22/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch23_name:
+    type: string
+    label: Ch 23 Name
+    help: "Display name for input channel 23 (12 characters max)."
+    state_key: ch23_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/23/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch24_name:
+    type: string
+    label: Ch 24 Name
+    help: "Display name for input channel 24 (12 characters max)."
+    state_key: ch24_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/24/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch25_name:
+    type: string
+    label: Ch 25 Name
+    help: "Display name for input channel 25 (12 characters max)."
+    state_key: ch25_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/25/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch26_name:
+    type: string
+    label: Ch 26 Name
+    help: "Display name for input channel 26 (12 characters max)."
+    state_key: ch26_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/26/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch27_name:
+    type: string
+    label: Ch 27 Name
+    help: "Display name for input channel 27 (12 characters max)."
+    state_key: ch27_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/27/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch28_name:
+    type: string
+    label: Ch 28 Name
+    help: "Display name for input channel 28 (12 characters max)."
+    state_key: ch28_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/28/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch29_name:
+    type: string
+    label: Ch 29 Name
+    help: "Display name for input channel 29 (12 characters max)."
+    state_key: ch29_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/29/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch30_name:
+    type: string
+    label: Ch 30 Name
+    help: "Display name for input channel 30 (12 characters max)."
+    state_key: ch30_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/30/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch31_name:
+    type: string
+    label: Ch 31 Name
+    help: "Display name for input channel 31 (12 characters max)."
+    state_key: ch31_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/31/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  ch32_name:
+    type: string
+    label: Ch 32 Name
+    help: "Display name for input channel 32 (12 characters max)."
+    state_key: ch32_name
+    default: ""
+    setup: false
+    write:
+      address: "/ch/32/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus01_name:
+    type: string
+    label: Bus 01 Name
+    help: "Display name for mix bus 1 (12 characters max)."
+    state_key: bus01_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/01/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus02_name:
+    type: string
+    label: Bus 02 Name
+    help: "Display name for mix bus 2 (12 characters max)."
+    state_key: bus02_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/02/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus03_name:
+    type: string
+    label: Bus 03 Name
+    help: "Display name for mix bus 3 (12 characters max)."
+    state_key: bus03_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/03/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus04_name:
+    type: string
+    label: Bus 04 Name
+    help: "Display name for mix bus 4 (12 characters max)."
+    state_key: bus04_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/04/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus05_name:
+    type: string
+    label: Bus 05 Name
+    help: "Display name for mix bus 5 (12 characters max)."
+    state_key: bus05_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/05/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus06_name:
+    type: string
+    label: Bus 06 Name
+    help: "Display name for mix bus 6 (12 characters max)."
+    state_key: bus06_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/06/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus07_name:
+    type: string
+    label: Bus 07 Name
+    help: "Display name for mix bus 7 (12 characters max)."
+    state_key: bus07_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/07/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus08_name:
+    type: string
+    label: Bus 08 Name
+    help: "Display name for mix bus 8 (12 characters max)."
+    state_key: bus08_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/08/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus09_name:
+    type: string
+    label: Bus 09 Name
+    help: "Display name for mix bus 9 (12 characters max)."
+    state_key: bus09_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/09/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus10_name:
+    type: string
+    label: Bus 10 Name
+    help: "Display name for mix bus 10 (12 characters max)."
+    state_key: bus10_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/10/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus11_name:
+    type: string
+    label: Bus 11 Name
+    help: "Display name for mix bus 11 (12 characters max)."
+    state_key: bus11_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/11/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus12_name:
+    type: string
+    label: Bus 12 Name
+    help: "Display name for mix bus 12 (12 characters max)."
+    state_key: bus12_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/12/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus13_name:
+    type: string
+    label: Bus 13 Name
+    help: "Display name for mix bus 13 (12 characters max)."
+    state_key: bus13_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/13/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus14_name:
+    type: string
+    label: Bus 14 Name
+    help: "Display name for mix bus 14 (12 characters max)."
+    state_key: bus14_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/14/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus15_name:
+    type: string
+    label: Bus 15 Name
+    help: "Display name for mix bus 15 (12 characters max)."
+    state_key: bus15_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/15/config/name"
+      args:
+        - type: s
+          value: "{value}"
+  bus16_name:
+    type: string
+    label: Bus 16 Name
+    help: "Display name for mix bus 16 (12 characters max)."
+    state_key: bus16_name
+    default: ""
+    setup: false
+    write:
+      address: "/bus/16/config/name"
+      args:
+        - type: s
+          value: "{value}"
+
 # Subscribe to feedback on connect, query console info
 on_connect:
   - "/xremote"
   - "/info"
 
-# Renew subscription every 9 seconds (X32 expires after ~10s)
+# Renew subscription every 9 seconds (X32 expires after ~10s).
+# The name queries are the read-back path for the channel/bus name
+# device settings: the console never echoes a client's own set back,
+# so each poll cycle re-reads the names (48 tiny UDP datagrams).
 polling:
   queries:
     - "renew"
+    - "/ch/01/config/name"
+    - "/ch/02/config/name"
+    - "/ch/03/config/name"
+    - "/ch/04/config/name"
+    - "/ch/05/config/name"
+    - "/ch/06/config/name"
+    - "/ch/07/config/name"
+    - "/ch/08/config/name"
+    - "/ch/09/config/name"
+    - "/ch/10/config/name"
+    - "/ch/11/config/name"
+    - "/ch/12/config/name"
+    - "/ch/13/config/name"
+    - "/ch/14/config/name"
+    - "/ch/15/config/name"
+    - "/ch/16/config/name"
+    - "/ch/17/config/name"
+    - "/ch/18/config/name"
+    - "/ch/19/config/name"
+    - "/ch/20/config/name"
+    - "/ch/21/config/name"
+    - "/ch/22/config/name"
+    - "/ch/23/config/name"
+    - "/ch/24/config/name"
+    - "/ch/25/config/name"
+    - "/ch/26/config/name"
+    - "/ch/27/config/name"
+    - "/ch/28/config/name"
+    - "/ch/29/config/name"
+    - "/ch/30/config/name"
+    - "/ch/31/config/name"
+    - "/ch/32/config/name"
+    - "/bus/01/config/name"
+    - "/bus/02/config/name"
+    - "/bus/03/config/name"
+    - "/bus/04/config/name"
+    - "/bus/05/config/name"
+    - "/bus/06/config/name"
+    - "/bus/07/config/name"
+    - "/bus/08/config/name"
+    - "/bus/09/config/name"
+    - "/bus/10/config/name"
+    - "/bus/11/config/name"
+    - "/bus/12/config/name"
+    - "/bus/13/config/name"
+    - "/bus/14/config/name"
+    - "/bus/15/config/name"
+    - "/bus/16/config/name"
+
+# ── QUICK ACTIONS ──
+actions:
+  - id: recall_scene
+    icon: bookmark
+  - id: clear_solo
+    icon: headphones
+  - id: mute_main_st
+    icon: volume-x
+  - id: unmute_main_st
+    icon: volume-2
+
+# ── LIVENESS WATCHDOG ──
+# /info is a documented request/response (the console answers with an
+# /info message carrying server version/name/model/firmware), unlike
+# /xremote which registers silently. UDP never surfaces a dead peer on
+# its own, so probe every 15 s; two silent probes force a reconnect
+# with a typed no_response fault. The expect is anchored to the reply
+# address (an OSC packet leads with its ASCII address).
+liveness:
+  send: "/info"
+  expect: '^/info'
+  interval: 15
+  timeout: 5
+  max_failures: 2
 
 responses:
   # Console info (4 string args: server version, server name, model, firmware)
@@ -2154,6 +2906,88 @@ responses:
           "0": "true"
           "1": "false"
 
+  # ── Bus 01-16 names ──
+  - address: "/bus/01/config/name"
+    mappings:
+      - arg: 0
+        state: bus01_name
+        type: string
+  - address: "/bus/02/config/name"
+    mappings:
+      - arg: 0
+        state: bus02_name
+        type: string
+  - address: "/bus/03/config/name"
+    mappings:
+      - arg: 0
+        state: bus03_name
+        type: string
+  - address: "/bus/04/config/name"
+    mappings:
+      - arg: 0
+        state: bus04_name
+        type: string
+  - address: "/bus/05/config/name"
+    mappings:
+      - arg: 0
+        state: bus05_name
+        type: string
+  - address: "/bus/06/config/name"
+    mappings:
+      - arg: 0
+        state: bus06_name
+        type: string
+  - address: "/bus/07/config/name"
+    mappings:
+      - arg: 0
+        state: bus07_name
+        type: string
+  - address: "/bus/08/config/name"
+    mappings:
+      - arg: 0
+        state: bus08_name
+        type: string
+  - address: "/bus/09/config/name"
+    mappings:
+      - arg: 0
+        state: bus09_name
+        type: string
+  - address: "/bus/10/config/name"
+    mappings:
+      - arg: 0
+        state: bus10_name
+        type: string
+  - address: "/bus/11/config/name"
+    mappings:
+      - arg: 0
+        state: bus11_name
+        type: string
+  - address: "/bus/12/config/name"
+    mappings:
+      - arg: 0
+        state: bus12_name
+        type: string
+  - address: "/bus/13/config/name"
+    mappings:
+      - arg: 0
+        state: bus13_name
+        type: string
+  - address: "/bus/14/config/name"
+    mappings:
+      - arg: 0
+        state: bus14_name
+        type: string
+  - address: "/bus/15/config/name"
+    mappings:
+      - arg: 0
+        state: bus15_name
+        type: string
+  - address: "/bus/16/config/name"
+    mappings:
+      - arg: 0
+        state: bus16_name
+        type: string
+
   # ── Matrix 01-06 faders ──
   - address: "/mtx/01/mix/fader"
     mappings:
@@ -2705,37 +3539,53 @@ simulator:
     # Buses 1-4: unmuted at unity
     bus01_fader: 0.75
     bus01_mute: false
+    bus01_name: "Bus 1"
     bus02_fader: 0.75
     bus02_mute: false
+    bus02_name: "Bus 2"
     bus03_fader: 0.75
     bus03_mute: false
+    bus03_name: "Bus 3"
     bus04_fader: 0.75
     bus04_mute: false
+    bus04_name: "Bus 4"
     # Buses 5-16: muted at -inf
     bus05_fader: 0.0
     bus05_mute: true
+    bus05_name: "Bus 5"
     bus06_fader: 0.0
     bus06_mute: true
+    bus06_name: "Bus 6"
     bus07_fader: 0.0
     bus07_mute: true
+    bus07_name: "Bus 7"
     bus08_fader: 0.0
     bus08_mute: true
+    bus08_name: "Bus 8"
     bus09_fader: 0.0
     bus09_mute: true
+    bus09_name: "Bus 9"
     bus10_fader: 0.0
     bus10_mute: true
+    bus10_name: "Bus 10"
     bus11_fader: 0.0
     bus11_mute: true
+    bus11_name: "Bus 11"
     bus12_fader: 0.0
     bus12_mute: true
+    bus12_name: "Bus 12"
     bus13_fader: 0.0
     bus13_mute: true
+    bus13_name: "Bus 13"
     bus14_fader: 0.0
     bus14_mute: true
+    bus14_name: "Bus 14"
     bus15_fader: 0.0
     bus15_mute: true
+    bus15_name: "Bus 15"
     bus16_fader: 0.0
     bus16_mute: true
+    bus16_name: "Bus 16"
     # Matrices 1-6: all muted at -inf
     mtx01_fader: 0.0
     mtx01_mute: true

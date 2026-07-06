@@ -61,6 +61,13 @@ class _FakeBaseDriver:
 
     DRIVER_INFO: dict = {}
 
+    HEALTH_INTERVAL_S = 30.0
+    HEALTH_TIMEOUT_S = 5.0
+    HEALTH_MAX_FAILURES = 2
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the device stopped answering keep-alive probes."
+    )
+
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
         self.config = config
@@ -70,6 +77,9 @@ class _FakeBaseDriver:
         self._children: dict[str, dict[int, dict]] = {}
         self._connected = False
         self.disconnect_calls = 0
+        self.stashed_fault: tuple[str, str] | None = None
+        self._health_task = None
+        self._health_failures = 0
 
     def _eff_schema(self, ctype: str) -> dict:
         schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
@@ -146,6 +156,59 @@ class _FakeBaseDriver:
         self.disconnect_calls += 1
         if self.transport is not None:
             self.transport.connected = False
+
+    def _stash_fault(self, code, message="") -> None:
+        self.stashed_fault = (code, message)
+
+    # -- liveness watchdog (mirrors the platform BaseDriver: probe every
+    # HEALTH_INTERVAL_S under a HEALTH_TIMEOUT_S deadline; HEALTH_MAX_FAILURES
+    # misses force a disconnect with a typed no_response fault) --
+
+    async def _liveness_probe(self) -> None:
+        raise NotImplementedError
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
+
+    def _start_health_loop(self) -> None:
+        if self._health_task is None or self._health_task.done():
+            self._health_failures = 0
+            self._health_task = asyncio.ensure_future(self._health_loop())
+
+    def _stop_health_loop(self) -> None:
+        if self._health_task and not self._health_task.done():
+            self._health_task.cancel()
+        self._health_task = None
+
+    async def _health_loop(self) -> None:
+        interval = float(self.HEALTH_INTERVAL_S)
+        timeout = float(self.HEALTH_TIMEOUT_S)
+        max_failures = max(int(self.HEALTH_MAX_FAILURES), 1)
+        try:
+            while self.transport is not None and getattr(
+                    self.transport, "connected", False):
+                await asyncio.sleep(interval)
+                if not (self.transport is not None and getattr(
+                        self.transport, "connected", False)):
+                    return
+                try:
+                    await asyncio.wait_for(self._liveness_probe(), timeout)
+                    self._health_failures = 0
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self._health_failures += 1
+                    if self._health_failures >= max_failures:
+                        self._force_disconnect(
+                            "no_response", self.HEALTH_FAULT_MESSAGE)
+                        return
+        except asyncio.CancelledError:
+            return
+
+    def _force_disconnect(self, code="no_response", message="") -> None:
+        self._health_task = None
+        self._stash_fault(code, message)
+        self._handle_transport_disconnect()
 
     async def start_polling(self, interval) -> None:
         pass
@@ -276,7 +339,7 @@ async def _make_pair(sim_config=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.0"
+    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.1"
 
 
 def test_child_entity_types_declared():
@@ -321,7 +384,8 @@ def test_discovery_probe_and_actions_present():
     assert probe["extract_manufacturer"] == "Blackmagic Design"
     action_ids = {a["id"] for a in info["actions"]}
     assert "refresh" in action_ids and "test_connection" in action_ids
-    assert info["min_platform_version"] == "0.13.0"
+    # The BaseDriver liveness watchdog hook is a 0.22.0 platform API.
+    assert info["min_platform_version"] == "0.22.0"
 
 
 # ── CE: children sized to the frame (the truncation fix) ─────────────────────
@@ -457,14 +521,16 @@ def test_refresh_children_reports_counts():
     asyncio.run(go())
 
 
-# ── Liveness: PING/ACK watchdog forces a reconnect on a silent device ────────
+# ── Liveness: PING/ACK probe via the BaseDriver watchdog hook ────────────────
 
 def test_health_probe_succeeds_when_alive():
     async def go():
         driver, sim = await _make_pair()
         await driver.connect()
         try:
-            await driver._probe_once()  # sim ACKs → resolves, no raise
+            # The driver opts into the base watchdog by overriding the probe.
+            assert driver._health_enabled()
+            await driver._liveness_probe()  # sim ACKs → resolves, no raise
         finally:
             await driver.disconnect()
 
@@ -476,17 +542,20 @@ def test_health_loop_forces_reconnect_on_silent_device():
         global _SWALLOW
         driver, sim = await _make_pair()
         await driver.connect()
-        DRV.KEEPALIVE_INTERVAL_S = 0.01
-        DRV.KEEPALIVE_TIMEOUT_S = 0.05
+        driver._stop_health_loop()  # restart below with test-speed cadence
+        driver.HEALTH_INTERVAL_S = 0.01
+        driver.HEALTH_TIMEOUT_S = 0.05
         try:
             _SWALLOW = True  # device stops replying to PING
             driver._start_health_loop()
             await asyncio.sleep(0.3)
             assert driver.disconnect_calls >= 1
+            # The forced disconnect carries a typed no_response fault so the
+            # device card shows the real cause, not a generic drop.
+            assert driver.stashed_fault is not None
+            assert driver.stashed_fault[0] == "no_response"
         finally:
             _SWALLOW = False
-            DRV.KEEPALIVE_INTERVAL_S = 30.0
-            DRV.KEEPALIVE_TIMEOUT_S = 5.0
             driver._stop_health_loop()
 
     asyncio.run(go())

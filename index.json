@@ -1052,7 +1052,7 @@
       "name": "Blackmagic Videohub",
       "manufacturer": "Blackmagic Design",
       "category": "switcher",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Video and monitoring outputs, inputs, routing, output locks, and labels are modeled as child entities sized to the connected frame \u2014 from a 12\u00d712 Smart Videohub to a 288\u00d7288 Universal Videohub.",
@@ -1066,7 +1066,7 @@
         "videohub"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.22.0",
       "tags": [
         "matrix-switcher",
         "sdi",

@@ -59,11 +59,9 @@ PORT_MAX = 288
 
 LOCK_MAP = {"U": "unlocked", "O": "owned", "L": "locked"}
 
-# Liveness watchdog (push protocol: no polling, so a silent drop is otherwise
-# invisible). Mirrors the racklink/wattbox PING-style keepalive cadence.
-KEEPALIVE_INTERVAL_S = 30.0
-KEEPALIVE_TIMEOUT_S = 5.0
-KEEPALIVE_MAX_FAILURES = 2
+# Liveness: push protocol with no polling, so a silent drop is otherwise
+# invisible. The BaseDriver watchdog (see _liveness_probe) sends PING on the
+# default HEALTH_* cadence (30 s interval, 5 s reply deadline, 2 misses).
 
 
 def _input_state_vars() -> dict[str, dict[str, Any]]:
@@ -100,10 +98,10 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
-        # Child entities + child-prop cloud_priority tiers landed in 0.13.0.
-        "min_platform_version": "0.13.0",
+        # The BaseDriver liveness watchdog hook landed in 0.22.0.
+        "min_platform_version": "0.22.0",
         "description": (
             "Controls Blackmagic Design Videohub routers over the Videohub "
             "Ethernet Protocol (TCP 9990). Video and monitoring outputs, "
@@ -395,6 +393,12 @@ class BlackmagicVideohubDriver(BaseDriver):
         },
     }
 
+    # BaseDriver liveness watchdog fault wording (cadence/misses use the
+    # HEALTH_* defaults: 30 s interval, 5 s deadline, 2 misses).
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the Videohub stopped answering PING keep-alive probes."
+    )
+
     # ── Lifecycle ──
 
     def __init__(
@@ -407,8 +411,6 @@ class BlackmagicVideohubDriver(BaseDriver):
         self._line_buffer = b""
         self._current_block: str | None = None
         self._block_lines: list[str] = []
-        self._health_task: asyncio.Task | None = None
-        self._health_failures = 0
         self._ping_waiter: asyncio.Future | None = None
         super().__init__(device_id, config, state, events)
 
@@ -439,7 +441,10 @@ class BlackmagicVideohubDriver(BaseDriver):
         # case it does not, and (re)primes the child roster after a reconnect.
         await self.poll()
 
-        self._health_failures = 0
+        # Liveness watchdog: push protocol with no polling, so a silently
+        # dropped unit (no FIN) is only detectable by an awaited probe.
+        # Started explicitly because this custom connect() never runs
+        # BaseDriver.connect()'s auto-start.
         self._start_health_loop()
 
         poll_interval = self.config.get("poll_interval", 0)
@@ -565,66 +570,26 @@ class BlackmagicVideohubDriver(BaseDriver):
             "monitors": len(self.list_children("monitor")),
         }
 
-    # ── Liveness watchdog (PING/ACK) ──
+    # ── Liveness probe (PING/ACK, BaseDriver watchdog hook) ──
 
-    def _start_health_loop(self) -> None:
-        self._stop_health_loop()
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        self._health_task = loop.create_task(self._health_loop())
-
-    def _stop_health_loop(self) -> None:
-        if self._health_task and not self._health_task.done():
-            self._health_task.cancel()
-        self._health_task = None
-
-    async def _health_loop(self) -> None:
-        try:
-            while self.transport and self.transport.connected:
-                await asyncio.sleep(KEEPALIVE_INTERVAL_S)
-                if not (self.transport and self.transport.connected):
-                    return
-                try:
-                    await self._probe_once()
-                    self._health_failures = 0
-                except (asyncio.TimeoutError, ConnectionError, OSError) as exc:
-                    self._health_failures += 1
-                    log.warning(
-                        f"[{self.device_id}] Liveness probe failed "
-                        f"({self._health_failures}/{KEEPALIVE_MAX_FAILURES}): {exc}"
-                    )
-                    if self._health_failures >= KEEPALIVE_MAX_FAILURES:
-                        log.warning(
-                            f"[{self.device_id}] Videohub unresponsive — "
-                            f"forcing reconnect"
-                        )
-                        self._force_disconnect()
-                        return
-        except asyncio.CancelledError:
-            return
-
-    async def _probe_once(self) -> None:
-        """Send a PING block and await the server's ACK as a liveness probe.
+    async def _liveness_probe(self) -> None:
+        """Send a PING block and await the server's ACK.
 
         PING has no correlation id; any ACK (even one prompted by another
-        request) proves the link is alive, which is all we need here.
+        request) proves the link is alive, which is all we need here. The
+        reply deadline is enforced by the BaseDriver loop (HEALTH_TIMEOUT_S
+        wraps this coroutine); after consecutive misses it tears the
+        transport down with a typed ``no_response`` fault so the platform
+        reconnects and the device card shows the real cause.
         """
-        loop = asyncio.get_running_loop()
-        fut: asyncio.Future = loop.create_future()
+        fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._ping_waiter = fut
         try:
             await self._send_block("PING:", [])
-            await asyncio.wait_for(fut, timeout=KEEPALIVE_TIMEOUT_S)
+            await fut
         finally:
-            self._ping_waiter = None
-
-    def _force_disconnect(self) -> None:
-        # Null our own task ref first so the disconnect handler doesn't cancel
-        # the still-running loop out from under us.
-        self._health_task = None
-        self._handle_transport_disconnect()
+            if self._ping_waiter is fut:
+                self._ping_waiter = None
 
     # ── Parsing ──
 

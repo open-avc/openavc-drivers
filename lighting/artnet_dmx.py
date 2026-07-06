@@ -123,7 +123,7 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.3.1",
+        "version": "1.4.0",
         "min_platform_version": "0.10.3",
         "author": "OpenAVC",
         "description": (
@@ -509,6 +509,19 @@ class ArtNetDMXDriver(BaseDriver):
                 ),
             },
         },
+        # Quick Action strip: the two whole-universe moves. Blackout is
+        # the panic-safe action so it fires without a confirm; full-on
+        # drives every fixture to maximum, so it asks first.
+        "actions": [
+            {"id": "blackout", "kind": "command", "icon": "moon"},
+            {
+                "id": "full_on", "kind": "command", "icon": "sun",
+                "confirm": (
+                    "Drive all 512 channels to 255? Every fixture on "
+                    "this universe goes to full."
+                ),
+            },
+        ],
     }
 
     def __init__(

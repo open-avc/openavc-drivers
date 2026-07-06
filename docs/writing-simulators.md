@@ -205,6 +205,10 @@ simulator:
 | `after_seconds` | Auto-transition after this delay (no trigger needed) |
 | `reject` | If true, commands matching this trigger are rejected (no response) |
 
+**How transitions are resolved:** a transition that names the command exactly always beats a `"*"` wildcard, no matter which is listed first — so `reject: true` with `trigger: "*"` means "reject everything this state doesn't explicitly handle" and can safely sit above or below the specific transitions for that state. If two transitions name the same `from` and `trigger`, the first listed wins (the validator warns that the second is unreachable). Rejects follow the same rules: a specific transition is never vetoed by a `"*"` reject in the same state.
+
+Every `after_seconds` transition declared for a state is armed when the state is entered — you can pair a fast path with a longer fallback timeout. The first timer to fire wins and cancels the rest.
+
 The state machine's current state is stored as a state variable with the machine's name (e.g., `power`). When a command triggers a transition, the state updates automatically. Timed transitions (like warmup delays) happen in the background.
 
 ### Error Modes
@@ -771,7 +775,7 @@ python -m simulator.validate ../openavc-drivers/ --summary
 | **Response parsing** | Simulator responses that don't match any driver response pattern |
 | **Poll coverage** | Polling queries with no matching handler. `each_child` queries are checked with a sample child id; OSC queries that name a command are checked as that command |
 | **Type consistency** | Boolean state used in `respond:` templates (produces `True` not `true`), wrong initial value types, enum values not in the allowed list |
-| **State machines** | Malformed `state_machines` entries (missing states/initial/transitions, off-list states, transitions that can never fire) |
+| **State machines** | Malformed `state_machines` entries (missing states/initial/transitions, off-list states, transitions that can never fire, duplicate `from`/`trigger` pairs where the later one is unreachable) |
 | **Handler syntax** | `handler:` bodies that don't compile — the simulator silently skips those at runtime |
 | **Explicit handlers** | `set_state:` targets that aren't state keys, `{N}` capture references beyond what the `receive:` pattern captures, `{state.X}` references to unknown keys, invalid `receive:` regexes |
 | **Notifications** | `notifications:` keys that aren't state keys, boolean value keys that never match (must be quoted lowercase `'true'`/`'false'`), `{value}` templates on boolean variables (emit `True` not `true`), and templates whose output no driver response pattern parses |

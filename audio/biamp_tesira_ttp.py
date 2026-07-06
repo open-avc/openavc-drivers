@@ -27,6 +27,16 @@ Why subscriptions, not polling (rules.md Principle 2):
     `get` for each subscribed attribute so panel UIs reflect current values
     immediately even if no change happens to fire a push.
 
+Liveness watchdog:
+    A push-subscription session with poll_interval=0 sends nothing once
+    subscribed, so a link that dies without a FIN (cable pull, DSP power
+    loss) is invisible to the transport — the device would stay shown
+    online forever. The BaseDriver health loop probes `DEVICE get version`
+    every HEALTH_INTERVAL_S and awaits the reply through the pending-GET
+    FIFO; consecutive misses force a reconnect with a typed `no_response`
+    fault. A subscription push does NOT satisfy the probe (only a reply
+    that consumes the probe's FIFO entry does).
+
 Telnet IAC handshake:
     Tesira sends Telnet IAC option negotiation bytes (RFC 854/855) the moment
     the TCP socket opens. Per Biamp's wiki ("Telnet session negotiation in
@@ -1089,8 +1099,8 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "2.1.3",
-        "min_platform_version": "0.11.0",
+        "version": "2.2.0",
+        "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls Biamp Tesira and TesiraFORTÉ DSPs over the Tesira "
@@ -1306,10 +1316,30 @@ class BiampTesiraTTPDriver(BaseDriver):
                 ),
             },
         },
-        # state_variables and commands are populated per-instance in __init__
-        "state_variables": {},
-        "commands": {},
+        "quick_actions": ["recall_preset", "recall_preset_by_name"],
+        "actions": [
+            {"id": "recall_preset", "kind": "command", "icon": "play"},
+            {"id": "recall_preset_by_name", "kind": "command", "icon": "bookmark"},
+            {
+                "id": "test_connection",
+                "kind": "setup",
+                "label": "Test Connection / Verify Blocks",
+                "icon": "search",
+                "availability": "always",
+            },
+        ],
+        # The class-level surface carries the always-present system state
+        # vars and generic escape-hatch commands so the catalog and the
+        # action validator see them; __init__ re-expands both per-instance
+        # from the declared blocks.
+        "state_variables": expand_state_variables([]),
+        "commands": expand_commands([]),
     }
+
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the DSP stopped answering (no reply to "
+        "DEVICE get version)."
+    )
 
     # ── Lifecycle ──
 
@@ -1347,6 +1377,11 @@ class BiampTesiraTTPDriver(BaseDriver):
         # request/response commands so concurrent get_attribute calls
         # don't interleave.
         self._get_lock = asyncio.Lock()
+
+        # Liveness-probe correlation: the probe's _pending_gets entry
+        # (matched by identity) and the future the health loop awaits.
+        self._probe_entry: tuple[str, str] | None = None
+        self._probe_fut: asyncio.Future[None] | None = None
 
         # Saved frame parser used during the IAC handshake (we drop the
         # parser to raw mode for the handshake then restore the
@@ -1423,17 +1458,21 @@ class BiampTesiraTTPDriver(BaseDriver):
         await self.events.emit(f"device.connected.{self.device_id}")
         log.info(f"[{self.device_id}] Connected to Tesira at {host}:{port}")
 
+        # A session that died with unanswered GETs leaves stale entries at
+        # the head of the FIFO — they'd eat this session's first replies
+        # and mis-route values. Reconnect starts from a clean queue.
+        self._pending_gets.clear()
+        self._probe_entry = None
+        self._probe_fut = None
+
         # Settle the session: turn off verbose so we don't get echoes,
         # then probe for serial / firmware (best-effort, ignore errors).
         try:
             await self._send_line("SESSION set verbose false")
             await self._send_line("SESSION set aliasUsage true")
-            await self._send_line('DEVICE get serialNumber')
-            self._pending_gets.append(("serial_number", "string"))
-            await self._send_line('DEVICE get version')
-            self._pending_gets.append(("firmware_version", "string"))
-            await self._send_line('DEVICE get hostname')
-            self._pending_gets.append(("device_id_str", "string"))
+            await self._send_get('DEVICE get serialNumber', "serial_number", "string")
+            await self._send_get('DEVICE get version', "firmware_version", "string")
+            await self._send_get('DEVICE get hostname', "device_id_str", "string")
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial session setup failed")
 
@@ -1449,7 +1488,14 @@ class BiampTesiraTTPDriver(BaseDriver):
         if poll_interval > 0:
             await self.start_polling(poll_interval)
 
+        # Tesira never closes an idle session and pushes are DSP->client
+        # only, so a link that dies without a FIN (cable pull, power loss)
+        # looks identical to a healthy idle one. The watchdog probes
+        # `DEVICE get version` and reconnects after consecutive misses.
+        self._start_health_loop()
+
     async def disconnect(self) -> None:
+        self._stop_health_loop()
         await self.stop_polling()
         if self.transport:
             try:
@@ -1523,19 +1569,19 @@ class BiampTesiraTTPDriver(BaseDriver):
                 pass
             self._auth_event.clear()
 
-    async def _process_iac_buffer(self) -> None:
-        """Strip IAC sequences from the auth buffer, sending replies inline."""
-        if self.transport is None:
-            return
+    @staticmethod
+    def _strip_iac(buf: bytearray) -> tuple[bytearray, bytes]:
+        """Split a raw Telnet buffer into (cleaned bytes, IAC replies owed).
 
-        # Walk the buffer looking for IAC sequences. An IAC sequence is
-        # always 3 bytes: IAC + (DO/DONT/WILL/WONT) + option. IAC IAC means
-        # an escaped 0xFF in the data stream; we leave that alone.
-        # Build up a "clean" buffer with IAC sequences removed.
+        An IAC sequence is always 3 bytes: IAC + (DO/DONT/WILL/WONT) +
+        option. We owe WONT to every DO and DONT to every WILL, telling the
+        device "we're a dumb pipe" per RFC 854/855. IAC IAC is an escaped
+        0xFF data byte and is left alone. An incomplete sequence at the end
+        of the buffer is kept for the next pass.
+        """
         i = 0
         cleaned = bytearray()
         replies: list[bytes] = []
-        buf = self._auth_buffer
         while i < len(buf):
             b = buf[i]
             if b != IAC:
@@ -1544,8 +1590,6 @@ class BiampTesiraTTPDriver(BaseDriver):
                 continue
             # We hit an IAC. Need at least 3 bytes total.
             if i + 2 >= len(buf):
-                # Incomplete sequence at end of buffer — keep the partial
-                # bytes for the next pass.
                 cleaned.extend(buf[i:])
                 break
             cmd = buf[i + 1]
@@ -1561,17 +1605,23 @@ class BiampTesiraTTPDriver(BaseDriver):
                 replies.append(bytes([IAC, DONT, opt]))
             # DONT/WONT — no reply needed
             i += 3
+        return cleaned, b"".join(replies)
 
+    async def _process_iac_buffer(self) -> None:
+        """Strip IAC sequences from the auth buffer, sending replies inline."""
+        if self.transport is None:
+            return
+
+        cleaned, payload = self._strip_iac(self._auth_buffer)
         self._auth_buffer = cleaned
 
         # Send all replies coalesced
-        if replies:
-            payload = b"".join(replies)
+        if payload:
             try:
                 await self.transport.send(payload)
                 log.debug(
                     f"[{self.device_id}] IAC negotiation: sent "
-                    f"{len(replies)} option replies"
+                    f"{len(payload) // 3} option replies"
                 )
             except (ConnectionError, OSError) as e:
                 log.warning(f"[{self.device_id}] IAC reply send failed: {e}")
@@ -1582,6 +1632,26 @@ class BiampTesiraTTPDriver(BaseDriver):
         if self.transport is None or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
         await self.transport.send((line + "\n").encode("utf-8"))
+
+    async def _send_get(self, line: str, state_key: str, type_hint: str) -> tuple[str, str]:
+        """Queue the pending-GET entry, then send the query.
+
+        The entry must be queued BEFORE the send — the reply can arrive the
+        moment the send awaits, and a reply that finds the queue one entry
+        short routes every subsequent value into the wrong state var. On a
+        send failure the entry is removed so the queue stays in sync.
+        """
+        entry = (state_key, type_hint)
+        self._pending_gets.append(entry)
+        try:
+            await self._send_line(line)
+        except BaseException:
+            try:
+                self._pending_gets.remove(entry)
+            except ValueError:
+                pass
+            raise
+        return entry
 
     async def _subscribe_all(self) -> None:
         """Send a subscribe command for every declared subscription."""
@@ -1607,8 +1677,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         for sub in self._subscriptions:
             cmd = self._build_get_command(sub)
             try:
-                await self._send_line(cmd)
-                self._pending_gets.append((sub["token"], sub["type_hint"]))
+                await self._send_get(cmd, sub["token"], sub["type_hint"])
             except (ConnectionError, OSError):
                 log.warning(f"[{self.device_id}] Initial GET send failed: {cmd}")
                 return
@@ -1685,9 +1754,10 @@ class BiampTesiraTTPDriver(BaseDriver):
             self.set_state("last_error", m.group(1))
             log.debug(f"[{self.device_id}] DSP error: {m.group(1)}")
             # Drop the oldest pending-get so we don't pin the head of the
-            # queue forever on an error response.
+            # queue forever on an error response. A -ERR reply to the
+            # liveness probe still proves the device answered.
             if self._pending_gets:
-                self._pending_gets.pop(0)
+                self._resolve_probe(self._pending_gets.pop(0))
             return
 
         # Successful GET response: +OK "value":...
@@ -1695,12 +1765,14 @@ class BiampTesiraTTPDriver(BaseDriver):
         if m:
             value_str = m.group(1).strip()
             if self._pending_gets:
-                state_key, type_hint = self._pending_gets.pop(0)
+                entry = self._pending_gets.pop(0)
+                state_key, type_hint = entry
                 coerced = self._coerce_response_value(value_str, type_hint)
                 if coerced is not None:
                     self.set_state(state_key, coerced)
                 # Also surface in last_query_result for visibility from macros
                 self.set_state("last_query_result", value_str)
+                self._resolve_probe(entry)
             else:
                 # Unsolicited +OK "value":... — typically the immediate
                 # echo from a subscribe (Tesira sends initial value after
@@ -1715,7 +1787,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         if m:
             value_str = m.group(1).strip()
             if self._pending_gets:
-                self._pending_gets.pop(0)
+                self._resolve_probe(self._pending_gets.pop(0))
             self.set_state("last_query_result", value_str)
             return
 
@@ -1903,8 +1975,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         if index not in (None, ""):
             parts.append(str(index))
         async with self._get_lock:
-            await self._send_line(" ".join(parts))
-            self._pending_gets.append(("last_query_result", "string"))
+            await self._send_get(" ".join(parts), "last_query_result", "string")
         return True
 
     async def _cmd_subscribe(
@@ -2120,6 +2191,51 @@ class BiampTesiraTTPDriver(BaseDriver):
         )
         return None
 
+    # ── Liveness watchdog (BaseDriver health loop) ──
+
+    async def _liveness_probe(self) -> None:
+        """Send `DEVICE get version` and await its reply.
+
+        Tesira pushes are DSP->client only and the device never closes an
+        idle session, so a link that dies without a FIN is invisible to the
+        transport. The reply routes through the normal _pending_gets FIFO;
+        the probe's entry is remembered by identity and any reply that
+        consumes it (+OK or -ERR — either proves the device answered)
+        resolves the awaited future. The value read-back keeps
+        firmware_version fresh as a side effect.
+        """
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[None] = loop.create_future()
+        async with self._get_lock:
+            # The probe state and FIFO entry are registered BEFORE the send —
+            # the reply can arrive while the send awaits (see _send_get).
+            entry = ("firmware_version", "string")
+            self._probe_entry = entry
+            self._probe_fut = fut
+            self._pending_gets.append(entry)
+            try:
+                await self._send_line("DEVICE get version")
+            except BaseException:
+                try:
+                    self._pending_gets.remove(entry)
+                except ValueError:
+                    pass
+                self._probe_entry = None
+                self._probe_fut = None
+                raise
+        await fut
+
+    def _resolve_probe(self, entry: tuple[str, str]) -> None:
+        """Resolve the health loop's awaited future when the probe's FIFO
+        entry (matched by identity) is consumed by a reply."""
+        if entry is not self._probe_entry:
+            return
+        fut = self._probe_fut
+        self._probe_entry = None
+        self._probe_fut = None
+        if fut is not None and not fut.done():
+            fut.set_result(None)
+
     # ── Polling backstop (only fires if poll_interval > 0) ──
 
     async def poll(self) -> None:
@@ -2134,7 +2250,185 @@ class BiampTesiraTTPDriver(BaseDriver):
             return
         for sub in self._subscriptions:
             try:
-                await self._send_line(self._build_get_command(sub))
-                self._pending_gets.append((sub["token"], sub["type_hint"]))
+                await self._send_get(
+                    self._build_get_command(sub), sub["token"], sub["type_hint"]
+                )
             except (ConnectionError, OSError):
                 return
+
+    # ── Setup wizard: Test Connection / Verify Blocks ──
+
+    @classmethod
+    async def _setup_wait_banner(
+        cls, reader: Any, writer: Any, buf: bytearray, timeout: float = 10.0,
+    ) -> None:
+        """Answer IAC negotiation and wait for the TTP welcome banner.
+
+        Leaves any post-banner bytes in `buf` for the line reader.
+        """
+        deadline = asyncio.get_event_loop().time() + timeout
+        while True:
+            cleaned, payload = cls._strip_iac(buf)
+            buf[:] = cleaned
+            if payload:
+                writer.write(payload)
+                await writer.drain()
+            idx = buf.find(WELCOME_BANNER)
+            if idx >= 0:
+                del buf[: idx + len(WELCOME_BANNER)]
+                while buf[:1] in (b"\r", b"\n"):
+                    del buf[:1]
+                return
+            remaining = deadline - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                raise ConnectionError(
+                    "Connected, but never saw the Tesira welcome banner — "
+                    "is this host really a Tesira?"
+                )
+            try:
+                chunk = await asyncio.wait_for(
+                    reader.read(256), min(remaining, 2.0)
+                )
+            except asyncio.TimeoutError:
+                continue
+            if not chunk:
+                raise ConnectionError(
+                    "The device closed the connection during Telnet "
+                    "negotiation"
+                )
+            buf.extend(chunk)
+
+    @staticmethod
+    async def _setup_read_reply(
+        reader: Any, buf: bytearray, timeout: float = 5.0,
+    ) -> str:
+        """Read lines until a +OK / -ERR reply arrives (skipping any pushes
+        or blank lines), using `buf` as the carry-over buffer."""
+        deadline = asyncio.get_event_loop().time() + timeout
+        while True:
+            nl = buf.find(b"\n")
+            if nl >= 0:
+                line = (
+                    bytes(buf[:nl])
+                    .decode("utf-8", errors="replace")
+                    .strip()
+                )
+                del buf[: nl + 1]
+                if line.startswith("+OK") or line.startswith("-ERR"):
+                    return line
+                continue
+            remaining = deadline - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                raise ConnectionError(
+                    "Timed out waiting for a reply from the DSP"
+                )
+            chunk = await asyncio.wait_for(reader.read(256), remaining)
+            if not chunk:
+                raise ConnectionError("The device closed the connection")
+            buf.extend(chunk)
+
+    async def run_setup_action(
+        self, action_id: str, params: dict[str, Any], progress: Any,
+    ) -> dict[str, Any]:
+        """Test Connection / Verify Blocks — out-of-band diagnostic.
+
+        Opens its own Telnet session (works offline and alongside a live
+        connection — Tesira allows multiple TTP sessions), confirms the
+        welcome banner and firmware, then GETs the first subscribed
+        attribute of every declared block: a typo'd instance tag is the #1
+        commissioning failure on Tesira, and this surfaces exactly which
+        tags the DSP design doesn't recognize.
+        """
+        if action_id != "test_connection":
+            raise ValueError(f"Unknown setup action: {action_id}")
+
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 23))
+        if not host:
+            raise ValueError("No host configured — set the device's host first.")
+
+        await progress(f"Connecting to {host}:{port}", 10)
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), 10.0
+            )
+        except (OSError, asyncio.TimeoutError) as exc:
+            raise ConnectionError(
+                f"Could not reach {host}:{port} — check the address and "
+                f"that Telnet is enabled in Tesira's Network Settings "
+                f"({exc})"
+            ) from exc
+
+        firmware = ""
+        checked: list[str] = []
+        ok: list[str] = []
+        failed: list[str] = []
+        try:
+            await progress("Waiting for the TTP welcome banner", 25)
+            buf = bytearray()
+            await self._setup_wait_banner(reader, writer, buf)
+
+            writer.write(b"SESSION set verbose false\n")
+            await writer.drain()
+            await self._setup_read_reply(reader, buf)
+
+            await progress("Checking firmware", 40)
+            writer.write(b"DEVICE get version\n")
+            await writer.drain()
+            reply = await self._setup_read_reply(reader, buf)
+            m = OK_VALUE_RE.match(reply)
+            if m:
+                firmware = m.group(1).strip().strip('"')
+
+            seen: set[str] = set()
+            total = max(len(self._blocks), 1)
+            for i, blk in enumerate(self._blocks):
+                tag = blk["tag"]
+                if tag in seen:
+                    continue
+                seen.add(tag)
+                sub = next(
+                    (s for s in self._subscriptions if s["tag"] == tag), None
+                )
+                if sub is None:
+                    # Command-only block (e.g. dialer) — nothing to GET.
+                    continue
+                await progress(
+                    f"Verifying block {tag}",
+                    40 + int(55 * (i + 1) / total),
+                )
+                checked.append(tag)
+                writer.write(
+                    (self._build_get_command(sub) + "\n").encode("utf-8")
+                )
+                await writer.drain()
+                reply = await self._setup_read_reply(reader, buf)
+                (ok if reply.startswith("+OK") else failed).append(tag)
+
+            writer.write(b"SESSION quit\n")
+            await writer.drain()
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+        if failed:
+            await progress(
+                f"{len(failed)} block(s) not answering: {', '.join(failed)} "
+                f"— check the instance tags against the Tesira design",
+                100,
+            )
+        else:
+            await progress(
+                f"Connected (firmware {firmware or 'unknown'}); all "
+                f"{len(checked)} declared blocks answered",
+                100,
+            )
+        return {
+            "firmware": firmware,
+            "blocks_checked": len(checked),
+            "blocks_ok": ok,
+            "blocks_failed": failed,
+        }

@@ -1,0 +1,536 @@
+# Onkyo / Integra AV Receiver (ISCP over RS-232 serial)
+#
+# Controls Onkyo and Integra A/V receivers that speak the Integra Serial
+# Control Protocol (ISCP) over an RS-232 serial port. Integra is Onkyo's
+# professional line; both brands share the same ISCP command set.
+#
+# ── Frame format (this is what the command_prefix / command_suffix below do) ──
+#   Every ISCP serial message is:  ! <unit-type> <command><parameter> <CR>
+#     "!"   start character
+#     "1"   unit type (1 = receiver / AV amplifier)
+#     e.g.  PWR01  = command PWR (system power), parameter 01 (on)
+#     <CR>  0x0D terminator
+#   So "power on" goes on the wire as  !1PWR01\r  and "select CD" as  !1SLI23\r.
+#   Rather than repeat "!1" and "\r" on all ~40 commands, this driver declares
+#   them once as command_prefix: "!1" and command_suffix: "\r" and authors each
+#   command's send string bare (PWR01, SLI23, LMD00, ...). The runtime wraps
+#   every command as prefix + send + suffix before transmitting.
+#
+# ── Status feedback ──
+#   The receiver echoes its resulting state after any Set, and answers a Query
+#   (xxxQSTN) with the current value, in the same frame it receives:
+#   !1PWR01\r, !1SLI23\r, !1LMD0C\r, etc. The responses: block parses those
+#   echoes (the receive frame is CR-delimited, so the matched line is the bare
+#   "!1PWR01"). Polling and on_connect list the query commands by NAME so the
+#   command_prefix / command_suffix frame is applied to them too.
+#
+# ── Serial settings ──
+#   9600 baud, 8 data bits, no parity, 1 stop bit, no flow control (the ISCP
+#   RS-232 default). Some models expose a menu option for higher rates; 9600 is
+#   universal. Usable on a direct serial port or through an IP-to-serial bridge
+#   (bind it from the device's Connection settings).
+#
+# ── Scope ──
+#   This is the serial (RS-232) flavor. ISCP-over-Ethernet (eISCP) wraps the
+#   same "!1...\r" payload in a binary header carrying a computed data-length
+#   byte, which a fixed command_prefix cannot express — that is a separate
+#   transport and out of scope here.
+#
+# ── Volume note ──
+#   Master volume rides the wire as a 2-digit hex level (00-64 = 0-100). The
+#   Set command builds that with the {level:02X} format spec, so the user picks
+#   a plain 0-100 value. Readback stores the raw hex code the receiver reports
+#   (a pure-YAML driver has no hex->decimal step; a Python driver would decode
+#   it to a percentage).
+#
+# Not hardware-validated. Modeled from the published ISCP command set; the
+# built-in simulator lets it be exercised end to end without a receiver.
+
+id: onkyo_integra_iscp
+name: Onkyo / Integra AV Receiver (ISCP Serial)
+manufacturer: Onkyo
+category: audio
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.23.0"
+description: >-
+  Controls Onkyo and Integra A/V receivers over RS-232 using the Integra Serial
+  Control Protocol (ISCP). Power, mute, master volume, input selection, and
+  listening-mode (DSP) selection, with polled power / mute / input / listening
+  mode / volume status. A constant "!1" packet header and CR terminator are
+  declared once and wrap every command.
+source_url: https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp-commands.yaml
+tags: [receiver, avr, amplifier, onkyo, integra, iscp, rs232, rs-232, serial, bridge]
+verified: false
+simulated: true
+ports: []
+compatible_models:
+  - manufacturer: Onkyo
+    models:
+      - TX-NR series
+      - TX-RZ series
+      - TX-SR series
+    confidence: untested
+    notes: >-
+      Onkyo A/V receivers with an RS-232 control port using the ISCP command
+      set (PWR / AMT / MVL / SLI / LMD). Verify the serial baud rate in the
+      receiver's setup menu (9600 is the default).
+  - manufacturer: Integra
+    models:
+      - DTR series
+      - DRX series
+    confidence: untested
+    notes: >-
+      Integra (Onkyo's professional line) receivers share the same ISCP command
+      set over RS-232.
+
+transport: serial
+# Receive framing: the receiver's replies are CR-terminated, so split incoming
+# data on CR. (The send-side terminator is command_suffix below.)
+delimiter: "\r"
+
+# ── Command framing (declared once, applied to every command) ──
+# On the wire each command becomes: command_prefix + send + command_suffix,
+# e.g. send "PWR01" -> "!1PWR01\r". Authored bare above so the "!1" header and
+# the "\r" terminator live in exactly one place.
+command_prefix: "!1"
+command_suffix: "\r"
+
+help:
+  overview: >-
+    Onkyo / Integra A/V receiver over RS-232 (the Integra Serial Control
+    Protocol). Power, mute, master volume, input selection, and listening-mode
+    (DSP) selection. Works on a direct serial port or through an IP-to-serial
+    bridge (choose "Through a bridge" in Connection settings and pick the
+    bridge's RS-232 port).
+  setup: >-
+    1. Connect the receiver's RS-232 port (or wire it to a serial bridge).
+    2. Serial settings are 9600 baud, 8 data bits, no parity, 1 stop bit, no
+       flow control. Confirm the baud rate in the receiver's setup menu.
+    3. In the receiver's setup, make sure serial / RS-232 control is enabled.
+    4. Add the device and pick its serial port (or the bridge's RS-232 port).
+  connection: >-
+    ISCP is a bidirectional protocol: the receiver echoes its state after every
+    command and answers the xxxQSTN queries, so power, mute, input, listening
+    mode, and the (hex) master-volume level poll back automatically.
+
+default_config:
+  baudrate: 9600
+  bytesize: 8
+  parity: "N"
+  stopbits: 1
+  poll_interval: 15
+  # Give the receiver a small gap between back-to-back commands so a burst
+  # (e.g. a macro powering on and selecting an input) is not dropped.
+  inter_command_delay: 0.1
+
+config_schema:
+  baudrate:
+    type: integer
+    default: 9600
+    label: Baud Rate
+    description: ISCP RS-232 default is 9600. Match the receiver's setup menu.
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+    description: How often to poll power / mute / input / listening mode / volume. 0 disables polling.
+  inter_command_delay:
+    type: number
+    default: 0.1
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: Minimum gap between commands so a rapid burst is not dropped.
+
+state_variables:
+  power:
+    type: string
+    label: Power
+    help: "Power state (On / Standby), parsed from the receiver's PWR echo."
+  mute:
+    type: string
+    label: Mute
+    help: "Master mute state (On / Off), parsed from the AMT echo."
+  master_volume:
+    type: string
+    label: Master Volume (hex)
+    help: >-
+      Master volume level as the receiver reports it: a 2-digit hex code where
+      00-64 = 0-100. (A pure-YAML driver reports the raw code; decoding it to a
+      percentage would need a Python driver.)
+  input:
+    type: string
+    label: Input Source
+    help: "Selected input, mapped from the SLI code (e.g. CD, BD/DVD, Network)."
+  listening_mode:
+    type: string
+    label: Listening Mode
+    help: "Selected listening / DSP mode, mapped from the LMD code (e.g. Stereo, THX Cinema)."
+
+commands:
+  # ── Power ──
+  power_on:
+    label: Power On
+    send: "PWR01"
+    help: Turn the receiver on.
+  power_off:
+    label: Power Off
+    send: "PWR00"
+    help: Put the receiver in standby.
+  query_power:
+    label: Query Power
+    send: "PWRQSTN"
+
+  # ── Mute ──
+  mute_on:
+    label: Mute On
+    send: "AMT01"
+    help: Mute the master output.
+  mute_off:
+    label: Mute Off
+    send: "AMT00"
+    help: Unmute the master output.
+  mute_toggle:
+    label: Mute (Toggle)
+    send: "AMTTG"
+    help: Toggle master mute.
+  query_mute:
+    label: Query Mute
+    send: "AMTQSTN"
+
+  # ── Master volume ──
+  set_volume:
+    label: Set Volume
+    send: "MVL{level:02X}"
+    help: >-
+      Set the master volume level (0-100). Sent as the 2-digit hex the receiver
+      expects (the {level:02X} format spec does the decimal-to-hex conversion).
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+        help: "0-100 (sent as hex 00-64)."
+  volume_up:
+    label: Volume +
+    send: "MVLUP"
+    help: Raise the master volume one step.
+  volume_down:
+    label: Volume -
+    send: "MVLDOWN"
+    help: Lower the master volume one step.
+  query_volume:
+    label: Query Volume
+    send: "MVLQSTN"
+
+  # ── Input select (SLI) — labeled enum: the user picks a name, the 2-char
+  #    code goes on the wire ──
+  set_input:
+    label: Select Input
+    send: "SLI{input}"
+    help: Select the receiver's active input source.
+    params:
+      input:
+        type: enum
+        required: true
+        label: Input
+        help: "Common Onkyo / Integra input codes. Some inputs are model-specific."
+        values:
+          - value: "01"
+            label: "CBL / SAT"
+          - value: "02"
+            label: "Game"
+          - value: "03"
+            label: "Aux"
+          - value: "05"
+            label: "PC"
+          - value: "10"
+            label: "BD / DVD"
+          - value: "11"
+            label: "Streaming Box"
+          - value: "12"
+            label: "TV"
+          - value: "22"
+            label: "Phono"
+          - value: "23"
+            label: "CD"
+          - value: "24"
+            label: "FM Radio"
+          - value: "25"
+            label: "AM Radio"
+          - value: "26"
+            label: "Tuner"
+          - value: "29"
+            label: "USB"
+          - value: "2B"
+            label: "Network"
+          - value: "2E"
+            label: "Bluetooth"
+  query_input:
+    label: Query Input
+    send: "SLIQSTN"
+
+  # ── Listening mode (LMD) — the headline labeled enum: ~25 DSP modes that
+  #    differ only by a 2-char hex code ──
+  set_listening_mode:
+    label: Set Listening Mode
+    send: "LMD{mode}"
+    help: Select the receiver's listening / DSP mode.
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Listening Mode
+        help: "Common Onkyo / Integra listening (DSP) modes. Availability varies by model."
+        values:
+          - value: "00"
+            label: "Stereo"
+          - value: "01"
+            label: "Direct"
+          - value: "02"
+            label: "Surround"
+          - value: "03"
+            label: "Film / Game-RPG"
+          - value: "04"
+            label: "THX"
+          - value: "05"
+            label: "Action / Game-Action"
+          - value: "06"
+            label: "Musical / Game-Rock"
+          - value: "07"
+            label: "Mono Movie"
+          - value: "08"
+            label: "Orchestra"
+          - value: "09"
+            label: "Unplugged"
+          - value: "0A"
+            label: "Studio-Mix"
+          - value: "0B"
+            label: "TV Logic"
+          - value: "0C"
+            label: "All Ch Stereo"
+          - value: "0D"
+            label: "Theater-Dimensional"
+          - value: "0F"
+            label: "Mono"
+          - value: "11"
+            label: "Pure Audio"
+          - value: "13"
+            label: "Full Mono"
+          - value: "40"
+            label: "Straight Decode"
+          - value: "41"
+            label: "Dolby EX"
+          - value: "42"
+            label: "THX Cinema"
+          - value: "44"
+            label: "THX Music"
+          - value: "80"
+            label: "Dolby Atmos / Surround"
+          - value: "82"
+            label: "DTS:X / Neural:X"
+          - value: "88"
+            label: "Neural Surround"
+          - value: "FF"
+            label: "Auto Surround"
+  query_listening_mode:
+    label: Query Listening Mode
+    send: "LMDQSTN"
+
+# ── Quick actions ──
+actions:
+  - id: power_on
+    icon: power
+  - id: power_off
+    icon: power-off
+  - id: mute_toggle
+    icon: volume-x
+  - id: set_input
+    icon: list
+
+# ── Response parsing (the receiver's framed echoes; the CR-delimited receive
+#    frame strips the terminator, so patterns match the bare "!1XXX..." line) ──
+responses:
+  - match: '^!1PWR(0[01])'
+    mappings:
+      - group: 1
+        state: power
+        map:
+          "00": "Standby"
+          "01": "On"
+  - match: '^!1AMT(0[01])'
+    mappings:
+      - group: 1
+        state: mute
+        map:
+          "00": "Off"
+          "01": "On"
+  - match: '^!1MVL([0-9A-Fa-f]{2})'
+    set: { master_volume: "$1" }
+  - match: '^!1SLI([0-9A-Fa-f]{2})'
+    mappings:
+      - group: 1
+        state: input
+        map:
+          "01": "CBL / SAT"
+          "02": "Game"
+          "03": "Aux"
+          "05": "PC"
+          "10": "BD / DVD"
+          "11": "Streaming Box"
+          "12": "TV"
+          "22": "Phono"
+          "23": "CD"
+          "24": "FM Radio"
+          "25": "AM Radio"
+          "26": "Tuner"
+          "29": "USB"
+          "2B": "Network"
+          "2E": "Bluetooth"
+  - match: '^!1LMD([0-9A-Fa-f]{2})'
+    mappings:
+      - group: 1
+        state: listening_mode
+        map:
+          "00": "Stereo"
+          "01": "Direct"
+          "02": "Surround"
+          "03": "Film / Game-RPG"
+          "04": "THX"
+          "05": "Action / Game-Action"
+          "06": "Musical / Game-Rock"
+          "07": "Mono Movie"
+          "08": "Orchestra"
+          "09": "Unplugged"
+          "0A": "Studio-Mix"
+          "0B": "TV Logic"
+          "0C": "All Ch Stereo"
+          "0D": "Theater-Dimensional"
+          "0F": "Mono"
+          "11": "Pure Audio"
+          "13": "Full Mono"
+          "40": "Straight Decode"
+          "41": "Dolby EX"
+          "42": "THX Cinema"
+          "44": "THX Music"
+          "80": "Dolby Atmos / Surround"
+          "82": "DTS:X / Neural:X"
+          "88": "Neural Surround"
+          "FF": "Auto Surround"
+
+# Poll status by command NAME so the "!1" / "\r" frame is applied (a raw string
+# here would be sent unframed).
+polling:
+  queries:
+    - query_power
+    - query_mute
+    - query_volume
+    - query_input
+    - query_listening_mode
+
+# Pull current state once on connect (also by command name, so it is framed).
+on_connect:
+  - query_power
+  - query_mute
+  - query_volume
+  - query_input
+  - query_listening_mode
+
+# ── Liveness watchdog ──
+# ISCP over serial is poll-capable but fire-and-forget polls never notice a
+# quietly-dropped link. Probe the power query and require its echo within 5 s;
+# two silent probes force a reconnect. liveness.send is a raw string (it is not
+# frame-wrapped), so the "!1" / "\r" are written out here explicitly.
+liveness:
+  send: "!1PWRQSTN\r"
+  expect: '!1PWR'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+# ── Simulator ──
+# Models an ISCP receiver so the driver can be exercised without hardware. The
+# YAML simulator strips the CR terminator before matching, but keeps the "!1"
+# header, so every handler matches the FRAMED form ("!1PWR01", "!1SLI23"). Each
+# handler updates the raw ISCP code it tracks and echoes it back framed, exactly
+# as a receiver does. State is held as the wire codes (the driver's responses:
+# map them to friendly labels). The protocol is poll-only (no unsolicited push),
+# so an external change surfaces on the driver's next poll.
+simulator:
+  initial_state:
+    power: "00"            # PWR code: 00 = standby (starts powered off)
+    mute: "00"             # AMT code: 00 = not muted
+    master_volume: "28"    # MVL hex: 0x28 = 40 (of 100)
+    input: "23"            # SLI code: 23 = CD
+    listening_mode: "00"   # LMD code: 00 = Stereo
+
+  delays:
+    command_response: 0.03
+
+  error_modes:
+    communication_timeout:
+      description: "Receiver stops responding (test offline / timeout handling)"
+      behavior: no_response
+
+  command_handlers:
+    # ── Power ──
+    - match: '!1PWR(00|01)'
+      handler: |
+        state["power"] = match.group(1)
+        respond(f'!1PWR{state["power"]}\r')
+    - match: '!1PWRQSTN'
+      handler: |
+        respond(f'!1PWR{state["power"]}\r')
+
+    # ── Mute (00/01 set, TG toggles, QSTN queries) ──
+    - match: '!1AMT(00|01)'
+      handler: |
+        state["mute"] = match.group(1)
+        respond(f'!1AMT{state["mute"]}\r')
+    - match: '!1AMTTG'
+      handler: |
+        state["mute"] = "00" if state["mute"] == "01" else "01"
+        respond(f'!1AMT{state["mute"]}\r')
+    - match: '!1AMTQSTN'
+      handler: |
+        respond(f'!1AMT{state["mute"]}\r')
+
+    # ── Master volume (hex set, UP/DOWN step, QSTN queries) ──
+    - match: '!1MVL([0-9A-Fa-f]{2})'
+      handler: |
+        state["master_volume"] = match.group(1).upper()
+        respond(f'!1MVL{state["master_volume"]}\r')
+    - match: '!1MVLUP'
+      handler: |
+        level = min(int(state["master_volume"], 16) + 1, 100)
+        state["master_volume"] = f"{level:02X}"
+        respond(f'!1MVL{state["master_volume"]}\r')
+    - match: '!1MVLDOWN'
+      handler: |
+        level = max(int(state["master_volume"], 16) - 1, 0)
+        state["master_volume"] = f"{level:02X}"
+        respond(f'!1MVL{state["master_volume"]}\r')
+    - match: '!1MVLQSTN'
+      handler: |
+        respond(f'!1MVL{state["master_volume"]}\r')
+
+    # ── Input select (2-char hex code set, QSTN queries) ──
+    - match: '!1SLIQSTN'
+      handler: |
+        respond(f'!1SLI{state["input"]}\r')
+    - match: '!1SLI([0-9A-Fa-f]{2})'
+      handler: |
+        state["input"] = match.group(1).upper()
+        respond(f'!1SLI{state["input"]}\r')
+
+    # ── Listening mode (2-char hex code set, QSTN queries) ──
+    - match: '!1LMDQSTN'
+      handler: |
+        respond(f'!1LMD{state["listening_mode"]}\r')
+    - match: '!1LMD([0-9A-Fa-f]{2})'
+      handler: |
+        state["listening_mode"] = match.group(1).upper()
+        respond(f'!1LMD{state["listening_mode"]}\r')

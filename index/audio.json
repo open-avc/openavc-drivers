@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 17,
+    "total_drivers": 18,
     "shards": null,
     "category": "audio"
   },
@@ -633,6 +633,59 @@
           "SoundCoreHero"
         ]
       }
+    },
+    {
+      "id": "onkyo_integra_iscp",
+      "name": "Onkyo / Integra AV Receiver (ISCP Serial)",
+      "manufacturer": "Onkyo",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "serial",
+      "description": "Controls Onkyo and Integra A/V receivers over RS-232 using the Integra Serial Control Protocol (ISCP). Power, mute, master volume, input selection, and listening-mode (DSP) selection, with polled power / mute / input / listening mode / volume status. A constant \"!1\" packet header and CR terminator are declared once and wrap every command.",
+      "source_url": "https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp-commands.yaml",
+      "file": "audio/onkyo_integra_iscp.avcdriver",
+      "format": "avcdriver",
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "receiver",
+        "avr",
+        "amplifier",
+        "onkyo",
+        "integra",
+        "iscp",
+        "rs232",
+        "rs-232",
+        "serial",
+        "bridge"
+      ],
+      "help": {
+        "overview": "Onkyo / Integra A/V receiver over RS-232 (the Integra Serial Control Protocol). Power, mute, master volume, input selection, and listening-mode (DSP) selection. Works on a direct serial port or through an IP-to-serial bridge (choose \"Through a bridge\" in Connection settings and pick the bridge's RS-232 port).",
+        "setup": "1. Connect the receiver's RS-232 port (or wire it to a serial bridge). 2. Serial settings are 9600 baud, 8 data bits, no parity, 1 stop bit, no\n   flow control. Confirm the baud rate in the receiver's setup menu.\n3. In the receiver's setup, make sure serial / RS-232 control is enabled. 4. Add the device and pick its serial port (or the bridge's RS-232 port).",
+        "connection": "ISCP is a bidirectional protocol: the receiver echoes its state after every command and answers the xxxQSTN queries, so power, mute, input, listening mode, and the (hex) master-volume level poll back automatically."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Onkyo",
+          "models": [
+            "TX-NR series",
+            "TX-RZ series",
+            "TX-SR series"
+          ],
+          "confidence": "untested",
+          "notes": "Onkyo A/V receivers with an RS-232 control port using the ISCP command set (PWR / AMT / MVL / SLI / LMD). Verify the serial baud rate in the receiver's setup menu (9600 is the default)."
+        },
+        {
+          "manufacturer": "Integra",
+          "models": [
+            "DTR series",
+            "DRX series"
+          ],
+          "confidence": "untested",
+          "notes": "Integra (Onkyo's professional line) receivers share the same ISCP command set over RS-232."
+        }
+      ]
     },
     {
       "id": "qsc_qrc",

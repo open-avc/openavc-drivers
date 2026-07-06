@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 583,
+    "total_devices": 588,
     "shards": null
   },
   "devices": [
@@ -3131,6 +3131,30 @@
       ]
     },
     {
+      "manufacturer": "Integra",
+      "model": "DRX series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "onkyo_integra_iscp",
+          "confidence": "untested",
+          "notes": "Integra (Onkyo's professional line) receivers share the same ISCP command set over RS-232."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Integra",
+      "model": "DTR series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "onkyo_integra_iscp",
+          "confidence": "untested",
+          "notes": "Integra (Onkyo's professional line) receivers share the same ISCP command set over RS-232."
+        }
+      ]
+    },
+    {
       "manufacturer": "Kramer",
       "model": "VM Series distribution amplifiers",
       "category": "switcher",
@@ -3850,6 +3874,42 @@
         {
           "id": "novastar_h_series",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Onkyo",
+      "model": "TX-NR series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "onkyo_integra_iscp",
+          "confidence": "untested",
+          "notes": "Onkyo A/V receivers with an RS-232 control port using the ISCP command set (PWR / AMT / MVL / SLI / LMD). Verify the serial baud rate in the receiver's setup menu (9600 is the default)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Onkyo",
+      "model": "TX-RZ series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "onkyo_integra_iscp",
+          "confidence": "untested",
+          "notes": "Onkyo A/V receivers with an RS-232 control port using the ISCP command set (PWR / AMT / MVL / SLI / LMD). Verify the serial baud rate in the receiver's setup menu (9600 is the default)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Onkyo",
+      "model": "TX-SR series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "onkyo_integra_iscp",
+          "confidence": "untested",
+          "notes": "Onkyo A/V receivers with an RS-232 control port using the ISCP command set (PWR / AMT / MVL / SLI / LMD). Verify the serial baud rate in the receiver's setup menu (9600 is the default)."
         }
       ]
     },

@@ -8,6 +8,13 @@
 # subscription handshake — the driver simply listens. Active cue
 # updates are sent once per second by Eos.
 #
+# Liveness: UDP sends always "succeed" and a dark console pushes nothing,
+# so a console that dropped off the network (or had OSC TX disabled) was
+# indistinguishable from a quiet one. The liveness: block sends the
+# documented ping request (/eos/ping -> /eos/out/ping, args echoed;
+# "Using OSC with Eos" online help) every 15 s and flips the device
+# offline with a typed no_response fault after two silent probes.
+#
 # Default ports follow ETC's recommended UDP layout: send commands to
 # Eos on port 8000 (Eos OSC RX), and listen for status on port 8001
 # (Eos OSC TX). Both are user-configurable on the console under
@@ -25,7 +32,7 @@ id: etc_eos
 name: ETC Eos Family Console
 manufacturer: ETC
 category: lighting
-version: 1.2.3
+version: 1.3.0
 author: OpenAVC
 description: >-
   Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2,
@@ -40,7 +47,9 @@ tags: [osc, lighting, console, theatrical, show-control, cue]
 verified: false
 simulated: true
 ports: [8000, 8001]
-min_platform_version: 0.6.0
+# 0.22.0 ships the liveness watchdog runtime; on older platforms the
+# liveness block is silently inert.
+min_platform_version: "0.22.0"
 compatible_models:
   - manufacturer: ETC
     models:
@@ -237,6 +246,9 @@ commands:
       index:
         type: integer
         label: Softkey Index (1-12)
+        description: >-
+          Two pages of six softkeys, numbered sequentially 1-12 (per the
+          Eos Family Online Help OSC Softkey section).
         min: 1
         max: 12
 
@@ -501,6 +513,32 @@ commands:
     label: Query Default Cue Times
     address: "/eos/get/setup"
 
+# ── QUICK ACTIONS ──
+# The transport strip an operator reaches for: Go / Stop-Back plus the
+# Live / Blind mode switch.
+actions:
+  - id: go
+    icon: play
+  - id: stop_back
+    icon: pause
+  - id: go_to_live
+    icon: eye
+  - id: go_to_blind
+    icon: eye-off
+
+# ── LIVENESS WATCHDOG ──
+# /eos/ping is the documented connection test: Eos replies /eos/out/ping
+# (arguments echoed). Probe every 15 s; two silent probes force a
+# reconnect with a typed no_response fault. The expect is anchored to the
+# reply address (an OSC packet leads with its ASCII address), so routine
+# /eos/out/... pushes don't mask a console that stopped answering.
+liveness:
+  send: "/eos/ping"
+  expect: '^/eos/out/ping'
+  interval: 15
+  timeout: 5
+  max_failures: 2
+
 # ── Push from Eos: /eos/out/... ──
 # Eos sends these unsolicited whenever OSC TX is enabled in Show Control.
 responses:
@@ -551,6 +589,12 @@ simulator:
     wheel_mode: 0.0
 
   command_handlers:
+    # Ping: Eos echoes the request's arguments back on /eos/out/ping
+    # (the liveness probe path).
+    - address: "/eos/ping"
+      handler: |
+        respond("/eos/out/ping", list(args) if args else [])
+
     # Fire a specific cue: push active/pending back as text
     - address: "/eos/cue/*/*/fire"
       handler: |

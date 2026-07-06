@@ -1452,7 +1452,7 @@
       "name": "ETC Eos Family Console",
       "manufacturer": "ETC",
       "category": "lighting",
-      "version": "1.2.3",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls ETC Eos family lighting consoles (Apex, Ti, Gio, Ion Xe, Element 2, Nomad/Eos PC) via OSC. Fire cues, fire macros, recall snapshots and presets, fire palettes, set channel/group/submaster levels, send raw command-line strings, press hardkeys/softkeys. Status pushed by Eos: current/pending cue text, command line, Live/Blind state, active cue progress.",
@@ -1464,7 +1464,7 @@
         8001
       ],
       "simulated": true,
-      "min_platform_version": "0.6.0",
+      "min_platform_version": "0.22.0",
       "tags": [
         "osc",
         "lighting",

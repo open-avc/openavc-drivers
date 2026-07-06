@@ -6,6 +6,8 @@
 #
 # Protocol reference: Shure Command Strings Reference
 # https://pubs.shure.com/guide/commandstrings
+# (pubs.shure.com renders client-side; wire formats cross-checked against
+# mature open-source control implementations tested on real hardware.)
 #
 # Command format: < <COMMAND> <CHANNEL> <VALUE> >
 # Response format: < REP <COMMAND> <CHANNEL> <VALUE> >
@@ -13,14 +15,26 @@
 # Notes:
 #   - Commands are wrapped in angle brackets: < ... >
 #   - Spaces between fields
-#   - Channel numbers are 1-based (use 0 for device-level commands)
+#   - Channel numbers are 1-based (use 0 for all channels / device level)
 #   - GET commands use the same format as SET but without the value
+#   - String values in REP lines are brace-wrapped ({My Mic}) and may be
+#     space-padded; the response rules strip both.
+#   - The device-name property is DEVICE_ID on every covered model
+#     (MXA / P300 / ANI / SCM820). There is no DEVICE_NAME property.
+#   - Unsupported properties answer < REP ERR > — benign, ignored. The
+#     surface below is family-mixed: DEVICE_AUDIO_MUTE / PRESET / LED_*
+#     are MXA / P300 / ANI; SCM820 mutes per channel and has no presets.
+#
+# Push vs poll: the device pushes < REP ... > lines on state changes made
+# from other controllers (Shure Designer, web UI), and the same response
+# rules parse them. Because pushes are unsolicited, a silent link drop is
+# otherwise invisible — the liveness block probes DEVICE_ID as a heartbeat.
 
 id: shure_network
 name: Shure Networked Devices
 manufacturer: Shure
 category: audio
-version: 1.5.4
+version: 1.6.0
 author: OpenAVC
 description: >
   Controls Shure networked audio devices over TCP (port 2202).
@@ -33,6 +47,7 @@ verified: false
 simulated: true
 protocols: [shure_dcs]
 ports: [2202]
+min_platform_version: "0.22.0"
 compatible_models:
   - manufacturer: Shure
     models:
@@ -64,12 +79,12 @@ discovery:
   #     shure.stoplight.io
   tcp_probe:
     port: 2202
-    send_ascii: "< GET DEVICE_NAME >\r\n"
-    expect_regex: '<\s*REP\s+DEVICE_NAME'
+    send_ascii: "< GET DEVICE_ID >\r\n"
+    expect_regex: '<\s*REP\s+DEVICE_ID'
     extract_manufacturer: "Shure"
     extract:
       device_name:
-        regex: '<\s*REP\s+DEVICE_NAME\s+(\S+)'
+        regex: '<\s*REP\s+DEVICE_ID\s+\{?\s*([^{}>]+?)\s*\}?\s*>'
   oui:
     - "00:0e:dd"   # Shure Incorporated (legacy MA-L)
     - "d8:34:ee"   # Shure Incorporated (current MXA / AD product blocks)
@@ -114,19 +129,19 @@ state_variables:
   device_name:
     type: string
     label: Device Name
-    help: "Friendly device name configured on the Shure device (DEVICE_ID property)."
+    help: "Friendly device name configured on the Shure device (the DEVICE_ID property)."
   mute:
     type: boolean
     label: Mute State
-    help: "Device-level mute. True when DEVICE_AUDIO_MUTE is ON."
+    help: "Device-level mute. True when DEVICE_AUDIO_MUTE is ON. (MXA / P300 / ANI; the SCM820 mutes per channel instead.)"
   audio_mute:
     type: boolean
     label: Audio Mute
     help: "Audio output mute, mirror of `mute` exposed for compatibility with templates that bind to audio_mute."
-  led_state:
-    type: string
-    label: LED State
-    help: "Front-panel mute LED color/state reported by the device (e.g. RED, GREEN, OFF)."
+  led_brightness:
+    type: integer
+    label: LED Brightness
+    help: "Device LED brightness: 0 = disabled, 1 = dim, 2 = default. Not reported by every model."
   firmware:
     type: string
     label: Firmware Version
@@ -149,7 +164,7 @@ commands:
     label: Toggle Mute
     send: "< SET DEVICE_AUDIO_MUTE TOGGLE >"
 
-  # Channel-level mute (for multi-channel devices like MXA910)
+  # Channel-level mute (for multi-channel devices like MXA910; channel 0 = all)
   channel_mute_on:
     label: Channel Mute On
     send: "< SET {channel} AUDIO_MUTE ON >"
@@ -158,7 +173,7 @@ commands:
         type: integer
         required: true
         label: Channel Number
-        min: 1
+        min: 0
 
   channel_mute_off:
     label: Channel Mute Off
@@ -168,12 +183,19 @@ commands:
         type: integer
         required: true
         label: Channel Number
-        min: 1
+        min: 0
 
-  set_led:
-    label: Set LED Color/State
-    send: "< SET LED_STATE_{state} >"
+  # LED behavior is configured per mute state: the muted and unmuted looks
+  # each carry their own state (on/off/flashing) and color.
+  set_led_state:
+    label: Set LED State
+    send: "< SET LED_STATE_{which} {state} >"
     params:
+      which:
+        type: enum
+        values: ["MUTED", "UNMUTED"]
+        required: true
+        label: Mute State to Configure
       state:
         type: enum
         values: ["ON", "OFF", "FLASHING"]
@@ -182,13 +204,39 @@ commands:
 
   set_led_color:
     label: Set LED Color
-    send: "< SET LED_COLOR_{color} >"
+    send: "< SET LED_COLOR_{which} {color} >"
     params:
+      which:
+        type: enum
+        values: ["MUTED", "UNMUTED"]
+        required: true
+        label: Mute State to Configure
       color:
         type: enum
-        values: ["RED", "GREEN", "BLUE", "PINK", "PURPLE", "YELLOW", "ORANGE", "WHITE"]
+        values: ["RED", "ORANGE", "GOLD", "YELLOW", "YELLOWGREEN", "GREEN",
+                 "TURQUOISE", "POWDERBLUE", "CYAN", "SKYBLUE", "BLUE", "PURPLE",
+                 "LIGHTPURPLE", "VIOLET", "ORCHID", "PINK", "WHITE"]
         required: true
         label: LED Color
+
+  set_led_brightness:
+    label: Set LED Brightness
+    send: "< SET LED_BRIGHTNESS {level} >"
+    params:
+      level:
+        type: integer
+        required: true
+        label: Brightness (0=off, 1=dim, 2=default)
+        min: 0
+        max: 2
+
+  flash_on:
+    label: Flash LEDs (Identify)
+    send: "< SET FLASH ON >"
+
+  flash_off:
+    label: Stop Flashing
+    send: "< SET FLASH OFF >"
 
   # Gain control (IntelliMix P300)
   set_gain:
@@ -215,10 +263,35 @@ commands:
         label: Preset Number
         min: 1
         max: 10
+        description: "Presets 1-10 (MXA, P300, ANI; the SCM820 has no presets)."
+
+device_settings:
+  led_brightness:
+    type: integer
+    label: LED Brightness
+    help: "Device LED brightness: 0 = disabled, 1 = dim, 2 = default."
+    state_key: led_brightness
+    default: 2
+    min: 0
+    max: 2
+    setup: false
+    write:
+      send: "< SET LED_BRIGHTNESS {value} >"
+
+# Everyday actions for the device card: device mute pair, identify, preset.
+actions:
+  - id: mute_on
+    icon: mic-off
+  - id: mute_off
+    icon: mic
+  - id: flash_on
+    icon: sun
+  - id: recall_preset
+    icon: bookmark
 
 responses:
-  # Device name: < REP DEVICE_NAME {name} >
-  - match: 'REP DEVICE_NAME (.+)'
+  # Device name: < REP DEVICE_ID {name} > (braces optional, value may be padded)
+  - match: 'REP DEVICE_ID \{?\s*([^{}]+?)\s*\}?\s*$'
     set: { device_name: "$1" }
 
   # Device mute: < REP DEVICE_AUDIO_MUTE ON > or OFF
@@ -227,18 +300,31 @@ responses:
   - match: 'REP DEVICE_AUDIO_MUTE OFF'
     set: { mute: "false", audio_mute: "false" }
 
-  # LED state
-  - match: 'REP LED_STATE_(\w+)'
-    set: { led_state: "$1" }
+  # LED brightness: < REP LED_BRIGHTNESS 2 >
+  - match: 'REP LED_BRIGHTNESS (\d)'
+    set: { led_brightness: "$1" }
 
-  # Firmware version: < REP FW_VER x.x.x >
-  - match: 'REP FW_VER (\S+)'
+  # Firmware version: < REP FW_VER {x.x.x} >
+  - match: 'REP FW_VER \{?\s*([^{}\s]+)'
     set: { firmware: "$1" }
 
 polling:
   queries:
     - "< GET DEVICE_AUDIO_MUTE >"
-    - "< GET DEVICE_NAME >"
+    - "< GET DEVICE_ID >"
+    - "< GET LED_BRIGHTNESS >"
+
+# The device pushes REP lines only for changes made elsewhere, so an idle,
+# untouched system exchanges no traffic — and a silently dropped link (no
+# FIN) would otherwise go unnoticed until the next command failed. Probe
+# the universal DEVICE_ID property; K missed probes drop the connection
+# with a typed no_response fault and reconnect.
+liveness:
+  send: "< GET DEVICE_ID >"
+  expect: 'REP DEVICE_ID'
+  interval: 30
+  timeout: 5
+  max_failures: 2
 
 # ── SIMULATOR DEFINITION ──
 
@@ -248,7 +334,7 @@ simulator:
     device_name: "MXA920-SIM"
     mute: false
     audio_mute: false
-    led_state: "ON"
+    led_brightness: 2
     firmware: "4.6.11"
     meter_level: -42
 
@@ -262,10 +348,9 @@ simulator:
     - type: indicator
       key: meter_level
       label: Level (dB)
-    - type: select
-      key: led_state
-      label: LED State
-      options: ["ON", "OFF", "FLASHING"]
+    - type: indicator
+      key: led_brightness
+      label: LED Brightness
     - type: indicator
       key: device_name
       label: Device Name
@@ -280,28 +365,37 @@ simulator:
     audio_mute:
       'true': '< REP DEVICE_AUDIO_MUTE ON >'
       'false': '< REP DEVICE_AUDIO_MUTE OFF >'
-    led_state:
-      '*': '< REP LED_STATE_{value} >'
 
   command_handlers:
     # GET queries — respond with REP format
     # Patterns include < > framing since that's part of the on-wire protocol.
+    # String values respond brace-wrapped like real hardware.
     - match: '< GET DEVICE_AUDIO_MUTE >'
       handler: |
         val = "ON" if state["mute"] else "OFF"
         respond(f"< REP DEVICE_AUDIO_MUTE {val} >")
 
-    - match: '< GET DEVICE_NAME >'
+    - match: '< GET DEVICE_ID >'
       handler: |
-        respond(f'< REP DEVICE_NAME {state["device_name"]} >')
+        respond(f'< REP DEVICE_ID {{{state["device_name"]}}} >')
 
     - match: '< GET FW_VER >'
       handler: |
-        respond(f'< REP FW_VER {state["firmware"]} >')
+        respond(f'< REP FW_VER {{{state["firmware"]}}} >')
 
-    - match: '< GET LED_STATE >'
+    - match: '< GET LED_BRIGHTNESS >'
       handler: |
-        respond(f'< REP LED_STATE_{state["led_state"]} >')
+        respond(f'< REP LED_BRIGHTNESS {state["led_brightness"]} >')
+
+    - match: '< GET ALL >'
+      handler: |
+        val = "ON" if state["mute"] else "OFF"
+        respond(
+            f'< REP DEVICE_ID {{{state["device_name"]}}} >'
+            f'< REP DEVICE_AUDIO_MUTE {val} >'
+            f'< REP FW_VER {{{state["firmware"]}}} >'
+            f'< REP LED_BRIGHTNESS {state["led_brightness"]} >'
+        )
 
     # SET device mute
     - match: '< SET DEVICE_AUDIO_MUTE (ON|OFF|TOGGLE) >'
@@ -326,18 +420,29 @@ simulator:
         action = match.group(2)
         respond(f"< REP {channel} AUDIO_MUTE {action} >")
 
-    # SET LED state
-    - match: '< SET LED_STATE_(ON|OFF|FLASHING) >'
+    # SET LED behavior per mute state
+    - match: '< SET LED_STATE_(MUTED|UNMUTED) (ON|OFF|FLASHING) >'
       handler: |
-        led = match.group(1)
-        state["led_state"] = led
-        respond(f"< REP LED_STATE_{led} >")
+        which = match.group(1)
+        led = match.group(2)
+        respond(f"< REP LED_STATE_{which} {led} >")
 
-    # SET LED color
-    - match: '< SET LED_COLOR_(\w+) >'
+    - match: '< SET LED_COLOR_(MUTED|UNMUTED) (\w+) >'
       handler: |
-        color = match.group(1)
-        respond(f"< REP LED_COLOR_{color} >")
+        which = match.group(1)
+        color = match.group(2)
+        respond(f"< REP LED_COLOR_{which} {color} >")
+
+    # SET LED brightness
+    - match: '< SET LED_BRIGHTNESS (\d) >'
+      handler: |
+        state["led_brightness"] = int(match.group(1))
+        respond(f'< REP LED_BRIGHTNESS {state["led_brightness"]} >')
+
+    # Flash (identify) — real hardware auto-clears after 30s
+    - match: '< SET FLASH (ON|OFF) >'
+      handler: |
+        respond(f"< REP FLASH {match.group(1)} >")
 
     # SET gain
     - match: '< SET (\d+) AUDIO_GAIN_HI_RES (-?\d+) >'

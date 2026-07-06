@@ -707,7 +707,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.5.4",
+      "version": "1.6.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
@@ -721,6 +721,7 @@
         "shure_dcs"
       ],
       "simulated": true,
+      "min_platform_version": "0.22.0",
       "tags": [
         "ceiling-mic",
         "wireless-mic",
@@ -745,12 +746,12 @@
       "discovery": {
         "tcp_probe": {
           "port": 2202,
-          "send_ascii": "< GET DEVICE_NAME >\r\n",
-          "expect_regex": "<\\s*REP\\s+DEVICE_NAME",
+          "send_ascii": "< GET DEVICE_ID >\r\n",
+          "expect_regex": "<\\s*REP\\s+DEVICE_ID",
           "extract_manufacturer": "Shure",
           "extract": {
             "device_name": {
-              "regex": "<\\s*REP\\s+DEVICE_NAME\\s+(\\S+)"
+              "regex": "<\\s*REP\\s+DEVICE_ID\\s+\\{?\\s*([^{}>]+?)\\s*\\}?\\s*>"
             }
           }
         },

@@ -267,7 +267,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Covers source / zone / mix / group gain and mute, zone source select, group combine, message and routine and scene playback, GPO state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -281,6 +281,7 @@
         "atlasied-atmosphere-thirdparty"
       ],
       "simulated": true,
+      "min_platform_version": "0.22.0",
       "tags": [
         "atmosphere",
         "azm4",

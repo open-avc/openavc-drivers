@@ -13,8 +13,11 @@ Protocol summary:
       configurable count of zones, sources, mixes, and groups — controllers
       with more or fewer entities than the configured counts get
       out-of-range subscribes that the device silently rejects.
-    - Inactivity drops the TCP connection after ~5 minutes; the driver
-      sends a "KeepAlive" get every 4 minutes to hold the connection.
+    - Inactivity drops the TCP connection after 5 minutes. The BaseDriver
+      liveness watchdog probes `get KeepAlive` (every HEALTH_INTERVAL_S,
+      default 30 s) and awaits the getResp — the probe both holds the
+      connection open and detects a link that died without a FIN, forcing
+      a reconnect with a typed no_response fault after consecutive misses.
     - Meters (SourceMeter / ZoneMeter / MixMeter / GroupMeter) come over
       UDP port 3131 and are not exposed by this driver — most integration
       use cases don't need realtime level metering, and the TCP control
@@ -36,7 +39,11 @@ from server.utils.logger import get_logger
 log = get_logger(__name__)
 
 
-KEEPALIVE_INTERVAL = 240.0  # 4 min — under the 5 min device timeout
+# The device closes any control connection that stays silent for 5 minutes
+# (ATS006993 §2: "keep-alive message at least once every 5 minutes"). The
+# liveness probe (`get KeepAlive`, awaited) doubles as that keep-alive; the
+# BaseDriver default HEALTH_INTERVAL_S of 30 s is comfortably under the cap
+# and detects a silently dead link within a minute.
 
 # Default entity counts, sized for an AZM8. The driver subscribes to
 # {Source,Zone,Mix,Group}_0..N-1 — the device drops subscribes for indices
@@ -189,7 +196,8 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "1.2.1",
+        "version": "1.3.0",
+        "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing "
@@ -569,14 +577,26 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
                 },
             },
         },
+        "quick_actions": ["play_message", "recall_routine", "recall_scene"],
+        "actions": [
+            {"id": "play_message", "kind": "command", "icon": "megaphone"},
+            {"id": "recall_routine", "kind": "command", "icon": "workflow"},
+            {"id": "recall_scene", "kind": "command", "icon": "layers"},
+        ],
     }
+
+    HEALTH_FAULT_MESSAGE = (
+        "Connected, but the device stopped answering keep-alive probes "
+        "(get KeepAlive)."
+    )
 
     # ── Lifecycle ──
 
     def __init__(self, device_id: str, config: dict[str, Any], state, events):
         self._line_buffer = b""
-        self._keepalive_task: asyncio.Task | None = None
         self._next_msg_id = 1
+        # Resolved when a KeepAlive getResp arrives (see _liveness_probe).
+        self._probe_fut: asyncio.Future[None] | None = None
         super().__init__(device_id, config, state, events)
 
     async def connect(self) -> None:
@@ -612,16 +632,14 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial subscribe failed")
 
-        self._keepalive_task = asyncio.create_task(self._keepalive_loop())
+        # The probe doubles as the protocol-required keep-alive (the device
+        # closes a connection silent for 5 minutes) and, awaited, catches a
+        # link that died without a FIN — the old fire-and-forget keepalive
+        # never noticed the device had stopped answering.
+        self._start_health_loop()
 
     async def disconnect(self) -> None:
-        if self._keepalive_task:
-            self._keepalive_task.cancel()
-            try:
-                await self._keepalive_task
-            except (asyncio.CancelledError, Exception):
-                pass
-            self._keepalive_task = None
+        self._stop_health_loop()
         if self.transport:
             await self.transport.close()
             self.transport = None
@@ -722,18 +740,20 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         await self._send_sub("TodaysBellSchedule", "val")
         await self._send_sub("FirmwareVersion", "str")
 
-    async def _keepalive_loop(self) -> None:
+    async def _liveness_probe(self) -> None:
+        """Send `get KeepAlive` and await the getResp (ATS006993 §2).
+
+        Correlation is by param name: _dispatch_param_update resolves the
+        future when a KeepAlive reply arrives. Subscription updates for
+        other params do NOT satisfy the probe.
+        """
+        fut: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        self._probe_fut = fut
         try:
-            while True:
-                await asyncio.sleep(KEEPALIVE_INTERVAL)
-                if self.transport and self.transport.connected:
-                    try:
-                        await self._send_get("KeepAlive", "str")
-                    except (ConnectionError, OSError):
-                        log.warning(f"[{self.device_id}] Keepalive send failed")
-                        return
-        except asyncio.CancelledError:
-            raise
+            await self._send_get("KeepAlive", "str")
+            await fut
+        finally:
+            self._probe_fut = None
 
     # ── Commands ──
 
@@ -893,8 +913,12 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             return
 
         # KeepAlive responses arrive as {"param":"KeepAlive","str":"OK"} —
-        # nothing useful to expose; just confirms the link is alive.
+        # nothing to expose, but the reply is the liveness signal the
+        # health loop's probe awaits.
         if param == "KeepAlive":
+            fut = self._probe_fut
+            if fut is not None and not fut.done():
+                fut.set_result(None)
             return
 
         if param == "FirmwareVersion":

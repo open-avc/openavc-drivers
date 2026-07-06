@@ -42,25 +42,34 @@
 #     `pw` prefix — one response rule therefore covers the SET ack, the GET
 #     poll read-back, and (for OPENed nodes) the CHG notification body.
 #     SignalPresent is read-only and uses `pr`.
-#   - Subscriptions (OPEN) are exposed as manual commands; the driver does
-#     not auto-subscribe (push arming is planned together with the liveness
-#     watchdog). CHG lines for video-XP properties parse into child state
-#     if a subscription is opened.
+#   - Push is armed on connect: the driver OPENs a node-exact subscription
+#     per configured port (XP routing/mute/lock, output port properties,
+#     input signal/HDCP) plus the analog audio and device-label nodes, so
+#     front-panel and LDC changes arrive as CHG notifications between polls.
+#     LW3 deletes subscriptions when the connection drops, so on_connect
+#     re-arms them on every reconnect. Polling stays on as the read-back
+#     backstop. The open/close_subscription commands remain for extra nodes.
+#   - Liveness: with push armed, minutes can pass with no client->device
+#     round-trip, and a unit that vanishes without a TCP FIN would stay
+#     "connected" forever. The liveness watchdog reuses the version query
+#     the poll already sends and flags the device offline (no_response)
+#     after consecutive silent probes.
 
 id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.4.0
+version: 1.5.0
 author: OpenAVC
 min_platform_version: "0.22.0"
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
   TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each
   configured output and input is a child entity tracking its routed source,
-  mute, lock, HDCP, 5V and signal-type state per port. Provides video and
-  audio crosspoint switching, EDID switching, analog audio
-  level/mute/balance, and CEC command sending.
+  mute, lock, HDCP, 5V and signal-type state per port, updated in real time
+  via change-notification subscriptions with a keep-alive watchdog guarding
+  the link. Provides video and audio crosspoint switching, EDID switching,
+  analog audio level/mute/balance, and CEC command sending.
 
 source_url: https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf
 tags: [matrix-switcher, hdbaset, av-over-ip, lw3, hdmi, edid, cec]
@@ -766,7 +775,7 @@ responses:
     set: { firmware: "$1" }
 
   # Device label: pw /V1/MANAGEMENT/LABEL.DeviceLabel=<name>
-  - match: '^pw /V1/MANAGEMENT/LABEL\.DeviceLabel=(.*)$'
+  - match: '^(?:pw|CHG) /V1/MANAGEMENT/LABEL\.DeviceLabel=(.*)$'
     set: { device_label: "$1" }
 
   # Connected source per output: pw /V1/MEDIA/VIDEO/XP/O1.ConnectedSource=I3
@@ -806,14 +815,38 @@ responses:
       - { type: output, id: "$1", state: { signal_type: "$2" } }
 
   # Analog audio (output O4): pw /V1/MEDIA/AUDIO/O4.VolumePercent=50.00
-  - match: '^pw /V1/MEDIA/AUDIO/O4\.VolumePercent=([\d.\-]+)$'
+  # (CHG covers the push notification — the audio node is OPENed on connect.)
+  - match: '^(?:pw|CHG) /V1/MEDIA/AUDIO/O4\.VolumePercent=([\d.\-]+)$'
     set: { audio_volume_percent: "$1" }
-  - match: '^pw /V1/MEDIA/AUDIO/O4\.VolumedB=([\d.\-]+)$'
+  - match: '^(?:pw|CHG) /V1/MEDIA/AUDIO/O4\.VolumedB=([\d.\-]+)$'
     set: { audio_volume_db: "$1" }
-  - match: '^pw /V1/MEDIA/AUDIO/O4\.Mute=true$'
+  - match: '^(?:pw|CHG) /V1/MEDIA/AUDIO/O4\.Mute=true$'
     set: { audio_mute: "true" }
-  - match: '^pw /V1/MEDIA/AUDIO/O4\.Mute=false$'
+  - match: '^(?:pw|CHG) /V1/MEDIA/AUDIO/O4\.Mute=false$'
     set: { audio_mute: "false" }
+
+# Subscriptions are per-connection — LW3 deletes them when the socket drops
+# (manual 7.4.9) — so they are re-armed on every (re)connect. Node-exact
+# OPENs (the documented single-node form) per configured child cover exactly
+# the surface the response rules parse; the o- acks are ignored quietly.
+on_connect:
+  - { each_child: output, send: "OPEN /V1/MEDIA/VIDEO/XP/O{child_id}\r\n" }
+  - { each_child: output, send: "OPEN /V1/MEDIA/VIDEO/O{child_id}\r\n" }
+  - { each_child: input, send: "OPEN /V1/MEDIA/VIDEO/I{child_id}\r\n" }
+  - { each_child: input, send: "OPEN /V1/MEDIA/VIDEO/I{child_id}/HDCP\r\n" }
+  - "OPEN /V1/MEDIA/AUDIO/O4\r\n"
+  - "OPEN /V1/MANAGEMENT/LABEL\r\n"
+
+# Push-mostly link watchdog: reuses the version query the poll already sends;
+# the pr reply (or any frame matching expect) satisfies the probe. After
+# max_failures silent probes the platform drops the connection with a typed
+# no_response fault and reconnects (which re-OPENs the subscriptions above).
+liveness:
+  send: "GET /V1/MANAGEMENT/UID/PACKAGE.Version\r\n"
+  expect: 'PACKAGE\.Version='
+  interval: 30
+  timeout: 5
+  max_failures: 2
 
 polling:
   queries:

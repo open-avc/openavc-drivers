@@ -264,6 +264,7 @@
           },
           {
             "type": "object",
+            "required": ["address"],
             "properties": {
               "address": {
                 "type": "string"

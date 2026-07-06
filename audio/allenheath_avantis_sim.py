@@ -14,14 +14,19 @@ to exercise the driver:
   - NRPN parameter ID 17 (fader), 18 (main assign), 40 (DCA / mute-
     group assign), all using the 3-message form (no VF byte).
   - SysEx Channel Name Get / Set (cmd 01 / 03), Channel Colour Get /
-    Set (cmd 04 / 06), Send Level Set (cmd 0D), MMC transport.
+    Set (cmd 04 / 06), Send Level Set (cmd 0D), MMC transport. Name and
+    colour Gets answer in the documented reply shapes (0N 02 CH Name /
+    0N 05 CH Col) — the driver's connect sweep and liveness probe rely
+    on them. There is NO mute / fader Get in the Avantis protocol (the
+    dLive Get-status family is absent), so none is simulated.
   - Bank Select + Program Change for scene recall (1..500).
   - UFX Global Key / Scale (CC 0C / 0D).
 
 When the driver Sets a fader or mute, the simulator echoes the same
-shape back so the driver's push parser updates state. The simulator
-also accepts REST-side mutations via push_param so a "console-side
-move" can be simulated end-to-end.
+shape back so the driver's push parser can be exercised (the driver
+itself applies writes optimistically and does not rely on the echo).
+``push_mute`` / ``push_fader`` test hooks let a unit test simulate
+console-side moves end-to-end.
 
 Driver side: ``audio/allenheath_avantis.py``.
 """
@@ -341,8 +346,6 @@ class AllenHeathAvantisSimulator(TCPSimulator):
         if not body.startswith(SYSEX_HEADER):
             return None
         body = body[len(SYSEX_HEADER):]
-        if len(body) < 3:
-            return None
         if len(body) < 3:
             return None
 

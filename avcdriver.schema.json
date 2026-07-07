@@ -321,6 +321,9 @@
     "frame_parser": {
       "$ref": "#/$defs/frameParser"
     },
+    "send_frame": {
+      "$ref": "#/$defs/sendFrame"
+    },
     "simulator": {
       "$ref": "#/$defs/simulatorSection"
     },
@@ -1091,7 +1094,7 @@
         "header_size": {
           "type": "integer",
           "enum": [1, 2, 4],
-          "description": "length_prefix: big-endian bytes holding the body length. Must be 1, 2, or 4. Default 2."
+          "description": "length_prefix: bytes holding the body length. Must be 1, 2, or 4. Default 2."
         },
         "header_offset": {
           "type": "integer",
@@ -1101,9 +1104,54 @@
           "type": "boolean",
           "description": "length_prefix: whether the parsed frame includes the header bytes (true) or just the body (false). Default false."
         },
+        "length_offset": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "length_prefix: constant bytes before the length field (magic + fixed header fields) when the length isn't first on the wire. e.g. eISCP puts its 4-byte length at offset 8. Default 0. Requires platform 0.23.0."
+        },
+        "header_extra": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "length_prefix: constant bytes after the length field, before the data (e.g. eISCP's version + reserved = 4). Full fixed header = length_offset + header_size + header_extra. Default 0. Requires platform 0.23.0."
+        },
+        "length_endian": {
+          "type": "string",
+          "enum": ["big", "little"],
+          "description": "length_prefix: byte order of the length field. Default big. Requires platform 0.23.0."
+        },
         "length": {
           "type": "integer",
           "description": "fixed_length: frame size in bytes. Default 1."
+        }
+      },
+      "additionalProperties": true
+    },
+    "sendFrame": {
+      "type": "object",
+      "description": "Send-side packet framing — the send twin of frame_parser. Wraps every byte-stream command in a binary header whose data-length is computed per message (e.g. eISCP). Requires platform 0.23.0.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["length_prefix"],
+          "description": "Send frame kind. Only length_prefix is supported."
+        },
+        "header": {
+          "type": "string",
+          "description": "Constant bytes emitted before the computed length field (magic + fixed header fields). Literal-escape string (\\r, \\n, \\xHH). For eISCP: \"ISCP\\x00\\x00\\x00\\x10\" (magic + header-size 16)."
+        },
+        "length_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Width in bytes of the computed data-length field. eISCP uses 4. Default 4."
+        },
+        "length_endian": {
+          "type": "string",
+          "enum": ["big", "little"],
+          "description": "Byte order of the length field. Default big."
+        },
+        "after_length": {
+          "type": "string",
+          "description": "Constant bytes emitted after the length field, before the command data (e.g. eISCP's version + reserved = \"\\x01\\x00\\x00\\x00\"). Literal-escape string."
         }
       },
       "additionalProperties": true

@@ -1,0 +1,600 @@
+# Onkyo / Integra / Pioneer AV Receiver (eISCP over Ethernet)
+#
+# Controls Onkyo, Integra, and Pioneer A/V receivers that speak the Integra
+# Serial Control Protocol over Ethernet (eISCP) on TCP port 60128. Integra is
+# Onkyo's professional line; Onkyo also absorbed Pioneer's A/V receiver line,
+# and current Pioneer receivers speak the same eISCP command set.
+#
+# ── Frame format (this is what send_frame + command_prefix/suffix do) ──
+#   eISCP wraps each ISCP message in a 16-byte binary header:
+#     bytes 0-3    "ISCP"                     magic
+#     bytes 4-7    00 00 00 10                header size = 16 (big-endian)
+#     bytes 8-11   <data length>              big-endian, COMPUTED per message
+#     byte  12     01                         version
+#     bytes 13-15  00 00 00                   reserved
+#     bytes 16+    "!1" <command> <CR>        the ISCP data ("!1PWR01\r")
+#   The inner ISCP message is the same "!1...\r" as the serial flavor, so
+#   command_prefix "!1" + command_suffix "\r" build the data, and send_frame
+#   wraps that data in the header. The data-length field (bytes 8-11) is the
+#   byte length of the ISCP data and CHANGES per message — "!1PWR01\r" is 8,
+#   "!1PWRQSTN\r" is 10 — which is exactly why a static prefix can't express it
+#   and send_frame computes it. So "power on" goes on the wire as:
+#     49 53 43 50 00 00 00 10 00 00 00 08 01 00 00 00 21 31 50 57 52 30 31 0d
+#     └─ ISCP ──┘ └ hdr=16 ─┘ └ len=8 ─┘ └ ver+rsvd┘ └──── !1PWR01\r ─────┘
+#
+# ── Status feedback ──
+#   The receiver echoes its resulting state after any Set and answers a Query
+#   (xxxQSTN) with the current value, each in its own eISCP frame. frame_parser
+#   reads the 16-byte reply header (the 4-byte length sits at offset 8) and
+#   hands the ISCP data ("!1PWR01\r") to the responses: block, which parses the
+#   bare "!1XXX.." line. Polling and on_connect list the query commands by NAME
+#   so the full frame (command_prefix + command_suffix + send_frame) is applied.
+#
+# ── Scope ──
+#   This is the Ethernet (eISCP) flavor for network-connected receivers. The
+#   RS-232 flavor of the same command set (no packet header) is a separate
+#   driver: onkyo_integra_iscp.
+#
+# ── Volume note ──
+#   Master volume rides the wire as a 2-digit hex level (00-64 = 0-100). The
+#   Set command builds that with the {level:02X} format spec, so the user picks
+#   a plain 0-100 value. Readback stores the raw hex code the receiver reports
+#   (a pure-YAML driver has no hex->decimal step; a Python driver would decode
+#   it to a percentage).
+#
+# Not hardware-validated. Modeled from the published eISCP command set and the
+# authoritative miracle2k/onkyo-eiscp reference; the built-in simulator lets it
+# be exercised end to end without a receiver.
+
+id: onkyo_integra_eiscp
+name: Onkyo / Integra / Pioneer AV Receiver (eISCP)
+manufacturer: Onkyo
+category: audio
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.23.0"
+description: >-
+  Controls Onkyo, Integra, and Pioneer A/V receivers over the network using
+  eISCP (the Integra Serial Control Protocol over Ethernet, TCP 60128). Power,
+  mute, master volume, input selection, and listening-mode (DSP) selection, with
+  polled power / mute / input / listening mode / volume status. The "!1" ISCP
+  header, the CR terminator, and the 16-byte eISCP packet header with its
+  computed data length are declared once and wrap every command.
+source_url: https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp/core.py
+tags: [receiver, avr, amplifier, onkyo, integra, pioneer, eiscp, iscp, network, tcp]
+verified: false
+simulated: true
+ports:
+  - 60128
+compatible_models:
+  - manufacturer: Onkyo
+    models:
+      - TX-NR series
+      - TX-RZ series
+      - TX-SR series
+    confidence: untested
+    notes: >-
+      Networked Onkyo A/V receivers with eISCP control enabled (Ethernet /
+      Wi-Fi). Same ISCP command set (PWR / AMT / MVL / SLI / LMD) as the RS-232
+      flavor, wrapped in the eISCP packet header.
+  - manufacturer: Integra
+    models:
+      - DTR series
+      - DRX series
+    confidence: untested
+    notes: >-
+      Integra (Onkyo's professional line) networked receivers share the same
+      eISCP command set.
+  - manufacturer: Pioneer
+    models:
+      - VSX series
+      - SC-LX series
+    confidence: untested
+    notes: >-
+      Onkyo absorbed Pioneer's A/V receiver line; current Pioneer network
+      receivers speak the same eISCP command set on TCP 60128. Discovery uses
+      the Onkyo "!x" device-search broadcast; Pioneer units also answer a "!p"
+      broadcast, so a Pioneer that stays silent to discovery can still be added
+      by IP address.
+
+transport: tcp
+
+# ── Command framing (the inner ISCP message, declared once) ──
+# Each command's data becomes: command_prefix + send + command_suffix, e.g.
+# send "PWR01" -> "!1PWR01\r". send_frame then wraps that data in the eISCP
+# packet header (below). Authored bare so "!1" and "\r" live in one place.
+command_prefix: "!1"
+command_suffix: "\r"
+
+# ── Send frame (the outer eISCP packet header, computed length per message) ──
+# Wraps the framed ISCP data in the 16-byte eISCP header. The data-length field
+# is computed from the payload length on every send, so feedback queries and
+# step commands of different lengths all frame correctly.
+send_frame:
+  type: length_prefix
+  header: "ISCP\x00\x00\x00\x10"     # "ISCP" magic + header size = 16
+  length_size: 4                     # 4-byte big-endian data-length field
+  length_endian: big
+  after_length: "\x01\x00\x00\x00"   # version (0x01) + 3 reserved bytes
+
+# ── Frame parser (the receive side of the same eISCP header) ──
+# The receiver's replies carry the identical 16-byte header. The 4-byte length
+# sits at offset 8, behind the "ISCP" magic and header-size field, followed by
+# the version + reserved bytes. Reading by length keeps replies split correctly
+# even though the binary length byte can look like CR/LF to a delimiter parser.
+frame_parser:
+  type: length_prefix
+  length_offset: 8     # skip "ISCP" + header-size (bytes 0-7)
+  header_size: 4       # 4-byte data-length field at offset 8
+  header_extra: 4      # skip version + reserved (bytes 12-15) before the data
+  length_endian: big
+
+help:
+  overview: >-
+    Onkyo / Integra / Pioneer A/V receiver over the network (eISCP, the Integra
+    Serial Control Protocol over Ethernet). Power, mute, master volume, input
+    selection, and listening-mode (DSP) selection. Add it by IP address, or let
+    device discovery find it on the network.
+  setup: >-
+    1. Connect the receiver to the same network as OpenAVC (Ethernet preferred).
+    2. In the receiver's network / hardware setup, enable network standby /
+       network control (some models only accept eISCP when this is on, and it
+       also lets you power the unit on from standby over the network).
+    3. Add the device and enter its IP address (port 60128 is the eISCP
+       default), or run a discovery scan and pick it from the results.
+  connection: >-
+    eISCP is a bidirectional protocol: the receiver echoes its state after every
+    command and answers the xxxQSTN queries, so power, mute, input, listening
+    mode, and the (hex) master-volume level poll back automatically. If the unit
+    won't respond, confirm network standby / network control is enabled in its
+    setup menu.
+
+default_config:
+  host: ""
+  port: 60128
+  poll_interval: 15
+  # Give the receiver a small gap between back-to-back commands so a burst
+  # (e.g. a macro powering on and selecting an input) is not dropped.
+  inter_command_delay: 0.1
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: The receiver's network address. eISCP listens on TCP 60128.
+  port:
+    type: integer
+    default: 60128
+    label: Port
+    description: eISCP port. Default 60128 — change only if your receiver was reconfigured.
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+    description: How often to poll power / mute / input / listening mode / volume. 0 disables polling.
+  inter_command_delay:
+    type: number
+    default: 0.1
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: Minimum gap between commands so a rapid burst is not dropped.
+
+# ── Discovery ──
+# eISCP receivers answer a UDP device-search broadcast on port 60128: an eISCP
+# packet whose data is "!xECNQSTN\r\n" (the Onkyo device-search; Pioneer also
+# answers "!pECNQSTN"). The unit replies with an ECN packet naming its model,
+# ISCP port, area, and identifier (e.g. "!1ECNTX-NR609/60128/DX...").
+discovery:
+  udp_probe:
+    port: 60128
+    # eISCP frame: "ISCP" + hdr size 16 + data len 11 + ver/rsvd + "!xECNQSTN\r\n"
+    send_hex: "49 53 43 50 00 00 00 10 00 00 00 0b 01 00 00 00 21 78 45 43 4e 51 53 54 4e 0d 0a"
+    expect_regex: "![0-9]ECN"
+    extract_manufacturer: "Onkyo"
+  oui:
+    - "00:09:b0"    # Onkyo Corporation
+    - "6c:72:4a"    # Onkyo Technology K.K.
+    - "94:b2:cc"    # Pioneer Corporation
+  port_open:
+    - 60128
+  manufacturer_alias:
+    - "onkyo"
+    - "integra"
+    - "pioneer"
+
+state_variables:
+  power:
+    type: string
+    label: Power
+    help: "Power state (On / Standby), parsed from the receiver's PWR echo."
+  mute:
+    type: string
+    label: Mute
+    help: "Master mute state (On / Off), parsed from the AMT echo."
+  master_volume:
+    type: string
+    label: Master Volume (hex)
+    help: >-
+      Master volume level as the receiver reports it: a 2-digit hex code where
+      00-64 = 0-100. (A pure-YAML driver reports the raw code; decoding it to a
+      percentage would need a Python driver.)
+  input:
+    type: string
+    label: Input Source
+    help: "Selected input, mapped from the SLI code (e.g. CD, BD/DVD, Network)."
+  listening_mode:
+    type: string
+    label: Listening Mode
+    help: "Selected listening / DSP mode, mapped from the LMD code (e.g. Stereo, THX Cinema)."
+
+commands:
+  # ── Power ──
+  power_on:
+    label: Power On
+    send: "PWR01"
+    help: Turn the receiver on.
+  power_off:
+    label: Power Off
+    send: "PWR00"
+    help: Put the receiver in standby.
+  query_power:
+    label: Query Power
+    send: "PWRQSTN"
+
+  # ── Mute ──
+  mute_on:
+    label: Mute On
+    send: "AMT01"
+    help: Mute the master output.
+  mute_off:
+    label: Mute Off
+    send: "AMT00"
+    help: Unmute the master output.
+  mute_toggle:
+    label: Mute (Toggle)
+    send: "AMTTG"
+    help: Toggle master mute.
+  query_mute:
+    label: Query Mute
+    send: "AMTQSTN"
+
+  # ── Master volume ──
+  set_volume:
+    label: Set Volume
+    send: "MVL{level:02X}"
+    help: >-
+      Set the master volume level (0-100). Sent as the 2-digit hex the receiver
+      expects (the {level:02X} format spec does the decimal-to-hex conversion).
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+        help: "0-100 (sent as hex 00-64)."
+  volume_up:
+    label: Volume +
+    send: "MVLUP"
+    help: Raise the master volume one step.
+  volume_down:
+    label: Volume -
+    send: "MVLDOWN"
+    help: Lower the master volume one step.
+  query_volume:
+    label: Query Volume
+    send: "MVLQSTN"
+
+  # ── Input select (SLI) — labeled enum: the user picks a name, the 2-char
+  #    code goes on the wire ──
+  set_input:
+    label: Select Input
+    send: "SLI{input}"
+    help: Select the receiver's active input source.
+    params:
+      input:
+        type: enum
+        required: true
+        label: Input
+        help: "Common Onkyo / Integra / Pioneer input codes. Some inputs are model-specific."
+        values:
+          - value: "01"
+            label: "CBL / SAT"
+          - value: "02"
+            label: "Game"
+          - value: "03"
+            label: "Aux"
+          - value: "05"
+            label: "PC"
+          - value: "10"
+            label: "BD / DVD"
+          - value: "11"
+            label: "Streaming Box"
+          - value: "12"
+            label: "TV"
+          - value: "22"
+            label: "Phono"
+          - value: "23"
+            label: "CD"
+          - value: "24"
+            label: "FM Radio"
+          - value: "25"
+            label: "AM Radio"
+          - value: "26"
+            label: "Tuner"
+          - value: "29"
+            label: "USB"
+          - value: "2B"
+            label: "Network"
+          - value: "2E"
+            label: "Bluetooth"
+  query_input:
+    label: Query Input
+    send: "SLIQSTN"
+
+  # ── Listening mode (LMD) — the headline labeled enum: ~25 DSP modes that
+  #    differ only by a 2-char hex code ──
+  set_listening_mode:
+    label: Set Listening Mode
+    send: "LMD{mode}"
+    help: Select the receiver's listening / DSP mode.
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Listening Mode
+        help: "Common Onkyo / Integra / Pioneer listening (DSP) modes. Availability varies by model."
+        values:
+          - value: "00"
+            label: "Stereo"
+          - value: "01"
+            label: "Direct"
+          - value: "02"
+            label: "Surround"
+          - value: "03"
+            label: "Film / Game-RPG"
+          - value: "04"
+            label: "THX"
+          - value: "05"
+            label: "Action / Game-Action"
+          - value: "06"
+            label: "Musical / Game-Rock"
+          - value: "07"
+            label: "Mono Movie"
+          - value: "08"
+            label: "Orchestra"
+          - value: "09"
+            label: "Unplugged"
+          - value: "0A"
+            label: "Studio-Mix"
+          - value: "0B"
+            label: "TV Logic"
+          - value: "0C"
+            label: "All Ch Stereo"
+          - value: "0D"
+            label: "Theater-Dimensional"
+          - value: "0F"
+            label: "Mono"
+          - value: "11"
+            label: "Pure Audio"
+          - value: "13"
+            label: "Full Mono"
+          - value: "40"
+            label: "Straight Decode"
+          - value: "41"
+            label: "Dolby EX"
+          - value: "42"
+            label: "THX Cinema"
+          - value: "44"
+            label: "THX Music"
+          - value: "80"
+            label: "Dolby Atmos / Surround"
+          - value: "82"
+            label: "DTS:X / Neural:X"
+          - value: "88"
+            label: "Neural Surround"
+          - value: "FF"
+            label: "Auto Surround"
+  query_listening_mode:
+    label: Query Listening Mode
+    send: "LMDQSTN"
+
+# ── Quick actions ──
+actions:
+  - id: power_on
+    icon: power
+  - id: power_off
+    icon: power-off
+  - id: mute_toggle
+    icon: volume-x
+  - id: set_input
+    icon: list
+
+# ── Response parsing (the receiver's framed echoes; frame_parser strips the
+#    16-byte eISCP header, so patterns match the bare "!1XXX..." ISCP line) ──
+responses:
+  - match: '^!1PWR(0[01])'
+    mappings:
+      - group: 1
+        state: power
+        map:
+          "00": "Standby"
+          "01": "On"
+  - match: '^!1AMT(0[01])'
+    mappings:
+      - group: 1
+        state: mute
+        map:
+          "00": "Off"
+          "01": "On"
+  - match: '^!1MVL([0-9A-Fa-f]{2})'
+    set: { master_volume: "$1" }
+  - match: '^!1SLI([0-9A-Fa-f]{2})'
+    mappings:
+      - group: 1
+        state: input
+        map:
+          "01": "CBL / SAT"
+          "02": "Game"
+          "03": "Aux"
+          "05": "PC"
+          "10": "BD / DVD"
+          "11": "Streaming Box"
+          "12": "TV"
+          "22": "Phono"
+          "23": "CD"
+          "24": "FM Radio"
+          "25": "AM Radio"
+          "26": "Tuner"
+          "29": "USB"
+          "2B": "Network"
+          "2E": "Bluetooth"
+  - match: '^!1LMD([0-9A-Fa-f]{2})'
+    mappings:
+      - group: 1
+        state: listening_mode
+        map:
+          "00": "Stereo"
+          "01": "Direct"
+          "02": "Surround"
+          "03": "Film / Game-RPG"
+          "04": "THX"
+          "05": "Action / Game-Action"
+          "06": "Musical / Game-Rock"
+          "07": "Mono Movie"
+          "08": "Orchestra"
+          "09": "Unplugged"
+          "0A": "Studio-Mix"
+          "0B": "TV Logic"
+          "0C": "All Ch Stereo"
+          "0D": "Theater-Dimensional"
+          "0F": "Mono"
+          "11": "Pure Audio"
+          "13": "Full Mono"
+          "40": "Straight Decode"
+          "41": "Dolby EX"
+          "42": "THX Cinema"
+          "44": "THX Music"
+          "80": "Dolby Atmos / Surround"
+          "82": "DTS:X / Neural:X"
+          "88": "Neural Surround"
+          "FF": "Auto Surround"
+
+# Poll status by command NAME so the "!1" / "\r" frame and the eISCP packet
+# header are applied (a raw string here would be sent unframed).
+polling:
+  queries:
+    - query_power
+    - query_mute
+    - query_volume
+    - query_input
+    - query_listening_mode
+
+# Pull current state once on connect (also by command name, so it is framed).
+on_connect:
+  - query_power
+  - query_mute
+  - query_volume
+  - query_input
+  - query_listening_mode
+
+# ── Liveness watchdog ──
+# eISCP is poll-capable but fire-and-forget polls never notice a quietly-dropped
+# link. Probe the power query and require its echo within 5 s; two silent probes
+# force a reconnect. liveness.send is a raw string (command_prefix/suffix are not
+# applied, so "!1" / "\r" are written out here) but send_frame still wraps it in
+# the eISCP packet header, so the probe reaches the receiver.
+liveness:
+  send: "!1PWRQSTN\r"
+  expect: '!1PWR'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+# ── Simulator ──
+# Models an eISCP receiver so the driver can be exercised without hardware. The
+# auto-simulator strips the eISCP packet header (send_frame) on read and re-wraps
+# each reply in it, so these handlers see and emit the bare ISCP data — the CR
+# terminator is stripped before matching but the "!1" header is kept, so every
+# handler matches the FRAMED form ("!1PWR01", "!1SLI23"). Each handler updates
+# the raw ISCP code it tracks and echoes it back framed, exactly as a receiver
+# does. State is held as the wire codes (the driver's responses: map them to
+# friendly labels). The protocol is poll-only (no unsolicited push), so an
+# external change surfaces on the driver's next poll.
+simulator:
+  initial_state:
+    power: "00"            # PWR code: 00 = standby (starts powered off)
+    mute: "00"             # AMT code: 00 = not muted
+    master_volume: "28"    # MVL hex: 0x28 = 40 (of 100)
+    input: "23"            # SLI code: 23 = CD
+    listening_mode: "00"   # LMD code: 00 = Stereo
+
+  delays:
+    command_response: 0.03
+
+  error_modes:
+    communication_timeout:
+      description: "Receiver stops responding (test offline / timeout handling)"
+      behavior: no_response
+
+  command_handlers:
+    # ── Power ──
+    - match: '!1PWR(00|01)'
+      handler: |
+        state["power"] = match.group(1)
+        respond(f'!1PWR{state["power"]}\r')
+    - match: '!1PWRQSTN'
+      handler: |
+        respond(f'!1PWR{state["power"]}\r')
+
+    # ── Mute (00/01 set, TG toggles, QSTN queries) ──
+    - match: '!1AMT(00|01)'
+      handler: |
+        state["mute"] = match.group(1)
+        respond(f'!1AMT{state["mute"]}\r')
+    - match: '!1AMTTG'
+      handler: |
+        state["mute"] = "00" if state["mute"] == "01" else "01"
+        respond(f'!1AMT{state["mute"]}\r')
+    - match: '!1AMTQSTN'
+      handler: |
+        respond(f'!1AMT{state["mute"]}\r')
+
+    # ── Master volume (hex set, UP/DOWN step, QSTN queries) ──
+    - match: '!1MVL([0-9A-Fa-f]{2})'
+      handler: |
+        state["master_volume"] = match.group(1).upper()
+        respond(f'!1MVL{state["master_volume"]}\r')
+    - match: '!1MVLUP'
+      handler: |
+        level = min(int(state["master_volume"], 16) + 1, 100)
+        state["master_volume"] = f"{level:02X}"
+        respond(f'!1MVL{state["master_volume"]}\r')
+    - match: '!1MVLDOWN'
+      handler: |
+        level = max(int(state["master_volume"], 16) - 1, 0)
+        state["master_volume"] = f"{level:02X}"
+        respond(f'!1MVL{state["master_volume"]}\r')
+    - match: '!1MVLQSTN'
+      handler: |
+        respond(f'!1MVL{state["master_volume"]}\r')
+
+    # ── Input select (2-char hex code set, QSTN queries) ──
+    - match: '!1SLIQSTN'
+      handler: |
+        respond(f'!1SLI{state["input"]}\r')
+    - match: '!1SLI([0-9A-Fa-f]{2})'
+      handler: |
+        state["input"] = match.group(1).upper()
+        respond(f'!1SLI{state["input"]}\r')
+
+    # ── Listening mode (2-char hex code set, QSTN queries) ──
+    - match: '!1LMDQSTN'
+      handler: |
+        respond(f'!1LMD{state["listening_mode"]}\r')
+    - match: '!1LMD([0-9A-Fa-f]{2})'
+      handler: |
+        state["listening_mode"] = match.group(1).upper()
+        respond(f'!1LMD{state["listening_mode"]}\r')

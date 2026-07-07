@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 588,
+    "total_devices": 590,
     "shards": null
   },
   "devices": [
@@ -3136,6 +3136,11 @@
       "category": "audio",
       "drivers": [
         {
+          "id": "onkyo_integra_eiscp",
+          "confidence": "untested",
+          "notes": "Integra (Onkyo's professional line) networked receivers share the same eISCP command set."
+        },
+        {
           "id": "onkyo_integra_iscp",
           "confidence": "untested",
           "notes": "Integra (Onkyo's professional line) receivers share the same ISCP command set over RS-232."
@@ -3147,6 +3152,11 @@
       "model": "DTR series",
       "category": "audio",
       "drivers": [
+        {
+          "id": "onkyo_integra_eiscp",
+          "confidence": "untested",
+          "notes": "Integra (Onkyo's professional line) networked receivers share the same eISCP command set."
+        },
         {
           "id": "onkyo_integra_iscp",
           "confidence": "untested",
@@ -3883,6 +3893,11 @@
       "category": "audio",
       "drivers": [
         {
+          "id": "onkyo_integra_eiscp",
+          "confidence": "untested",
+          "notes": "Networked Onkyo A/V receivers with eISCP control enabled (Ethernet / Wi-Fi). Same ISCP command set (PWR / AMT / MVL / SLI / LMD) as the RS-232 flavor, wrapped in the eISCP packet header."
+        },
+        {
           "id": "onkyo_integra_iscp",
           "confidence": "untested",
           "notes": "Onkyo A/V receivers with an RS-232 control port using the ISCP command set (PWR / AMT / MVL / SLI / LMD). Verify the serial baud rate in the receiver's setup menu (9600 is the default)."
@@ -3895,6 +3910,11 @@
       "category": "audio",
       "drivers": [
         {
+          "id": "onkyo_integra_eiscp",
+          "confidence": "untested",
+          "notes": "Networked Onkyo A/V receivers with eISCP control enabled (Ethernet / Wi-Fi). Same ISCP command set (PWR / AMT / MVL / SLI / LMD) as the RS-232 flavor, wrapped in the eISCP packet header."
+        },
+        {
           "id": "onkyo_integra_iscp",
           "confidence": "untested",
           "notes": "Onkyo A/V receivers with an RS-232 control port using the ISCP command set (PWR / AMT / MVL / SLI / LMD). Verify the serial baud rate in the receiver's setup menu (9600 is the default)."
@@ -3906,6 +3926,11 @@
       "model": "TX-SR series",
       "category": "audio",
       "drivers": [
+        {
+          "id": "onkyo_integra_eiscp",
+          "confidence": "untested",
+          "notes": "Networked Onkyo A/V receivers with eISCP control enabled (Ethernet / Wi-Fi). Same ISCP command set (PWR / AMT / MVL / SLI / LMD) as the RS-232 flavor, wrapped in the eISCP packet header."
+        },
         {
           "id": "onkyo_integra_iscp",
           "confidence": "untested",
@@ -4779,6 +4804,30 @@
           "id": "artnet_dmx",
           "confidence": "untested",
           "notes": "Pathway Pathport gateways translate Art-Net and sACN to DMX. Common in pro AV and theatrical installs."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pioneer",
+      "model": "SC-LX series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "onkyo_integra_eiscp",
+          "confidence": "untested",
+          "notes": "Onkyo absorbed Pioneer's A/V receiver line; current Pioneer network receivers speak the same eISCP command set on TCP 60128. Discovery uses the Onkyo \"!x\" device-search broadcast; Pioneer units also answer a \"!p\" broadcast, so a Pioneer that stays silent to discovery can still be added by IP address."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Pioneer",
+      "model": "VSX series",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "onkyo_integra_eiscp",
+          "confidence": "untested",
+          "notes": "Onkyo absorbed Pioneer's A/V receiver line; current Pioneer network receivers speak the same eISCP command set on TCP 60128. Discovery uses the Onkyo \"!x\" device-search broadcast; Pioneer units also answer a \"!p\" broadcast, so a Pioneer that stays silent to discovery can still be added by IP address."
         }
       ]
     },

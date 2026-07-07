@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 18,
+    "total_drivers": 19,
     "shards": null,
     "category": "audio"
   },
@@ -631,6 +631,92 @@
         "manufacturer_alias": [
           "Hero AV",
           "SoundCoreHero"
+        ]
+      }
+    },
+    {
+      "id": "onkyo_integra_eiscp",
+      "name": "Onkyo / Integra / Pioneer AV Receiver (eISCP)",
+      "manufacturer": "Onkyo",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Onkyo, Integra, and Pioneer A/V receivers over the network using eISCP (the Integra Serial Control Protocol over Ethernet, TCP 60128). Power, mute, master volume, input selection, and listening-mode (DSP) selection, with polled power / mute / input / listening mode / volume status. The \"!1\" ISCP header, the CR terminator, and the 16-byte eISCP packet header with its computed data length are declared once and wrap every command.",
+      "source_url": "https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp/core.py",
+      "file": "audio/onkyo_integra_eiscp.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        60128
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "receiver",
+        "avr",
+        "amplifier",
+        "onkyo",
+        "integra",
+        "pioneer",
+        "eiscp",
+        "iscp",
+        "network",
+        "tcp"
+      ],
+      "help": {
+        "overview": "Onkyo / Integra / Pioneer A/V receiver over the network (eISCP, the Integra Serial Control Protocol over Ethernet). Power, mute, master volume, input selection, and listening-mode (DSP) selection. Add it by IP address, or let device discovery find it on the network.",
+        "setup": "1. Connect the receiver to the same network as OpenAVC (Ethernet preferred). 2. In the receiver's network / hardware setup, enable network standby /\n   network control (some models only accept eISCP when this is on, and it\n   also lets you power the unit on from standby over the network).\n3. Add the device and enter its IP address (port 60128 is the eISCP\n   default), or run a discovery scan and pick it from the results.",
+        "connection": "eISCP is a bidirectional protocol: the receiver echoes its state after every command and answers the xxxQSTN queries, so power, mute, input, listening mode, and the (hex) master-volume level poll back automatically. If the unit won't respond, confirm network standby / network control is enabled in its setup menu."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Onkyo",
+          "models": [
+            "TX-NR series",
+            "TX-RZ series",
+            "TX-SR series"
+          ],
+          "confidence": "untested",
+          "notes": "Networked Onkyo A/V receivers with eISCP control enabled (Ethernet / Wi-Fi). Same ISCP command set (PWR / AMT / MVL / SLI / LMD) as the RS-232 flavor, wrapped in the eISCP packet header."
+        },
+        {
+          "manufacturer": "Integra",
+          "models": [
+            "DTR series",
+            "DRX series"
+          ],
+          "confidence": "untested",
+          "notes": "Integra (Onkyo's professional line) networked receivers share the same eISCP command set."
+        },
+        {
+          "manufacturer": "Pioneer",
+          "models": [
+            "VSX series",
+            "SC-LX series"
+          ],
+          "confidence": "untested",
+          "notes": "Onkyo absorbed Pioneer's A/V receiver line; current Pioneer network receivers speak the same eISCP command set on TCP 60128. Discovery uses the Onkyo \"!x\" device-search broadcast; Pioneer units also answer a \"!p\" broadcast, so a Pioneer that stays silent to discovery can still be added by IP address."
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 60128,
+          "send_hex": "49 53 43 50 00 00 00 10 00 00 00 0b 01 00 00 00 21 78 45 43 4e 51 53 54 4e 0d 0a",
+          "expect_regex": "![0-9]ECN",
+          "extract_manufacturer": "Onkyo"
+        },
+        "oui": [
+          "00:09:b0",
+          "6c:72:4a",
+          "94:b2:cc"
+        ],
+        "port_open": [
+          60128
+        ],
+        "manufacturer_alias": [
+          "onkyo",
+          "integra",
+          "pioneer"
         ]
       }
     },

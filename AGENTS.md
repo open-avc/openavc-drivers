@@ -653,7 +653,7 @@ commands:
   raw_ping:  { label: "Ping", send: "PING\r", raw: true }  # raw: skips the frame
 ```
 
-Both are opt-in and byte-stream only (tcp/serial/udp) — an OSC or HTTP command is never framed. A single command opts out with `raw: true`. To poll a framed command, list its **name** in `polling.queries` (it runs as that command, so the frame is applied) rather than re-typing the framed wire string. Requires platform 0.23.0.
+Both are opt-in and byte-stream only (tcp/serial/udp) — an OSC or HTTP command is never framed. A single command opts out with `raw: true`. To poll a framed command, list its **name** in `polling.queries` (it runs as that command, so the frame is applied) rather than re-typing the framed wire string. Requires platform 0.23.0. When a protocol also wraps commands in a binary packet header with a **computed** data-length (e.g. eISCP over TCP) that a static prefix can't express, add a `send_frame` block on top — see §2.12.
 
 **Enum labels.** An `enum` param's `values` entries may be plain strings or `{value, label}` pairs. The **label** is what the operator picks and reads in a macro; the **value** goes on the wire — so you label a code set once instead of defining one command per code. A caller may pass either the label or the wire value (picker, macro `$var`, REST/cloud API); the runtime normalizes to the value. Requires platform 0.23.0.
 
@@ -1141,11 +1141,18 @@ For binary protocols that don't use text delimiters. Overrides the default delim
 ```yaml
 frame_parser:
   type: length_prefix            # length_prefix | fixed_length
-  header_size: 2                 # bytes holding the body length, big-endian. Must be 1, 2, or 4.
+  header_size: 2                 # bytes holding the body length. Must be 1, 2, or 4.
   header_offset: 0               # added to the length the header decodes to; use a
                                  # negative value (e.g. -2) when the length field counts
                                  # the header bytes themselves, so only the body is read
   include_header: false          # true keeps the header bytes in the parsed frame; false = body only
+  length_offset: 0               # constant bytes BEFORE the length field (magic + fixed
+                                 # header fields) when the length isn't first on the wire.
+                                 # eISCP puts its 4-byte length at offset 8. Platform >= 0.23.0.
+  header_extra: 0                # constant bytes AFTER the length field, before the data
+                                 # (eISCP's version + reserved = 4). Full fixed header =
+                                 # length_offset + header_size + header_extra. Platform >= 0.23.0.
+  length_endian: big             # big (default) | little. Platform >= 0.23.0.
 
 # OR
 frame_parser:
@@ -1154,6 +1161,21 @@ frame_parser:
 ```
 
 `build_index.py` rejects an out-of-range `header_size` (anything but 1/2/4) or a non-positive `length` — the runtime parser raises on those, which would crash the device's connect.
+
+#### send_frame (Advanced, platform >= 0.23.0)
+
+The send-side twin of `frame_parser`. Use it when a protocol wraps every command in a binary packet header whose data-length is **computed per message**, which a static `command_prefix` can't express (a feedback query is longer than a set command, so the length differs). The canonical case is **eISCP** (Onkyo / Integra / Pioneer receivers over TCP 60128): a 16-byte header of `ISCP` magic + header-size + a 4-byte data length + version/reserved, wrapping the `!1...<CR>` command.
+
+```yaml
+send_frame:
+  type: length_prefix              # only length_prefix is supported
+  header: "ISCP\x00\x00\x00\x10"   # constant bytes before the length field (magic + header-size 16)
+  length_size: 4                   # width of the computed data-length field. eISCP uses 4.
+  length_endian: big               # big (default) | little
+  after_length: "\x01\x00\x00\x00" # constant bytes after the length, before the data (version + reserved)
+```
+
+On the wire each command becomes `header + <computed length> + after_length + (command_prefix + send + command_suffix)`. The length is the byte length of the framed command data (e.g. `!1PWR01\r` = 8). `header` and `after_length` are literal-escape byte strings (`\r`, `\n`, `\xHH`). `send_frame` applies to every byte-stream send — commands, raw poll/on_connect queries, the liveness probe, and device-setting writes. Pair it with a matching `frame_parser` for the device's replies (for eISCP: `length_prefix`, `length_offset: 8`, `header_size: 4`, `header_extra: 4`). `command_prefix` / `command_suffix` still handle the inner framing (`!1` and `\r`); `send_frame` adds the outer packet header. `build_index.py` rejects a non-positive `length_size`, a bad `length_endian`, or non-string byte fields. See `audio/onkyo_integra_eiscp.avcdriver` for a complete example (and `audio/onkyo_integra_iscp.avcdriver` for the serial flavor that needs only `command_prefix` / `command_suffix`).
 
 ---
 

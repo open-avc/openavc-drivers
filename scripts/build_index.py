@@ -1871,6 +1871,19 @@ def _validate_frame_parser_block(file: str, data: dict[str, Any]) -> list[str]:
             errors.append(
                 f"{file}: frame_parser.header_offset must be an integer (got {offset!r})"
             )
+        for extra_key in ("length_offset", "header_extra"):
+            extra_val = fp.get(extra_key, 0)
+            if isinstance(extra_val, bool) or not isinstance(extra_val, int) or extra_val < 0:
+                errors.append(
+                    f"{file}: frame_parser.{extra_key} must be a non-negative "
+                    f"integer (got {extra_val!r})"
+                )
+        endian = fp.get("length_endian", "big")
+        if endian not in ("big", "little"):
+            errors.append(
+                f"{file}: frame_parser.length_endian must be 'big' or 'little' "
+                f"(got {endian!r})"
+            )
     elif fp_type == "fixed_length":
         length = fp.get("length", 1)
         if isinstance(length, bool) or not isinstance(length, int) or length <= 0:
@@ -1884,6 +1897,41 @@ def _validate_frame_parser_block(file: str, data: dict[str, Any]) -> list[str]:
         )
     else:
         errors.append(f"{file}: frame_parser is missing 'type'")
+    return errors
+
+
+def _validate_send_frame_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate the optional send_frame block (send-side packet framing).
+
+    Mirrors server/drivers/driver_loader.validate_driver_definition: only
+    length_prefix is supported, length_size must be a positive int, the byte
+    fields must be strings. Stdlib-only so the drivers repo CI stays
+    self-contained.
+    """
+    errors: list[str] = []
+    sf = data.get("send_frame")
+    if sf is None:
+        return errors
+    if not isinstance(sf, dict):
+        return [f"{file}: send_frame must be a mapping"]
+    sf_type = sf.get("type", "length_prefix")
+    if sf_type != "length_prefix":
+        return [f"{file}: send_frame.type '{sf_type}' is not 'length_prefix'"]
+    length_size = sf.get("length_size", 4)
+    if isinstance(length_size, bool) or not isinstance(length_size, int) or length_size < 1:
+        errors.append(
+            f"{file}: send_frame.length_size must be a positive integer "
+            f"(got {length_size!r})"
+        )
+    endian = sf.get("length_endian", "big")
+    if endian not in ("big", "little"):
+        errors.append(
+            f"{file}: send_frame.length_endian must be 'big' or 'little' (got {endian!r})"
+        )
+    for byte_key in ("header", "after_length"):
+        byte_val = sf.get(byte_key)
+        if byte_val is not None and not isinstance(byte_val, str):
+            errors.append(f"{file}: send_frame.{byte_key} must be a string (got {byte_val!r})")
     return errors
 
 
@@ -2147,6 +2195,7 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(_validate_auth_block(rel, data))
         errors.extend(_validate_liveness_block(rel, data))
         errors.extend(_validate_frame_parser_block(rel, data))
+        errors.extend(_validate_send_frame_block(rel, data))
         errors.extend(_validate_actions_block(rel, data))
         errors.extend(_validate_child_entity_types(rel, data))
         errors.extend(_validate_child_routing(rel, data))

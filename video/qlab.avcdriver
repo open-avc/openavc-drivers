@@ -40,7 +40,7 @@ id: qlab
 name: QLab Show Control
 manufacturer: Figure 53
 category: video
-version: 1.1.1
+version: 1.2.0
 author: OpenAVC
 description: >-
   Controls Figure 53's QLab show-control / playback software (macOS) over OSC.
@@ -54,7 +54,7 @@ tags: [osc, show-control, playback, theatrical, cue, qlab]
 verified: true
 simulated: true
 ports: [53000]
-min_platform_version: 0.19.0
+min_platform_version: "0.22.0"
 compatible_models:
   - manufacturer: Figure 53
     models: [QLab 5]
@@ -441,6 +441,28 @@ polling:
     - "{ws}/cue/playhead/displayName"
     - "{ws}/cue/playhead/number"
     - "{ws}/runningOrPausedCues"
+
+# Liveness watchdog. A Mac reboot (or a QLab quit/relaunch) does NOT drop our
+# UDP socket, so nothing else here would notice QLab went away — and when it
+# comes back it has forgotten that we authenticated. With a workspace passcode
+# set, QLab then answers every command and query with {"status":"denied"}
+# instead of acting on it, so the device keeps looking connected while nothing
+# works until the passcode handshake is sent again. This probe pings the
+# workspace's /thump every 15s: a connected, authenticated workspace echoes
+# {"data":"thump"}, a de-authenticated one replies "denied" (no "data":"thump"),
+# and a quit QLab replies nothing. Either failure flips the device offline after
+# two silent probes, and auto-reconnect re-runs on_connect — re-sending
+# /connect <passcode> — so the connection re-authenticates itself with no hand
+# re-entry. Workspace-scoped on purpose (the rootless poll /thump above is only
+# a keepalive): it must confirm the *same* workspace we connected to is still
+# authenticated. With no passcode QLab never denies, so this just detects a
+# genuinely gone QLab.
+liveness:
+  send: "{ws}/thump"
+  expect: '"data":"thump"'
+  interval: 15
+  timeout: 5
+  max_failures: 2
 
 # QLab replies as /reply/<the address you sent> with a single string argument
 # containing JSON: {"workspace_id": ..., "address": ..., "status": "ok",

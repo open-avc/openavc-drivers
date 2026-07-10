@@ -46,7 +46,7 @@ If your driver is a YAML `.avcdriver` file, it already has everything the simula
 
 The simulator reverses these definitions: when it receives data matching a command's `send` template, it updates state and responds using the matching response format.
 
-The Simulator UI auto-generates controls from your `state_variables`: booleans become toggles, integers/numbers with min/max become sliders, enums become dropdowns, and strings become read-only indicators. Labels come from each variable's `label` field. No UI configuration needed.
+The Simulator UI auto-generates controls from your `state_variables`: booleans become toggles, integers/numbers with min/max become sliders, enums become dropdowns, and strings become read-only indicators. Labels come from each variable's `label` field, and a slider picks up the variable's declared `step` and `unit` when present. No UI configuration needed.
 
 **Example:** Given this driver definition:
 

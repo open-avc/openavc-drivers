@@ -65,6 +65,7 @@ def _build_state_vars(num_controllers: int) -> dict[str, dict[str, Any]]:
             "label": f"Controller {n}",
             "min": -1,
             "max": 65535,
+            "step": 1,
         }
     return out
 
@@ -77,7 +78,7 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (

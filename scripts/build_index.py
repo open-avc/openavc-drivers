@@ -1031,6 +1031,18 @@ def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
                         f"{where}.state_variables.{var_name}: cloud_priority "
                         f"must be 'low' or 'high' (got {cp!r})"
                     )
+                cunit = var_def.get("unit")
+                if cunit is not None and not isinstance(cunit, str):
+                    errors.append(
+                        f"{where}.state_variables.{var_name}: unit must be "
+                        f"a string (got {cunit!r})"
+                    )
+                cctl = var_def.get("control")
+                if cctl is not None and not isinstance(cctl, bool):
+                    errors.append(
+                        f"{where}.state_variables.{var_name}: control must "
+                        f"be true or false (got {cctl!r})"
+                    )
         # Declarative roster (mirrors driver_loader): exactly one source;
         # count sane vs id_format; *_from names a declared config field.
         instances = type_def.get("instances")

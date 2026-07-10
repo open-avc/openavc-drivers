@@ -362,17 +362,19 @@ def softkey_to_note(sk: int) -> int:
 # continuous levels/pans are low (chatty, dashboard-grade).
 
 def _mute_prop() -> dict[str, Any]:
-    return {"type": "boolean", "label": "Mute", "cloud_priority": "high"}
+    return {"type": "boolean", "label": "Mute", "cloud_priority": "high",
+            "control": True}
 
 
 def _level_prop(label: str) -> dict[str, Any]:
+    # Normalized 0..1 fader position (MIDI NRPN), not dB — no unit declared.
     return {"type": "number", "label": label, "min": LEVEL_MIN,
-            "max": LEVEL_MAX, "cloud_priority": "low"}
+            "max": LEVEL_MAX, "cloud_priority": "low", "control": True}
 
 
 def _pan_prop(label: str) -> dict[str, Any]:
     return {"type": "number", "label": label, "min": PAN_LEFT,
-            "max": PAN_RIGHT, "cloud_priority": "low"}
+            "max": PAN_RIGHT, "cloud_priority": "low", "control": True}
 
 
 CHILD_ENTITY_TYPES: dict[str, dict[str, Any]] = {
@@ -745,7 +747,7 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "

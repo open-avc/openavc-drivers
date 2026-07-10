@@ -455,8 +455,17 @@
         "max": {
           "type": "number"
         },
+        "step": {
+          "type": "number",
+          "description": "Value resolution for numeric types (e.g. 0.5 for a half-dB fader). Fills a matched control's Step in the UI Builder."
+        },
         "unit": {
-          "type": "string"
+          "type": "string",
+          "description": "Unit for numeric values (e.g. dB, Hz, %). Fills a matched control's Unit in the UI Builder; without it the UI falls back to parsing a trailing \"(dB)\" from the label."
+        },
+        "control": {
+          "type": "boolean",
+          "description": "Marks a variable an integrator would bind a panel control to (a fader level, a mute). The UI Builder's value picker lists flagged variables first. Ordering only — unflagged variables stay pickable."
         },
         "default": true,
         "cloud_priority": {
@@ -488,8 +497,17 @@
         "max": {
           "type": "number"
         },
+        "step": {
+          "type": "number",
+          "description": "Value resolution for numeric types (e.g. 0.5 for a half-dB fader). Fills a matched control's Step in the UI Builder."
+        },
         "unit": {
-          "type": "string"
+          "type": "string",
+          "description": "Unit for numeric values (e.g. dB, Hz, %). Fills a matched control's Unit in the UI Builder's range-match prompt."
+        },
+        "control": {
+          "type": "boolean",
+          "description": "Marks a settable control (not a read-only mirror or metadata). The UI Builder's value picker and the options_from: child_schema command cascade list flagged fields first."
         },
         "default": true,
         "cloud_priority": {

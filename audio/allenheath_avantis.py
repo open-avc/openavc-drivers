@@ -384,12 +384,13 @@ def _build_child_types() -> dict[str, dict[str, Any]]:
     for ctype, (_, _, _, label) in CHANNEL_TYPES.items():
         svars: dict[str, Any] = {
             "mute": {"type": "boolean", "label": "Mute",
-                     "cloud_priority": "high"},
+                     "cloud_priority": "high", "control": True},
         }
         if ctype != "mute_group":
+            # Normalized 0..1 fader position (MIDI NRPN), not dB.
             svars["fader"] = {"type": "number", "label": "Fader",
                               "min": LEVEL_MIN, "max": LEVEL_MAX,
-                              "cloud_priority": "low"}
+                              "cloud_priority": "low", "control": True}
         svars["name"] = {"type": "string", "label": "Name",
                          "cloud_priority": "low"}
         svars["colour"] = {"type": "string", "label": "Colour",
@@ -713,7 +714,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "

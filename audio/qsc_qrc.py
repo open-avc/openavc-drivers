@@ -302,7 +302,7 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.2.3",
+        "version": "4.2.4",
         # Requires typed connection faults (ConnectionFaultError, 0.22.0) on
         # top of the runtime-discovered child-entity feature (0.19.4).
         "min_platform_version": "0.22.0",
@@ -1163,11 +1163,15 @@ class QSCQRCDriver(BaseDriver):
                 position = 0.0
 
         type_hint = hint or self._infer_nc_type(value)
+        # A Named Control is a control by definition — flag its settable vars
+        # so the value picker and the child_schema cascade lead with them.
+        # Position is the 0..1 normalized mirror (Control.Set Position).
         schema = {
             "name": {"type": "string", "label": "Name"},
-            "value": {"type": type_hint, "label": "Value"},
+            "value": {"type": type_hint, "label": "Value", "control": True},
             "string": {"type": "string", "label": "Display"},
-            "position": {"type": "number", "label": "Position"},
+            "position": {"type": "number", "label": "Position",
+                         "min": 0.0, "max": 1.0, "control": True},
         }
         initial = {
             "name": name,

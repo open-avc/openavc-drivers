@@ -477,12 +477,14 @@ MMC_CODES = {
 # continuous faders / gains and cosmetic name / colour are low.
 
 def _mute_prop() -> dict[str, Any]:
-    return {"type": "boolean", "label": "Mute", "cloud_priority": "high"}
+    return {"type": "boolean", "label": "Mute", "cloud_priority": "high",
+            "control": True}
 
 
 def _fader_prop() -> dict[str, Any]:
+    # Normalized 0..1 fader position (MIDI NRPN), not dB — no unit declared.
     return {"type": "number", "label": "Fader", "min": LEVEL_MIN,
-            "max": LEVEL_MAX, "cloud_priority": "low"}
+            "max": LEVEL_MAX, "cloud_priority": "low", "control": True}
 
 
 def _name_prop() -> dict[str, Any]:
@@ -961,7 +963,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "

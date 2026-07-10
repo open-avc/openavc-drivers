@@ -364,7 +364,7 @@ ROSTER_COUNTS = {
 
 def test_metadata_shape():
     info = av.AllenHeathAvantisDriver.DRIVER_INFO
-    assert info["version"] == "2.0.0"
+    assert info["version"] == "2.0.1"
     assert info["min_platform_version"] == "0.22.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:

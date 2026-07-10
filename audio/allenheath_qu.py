@@ -309,18 +309,21 @@ MATRIX_PAIR_LABELS = ["Mtx 1-2", "Mtx 3-4"]
 
 _MUTE_ONLY = {
     "name": {"type": "string", "label": "Name"},
-    "mute": {"type": "boolean", "label": "Mute"},
+    "mute": {"type": "boolean", "label": "Mute", "control": True},
 }
 _FADER_CHILD = {
     "name": {"type": "string", "label": "Name"},
-    "mute": {"type": "boolean", "label": "Mute"},
-    "fader": {"type": "number", "label": "Fader", "min": 0.0, "max": 1.0},
+    "mute": {"type": "boolean", "label": "Mute", "control": True},
+    "fader": {"type": "number", "label": "Fader", "min": 0.0, "max": 1.0,
+              "control": True},
     "fader_db": {"type": "number", "label": "Fader (dB)",
-                 "min": FADER_DB_MIN, "max": FADER_DB_MAX},
+                 "min": FADER_DB_MIN, "max": FADER_DB_MAX,
+                 "unit": "dB", "control": True},
 }
 _FADER_PAN_CHILD = {
     **_FADER_CHILD,
-    "pan": {"type": "number", "label": "Pan", "min": -1.0, "max": 1.0},
+    "pan": {"type": "number", "label": "Pan", "min": -1.0, "max": 1.0,
+            "control": True},
 }
 
 CHILD_ENTITY_TYPES: dict[str, dict[str, Any]] = {
@@ -642,7 +645,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.1.1",
         # Runtime-registered child entities + typed connection faults.
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
@@ -789,13 +792,15 @@ class AllenHeathQuDriver(BaseDriver):
             "current_scene": {"type": "integer", "label": "Current Scene",
                               "min": 0, "max": MAX_SCENE},
             "channel_count": {"type": "integer", "label": "Channels"},
-            "lr_mute": {"type": "boolean", "label": "LR Mute"},
+            "lr_mute": {"type": "boolean", "label": "LR Mute",
+                        "control": True},
             "lr_fader": {"type": "number", "label": "LR Fader",
-                         "min": 0.0, "max": 1.0},
+                         "min": 0.0, "max": 1.0, "control": True},
             "lr_fader_db": {"type": "number", "label": "LR Fader (dB)",
-                            "min": FADER_DB_MIN, "max": FADER_DB_MAX},
+                            "min": FADER_DB_MIN, "max": FADER_DB_MAX,
+                            "unit": "dB", "control": True},
             "lr_pan": {"type": "number", "label": "LR Pan", "min": -1.0,
-                       "max": 1.0},
+                       "max": 1.0, "control": True},
         },
         "commands": {},   # populated per-instance in __init__
     }

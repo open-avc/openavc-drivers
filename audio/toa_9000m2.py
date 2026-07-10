@@ -252,12 +252,13 @@ def parse_frame(buffer: bytes) -> tuple[bytes | None, bytes]:
 def _db_var(label: str, help_: str, step: float = 0.5) -> dict[str, Any]:
     # Fader positions resolve to 0.5 dB in the working range (1 dB below -40);
     # crosspoint gain is 1 dB throughout — callers pass the matching step.
-    return {"type": "number", "label": label, "min": MUTE_DB, "max": 10.0, "step": step, "help": help_}
+    return {"type": "number", "label": label, "min": MUTE_DB, "max": 10.0,
+            "step": step, "unit": "dB", "control": True, "help": help_}
 
 
 def _build_state_vars() -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {
-        "power": {"type": "boolean", "label": "Power", "help": "True when the amplifier power is on."},
+        "power": {"type": "boolean", "label": "Power", "control": True, "help": "True when the amplifier power is on."},
         "last_preset": {
             "type": "integer", "label": "Last Recalled Preset", "min": 0, "max": 32,
             "help": "Number of the most recently recalled preset (scene/event), 1-32.",
@@ -266,25 +267,25 @@ def _build_state_vars() -> dict[str, dict[str, Any]]:
     for i in range(1, NUM_INPUTS + 1):
         out[f"input_{i}_name"] = {"type": "string", "label": f"Input {i} Name", "help": "Channel name read from the device."}
         out[f"input_{i}_fader_db"] = _db_var(f"Input {i} Gain (dB)", "Input fader gain. -80 dB = -inf.")
-        out[f"input_{i}_on"] = {"type": "boolean", "label": f"Input {i} On"}
+        out[f"input_{i}_on"] = {"type": "boolean", "label": f"Input {i} On", "control": True}
         out[f"input_{i}_phantom"] = {"type": "boolean", "label": f"Input {i} Phantom (+48V)"}
         out[f"input_{i}_loudness"] = {"type": "boolean", "label": f"Input {i} Loudness"}
         out[f"input_{i}_eq_on"] = {"type": "boolean", "label": f"Input {i} EQ On"}
-        out[f"input_{i}_bass_db"] = {"type": "number", "label": f"Input {i} Bass (dB)", "min": -12.0, "max": 12.0, "step": 1.0}
-        out[f"input_{i}_treble_db"] = {"type": "number", "label": f"Input {i} Treble (dB)", "min": -12.0, "max": 12.0, "step": 1.0}
-        out[f"input_{i}_hpf_hz"] = {"type": "number", "label": f"Input {i} HPF (Hz)", "min": 0.0, "max": 20000.0, "help": "High-pass filter corner; 0 = off."}
-        out[f"input_{i}_lpf_hz"] = {"type": "number", "label": f"Input {i} LPF (Hz)", "min": 0.0, "max": 20000.0, "help": "Low-pass filter corner; 0 = off."}
-        out[f"input_{i}_sensitivity_db"] = {"type": "number", "label": f"Input {i} Sensitivity (dB)", "min": -60.0, "max": -10.0}
+        out[f"input_{i}_bass_db"] = {"type": "number", "label": f"Input {i} Bass (dB)", "min": -12.0, "max": 12.0, "step": 1.0, "unit": "dB", "control": True}
+        out[f"input_{i}_treble_db"] = {"type": "number", "label": f"Input {i} Treble (dB)", "min": -12.0, "max": 12.0, "step": 1.0, "unit": "dB", "control": True}
+        out[f"input_{i}_hpf_hz"] = {"type": "number", "label": f"Input {i} HPF (Hz)", "min": 0.0, "max": 20000.0, "unit": "Hz", "help": "High-pass filter corner; 0 = off."}
+        out[f"input_{i}_lpf_hz"] = {"type": "number", "label": f"Input {i} LPF (Hz)", "min": 0.0, "max": 20000.0, "unit": "Hz", "help": "Low-pass filter corner; 0 = off."}
+        out[f"input_{i}_sensitivity_db"] = {"type": "number", "label": f"Input {i} Sensitivity (dB)", "min": -60.0, "max": -10.0, "unit": "dB"}
     for o in range(1, NUM_OUTPUTS + 1):
         out[f"output_{o}_name"] = {"type": "string", "label": f"Output {o} Name", "help": "Channel name read from the device."}
         out[f"output_{o}_fader_db"] = _db_var(f"Output {o} Gain (dB)", "Output fader gain. -80 dB = -inf.")
-        out[f"output_{o}_on"] = {"type": "boolean", "label": f"Output {o} On"}
+        out[f"output_{o}_on"] = {"type": "boolean", "label": f"Output {o} On", "control": True}
         out[f"output_{o}_loudness"] = {"type": "boolean", "label": f"Output {o} Loudness"}
         out[f"output_{o}_eq_on"] = {"type": "boolean", "label": f"Output {o} EQ On"}
-        out[f"output_{o}_bass_db"] = {"type": "number", "label": f"Output {o} Bass (dB)", "min": -12.0, "max": 12.0, "step": 1.0}
-        out[f"output_{o}_treble_db"] = {"type": "number", "label": f"Output {o} Treble (dB)", "min": -12.0, "max": 12.0, "step": 1.0}
-        out[f"output_{o}_hpf_hz"] = {"type": "number", "label": f"Output {o} HPF (Hz)", "min": 0.0, "max": 20000.0, "help": "High-pass filter corner; 0 = off."}
-        out[f"output_{o}_lpf_hz"] = {"type": "number", "label": f"Output {o} LPF (Hz)", "min": 0.0, "max": 20000.0, "help": "Low-pass filter corner; 0 = off."}
+        out[f"output_{o}_bass_db"] = {"type": "number", "label": f"Output {o} Bass (dB)", "min": -12.0, "max": 12.0, "step": 1.0, "unit": "dB", "control": True}
+        out[f"output_{o}_treble_db"] = {"type": "number", "label": f"Output {o} Treble (dB)", "min": -12.0, "max": 12.0, "step": 1.0, "unit": "dB", "control": True}
+        out[f"output_{o}_hpf_hz"] = {"type": "number", "label": f"Output {o} HPF (Hz)", "min": 0.0, "max": 20000.0, "unit": "Hz", "help": "High-pass filter corner; 0 = off."}
+        out[f"output_{o}_lpf_hz"] = {"type": "number", "label": f"Output {o} LPF (Hz)", "min": 0.0, "max": 20000.0, "unit": "Hz", "help": "Low-pass filter corner; 0 = off."}
         out[f"output_{o}_speaker_preset"] = {"type": "string", "label": f"Output {o} Speaker Preset"}
         out[f"paging_output_{o}_fader_db"] = _db_var(f"Paging Output {o} Gain (dB)", "Paging output fader gain. -80 dB = -inf.")
     for i in range(1, NUM_INPUTS + 1):
@@ -294,7 +295,7 @@ def _build_state_vars() -> dict[str, dict[str, Any]]:
                 step=1.0,
             )
     for i in range(1, NUM_INPUTS + 1):
-        out[f"anc_{i}_reference_db"] = {"type": "number", "label": f"ANC {i} Reference (dB)", "min": -50.0, "max": 41.0, "step": 1.0, "help": "ANC reference level read from the device."}
+        out[f"anc_{i}_reference_db"] = {"type": "number", "label": f"ANC {i} Reference (dB)", "min": -50.0, "max": 41.0, "step": 1.0, "unit": "dB", "help": "ANC reference level read from the device."}
     return out
 
 
@@ -488,7 +489,7 @@ class TOA9000M2Driver(BaseDriver):
         "name": "TOA 9000M2 Matrix Mixer",
         "manufacturer": "TOA",
         "category": "audio",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "OpenAVC",
         "description": (
             "Controls the TOA M-9000M2 Digital Matrix Mixer and protocol-"

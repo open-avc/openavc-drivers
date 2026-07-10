@@ -506,9 +506,15 @@ state_variables:
     type: integer
     label: "Volume"
     help: "Audio volume level (0-100)"
+    min: 0                   # numeric range the device reports
+    max: 100
+    step: 1                  # value resolution
+    unit: "%"                # unit as text (dB, Hz, %)
+    control: true            # a control would bind to this (see below)
   mute:
     type: boolean
     label: "Audio Mute"
+    control: true
   lamp_hours:
     type: integer
     label: "Lamp Hours"
@@ -520,6 +526,8 @@ state_variables:
 - `type` must be one of: `string`, `integer`, `number`, `boolean`, `enum`, `float`.
 - `enum` type requires a `values` list.
 - Values must be flat primitives (str, int, float, bool, None). No nested objects.
+- Numeric variables may declare `min`/`max`/`step`/`unit`: the device's real range, resolution, and unit. The UI Builder offers to match a bound slider/fader/gauge/meter to them, and the simulator UI renders a matching slider. Declare them wherever the protocol documents a range (a fader's dB span, a controller's raw range). `unit` must be a string; without it the UI falls back to parsing a trailing "(dB)" from the label.
+- `control: true` (any type, must be a boolean) marks a variable an integrator would bind a panel control to — a fader level, a mute, a source selection — as opposed to a read-out (`lamp_hours`) or metadata (`firmware_version`). The UI Builder's value picker lists flagged variables first. Ordering only: unflagged variables always stay pickable, so flag the obvious control surface, not everything.
 
 ### 2.5.1 child_entity_types
 
@@ -547,7 +555,7 @@ child_entity_types:
 **Rules:**
 - The child type name (the YAML key, e.g. `encoder`) becomes a state-key segment (`device.<id>.<child_type>...`) and feeds the platform's per-child subscription matching, so it must not contain dots or glob metacharacters (`. * ? [`). Stick to plain identifiers (letters, digits, `_`, `-`). The loader rejects a driver that violates this.
 - `id_format.type` is `integer` (default) or `string`. For `integer`: `min` defaults to 1, `max` is optional (unbounded if omitted), `pad_width` zero-pads the ID in state keys (0 = no padding). For `string`: children are keyed by a device-native name (a Q-SYS Code Name, an MQTT topic leaf) restricted to `[A-Za-z0-9_-]` and at most `max_length` chars (default 128) — sanitize the native name to that charset and keep the original in the child's `label`.
-- `state_variables` uses the same schema as device `state_variables` (types: `string`, `integer`, `number`, `float`, `boolean`, `enum`). The platform always injects a boolean `online` and a string `label` per child — do not declare those.
+- `state_variables` uses the same schema as device `state_variables` (types: `string`, `integer`, `number`, `float`, `boolean`, `enum`), including the optional numeric `min`/`max`/`step`/`unit` metadata and the `control: true` flag — on children, `control` also scopes the `options_from: child_schema` command cascade (when any field is flagged, only flagged fields are offered as command targets). The platform always injects a boolean `online` and a string `label` per child — do not declare those.
 - `dynamic: true` marks a type whose children have **heterogeneous, runtime-discovered control sets** (e.g. a DSP's user-built components, where each block exposes different controls). Leave its `state_variables` empty (or only shared fields); the Python driver publishes each child's own schema at `register_child(schema=...)` and that child validates/renders against it. Python-only.
 - `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.
 - `summary_fields` lists which fields appear as columns in the list view; `label_field` names the field carrying the controller's own name for the unit (the user-set label is separate and lives in the project file).

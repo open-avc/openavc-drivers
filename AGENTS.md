@@ -121,6 +121,14 @@ discovery:
   #   ssdp:
   #     - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"
   #       model: "ATDM-0604a"
+  # Description filters need platform >= 0.23.0. Don't handle that
+  # yourself: build_index.py stamps `requires: "0.23.0"` onto the
+  # catalog entry automatically, and older platforms then skip just
+  # this driver's hints instead of mis-reading the filters (pre-0.23
+  # parsers ignore the filter keys, which would otherwise collide the
+  # whole family onto one URN and knock the entire catalog out of
+  # their scans). Never hand-write `requires:` in a driver file unless
+  # you are gating on a platform newer than the auto-computed one.
 
   amx_ddp:
     make: "Polycom"
@@ -209,14 +217,25 @@ mirrored at catalog-build time by `build_index.py`):**
    driver carries `cross_vendor: true`.
 6. **`manufacturer_alias`** is case-insensitive and de-duplicated at
    parse time. Multiple drivers may declare the same alias.
-7. **Fingerprint collisions raise.** Two drivers cannot claim the same
-   fingerprint (same kind, same source ID, same TXT filter) without
-   explicit cross-vendor framing. The signal index raises
-   `ValueError` at build time.
+7. **Fingerprint collisions fail the build.** Two drivers cannot claim
+   the same fingerprint (same kind, same source ID, same TXT filter)
+   without explicit cross-vendor framing — `build_index.py` rejects the
+   catalog. (At runtime the platform is deliberately softer: a colliding
+   rule is dropped and logged, first claim wins, and the rest of the
+   signal index stays live — one bad entry must not cost a scan every
+   catalog fingerprint. CI strictness is what keeps that path cold.)
 8. **Template drivers exempt.** Drivers whose ID starts with
    `generic_` skip discovery validation entirely — they are project
    starting points, not discoverable devices.
-9. **A shared `hostname` needs a declarative fingerprint.** `hostname`
+9. **`requires` gates the whole block by platform version.** Stamped
+   automatically at catalog emission when the block uses a discovery
+   feature an older parser would silently mis-read (see the `ssdp`
+   filter note above). A platform older than the named version — or too
+   old to know `requires` at all — skips that driver's hints cleanly
+   and keeps the rest of the catalog. Hand-author it only to gate on a
+   platform newer than the auto-computed one; the value must parse as a
+   version string.
+10. **A shared `hostname` needs a declarative fingerprint.** `hostname`
    is a soft locator that narrows candidates but never identifies on
    its own. When two or more drivers declare the same `hostname`
    pattern (e.g. two product lines that default to the same name),

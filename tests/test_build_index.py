@@ -384,6 +384,93 @@ def test_discovery_port_open_valid_pass(tmp_path: Path) -> None:
     assert rc == 0, err
 
 
+# --- The `requires` catalog-compat gate --------------------------------------
+#
+# Pre-0.23.0 platform parsers silently ignore SSDP description filters,
+# collapsing distinct filtered claims into colliding unfiltered ones —
+# which used to knock the ENTIRE catalog out of their scans. The build
+# stamps `requires: "0.23.0"` onto any entry using the filters, a
+# top-level discovery key old parsers reject, so they skip just that
+# driver's hints.
+
+
+def _index_discovery(tmp_path: Path, driver_id: str = "test_driver") -> dict:
+    index = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
+    (entry,) = [d for d in index["drivers"] if d["id"] == driver_id]
+    return entry.get("discovery") or {}
+
+
+def test_ssdp_filters_stamp_requires_on_catalog_entry(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"ssdp": [
+            {"device_type": "urn:acme:device:MixerFamily:1", "model": "Mixer-6"},
+        ]}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    disc = _index_discovery(tmp_path)
+    assert disc["requires"] == "0.23.0"
+    # The ssdp entries themselves pass through unchanged.
+    assert disc["ssdp"] == [
+        {"device_type": "urn:acme:device:MixerFamily:1", "model": "Mixer-6"},
+    ]
+
+
+def test_plain_ssdp_emits_no_requires(tmp_path: Path) -> None:
+    # Unfiltered entries stay readable by every platform — no gate.
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"ssdp": "urn:acme:device:Widget:1"}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert "requires" not in _index_discovery(tmp_path)
+
+
+def test_hand_authored_newer_requires_kept(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {
+            "requires": "0.30.0",
+            "ssdp": [{"device_type": "urn:acme:device:MixerFamily:1",
+                      "model": "Mixer-6"}],
+        }},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert _index_discovery(tmp_path)["requires"] == "0.30.0"
+
+
+def test_hand_authored_older_requires_raised_to_gate(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {
+            "requires": "0.1.0",
+            "ssdp": [{"device_type": "urn:acme:device:MixerFamily:1",
+                      "model": "Mixer-6"}],
+        }},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+    assert _index_discovery(tmp_path)["requires"] == "0.23.0"
+
+
+def test_unparseable_requires_rejected(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"requires": "latest"}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "discovery.requires" in err
+
+
 # --- Cross-driver validation -----------------------------------------------
 
 

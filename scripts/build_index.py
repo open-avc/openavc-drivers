@@ -380,6 +380,7 @@ _DISALLOWED_OPEN_PORTS = frozenset({22, 80, 443, 8000, 8080, 8443, 8888})
 _MAX_PROBE_TIMEOUT_MS = 10000
 
 _KNOWN_DISCOVERY_KEYS: frozenset[str] = frozenset({
+    "requires",
     "mdns", "ssdp", "amx_ddp",
     "tcp_probe", "udp_probe", "python",
     "oui", "hostname", "port_open", "manufacturer_alias", "snmp_pen",
@@ -1356,6 +1357,18 @@ def _validate_discovery_block(
             f"Known keys: {sorted(_KNOWN_DISCOVERY_KEYS)}"
         )
 
+    # ``requires`` is normally stamped by this script at emission time
+    # (see _DISCOVERY_FEATURE_GATES); a hand-authored value is accepted
+    # but must be a parseable version string, or every platform would
+    # skip the block conservatively.
+    if "requires" in discovery:
+        req = discovery["requires"]
+        if not isinstance(req, str) or _version_tuple(req) is None:
+            errors.append(
+                f"{file}: discovery.requires must be a version string "
+                f"like \"0.23.0\", got {req!r}"
+            )
+
     # --- Fingerprints -----------------------------------------------------
 
     normalized_mdns: list[dict[str, Any]] = []
@@ -1646,8 +1659,70 @@ INDEX_FIELDS = frozenset({
 })
 
 
+def _version_tuple(version: str) -> tuple[int, ...] | None:
+    """Parse ``"0.23.0"`` into a comparable tuple (suffixes after ``-``/``+``
+    ignored). ``None`` when the string doesn't lead with dotted integers."""
+    core = re.split(r"[-+ ]", version.strip(), maxsplit=1)[0]
+    try:
+        return tuple(int(p) for p in core.split("."))
+    except ValueError:
+        return None
+
+
+# Platform version whose parser first UNDERSTANDS each discovery feature
+# below. This matters only for features an older parser silently mis-reads
+# rather than rejects — e.g. SSDP description filters: pre-0.23.0 parsers
+# ignore the filter fields, collapsing distinct filtered claims into
+# colliding unfiltered ones that (pre-0.23.0) abort the whole catalog fold
+# to installed-only. The emitted catalog entry gains ``requires: <version>``
+# — a top-level discovery key those parsers reject — so they skip just this
+# driver's hints and the rest of the catalog stays live. Platforms >= 0.23.0
+# honor ``requires`` directly and skip blocks gated on a newer version than
+# they are. Add a (predicate, version) pair here whenever a new discovery
+# feature extends the meaning of an existing key.
+def _ssdp_has_description_filters(discovery: dict[str, Any]) -> bool:
+    for entry in _as_list(discovery.get("ssdp")):
+        if isinstance(entry, dict) and any(
+            entry.get(k) is not None for k in _SSDP_FILTER_KEYS
+        ):
+            return True
+    return False
+
+
+_DISCOVERY_FEATURE_GATES: tuple[tuple[Any, str], ...] = (
+    (_ssdp_has_description_filters, "0.23.0"),
+)
+
+
+def _with_discovery_requires(discovery: dict[str, Any]) -> dict[str, Any]:
+    """Return the catalog-emission form of a discovery block.
+
+    Stamps/raises ``requires`` to the newest platform version any used
+    feature gate demands (keeping a hand-authored ``requires`` when it is
+    already newer). Blocks that use no gated features emit unchanged so
+    every platform keeps reading them.
+    """
+    needed: str | None = discovery.get("requires")
+    for predicate, version in _DISCOVERY_FEATURE_GATES:
+        if not predicate(discovery):
+            continue
+        if needed is None or (
+            (_version_tuple(version) or ())
+            > (_version_tuple(needed) or ())
+        ):
+            needed = version
+    if needed is None or needed == discovery.get("requires"):
+        return discovery
+    return {"requires": needed, **{
+        k: v for k, v in discovery.items() if k != "requires"
+    }}
+
+
 def build_entry(filepath: Path, raw: dict[str, Any], repo_root: Path) -> DriverEntry:
     subset = {k: v for k, v in raw.items() if k in INDEX_FIELDS}
+    discovery = subset.get("discovery")
+    if isinstance(discovery, dict):
+        subset["discovery"] = _with_discovery_requires(discovery)
     subset["file"] = filepath.relative_to(repo_root).as_posix()
     subset["format"] = "avcdriver" if filepath.suffix == ".avcdriver" else "python"
     return DriverEntry(**subset)

@@ -1607,6 +1607,11 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "requires": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)*([-+].*)?$",
+          "description": "Minimum platform version whose discovery parser understands this block. Normally stamped by scripts/build_index.py at catalog emission (e.g. SSDP description filters need 0.23.0); platforms older than this skip the block cleanly. Rarely hand-authored."
+        },
         "mdns": {
           "$ref": "#/$defs/mdnsField"
         },

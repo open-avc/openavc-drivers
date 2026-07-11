@@ -616,6 +616,7 @@
         }
       ],
       "discovery": {
+        "requires": "0.23.0",
         "ssdp": [
           {
             "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
@@ -673,6 +674,7 @@
         }
       ],
       "discovery": {
+        "requires": "0.23.0",
         "ssdp": [
           {
             "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
@@ -732,6 +734,7 @@
         }
       ],
       "discovery": {
+        "requires": "0.23.0",
         "ssdp": [
           {
             "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",

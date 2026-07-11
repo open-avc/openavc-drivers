@@ -742,20 +742,29 @@ def _validate_mdns_entry(file: str, raw: Any) -> tuple[list[str], dict[str, Any]
     )
 
 
-def _validate_ssdp_entry(file: str, raw: Any) -> tuple[list[str], str | None]:
-    """Validate one SSDP fingerprint entry. Returns (errors, normalized device_type)."""
+_SSDP_FILTER_KEYS = ("model", "manufacturer", "friendly_name")
+
+
+def _validate_ssdp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, Any] | None]:
+    """Validate one SSDP fingerprint entry.
+
+    Returns (errors, normalized {device_type, fields}) where ``fields`` is
+    the optional device-description filter (model / manufacturer /
+    friendly_name) that lets several drivers share one device-type URN —
+    mirrors ``_parse_ssdp_entry`` in the platform's hints.py.
+    """
     if isinstance(raw, str):
         if not raw:
             return ([f"{file}: discovery.ssdp device_type must be a non-empty string"], None)
-        return ([], raw)
+        return ([], {"device_type": raw, "fields": {}})
     if not isinstance(raw, dict):
         return (
             [f"{file}: discovery.ssdp entries must be strings or "
-             "{device_type, cross_vendor} mappings"],
+             "{device_type, model, manufacturer, friendly_name, cross_vendor} mappings"],
             None,
         )
     errors: list[str] = []
-    unknown = set(raw.keys()) - {"device_type", "cross_vendor"}
+    unknown = set(raw.keys()) - {"device_type", "cross_vendor", *_SSDP_FILTER_KEYS}
     if unknown:
         errors.append(
             f"{file}: discovery.ssdp entry has unknown keys: {sorted(unknown)}"
@@ -764,9 +773,17 @@ def _validate_ssdp_entry(file: str, raw: Any) -> tuple[list[str], str | None]:
     if not isinstance(dt, str) or not dt:
         errors.append(f"{file}: discovery.ssdp.device_type must be a non-empty string")
         return (errors, None)
+    fields: dict[str, str] = {}
+    for key in _SSDP_FILTER_KEYS:
+        if raw.get(key) is None:
+            continue
+        if not isinstance(raw[key], str) or not raw[key]:
+            errors.append(f"{file}: discovery.ssdp.{key} must be a non-empty string")
+            continue
+        fields[key] = raw[key]
     if "cross_vendor" in raw and not isinstance(raw["cross_vendor"], bool):
         errors.append(f"{file}: discovery.ssdp.cross_vendor must be a bool")
-    return (errors, dt)
+    return (errors, {"device_type": dt, "fields": fields})
 
 
 def _validate_amx_ddp_entry(file: str, raw: Any) -> tuple[list[str], dict[str, str] | None]:
@@ -1350,7 +1367,7 @@ def _validate_discovery_block(
                 normalized_mdns.append(entry_norm)
     normalized["mdns"] = normalized_mdns
 
-    normalized_ssdp: list[str] = []
+    normalized_ssdp: list[dict[str, Any]] = []
     if "ssdp" in discovery:
         for entry in _as_list(discovery["ssdp"]):
             entry_errors, dt = _validate_ssdp_entry(file, entry)
@@ -1526,8 +1543,8 @@ def _validate_no_signal_collisions(
         for entry in normalized.get("mdns", []):
             service_norm = entry["service"].lower().rstrip(".") + "."
             claim("mdns", service_norm, driver_id, file, entry.get("txt"))
-        for dt in normalized.get("ssdp", []):
-            claim("ssdp", dt, driver_id, file, None)
+        for entry in normalized.get("ssdp", []):
+            claim("ssdp", entry["device_type"], driver_id, file, entry.get("fields"))
         for amx in normalized.get("amx_ddp", []):
             claim("amx_ddp", f"{amx['make']}/{amx['model_pattern']}",
                   driver_id, file, None)

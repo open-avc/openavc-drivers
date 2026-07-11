@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 117,
+    "total_devices": 118,
     "shards": null,
     "category": "audio"
   },
@@ -325,6 +325,17 @@
         {
           "id": "at_atdm_0604",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATDM-0604a",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atdm_0604a",
+          "confidence": "full"
         }
       ]
     },

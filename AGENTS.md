@@ -114,7 +114,13 @@ discovery:
   #       txt: { manufacturer: "Shure" }   # TXT-record filter
 
   ssdp: "urn:schemas-upnp-org:device:MediaRenderer:1"
-  # OR list
+  # OR list; entries can filter on the UPnP device description when a
+  # vendor's whole product family shares one URN — the optional keys
+  # (model / manufacturer / friendly_name) match the fields the scanner
+  # extracts from the devdesc XML, exactly and case-insensitively:
+  #   ssdp:
+  #     - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"
+  #       model: "ATDM-0604a"
 
   amx_ddp:
     make: "Polycom"

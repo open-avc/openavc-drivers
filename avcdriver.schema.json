@@ -56,28 +56,46 @@
     },
     "transport": {
       "type": "string",
-      "enum": ["tcp", "serial", "udp", "http", "osc", "bridge"],
+      "enum": [
+        "tcp",
+        "serial",
+        "udp",
+        "http",
+        "osc",
+        "bridge"
+      ],
       "description": "Transport the driver uses to reach the device. Use \"bridge\" for a device that has no address of its own and emits through a live bridge instance (an IR device on an emitter port); it opens no socket and routes commands via the bridge."
     },
     "transports": {
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["tcp", "serial", "udp", "http", "osc"]
+        "enum": [
+          "tcp",
+          "serial",
+          "udp",
+          "http",
+          "osc"
+        ]
       },
       "description": "Optional. Transports this driver can use interchangeably (e.g. [\"tcp\", \"serial\"] for a text protocol whose command/response strings are byte-identical over the network or a serial line). The per-device connection picks the actual transport; listing \"serial\" makes the device offerable over a direct serial port or through a bridge. Opt-in: only declare it when the strings really are identical across the listed media."
     },
     "bridge": {
       "type": "object",
       "description": "Optional. Declares this driver as a bridge: a device that exposes typed ports other devices connect through (e.g. a serial-to-Ethernet or IR bridge). The port declaration is valid in YAML, but the runtime behind a port needs a Python driver: pushing serial line settings to the hardware (prepare_bridge_port), and emitting/learning IR (bridge_emit / bridge_learn_*) for ir ports.",
-      "required": ["ports"],
+      "required": [
+        "ports"
+      ],
       "properties": {
         "ports": {
           "type": "array",
           "description": "The typed ports this bridge advertises.",
           "items": {
             "type": "object",
-            "required": ["id", "kind"],
+            "required": [
+              "id",
+              "kind"
+            ],
             "properties": {
               "id": {
                 "type": "string",
@@ -85,7 +103,11 @@
               },
               "kind": {
                 "type": "string",
-                "enum": ["serial", "ir", "relay"],
+                "enum": [
+                  "serial",
+                  "ir",
+                  "relay"
+                ],
                 "description": "Port kind. A serial port vends a transparent TCP pass-through; ir/relay ports route commands through the bridge at send time."
               },
               "passthrough_port": {
@@ -158,7 +180,10 @@
       "description": "True once the driver has been validated against real hardware."
     },
     "min_platform_version": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^\\d+\\.\\d+\\.\\d+(?:[\\-+][\\w.\\-]+)?$",
       "description": "Minimum OpenAVC version required. Blocks install on older platforms missing a needed feature. Semantic version."
     },
@@ -197,7 +222,7 @@
       "additionalProperties": {
         "type": "string"
       },
-      "description": "Computed config values, each a template substituted from other config fields, e.g. {\"ws\": \"/workspace/{workspace_id}\"}. If any {field} the template references is empty or missing, the derived value is \"\" — so an optional prefixed address segment simply disappears. Computed once when the device connects and visible to every command address, on_connect entry, response, and poll query (just like a real config field). Lets one friendly field (e.g. a workspace id) drive both a bare and a prefixed address form without conditional logic in every command."
+      "description": "Computed config values, each a template substituted from other config fields, e.g. {\"ws\": \"/workspace/{workspace_id}\"}. If any {field} the template references is empty or missing, the derived value is \"\" \u2014 so an optional prefixed address segment simply disappears. Computed once when the device connects and visible to every command address, on_connect entry, response, and poll query (just like a real config field). Lets one friendly field (e.g. a workspace id) drive both a bare and a prefixed address form without conditional logic in every command."
     },
     "config_schema": {
       "type": "object",
@@ -272,7 +297,9 @@
           },
           {
             "type": "object",
-            "required": ["address"],
+            "required": [
+              "address"
+            ],
             "properties": {
               "address": {
                 "type": "string"
@@ -308,7 +335,9 @@
         }
       },
       "not": {
-        "required": ["interval"]
+        "required": [
+          "interval"
+        ]
       },
       "description": "Periodic status query configuration. NOTE: a polling.interval key is inert and rejected by the catalog validator; set the cadence via default_config.poll_interval instead."
     },
@@ -339,15 +368,21 @@
             "const": true
           }
         },
-        "required": ["deprecated"]
+        "required": [
+          "deprecated"
+        ]
       },
       "then": {
-        "required": ["replacement_id"]
+        "required": [
+          "replacement_id"
+        ]
       }
     },
     {
       "if": {
-        "required": ["replacement_id"]
+        "required": [
+          "replacement_id"
+        ]
       },
       "then": {
         "properties": {
@@ -355,7 +390,9 @@
             "const": true
           }
         },
-        "required": ["deprecated"]
+        "required": [
+          "deprecated"
+        ]
       }
     }
   ],
@@ -364,14 +401,24 @@
       "description": "One enum option: a bare wire value, or a {value, label} pair where the label is shown in pickers (and read in macros) while the value goes on the wire. A plain scalar means value == label.",
       "oneOf": [
         {
-          "type": ["string", "number", "boolean"]
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
         },
         {
           "type": "object",
-          "required": ["value"],
+          "required": [
+            "value"
+          ],
           "properties": {
             "value": {
-              "type": ["string", "number", "boolean"],
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ],
               "description": "The value sent on the wire."
             },
             "label": {
@@ -385,7 +432,10 @@
     },
     "helpBlock": {
       "type": "object",
-      "required": ["overview", "setup"],
+      "required": [
+        "overview",
+        "setup"
+      ],
       "additionalProperties": false,
       "properties": {
         "overview": {
@@ -406,7 +456,11 @@
     },
     "compatibleModelsEntry": {
       "type": "object",
-      "required": ["manufacturer", "models", "confidence"],
+      "required": [
+        "manufacturer",
+        "models",
+        "confidence"
+      ],
       "additionalProperties": false,
       "properties": {
         "manufacturer": {
@@ -422,20 +476,36 @@
         },
         "confidence": {
           "type": "string",
-          "enum": ["full", "partial", "untested"]
+          "enum": [
+            "full",
+            "partial",
+            "untested"
+          ]
         },
         "notes": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
     "stateVariableEntry": {
       "type": "object",
-      "required": ["label"],
+      "required": [
+        "label"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["string", "integer", "number", "boolean", "enum", "float"]
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "enum",
+            "float"
+          ]
         },
         "label": {
           "type": "string",
@@ -465,12 +535,15 @@
         },
         "control": {
           "type": "boolean",
-          "description": "Marks a variable an integrator would bind a panel control to (a fader level, a mute). The UI Builder's value picker lists flagged variables first. Ordering only — unflagged variables stay pickable."
+          "description": "Marks a variable an integrator would bind a panel control to (a fader level, a mute). The UI Builder's value picker lists flagged variables first. Ordering only \u2014 unflagged variables stay pickable."
         },
         "default": true,
         "cloud_priority": {
           "type": "string",
-          "enum": ["high", "low"]
+          "enum": [
+            "high",
+            "low"
+          ]
         }
       },
       "additionalProperties": true
@@ -480,7 +553,14 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["string", "integer", "number", "boolean", "enum", "float"]
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "enum",
+            "float"
+          ]
         },
         "label": {
           "type": "string"
@@ -512,7 +592,10 @@
         "default": true,
         "cloud_priority": {
           "type": "string",
-          "enum": ["high", "low"]
+          "enum": [
+            "high",
+            "low"
+          ]
         }
       },
       "additionalProperties": true,
@@ -532,7 +615,9 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": ["integer"],
+              "enum": [
+                "integer"
+              ],
               "description": "Only integer local IDs are supported in v1."
             },
             "min": {
@@ -571,11 +656,23 @@
     },
     "childInstances": {
       "type": "object",
-      "description": "Declarative roster — makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), or ids_from (a comma-separated config field; sparse IDs). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
+      "description": "Declarative roster \u2014 makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), or ids_from (a comma-separated config field; sparse IDs). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
       "oneOf": [
-        { "required": ["count"] },
-        { "required": ["count_from"] },
-        { "required": ["ids_from"] }
+        {
+          "required": [
+            "count"
+          ]
+        },
+        {
+          "required": [
+            "count_from"
+          ]
+        },
+        {
+          "required": [
+            "ids_from"
+          ]
+        }
       ],
       "properties": {
         "count": {
@@ -585,11 +682,11 @@
         },
         "count_from": {
           "type": "string",
-          "description": "Name of an integer config field (config_schema / default_config) holding the count — lets one driver cover different frame sizes."
+          "description": "Name of an integer config field (config_schema / default_config) holding the count \u2014 lets one driver cover different frame sizes."
         },
         "ids_from": {
           "type": "string",
-          "description": "Name of a comma-separated config field listing the IDs (e.g. \"1,2,4\") — for sparse or installer-chosen rosters."
+          "description": "Name of a comma-separated config field listing the IDs (e.g. \"1,2,4\") \u2014 for sparse or installer-chosen rosters."
         },
         "label": {
           "type": "string",
@@ -600,7 +697,11 @@
     },
     "childSetEntry": {
       "type": "object",
-      "required": ["type", "id", "state"],
+      "required": [
+        "type",
+        "id",
+        "state"
+      ],
       "description": "Routes a regex response's captures into one child's state. id is a capture ref ($1) or a literal; each state value is a capture ref or a literal, coerced by the child property's declared type.",
       "properties": {
         "type": {
@@ -608,7 +709,10 @@
           "description": "A declared child_entity_types name."
         },
         "id": {
-          "type": ["string", "integer"],
+          "type": [
+            "string",
+            "integer"
+          ],
           "description": "Capture ref ($1, $2, ...) or a literal child ID."
         },
         "state": {
@@ -621,7 +725,10 @@
     },
     "eachChildQuery": {
       "type": "object",
-      "required": ["each_child", "send"],
+      "required": [
+        "each_child",
+        "send"
+      ],
       "description": "Per-child query template: expands to one query per registered child of the named type, substituting {child_id} with the unpadded local ID.",
       "properties": {
         "each_child": {
@@ -641,7 +748,14 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["string", "integer", "number", "boolean", "enum", "child_id"]
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "enum",
+            "child_id"
+          ]
         },
         "required": {
           "type": "boolean"
@@ -681,11 +795,16 @@
             },
             "source": {
               "type": "string",
-              "enum": ["child_schema"],
+              "enum": [
+                "child_schema"
+              ],
               "description": "child_schema: offer the controls of the child picked in the sibling child_id param."
             }
           },
-          "required": ["param", "source"],
+          "required": [
+            "param",
+            "source"
+          ],
           "additionalProperties": false
         },
         "type_from": {
@@ -697,7 +816,9 @@
               "description": "The sibling options_from(child_schema) param whose chosen control supplies this param's type/min/max."
             }
           },
-          "required": ["param"],
+          "required": [
+            "param"
+          ],
           "additionalProperties": false
         },
         "min": {
@@ -716,11 +837,11 @@
         "pattern": {
           "type": "string",
           "format": "regex",
-          "description": "Regex a free-text value must fully match — a shape check for values that can't be enumerated (IP, hostname, fixed-length ID). The runtime validates it at command time; the IDE shows an inline error while authoring. Must compile and avoid catastrophic backtracking."
+          "description": "Regex a free-text value must fully match \u2014 a shape check for values that can't be enumerated (IP, hostname, fixed-length ID). The runtime validates it at command time; the IDE shows an inline error while authoring. Must compile and avoid catastrophic backtracking."
         },
         "trim": {
           "type": "boolean",
-          "description": "For string params. Default true: leading/trailing whitespace is trimmed before the value goes on the wire. Set false to pass the value through verbatim — for raw payloads where edge whitespace is meaningful (typed text, verbatim titles, relay bodies whose trailing terminator is part of the protocol). Requires platform 0.22.0."
+          "description": "For string params. Default true: leading/trailing whitespace is trimmed before the value goes on the wire. Set false to pass the value through verbatim \u2014 for raw payloads where edge whitespace is meaningful (typed text, verbatim titles, relay bodies whose trailing terminator is part of the protocol). Requires platform 0.22.0."
         },
         "default": true
       },
@@ -731,7 +852,16 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["f", "i", "s", "h", "d", "T", "F", "N"],
+          "enum": [
+            "f",
+            "i",
+            "s",
+            "h",
+            "d",
+            "T",
+            "F",
+            "N"
+          ],
           "description": "OSC type tag: f=float32, i=int32, s=string, h=int64, d=float64, T=true, F=false, N=nil."
         },
         "value": true
@@ -742,19 +872,29 @@
       "type": "object",
       "anyOf": [
         {
-          "required": ["send"]
+          "required": [
+            "send"
+          ]
         },
         {
-          "required": ["string"]
+          "required": [
+            "string"
+          ]
         },
         {
-          "required": ["path"]
+          "required": [
+            "path"
+          ]
         },
         {
-          "required": ["method"]
+          "required": [
+            "method"
+          ]
         },
         {
-          "required": ["address"]
+          "required": [
+            "address"
+          ]
         }
       ],
       "properties": {
@@ -820,7 +960,9 @@
     },
     "actionEntry": {
       "type": "object",
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -829,7 +971,9 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["command"],
+          "enum": [
+            "command"
+          ],
           "description": "Promotes a declared command (runs online via send_command). Default and only value for .avcdriver drivers. Offline-capable 'setup' provisioning wizards require a Python driver with a run_setup_action() handler."
         },
         "label": {
@@ -841,17 +985,24 @@
           "description": "lucide icon name (kebab-case), e.g. power, shield, search, radar."
         },
         "confirm": {
-          "type": ["boolean", "string"],
+          "type": [
+            "boolean",
+            "string"
+          ],
           "description": "Confirm before running. true for a generic prompt, or a custom message string."
         },
         "availability": {
           "type": "string",
-          "enum": ["online", "offline", "always"],
+          "enum": [
+            "online",
+            "offline",
+            "always"
+          ],
           "description": "When the button shows. online (default) hides while offline; offline shows only while offline; always ignores connection state."
         },
         "command": {
           "type": "string",
-          "description": "kind:\"command\" only — the command id to send. Defaults to the action id."
+          "description": "kind:\"command\" only \u2014 the command id to send. Defaults to the action id."
         },
         "params": {
           "type": "object",
@@ -875,7 +1026,9 @@
         },
         {
           "type": "object",
-          "required": ["any"],
+          "required": [
+            "any"
+          ],
           "properties": {
             "any": {
               "type": "array",
@@ -888,7 +1041,9 @@
         },
         {
           "type": "object",
-          "required": ["all"],
+          "required": [
+            "all"
+          ],
           "properties": {
             "all": {
               "type": "array",
@@ -903,7 +1058,9 @@
     },
     "visibleWhenCondition": {
       "type": "object",
-      "required": ["key"],
+      "required": [
+        "key"
+      ],
       "properties": {
         "key": {
           "type": "string",
@@ -912,7 +1069,24 @@
         },
         "operator": {
           "type": "string",
-          "enum": ["eq", "ne", "gt", "lt", "gte", "lte", "truthy", "falsy", "equals", "not_equals", "==", "!=", ">", "<", ">=", "<="],
+          "enum": [
+            "eq",
+            "ne",
+            "gt",
+            "lt",
+            "gte",
+            "lte",
+            "truthy",
+            "falsy",
+            "equals",
+            "not_equals",
+            "==",
+            "!=",
+            ">",
+            "<",
+            ">=",
+            "<="
+          ],
           "description": "Comparison operator. Default eq."
         },
         "value": {
@@ -934,7 +1108,13 @@
         },
         "type": {
           "type": "string",
-          "enum": ["string", "integer", "float", "number", "boolean"],
+          "enum": [
+            "string",
+            "integer",
+            "float",
+            "number",
+            "boolean"
+          ],
           "description": "Coercion applied to the captured value."
         },
         "map": {
@@ -957,16 +1137,24 @@
       "type": "object",
       "anyOf": [
         {
-          "required": ["match"]
+          "required": [
+            "match"
+          ]
         },
         {
-          "required": ["pattern"]
+          "required": [
+            "pattern"
+          ]
         },
         {
-          "required": ["address"]
+          "required": [
+            "address"
+          ]
         },
         {
-          "required": ["json"]
+          "required": [
+            "json"
+          ]
         }
       ],
       "properties": {
@@ -1015,11 +1203,16 @@
     "authBlock": {
       "type": "object",
       "description": "Telnet-style login handshake. Only valid on tcp/serial transports (it reads a raw byte stream); declaring it on udp/http/osc is rejected at load time. username_prompt and password_prompt are required. All four regexes are checked for catastrophic backtracking since they run on raw pre-auth device bytes.",
-      "required": ["username_prompt", "password_prompt"],
+      "required": [
+        "username_prompt",
+        "password_prompt"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["telnet_login"],
+          "enum": [
+            "telnet_login"
+          ],
           "description": "Handshake type. Only telnet_login is implemented and accepted."
         },
         "username_prompt": {
@@ -1064,7 +1257,9 @@
     "livenessBlock": {
       "type": "object",
       "description": "Dead-link watchdog: send a probe every `interval` seconds and await a reply; after `max_failures` consecutive silent probes the platform drops the connection with a typed no_response fault and reconnects. Only valid on tcp/serial/udp/osc transports (rejected at load time on http, where polling already awaits every response, and on bridge, which owns no transport). Any inbound data during the wait window counts as alive unless `expect` narrows it. Needed for connectionless transports (UDP/OSC, where fire-and-forget polls never notice silence) and push-mostly TCP (no FIN when the device vanishes).",
-      "required": ["send"],
+      "required": [
+        "send"
+      ],
       "properties": {
         "send": {
           "type": "string",
@@ -1106,12 +1301,19 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["length_prefix", "fixed_length"],
+          "enum": [
+            "length_prefix",
+            "fixed_length"
+          ],
           "description": "Frame parser kind interpreted at runtime."
         },
         "header_size": {
           "type": "integer",
-          "enum": [1, 2, 4],
+          "enum": [
+            1,
+            2,
+            4
+          ],
           "description": "length_prefix: bytes holding the body length. Must be 1, 2, or 4. Default 2."
         },
         "header_offset": {
@@ -1134,7 +1336,10 @@
         },
         "length_endian": {
           "type": "string",
-          "enum": ["big", "little"],
+          "enum": [
+            "big",
+            "little"
+          ],
           "description": "length_prefix: byte order of the length field. Default big. Requires platform 0.23.0."
         },
         "length": {
@@ -1146,11 +1351,13 @@
     },
     "sendFrame": {
       "type": "object",
-      "description": "Send-side packet framing — the send twin of frame_parser. Wraps every byte-stream command in a binary header whose data-length is computed per message (e.g. eISCP). Requires platform 0.23.0.",
+      "description": "Send-side packet framing \u2014 the send twin of frame_parser. Wraps every byte-stream command in a binary header whose data-length is computed per message (e.g. eISCP). Requires platform 0.23.0.",
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["length_prefix"],
+          "enum": [
+            "length_prefix"
+          ],
           "description": "Send frame kind. Only length_prefix is supported."
         },
         "header": {
@@ -1164,7 +1371,10 @@
         },
         "length_endian": {
           "type": "string",
-          "enum": ["big", "little"],
+          "enum": [
+            "big",
+            "little"
+          ],
           "description": "Byte order of the length field. Default big."
         },
         "after_length": {
@@ -1179,7 +1389,15 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["string", "text", "integer", "number", "float", "boolean", "enum"]
+          "enum": [
+            "string",
+            "text",
+            "integer",
+            "number",
+            "float",
+            "boolean",
+            "enum"
+          ]
         },
         "label": {
           "type": "string"
@@ -1219,7 +1437,14 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["string", "integer", "number", "float", "boolean", "enum"]
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "float",
+            "boolean",
+            "enum"
+          ]
         },
         "label": {
           "type": "string"
@@ -1323,7 +1548,11 @@
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": ["states", "initial", "transitions"],
+            "required": [
+              "states",
+              "initial",
+              "transitions"
+            ],
             "properties": {
               "states": {
                 "type": "array"
@@ -1419,7 +1648,15 @@
             "minimum": 1,
             "maximum": 65535,
             "not": {
-              "enum": [22, 80, 443, 8000, 8080, 8443, 8888]
+              "enum": [
+                22,
+                80,
+                443,
+                8000,
+                8080,
+                8443,
+                8888
+              ]
             }
           },
           "description": "Open-port hints. Generic admin/web/SSH ports are disallowed."
@@ -1448,7 +1685,9 @@
         },
         {
           "type": "object",
-          "required": ["service"],
+          "required": [
+            "service"
+          ],
           "additionalProperties": false,
           "properties": {
             "service": {
@@ -1486,7 +1725,9 @@
         },
         {
           "type": "object",
-          "required": ["device_type"],
+          "required": [
+            "device_type"
+          ],
           "additionalProperties": false,
           "properties": {
             "device_type": {
@@ -1495,6 +1736,18 @@
             },
             "cross_vendor": {
               "type": "boolean"
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "manufacturer": {
+              "type": "string",
+              "minLength": 1
+            },
+            "friendly_name": {
+              "type": "string",
+              "minLength": 1
             }
           }
         }
@@ -1515,7 +1768,9 @@
     },
     "amxDdpItem": {
       "type": "object",
-      "required": ["make"],
+      "required": [
+        "make"
+      ],
       "additionalProperties": false,
       "properties": {
         "make": {
@@ -1550,7 +1805,9 @@
         },
         {
           "type": "object",
-          "required": ["regex"],
+          "required": [
+            "regex"
+          ],
           "properties": {
             "regex": {
               "type": "string",
@@ -1567,7 +1824,9 @@
     },
     "tcpProbe": {
       "type": "object",
-      "required": ["port"],
+      "required": [
+        "port"
+      ],
       "additionalProperties": false,
       "properties": {
         "port": {
@@ -1616,20 +1875,32 @@
         }
       },
       "not": {
-        "required": ["send_hex", "send_ascii"]
+        "required": [
+          "send_hex",
+          "send_ascii"
+        ]
       },
       "allOf": [
         {
           "not": {
             "anyOf": [
               {
-                "required": ["expect", "expect_regex"]
+                "required": [
+                  "expect",
+                  "expect_regex"
+                ]
               },
               {
-                "required": ["expect", "expect_hex"]
+                "required": [
+                  "expect",
+                  "expect_hex"
+                ]
               },
               {
-                "required": ["expect_regex", "expect_hex"]
+                "required": [
+                  "expect_regex",
+                  "expect_hex"
+                ]
               }
             ]
           }
@@ -1638,23 +1909,33 @@
           "if": {
             "anyOf": [
               {
-                "required": ["send_hex"]
+                "required": [
+                  "send_hex"
+                ]
               },
               {
-                "required": ["send_ascii"]
+                "required": [
+                  "send_ascii"
+                ]
               }
             ]
           },
           "then": {
             "anyOf": [
               {
-                "required": ["expect"]
+                "required": [
+                  "expect"
+                ]
               },
               {
-                "required": ["expect_regex"]
+                "required": [
+                  "expect_regex"
+                ]
               },
               {
-                "required": ["expect_hex"]
+                "required": [
+                  "expect_hex"
+                ]
               }
             ]
           }
@@ -1664,7 +1945,9 @@
     },
     "udpProbe": {
       "type": "object",
-      "required": ["port"],
+      "required": [
+        "port"
+      ],
       "additionalProperties": false,
       "properties": {
         "port": {
@@ -1709,29 +1992,42 @@
         }
       },
       "not": {
-        "required": ["send_hex", "send_ascii"]
+        "required": [
+          "send_hex",
+          "send_ascii"
+        ]
       },
       "allOf": [
         {
           "anyOf": [
             {
-              "required": ["send_hex"]
+              "required": [
+                "send_hex"
+              ]
             },
             {
-              "required": ["send_ascii"]
+              "required": [
+                "send_ascii"
+              ]
             }
           ]
         },
         {
           "anyOf": [
             {
-              "required": ["expect"]
+              "required": [
+                "expect"
+              ]
             },
             {
-              "required": ["expect_regex"]
+              "required": [
+                "expect_regex"
+              ]
             },
             {
-              "required": ["expect_hex"]
+              "required": [
+                "expect_hex"
+              ]
             }
           ]
         },
@@ -1739,13 +2035,22 @@
           "not": {
             "anyOf": [
               {
-                "required": ["expect", "expect_regex"]
+                "required": [
+                  "expect",
+                  "expect_regex"
+                ]
               },
               {
-                "required": ["expect", "expect_hex"]
+                "required": [
+                  "expect",
+                  "expect_hex"
+                ]
               },
               {
-                "required": ["expect_regex", "expect_hex"]
+                "required": [
+                  "expect_regex",
+                  "expect_hex"
+                ]
               }
             ]
           }
@@ -1761,7 +2066,9 @@
         },
         {
           "type": "object",
-          "required": ["file"],
+          "required": [
+            "file"
+          ],
           "additionalProperties": false,
           "properties": {
             "file": {

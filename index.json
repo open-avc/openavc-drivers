@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 74,
+    "total_drivers": 75,
     "shards": null
   },
   "drivers": [
@@ -584,7 +584,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP. Supports input/output level and mute control, preset recall, and SmartMix configuration.\n",
@@ -595,7 +595,7 @@
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.23.0",
       "tags": [
         "mixer",
         "smartmixer",
@@ -604,7 +604,7 @@
       ],
       "help": {
         "overview": "Controls Audio-Technica ATDM-0604 Digital SmartMixer. The ATDM-0604 is a 6-input automatic mixer designed for conference and installed sound applications.\n",
-        "setup": "1. Connect the ATDM-0604 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Enable \"IP Control Setting Notification\" in the device's network\n   settings so the mixer pushes level and mute changes to OpenAVC.\n5. Input channels: 1-6 (mic/line), ST (stereo). 6. Output channels: 1-2 and ST (stereo).\n"
+        "setup": "1. Connect the ATDM-0604 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the device's network settings.\n5. Input channels: 1-6 (mic/line), ST (stereo). 6. Output channels: 1-2 and ST (stereo). 7. OpenAVC polls the mixer for state; front-panel and web changes\n   appear within one poll interval.\n"
       },
       "compatible_models": [
         {
@@ -616,6 +616,12 @@
         }
       ],
       "discovery": {
+        "ssdp": [
+          {
+            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
+            "model": "ATDM-0604"
+          }
+        ],
         "oui": [
           "00:0a:45"
         ],
@@ -630,11 +636,69 @@
       }
     },
     {
+      "id": "at_atdm_0604a",
+      "name": "Audio-Technica ATDM-0604a",
+      "manufacturer": "Audio-Technica",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP. Input/output level and mute control, preset recall, and SmartMix configuration including gate threshold.\n",
+      "source_url": "https://docs.audio-technica.com/all/ATDM-0604a_IP_Control_Protocol_Specifications_EN_Ver1.0_web_221209.pdf",
+      "file": "audio/at_atdm_0604a.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        17300
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "mixer",
+        "smartmixer",
+        "conferencing",
+        "automixer"
+      ],
+      "help": {
+        "overview": "Controls the Audio-Technica ATDM-0604a Digital SmartMixer, a 6-input automatic mixer for conference and installed sound applications.\n",
+        "setup": "1. Connect the ATDM-0604a to the network (default control port 17300). 2. Configure the mixer's IP address via Web Remote (http://<mixer-ip>/). 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Input channels: 1-6 (mic/line) and ST (stereo).\n   Output channels: 1-2 and ST (stereo).\n5. OpenAVC polls the mixer for state; front-panel and Web Remote\n   changes appear within one poll interval.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Audio-Technica",
+          "models": [
+            "ATDM-0604a"
+          ],
+          "confidence": "full"
+        }
+      ],
+      "discovery": {
+        "ssdp": [
+          {
+            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
+            "model": "ATDM-0604a"
+          }
+        ],
+        "oui": [
+          "00:0a:45"
+        ],
+        "port_open": [
+          17300,
+          17200
+        ],
+        "manufacturer_alias": [
+          "audio-technica",
+          "audio technica",
+          "at"
+        ]
+      }
+    },
+    {
       "id": "at_atdm_1012",
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP. Supports input/output level and mute control, bus assign, SmartMix configuration, operator faders, and preset recall.\n",
@@ -645,7 +709,7 @@
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.23.0",
       "tags": [
         "mixer",
         "smartmixer",
@@ -655,7 +719,7 @@
       ],
       "help": {
         "overview": "Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers. The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses, designed for conference rooms, courtrooms, and council chambers. The DAN variant adds Dante audio networking.\n",
-        "setup": "1. Connect the ATDM-1012 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. Enable \"IP Control Setting Notification\" in the device's network\n   settings so the mixer pushes level and mute changes to OpenAVC.\n5. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8. 6. Output channels: 1-8, ST1, ST2. 7. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
+        "setup": "1. Connect the ATDM-1012 to the network. 2. The default control port is 17300. 3. Configure the device's IP address via the front panel or web interface. 4. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the device's network settings.\n5. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8. 6. Output channels: 1-8, ST1, ST2. 7. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
       },
       "compatible_models": [
         {
@@ -668,10 +732,20 @@
         }
       ],
       "discovery": {
+        "ssdp": [
+          {
+            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
+            "model": "ATDM-1012"
+          },
+          {
+            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
+            "model": "ATDM-1012DAN"
+          }
+        ],
         "tcp_probe": {
           "port": 17300,
-          "send_ascii": "g_deviceid O 0000 00 NC \r",
-          "expect_regex": "g_deviceid 0000",
+          "send_ascii": "g_input_gain_level O 0000 00 NC 7 \r",
+          "expect_regex": "g_input_gain_level 0000 \\S+ NC 7,",
           "extract_manufacturer": "Audio-Technica"
         },
         "oui": [

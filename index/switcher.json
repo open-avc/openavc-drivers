@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 11,
+    "total_drivers": 12,
     "shards": null,
     "category": "switcher"
   },
@@ -223,6 +223,67 @@
         "manufacturer_alias": [
           "atlona",
           "omnistream"
+        ]
+      }
+    },
+    {
+      "id": "avproedge_acmx",
+      "name": "AVPro Edge AC-MX Matrix",
+      "manufacturer": "AVPro Edge",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed video source and extracted -audio source, and every input a child showing signal presence. Also covers the extracted-audio matrix mode, audio delay and level, per-port stream enable, input EDID management, front-panel key lock, LCD timeout, and reboot.\n",
+      "source_url": "https://p11.secure.hostingprod.com/@site.hdtvsupply.com/ssl/brand/avpro-edge/avpro-edge-ac-mx1616-auhd-hdbt-chassis-um.pdf",
+      "file": "switchers/avproedge_acmx.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "avproedge_acmx"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.22.0",
+      "tags": [
+        "matrix-switcher",
+        "hdmi",
+        "hdbaset",
+        "avpro-edge",
+        "auhd",
+        "telnet"
+      ],
+      "help": {
+        "overview": "AVPro Edge AC-MX matrices route HDMI sources to HDMI or HDBaseT outputs. Each output is a child entity showing its routed video source and its extracted-audio source; each input a child showing whether a signal is present. Use the Route command to send a source to one output (or 0 for all), and the extracted-audio commands to run the audio ports as a separate audio matrix. EDID presets can be assigned per input.\n",
+        "setup": "1. Give the matrix a static IP via its WebOS page (or a DHCP reservation) and add it here with Telnet port 23. 2. Match the Input IDs and Output IDs lists to the model (a 4x4 would use \"1,2,3,4\" for both; the defaults describe a 16x16). Each ID becomes a child entity that is polled for state. 3. To use the extracted audio ports as an independent audio matrix, send Set Ex-Audio Matrix Mode = Matrix once, then route with the Route Ex-Audio command. In the default Bind-to-Output mode the audio ports simply follow the HDMI routing. 4. RS-232 control instead: null-modem cable at 57600 8N1, no handshaking.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AVPro Edge",
+          "models": [
+            "AC-MX1616-AUHD / AC-MX1616-AUHD-HDBT",
+            "AC-MX88-AUHD / AC-MX88-AUHD-HDBT / AC-MX88-AUHD-GEN2",
+            "AC-MX88-UHD-GEN2",
+            "AC-MX44-AUHD / AC-MX44-AUHD-HDBT",
+            "AC-MX62-AUHD / AC-MX-42 / AC-MX-82",
+            "ConferX AC-CXMF62-AUHD"
+          ],
+          "confidence": "untested",
+          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "send_ascii": "GET OUT1 VS\r",
+          "expect_regex": "(?i)OUT0?1\\s+VS\\s+IN0?\\d+",
+          "extract_manufacturer": "AVPro Edge"
+        },
+        "manufacturer_alias": [
+          "avpro edge",
+          "avproedge",
+          "avpro global"
         ]
       }
     },

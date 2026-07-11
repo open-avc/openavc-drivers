@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 693,
+    "total_devices": 699,
     "shards": null
   },
   "devices": [
@@ -777,6 +777,78 @@
           "id": "visca_ip",
           "confidence": "untested",
           "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MX1616-AUHD / AC-MX1616-AUHD-HDBT",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_acmx",
+          "confidence": "untested",
+          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MX44-AUHD / AC-MX44-AUHD-HDBT",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_acmx",
+          "confidence": "untested",
+          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MX62-AUHD / AC-MX-42 / AC-MX-82",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_acmx",
+          "confidence": "untested",
+          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MX88-AUHD / AC-MX88-AUHD-HDBT / AC-MX88-AUHD-GEN2",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_acmx",
+          "confidence": "untested",
+          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MX88-UHD-GEN2",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_acmx",
+          "confidence": "untested",
+          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "ConferX AC-CXMF62-AUHD",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_acmx",
+          "confidence": "untested",
+          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
         }
       ]
     },

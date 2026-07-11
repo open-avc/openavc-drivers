@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 66,
+    "total_devices": 78,
     "shards": null,
     "category": "display"
   },
@@ -786,6 +786,150 @@
           "id": "sony_bravia",
           "confidence": "full",
           "notes": "Verified on production hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE4320",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE4330",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE5520",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE5530",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE6520",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE6530",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE7512",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE7520",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE7530",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE8620",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE8630",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ]
+    },
+    {
+      "manufacturer": "ViewSonic",
+      "model": "CDE9830",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "viewsonic_cde",
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
         }
       ]
     }

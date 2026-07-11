@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 9,
+    "total_drivers": 10,
     "shards": null,
     "category": "display"
   },
@@ -570,6 +570,77 @@
           "a8:93:4a",
           "ac:9b:0a",
           "fc:f1:52"
+        ]
+      }
+    },
+    {
+      "id": "viewsonic_cde",
+      "name": "ViewSonic Commercial Display",
+      "manufacturer": "ViewSonic",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, ambient sensor readings, and Wake-on-LAN wake-up for displays whose standby closes the network port. Listens for the display's own status pushes and polls for the rest.",
+      "source_url": "https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol",
+      "file": "displays/viewsonic_cde.py",
+      "format": "python",
+      "ports": [
+        5000
+      ],
+      "protocols": [
+        "viewsonic_lfd_rs232_lan"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "display",
+        "viewsonic",
+        "cde",
+        "signage",
+        "lfd",
+        "rs232",
+        "lan-control"
+      ],
+      "help": {
+        "overview": "ViewSonic commercial displays speaking the LFD RS-232 & LAN protocol. Power, input, audio, picture controls, screen blank and freeze, PIP, video-wall tiling, and control locks. The display pushes power / input / brightness / backlight / volume / mute changes on its own; everything else is polled every 30 seconds.",
+        "setup": "1. Network control: connect the display's LAN port, note the IP address from the network settings, and add it here (TCP port 5000, no login). Monitor ID stays 1 for LAN control.\n2. Check the display's standby / network-standby setting: on many models a display in standby closes the network port. Enable the mode that keeps the network alive, or rely on the Wake Display (Wake-on-LAN) action.\n3. Serial control: connect the RS-232 port with a crossover (null-modem) cable, 9600 8N1 (fixed). On a daisy chain, set each display's Monitor ID in its OSD and match it here.",
+        "connection": "A display whose standby mode shuts the network down does not answer on TCP 5000. Wake it with the Wake Display (Wake-on-LAN) action \u2014 the display's MAC is learned automatically on every connection."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "ViewSonic",
+          "models": [
+            "CDE4330",
+            "CDE5530",
+            "CDE6530",
+            "CDE7530",
+            "CDE8630",
+            "CDE9830",
+            "CDE4320",
+            "CDE5520",
+            "CDE6520",
+            "CDE7520",
+            "CDE8620",
+            "CDE7512"
+          ],
+          "confidence": "untested",
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 5000,
+          "send_ascii": "801gz000\r",
+          "expect": "01rz"
+        },
+        "oui": [
+          "00:0b:14",
+          "04:0e:c2"
+        ],
+        "manufacturer_alias": [
+          "viewsonic",
+          "viewsonic corporation"
         ]
       }
     }

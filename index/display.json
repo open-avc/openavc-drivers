@@ -2,11 +2,92 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 8,
+    "total_drivers": 9,
     "shards": null,
     "category": "display"
   },
   "drivers": [
+    {
+      "id": "benq_display",
+      "name": "BenQ Display",
+      "manufacturer": "BenQ",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and Wake-on-LAN wake-up for displays in standby. Polls for status.",
+      "source_url": "https://esupportdownload.benq.com/esupport/PUBLIC%20DISPLAY%20PRODUCT/Control%20Protocols/RM6503/RS232%20&%20LAN%20Command%20List_2_Others.pdf",
+      "file": "displays/benq_display.py",
+      "format": "python",
+      "ports": [
+        4660
+      ],
+      "protocols": [
+        "benq_rs232_lan"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "display",
+        "benq",
+        "benq-board",
+        "ifp",
+        "signage",
+        "rs232",
+        "lan-control"
+      ],
+      "help": {
+        "overview": "BenQ Boards (interactive flat panels) and BenQ Smart Signage speaking BenQ's RS232 & LAN protocol. Power, source, audio, picture controls, backlight, locks, and power-save settings. Polls every 30 seconds. Use Screen Off (not Standby) as the automated 'off' for a space: it blanks the backlight while network control stays available. Standby shuts Android down and the LAN control port with it \u2014 a standby display is woken with the Wake Display (Wake-on-LAN) action or from the panel itself.",
+        "setup": "1. Network control: connect the display's LAN port, note the IP address from the network settings, and add it here (TCP port 4660). Monitor ID stays 1 for LAN control.\n2. Turn the display's Wake-on-LAN setting on so a standby display can be woken remotely.\n3. Serial control: connect the RS-232 port. Current BenQ Boards run 115200 8N1 (fixed); older RP panels and Smart Signage run 9600 8N1 \u2014 set Baud Rate to match your model.\n4. LAN commands only work while the display is on or screen-off (Android running). After Standby, use the Wake Display action, then reconnect.",
+        "connection": "A display in standby (Android off) does not answer on the LAN control port. Wake it with the Wake Display (Wake-on-LAN) action, or use Screen Off instead of Standby so control stays available."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BenQ",
+          "models": [
+            "RM6503",
+            "RM7503",
+            "RM8603",
+            "RP6503",
+            "RP7503",
+            "RP8603",
+            "RP6502",
+            "RP7502",
+            "RP8602",
+            "RP553K",
+            "RP653K",
+            "CP5505",
+            "CP7505",
+            "CM5505",
+            "CM7505",
+            "RP552",
+            "RP552H",
+            "RP653",
+            "RP703",
+            "RP750",
+            "RP750K",
+            "RP840G",
+            "IL430"
+          ],
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 4660,
+          "send_ascii": "801gl000\r",
+          "expect": "01r"
+        },
+        "oui": [
+          "80:65:e9"
+        ],
+        "manufacturer_alias": [
+          "benq",
+          "benq corporation"
+        ]
+      }
+    },
     {
       "id": "crestron_nvx",
       "name": "Crestron DM NVX",

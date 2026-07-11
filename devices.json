@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 645,
+    "total_devices": 668,
     "shards": null
   },
   "devices": [
@@ -1149,6 +1149,54 @@
     },
     {
       "manufacturer": "BenQ",
+      "model": "CM5505",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "CM7505",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "CP5505",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "CP7505",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
       "model": "EW805ST",
       "category": "projector",
       "drivers": [
@@ -1156,6 +1204,18 @@
           "id": "benq_projector",
           "confidence": "untested",
           "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "IL430",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
         }
       ]
     },
@@ -1384,6 +1444,222 @@
           "id": "benq_projector",
           "confidence": "untested",
           "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RM6503",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RM7503",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RM8603",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP552",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP552H",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP553K",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP6502",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP6503",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP653",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP653K",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP703",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP750",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP7502",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP7503",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP750K",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP840G",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP8602",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "RP8603",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "benq_display",
+          "confidence": "untested",
+          "notes": "Every listed model has a published BenQ RS232 & LAN (or RS232 command list) guide with this grammar. Other BenQ Boards and Smart Signage (ST / SL / SM / BH series) publish the same Generic RS232/LAN protocol and are expected to work. Function support varies by model; an unsupported command answers a reject the driver ignores. Current BenQ Boards fix the serial baud at 115200; older RP panels and Smart Signage use 9600."
         }
       ]
     },

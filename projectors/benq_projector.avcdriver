@@ -1,0 +1,1078 @@
+# BenQ Projector Driver (RS232 Command Control protocol)
+#
+# Controls BenQ projectors that speak BenQ's published "RS232 Command
+# Control" ASCII protocol, over the network (TCP 8000) or a direct
+# RS-232 line. Commands are key=value tokens framed by an asterisk and
+# a hash, wrapped in carriage returns:
+#   SET     <CR>*pow=on#<CR>
+#   QUERY   <CR>*pow=?#<CR>
+#   REPLY   *POW=ON#
+# Commands are case-insensitive; replies vary in case by model (some
+# echo the lowercase command back before answering, some answer in
+# uppercase), so every response pattern here matches case-insensitively
+# and normalizes to lowercase canonical tokens. Replies are terminated
+# by the '#' itself — trailing CR/LF after '#' is not consistent across
+# the family (some units append CRLF, some a NUL, some nothing), so the
+# driver frames on '#' and strips the residue. Some firmware also emits
+# a '>' prompt character; it is ignored by the unanchored matchers.
+#
+# Echo caveat: many units echo the command they received before (or
+# instead of) the confirmation reply. A set-command echo is textually
+# identical to its confirmation modulo case, so the driver treats the
+# echo as the acknowledgement; if the device then rejects the command
+# ("*Block item#"), the optimistic state is corrected on the next poll.
+#
+# Push vs poll: POLL-ONLY. The protocol is strictly request/response —
+# BenQ's control guides define no subscription, notification, or event
+# mechanism. The driver polls the documented Read commands and pulls
+# model name + MAC address once on connect.
+#
+# Standby: with the projector off, most commands answer "*Block item#".
+# Power on/off and the power query keep working. For LAN control in
+# standby, Standby Settings > Network must be On (the standby_network
+# device setting / *standbynet# command).
+#
+# Errors: "*Illegal format#" (bad syntax), "*Unsupported item#" (valid
+# command the model doesn't implement — benign, per-model Support
+# varies), "*Block item#" (valid command refused in the current state,
+# e.g. most things during standby or warm-up).
+#
+# Protocol reference: BenQ "Projector RS232 Command Control Installation
+# Guide" (published per model on BenQ's support site; the command table
+# is shared across the projector line, with a per-model Support column).
+
+id: benq_projector
+name: BenQ Projector
+manufacturer: BenQ
+category: projector
+version: 1.0.0
+author: OpenAVC
+description: >-
+  Controls BenQ projectors using BenQ's RS232 Command Control protocol
+  over the network (TCP 8000) or direct RS-232. Covers the install and
+  large-venue families (LK / LU / LH / PU / PW / PX / L series) and the
+  wider BenQ line that shares the same command table. Power, source
+  select, volume and mute, picture mode, picture adjustment steps,
+  color temperature, aspect ratio, blank, freeze, OSD menu navigation,
+  light source mode and custom light level, lens memories, and
+  installer settings (direct power on, quick auto search, high
+  altitude, standby network). Polls for status.
+
+source_url: https://esupportdownload.benq.com/esupport/PROJECTOR/Control%20Protocols/LK952/LK952_RS232%20Control%20Guide_0_Windows10_Windows7_Windows8.pdf
+tags: [projector, benq, rs232, lan-control, laser, install]
+verified: false
+simulated: true
+ports: [8000]
+min_platform_version: "0.23.0"
+compatible_models:
+  - manufacturer: BenQ
+    models:
+      - LK952
+      - LK953ST
+      - LK990
+      - LU950
+      - LU951
+      - LU951ST
+      - LU9715
+      - LU9750
+      - LU9800
+      - LU9915
+      - L6000
+      - PU9530
+      - PW9520
+      - PX9510
+      - EW805ST
+    confidence: untested
+    notes: >-
+      Each of these models has a published BenQ RS232 Command Control
+      guide with the same command grammar. The guides carry a per-model
+      Support column — a command a given model doesn't implement answers
+      "*Unsupported item#", which the driver ignores. Most other BenQ
+      network/serial-controllable projectors (including the home-cinema
+      W series) share the same protocol and are expected to work.
+
+transport: tcp
+transports: [tcp, serial]
+# BenQ replies are terminated by the '#' token itself; trailing CR/LF
+# after it varies by model (sometimes absent entirely), so '#' is the
+# only framing byte every unit honors.
+delimiter: "#"
+
+help:
+  overview: >-
+    BenQ projectors speaking the BenQ RS232 Command Control protocol —
+    the install / large-venue LK, LU, LH, PU, PW, PX, and L series and
+    most other BenQ models with a LAN or RS-232 control port. Power,
+    source, audio, picture controls, blank/freeze, OSD navigation,
+    light source (lamp/laser) modes, lens memories, and installer
+    settings. Polls every 30 seconds. For commands not exposed here,
+    use Send Raw Command with the command table from your model's
+    "RS232 Command Control Installation Guide" on BenQ's support site.
+  setup: >-
+    1. Network control: connect the projector's LAN port, note its IP
+       address from the Network menu, and add it here with TCP port
+       8000.
+    2. To keep network control available while the projector is off,
+       turn on Standby Settings > Network on the projector (or write
+       the Standby Network device setting once connected).
+    3. Serial control: connect the RS-232 port (or a serial bridge) at
+       the baud rate shown in the projector's OSD (9600 default on most
+       models), 8 data bits, no parity, 1 stop bit.
+    4. Volume and custom light level ranges vary by model — check your
+       model's guide or the OSD for the valid span.
+  connection: >-
+    If the projector is powered off, its LAN control port only answers
+    when Standby Settings > Network is On in the projector's menu.
+
+discovery:
+  # Active fingerprint: the model-name query on TCP 8000 answers
+  # *MODELNAME=<model># — a deterministic, vendor-unique grammar. The
+  # extract skips the '?' of a command echo so the captured model is
+  # the real reply. Port 8000 is in the generic-port denylist, so no
+  # port_open hint; OUI + manufacturer alias let the projector surface
+  # from ARP/NetBIOS sweeps. BenQ models also answer PJLink on 4352 —
+  # the pjlink_class1 cross-vendor fingerprint demotes to this driver
+  # via the manufacturer alias.
+  #   Refs:
+  #     BenQ LK952 RS232 Command Control Installation Guide (LAN: TCP 8000)
+  #     maclookup.app/vendors/benq-corporation (OUI 80:65:E9)
+  tcp_probe:
+    port: 8000
+    send_ascii: "\r*modelname=?#\r"
+    expect_regex: '(?i:\*modelname=)'
+    extract_manufacturer: "BenQ"
+    extract:
+      model:
+        regex: '(?i:\*modelname=([^?#][^#]*)#)'
+        group: 1
+  oui:
+    - "80:65:e9"
+  manufacturer_alias:
+    - "benq"
+    - "benq corporation"
+
+default_config:
+  host: ""
+  port: 8000
+  poll_interval: 30
+  inter_command_delay: 0.1
+  baudrate: 9600
+  parity: "N"
+  bytesize: 8
+  stopbits: 1
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: Projector IP address (Network menu). TCP control uses port 8000.
+  port:
+    type: integer
+    default: 8000
+    label: TCP Port
+    description: Default 8000 for BenQ LAN control
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.1
+    label: Inter-Command Delay (sec)
+  baudrate:
+    type: integer
+    default: 9600
+    label: Baud Rate (serial)
+    description: Match the projector's OSD baud rate setting (9600 default on most models)
+
+state_variables:
+  power:
+    type: enum
+    values: ["off", "on"]
+    label: Power
+    control: true
+    help: "Power state from *pow=?#. During warm-up/cool-down the projector answers *Block item# and the last known state holds."
+  source:
+    type: enum
+    values: [rgb, rgb2, rgb3, ypbr, ypbr2, dvia, dvid, hdmi, hdmi2, hdmi3, vid, svid, network, usbdisplay, usbreader, hdbaset, dp, sdi]
+    label: Source
+    control: true
+    help: "Selected input from *sour=?#, normalized to the lowercase wire token (hdmi, hdbaset, rgb, ...)."
+  volume:
+    type: integer
+    label: Volume
+    control: true
+    help: "Speaker/audio-out volume from *vol=?#. Range varies by model."
+  mute:
+    type: boolean
+    label: Mute
+    control: true
+    help: "Audio mute state from *mute=?#."
+  picture_mode:
+    type: enum
+    values: [dynamic, preset, srgb, bright, livingroom, game, cine, std, football, footballbt, dicom, thx, silence, dci-p3, vivid, infographic, user1, user2, user3, isfday, isfnight, threed]
+    label: Picture Mode
+    help: "Active picture mode from *appmod=?# (preset = Presentation). Available modes vary by model."
+  aspect:
+    type: enum
+    values: ["4:3", "16:9", "16:10", "16:6", auto, real, lbox, wide, anam, anam2.35, anam16:9]
+    label: Aspect Ratio
+    help: "Aspect ratio from *asp=?#."
+  color_temp:
+    type: enum
+    values: [warmer, warm, normal, cool, cooler, native]
+    label: Color Temperature
+    help: "Color temperature from *ct=?# (native = lamp native)."
+  contrast:
+    type: integer
+    label: Contrast
+    help: "Contrast value from *con=?#. The protocol only steps it up/down; range varies by model."
+  brightness:
+    type: integer
+    label: Brightness
+    help: "Brightness value from *bri=?#. The protocol only steps it up/down; range varies by model."
+  color:
+    type: integer
+    label: Color Saturation
+    help: "Color value from *color=?#. The protocol only steps it up/down; range varies by model."
+  sharpness:
+    type: integer
+    label: Sharpness
+    help: "Sharpness value from *sharp=?#. The protocol only steps it up/down; range varies by model."
+  blank:
+    type: boolean
+    label: Blank
+    control: true
+    help: "Picture blank state from *blank=?#."
+  freeze:
+    type: boolean
+    label: Freeze
+    help: "Image freeze state from *freeze=?#."
+  light_mode:
+    type: enum
+    values: [lnor, eco, seco, seco2, seco3, dimming, custom]
+    label: Light Source Mode
+    help: "Lamp / laser light source mode from *lampm=?#: lnor=Normal, eco=Eco, seco=SmartEco, dimming=Dimming, custom=Custom."
+  light_level:
+    type: integer
+    label: Custom Light Level
+    help: "Light level for Custom light mode from *lampcustom=?#. Range varies by model."
+  light_hours:
+    type: integer
+    label: Light Source Hours
+    help: "Lamp / light source usage hours from *ltim=?#."
+  position:
+    type: enum
+    values: [ft, re, rc, fc]
+    label: Projector Position
+    help: "Mounting position from *pp=?#: ft=Front Table, re=Rear Table, rc=Rear Ceiling, fc=Front Ceiling."
+  direct_power_on:
+    type: enum
+    values: ["on", "off"]
+    label: Direct Power On
+    help: "Whether the projector powers on as soon as mains is applied (*directpower=?#)."
+  quick_auto_search:
+    type: enum
+    values: ["on", "off"]
+    label: Quick Auto Search
+    help: "Automatic input search state from *QAS=?#."
+  high_altitude:
+    type: enum
+    values: ["on", "off"]
+    label: High Altitude Mode
+    help: "High altitude fan mode from *Highaltitude=?#."
+  standby_network:
+    type: enum
+    values: ["on", "off"]
+    label: Network in Standby
+    help: "Whether the LAN control port stays active in standby (*standbynet=?#). Must be on for network control of a powered-off projector."
+  model_name:
+    type: string
+    label: Model
+    help: "Projector model reported by *modelname=?#."
+  mac_address:
+    type: string
+    label: MAC Address
+    help: "LAN MAC address reported by *macaddr=?#."
+
+commands:
+  # ── Power ──
+  power_on:
+    label: Power On
+    send: "\r*pow=on#\r"
+    help: Turn the projector on. Commands during warm-up answer *Block item#.
+
+  power_off:
+    label: Power Off
+    send: "\r*pow=off#\r"
+
+  # ── Source ──
+  set_source:
+    label: Select Source
+    send: "\r*sour={source}#\r"
+    help: Select an input. Sources a given model lacks answer *Unsupported item#.
+    params:
+      source:
+        type: enum
+        required: true
+        label: Source
+        values:
+          - { value: hdmi, label: "HDMI 1" }
+          - { value: hdmi2, label: "HDMI 2" }
+          - { value: hdmi3, label: "HDMI 3" }
+          - { value: hdbaset, label: "HDBaseT" }
+          - { value: dp, label: "DisplayPort" }
+          - { value: sdi, label: "3G-SDI" }
+          - { value: RGB, label: "Computer 1 (RGB/YPbPr)" }
+          - { value: RGB2, label: "Computer 2" }
+          - { value: RGB3, label: "Computer 3" }
+          - { value: ypbr, label: "Component" }
+          - { value: ypbr2, label: "Component 2" }
+          - { value: dviA, label: "DVI-A" }
+          - { value: dvid, label: "DVI-D" }
+          - { value: vid, label: "Composite" }
+          - { value: svid, label: "S-Video" }
+          - { value: network, label: "Network" }
+          - { value: usbdisplay, label: "USB Display" }
+          - { value: usbreader, label: "USB Reader" }
+
+  # ── Audio ──
+  mute_on:
+    label: Mute On
+    send: "\r*mute=on#\r"
+
+  mute_off:
+    label: Mute Off
+    send: "\r*mute=off#\r"
+
+  volume_up:
+    label: Volume Up
+    send: "\r*vol=+#\r"
+
+  volume_down:
+    label: Volume Down
+    send: "\r*vol=-#\r"
+
+  set_volume:
+    label: Set Volume
+    send: "\r*vol={level}#\r"
+    help: Set an absolute volume level. Valid range varies by model.
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume Level
+
+  # ── Picture ──
+  set_picture_mode:
+    label: Set Picture Mode
+    send: "\r*appmod={mode}#\r"
+    help: Select a picture mode. Modes a given model lacks answer *Unsupported item#.
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Picture Mode
+        values:
+          - { value: preset, label: "Presentation" }
+          - { value: bright, label: "Bright" }
+          - { value: srgb, label: "sRGB" }
+          - { value: vivid, label: "Vivid" }
+          - { value: dicom, label: "DICOM SIM" }
+          - { value: cine, label: "Cinema" }
+          - { value: dynamic, label: "Dynamic" }
+          - { value: std, label: "Standard" }
+          - { value: livingroom, label: "Living Room" }
+          - { value: game, label: "Game" }
+          - { value: football, label: "Football" }
+          - { value: footballbt, label: "Football Bright" }
+          - { value: thx, label: "THX" }
+          - { value: silence, label: "Silence" }
+          - { value: dci-p3, label: "DCI-P3" }
+          - { value: infographic, label: "Infographic" }
+          - { value: user1, label: "User 1" }
+          - { value: user2, label: "User 2" }
+          - { value: user3, label: "User 3" }
+          - { value: isfday, label: "ISF Day" }
+          - { value: isfnight, label: "ISF Night" }
+          - { value: threed, label: "3D" }
+
+  contrast_up:
+    label: Contrast +
+    send: "\r*con=+#\r"
+
+  contrast_down:
+    label: Contrast -
+    send: "\r*con=-#\r"
+
+  brightness_up:
+    label: Brightness +
+    send: "\r*bri=+#\r"
+
+  brightness_down:
+    label: Brightness -
+    send: "\r*bri=-#\r"
+
+  color_up:
+    label: Color +
+    send: "\r*color=+#\r"
+
+  color_down:
+    label: Color -
+    send: "\r*color=-#\r"
+
+  sharpness_up:
+    label: Sharpness +
+    send: "\r*sharp=+#\r"
+
+  sharpness_down:
+    label: Sharpness -
+    send: "\r*sharp=-#\r"
+
+  set_color_temp:
+    label: Set Color Temperature
+    send: "\r*ct={temp}#\r"
+    params:
+      temp:
+        type: enum
+        required: true
+        label: Color Temperature
+        values:
+          - { value: warmer, label: "Warmer" }
+          - { value: warm, label: "Warm" }
+          - { value: normal, label: "Normal" }
+          - { value: cool, label: "Cool" }
+          - { value: cooler, label: "Cooler" }
+          - { value: native, label: "Lamp Native" }
+
+  set_aspect:
+    label: Set Aspect Ratio
+    send: "\r*asp={aspect}#\r"
+    params:
+      aspect:
+        type: enum
+        required: true
+        label: Aspect Ratio
+        values:
+          - { value: "AUTO", label: "Auto" }
+          - { value: "4:3", label: "4:3" }
+          - { value: "16:9", label: "16:9" }
+          - { value: "16:10", label: "16:10" }
+          - { value: "16:6", label: "16:6" }
+          - { value: "REAL", label: "Real" }
+          - { value: "LBOX", label: "Letterbox" }
+          - { value: "WIDE", label: "Wide" }
+          - { value: "ANAM", label: "Anamorphic" }
+          - { value: "ANAM2.35", label: "Anamorphic 2.35:1" }
+          - { value: "ANAM16:9", label: "Anamorphic 16:9" }
+
+  auto_sync:
+    label: Auto Sync
+    send: "\r*auto#\r"
+    help: Auto-adjust the image for analog computer sources.
+
+  # ── Display ──
+  blank_on:
+    label: Blank On
+    send: "\r*blank=on#\r"
+
+  blank_off:
+    label: Blank Off
+    send: "\r*blank=off#\r"
+
+  freeze_on:
+    label: Freeze On
+    send: "\r*freeze=on#\r"
+
+  freeze_off:
+    label: Freeze Off
+    send: "\r*freeze=off#\r"
+
+  # ── OSD menu navigation ──
+  menu_on:
+    label: Menu On
+    send: "\r*menu=on#\r"
+
+  menu_off:
+    label: Menu Off
+    send: "\r*menu=off#\r"
+
+  menu_up:
+    label: Menu Up
+    send: "\r*up#\r"
+
+  menu_down:
+    label: Menu Down
+    send: "\r*down#\r"
+
+  menu_left:
+    label: Menu Left
+    send: "\r*left#\r"
+
+  menu_right:
+    label: Menu Right
+    send: "\r*right#\r"
+
+  menu_enter:
+    label: Menu Enter / OK
+    send: "\r*enter#\r"
+
+  # ── Light source ──
+  set_light_mode:
+    label: Set Light Source Mode
+    send: "\r*lampm={mode}#\r"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Light Source Mode
+        values:
+          - { value: lnor, label: "Normal" }
+          - { value: eco, label: "Eco" }
+          - { value: seco, label: "SmartEco" }
+          - { value: seco2, label: "SmartEco 2" }
+          - { value: seco3, label: "SmartEco 3" }
+          - { value: dimming, label: "Dimming" }
+          - { value: custom, label: "Custom" }
+
+  set_light_level:
+    label: Set Custom Light Level
+    send: "\r*lampcustom={level}#\r"
+    help: Light level used by the Custom light mode. Valid range varies by model.
+    params:
+      level:
+        type: integer
+        required: true
+        label: Light Level
+
+  # ── Lens ──
+  lens_memory_load:
+    label: Load Lens Memory
+    send: "\r*lensload=m{slot}#\r"
+    help: Recall a stored lens position (models with powered lens memory).
+    params:
+      slot:
+        type: integer
+        required: true
+        label: Memory Slot
+        min: 1
+        max: 10
+
+  lens_memory_save:
+    label: Save Lens Memory
+    send: "\r*lenssave=m{slot}#\r"
+    params:
+      slot:
+        type: integer
+        required: true
+        label: Memory Slot
+        min: 1
+        max: 10
+
+  lens_reset_center:
+    label: Reset Lens to Center
+    send: "\r*lensreset=center#\r"
+
+  digital_zoom_in:
+    label: Digital Zoom In
+    send: "\r*zoomI#\r"
+
+  digital_zoom_out:
+    label: Digital Zoom Out
+    send: "\r*zoomO#\r"
+
+  # ── Raw escape hatch ──
+  send_command:
+    label: Send Raw Command
+    send: "\r{raw}\r"
+    help: >-
+      Send any command from your model's RS232 Command Control guide,
+      including the asterisk and hash, e.g. "*pow=on#" or "*ltim=?#".
+      The driver wraps it in carriage returns.
+    params:
+      raw:
+        type: string
+        required: true
+        label: Raw Command
+        pattern: '^\*[^#]+#$'
+
+# Replies are *KEY=VALUE# in model-dependent case; the '#' delimiter is
+# consumed by framing, so patterns match the bare *KEY=VALUE text
+# case-insensitively and normalize enum tokens to lowercase. \b guards
+# keep short tokens from matching longer ones (hdmi vs hdmi2, warm vs
+# warmer, seco vs seco2).
+responses:
+  # ── Power ──
+  - match: '(?i:\*pow=on\b)'
+    set: { power: "on" }
+  - match: '(?i:\*pow=off\b)'
+    set: { power: "off" }
+
+  # ── Source ──
+  - match: '(?i:\*sour=rgb2\b)'
+    set: { source: rgb2 }
+  - match: '(?i:\*sour=rgb3\b)'
+    set: { source: rgb3 }
+  - match: '(?i:\*sour=rgb\b)'
+    set: { source: rgb }
+  - match: '(?i:\*sour=ypbr2\b)'
+    set: { source: ypbr2 }
+  - match: '(?i:\*sour=ypbr\b)'
+    set: { source: ypbr }
+  - match: '(?i:\*sour=dvia\b)'
+    set: { source: dvia }
+  - match: '(?i:\*sour=dvid\b)'
+    set: { source: dvid }
+  - match: '(?i:\*sour=hdmi2\b)'
+    set: { source: hdmi2 }
+  - match: '(?i:\*sour=hdmi3\b)'
+    set: { source: hdmi3 }
+  - match: '(?i:\*sour=hdmi\b)'
+    set: { source: hdmi }
+  - match: '(?i:\*sour=svid\b)'
+    set: { source: svid }
+  - match: '(?i:\*sour=vid\b)'
+    set: { source: vid }
+  - match: '(?i:\*sour=network\b)'
+    set: { source: network }
+  - match: '(?i:\*sour=usbdisplay\b)'
+    set: { source: usbdisplay }
+  - match: '(?i:\*sour=usbreader\b)'
+    set: { source: usbreader }
+  - match: '(?i:\*sour=hdbaset\b)'
+    set: { source: hdbaset }
+  - match: '(?i:\*sour=dp\b)'
+    set: { source: dp }
+  - match: '(?i:\*sour=sdi\b)'
+    set: { source: sdi }
+
+  # ── Audio ──
+  - match: '(?i:\*mute=on\b)'
+    set: { mute: "true" }
+  - match: '(?i:\*mute=off\b)'
+    set: { mute: "false" }
+  - match: '(?i:\*vol=(\d+)\b)'
+    set: { volume: "$1" }
+
+  # ── Picture mode ──
+  - match: '(?i:\*appmod=dynamic\b)'
+    set: { picture_mode: dynamic }
+  - match: '(?i:\*appmod=preset\b)'
+    set: { picture_mode: preset }
+  - match: '(?i:\*appmod=srgb\b)'
+    set: { picture_mode: srgb }
+  - match: '(?i:\*appmod=bright\b)'
+    set: { picture_mode: bright }
+  - match: '(?i:\*appmod=livingroom\b)'
+    set: { picture_mode: livingroom }
+  - match: '(?i:\*appmod=game\b)'
+    set: { picture_mode: game }
+  - match: '(?i:\*appmod=cine\b)'
+    set: { picture_mode: cine }
+  - match: '(?i:\*appmod=std\b)'
+    set: { picture_mode: std }
+  - match: '(?i:\*appmod=footballbt\b)'
+    set: { picture_mode: footballbt }
+  - match: '(?i:\*appmod=football\b)'
+    set: { picture_mode: football }
+  - match: '(?i:\*appmod=dicom\b)'
+    set: { picture_mode: dicom }
+  - match: '(?i:\*appmod=thx\b)'
+    set: { picture_mode: thx }
+  - match: '(?i:\*appmod=silence\b)'
+    set: { picture_mode: silence }
+  - match: '(?i:\*appmod=dci-p3\b)'
+    set: { picture_mode: dci-p3 }
+  - match: '(?i:\*appmod=vivid\b)'
+    set: { picture_mode: vivid }
+  - match: '(?i:\*appmod=infographic\b)'
+    set: { picture_mode: infographic }
+  - match: '(?i:\*appmod=user1\b)'
+    set: { picture_mode: user1 }
+  - match: '(?i:\*appmod=user2\b)'
+    set: { picture_mode: user2 }
+  - match: '(?i:\*appmod=user3\b)'
+    set: { picture_mode: user3 }
+  - match: '(?i:\*appmod=isfday\b)'
+    set: { picture_mode: isfday }
+  - match: '(?i:\*appmod=isfnight\b)'
+    set: { picture_mode: isfnight }
+  - match: '(?i:\*appmod=threed\b)'
+    set: { picture_mode: threed }
+
+  # ── Aspect ── (anam2.35 / anam16:9 listed before anam is not needed —
+  # the \b guard already keeps 'anam' from matching them — but the
+  # specific-first order costs nothing and reads clearer)
+  - match: '(?i:\*asp=anam2\.35\b)'
+    set: { aspect: anam2.35 }
+  - match: '(?i:\*asp=anam16:9\b)'
+    set: { aspect: anam16:9 }
+  - match: '(?i:\*asp=anam\b)'
+    set: { aspect: anam }
+  - match: '(?i:\*asp=4:3\b)'
+    set: { aspect: "4:3" }
+  - match: '(?i:\*asp=16:9\b)'
+    set: { aspect: "16:9" }
+  - match: '(?i:\*asp=16:10\b)'
+    set: { aspect: "16:10" }
+  - match: '(?i:\*asp=16:6\b)'
+    set: { aspect: "16:6" }
+  - match: '(?i:\*asp=auto\b)'
+    set: { aspect: auto }
+  - match: '(?i:\*asp=real\b)'
+    set: { aspect: real }
+  - match: '(?i:\*asp=lbox\b)'
+    set: { aspect: lbox }
+  - match: '(?i:\*asp=wide\b)'
+    set: { aspect: wide }
+
+  # ── Color temperature ──
+  - match: '(?i:\*ct=warmer\b)'
+    set: { color_temp: warmer }
+  - match: '(?i:\*ct=warm\b)'
+    set: { color_temp: warm }
+  - match: '(?i:\*ct=normal\b)'
+    set: { color_temp: normal }
+  - match: '(?i:\*ct=cooler\b)'
+    set: { color_temp: cooler }
+  - match: '(?i:\*ct=cool\b)'
+    set: { color_temp: cool }
+  - match: '(?i:\*ct=native\b)'
+    set: { color_temp: native }
+
+  # ── Picture values ──
+  - match: '(?i:\*con=(-?\d+)\b)'
+    set: { contrast: "$1" }
+  - match: '(?i:\*bri=(-?\d+)\b)'
+    set: { brightness: "$1" }
+  - match: '(?i:\*color=(-?\d+)\b)'
+    set: { color: "$1" }
+  - match: '(?i:\*sharp=(-?\d+)\b)'
+    set: { sharpness: "$1" }
+
+  # ── Blank / freeze ──
+  - match: '(?i:\*blank=on\b)'
+    set: { blank: "true" }
+  - match: '(?i:\*blank=off\b)'
+    set: { blank: "false" }
+  - match: '(?i:\*freeze=on\b)'
+    set: { freeze: "true" }
+  - match: '(?i:\*freeze=off\b)'
+    set: { freeze: "false" }
+
+  # ── Light source ──
+  - match: '(?i:\*lampm=lnor\b)'
+    set: { light_mode: lnor }
+  - match: '(?i:\*lampm=eco\b)'
+    set: { light_mode: eco }
+  - match: '(?i:\*lampm=seco2\b)'
+    set: { light_mode: seco2 }
+  - match: '(?i:\*lampm=seco3\b)'
+    set: { light_mode: seco3 }
+  - match: '(?i:\*lampm=seco\b)'
+    set: { light_mode: seco }
+  - match: '(?i:\*lampm=dimming\b)'
+    set: { light_mode: dimming }
+  - match: '(?i:\*lampm=custom\b)'
+    set: { light_mode: custom }
+  - match: '(?i:\*lampcustom=(\d+)\b)'
+    set: { light_level: "$1" }
+  - match: '(?i:\*ltim=(\d+)\b)'
+    set: { light_hours: "$1" }
+
+  # ── Position ──
+  - match: '(?i:\*pp=ft\b)'
+    set: { position: ft }
+  - match: '(?i:\*pp=re\b)'
+    set: { position: re }
+  - match: '(?i:\*pp=rc\b)'
+    set: { position: rc }
+  - match: '(?i:\*pp=fc\b)'
+    set: { position: fc }
+
+  # ── Installer settings ──
+  - match: '(?i:\*directpower=on\b)'
+    set: { direct_power_on: "on" }
+  - match: '(?i:\*directpower=off\b)'
+    set: { direct_power_on: "off" }
+  - match: '(?i:\*qas=on\b)'
+    set: { quick_auto_search: "on" }
+  - match: '(?i:\*qas=off\b)'
+    set: { quick_auto_search: "off" }
+  - match: '(?i:\*highaltitude=on\b)'
+    set: { high_altitude: "on" }
+  - match: '(?i:\*highaltitude=off\b)'
+    set: { high_altitude: "off" }
+  - match: '(?i:\*standbynet=on\b)'
+    set: { standby_network: "on" }
+  - match: '(?i:\*standbynet=off\b)'
+    set: { standby_network: "off" }
+
+  # ── Identity ── ([^?#] skips the '?' of a query echo so only the
+  # real reply value is captured)
+  - match: '(?i:\*modelname=([^?#][^#]*))'
+    set: { model_name: "$1" }
+  - match: '(?i:\*macaddr=([0-9a-f:. -]*[0-9a-f]))'
+    set: { mac_address: "$1" }
+
+# Values the projector persists and reports back — dual-surfaced with
+# the matching commands (same wire strings). Boolean-shaped settings use
+# on/off enums because the wire tokens are the words, not 1/0. Volume
+# and custom light level carry no min/max — the valid span is
+# model-dependent and undocumented in the shared command table.
+device_settings:
+  volume:
+    type: integer
+    label: Volume
+    help: "Speaker/audio-out volume (*vol=<n>#). Valid range varies by model."
+    state_key: volume
+    default: 5
+    setup: false
+    write:
+      send: "\r*vol={value}#\r"
+  light_mode:
+    type: enum
+    values:
+      - { value: lnor, label: "Normal" }
+      - { value: eco, label: "Eco" }
+      - { value: seco, label: "SmartEco" }
+      - { value: seco2, label: "SmartEco 2" }
+      - { value: seco3, label: "SmartEco 3" }
+      - { value: dimming, label: "Dimming" }
+      - { value: custom, label: "Custom" }
+    label: Light Source Mode
+    help: "Lamp / laser light source mode (*lampm=<mode>#)."
+    state_key: light_mode
+    default: lnor
+    setup: false
+    write:
+      send: "\r*lampm={value}#\r"
+  light_level:
+    type: integer
+    label: Custom Light Level
+    help: "Light level used by the Custom light mode (*lampcustom=<n>#). Valid range varies by model."
+    state_key: light_level
+    default: 100
+    setup: false
+    write:
+      send: "\r*lampcustom={value}#\r"
+  position:
+    type: enum
+    values:
+      - { value: ft, label: "Front Table" }
+      - { value: re, label: "Rear Table" }
+      - { value: rc, label: "Rear Ceiling" }
+      - { value: fc, label: "Front Ceiling" }
+    label: Projector Position
+    help: "Mounting position (*pp=<pos>#)."
+    state_key: position
+    default: ft
+    setup: false
+    write:
+      send: "\r*pp={value}#\r"
+  direct_power_on:
+    type: enum
+    values: ["on", "off"]
+    label: Direct Power On
+    help: "Power on as soon as mains is applied (*directpower=on|off#)."
+    state_key: direct_power_on
+    default: "off"
+    setup: false
+    write:
+      send: "\r*directpower={value}#\r"
+  quick_auto_search:
+    type: enum
+    values: ["on", "off"]
+    label: Quick Auto Search
+    help: "Automatically search inputs for a signal (*QAS=on|off#)."
+    state_key: quick_auto_search
+    default: "off"
+    setup: false
+    write:
+      send: "\r*QAS={value}#\r"
+  high_altitude:
+    type: enum
+    values: ["on", "off"]
+    label: High Altitude Mode
+    help: "High altitude fan mode (*Highaltitude=on|off#)."
+    state_key: high_altitude
+    default: "off"
+    setup: false
+    write:
+      send: "\r*Highaltitude={value}#\r"
+  standby_network:
+    type: enum
+    values: ["on", "off"]
+    label: Network in Standby
+    help: "Keep the LAN control port active in standby (*standbynet=on|off#). Required for network control of a powered-off projector."
+    state_key: standby_network
+    default: "on"
+    setup: false
+    write:
+      send: "\r*standbynet={value}#\r"
+
+quick_actions:
+  - power_on
+  - power_off
+  - blank_on
+  - blank_off
+
+polling:
+  queries:
+    - "\r*pow=?#\r"
+    - "\r*sour=?#\r"
+    - "\r*vol=?#\r"
+    - "\r*mute=?#\r"
+    - "\r*appmod=?#\r"
+    - "\r*asp=?#\r"
+    - "\r*ct=?#\r"
+    - "\r*con=?#\r"
+    - "\r*bri=?#\r"
+    - "\r*color=?#\r"
+    - "\r*sharp=?#\r"
+    - "\r*blank=?#\r"
+    - "\r*freeze=?#\r"
+    - "\r*lampm=?#\r"
+    - "\r*lampcustom=?#\r"
+    - "\r*ltim=?#\r"
+    - "\r*pp=?#\r"
+    - "\r*directpower=?#\r"
+    - "\r*QAS=?#\r"
+    - "\r*Highaltitude=?#\r"
+    - "\r*standbynet=?#\r"
+
+# Pull identity once on connect
+on_connect:
+  - "\r*modelname=?#\r"
+  - "\r*macaddr=?#\r"
+
+# ── Simulator ──
+# One dispatcher script handler parses the *key=value grammar and
+# handles every command, because the standby gate is stateful: a
+# matched script handler always ends dispatch (there is no
+# fall-through), so per-command handlers can't share a separate gate
+# entry. Every reply echoes the received command first (mirroring real
+# units) and terminates tokens with '#' — the driver frames on '#', so
+# no trailing CR is needed. Step commands (vol=+, con=- ...) reply with
+# the new absolute value; real units just echo the step, so state
+# converges on the next poll there. In standby only power, identity,
+# and standbynet answer; everything else gets *Block item# (an
+# approximation of the per-model standby behavior).
+simulator:
+  initial_state:
+    power: "off"
+    source: hdmi
+    volume: 5
+    mute: false
+    picture_mode: preset
+    aspect: auto
+    color_temp: normal
+    contrast: 50
+    brightness: 50
+    color: 50
+    sharpness: 15
+    blank: false
+    freeze: false
+    light_mode: lnor
+    light_level: 100
+    light_hours: 342
+    position: ft
+    direct_power_on: "off"
+    quick_auto_search: "off"
+    high_altitude: "off"
+    standby_network: "on"
+    model_name: LK952
+    mac_address: "80:65:e9:12:34:56"
+
+  command_handlers:
+    # Dispatcher: any *...# command. The simulator's line reader frames
+    # incoming commands on CR/LF, so the trailing '#' is still present
+    # here (unlike the driver side, which frames replies on '#').
+    - match: '\*[^#]+#?'
+      handler: |
+        text = match.group(0).rstrip("#")
+        body = text[1:]
+        key, sep, val = body.partition("=")
+        k = key.lower()
+        v = val.lower() if sep else None
+        echo = text + "#"
+
+        BOOLS = {"mute": "mute", "blank": "blank", "freeze": "freeze"}
+        ENUMS = {
+            "sour": "source", "appmod": "picture_mode", "ct": "color_temp",
+            "asp": "aspect", "lampm": "light_mode", "pp": "position",
+            "directpower": "direct_power_on", "qas": "quick_auto_search",
+            "highaltitude": "high_altitude", "standbynet": "standby_network",
+        }
+        INTS = {"vol": "volume", "lampcustom": "light_level"}
+        STEPS = {"con": "contrast", "bri": "brightness", "color": "color", "sharp": "sharpness"}
+        READS = {"ltim": "light_hours", "modelname": "model_name", "macaddr": "mac_address"}
+        ACKS = ("menu", "up", "down", "left", "right", "enter", "auto",
+                "lensload", "lenssave", "lensreset", "zoomi", "zoomo")
+        STANDBY_OK = ("pow", "modelname", "macaddr", "standbynet")
+
+        if state["power"] == "off" and k not in STANDBY_OK:
+            respond(echo + "*Block item#")
+        elif k == "pow":
+            if v == "?":
+                respond(echo + "*POW=" + str(state["power"]).upper() + "#")
+            elif v in ("on", "off"):
+                state["power"] = v
+                respond(echo + "*POW=" + v.upper() + "#")
+            else:
+                respond(echo + "*Illegal format#")
+        elif k in ENUMS:
+            skey = ENUMS[k]
+            if v == "?":
+                respond(echo + "*" + k.upper() + "=" + str(state[skey]).upper() + "#")
+            elif v:
+                state[skey] = v
+                respond(echo + "*" + k.upper() + "=" + v.upper() + "#")
+            else:
+                respond(echo + "*Illegal format#")
+        elif k in BOOLS:
+            skey = BOOLS[k]
+            if v == "?":
+                respond(echo + "*" + k.upper() + "=" + ("ON" if state[skey] else "OFF") + "#")
+            elif v in ("on", "off"):
+                state[skey] = (v == "on")
+                respond(echo + "*" + k.upper() + "=" + v.upper() + "#")
+            else:
+                respond(echo + "*Illegal format#")
+        elif k in INTS:
+            skey = INTS[k]
+            if v == "?":
+                respond(echo + "*" + k.upper() + "=" + str(state[skey]) + "#")
+            elif v in ("+", "-"):
+                state[skey] = max(0, int(state[skey]) + (1 if v == "+" else -1))
+                respond(echo + "*" + k.upper() + "=" + str(state[skey]) + "#")
+            elif v is not None and v.isdigit():
+                state[skey] = int(v)
+                respond(echo + "*" + k.upper() + "=" + str(state[skey]) + "#")
+            else:
+                respond(echo + "*Illegal format#")
+        elif k in STEPS:
+            skey = STEPS[k]
+            if v == "?":
+                respond(echo + "*" + k.upper() + "=" + str(state[skey]) + "#")
+            elif v in ("+", "-"):
+                state[skey] = int(state[skey]) + (1 if v == "+" else -1)
+                respond(echo + "*" + k.upper() + "=" + str(state[skey]) + "#")
+            else:
+                respond(echo + "*Unsupported item#")
+        elif k in READS:
+            if v == "?":
+                respond(echo + "*" + k.upper() + "=" + str(state[READS[k]]) + "#")
+            else:
+                respond(echo + "*Unsupported item#")
+        elif k in ACKS:
+            respond(echo)
+        else:
+            respond(echo + "*Unsupported item#")
+
+    # Garbage without the *...# grammar answers Illegal format.
+    - match: '[\s\S]+'
+      handler: |
+        respond("*Illegal format#")

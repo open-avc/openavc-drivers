@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 630,
+    "total_devices": 645,
     "shards": null
   },
   "devices": [
@@ -1149,6 +1149,30 @@
     },
     {
       "manufacturer": "BenQ",
+      "model": "EW805ST",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "L6000",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
       "model": "LH Series",
       "category": "projector",
       "drivers": [
@@ -1173,6 +1197,42 @@
     },
     {
       "manufacturer": "BenQ",
+      "model": "LK952",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LK953ST",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LK990",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
       "model": "LU Series (LU960UST, LU951ST, LU935ST)",
       "category": "projector",
       "drivers": [
@@ -1180,6 +1240,90 @@
           "id": "pjlink_class1",
           "confidence": "untested",
           "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU950",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU951",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU951ST",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU9715",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU9750",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU9800",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "LU9915",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
         }
       ]
     },
@@ -1204,6 +1348,42 @@
           "id": "pjlink_class1",
           "confidence": "untested",
           "notes": "BenQ commercial install projectors with the network function enabled. Activated via the Network setting on the projector menu."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "PU9530",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "PW9520",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BenQ",
+      "model": "PX9510",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "benq_projector",
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
         }
       ]
     },

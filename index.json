@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 77,
+    "total_drivers": 78,
     "shards": null
   },
   "drivers": [
@@ -1023,6 +1023,82 @@
           "behringer",
           "music tribe",
           "midas"
+        ]
+      }
+    },
+    {
+      "id": "benq_projector",
+      "name": "BenQ Projector",
+      "manufacturer": "BenQ",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls BenQ projectors using BenQ's RS232 Command Control protocol over the network (TCP 8000) or direct RS-232. Covers the install and large-venue families (LK / LU / LH / PU / PW / PX / L series) and the wider BenQ line that shares the same command table. Power, source select, volume and mute, picture mode, picture adjustment steps, color temperature, aspect ratio, blank, freeze, OSD menu navigation, light source mode and custom light level, lens memories, and installer settings (direct power on, quick auto search, high altitude, standby network). Polls for status.",
+      "source_url": "https://esupportdownload.benq.com/esupport/PROJECTOR/Control%20Protocols/LK952/LK952_RS232%20Control%20Guide_0_Windows10_Windows7_Windows8.pdf",
+      "file": "projectors/benq_projector.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        8000
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "projector",
+        "benq",
+        "rs232",
+        "lan-control",
+        "laser",
+        "install"
+      ],
+      "help": {
+        "overview": "BenQ projectors speaking the BenQ RS232 Command Control protocol \u2014 the install / large-venue LK, LU, LH, PU, PW, PX, and L series and most other BenQ models with a LAN or RS-232 control port. Power, source, audio, picture controls, blank/freeze, OSD navigation, light source (lamp/laser) modes, lens memories, and installer settings. Polls every 30 seconds. For commands not exposed here, use Send Raw Command with the command table from your model's \"RS232 Command Control Installation Guide\" on BenQ's support site.",
+        "setup": "1. Network control: connect the projector's LAN port, note its IP\n   address from the Network menu, and add it here with TCP port\n   8000.\n2. To keep network control available while the projector is off,\n   turn on Standby Settings > Network on the projector (or write\n   the Standby Network device setting once connected).\n3. Serial control: connect the RS-232 port (or a serial bridge) at\n   the baud rate shown in the projector's OSD (9600 default on most\n   models), 8 data bits, no parity, 1 stop bit.\n4. Volume and custom light level ranges vary by model \u2014 check your\n   model's guide or the OSD for the valid span.",
+        "connection": "If the projector is powered off, its LAN control port only answers when Standby Settings > Network is On in the projector's menu."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BenQ",
+          "models": [
+            "LK952",
+            "LK953ST",
+            "LK990",
+            "LU950",
+            "LU951",
+            "LU951ST",
+            "LU9715",
+            "LU9750",
+            "LU9800",
+            "LU9915",
+            "L6000",
+            "PU9530",
+            "PW9520",
+            "PX9510",
+            "EW805ST"
+          ],
+          "confidence": "untested",
+          "notes": "Each of these models has a published BenQ RS232 Command Control guide with the same command grammar. The guides carry a per-model Support column \u2014 a command a given model doesn't implement answers \"*Unsupported item#\", which the driver ignores. Most other BenQ network/serial-controllable projectors (including the home-cinema W series) share the same protocol and are expected to work."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 8000,
+          "send_ascii": "\r*modelname=?#\r",
+          "expect_regex": "(?i:\\*modelname=)",
+          "extract_manufacturer": "BenQ",
+          "extract": {
+            "model": {
+              "regex": "(?i:\\*modelname=([^?#][^#]*)#)",
+              "group": 1
+            }
+          }
+        },
+        "oui": [
+          "80:65:e9"
+        ],
+        "manufacturer_alias": [
+          "benq",
+          "benq corporation"
         ]
       }
     },

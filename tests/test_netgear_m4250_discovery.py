@@ -69,8 +69,8 @@ def test_real_rootdesc_manufacturer_surfaces_driver():
     assert result.manufacturer == "NETGEAR"
     assert result.model_name == "M4250-40G8XF-PoE+"
 
-    ev = result.to_evidence()
-    evidence_log = [ev, *extract_vendor_strings([ev])]
+    evs = result.to_evidence_records()
+    evidence_log = [*evs, *extract_vendor_strings(evs)]
     match = _matcher().match(evidence_log)
 
     assert match.state == DeviceState.POSSIBLE
@@ -112,6 +112,6 @@ def test_generic_gateway_without_manufacturer_is_not_misidentified():
     # A non-NETGEAR router advertising the same UPnP device type, with no
     # NETGEAR manufacturer, must NOT be claimed by this driver — which is why
     # the device type is deliberately not declared as an ssdp: fingerprint.
-    ev = SSDPResult(ip="192.0.2.50", st=GENERIC_ST).to_evidence()
-    match = _matcher().match([ev, *extract_vendor_strings([ev])])
+    evs = SSDPResult(ip="192.0.2.50", st=GENERIC_ST).to_evidence_records()
+    match = _matcher().match([*evs, *extract_vendor_strings(evs)])
     assert match.state == DeviceState.UNKNOWN

@@ -347,6 +347,9 @@
     "liveness": {
       "$ref": "#/$defs/livenessBlock"
     },
+    "push": {
+      "$ref": "#/$defs/pushBlock"
+    },
     "frame_parser": {
       "$ref": "#/$defs/frameParser"
     },
@@ -1195,10 +1198,47 @@
             "$ref": "#/$defs/childSetEntry"
           },
           "description": "Route captures into child-entity state. Regex responses only (not OSC or json: true). May coexist with set/mappings on the same entry."
+        },
+        "throttle": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Optional. After this rule matches and applies, further matches of the same rule are dropped for this many seconds (drop-style; each skipped frame is superseded by the next). For continuous push telemetry like audio level meters — do not throttle ordinary replies or state-change notices. Works on regex, json, and OSC rules. Requires platform 0.23.0."
         }
       },
       "additionalProperties": true,
       "description": "A response must declare match or pattern (regex), address (OSC), or json: true (JSON-body)."
+    },
+    "pushBlock": {
+      "type": "object",
+      "description": "Device-initiated push notifications arriving on a channel the platform opens (not the established control connection). type: multicast joins the device's notification group; incoming datagrams feed the driver's responses rules (split on the driver delimiter first) and are accepted only from the device's own address. The subscription starts before on_connect runs (so arming commands never race the listener) and stops on disconnect. Requires platform 0.23.0.",
+      "required": [
+        "type",
+        "group",
+        "port"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "multicast"
+          ],
+          "description": "Push channel kind. Only multicast is supported today."
+        },
+        "group": {
+          "type": [
+            "string"
+          ],
+          "description": "IPv4 multicast group (224.0.0.0 - 239.255.255.255) as a literal, or a {config_field} template naming a declared config_schema/default_config field (use a template when the device's notification target is user-configurable)."
+        },
+        "port": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "UDP port (1-65535) as an integer literal, or a {config_field} template string."
+        }
+      },
+      "additionalProperties": false
     },
     "authBlock": {
       "type": "object",

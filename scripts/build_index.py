@@ -953,6 +953,88 @@ def _validate_liveness_block(file: str, data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
+    """Validate a driver's optional `push:` block (device-initiated
+    notifications, platform >= 0.23.0).
+
+    Mirrors the runtime rules in driver_loader.validate_driver_definition:
+    only type: multicast is supported; group/port are IPv4-multicast/port
+    literals or {config_field} templates whose fields must be declared in
+    config_schema or default_config. Catching this at catalog-build time
+    keeps a driver that would fail to load out of the index.
+    """
+    errors: list[str] = []
+    push = data.get("push")
+    if push is None:
+        return errors
+    if not isinstance(push, dict):
+        errors.append(f"{file}: push must be a mapping")
+        return errors
+
+    config_fields: set[str] = set()
+    for src_key in ("config_schema", "default_config"):
+        src = data.get(src_key)
+        if isinstance(src, dict):
+            config_fields.update(src)
+
+    ptype = push.get("type")
+    if ptype in ("tcp_listener", "http_listener", "sse"):
+        errors.append(
+            f"{file}: push type '{ptype}' is not supported yet (only 'multicast')"
+        )
+    elif ptype != "multicast":
+        errors.append(f"{file}: push missing or unknown 'type' (supported: multicast)")
+    unknown = set(push) - {"type", "group", "port"}
+    if unknown:
+        errors.append(
+            f"{file}: push has unknown key(s): {', '.join(sorted(unknown))}"
+        )
+
+    def check_template(where: str, value: str) -> None:
+        fields = re.findall(r"\{(\w+)\}", value)
+        if not fields:
+            errors.append(
+                f"{file}: push.{where} {value!r} has braces but no "
+                f"{{config_field}} token"
+            )
+        for field in fields:
+            if field not in config_fields:
+                errors.append(
+                    f"{file}: push.{where} references config field '{field}' "
+                    f"not declared in config_schema or default_config"
+                )
+
+    group = push.get("group")
+    if group is None:
+        errors.append(f"{file}: push missing 'group'")
+    elif isinstance(group, str) and "{" in group:
+        check_template("group", group)
+    else:
+        ok = False
+        if isinstance(group, str):
+            parts = group.split(".")
+            if len(parts) == 4 and all(p.isdigit() and int(p) <= 255 for p in parts):
+                ok = 224 <= int(parts[0]) <= 239
+        if not ok:
+            errors.append(
+                f"{file}: push.group {group!r} must be an IPv4 multicast "
+                f"address (224.0.0.0 - 239.255.255.255) or a "
+                f"{{config_field}} template"
+            )
+
+    port = push.get("port")
+    if port is None:
+        errors.append(f"{file}: push missing 'port'")
+    elif isinstance(port, str) and "{" in port:
+        check_template("port", port)
+    elif isinstance(port, bool) or not isinstance(port, int) or not (0 < port < 65536):
+        errors.append(
+            f"{file}: push.port must be an integer 1-65535 or a "
+            f"{{config_field}} template"
+        )
+    return errors
+
+
 def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
     """Validate a driver's optional `child_entity_types:` mapping.
 
@@ -1141,6 +1223,18 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
     for i, resp in enumerate(responses):
         if not isinstance(resp, dict):
             continue
+        # Optional per-rule throttle (platform >= 0.23.0) — mirrors the
+        # runtime loader: a non-positive/non-numeric value is rejected.
+        throttle = resp.get("throttle")
+        if throttle is not None and (
+            isinstance(throttle, bool)
+            or not isinstance(throttle, (int, float))
+            or throttle <= 0
+        ):
+            errors.append(
+                f"{file}: Response {i}: throttle must be a positive number "
+                f"of seconds"
+            )
         child_set = resp.get("child_set")
         if child_set is None:
             continue
@@ -2298,6 +2392,7 @@ def main(argv: list[str] | None = None) -> int:
 
         errors.extend(_validate_auth_block(rel, data))
         errors.extend(_validate_liveness_block(rel, data))
+        errors.extend(_validate_push_block(rel, data))
         errors.extend(_validate_frame_parser_block(rel, data))
         errors.extend(_validate_send_frame_block(rel, data))
         errors.extend(_validate_actions_block(rel, data))

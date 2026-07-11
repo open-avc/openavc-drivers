@@ -436,6 +436,9 @@ When a `notifications` entry exists for a state variable, it takes priority over
 **Template variables:**
 - `{value}` is replaced with the new state value
 - `{key}` is replaced with the state variable name
+- An optional format spec renders the value like Python's `format()`: `{value:d}` turns a boolean into `0`/`1` (handy for protocols whose frames carry numeric flags), `{value:04X}` hex-pads, and so on. Values that can't take the spec fall back to plain text.
+
+**Multicast push drivers.** When the driver declares a multicast `push:` block (a device whose notifications go to a multicast group instead of the control connection), the simulator emits every `notifications` template to that group and port — and does **not** send them to connected control clients, matching the real device. `push_state` is not required for this path; just author the `notifications` map so its output matches the driver's response rules. The group and port resolve from the driver's config fields the same way the live driver resolves them. One note for multi-device testing: simulated devices all emit from the same host, so two simulated units of the same driver will see each other's frames — real devices are told apart by their source address, which simulation can't reproduce.
 
 ---
 

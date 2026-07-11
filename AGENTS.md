@@ -964,6 +964,8 @@ responses:
 
 A `set` value is the JSON field to read: a string key, a dot path (`video.mode`, `items.0`), or a `{key, type, map}` object. Native JSON bools/ints/floats are preserved (no string round-trip). Missing keys are skipped (state untouched); a key landing on an array/object yields its length, same as `json_path`. Multiple `json: true` rules are additive — each is applied to every body — so split related fields across rules freely. A reply wrapped in a single-element top-level array (`[{...}]` — some devices wrap every reply that way) is unwrapped to its one object first (platform 0.22.0+); multi-element arrays are ambiguous and are not parsed. If a body isn't a JSON object the engine falls through to your regex rules. Use this for JSON APIs; reserve mega-regexes for non-JSON text.
 
+**`throttle: <seconds>` — rate-cap a high-rate telemetry rule (platform 0.23.0+).** After the rule matches and applies, further matches of the *same rule* are dropped until the window elapses (drop-style — each skipped frame is superseded by the next). Built for continuous streams like audio level meters (a 10 Hz meter frame with `throttle: 0.5` becomes ~2 state writes/sec). Works on regex, `json: true`, and OSC rules. Do NOT throttle command replies or state-change notices — a dropped frame there means stale state until the next poll. Pair meter-style state variables with `cloud_priority: low` so the cloud relay treats them as background tier. Validation: must be a positive number.
+
 ### 2.8 auth
 
 Login handshake for Telnet-style devices that present `Username:` / `Password:` prompts before accepting commands. Runs after the TCP connection is established and before `on_connect` commands are sent.
@@ -1107,6 +1109,60 @@ keepalive by adding `tcp_keepalive: true` to `default_config`. That only
 detects a dead peer at the socket layer (probing starts after 60s idle); the
 `liveness:` block detects an application that stopped answering even while
 the socket stays up, and works on connectionless transports. They compose.
+
+### 2.10.2 push (device-initiated notifications) — platform ≥ 0.23.0
+
+Some devices report state changes on a channel the platform must **open**,
+not on the established control connection. The `push:` block declares that
+channel; the supported type is `multicast` — the device sends notification
+frames to a multicast group the platform joins:
+
+```yaml
+push:
+  type: multicast              # required; only multicast is supported today
+  group: "{notification_group}"  # IPv4 multicast literal (224.0.0.0-239.255.255.255)
+                                 # or a {config_field} template
+  port: "{notification_port}"    # 1-65535 literal or {config_field} template
+```
+
+Behavior contract:
+
+- The subscription starts when the device connects, **before** `on_connect`
+  runs — so an `on_connect` command that arms the device's notifications
+  never races the listener. It stops on disconnect and re-arms on reconnect
+  (which also re-runs `on_connect`, covering devices whose notification
+  flags reset on reboot).
+- Each datagram feeds the driver's normal `responses:` rules (first match
+  wins, same as any reply). If the driver declares a `delimiter`, a datagram
+  carrying several frames is split on it first.
+- Frames are accepted **only from the device's own host address**, so two
+  identical devices multicasting to the same group each update their own
+  device instance.
+- A failed group join is non-fatal (logged); polling still covers the device.
+  Keep the `polling:` block as the baseline resync — networks that filter
+  multicast (IGMP snooping without a querier, cross-VLAN) silently eat these
+  frames.
+
+Conventions:
+
+- Make `group`/`port` **config fields with the device's factory defaults**
+  (not hard-coded literals) whenever the device lets users change its
+  notification target, and say so in `help.setup`.
+- If notifications must be armed at runtime, send the arming command from
+  `on_connect`. Gate a continuous meter/telemetry stream behind an opt-in
+  boolean config field substituted into the arming command, and put a
+  `throttle:` on the meter response rule (see 2.7).
+- Mention the network requirements in `help.setup`: same VLAN as the
+  OpenAVC host, and IGMP-snooping switches need an IGMP querier.
+- Simulators: with a multicast `push:` block, the `simulator.notifications`
+  templates are emitted to the group instead of the control connection
+  (see 5.1), so push flows end-to-end against the simulator.
+
+Validation (load time): `type` must be `multicast` (`tcp_listener` /
+`http_listener` / `sse` are reserved and rejected as "not supported yet");
+`group`/`port` literals must be a valid IPv4 multicast address / port, and
+`{config_field}` templates must reference a field declared in
+`config_schema` or `default_config`; no other keys are allowed.
 
 ### 2.11 device_settings
 

@@ -38,24 +38,30 @@
 #     priority mode, gate threshold enable, gate threshold, group [fixed 1]).
 #     Omitted (empty) fields in a Set leave that field unchanged.
 #   - Push notifications: the mixer multicasts MD state-change notices over
-#     UDP (default 239.0.0.100:17000) when "IP Control Setting Notification"
-#     is enabled — they are NOT sent on the TCP control connection, and the
-#     platform has no UDP-multicast listener yet, so this driver is
-#     deliberately polling-only. (The notification flags are runtime-only:
-#     settable via s_network without a reboot, reverting on reboot.)
+#     UDP (factory default 239.0.0.100:17000) — never on the TCP control
+#     connection. This driver joins that group (push: block) and arms the
+#     "IP Control Setting Notification" flag from on_connect: the flag is a
+#     runtime-only s_network write (no reboot needed; a reboot reverts it,
+#     and the reconnect re-arms it). Level meters (level_meter_notice, 24
+#     values at the meter interval) ride the same channel and are opt-in via
+#     the Enable Level Meters config field; when off the arming write omits
+#     the Audio Level Notification field entirely so another controller's
+#     meter feed is never disturbed. Polling stays on as the baseline resync
+#     for networks that filter multicast.
 #   - Max 5 simultaneous TCP connections; commands are asynchronous.
 
 id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
-  Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP.
-  Input/output level and mute control, preset recall, and SmartMix
-  configuration including gate threshold.
+  Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with
+  real-time multicast push updates. Input/output level and mute control,
+  preset recall, SmartMix configuration including gate threshold, and
+  optional live level meters.
 
 source_url: https://docs.audio-technica.com/all/ATDM-0604a_IP_Control_Protocol_Specifications_EN_Ver1.0_web_221209.pdf
 tags: [mixer, smartmixer, conferencing, automixer]
@@ -81,8 +87,18 @@ help:
        "Allow Discovery" (UPnP) in the mixer's network settings.
     4. Input channels: 1-6 (mic/line) and ST (stereo).
        Output channels: 1-2 and ST (stereo).
-    5. OpenAVC polls the mixer for state; front-panel and Web Remote
-       changes appear within one poll interval.
+    5. Front-panel and Web Remote changes appear in OpenAVC instantly:
+       the mixer multicasts change notices (factory default group
+       239.0.0.100, port 17000) and OpenAVC listens automatically. If you
+       changed the multicast address or port in Web Remote's network
+       settings, set the matching values in this device's Notification
+       Group / Notification Port fields. The mixer and the OpenAVC server
+       must be on the same VLAN, and switches with IGMP snooping need an
+       IGMP querier — if notices are filtered, control still works and
+       changes appear at the poll interval instead.
+    6. Enable Level Meters (off by default) streams live input/output
+       meters into OpenAVC at about two updates per second — bind panel
+       meter elements to the meter state values.
 
 discovery:
   # Captured from a real ATDM-0604a (fw 01.03.01). The whole Audio-Technica
@@ -112,6 +128,9 @@ default_config:
   port: 17300
   poll_interval: 15
   inter_command_delay: 0.05
+  notification_group: "239.0.0.100"
+  notification_port: 17000
+  enable_level_meters: false
 
 config_schema:
   host:
@@ -132,6 +151,51 @@ config_schema:
     default: 0.05
     min: 0
     label: Inter-Command Delay (sec)
+  notification_group:
+    type: string
+    default: "239.0.0.100"
+    label: Notification Group
+    help: >
+      Multicast address the mixer sends its change notices to (Web Remote >
+      Settings & Maintenance > System Settings > Network). Leave at the
+      factory default unless it was changed on the mixer.
+  notification_port:
+    type: integer
+    default: 17000
+    min: 1
+    max: 65535
+    label: Notification Port
+    help: "UDP port for the mixer's multicast notices (factory default 17000)."
+  enable_level_meters:
+    type: boolean
+    default: false
+    label: Enable Level Meters
+    help: >
+      Stream live input/output level meters into OpenAVC (about two updates
+      per second). Uses the mixer's Audio Level Notification; leave off if
+      you don't bind meters on a panel.
+
+# Rendered against config at connect: empty while Enable Level Meters is
+# off, "1" when on — so the on_connect arming write below OMITS the Audio
+# Level Notification field (leaving it as-is for other controllers)
+# instead of writing 0.
+config_derived:
+  meters_flag: "{enable_level_meters:d}"
+
+# Join the mixer's notice group while connected. MD frames feed the
+# response rules below; only frames from this device's own address are
+# accepted.
+push:
+  type: multicast
+  group: "{notification_group}"
+  port: "{notification_port}"
+
+# Arm "IP Control Setting Notification" (field 7) — and, only when meters
+# are enabled, "Audio Level Notification" (field 8) — via the s_network
+# omission write. Runtime-only: applies without a reboot, reverts on
+# reboot, and the reconnect re-runs this (verified on hardware).
+on_connect:
+  - 's_network S 0000 00 NC ,,,,,,1,{meters_flag},,,,,,,,,,, \r'
 
 state_variables:
   firmware_version:
@@ -312,6 +376,127 @@ state_variables:
     min: 0
     max: 80
     help: "Manual gate threshold (0-80 maps to -80 dB to 0 dB; 80 = 0 dB)."
+
+  # ── SmartMix gate activity (updated live via push notification when
+  #    SmartMix is enabled — great for "mic went live" automation) ──
+  input_1_gate_open:
+    type: boolean
+    label: Input 1 Gate Open
+    help: "True while SmartMix holds input 1's gate open (updates instantly via push)."
+  input_2_gate_open:
+    type: boolean
+    label: Input 2 Gate Open
+    help: "True while SmartMix holds input 2's gate open (updates instantly via push)."
+  input_3_gate_open:
+    type: boolean
+    label: Input 3 Gate Open
+    help: "True while SmartMix holds input 3's gate open (updates instantly via push)."
+  input_4_gate_open:
+    type: boolean
+    label: Input 4 Gate Open
+    help: "True while SmartMix holds input 4's gate open (updates instantly via push)."
+  input_5_gate_open:
+    type: boolean
+    label: Input 5 Gate Open
+    help: "True while SmartMix holds input 5's gate open (updates instantly via push)."
+  input_6_gate_open:
+    type: boolean
+    label: Input 6 Gate Open
+    help: "True while SmartMix holds input 6's gate open (updates instantly via push)."
+
+  last_recalled_preset:
+    type: integer
+    label: Last Recalled Preset
+    min: 1
+    max: 6
+    help: "Preset bank most recently recalled on the mixer (updates via push notification)."
+
+  # ── Live level meters (post-fader, 0-61; only stream while Enable Level
+  #    Meters is on — updates ~2/sec, background tier for the cloud relay) ──
+  input_1_meter:
+    type: integer
+    label: Input 1 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for input 1 (0-61; requires Enable Level Meters)."
+  input_2_meter:
+    type: integer
+    label: Input 2 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for input 2 (0-61; requires Enable Level Meters)."
+  input_3_meter:
+    type: integer
+    label: Input 3 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for input 3 (0-61; requires Enable Level Meters)."
+  input_4_meter:
+    type: integer
+    label: Input 4 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for input 4 (0-61; requires Enable Level Meters)."
+  input_5_meter:
+    type: integer
+    label: Input 5 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for input 5 (0-61; requires Enable Level Meters)."
+  input_6_meter:
+    type: integer
+    label: Input 6 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for input 6 (0-61; requires Enable Level Meters)."
+  input_st_l_meter:
+    type: integer
+    label: Input ST L Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for the stereo input, left (0-61; requires Enable Level Meters)."
+  input_st_r_meter:
+    type: integer
+    label: Input ST R Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for the stereo input, right (0-61; requires Enable Level Meters)."
+  output_1_meter:
+    type: integer
+    label: Output 1 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for output 1 (0-61; requires Enable Level Meters)."
+  output_2_meter:
+    type: integer
+    label: Output 2 Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for output 2 (0-61; requires Enable Level Meters)."
+  output_st_l_meter:
+    type: integer
+    label: Output ST L Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for the stereo output, left (0-61; requires Enable Level Meters)."
+  output_st_r_meter:
+    type: integer
+    label: Output ST R Meter
+    min: 0
+    max: 61
+    cloud_priority: low
+    help: "Post-fader level meter for the stereo output, right (0-61; requires Enable Level Meters)."
 
 commands:
   # ── Channel Level Control (short-code commands set one value at a time) ──
@@ -499,6 +684,22 @@ commands:
         help: "Preset bank 1-6"
 
   # ── System Commands ──
+  set_meter_interval:
+    label: Set Meter Interval
+    send: 's_level_meter_interval S 0000 00 NC {interval} \r'
+    help: >
+      Set how often the mixer sends level-meter notices. This is a global
+      setting on the mixer shared by every connected controller.
+    params:
+      interval:
+        type: integer
+        required: true
+        default: 500
+        label: Interval (ms)
+        min: 100
+        max: 10000
+        help: "Meter notification interval in milliseconds (mixer default 100)."
+
   identify:
     label: Identify (Blink LED)
     send: 'identify S 0000 00 NC \r'
@@ -698,6 +899,83 @@ responses:
   - match: 'GOCM 0000 \S+ NC 1,0'
     set: { output_2_mute: "false" }
 
+  # ── MD push notices (multicast; see push: block). Same first-match
+  #    dispatch as the answers above. The device-ID slot is \S+ (a real ID,
+  #    e.g. 42, in AT-LINK setups). Spec: "some parameters can be omitted" —
+  #    level/mute captures are OPTIONAL groups so an omitted field simply
+  #    skips its mapping instead of storing garbage. ST channel (10) rules
+  #    precede 0-5 per the file convention. ──
+
+  # Input gain/level/mute changed (ch, mic_gain, line_gain, level, mute)
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 10,[^,]*,[^,]*,(\d+)?,([01])?'
+    set: { input_st_level: "$1", input_st_mute: "$2" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 0,[^,]*,[^,]*,(\d+)?,([01])?'
+    set: { input_1_level: "$1", input_1_mute: "$2" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 1,[^,]*,[^,]*,(\d+)?,([01])?'
+    set: { input_2_level: "$1", input_2_mute: "$2" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 2,[^,]*,[^,]*,(\d+)?,([01])?'
+    set: { input_3_level: "$1", input_3_mute: "$2" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 3,[^,]*,[^,]*,(\d+)?,([01])?'
+    set: { input_4_level: "$1", input_4_mute: "$2" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 4,[^,]*,[^,]*,(\d+)?,([01])?'
+    set: { input_5_level: "$1", input_5_mute: "$2" }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC 5,[^,]*,[^,]*,(\d+)?,([01])?'
+    set: { input_6_level: "$1", input_6_mute: "$2" }
+
+  # Output level changed (ch, level)
+  - match: 'MD output_level_notice 0000 \S+ NC 10,(\d+)'
+    set: { output_st_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 0,(\d+)'
+    set: { output_1_level: "$1" }
+  - match: 'MD output_level_notice 0000 \S+ NC 1,(\d+)'
+    set: { output_2_level: "$1" }
+
+  # Output mute changed (ch, mute) — captured live on hardware:
+  # "MD output_mute_notice 0000 42 NC 0,0 \r"
+  - match: 'MD output_mute_notice 0000 \S+ NC 10,([01])'
+    set: { output_st_mute: "$1" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 0,([01])'
+    set: { output_1_mute: "$1" }
+  - match: 'MD output_mute_notice 0000 \S+ NC 1,([01])'
+    set: { output_2_mute: "$1" }
+
+  # SmartMix gate open/close (ch 0-5, status) — sent while SmartMix is on
+  - match: 'MD open_channel_notice 0000 \S+ NC 0,([01])'
+    set: { input_1_gate_open: "$1" }
+  - match: 'MD open_channel_notice 0000 \S+ NC 1,([01])'
+    set: { input_2_gate_open: "$1" }
+  - match: 'MD open_channel_notice 0000 \S+ NC 2,([01])'
+    set: { input_3_gate_open: "$1" }
+  - match: 'MD open_channel_notice 0000 \S+ NC 3,([01])'
+    set: { input_4_gate_open: "$1" }
+  - match: 'MD open_channel_notice 0000 \S+ NC 4,([01])'
+    set: { input_5_gate_open: "$1" }
+  - match: 'MD open_channel_notice 0000 \S+ NC 5,([01])'
+    set: { input_6_gate_open: "$1" }
+
+  # Preset recalled (bank 1-6) — fires for front-panel, Web Remote, and IP
+  - match: 'MD recall_preset_notice 0000 \S+ NC ([1-6])'
+    set: { last_recalled_preset: "$1" }
+
+  # Level meters: 24 values — 12 post-fader (In1-6, ST L/R, Out1-2, ST L/R,
+  # 0-61) then 6 AEC/ERL + 6 gainshare (unmapped). Arrives at the meter
+  # interval (mixer default 100 ms); throttled to ~2 writes/sec.
+  - match: 'MD level_meter_notice 0000 \S+ NC (\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),'
+    throttle: 0.5
+    set:
+      input_1_meter: "$1"
+      input_2_meter: "$2"
+      input_3_meter: "$3"
+      input_4_meter: "$4"
+      input_5_meter: "$5"
+      input_6_meter: "$6"
+      input_st_l_meter: "$7"
+      input_st_r_meter: "$8"
+      output_1_meter: "$9"
+      output_2_meter: "$10"
+      output_st_l_meter: "$11"
+      output_st_r_meter: "$12"
+
 polling:
   # Every query ends "<params> \r" — the trailing space is required by the
   # protocol grammar (verified on hardware: without it the mixer NAKs 04).
@@ -741,9 +1019,10 @@ liveness:
   max_failures: 2
 
 # ── SIMULATOR DEFINITION ──
-# Simulates the TCP control surface (polling + commands). The real mixer's
-# MD push notices go out over UDP multicast, not this TCP connection, so the
-# simulator deliberately does not push state.
+# Simulates the TCP control surface (polling + commands) plus the MD push
+# channel: because the driver declares a multicast push: block, the
+# notifications templates below are emitted to the notification group over
+# UDP multicast — never on the TCP connection — exactly like the real mixer.
 simulator:
   initial_state:
     firmware_version: "01.03.01"
@@ -776,9 +1055,77 @@ simulator:
     priority_mode: 0
     gate_threshold_enabled: 0
     gate_threshold: 30
+    input_1_gate_open: false
+    input_2_gate_open: false
+    input_3_gate_open: false
+    input_4_gate_open: false
+    input_5_gate_open: false
+    input_6_gate_open: false
+    last_recalled_preset: 1
 
   delays:
     command_response: 0.03
+
+  # MD notices, emitted to the driver's multicast push group on any state
+  # change (Simulator UI toggles included). Templates render the same frame
+  # grammar the response rules parse; {value:d} turns booleans into 0/1.
+  # Level/mute changes use the omitted-parameter forms the real mixer's
+  # grammar allows, so the optional-capture response rules are exercised.
+  notifications:
+    input_1_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,,,{value}, '
+    input_2_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,,,{value}, '
+    input_3_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,,,{value}, '
+    input_4_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,,,{value}, '
+    input_5_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,,,{value}, '
+    input_6_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,,,{value}, '
+    input_st_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 10,,,{value}, '
+    input_1_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,,,,{value:d} '
+    input_2_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,,,,{value:d} '
+    input_3_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,,,,{value:d} '
+    input_4_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,,,,{value:d} '
+    input_5_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,,,,{value:d} '
+    input_6_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,,,,{value:d} '
+    input_st_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 10,,,,{value:d} '
+    output_1_level:
+      '*': 'MD output_level_notice 0000 00 NC 0,{value} '
+    output_2_level:
+      '*': 'MD output_level_notice 0000 00 NC 1,{value} '
+    output_st_level:
+      '*': 'MD output_level_notice 0000 00 NC 10,{value} '
+    output_1_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 0,{value:d} '
+    output_2_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 1,{value:d} '
+    output_st_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 10,{value:d} '
+    input_1_gate_open:
+      '*': 'MD open_channel_notice 0000 00 NC 0,{value:d} '
+    input_2_gate_open:
+      '*': 'MD open_channel_notice 0000 00 NC 1,{value:d} '
+    input_3_gate_open:
+      '*': 'MD open_channel_notice 0000 00 NC 2,{value:d} '
+    input_4_gate_open:
+      '*': 'MD open_channel_notice 0000 00 NC 3,{value:d} '
+    input_5_gate_open:
+      '*': 'MD open_channel_notice 0000 00 NC 4,{value:d} '
+    input_6_gate_open:
+      '*': 'MD open_channel_notice 0000 00 NC 5,{value:d} '
+    last_recalled_preset:
+      '*': 'MD recall_preset_notice 0000 00 NC {value} '
 
   controls:
     - type: slider
@@ -826,6 +1173,12 @@ simulator:
       min: 0
       max: 2
       step: 1
+    - type: toggle
+      key: input_1_gate_open
+      label: Input 1 Gate Open
+    - type: toggle
+      key: input_2_gate_open
+      label: Input 2 Gate Open
 
   command_handlers:
     # The real grammar requires the trailing space before CR: commands
@@ -976,9 +1329,20 @@ simulator:
       handler: |
         respond('s_smart_mix ACK \r')
 
-    # Preset recall / save
-    - match: 'call_preset S 0000 00 NC.*'
+    # Network settings write (the driver's on_connect notification arming)
+    - match: 's_network S 0000 00 NC.*'
       handler: |
+        respond('s_network ACK \r')
+
+    # Level meter interval write
+    - match: 's_level_meter_interval S 0000 00 NC.*'
+      handler: |
+        respond('s_level_meter_interval ACK \r')
+
+    # Preset recall / save (recall updates state, which emits the MD notice)
+    - match: 'call_preset S 0000 00 NC (\d) ?'
+      handler: |
+        state['last_recalled_preset'] = int(match.group(1))
         respond('call_preset ACK \r')
 
     - match: 'save_preset S 0000 00 NC.*'

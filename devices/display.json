@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 78,
+    "total_devices": 85,
     "shards": null,
     "category": "display"
   },
@@ -630,6 +630,90 @@
         {
           "id": "samsung_mdc",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp",
+      "model": "PN-E603",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_pn_display",
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp",
+      "model": "PN-E703",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_pn_display",
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp",
+      "model": "PN-L603B",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_pn_display",
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp",
+      "model": "PN-L603W",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_pn_display",
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp",
+      "model": "PN-L703B",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_pn_display",
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp",
+      "model": "PN-L703W",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_pn_display",
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp",
+      "model": "PN-R603",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_pn_display",
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
         }
       ]
     },

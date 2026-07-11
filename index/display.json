@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 10,
+    "total_drivers": 11,
     "shards": null,
     "category": "display"
   },
@@ -439,6 +439,67 @@
           "8c:71:f8",
           "b4:79:a7",
           "d0:03:4b"
+        ]
+      }
+    },
+    {
+      "id": "sharp_pn_display",
+      "name": "Sharp PN Display (AQUOS BOARD)",
+      "manufacturer": "Sharp",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls pre-merger Sharp PN-series commercial displays and AQUOS BOARD interactive displays (PN-L, PN-E, PN-R and related series) using Sharp's 4-character RS-232C/LAN command protocol on TCP port 10008 or direct RS-232. Power, input select, volume, mute, brightness and picture values, audio EQ, screen size, PIP/PbyP, touch enable, control locks, temperature monitoring, and standby-mode configuration. Polls for status. Post-merger Sharp/NEC displays are covered by the Sharp NEC Display driver instead.",
+      "source_url": "https://business.sharpusa.com/portals/0/downloads/Manuals/PN_L603B_L703B_Operation_Manual.pdf",
+      "file": "displays/sharp_pn_display.py",
+      "format": "python",
+      "ports": [
+        10008
+      ],
+      "protocols": [
+        "sharp_pn_rs232c_lan"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "display",
+        "sharp",
+        "aquos-board",
+        "pn-series",
+        "signage",
+        "rs232",
+        "lan-control"
+      ],
+      "help": {
+        "overview": "Pre-merger Sharp PN-series commercial displays and AQUOS BOARD interactive displays. Power, input, audio, picture controls, PIP, touch enable, control locks, and temperature monitoring. Polls every 30 seconds. Keep STANDBY MODE on STANDARD so a standby display stays controllable over the network.",
+        "setup": "1. Network control: connect the display's LAN port and set RS-232C/LAN SELECT to LAN in the SETUP menu. Add the display's IP address here (TCP data port, default 10008). If a username/password is set in the display's SECURITY settings, enter the same values here; leave blank otherwise.\n2. Keep STANDBY MODE set to STANDARD (Monitor menu). LOW POWER standby shuts down LAN/RS-232C control until the display is woken at the panel.\n3. Serial control: connect the RS-232C input terminal (straight cable) and set RS-232C/LAN SELECT to RS-232C. Default 38400 8N1 \u2014 match the display's BAUD RATE setting. AQUOS BOARD models use a 3.5mm service jack fixed at 38400.\n4. RS-232C and LAN control cannot be used simultaneously.",
+        "connection": "A display in LOW POWER standby does not answer on LAN or RS-232C until woken at the panel \u2014 set STANDBY MODE to STANDARD (the Standby Mode device setting) so power_on keeps working. The LAN session requires a login; blank credentials are sent when none are configured."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sharp",
+          "models": [
+            "PN-L603B",
+            "PN-L703B",
+            "PN-L603W",
+            "PN-L703W",
+            "PN-E603",
+            "PN-E703",
+            "PN-R603"
+          ],
+          "confidence": "untested",
+          "notes": "Every listed model's operation manual documents this command table. Other pre-merger Sharp PN-series monitors and AQUOS BOARD models publish the same protocol and are expected to work; input terminals and optional functions (touch, PIP) vary by model, and an unsupported command answers a reject the driver ignores. Current post-merger Sharp/NEC large-format displays use NEC External Control instead \u2014 add those with the Sharp NEC Display driver."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 10008,
+          "expect": "Login:"
+        },
+        "manufacturer_alias": [
+          "sharp",
+          "sharp corporation"
         ]
       }
     },

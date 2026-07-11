@@ -1,21 +1,28 @@
-"""Driver + simulator tests for philips_hue (Hue Bridge REST API V1).
+"""Driver + simulator tests for philips_hue (Hue Bridge CLIP API v2).
 
-No Hue Bridge on hand, so correctness is a dual-proof round trip: the real
-driver's httpx client is wired to the real simulator's handle_request via
-httpx.MockTransport — the driver PUTs, the sim mutates its light/group
-documents, the driver re-reads them back, both sides asserted.
+Dual-proof round trip: the real driver's httpx client is wired to the real
+simulator's handle_request via httpx.MockTransport — the driver PUTs, the
+sim mutates its v2 resource graph, and both sides are asserted. The event
+stream is real too: the MockTransport serves /eventstream/clip/v2 as a
+streaming response fed by the sim's push_sse_event, so the driver's actual
+SSE loop (connect, parse, apply) runs in-test.
 
-Covers the v2.0.0 Python conversion (was YAML through 1.1.x):
+Covers the v3.0.0 CLIP v2 rewrite (was v1 API through 2.0.x):
   - child entities: every light is a dynamic child whose per-child schema
-    matches its real capability set (extended color vs color-temperature
-    vs dimmable vs on/off plug); groups are children including the special
-    all-lights group 0 (excluded from GET /groups, fetched at /groups/0);
-  - the platform `online` on a light mirrors the Zigbee `reachable` flag;
-  - group actions and scene recalls fan out to member lights and the
-    driver re-reads the fan-out;
-  - device setting: bridge_name writes PUT /config and reads back;
+    matches its real capability set, with per-light mirek bounds from its
+    own mirek_schema; groups are rooms + zones + the whole-home
+    bridge_home group, each keyed by its v2 UUID;
+  - the platform `online` on a light mirrors its owner device's
+    zigbee_connectivity status;
+  - SSE push: light/group/reachability/rename changes stream into child
+    state without polling; add/delete events trigger a roster refresh;
+  - commands PUT partial v2 bodies (on/dimming/color_temperature/color,
+    optional dynamics transition) and the sim's SSE echo lands the result
+    back in child state; scene recall applies the scene's actions;
+  - device setting: bridge_name writes the bridge device's metadata;
   - pairing setup wizard: link button pressed / not pressed / save+reconnect;
-  - connection faults: missing or rejected app key -> typed auth_failed;
+  - connection faults: missing or rejected app key -> typed auth_failed
+    (v2 signals both as HTTP 403);
   - poll propagates transport errors (never-offline guard).
 
 Loads the driver + simulator with the ``server.*`` / ``simulator.*``
@@ -96,7 +103,7 @@ class _FakeBaseDriver:
         self.transport = None
         self._connected = False
         # ctype -> {local_id -> {"schema": {...}, "state": {...}}}
-        self._children: dict[str, dict[int, dict]] = {}
+        self._children: dict[str, dict[str, dict]] = {}
         self.config_updates: list[dict] = []
         self.reconnects = 0
 
@@ -181,18 +188,35 @@ class _FakeBaseDriver:
 
 class _FakeHTTPSimulator:
     SIMULATOR_INFO: dict = {}
+    sse_paths: list[str] = []
 
     def __init__(self, device_id, config=None) -> None:
         self.device_id = device_id
         self.config = config or {}
         self._state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
         self.active_errors: set[str] = set()
+        # Event-stream stand-in: emitted payloads are recorded and fanned
+        # out to any queues the MockTransport eventstream handler registered.
+        self.sse_emitted: list[str] = []
+        self._sse_queues: list[asyncio.Queue] = []
+
+    @property
+    def state(self) -> dict:
+        return dict(self._state)
 
     def get_state(self, key, default=None):
         return self._state.get(key, default)
 
     def set_state(self, key, value) -> None:
         self._state[key] = value
+
+    def push_sse_event(self, data: str) -> None:
+        self.sse_emitted.append(data)
+        for queue in list(self._sse_queues):
+            queue.put_nowait(data)
+
+    def log_protocol(self, *_a, **_k) -> None:
+        pass
 
 
 def _load(name: str, path: Path) -> ModuleType:
@@ -237,13 +261,39 @@ class _Link:
         self.reachable = True
 
 
+async def _sse_body(queue: asyncio.Queue):
+    while True:
+        item = await queue.get()
+        if item is None:
+            return
+        yield f"data: {item}\n\n".encode()
+
+
 def _make_handler(link):
     def handler(request: httpx.Request) -> httpx.Response:
         if not link.reachable:
             raise httpx.ConnectError("Connection refused")
+        path = request.url.path
+        headers = dict(request.headers)
+        # Event stream: held open, fed by the sim's push_sse_event.
+        if path == "/eventstream/clip/v2":
+            key = headers.get("hue-application-key", "")
+            if not key or key == "invalid":
+                return httpx.Response(
+                    403,
+                    json={"errors": [{"description": "unauthorized user"}],
+                          "data": []},
+                )
+            queue: asyncio.Queue = asyncio.Queue()
+            link.sim._sse_queues.append(queue)
+            return httpx.Response(
+                200,
+                content=_sse_body(queue),
+                headers={"content-type": "text/event-stream"},
+            )
         body = request.content.decode() if request.content else ""
         status, resp_body = link.sim.handle_request(
-            request.method, request.url.path, dict(request.headers), body
+            request.method, path, headers, body
         )
         if isinstance(resp_body, dict):
             return httpx.Response(status, json=resp_body)
@@ -255,13 +305,14 @@ def _client_factory(link):
     """A drop-in httpx.AsyncClient that routes through the sim."""
     def make(**kw):
         kw["transport"] = httpx.MockTransport(_make_handler(link))
+        kw.pop("verify", None)
+        kw.pop("limits", None)
         return _REAL_ASYNC_CLIENT(**kw)
     return make
 
 
 _CFG = {
     "host": "hue-test",
-    "port": 80,
     "app_key": "test-app-key",
     "timeout": 5.0,
     "poll_interval": 0,
@@ -270,20 +321,6 @@ _CFG = {
 
 def _make_sim():
     return SIM.PhilipsHueSimulator("sim1", {})
-
-
-def _make_driver(link, **cfg_overrides):
-    """A driver wired to the sim, primed as if already connected."""
-    cfg = dict(_CFG)
-    cfg.update(cfg_overrides)
-    d = DRV.PhilipsHueDriver("hue1", cfg, _FakeState(), _FakeEvents())
-    d._app_key = cfg["app_key"]
-    d._client = _REAL_ASYNC_CLIENT(
-        base_url="http://hue-test",
-        transport=httpx.MockTransport(_make_handler(link)),
-    )
-    d._connected = True
-    return d
 
 
 async def _connected_driver(link, monkeypatch, **cfg_overrides):
@@ -297,17 +334,29 @@ async def _connected_driver(link, monkeypatch, **cfg_overrides):
 
 
 async def _close(driver):
+    await driver._stop_task("_event_task")
+    await driver._stop_task("_roster_refresh_task")
     if driver._client:
         await driver._client.aclose()
+        driver._client = None
+
+
+async def _wait_for(predicate, timeout: float = 3.0) -> None:
+    deadline = asyncio.get_event_loop().time() + timeout
+    while not predicate():
+        if asyncio.get_event_loop().time() > deadline:
+            raise AssertionError("condition not met before timeout")
+        await asyncio.sleep(0.02)
 
 
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_and_min_platform():
     info = DRV.PhilipsHueDriver.DRIVER_INFO
-    assert info["version"] == "2.0.1"
-    assert info["min_platform_version"] == "0.22.0"
+    assert info["version"] == "3.0.0"
+    assert info["min_platform_version"] == "0.23.0"
     assert info["transport"] == "http"
+    assert info["ports"] == [443]
 
 
 def test_child_types_declared():
@@ -315,11 +364,10 @@ def test_child_types_declared():
     assert set(types) == {"light", "group"}
     light = types["light"]
     assert light["dynamic"] is True
-    assert light["id_format"]["type"] == "integer"
+    assert light["id_format"]["type"] == "string"
     group = types["group"]
     assert "dynamic" not in group
-    # Group 0 is the bridge's special all-lights group.
-    assert group["id_format"]["min"] == 0
+    assert group["id_format"]["type"] == "string"
     for tdef in types.values():
         sv = tdef["state_variables"]
         assert "online" not in sv and "label" not in sv
@@ -327,11 +375,10 @@ def test_child_types_declared():
 
 def test_params_use_pickers():
     cmds = DRV.PhilipsHueDriver.DRIVER_INFO["commands"]
-    assert cmds["light_on"]["params"]["light_id"]["type"] == "child_id"
-    assert cmds["light_on"]["params"]["light_id"]["child_type"] == "light"
-    assert cmds["group_on"]["params"]["group_id"]["child_type"] == "group"
-    assert cmds["recall_scene"]["params"]["scene_id"]["options_state"] == "scene_options"
-    assert cmds["group_recall_scene"]["params"]["scene_id"]["options_state"] == "scene_options"
+    assert cmds["light_on"]["params"]["light"]["type"] == "child_id"
+    assert cmds["light_on"]["params"]["light"]["child_type"] == "light"
+    assert cmds["group_on"]["params"]["group"]["child_type"] == "group"
+    assert cmds["recall_scene"]["params"]["scene"]["options_state"] == "scene_options"
 
 
 def test_actions_shape():
@@ -357,489 +404,497 @@ def test_discovery_probe_matches_sim():
 
 # ── CE: lights + groups enumerated as children ──────────────────────────────
 
-def test_connect_registers_children(monkeypatch):
-    async def go():
-        driver = await _connected_driver(_Link(_make_sim()), monkeypatch)
-        try:
-            assert set(driver.list_children("light")) == {1, 2, 3, 4, 5}
-            assert set(driver.list_children("group")) == {0, 1, 2, 3}
-            assert driver.get_state("light_count") == 5
-            # Group 0 is not counted as a user group.
-            assert driver.get_state("group_count") == 3
-            assert driver.get_state("scene_count") == 3
-            assert driver.get_state("bridge_name") == "Sim Hue Bridge"
-            assert driver.get_state("model_id") == "BSB002"
-            assert driver.get_state("zigbee_channel") == 25
-
-            light1 = driver.get_child_state("light", 1)
-            assert light1["name"] == "Boardroom Front"
-            assert light1["on"] is True
-            assert light1["bri"] == 200
-            assert light1["colormode"] == "ct"
-            assert light1["xy"] == "0.4573,0.4100"
-
-            room = driver.get_child_state("group", 1)
-            assert room["name"] == "Boardroom"
-            assert room["type"] == "Room"
-            assert room["room_class"] == "Meeting"
-            assert room["lights"] == "1,2"
-            assert room["any_on"] is True and room["all_on"] is False
-
-            all_lights = driver.get_child_state("group", 0)
-            assert all_lights["type"] == "LightGroup"
-            assert all_lights["any_on"] is True
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_light_schemas_match_capabilities(monkeypatch):
-    async def go():
-        driver = await _connected_driver(_Link(_make_sim()), monkeypatch)
-        try:
-            color = driver.get_child_schema("light", 1)
-            assert {"on", "bri", "ct", "hue", "sat", "xy", "colormode"} <= set(color)
-            assert color["on"]["control"] is True
-            assert color["on"]["cloud_priority"] == "high"
-
-            ct_only = driver.get_child_schema("light", 3)
-            assert "ct" in ct_only and "bri" in ct_only
-            assert "hue" not in ct_only and "xy" not in ct_only
-
-            dimmable = driver.get_child_schema("light", 4)
-            assert "bri" in dimmable
-            assert "ct" not in dimmable and "hue" not in dimmable
-
-            plug = driver.get_child_schema("light", 5)
-            assert "on" in plug
-            assert "bri" not in plug and "ct" not in plug
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_online_mirrors_reachable(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        driver = await _connected_driver(link, monkeypatch)
-        try:
-            assert driver.get_child_state("light", 4)["online"] is True
-            link.sim._lights["4"]["state"]["reachable"] = False
-            await driver.poll()
-            assert driver.get_child_state("light", 4)["online"] is False
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_poll_reconciles_roster(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        driver = await _connected_driver(link, monkeypatch)
-        try:
-            # Light 5 removed on the bridge; a new group appears.
-            del link.sim._lights["5"]
-            link.sim._groups["4"] = {
-                "name": "Annex", "type": "Zone", "class": "Other",
-                "lights": ["4"], "sensors": [], "action": {"on": False},
-            }
-            await driver.poll()
-            assert not driver.is_child_registered("light", 5)
-            assert driver.is_child_registered("group", 4)
-            assert driver.get_state("light_count") == 4
-            assert driver.get_state("group_count") == 4
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_scene_options_labeled_with_group(monkeypatch):
-    async def go():
-        driver = await _connected_driver(_Link(_make_sim()), monkeypatch)
-        try:
-            options = json.loads(driver.get_state("scene_options"))
-            by_value = {o["value"]: o["label"] for o in options}
-            # GroupScenes carry their room's name; the LightScene doesn't.
-            assert by_value["AB34ef5-presnt1"] == "Presentation (Boardroom)"
-            assert by_value["EF12ij3-energz"] == "Energize"
-            labels = [o["label"] for o in options]
-            assert labels == sorted(labels, key=str.lower)
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_refresh_children_reports_counts(monkeypatch):
-    async def go():
-        driver = await _connected_driver(_Link(_make_sim()), monkeypatch)
-        try:
-            result = await driver.refresh_children()
-            assert result == {"lights": 5, "groups": 4, "scenes": 3}
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-# ── Command round trips (driver -> sim -> driver) ───────────────────────────
-
-def test_light_on_off_round_trip():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            await driver.send_command("light_on", {"light_id": 2})
-            assert link.sim._lights["2"]["state"]["on"] is True
-            # Applied from the PUT success confirmation, no extra poll.
-            assert driver.get_child_state("light", 2)["on"] is True
-
-            await driver.send_command("light_off", {"light_id": 2})
-            assert link.sim._lights["2"]["state"]["on"] is False
-            assert driver.get_child_state("light", 2)["on"] is False
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_light_brightness_round_trip():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            # Light 4 starts off; the command turns it on in the same PUT
-            # (the bridge rejects dimming writes to an off light).
-            await driver.send_command(
-                "light_set_brightness", {"light_id": 4, "bri": 120})
-            assert link.sim._lights["4"]["state"]["on"] is True
-            assert link.sim._lights["4"]["state"]["bri"] == 120
-            child = driver.get_child_state("light", 4)
-            assert child["on"] is True and child["bri"] == 120
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_light_color_round_trip():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            await driver.send_command(
-                "light_set_hue_sat", {"light_id": 1, "hue": 21845, "sat": 200})
-            state = link.sim._lights["1"]["state"]
-            assert state["hue"] == 21845 and state["sat"] == 200
-            assert state["colormode"] == "hs"
-            child = driver.get_child_state("light", 1)
-            assert child["hue"] == 21845 and child["sat"] == 200
-
-            await driver.send_command(
-                "light_set_xy", {"light_id": 1, "x": 0.675, "y": 0.322})
-            assert link.sim._lights["1"]["state"]["colormode"] == "xy"
-            assert driver.get_child_state("light", 1)["xy"] == "0.6750,0.3220"
-
-            await driver.send_command(
-                "light_set_color_temp", {"light_id": 3, "ct": 400})
-            assert link.sim._lights["3"]["state"]["ct"] == 400
-            assert driver.get_child_state("light", 3)["ct"] == 400
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_unsupported_field_tolerated_as_partial():
-    """An xy write to a ct-only light draws a per-field Hue error next to
-    the on-field success; the driver applies the successes and records the
-    error instead of failing the command."""
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            await driver.send_command(
-                "light_set_xy", {"light_id": 3, "x": 0.5, "y": 0.4})
-            assert driver.get_child_state("light", 3)["on"] is True
-            assert "xy" not in link.sim._lights["3"]["state"]
-            assert "not available" in (driver.get_state("last_error") or "")
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_group_on_fans_out_to_member_lights():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            assert driver.get_child_state("light", 2)["on"] is False
-            await driver.send_command("group_on", {"group_id": 1})
-            # Sim side: both Boardroom lights are now on.
-            assert link.sim._lights["1"]["state"]["on"] is True
-            assert link.sim._lights["2"]["state"]["on"] is True
-            # Driver side: the post-command re-read caught the fan-out.
-            assert driver.get_child_state("light", 2)["on"] is True
-            group = driver.get_child_state("group", 1)
-            assert group["any_on"] is True and group["all_on"] is True
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_group_brightness_round_trip():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            await driver.send_command(
-                "group_set_brightness", {"group_id": 2, "bri": 90})
-            assert link.sim._lights["3"]["state"]["bri"] == 90
-            assert driver.get_child_state("group", 2)["bri"] == 90
-            assert driver.get_child_state("light", 3)["bri"] == 90
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_scene_recall_applies_light_states():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            await driver.send_command("group_recall_scene", {
-                "group_id": 1, "scene_id": "AB34ef5-presnt1"})
-            # The Presentation scene dims light 1 and turns light 2 off.
-            assert link.sim._lights["1"]["state"]["bri"] == 60
-            assert link.sim._lights["1"]["state"]["ct"] == 400
-            assert link.sim._lights["2"]["state"]["on"] is False
-            child1 = driver.get_child_state("light", 1)
-            assert child1["bri"] == 60 and child1["ct"] == 400
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_all_on_off_via_group_zero():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            await driver.send_command("all_off", {})
-            assert all(
-                not li["state"]["on"] for li in link.sim._lights.values())
-            assert driver.get_child_state("group", 0)["any_on"] is False
-            assert driver.get_child_state("light", 1)["on"] is False
-
-            await driver.send_command("all_on", {})
-            assert all(li["state"]["on"] for li in link.sim._lights.values())
-            group0 = driver.get_child_state("group", 0)
-            assert group0["any_on"] is True and group0["all_on"] is True
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-def test_create_user_command_when_paired():
-    async def go():
-        link = _Link(_make_sim())
-        link.sim.set_state("link_button_pressed", True)
-        driver = _make_driver(link)
-        try:
-            result = await driver.send_command("create_user", {})
-            assert result[0]["success"]["username"].startswith("simhueappkey")
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-# ── Device setting: bridge_name ─────────────────────────────────────────────
-
-def test_bridge_name_setting_round_trip():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            result = await driver.set_device_setting("bridge_name", "Boardroom Hue")
-            assert link.sim.get_state("bridge_name") == "Boardroom Hue"
-            # Read back through the config poll, not assumed.
-            assert driver.get_state("bridge_name") == "Boardroom Hue"
-            assert result == "Boardroom Hue"
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
-
-
-# ── Setup wizard: pairing ───────────────────────────────────────────────────
-
-def _progress_collector():
-    steps: list[str] = []
-
-    async def progress(step, pct=None):
-        steps.append(step)
-
-    return steps, progress
-
-
-def test_pair_wizard_success_saves_and_reconnects(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        link.sim.set_state("link_button_pressed", True)
-        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
-        driver = DRV.PhilipsHueDriver(
-            "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents())
-        steps, progress = _progress_collector()
-        result = await driver.run_setup_action("pair_bridge", {}, progress)
-        assert result["paired"] is True
-        assert result["app_key"].startswith("simhueappkey")
-        assert result["saved"] is True
-        assert result["bridge_id"] == "001788FFFEABCDEF"
-        assert driver.config_updates == [{"app_key": result["app_key"]}]
-        assert driver.reconnects == 1
-        assert steps
-
-    asyncio.run(go())
-
-
-def test_pair_wizard_no_save(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        link.sim.set_state("link_button_pressed", True)
-        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
-        driver = DRV.PhilipsHueDriver(
-            "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents())
-        _, progress = _progress_collector()
-        result = await driver.run_setup_action(
-            "pair_bridge", {"save": False}, progress)
-        assert result["paired"] is True and result["saved"] is False
-        assert driver.config_updates == []
-        assert driver.reconnects == 0
-
-    asyncio.run(go())
-
-
-def test_pair_wizard_link_button_not_pressed(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
-        driver = DRV.PhilipsHueDriver(
-            "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents())
-        _, progress = _progress_collector()
-        with pytest.raises(ConnectionError) as ei:
-            await driver.run_setup_action("pair_bridge", {}, progress)
-        assert "link button" in str(ei.value).lower()
-        assert driver.config_updates == []
-
-    asyncio.run(go())
-
-
-def test_pair_wizard_unreachable(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        link.reachable = False
-        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
-        driver = DRV.PhilipsHueDriver(
-            "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents())
-        _, progress = _progress_collector()
-        with pytest.raises(ConnectionError) as ei:
-            await driver.run_setup_action("pair_bridge", {}, progress)
-        assert "could not reach" in str(ei.value).lower()
-
-    asyncio.run(go())
+@pytest.mark.asyncio
+async def test_connect_registers_children(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        assert d.get_state("light_count") == 5
+        # 2 rooms + 1 zone; the whole-home group is a child but not counted.
+        assert d.get_state("group_count") == 3
+        assert len(d.list_children("light")) == 5
+        assert len(d.list_children("group")) == 4
+        assert d.get_state("scene_count") == 3
+        assert d.get_state("bridge_id") == "001788fffeabcdef"
+        assert d.get_state("bridge_name") == "Sim Hue Bridge"
+        assert d.get_state("model_id") == "BSB002"
+        assert d.get_state("sw_version") == "1.108.7"
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_per_capability_schemas(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        color = d.get_child_schema("light", SIM.L1)
+        assert {"on", "brightness", "mirek", "xy"} <= set(color)
+        color_only = d.get_child_schema("light", SIM.L2)
+        assert "xy" in color_only and "mirek" not in color_only
+        ct = d.get_child_schema("light", SIM.L3)
+        assert "mirek" in ct and "xy" not in ct
+        # Per-light mirek bounds come from the light's own mirek_schema.
+        assert ct["mirek"]["max"] == 454
+        dimmable = d.get_child_schema("light", SIM.L4)
+        assert "brightness" in dimmable and "mirek" not in dimmable
+        plug = d.get_child_schema("light", SIM.L5)
+        assert "on" in plug
+        assert not {"brightness", "mirek", "xy"} & set(plug)
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_online_mirrors_zigbee_connectivity(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        assert d.get_child_state("light", SIM.L1)["online"] is True
+        # The rack plug's zigbee_connectivity ships connectivity_issue.
+        assert d.get_child_state("light", SIM.L5)["online"] is False
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_group_children_carry_grouped_light_state(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        board = d.get_child_state("group", SIM.ROOM_BOARD)
+        assert board["name"] == "Boardroom"
+        assert board["type"] == "room"
+        assert board["room_class"] == "office"
+        assert board["on"] is True  # L1 is on
+        assert "Boardroom Front" in board["lights"]
+        zone = d.get_child_state("group", SIM.ZONE_STAGE)
+        assert zone["type"] == "zone"
+        assert "Boardroom Front" in zone["lights"]  # zone children are lights
+        home = d.get_child_state("group", SIM.HOME)
+        assert home["type"] == "home"
+        assert home["name"] == "All Lights"
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_scene_options_labeled_with_group(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        options = json.loads(d.get_state("scene_options"))
+        labels = {o["label"] for o in options}
+        assert "Presentation (Boardroom)" in labels
+        assert "Wash Blue (Stage Wash)" in labels
+        values = {o["value"] for o in options}
+        assert SIM.SCENE_PRESENT in values
+    finally:
+        await _close(d)
+
+
+# ── SSE push ────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_sim_state_change_streams_to_child_state(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        # No polling in this harness (poll_interval 0) — the only path from
+        # sim to driver is the event stream.
+        link.sim.set_state("light_1_on", False)
+        await _wait_for(
+            lambda: d.get_child_state("light", SIM.L1)["on"] is False
+        )
+        # The grouped_light recompute streams the room's any_on too.
+        await _wait_for(
+            lambda: d.get_child_state("group", SIM.ROOM_BOARD)["on"] is False
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_reachability_change_streams_to_online(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        link.sim.set_state("light_1_reachable", False)
+        await _wait_for(
+            lambda: d.get_child_state("light", SIM.L1)["online"] is False
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_bridge_rename_streams_to_state(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        link.sim.set_state("bridge_name", "Rack Bridge")
+        await _wait_for(
+            lambda: d.get_state("bridge_name") == "Rack Bridge"
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_add_delete_events_schedule_roster_refresh(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        payload = json.dumps([{
+            "creationtime": "2026-01-01T00:00:00Z",
+            "data": [{"id": "someuuid", "type": "light"}],
+            "id": "eventuuid",
+            "type": "delete",
+        }])
+        d._apply_event_payload(payload)
+        assert d._roster_refresh_task is not None
+        # The refresh runs against the unchanged sim — rosters stay intact.
+        await asyncio.wait_for(d._roster_refresh_task, timeout=5.0)
+        assert d.get_state("light_count") == 5
+    finally:
+        await _close(d)
+
+
+# ── Commands ────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_light_on_off_round_trip(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        await d.send_command("light_off", {"light": SIM.L1})
+        assert link.sim.resources[SIM.L1]["on"]["on"] is False
+        await _wait_for(
+            lambda: d.get_child_state("light", SIM.L1)["on"] is False
+        )
+        await d.send_command("light_on", {"light": SIM.L1})
+        assert link.sim.resources[SIM.L1]["on"]["on"] is True
+        await _wait_for(
+            lambda: d.get_child_state("light", SIM.L1)["on"] is True
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_brightness_ct_xy_bodies(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        await d.send_command(
+            "set_light_brightness",
+            {"light": SIM.L1, "brightness": 42.5, "transition_ms": 400},
+        )
+        res = link.sim.resources[SIM.L1]
+        assert res["dimming"]["brightness"] == 42.5
+        assert res["on"]["on"] is True
+        await _wait_for(
+            lambda: d.get_child_state("light", SIM.L1)["brightness"] == 42.5
+        )
+
+        # Out-of-range mirek clamps to the light's own schema (454 max).
+        await d.send_command("set_light_ct", {"light": SIM.L3, "mirek": 500})
+        assert link.sim.resources[SIM.L3]["color_temperature"]["mirek"] == 454
+
+        await d.send_command(
+            "set_light_xy", {"light": SIM.L2, "x": 0.2, "y": 0.3}
+        )
+        assert link.sim.resources[SIM.L2]["color"]["xy"] == {"x": 0.2, "y": 0.3}
+        await _wait_for(
+            lambda: d.get_child_state("light", SIM.L2)["xy"] == "0.2000,0.3000"
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_group_commands_fan_out(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        await d.send_command("group_on", {"group": SIM.ROOM_LOBBY})
+        assert link.sim.resources[SIM.L3]["on"]["on"] is True
+        assert link.sim.resources[SIM.L4]["on"]["on"] is True
+        await _wait_for(
+            lambda: d.get_child_state("group", SIM.ROOM_LOBBY)["on"] is True
+        )
+        await d.send_command(
+            "set_group_brightness", {"group": SIM.ROOM_LOBBY, "brightness": 25}
+        )
+        assert link.sim.resources[SIM.L3]["dimming"]["brightness"] == 25.0
+        assert link.sim.resources[SIM.L4]["dimming"]["brightness"] == 25.0
+        await d.send_command("group_off", {"group": SIM.ROOM_LOBBY})
+        assert link.sim.resources[SIM.L3]["on"]["on"] is False
+        await _wait_for(
+            lambda: d.get_child_state("group", SIM.ROOM_LOBBY)["on"] is False
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_all_on_off_uses_home_group(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        await d.send_command("all_on")
+        assert all(
+            link.sim.resources[lid]["on"]["on"]
+            for lid in (SIM.L1, SIM.L2, SIM.L3, SIM.L4, SIM.L5)
+        )
+        await _wait_for(
+            lambda: d.get_child_state("group", SIM.HOME)["on"] is True
+        )
+        await d.send_command("all_off")
+        assert not any(
+            link.sim.resources[lid]["on"]["on"]
+            for lid in (SIM.L1, SIM.L2, SIM.L3, SIM.L4, SIM.L5)
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_recall_scene_applies_actions(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await _wait_for(lambda: link.sim._sse_queues)
+        await d.send_command(
+            "recall_scene", {"scene": SIM.SCENE_PRESENT, "duration_ms": 1000}
+        )
+        l1 = link.sim.resources[SIM.L1]
+        assert l1["on"]["on"] is True
+        assert l1["dimming"]["brightness"] == 100.0
+        assert l1["color_temperature"]["mirek"] == 233
+        assert link.sim.resources[SIM.L2]["on"]["on"] is False
+        await _wait_for(
+            lambda: d.get_child_state("light", SIM.L1)["mirek"] == 233
+        )
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_light_identify_targets_owner_device(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        result = await d.send_command("light_identify", {"light": SIM.L1})
+        assert result == [{"rid": SIM.D1, "rtype": "device"}]
+    finally:
+        await _close(d)
+
+
+@pytest.mark.asyncio
+async def test_unknown_command_and_group_rejected(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        with pytest.raises(ValueError):
+            await d.send_command("warp_drive")
+        with pytest.raises(ValueError):
+            await d.send_command("group_on", {"group": "no-such-group"})
+    finally:
+        await _close(d)
+
+
+# ── Device settings ─────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_bridge_name_setting_round_trip(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        await d.set_device_setting("bridge_name", "AV Rack Bridge")
+        bdev = link.sim.resources[SIM.BRIDGE_DEV]
+        assert bdev["metadata"]["name"] == "AV Rack Bridge"
+        assert d.get_state("bridge_name") == "AV Rack Bridge"
+        # The resync keeps agreeing with the device.
+        await d.poll()
+        assert d.get_state("bridge_name") == "AV Rack Bridge"
+    finally:
+        await _close(d)
 
 
 # ── Connection faults ───────────────────────────────────────────────────────
 
-def test_connect_without_app_key_is_auth_fault(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
-        driver = DRV.PhilipsHueDriver(
-            "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents())
-        with pytest.raises(_FakeConnectionFaultError) as ei:
-            await driver.connect()
-        assert ei.value.code == "auth_failed"
-        assert "pair" in str(ei.value).lower()
-
-    asyncio.run(go())
-
-
-def test_connect_with_rejected_key_is_auth_fault(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
-        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
-        # "invalid" is the sim's designated bad-credential sentinel.
-        driver = DRV.PhilipsHueDriver(
-            "hue1", dict(_CFG, app_key="invalid"), _FakeState(), _FakeEvents())
-        with pytest.raises(_FakeConnectionFaultError) as ei:
-            await driver.connect()
-        assert ei.value.code == "auth_failed"
-
-    asyncio.run(go())
+@pytest.mark.asyncio
+async def test_connect_without_app_key_is_auth_fault(monkeypatch):
+    link = _Link(_make_sim())
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+    d = DRV.PhilipsHueDriver(
+        "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents()
+    )
+    with pytest.raises(_FakeConnectionFaultError) as excinfo:
+        await d.connect()
+    assert excinfo.value.code == "auth_failed"
+    assert d._client is None
 
 
-def test_key_revoked_mid_session_faults_on_poll():
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            link.sim.active_errors.add("unauthorized")
-            with pytest.raises(_FakeConnectionFaultError) as ei:
-                await driver.poll()
-            assert ei.value.code == "auth_failed"
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
+@pytest.mark.asyncio
+async def test_connect_with_rejected_key_is_auth_fault(monkeypatch):
+    link = _Link(_make_sim())
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+    d = DRV.PhilipsHueDriver(
+        "hue1", dict(_CFG, app_key="invalid"), _FakeState(), _FakeEvents()
+    )
+    with pytest.raises(_FakeConnectionFaultError) as excinfo:
+        await d.connect()
+    assert excinfo.value.code == "auth_failed"
 
 
-def test_poll_propagates_transport_errors():
-    """Never-offline guard: an unreachable bridge must raise from poll()
-    so the platform watchdog can flip the device offline."""
-    async def go():
-        link = _Link(_make_sim())
-        driver = _make_driver(link)
-        try:
-            await driver._refresh_all()
-            link.reachable = False
-            with pytest.raises(ConnectionError):
-                await driver.poll()
-        finally:
-            await _close(driver)
-
-    asyncio.run(go())
+@pytest.mark.asyncio
+async def test_mid_session_revocation_surfaces_via_poll(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
+        link.sim.active_errors.add("unauthorized")
+        with pytest.raises(_FakeConnectionFaultError) as excinfo:
+            await d.poll()
+        assert excinfo.value.code == "auth_failed"
+    finally:
+        await _close(d)
 
 
-def test_connect_unreachable_is_connection_error(monkeypatch):
-    async def go():
-        link = _Link(_make_sim())
+@pytest.mark.asyncio
+async def test_poll_propagates_transport_errors(monkeypatch):
+    link = _Link(_make_sim())
+    d = await _connected_driver(link, monkeypatch)
+    try:
         link.reachable = False
-        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
-        driver = DRV.PhilipsHueDriver(
-            "hue1", dict(_CFG), _FakeState(), _FakeEvents())
-        with pytest.raises(ConnectionError) as ei:
-            await driver.connect()
-        assert "could not reach" in str(ei.value).lower()
+        with pytest.raises(ConnectionError):
+            await d.poll()
+    finally:
+        await _close(d)
 
-    asyncio.run(go())
+
+@pytest.mark.asyncio
+async def test_connect_unreachable_is_connection_error(monkeypatch):
+    link = _Link(_make_sim())
+    link.reachable = False
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+    d = DRV.PhilipsHueDriver("hue1", dict(_CFG), _FakeState(), _FakeEvents())
+    with pytest.raises(ConnectionError):
+        await d.connect()
+    assert d._client is None
+
+
+# ── Pairing wizard ──────────────────────────────────────────────────────────
+
+async def _progress(step, pct=None):
+    pass
+
+
+@pytest.mark.asyncio
+async def test_wizard_pairs_saves_and_reconnects(monkeypatch):
+    link = _Link(_make_sim())
+    link.sim.set_state("link_button_pressed", True)
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+    d = DRV.PhilipsHueDriver(
+        "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents()
+    )
+    result = await d.run_setup_action("pair_bridge", {"save": True}, _progress)
+    assert result["paired"] is True
+    assert result["app_key"] == "simulated-app-key-0001"
+    assert result["saved"] is True
+    assert d.config["app_key"] == "simulated-app-key-0001"
+    assert d.reconnects == 1
+    assert result["bridge_id"]
+
+
+@pytest.mark.asyncio
+async def test_wizard_no_save(monkeypatch):
+    link = _Link(_make_sim())
+    link.sim.set_state("link_button_pressed", True)
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+    d = DRV.PhilipsHueDriver(
+        "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents()
+    )
+    result = await d.run_setup_action("pair_bridge", {"save": False}, _progress)
+    assert result["saved"] is False
+    assert d.config["app_key"] == ""
+    assert d.reconnects == 0
+
+
+@pytest.mark.asyncio
+async def test_wizard_link_button_not_pressed(monkeypatch):
+    link = _Link(_make_sim())
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+    d = DRV.PhilipsHueDriver(
+        "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents()
+    )
+    with pytest.raises(ConnectionError, match="link button"):
+        await d.run_setup_action("pair_bridge", {"save": True}, _progress)
+
+
+@pytest.mark.asyncio
+async def test_wizard_unreachable(monkeypatch):
+    link = _Link(_make_sim())
+    link.reachable = False
+    monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+    d = DRV.PhilipsHueDriver(
+        "hue1", dict(_CFG, app_key=""), _FakeState(), _FakeEvents()
+    )
+    with pytest.raises(ConnectionError, match="Could not reach"):
+        await d.run_setup_action("pair_bridge", {"save": True}, _progress)
+
+
+# ── Sim fidelity details ────────────────────────────────────────────────────
+
+def test_sim_clip_requires_app_key():
+    sim = _make_sim()
+    status, body = sim.handle_request("GET", "/clip/v2/resource", {}, "")
+    assert status == 403
+    status, _ = sim.handle_request(
+        "GET", "/clip/v2/resource", {"hue-application-key": "invalid"}, ""
+    )
+    assert status == 403
+    status, body = sim.handle_request(
+        "GET", "/clip/v2/resource", {"hue-application-key": "ok-key"}, ""
+    )
+    assert status == 200
+    payload = json.loads(body)
+    assert payload["errors"] == []
+    types = {r["type"] for r in payload["data"]}
+    assert {"light", "device", "zigbee_connectivity", "room", "zone",
+            "bridge_home", "grouped_light", "scene", "bridge"} <= types
+
+
+def test_sim_pairing_returns_clientkey_when_requested():
+    sim = _make_sim()
+    sim.set_state("link_button_pressed", True)
+    status, body = sim.handle_request(
+        "POST", "/api", {},
+        json.dumps({"devicetype": "x#y", "generateclientkey": True}),
+    )
+    assert status == 200
+    entry = json.loads(body)[0]["success"]
+    assert entry["username"]
+    assert entry["clientkey"]
+
+
+def test_sim_put_emits_update_envelope():
+    sim = _make_sim()
+    sim.handle_request(
+        "PUT", f"/clip/v2/resource/light/{SIM.L1}",
+        {"hue-application-key": "k"},
+        json.dumps({"on": {"on": False}}),
+    )
+    assert sim.sse_emitted, "expected an SSE event"
+    envelopes = json.loads(sim.sse_emitted[-1])
+    assert envelopes[0]["type"] == "update"
+    ids = {res["id"] for env in envelopes for res in env["data"]}
+    assert SIM.L1 in ids

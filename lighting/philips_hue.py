@@ -1,73 +1,89 @@
 """
-OpenAVC Philips Hue Bridge Driver (Local REST API V1).
+OpenAVC Philips Hue Bridge Driver (CLIP API v2).
 
-Controls Philips Hue lights, groups (rooms / zones / "all lights"), and
-scenes via the local REST API V1 on a Hue Bridge over HTTP (port 80).
+Controls Philips Hue lights, rooms, zones, and scenes via the local CLIP v2
+REST API on a Hue Bridge over HTTPS, with live state pushed by the bridge's
+Server-Sent Events stream.
 
-Why Python (was YAML through v1.1.x):
+API generation:
+  This driver targets the v2 / CLIP v2 API (HTTPS, /clip/v2/resource/...),
+  the current Hue API generation. It requires a square Hue Bridge (BSB002)
+  on firmware 1948086000 or newer — every bridge updated since late 2019
+  qualifies. The round 2012 bridge (BSB001) never received the v2 API and
+  is not supported by this driver version.
+
+Why Python:
   A Hue Bridge is inherently a many-unit controller — one bridge drives up
-  to 50+ lights and dozens of rooms/zones, all keyed by per-install IDs.
-  The YAML driver could only expose bridge metadata and blind per-ID
-  commands; Python unlocks the parts that need code:
-    - every light and group becomes a child entity enumerated from the
-      bridge, each light with a per-child schema matching its real
-      capability set (an on/off plug shows no brightness field, a
-      white-ambiance light no hue/sat);
+  to 50+ lights and dozens of rooms/zones, all keyed by per-install ids.
+  Python is required for the parts YAML cannot express:
+    - every light and group is a child entity enumerated from the bridge,
+      each light with a per-child schema matching its real capability set
+      (an on/off plug shows no brightness field, a white-ambiance light no
+      color control) and per-light color-temperature bounds taken from the
+      light's own mirek_schema;
+    - the SSE event stream carries JSON arrays of event envelopes that fan
+      out into per-child state updates;
     - a "Pair with Bridge" setup wizard that runs while the device is
-      OFFLINE — the old create_user command was unreachable in exactly the
-      situation it existed for (no app key means the driver can't connect,
-      and commands need a connected device);
-    - nested-JSON parsing for rosters and state (the YAML driver matched
-      flat config fields with regexes and could not fan a lights document
-      out into per-light state);
+      OFFLINE (no app key means the driver can't connect, and commands
+      need a connected device);
     - typed connection faults (a rejected or missing app key shows as
       "authentication failed" on the device card, not a generic offline).
 
-Models covered:
-  - Hue Bridge V2 (BSB002, square)  — current production bridge
-  - Hue Bridge V1 (BSB001, round)   — legacy, still supported by V1 API
-
 Protocol reference:
-  The Hue API V1 reference is gated behind a developer-portal login. This
-  driver is built against the home-assistant-libs/aiohue V1 implementation
-  (a mature open-source client that mirrors the original Signify spec).
-  Facts verified there: the full-state document shape (GET /api/<key>),
-  group 0 being excluded from GET /groups (fetched via /groups/0), the
-  error taxonomy (type 1 = unauthorized, type 101 = link button not
-  pressed, HTTP 403 = unauthorized), app-key creation (POST /api with a
-  devicetype), and the unauthenticated GET /api/config discovery probe
-  (aiohue's own is_hue_bridge check). The bridge rename write
-  (PUT /api/<key>/config {"name": ...}) is confirmed against phue (MIT).
+  The official CLIP v2 reference is gated behind a developer-portal login.
+  This driver is built against the home-assistant-libs/aiohue v2
+  implementation (a mature open-source client that mirrors the official
+  spec). Facts verified there: the base URL and hue-application-key header,
+  the /eventstream/clip/v2 SSE endpoint (headers, envelope format,
+  last-event-id replay, add/update/delete event types), the resource
+  schemas (light/grouped_light/room/zone/scene/device/bridge_home/bridge/
+  zigbee_connectivity), partial-body PUT shapes, the {"data": [...],
+  "errors": [...]} response envelope, app-key creation via the v1 POST /api
+  endpoint (error 101 = link button), the bridge's 3-concurrent-request /
+  429 behavior, and the absence of any server-side SSE keepalive.
 
 Push vs. poll:
-  The V1 API is request/response only — there is no push or subscription
-  primitive. (V2 / CLIP V2 adds Server-Sent Events over HTTPS; that is a
-  separate driver effort.) This driver polls lights + groups every cycle
-  and bridge config + scenes on a slower cadence. Light PUTs apply the
-  bridge's per-field success confirmations to child state immediately;
-  group PUTs and scene recalls trigger a lights+groups re-read because
-  they fan out to member lights the confirmation doesn't enumerate.
+  Push. The bridge streams every resource change over one Server-Sent
+  Events connection (GET /eventstream/clip/v2); light, group, scene-list,
+  and reachability changes land in child state the moment they happen —
+  including changes made from the Hue app or dimmer switches. Polling
+  stays on as the baseline resync (default 30 s, one bulk
+  GET /clip/v2/resource per cycle): the bridge sends no keepalive on the
+  stream, so a silently dead stream is detected by reopening it after 90 s
+  of quiet (the reconnect replays missed events via last-event-id), and
+  the poll guarantees state can never drift for more than one cycle.
+
+Rate limits:
+  The bridge handles roughly 10 light commands / 1 group command per
+  second across ALL connected apps, rejects more than ~3 concurrent
+  requests with HTTP 429, and may answer 503 when busy. The driver keeps
+  a small connection pool and retries 429/503 briefly; don't drive
+  continuous fades through REST (that's what the Hue Entertainment API is
+  for — out of scope here).
 
 Authentication:
-  Per-app "username" (app key) generated by POSTing to /api after the user
+  Per-app "application key" generated by POSTing to /api after the user
   presses the physical link button on the bridge. Run the "Pair with
   Bridge (Link Button)" setup action from the device page — it verifies
   the bridge, requests the key, saves it into the device config, and
-  reconnects. The key is the standing credential, so persisting it is
-  correct.
+  reconnects. The key is the standing credential and does not expire.
+  All CLIP v2 requests are HTTPS; the bridge's certificate is issued by
+  Signify's own CA (not in system trust stores), so verification is
+  disabled — the same posture as the reference implementation.
 
 Scope:
   AV-integrator runtime control surface — recall scenes, on/off rooms,
   set brightness / color / color-temperature on groups or individual
-  lights, monitor per-light reachability. Light/group/scene creation,
-  sensor/rule/schedule management, and software-update control are
+  lights (with optional transition times), monitor per-light
+  reachability. Light/group/scene creation, sensor/rule/automation
+  management, entertainment streaming, and software-update control are
   install-time tasks left to the Hue mobile app.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
-import re
 from typing import Any
 
 import httpx
@@ -77,32 +93,25 @@ from server.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-# Bridge metadata fields mirrored from /api/<key>/config into flat state.
-_CONFIG_FIELDS = {
-    "name": "bridge_name",
-    "bridgeid": "bridge_id",
-    "modelid": "model_id",
-    "apiversion": "api_version",
-    "swversion": "sw_version",
-    "mac": "mac_address",
-    "zigbeechannel": "zigbee_channel",
-}
-
-# Refresh bridge config + scenes every Nth poll cycle (lights + groups
-# refresh every cycle).
-_METADATA_POLL_EVERY = 6
-
 _DEVICETYPE = "openavc#openavc"
 
-# PUT success confirmations address the exact field they changed.
-_LIGHT_SUCCESS_RE = re.compile(r"^/lights/(\d+)/state/(\w+)$")
-_GROUP_SUCCESS_RE = re.compile(r"^/groups/(\d+)/action/(\w+)$")
+# Bridge-busy handling: the bridge 429s above ~3 concurrent requests and
+# may 503 under load; retry briefly with linear backoff.
+_BUSY_STATUSES = (429, 503)
+_BUSY_RETRIES = 6
+_BUSY_BACKOFF = 0.25
+
+# Reopen the event stream after this much silence. The bridge sends NO
+# keepalive on the stream, so a long-idle stream is indistinguishable from
+# a dead one; a periodic reopen (with last-event-id replay) bounds how long
+# a silently dead stream can linger. Cheap: a quiet bridge costs one HTTPS
+# reconnect every 90 s.
+_STREAM_IDLE_REOPEN_S = 90.0
 
 # Shared per-light child props; capability props are added per light from
-# the fields its state document actually carries.
+# the features its v2 resource actually carries.
 _LIGHT_SHARED_SCHEMA: dict[str, dict[str, Any]] = {
     "name": {"type": "string", "label": "Name", "cloud_priority": "low"},
-    "type": {"type": "string", "label": "Light Type", "cloud_priority": "low"},
     "model": {"type": "string", "label": "Model", "cloud_priority": "low"},
     "on": {
         "type": "boolean",
@@ -112,69 +121,80 @@ _LIGHT_SHARED_SCHEMA: dict[str, dict[str, Any]] = {
     },
 }
 
-_LIGHT_CAPABILITY_SCHEMA: dict[str, dict[str, Any]] = {
-    "bri": {
-        "type": "integer",
-        "label": "Brightness",
-        "min": 1,
-        "max": 254,
+_GROUP_SCHEMA: dict[str, dict[str, Any]] = {
+    "name": {"type": "string", "label": "Name", "cloud_priority": "low"},
+    "type": {"type": "string", "label": "Group Type", "cloud_priority": "low"},
+    "room_class": {"type": "string", "label": "Room Class", "cloud_priority": "low"},
+    "on": {
+        "type": "boolean",
+        "label": "Any On",
         "control": True,
-        "cloud_priority": "low",
+        "cloud_priority": "high",
     },
-    "ct": {
-        "type": "integer",
-        "label": "Color Temperature (mired)",
-        "min": 153,
-        "max": 500,
-        "control": True,
-        "cloud_priority": "low",
-    },
-    "hue": {
-        "type": "integer",
-        "label": "Hue",
+    "brightness": {
+        "type": "number",
+        "label": "Brightness (%)",
         "min": 0,
-        "max": 65535,
+        "max": 100,
         "control": True,
         "cloud_priority": "low",
     },
-    "sat": {
-        "type": "integer",
-        "label": "Saturation",
-        "min": 0,
-        "max": 254,
-        "control": True,
-        "cloud_priority": "low",
-    },
-    "xy": {"type": "string", "label": "XY (CIE)", "cloud_priority": "low"},
-    "colormode": {"type": "string", "label": "Color Mode", "cloud_priority": "low"},
+    "lights": {"type": "string", "label": "Member Lights", "cloud_priority": "low"},
+}
+
+_TRANSITION_PARAM = {
+    "type": "integer",
+    "min": 0,
+    "max": 6000000,
+    "label": "Transition (ms)",
+    "help": "Optional fade time in milliseconds (100 ms steps).",
 }
 
 
+def _light_param(required: bool = True) -> dict[str, Any]:
+    return {
+        "type": "child_id",
+        "child_type": "light",
+        "required": required,
+        "label": "Light",
+    }
+
+
+def _group_param() -> dict[str, Any]:
+    return {
+        "type": "child_id",
+        "child_type": "group",
+        "required": True,
+        "label": "Group",
+    }
+
+
 class PhilipsHueDriver(BaseDriver):
-    """Philips Hue Bridge driver (local REST API V1)."""
+    """Philips Hue Bridge driver (CLIP API v2, SSE push)."""
 
     DRIVER_INFO = {
         "id": "philips_hue",
         "name": "Philips Hue Bridge",
         "manufacturer": "Signify",
         "category": "lighting",
-        "version": "2.0.1",
-        # Typed connection faults (ConnectionFaultError) landed in 0.22.0;
-        # dynamic per-child schemas (0.19.4) are covered by the same gate.
-        "min_platform_version": "0.22.0",
+        "version": "3.0.0",
+        # HTTPS-only device: simulation needs the 0.23.0 redirect (ssl flip);
+        # the SSE push generation ships in the same platform release.
+        "min_platform_version": "0.23.0",
         "author": "OpenAVC",
         "description": (
             "Controls Philips Hue lights, rooms, zones, and scenes via the "
-            "local REST API V1 on a Hue Bridge (HTTP, port 80). Every light "
-            "and group is a child entity with live state; pair with the "
-            "bridge's link button straight from the device page."
+            "CLIP v2 API on a Hue Bridge (HTTPS). Live push state from the "
+            "bridge's event stream; every light and group is a child entity; "
+            "pair with the bridge's link button straight from the device "
+            "page. Requires the square v2 bridge (BSB002)."
         ),
-        "source_url": "https://github.com/home-assistant-libs/aiohue/tree/master/aiohue/v1",
+        "source_url": "https://github.com/home-assistant-libs/aiohue/tree/main/aiohue/v2",
         "tags": ["hue", "philips", "signify", "lighting", "residential", "bridge", "scenes"],
         "verified": True,
         "simulated": True,
-        "protocols": ["hue_v1"],
-        "ports": [80],
+        "protocols": ["hue_clip_v2"],
+        "ports": [443],
         "compatible_models": [
             {
                 "manufacturer": "Signify",
@@ -183,22 +203,15 @@ class PhilipsHueDriver(BaseDriver):
                 ],
                 "confidence": "full",
                 "notes": (
-                    "Verified against a BSB002 bridge (API 1.77.0): discovery "
-                    "probe, link-button pairing wizard, light/group/scene "
-                    "enumeration, and control. The V2 bridge also supports "
-                    "the V2 / CLIP V2 API over HTTPS — this driver targets "
-                    "V1 only."
-                ),
-            },
-            {
-                "manufacturer": "Signify",
-                "models": [
-                    "Hue Bridge V1 (BSB001)",
-                ],
-                "confidence": "untested",
-                "notes": (
-                    "Exposes the same V1 REST API on port 80. End-of-life "
-                    "for new firmware but still functional."
+                    "Verified against a BSB002 bridge (firmware "
+                    "1.78.1978074000): HTTPS + application-key connect, "
+                    "enumeration of a 19-light install with rooms/zones/"
+                    "scenes, live event-stream updates, and a light write "
+                    "confirmed back over the stream. The CLIP v2 API "
+                    "requires firmware 1948086000 or newer (any bridge "
+                    "updated since late 2019). The link-button pairing "
+                    "flow is unchanged from the previous driver "
+                    "generation, which was verified on the same bridge."
                 ),
             },
         ],
@@ -213,11 +226,12 @@ class PhilipsHueDriver(BaseDriver):
                 "worship — recall a \"Presentation\" scene when the "
                 "projector turns on, fade up \"Q&A\" lighting when the "
                 "session ends.\n\n"
-                "Every light and every group (room / zone, plus the special "
-                "\"all lights\" group 0) appears as a child entity with "
-                "live on/brightness/color state, so bindings, macros, and "
-                "triggers can react to individual lights. Scenes are "
-                "offered in a picker on the recall commands."
+                "Every light and every group (room / zone, plus the "
+                "whole-home \"All Lights\" group) appears as a child entity "
+                "with live on/brightness/color state pushed by the bridge "
+                "the moment it changes — including changes made from the "
+                "Hue app or Hue dimmer switches. Scenes are offered in a "
+                "picker on the recall command."
             ),
             "setup": (
                 "1. Set a static IP (or DHCP reservation) on the Hue Bridge "
@@ -228,19 +242,21 @@ class PhilipsHueDriver(BaseDriver):
                 "run the \"Pair with Bridge (Link Button)\" action from "
                 "this device's page within 30 seconds. It requests an app "
                 "key, saves it, and reconnects automatically.\n"
-                "4. Lights, groups, and scenes are enumerated on connect. "
-                "Use \"Refresh from Device\" (or the refresh command) after "
-                "adding fixtures in the Hue app.\n"
+                "4. Lights, groups, and scenes are enumerated on connect "
+                "and stay in sync live — new fixtures added in the Hue app "
+                "appear on their own.\n"
                 "5. Commands that act on a light or group offer a picker of "
-                "the discovered children; scene commands offer a scene "
-                "picker."
+                "the discovered children; the recall command offers a scene "
+                "picker. Brightness and color commands take an optional "
+                "transition time for smooth fades."
             ),
         },
         "discovery": {
             # The bridge advertises _hue._tcp via mDNS; the OUI prefixes are
-            # Philips / Signify. The active probe is the unauthenticated
-            # GET /api/config every Hue bridge answers with its bridgeid
-            # (the same check aiohue's is_hue_bridge uses).
+            # Philips / Signify. The active probe is the unauthenticated v1
+            # GET /api/config (plain HTTP on 80) every Hue bridge answers
+            # with its bridgeid — including v2-only installs; only the CLIP
+            # v2 control surface itself is HTTPS-only.
             "mdns": "_hue._tcp.local.",
             "oui": [
                 "00:17:88",
@@ -260,10 +276,14 @@ class PhilipsHueDriver(BaseDriver):
         },
         "default_config": {
             "host": "",
-            "port": 80,
+            # ssl/port are connection plumbing, not user settings: CLIP v2
+            # is always HTTPS on 443. Declared so the simulation redirect
+            # can flip them at the simulator (plain HTTP on a local port).
+            "ssl": True,
+            "port": 0,
             "app_key": "",
             "timeout": 5.0,
-            "poll_interval": 10,
+            "poll_interval": 30,
         },
         "config_schema": {
             "host": {
@@ -275,19 +295,10 @@ class PhilipsHueDriver(BaseDriver):
                     "in your router."
                 ),
             },
-            "port": {
-                "type": "integer",
-                "default": 80,
-                "label": "HTTP Port",
-                "description": (
-                    "V1 API port. Default 80. The bridge does not expose "
-                    "V1 on HTTPS."
-                ),
-            },
             "app_key": {
                 "type": "string",
                 "default": "",
-                "label": "App Key (Username)",
+                "label": "App Key",
                 "description": (
                     "Per-app authentication key. Leave blank and run the "
                     "\"Pair with Bridge (Link Button)\" action to generate "
@@ -297,12 +308,13 @@ class PhilipsHueDriver(BaseDriver):
             },
             "poll_interval": {
                 "type": "integer",
-                "default": 10,
-                "min": 2,
-                "label": "Poll Interval (sec)",
+                "default": 30,
+                "min": 5,
+                "label": "Resync Interval (sec)",
                 "description": (
-                    "How often to refresh light and group state. Bridge "
-                    "metadata and scenes refresh on a slower cadence."
+                    "How often to do a full state resync. Normal updates "
+                    "arrive instantly over the bridge's event stream; this "
+                    "is the safety net."
                 ),
             },
             "timeout": {
@@ -328,27 +340,12 @@ class PhilipsHueDriver(BaseDriver):
             "model_id": {
                 "type": "string",
                 "label": "Model ID",
-                "help": "Hue Bridge model code — BSB002 = V2 (square), BSB001 = V1 (round).",
-            },
-            "api_version": {
-                "type": "string",
-                "label": "API Version",
-                "help": "Hue API version string reported by the bridge.",
+                "help": "Hue Bridge model code (BSB002).",
             },
             "sw_version": {
                 "type": "string",
                 "label": "Bridge Firmware Version",
-                "help": "Bridge firmware version (`swversion` field from /api/<user>/config).",
-            },
-            "mac_address": {
-                "type": "string",
-                "label": "MAC Address",
-                "help": "Bridge MAC address (`mac` field from /api/<user>/config).",
-            },
-            "zigbee_channel": {
-                "type": "integer",
-                "label": "Zigbee Channel",
-                "help": "ZigBee radio channel the bridge is currently using (11-26).",
+                "help": "Bridge software version from the bridge's device record.",
             },
             "light_count": {
                 "type": "integer",
@@ -359,8 +356,8 @@ class PhilipsHueDriver(BaseDriver):
                 "type": "integer",
                 "label": "Groups",
                 "help": (
-                    "Number of rooms / zones / groups defined on the bridge "
-                    "(the special all-lights group 0 is not counted)."
+                    "Number of rooms and zones defined on the bridge (the "
+                    "whole-home All Lights group is not counted)."
                 ),
             },
             "scene_count": {
@@ -373,7 +370,7 @@ class PhilipsHueDriver(BaseDriver):
                 "label": "Scene Options",
                 "help": (
                     "JSON list of {value,label} scene entries. Populates "
-                    "the scene pickers on the recall commands."
+                    "the scene picker on the recall command."
                 ),
             },
             "last_error": {
@@ -386,30 +383,22 @@ class PhilipsHueDriver(BaseDriver):
                 "label": "Light",
                 "label_plural": "Lights",
                 # Per-child schemas: each light exposes only the capability
-                # fields its state document actually carries (an on/off
-                # plug has no bri; a white-ambiance light no hue/sat).
+                # features its v2 resource actually carries (an on/off plug
+                # has no dimming; a white-ambiance light no color), and
+                # color-temperature bounds come from the light's own
+                # mirek_schema.
                 "dynamic": True,
-                "id_format": {"type": "integer", "min": 1, "pad_width": 2},
+                "id_format": {"type": "string"},
                 "state_variables": dict(_LIGHT_SHARED_SCHEMA),
-                "summary_fields": ["name", "type", "on"],
+                "summary_fields": ["name", "model", "on"],
                 "label_field": "name",
             },
             "group": {
                 "label": "Group",
                 "label_plural": "Groups",
-                # min 0: group 0 is the bridge's special all-lights group
-                # (excluded from GET /groups; fetched via /groups/0).
-                "id_format": {"type": "integer", "min": 0, "pad_width": 2},
-                "state_variables": {
-                    "name": {"type": "string", "label": "Name", "cloud_priority": "low"},
-                    "type": {"type": "string", "label": "Group Type", "cloud_priority": "low"},
-                    "room_class": {"type": "string", "label": "Room Class", "cloud_priority": "low"},
-                    "any_on": {"type": "boolean", "label": "Any On", "cloud_priority": "high"},
-                    "all_on": {"type": "boolean", "label": "All On", "cloud_priority": "high"},
-                    "bri": {"type": "integer", "label": "Brightness", "cloud_priority": "low"},
-                    "lights": {"type": "string", "label": "Member Light IDs", "cloud_priority": "low"},
-                },
-                "summary_fields": ["name", "type", "any_on"],
+                "id_format": {"type": "string"},
+                "state_variables": dict(_GROUP_SCHEMA),
+                "summary_fields": ["name", "type", "on"],
                 "label_field": "name",
             },
         },
@@ -419,8 +408,8 @@ class PhilipsHueDriver(BaseDriver):
                 "label": "Bridge Name",
                 "help": (
                     "Friendly bridge name shown in the Hue app and mDNS. "
-                    "Written via PUT /config and read back from the config "
-                    "poll."
+                    "Written to the bridge's device record and read back "
+                    "from the resync."
                 ),
                 "state_key": "bridge_name",
                 "default": "",
@@ -448,383 +437,183 @@ class PhilipsHueDriver(BaseDriver):
             },
         ],
         "commands": {
-            # ── Pairing / bridge metadata ──
-            "create_user": {
-                "label": "Create User (Pair)",
+            # ── Bridge-wide ──
+            "refresh": {
+                "label": "Refresh Lights & Groups",
                 "params": {},
                 "help": (
-                    "Press the link button on top of the bridge, then run "
-                    "this within 30 seconds. Returns the new app key. "
-                    "Prefer the \"Pair with Bridge\" setup action — it also "
-                    "saves the key and reconnects, and works while the "
-                    "device is offline."
+                    "Full resync from the bridge — re-enumerates lights, "
+                    "groups, and scenes. Rarely needed: the event stream "
+                    "keeps everything current on its own."
                 ),
-            },
-            "query_config": {
-                "label": "Query Bridge Config",
-                "params": {},
-                "help": "Refreshes bridge metadata state variables.",
             },
             "query_full_state": {
                 "label": "Query Full Bridge State",
                 "params": {},
                 "help": (
-                    "Re-reads the entire bridge state (config, lights, "
-                    "groups, scenes) and reconciles all children. Returns "
-                    "the raw JSON document for inspection."
-                ),
-            },
-            "refresh": {
-                "label": "Refresh Lights & Groups",
-                "params": {},
-                "help": (
-                    "Re-enumerate lights, groups, and scenes from the "
-                    "bridge and reconcile the child entities."
-                ),
-            },
-            # ── Light commands (per-light children) ──
-            "light_on": {
-                "label": "Light On",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                },
-            },
-            "light_off": {
-                "label": "Light Off",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                },
-            },
-            "light_set_brightness": {
-                "label": "Light Set Brightness",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                    "bri": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 254,
-                        "min": 1,
-                        "max": 254,
-                        "label": "Brightness (1..254)",
-                    },
-                },
-                "help": (
-                    "Brightness 1..254. The light is turned on in the same "
-                    "request (the bridge rejects brightness writes to an "
-                    "off light)."
-                ),
-            },
-            "light_set_color_temp": {
-                "label": "Light Set Color Temperature",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                    "ct": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 366,
-                        "min": 153,
-                        "max": 500,
-                        "label": "Color Temperature (153..500 mired)",
-                    },
-                },
-                "help": (
-                    "Color temperature in mired (reciprocal megakelvin). "
-                    "153 (~6500K, cool) to 500 (~2000K, warm). White-"
-                    "ambiance and color lights only."
-                ),
-            },
-            "light_set_hue_sat": {
-                "label": "Light Set Hue / Saturation",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                    "hue": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 0,
-                        "min": 0,
-                        "max": 65535,
-                        "label": "Hue (0..65535)",
-                    },
-                    "sat": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 254,
-                        "min": 0,
-                        "max": 254,
-                        "label": "Saturation (0..254)",
-                    },
-                },
-                "help": "Color lights only.",
-            },
-            "light_set_xy": {
-                "label": "Light Set XY (CIE)",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                    "x": {
-                        "type": "number",
-                        "required": True,
-                        "default": 0.3127,
-                        "min": 0.0,
-                        "max": 1.0,
-                        "label": "X (0.0..1.0)",
-                    },
-                    "y": {
-                        "type": "number",
-                        "required": True,
-                        "default": 0.329,
-                        "min": 0.0,
-                        "max": 1.0,
-                        "label": "Y (0.0..1.0)",
-                    },
-                },
-                "help": "CIE 1931 XY chromaticity coordinates. Color lights only.",
-            },
-            "light_alert": {
-                "label": "Light Alert (Identify)",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                    "alert": {
-                        "type": "enum",
-                        "values": ["none", "select", "lselect"],
-                        "default": "select",
-                        "required": True,
-                        "label": "Alert Type",
-                    },
-                },
-                "help": (
-                    "Make the light flash so the installer can find it. "
-                    "'select' = one breathe cycle, 'lselect' = breathe for "
-                    "15 seconds, 'none' = stop."
-                ),
-            },
-            "query_light": {
-                "label": "Query Light",
-                "params": {
-                    "light_id": {
-                        "type": "child_id",
-                        "child_type": "light",
-                        "required": True,
-                        "label": "Light",
-                    },
-                },
-                "help": "Returns the light's raw JSON and refreshes its child state.",
-            },
-            "query_all_lights": {
-                "label": "Query All Lights",
-                "params": {},
-                "help": (
-                    "Returns all lights as raw JSON and reconciles the "
-                    "light children."
-                ),
-            },
-            # ── Group commands (rooms / zones, group 0 = all lights) ──
-            "group_on": {
-                "label": "Group On",
-                "params": {
-                    "group_id": {
-                        "type": "child_id",
-                        "child_type": "group",
-                        "required": True,
-                        "label": "Group",
-                    },
-                },
-            },
-            "group_off": {
-                "label": "Group Off",
-                "params": {
-                    "group_id": {
-                        "type": "child_id",
-                        "child_type": "group",
-                        "required": True,
-                        "label": "Group",
-                    },
-                },
-            },
-            "group_set_brightness": {
-                "label": "Group Set Brightness",
-                "params": {
-                    "group_id": {
-                        "type": "child_id",
-                        "child_type": "group",
-                        "required": True,
-                        "label": "Group",
-                    },
-                    "bri": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 254,
-                        "min": 1,
-                        "max": 254,
-                        "label": "Brightness (1..254)",
-                    },
-                },
-            },
-            "group_set_color_temp": {
-                "label": "Group Set Color Temperature",
-                "params": {
-                    "group_id": {
-                        "type": "child_id",
-                        "child_type": "group",
-                        "required": True,
-                        "label": "Group",
-                    },
-                    "ct": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 366,
-                        "min": 153,
-                        "max": 500,
-                        "label": "Color Temperature (153..500 mired)",
-                    },
-                },
-            },
-            "group_set_hue_sat": {
-                "label": "Group Set Hue / Saturation",
-                "params": {
-                    "group_id": {
-                        "type": "child_id",
-                        "child_type": "group",
-                        "required": True,
-                        "label": "Group",
-                    },
-                    "hue": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 0,
-                        "min": 0,
-                        "max": 65535,
-                        "label": "Hue (0..65535)",
-                    },
-                    "sat": {
-                        "type": "integer",
-                        "required": True,
-                        "default": 254,
-                        "min": 0,
-                        "max": 254,
-                        "label": "Saturation (0..254)",
-                    },
-                },
-            },
-            "group_recall_scene": {
-                "label": "Group Recall Scene",
-                "params": {
-                    "group_id": {
-                        "type": "child_id",
-                        "child_type": "group",
-                        "required": True,
-                        "label": "Group",
-                        "description": "Group 0 applies the scene to whichever lights it contains.",
-                    },
-                    "scene_id": {
-                        "type": "string",
-                        "required": True,
-                        "label": "Scene",
-                        "options_state": "scene_options",
-                        "help": (
-                            "Scene to recall, scoped to the group. Pick "
-                            "from the discovered scenes or type a scene ID."
-                        ),
-                    },
-                },
-            },
-            "query_group": {
-                "label": "Query Group",
-                "params": {
-                    "group_id": {
-                        "type": "child_id",
-                        "child_type": "group",
-                        "required": True,
-                        "label": "Group",
-                    },
-                },
-                "help": "Returns the group's raw JSON and refreshes its child state.",
-            },
-            "query_all_groups": {
-                "label": "Query All Groups",
-                "params": {},
-                "help": (
-                    "Returns all groups (rooms, zones, custom groups) as "
-                    "raw JSON and reconciles the group children."
+                    "Returns every resource on the bridge as raw JSON "
+                    "(one GET /clip/v2/resource) and refreshes all "
+                    "mirrored state."
                 ),
             },
             "all_on": {
                 "label": "All Lights On",
                 "params": {},
-                "help": "Turn every light on (group 0).",
+                "help": "Turn every light on (the whole-home group).",
             },
             "all_off": {
                 "label": "All Lights Off",
                 "params": {},
-                "help": "Turn every light off (group 0).",
+                "help": "Turn every light off (the whole-home group).",
             },
-            # ── Scene commands ──
-            "recall_scene": {
-                "label": "Recall Scene (All Lights)",
+            # ── Lights ──
+            "light_on": {
+                "label": "Light On",
+                "params": {"light": _light_param()},
+            },
+            "light_off": {
+                "label": "Light Off",
+                "params": {"light": _light_param()},
+            },
+            "set_light_brightness": {
+                "label": "Set Light Brightness",
                 "params": {
-                    "scene_id": {
-                        "type": "string",
+                    "light": _light_param(),
+                    "brightness": {
+                        "type": "number",
+                        "min": 1,
+                        "max": 100,
                         "required": True,
-                        "label": "Scene",
-                        "options_state": "scene_options",
+                        "label": "Brightness (%)",
+                        "help": (
+                            "1-100. The bridge treats 0 as \"lowest "
+                            "possible\"; use Light Off to switch off."
+                        ),
                     },
+                    "transition_ms": dict(_TRANSITION_PARAM),
                 },
                 "help": (
-                    "Shortcut: recall a scene targeting group 0. Same as "
-                    "Group Recall Scene with group 0."
+                    "Also turns the light on — the bridge rejects dimming "
+                    "writes to a light that is off."
                 ),
             },
-            "query_scene": {
-                "label": "Query Scene",
+            "set_light_ct": {
+                "label": "Set Light Color Temperature",
                 "params": {
-                    "scene_id": {
+                    "light": _light_param(),
+                    "mirek": {
+                        "type": "integer",
+                        "min": 153,
+                        "max": 500,
+                        "required": True,
+                        "label": "Color Temperature (mirek)",
+                        "help": (
+                            "153 (cool, ~6500 K) to 500 (warm, 2000 K). "
+                            "Individual lights may support a narrower "
+                            "range — see the light's own bounds."
+                        ),
+                    },
+                    "transition_ms": dict(_TRANSITION_PARAM),
+                },
+                "help": "Also turns the light on.",
+            },
+            "set_light_xy": {
+                "label": "Set Light Color (CIE xy)",
+                "params": {
+                    "light": _light_param(),
+                    "x": {
+                        "type": "number", "min": 0, "max": 1,
+                        "required": True, "label": "CIE x",
+                    },
+                    "y": {
+                        "type": "number", "min": 0, "max": 1,
+                        "required": True, "label": "CIE y",
+                    },
+                    "transition_ms": dict(_TRANSITION_PARAM),
+                },
+                "help": "Also turns the light on.",
+            },
+            "light_identify": {
+                "label": "Identify Light",
+                "params": {"light": _light_param()},
+                "help": (
+                    "Makes the light breathe once so an installer can find "
+                    "the fixture."
+                ),
+            },
+            # ── Groups (rooms / zones / whole home) ──
+            "group_on": {
+                "label": "Group On",
+                "params": {"group": _group_param()},
+            },
+            "group_off": {
+                "label": "Group Off",
+                "params": {"group": _group_param()},
+            },
+            "set_group_brightness": {
+                "label": "Set Group Brightness",
+                "params": {
+                    "group": _group_param(),
+                    "brightness": {
+                        "type": "number",
+                        "min": 1,
+                        "max": 100,
+                        "required": True,
+                        "label": "Brightness (%)",
+                    },
+                    "transition_ms": dict(_TRANSITION_PARAM),
+                },
+                "help": "Also turns the group on.",
+            },
+            "set_group_ct": {
+                "label": "Set Group Color Temperature",
+                "params": {
+                    "group": _group_param(),
+                    "mirek": {
+                        "type": "integer", "min": 153, "max": 500,
+                        "required": True, "label": "Color Temperature (mirek)",
+                    },
+                    "transition_ms": dict(_TRANSITION_PARAM),
+                },
+                "help": (
+                    "Applies to every color-temperature-capable light in "
+                    "the group. Needs bridge firmware 1.50 or newer."
+                ),
+            },
+            "set_group_xy": {
+                "label": "Set Group Color (CIE xy)",
+                "params": {
+                    "group": _group_param(),
+                    "x": {
+                        "type": "number", "min": 0, "max": 1,
+                        "required": True, "label": "CIE x",
+                    },
+                    "y": {
+                        "type": "number", "min": 0, "max": 1,
+                        "required": True, "label": "CIE y",
+                    },
+                    "transition_ms": dict(_TRANSITION_PARAM),
+                },
+                "help": (
+                    "Applies to every color-capable light in the group. "
+                    "Needs bridge firmware 1.50 or newer."
+                ),
+            },
+            # ── Scenes ──
+            "recall_scene": {
+                "label": "Recall Scene",
+                "params": {
+                    "scene": {
                         "type": "string",
                         "required": True,
                         "label": "Scene",
                         "options_state": "scene_options",
                     },
+                    "duration_ms": dict(_TRANSITION_PARAM),
                 },
-            },
-            "query_all_scenes": {
-                "label": "Query All Scenes",
-                "params": {},
                 "help": (
-                    "Returns all scenes as raw JSON and refreshes the "
-                    "scene picker list."
+                    "Recalls a scene on its own room / zone. The optional "
+                    "duration fades the scene in."
                 ),
             },
         },
@@ -835,19 +624,37 @@ class PhilipsHueDriver(BaseDriver):
         self._client: httpx.AsyncClient | None = None
         self._app_key: str = ""
         # Last-known per-light schema (reconcile guard, dante/qsc pattern).
-        self._light_schemas: dict[int, dict[str, Any]] = {}
-        # Registered group ids (0 = the special all-lights group).
-        self._group_ids: set[int] = set()
-        # gid -> name, for scene picker labels.
-        self._group_names: dict[int, str] = {}
-        self._poll_cycle = 0
+        self._light_schemas: dict[str, dict[str, Any]] = {}
+        # Registered group ids (rooms + zones + the whole-home group).
+        self._group_ids: set[str] = set()
+        # group id -> its grouped_light service rid (write target).
+        self._group_grouped_light: dict[str, str] = {}
+        # grouped_light rid -> group id (event routing).
+        self._grouped_light_owner: dict[str, str] = {}
+        # light rid -> owner device rid; device rid -> light rid;
+        # zigbee_connectivity rid -> owner device rid (reachability routing).
+        self._light_device: dict[str, str] = {}
+        self._device_light: dict[str, str] = {}
+        self._connectivity_device: dict[str, str] = {}
+        # The whole-home group id and the bridge's own device rid.
+        self._home_id: str = ""
+        self._bridge_device_rid: str = ""
+        # SSE stream task + resume cursor.
+        self._event_task: asyncio.Task | None = None
+        self._last_event_id: str = ""
+        self._roster_refresh_task: asyncio.Task | None = None
 
     # ── Connection lifecycle ──
 
     def _base_url(self) -> str:
         host = str(self.config.get("host", "")).strip()
-        port = int(self.config.get("port", 80))
-        return f"http://{host}" if port == 80 else f"http://{host}:{port}"
+        use_ssl = bool(self.config.get("ssl", True))
+        scheme = "https" if use_ssl else "http"
+        port = int(self.config.get("port", 0) or 0)
+        default = 443 if use_ssl else 80
+        if port in (0, default):
+            return f"{scheme}://{host}"
+        return f"{scheme}://{host}:{port}"
 
     async def connect(self) -> None:
         host = str(self.config.get("host", "")).strip()
@@ -855,9 +662,14 @@ class PhilipsHueDriver(BaseDriver):
             raise ConnectionError("Bridge IP address is required")
         self._app_key = str(self.config.get("app_key", "")).strip()
 
+        # The bridge rejects >3 concurrent requests with 429 — keep the
+        # pool at 3 (shared by polling, commands, and the event stream).
         self._client = httpx.AsyncClient(
             base_url=self._base_url(),
             timeout=float(self.config.get("timeout", 5.0)),
+            verify=False,
+            headers={"hue-application-key": self._app_key},
+            limits=httpx.Limits(max_connections=3),
         )
 
         try:
@@ -867,8 +679,8 @@ class PhilipsHueDriver(BaseDriver):
                     "bridge and run the \"Pair with Bridge\" setup action.",
                     code="auth_failed",
                 )
-            config = await self._request("GET", f"/api/{self._app_key}/config")
-            self._apply_config(config)
+            resources = await self._get_resources()
+            self._reconcile(resources)
         except httpx.TransportError as exc:
             await self._close_client()
             raise ConnectionError(
@@ -884,19 +696,16 @@ class PhilipsHueDriver(BaseDriver):
         await self.events.emit(f"device.connected.{self.device_id}")
         log.info(f"[{self.device_id}] Connected to Hue Bridge at {host}")
 
-        # Enumerate lights, groups, and scenes.
-        try:
-            await self._refresh_all()
-        except httpx.TransportError as exc:
-            raise ConnectionError(
-                f"Hue Bridge at {host} stopped responding during enumeration: {exc}"
-            ) from exc
+        # Live updates: one SSE stream carries every resource change.
+        self._event_task = asyncio.create_task(self._event_loop())
 
-        poll_interval = int(self.config.get("poll_interval", 10))
+        poll_interval = int(self.config.get("poll_interval", 30))
         if poll_interval > 0:
             await self.start_polling(poll_interval)
 
     async def disconnect(self) -> None:
+        await self._stop_task("_event_task")
+        await self._stop_task("_roster_refresh_task")
         await self.stop_polling()
         await self._close_client()
         self._connected = False
@@ -904,30 +713,29 @@ class PhilipsHueDriver(BaseDriver):
         await self.events.emit(f"device.disconnected.{self.device_id}")
         log.info(f"[{self.device_id}] Disconnected from Hue Bridge")
 
+    async def _stop_task(self, attr: str) -> None:
+        task: asyncio.Task | None = getattr(self, attr)
+        setattr(self, attr, None)
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+
     async def _close_client(self) -> None:
         if self._client:
             await self._client.aclose()
             self._client = None
 
     async def poll(self) -> None:
-        """Refresh light + group state every cycle; bridge config + scenes
-        on a slower cadence. Transport errors propagate so the platform
-        watchdog can flip the device offline."""
+        """Full resync: one bulk fetch reconciles rosters and every value.
+        Transport errors propagate so the platform watchdog can flip the
+        device offline."""
         if not self._client:
             return
         try:
-            lights = await self._request("GET", f"/api/{self._app_key}/lights")
-            groups = await self._request("GET", f"/api/{self._app_key}/groups")
-            group0 = await self._fetch_group0()
-            self._reconcile_lights(lights)
-            self._reconcile_groups(groups, group0)
-
-            self._poll_cycle += 1
-            if self._poll_cycle % _METADATA_POLL_EVERY == 0:
-                config = await self._request("GET", f"/api/{self._app_key}/config")
-                self._apply_config(config)
-                scenes = await self._request("GET", f"/api/{self._app_key}/scenes")
-                self._update_scenes(scenes)
+            self._reconcile(await self._get_resources())
         except httpx.TransportError as exc:
             raise ConnectionError(
                 f"Hue Bridge not responding: {exc}"
@@ -936,15 +744,21 @@ class PhilipsHueDriver(BaseDriver):
     # ── Request plumbing ──
 
     async def _request(self, method: str, path: str, body: Any = None) -> Any:
-        """Send one request and return the parsed JSON body.
+        """Send one CLIP v2 request and return the response's data list.
 
-        Transport errors (httpx.ConnectError / TimeoutException) propagate
-        to the caller. A rejected app key — HTTP 401/403 or a Hue error
-        type 1 — raises a typed auth_failed fault.
+        Transport errors propagate to the caller. HTTP 401/403 (rejected /
+        revoked app key) raises a typed auth_failed fault. 429/503 (bridge
+        busy) is retried briefly with linear backoff, matching the bridge's
+        documented concurrency behavior.
         """
         if not self._client:
             raise ConnectionError("Not connected")
-        resp = await self._client.request(method, path, json=body)
+        for attempt in range(_BUSY_RETRIES + 1):
+            resp = await self._client.request(method, path, json=body)
+            if resp.status_code not in _BUSY_STATUSES:
+                break
+            if attempt < _BUSY_RETRIES:
+                await asyncio.sleep(_BUSY_BACKOFF * (attempt + 1))
         if resp.status_code in (401, 403):
             raise ConnectionFaultError(
                 "The bridge rejected the app key — re-pair with the "
@@ -955,105 +769,144 @@ class PhilipsHueDriver(BaseDriver):
             raise ConnectionError(
                 f"Hue Bridge returned HTTP {resp.status_code} for {path}"
             )
-        data = resp.json()
-        self._raise_on_error(data)
-        return data
-
-    def _raise_on_error(self, data: Any) -> None:
-        """Raise on Hue error entries ([{"error": {...}}, ...]).
-
-        Type 1 (unauthorized) is a typed auth fault. A mixed
-        success/error response (a group PUT where one field was rejected)
-        is tolerated — the successes are applied and the error logged.
-        """
-        if not isinstance(data, list):
-            return
-        errors = [e["error"] for e in data
-                  if isinstance(e, dict) and isinstance(e.get("error"), dict)]
-        if not errors:
-            return
-        for err in errors:
-            if err.get("type") == 1:
-                raise ConnectionFaultError(
-                    "The bridge rejected the app key — re-pair with the "
-                    "\"Pair with Bridge\" setup action.",
-                    code="auth_failed",
-                )
-        has_success = any(isinstance(e, dict) and "success" in e for e in data)
-        first = errors[0]
-        desc = str(first.get("description", "unknown error"))
-        if has_success:
-            log.warning(f"[{self.device_id}] Bridge accepted request partially: {desc}")
-            self.set_state("last_error", desc)
-            return
-        if first.get("type") == 101:
-            raise ValueError(
-                "The bridge's link button has not been pressed. Press the "
-                "round button on top of the bridge, then retry within 30 "
-                "seconds."
+        payload = resp.json()
+        if not isinstance(payload, dict):
+            raise ConnectionError(f"Unexpected response shape for {path}")
+        errors = payload.get("errors") or []
+        if errors:
+            desc = str(
+                (errors[0] or {}).get("description", "unknown error")
             )
-        raise ValueError(f"Bridge error: {desc}")
+            self.set_state("last_error", desc)
+            raise ValueError(f"Bridge error: {desc}")
+        return payload.get("data", [])
+
+    async def _get_resources(self) -> list[dict[str, Any]]:
+        """Bulk fetch: every resource on the bridge in one call."""
+        return await self._request("GET", "/clip/v2/resource")
 
     # ── State mirroring ──
 
-    def _apply_config(self, config: Any) -> None:
-        if not isinstance(config, dict):
-            return
-        updates = {
-            state_key: config[field]
-            for field, state_key in _CONFIG_FIELDS.items()
-            if field in config
-        }
-        if updates:
-            self.set_states(updates)
-
     @staticmethod
-    def _light_values(obj: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Return (schema, values) for one light from its V1 document.
+    def _name_of(res: dict[str, Any]) -> str:
+        meta = res.get("metadata")
+        if isinstance(meta, dict):
+            return str(meta.get("name", ""))
+        return ""
 
-        The schema starts from the shared fields and adds one entry per
-        capability field the light's state actually carries, so an on/off
-        plug never grows a brightness prop. The platform ``online`` mirrors
-        the Zigbee ``reachable`` flag (link-style child).
+    def _light_schema_values(
+        self,
+        res: dict[str, Any],
+        devices: dict[str, dict[str, Any]],
+        reachable: dict[str, bool],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Return (schema, values) for one light from its v2 resource.
+
+        The schema mirrors the light's real feature set — dimming /
+        color_temperature / color appear only when the resource carries
+        them, and mirek bounds come from the light's own mirek_schema — so
+        an on/off plug never grows a brightness prop. The platform
+        ``online`` mirrors the owner device's Zigbee connectivity.
         """
-        state = obj.get("state", {}) or {}
-        schema = dict(_LIGHT_SHARED_SCHEMA)
-        values: dict[str, Any] = {
-            "name": str(obj.get("name", "")),
-            "type": str(obj.get("type", "")),
-            "model": str(obj.get("modelid", "")),
-            "on": bool(state.get("on", False)),
-            "online": bool(state.get("reachable", True)),
+        owner_rid = str((res.get("owner") or {}).get("rid", ""))
+        device = devices.get(owner_rid, {})
+        product = (device.get("product_data") or {})
+        schema: dict[str, dict[str, Any]] = {
+            k: dict(v) for k, v in _LIGHT_SHARED_SCHEMA.items()
         }
-        for prop in ("bri", "ct", "hue", "sat"):
-            if prop in state:
-                schema[prop] = _LIGHT_CAPABILITY_SCHEMA[prop]
-                try:
-                    values[prop] = int(state[prop])
-                except (TypeError, ValueError):
-                    values[prop] = 0
-        if "xy" in state:
-            schema["xy"] = _LIGHT_CAPABILITY_SCHEMA["xy"]
-            xy = state.get("xy") or []
-            values["xy"] = (
-                f"{float(xy[0]):.4f},{float(xy[1]):.4f}" if len(xy) == 2 else ""
-            )
-        if "colormode" in state:
-            schema["colormode"] = _LIGHT_CAPABILITY_SCHEMA["colormode"]
-            values["colormode"] = str(state.get("colormode", ""))
+        values: dict[str, Any] = {
+            "name": self._name_of(res) or self._name_of(device),
+            "model": str(product.get("product_name", "")),
+            "on": bool((res.get("on") or {}).get("on", False)),
+            "online": reachable.get(owner_rid, True),
+        }
+        dimming = res.get("dimming")
+        if isinstance(dimming, dict):
+            schema["brightness"] = {
+                "type": "number",
+                "label": "Brightness (%)",
+                "min": 1,
+                "max": 100,
+                "control": True,
+                "cloud_priority": "low",
+            }
+            values["brightness"] = round(float(dimming.get("brightness", 0.0)), 2)
+        ct = res.get("color_temperature")
+        if isinstance(ct, dict):
+            mschema = ct.get("mirek_schema") or {}
+            schema["mirek"] = {
+                "type": "integer",
+                "label": "Color Temperature (mirek)",
+                "min": int(mschema.get("mirek_minimum", 153)),
+                "max": int(mschema.get("mirek_maximum", 500)),
+                "control": True,
+                "cloud_priority": "low",
+            }
+            mirek = ct.get("mirek")
+            values["mirek"] = int(mirek) if mirek is not None else 0
+        color = res.get("color")
+        if isinstance(color, dict):
+            schema["xy"] = {
+                "type": "string",
+                "label": "XY (CIE)",
+                "cloud_priority": "low",
+            }
+            values["xy"] = self._xy_string(color)
         return schema, values
 
-    def _reconcile_lights(self, lights: Any) -> None:
-        if not isinstance(lights, dict):
-            return
-        seen: set[int] = set()
-        for key in sorted(lights, key=lambda k: int(k) if str(k).isdigit() else 0):
-            obj = lights[key]
-            if not str(key).isdigit() or not isinstance(obj, dict):
+    @staticmethod
+    def _xy_string(color: dict[str, Any]) -> str:
+        xy = color.get("xy") or {}
+        try:
+            return f"{float(xy.get('x', 0)):.4f},{float(xy.get('y', 0)):.4f}"
+        except (TypeError, ValueError):
+            return ""
+
+    def _reconcile(self, resources: list[dict[str, Any]]) -> None:
+        """Apply one bulk resource fetch: rosters, values, metadata, scenes."""
+        by_type: dict[str, list[dict[str, Any]]] = {}
+        for res in resources:
+            if isinstance(res, dict):
+                by_type.setdefault(str(res.get("type", "")), []).append(res)
+
+        devices = {str(d.get("id")): d for d in by_type.get("device", [])}
+        # Reachability: zigbee_connectivity resources belong to the light's
+        # owner device; status "connected" = reachable.
+        reachable: dict[str, bool] = {}
+        self._connectivity_device.clear()
+        for zc in by_type.get("zigbee_connectivity", []):
+            owner = str((zc.get("owner") or {}).get("rid", ""))
+            self._connectivity_device[str(zc.get("id"))] = owner
+            reachable[owner] = str(zc.get("status", "")) == "connected"
+
+        # Bridge identity lives across the bridge resource + its device.
+        for bridge in by_type.get("bridge", []):
+            self.set_state("bridge_id", str(bridge.get("bridge_id", "")))
+            owner = str((bridge.get("owner") or {}).get("rid", ""))
+            self._bridge_device_rid = owner
+            bdev = devices.get(owner, {})
+            product = bdev.get("product_data") or {}
+            self.set_states({
+                "bridge_name": self._name_of(bdev),
+                "model_id": str(product.get("model_id", "")),
+                "sw_version": str(product.get("software_version", "")),
+            })
+
+        # Lights (dynamic per-capability schemas).
+        seen_lights: set[str] = set()
+        self._light_device.clear()
+        self._device_light.clear()
+        for res in sorted(
+            by_type.get("light", []), key=lambda r: self._name_of(r).lower()
+        ):
+            lid = str(res.get("id", ""))
+            if not lid:
                 continue
-            lid = int(key)
-            seen.add(lid)
-            schema, values = self._light_values(obj)
+            seen_lights.add(lid)
+            owner = str((res.get("owner") or {}).get("rid", ""))
+            self._light_device[lid] = owner
+            self._device_light[owner] = lid
+            schema, values = self._light_schema_values(res, devices, reachable)
             prev = self._light_schemas.get(lid)
             if prev == schema and self.is_child_registered("light", lid):
                 self.set_child_state_batch("light", lid, values)
@@ -1063,85 +916,99 @@ class PhilipsHueDriver(BaseDriver):
                 self.register_child("light", lid, schema=schema, initial_state=values)
             self._light_schemas[lid] = schema
         for lid in list(self._light_schemas):
-            if lid not in seen:
+            if lid not in seen_lights:
                 self.deregister_child("light", lid)
                 self._light_schemas.pop(lid, None)
-        self.set_state("light_count", len(seen))
+        self.set_state("light_count", len(seen_lights))
 
-    @staticmethod
-    def _group_values(obj: dict[str, Any]) -> dict[str, Any]:
-        state = obj.get("state", {}) or {}
-        action = obj.get("action", {}) or {}
-        values: dict[str, Any] = {
-            "name": str(obj.get("name", "")),
-            "type": str(obj.get("type", "")),
-            "room_class": str(obj.get("class", "")),
-            "any_on": bool(state.get("any_on", False)),
-            "all_on": bool(state.get("all_on", False)),
-            "lights": ",".join(str(x) for x in obj.get("lights", []) or []),
+        # Groups: rooms + zones + the whole-home group. Each carries a
+        # grouped_light service that holds its on/brightness state and is
+        # the write target.
+        grouped = {
+            str(g.get("id")): g for g in by_type.get("grouped_light", [])
         }
-        if "bri" in action:
-            try:
-                values["bri"] = int(action["bri"])
-            except (TypeError, ValueError):
-                pass
-        return values
+        seen_groups: set[str] = set()
+        group_names: dict[str, str] = {}
+        self._group_grouped_light.clear()
+        self._grouped_light_owner.clear()
+        home_ids: set[str] = set()
 
-    def _reconcile_groups(self, groups: Any, group0: dict[str, Any] | None) -> None:
-        entries: dict[int, dict[str, Any]] = {}
-        if isinstance(group0, dict):
-            entries[0] = group0
-        if isinstance(groups, dict):
-            for key, obj in groups.items():
-                if str(key).isdigit() and isinstance(obj, dict):
-                    entries[int(key)] = obj
-        for gid in sorted(entries):
-            values = self._group_values(entries[gid])
-            self._group_names[gid] = values["name"]
-            if self.is_child_registered("group", gid):
-                self.set_child_state_batch("group", gid, values)
-            else:
-                self.register_child("group", gid, initial_state=values)
-            self._group_ids.add(gid)
-        # Group 0 always exists on the bridge — never deregister it just
-        # because one /groups/0 fetch failed.
+        def _grouped_rid(res: dict[str, Any]) -> str:
+            for svc in res.get("services") or []:
+                if isinstance(svc, dict) and svc.get("rtype") == "grouped_light":
+                    return str(svc.get("rid", ""))
+            return ""
+
+        def _member_lights(res: dict[str, Any]) -> str:
+            names: list[str] = []
+            for child in res.get("children") or []:
+                if not isinstance(child, dict):
+                    continue
+                rid = str(child.get("rid", ""))
+                if child.get("rtype") == "light":
+                    # Zones group light services directly.
+                    dev_rid = self._light_device.get(rid, "")
+                    names.append(self._name_of(devices.get(dev_rid, {})) or rid)
+                elif child.get("rtype") == "device":
+                    # Rooms group devices; use the device name.
+                    names.append(self._name_of(devices.get(rid, {})) or rid)
+            return ", ".join(n for n in names if n)
+
+        for gtype in ("room", "zone", "bridge_home"):
+            for res in by_type.get(gtype, []):
+                gid = str(res.get("id", ""))
+                if not gid:
+                    continue
+                gl_rid = _grouped_rid(res)
+                gl = grouped.get(gl_rid, {})
+                name = self._name_of(res) or (
+                    "All Lights" if gtype == "bridge_home" else ""
+                )
+                meta = res.get("metadata") or {}
+                values = {
+                    "name": name,
+                    "type": "home" if gtype == "bridge_home" else gtype,
+                    "room_class": str(meta.get("archetype", "")),
+                    "on": bool((gl.get("on") or {}).get("on", False)),
+                    "brightness": round(
+                        float((gl.get("dimming") or {}).get("brightness", 0.0)), 2
+                    ),
+                    "lights": _member_lights(res),
+                }
+                seen_groups.add(gid)
+                group_names[gid] = name
+                if gtype == "bridge_home":
+                    home_ids.add(gid)
+                    self._home_id = gid
+                if gl_rid:
+                    self._group_grouped_light[gid] = gl_rid
+                    self._grouped_light_owner[gl_rid] = gid
+                if self.is_child_registered("group", gid):
+                    self.set_child_state_batch("group", gid, values)
+                else:
+                    self.register_child("group", gid, initial_state=values)
+                self._group_ids.add(gid)
         for gid in list(self._group_ids):
-            if gid not in entries and gid != 0:
+            if gid not in seen_groups:
                 self.deregister_child("group", gid)
                 self._group_ids.discard(gid)
-                self._group_names.pop(gid, None)
-        self.set_state("group_count", len([g for g in self._group_ids if g != 0]))
+        self.set_state(
+            "group_count", len([g for g in seen_groups if g not in home_ids])
+        )
 
-    async def _fetch_group0(self) -> dict[str, Any] | None:
-        """GET /groups/0 — the all-lights group is excluded from /groups."""
-        try:
-            data = await self._request("GET", f"/api/{self._app_key}/groups/0")
-        except httpx.TransportError:
-            raise
-        except ConnectionError:
-            raise
-        except Exception as exc:
-            log.warning(f"[{self.device_id}] groups/0 fetch failed: {exc}")
-            return None
-        if isinstance(data, dict):
-            data.setdefault("name", "All Lights")
-            return data
-        return None
-
-    def _update_scenes(self, scenes: Any) -> None:
-        if not isinstance(scenes, dict):
-            return
+        # Scenes: picker list only (a scene has no live state worth
+        # mirroring; its group's lights carry the result).
         options: list[dict[str, str]] = []
-        for sid, obj in scenes.items():
-            if not isinstance(obj, dict):
+        for res in by_type.get("scene", []):
+            sid = str(res.get("id", ""))
+            if not sid:
                 continue
-            label = str(obj.get("name", sid))
-            gid = obj.get("group")
-            if gid is not None and str(gid).isdigit():
-                group_name = self._group_names.get(int(gid))
-                if group_name:
-                    label = f"{label} ({group_name})"
-            options.append({"value": str(sid), "label": label})
+            label = self._name_of(res) or sid
+            group_rid = str((res.get("group") or {}).get("rid", ""))
+            group_name = group_names.get(group_rid)
+            if group_name:
+                label = f"{label} ({group_name})"
+            options.append({"value": sid, "label": label})
         options.sort(key=lambda o: o["label"].lower())
         self.set_states({
             "scene_options": json.dumps(options),
@@ -1149,14 +1016,7 @@ class PhilipsHueDriver(BaseDriver):
         })
 
     async def _refresh_all(self) -> dict[str, int]:
-        """Full re-read: one full-state GET plus the group-0 fetch."""
-        full = await self._request("GET", f"/api/{self._app_key}")
-        if isinstance(full, dict):
-            self._apply_config(full.get("config", {}))
-            self._reconcile_lights(full.get("lights", {}))
-            group0 = await self._fetch_group0()
-            self._reconcile_groups(full.get("groups", {}), group0)
-            self._update_scenes(full.get("scenes", {}))
+        self._reconcile(await self._get_resources())
         return {
             "lights": len(self._light_schemas),
             "groups": len(self._group_ids),
@@ -1169,230 +1029,300 @@ class PhilipsHueDriver(BaseDriver):
             raise ConnectionError(f"[{self.device_id}] Not connected")
         return await self._refresh_all()
 
+    # ── Event stream (SSE push) ──
+
+    async def _event_loop(self) -> None:
+        """Hold the bridge's event stream open and apply events as they
+        arrive.
+
+        The bridge sends no keepalive, so the read times out after
+        _STREAM_IDLE_REOPEN_S of silence and the stream is reopened —
+        sending last-event-id so the bridge replays anything missed in the
+        gap. Failures back off (2 s per consecutive attempt, capped) and
+        never take the device down: polling remains the safety net, and a
+        revoked app key surfaces as an auth fault through poll().
+        """
+        attempts = 0
+        warned = False
+        while self._client is not None:
+            headers = {
+                "Accept": "text/event-stream",
+                "Cache-Control": "no-cache",
+            }
+            if self._last_event_id:
+                headers["last-event-id"] = self._last_event_id
+            try:
+                timeout = httpx.Timeout(
+                    connect=float(self.config.get("timeout", 5.0)),
+                    read=_STREAM_IDLE_REOPEN_S,
+                    write=float(self.config.get("timeout", 5.0)),
+                    pool=None,
+                )
+                async with self._client.stream(
+                    "GET", "/eventstream/clip/v2",
+                    headers=headers, timeout=timeout,
+                ) as response:
+                    if response.status_code != 200:
+                        await response.aread()
+                        raise ConnectionError(
+                            f"event stream rejected with HTTP "
+                            f"{response.status_code}"
+                        )
+                    log.info(f"[{self.device_id}] Hue event stream open")
+                    attempts = 0
+                    warned = False
+                    data_lines: list[str] = []
+                    async for line in response.aiter_lines():
+                        if line == "":
+                            if data_lines:
+                                self._apply_event_payload("\n".join(data_lines))
+                                data_lines = []
+                            continue
+                        if line.startswith(":"):
+                            continue
+                        field, _, value = line.partition(":")
+                        if value.startswith(" "):
+                            value = value[1:]
+                        if field == "data":
+                            data_lines.append(value)
+                        elif field == "id":
+                            self._last_event_id = value.strip()
+            except asyncio.CancelledError:
+                raise
+            except httpx.ReadTimeout:
+                # Expected on a quiet bridge — reopen with last-event-id.
+                log.debug(f"[{self.device_id}] Event stream idle; reopening")
+                continue
+            except Exception as exc:
+                if self._client is None:
+                    return
+                attempts += 1
+                msg = (
+                    f"[{self.device_id}] Hue event stream failed "
+                    f"({str(exc) or type(exc).__name__}); retrying"
+                )
+                if warned:
+                    log.debug(msg)
+                else:
+                    log.warning(msg)
+                    warned = True
+                await asyncio.sleep(min(2.0 * attempts, 30.0))
+
+    def _apply_event_payload(self, payload: str) -> None:
+        """Apply one SSE data payload (a JSON array of event envelopes)."""
+        try:
+            envelopes = json.loads(payload)
+        except (ValueError, TypeError):
+            log.debug(f"[{self.device_id}] Unparseable event payload")
+            return
+        if not isinstance(envelopes, list):
+            return
+        roster_changed = False
+        for env in envelopes:
+            if not isinstance(env, dict):
+                continue
+            etype = str(env.get("type", ""))
+            for res in env.get("data") or []:
+                if not isinstance(res, dict):
+                    continue
+                if etype == "update":
+                    self._apply_resource_update(res)
+                elif etype in ("add", "delete"):
+                    roster_changed = True
+        if roster_changed:
+            self._schedule_roster_refresh()
+
+    def _apply_resource_update(self, res: dict[str, Any]) -> None:
+        rtype = str(res.get("type", ""))
+        rid = str(res.get("id", ""))
+        if rtype == "light" and rid in self._light_schemas:
+            values: dict[str, Any] = {}
+            on = res.get("on")
+            if isinstance(on, dict) and "on" in on:
+                values["on"] = bool(on["on"])
+            dimming = res.get("dimming")
+            if isinstance(dimming, dict) and "brightness" in dimming:
+                values["brightness"] = round(float(dimming["brightness"]), 2)
+            ct = res.get("color_temperature")
+            if isinstance(ct, dict) and ct.get("mirek") is not None:
+                values["mirek"] = int(ct["mirek"])
+            color = res.get("color")
+            if isinstance(color, dict) and "xy" in color:
+                values["xy"] = self._xy_string(color)
+            meta = res.get("metadata")
+            if isinstance(meta, dict) and meta.get("name"):
+                values["name"] = str(meta["name"])
+            if values:
+                self.set_child_state_batch("light", rid, values)
+        elif rtype == "grouped_light":
+            gid = self._grouped_light_owner.get(rid)
+            if not gid:
+                return
+            values = {}
+            on = res.get("on")
+            if isinstance(on, dict) and "on" in on:
+                values["on"] = bool(on["on"])
+            dimming = res.get("dimming")
+            if isinstance(dimming, dict) and "brightness" in dimming:
+                values["brightness"] = round(float(dimming["brightness"]), 2)
+            if values:
+                self.set_child_state_batch("group", gid, values)
+        elif rtype == "zigbee_connectivity":
+            owner = self._connectivity_device.get(rid) or str(
+                (res.get("owner") or {}).get("rid", "")
+            )
+            lid = self._device_light.get(owner)
+            if lid and "status" in res:
+                self.set_child_state_batch(
+                    "light", lid,
+                    {"online": str(res.get("status")) == "connected"},
+                )
+        elif rtype == "device":
+            meta = res.get("metadata")
+            name = str(meta.get("name", "")) if isinstance(meta, dict) else ""
+            if not name:
+                return
+            if rid == self._bridge_device_rid:
+                self.set_state("bridge_name", name)
+            lid = self._device_light.get(rid)
+            if lid:
+                self.set_child_state_batch("light", lid, {"name": name})
+
+    def _schedule_roster_refresh(self) -> None:
+        """Debounced full refresh after add/delete events (a new fixture
+        pairs with several add events in a burst)."""
+        if self._roster_refresh_task and not self._roster_refresh_task.done():
+            return
+
+        async def _refresh() -> None:
+            await asyncio.sleep(2.0)
+            try:
+                await self._refresh_all()
+            except Exception as exc:
+                log.warning(
+                    f"[{self.device_id}] Roster refresh after add/delete "
+                    f"failed: {exc}"
+                )
+
+        self._roster_refresh_task = asyncio.create_task(_refresh())
+
     # ── Command surface ──
+
+    @staticmethod
+    def _with_transition(body: dict[str, Any], params: dict[str, Any],
+                         key: str = "transition_ms") -> dict[str, Any]:
+        raw = params.get(key)
+        if raw not in (None, ""):
+            body["dynamics"] = {"duration": int(raw)}
+        return body
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
         if not self._client:
             raise ConnectionError(f"[{self.device_id}] Not connected")
-        key = self._app_key
+
+        def light_path() -> str:
+            return f"/clip/v2/resource/light/{params.get('light')}"
+
+        def group_path() -> str:
+            gid = str(params.get("group", ""))
+            gl = self._group_grouped_light.get(gid)
+            if not gl:
+                raise ValueError(f"Unknown group: {gid}")
+            return f"/clip/v2/resource/grouped_light/{gl}"
 
         match command:
-            case "create_user":
-                return await self._request(
-                    "POST", "/api", {"devicetype": _DEVICETYPE}
-                )
-            case "query_config":
-                config = await self._request("GET", f"/api/{key}/config")
-                self._apply_config(config)
-                return config
-            case "query_full_state":
-                full = await self._request("GET", f"/api/{key}")
-                if isinstance(full, dict):
-                    self._apply_config(full.get("config", {}))
-                    self._reconcile_lights(full.get("lights", {}))
-                    group0 = await self._fetch_group0()
-                    self._reconcile_groups(full.get("groups", {}), group0)
-                    self._update_scenes(full.get("scenes", {}))
-                return full
             case "refresh":
                 return await self._refresh_all()
-
+            case "query_full_state":
+                data = await self._get_resources()
+                self._reconcile(data)
+                return data
+            case "all_on" | "all_off":
+                gl = self._group_grouped_light.get(self._home_id)
+                if not gl:
+                    raise ValueError("The bridge reported no whole-home group")
+                return await self._request(
+                    "PUT", f"/clip/v2/resource/grouped_light/{gl}",
+                    {"on": {"on": command == "all_on"}},
+                )
             case "light_on":
-                return await self._light_put(params, {"on": True})
+                return await self._request(
+                    "PUT", light_path(), {"on": {"on": True}}
+                )
             case "light_off":
-                return await self._light_put(params, {"on": False})
-            case "light_set_brightness":
-                return await self._light_put(
-                    params, {"on": True, "bri": int(params["bri"])}
+                return await self._request(
+                    "PUT", light_path(), {"on": {"on": False}}
                 )
-            case "light_set_color_temp":
-                return await self._light_put(
-                    params, {"on": True, "ct": int(params["ct"])}
+            case "set_light_brightness":
+                body = self._with_transition({
+                    "on": {"on": True},
+                    "dimming": {"brightness": float(params.get("brightness", 100))},
+                }, params)
+                return await self._request("PUT", light_path(), body)
+            case "set_light_ct":
+                body = self._with_transition({
+                    "on": {"on": True},
+                    "color_temperature": {"mirek": int(params.get("mirek", 300))},
+                }, params)
+                return await self._request("PUT", light_path(), body)
+            case "set_light_xy":
+                body = self._with_transition({
+                    "on": {"on": True},
+                    "color": {"xy": {
+                        "x": float(params.get("x", 0.0)),
+                        "y": float(params.get("y", 0.0)),
+                    }},
+                }, params)
+                return await self._request("PUT", light_path(), body)
+            case "light_identify":
+                lid = str(params.get("light", ""))
+                device_rid = self._light_device.get(lid)
+                if not device_rid:
+                    raise ValueError(f"Unknown light: {lid}")
+                return await self._request(
+                    "PUT", f"/clip/v2/resource/device/{device_rid}",
+                    {"identify": {"action": "identify"}},
                 )
-            case "light_set_hue_sat":
-                return await self._light_put(
-                    params,
-                    {"on": True, "hue": int(params["hue"]), "sat": int(params["sat"])},
-                )
-            case "light_set_xy":
-                return await self._light_put(
-                    params,
-                    {"on": True, "xy": [float(params["x"]), float(params["y"])]},
-                )
-            case "light_alert":
-                return await self._light_put(
-                    params, {"alert": str(params.get("alert", "select"))}
-                )
-            case "query_light":
-                lid = int(params["light_id"])
-                obj = await self._request("GET", f"/api/{key}/lights/{lid}")
-                if isinstance(obj, dict):
-                    self._reconcile_one_light(lid, obj)
-                return obj
-            case "query_all_lights":
-                lights = await self._request("GET", f"/api/{key}/lights")
-                self._reconcile_lights(lights)
-                return lights
-
             case "group_on":
-                return await self._group_put(params, {"on": True})
+                return await self._request(
+                    "PUT", group_path(), {"on": {"on": True}}
+                )
             case "group_off":
-                return await self._group_put(params, {"on": False})
-            case "group_set_brightness":
-                return await self._group_put(
-                    params, {"on": True, "bri": int(params["bri"])}
+                return await self._request(
+                    "PUT", group_path(), {"on": {"on": False}}
                 )
-            case "group_set_color_temp":
-                return await self._group_put(
-                    params, {"on": True, "ct": int(params["ct"])}
-                )
-            case "group_set_hue_sat":
-                return await self._group_put(
-                    params,
-                    {"on": True, "hue": int(params["hue"]), "sat": int(params["sat"])},
-                )
-            case "group_recall_scene":
-                return await self._group_put(
-                    params, {"scene": str(params["scene_id"]).strip()}
-                )
-            case "query_group":
-                gid = int(params["group_id"])
-                obj = await self._request("GET", f"/api/{key}/groups/{gid}")
-                if isinstance(obj, dict):
-                    if gid == 0:
-                        obj.setdefault("name", "All Lights")
-                    values = self._group_values(obj)
-                    self._group_names[gid] = values["name"]
-                    if self.is_child_registered("group", gid):
-                        self.set_child_state_batch("group", gid, values)
-                    else:
-                        self.register_child("group", gid, initial_state=values)
-                        self._group_ids.add(gid)
-                return obj
-            case "query_all_groups":
-                groups = await self._request("GET", f"/api/{key}/groups")
-                group0 = await self._fetch_group0()
-                self._reconcile_groups(groups, group0)
-                return groups
-
-            case "all_on":
-                return await self._group_put({"group_id": 0}, {"on": True})
-            case "all_off":
-                return await self._group_put({"group_id": 0}, {"on": False})
+            case "set_group_brightness":
+                body = self._with_transition({
+                    "on": {"on": True},
+                    "dimming": {"brightness": float(params.get("brightness", 100))},
+                }, params)
+                return await self._request("PUT", group_path(), body)
+            case "set_group_ct":
+                body = self._with_transition({
+                    "color_temperature": {"mirek": int(params.get("mirek", 300))},
+                }, params)
+                return await self._request("PUT", group_path(), body)
+            case "set_group_xy":
+                body = self._with_transition({
+                    "color": {"xy": {
+                        "x": float(params.get("x", 0.0)),
+                        "y": float(params.get("y", 0.0)),
+                    }},
+                }, params)
+                return await self._request("PUT", group_path(), body)
             case "recall_scene":
-                return await self._group_put(
-                    {"group_id": 0}, {"scene": str(params["scene_id"]).strip()}
+                sid = str(params.get("scene", ""))
+                recall: dict[str, Any] = {"action": "active"}
+                raw = params.get("duration_ms")
+                if raw not in (None, ""):
+                    recall["duration"] = int(raw)
+                return await self._request(
+                    "PUT", f"/clip/v2/resource/scene/{sid}",
+                    {"recall": recall},
                 )
-            case "query_scene":
-                sid = str(params["scene_id"]).strip()
-                return await self._request("GET", f"/api/{key}/scenes/{sid}")
-            case "query_all_scenes":
-                scenes = await self._request("GET", f"/api/{key}/scenes")
-                self._update_scenes(scenes)
-                return scenes
-
             case _:
-                log.warning(f"[{self.device_id}] Unknown command: {command}")
-                return None
-
-    async def _light_put(self, params: dict[str, Any], body: dict[str, Any]) -> Any:
-        """PUT a light state change and apply the bridge's per-field
-        success confirmations to the child immediately."""
-        lid = int(params["light_id"])
-        result = await self._request(
-            "PUT", f"/api/{self._app_key}/lights/{lid}/state", body
-        )
-        self._apply_put_success(result, _LIGHT_SUCCESS_RE, self._apply_light_field)
-        return result
-
-    async def _group_put(self, params: dict[str, Any], body: dict[str, Any]) -> Any:
-        """PUT a group action, apply the confirmations to the group child,
-        then re-read lights + groups — a group action fans out to member
-        lights the confirmation doesn't enumerate."""
-        gid = int(params["group_id"])
-        result = await self._request(
-            "PUT", f"/api/{self._app_key}/groups/{gid}/action", body
-        )
-        self._apply_put_success(result, _GROUP_SUCCESS_RE, self._apply_group_field)
-        try:
-            lights = await self._request("GET", f"/api/{self._app_key}/lights")
-            groups = await self._request("GET", f"/api/{self._app_key}/groups")
-            group0 = await self._fetch_group0()
-            self._reconcile_lights(lights)
-            self._reconcile_groups(groups, group0)
-        except httpx.TransportError as exc:
-            log.warning(
-                f"[{self.device_id}] Post-command refresh failed: {exc} "
-                f"(state converges on the next poll)"
-            )
-        return result
-
-    @staticmethod
-    def _apply_put_success(result: Any, pattern: re.Pattern, apply_fn) -> None:
-        if not isinstance(result, list):
-            return
-        for entry in result:
-            if not isinstance(entry, dict):
-                continue
-            success = entry.get("success")
-            if not isinstance(success, dict):
-                continue
-            for address, value in success.items():
-                m = pattern.match(str(address))
-                if m:
-                    apply_fn(int(m.group(1)), m.group(2), value)
-
-    def _apply_light_field(self, lid: int, field: str, value: Any) -> None:
-        if not self.is_child_registered("light", lid):
-            return
-        schema = self._light_schemas.get(lid, {})
-        updates: dict[str, Any] = {}
-        if field == "on":
-            updates["on"] = bool(value)
-        elif field in ("bri", "ct", "hue", "sat") and field in schema:
-            try:
-                updates[field] = int(value)
-            except (TypeError, ValueError):
-                pass
-        elif field == "xy" and "xy" in schema:
-            if isinstance(value, (list, tuple)) and len(value) == 2:
-                updates["xy"] = f"{float(value[0]):.4f},{float(value[1]):.4f}"
-        if updates:
-            try:
-                self.set_child_state_batch("light", lid, updates)
-            except ValueError:
-                pass
-
-    def _apply_group_field(self, gid: int, field: str, value: Any) -> None:
-        if not self.is_child_registered("group", gid):
-            return
-        updates: dict[str, Any] = {}
-        if field == "on":
-            # A confirmed group on/off is deterministic for both flags.
-            updates["any_on"] = bool(value)
-            updates["all_on"] = bool(value)
-        elif field == "bri":
-            try:
-                updates["bri"] = int(value)
-            except (TypeError, ValueError):
-                pass
-        if updates:
-            try:
-                self.set_child_state_batch("group", gid, updates)
-            except ValueError:
-                pass
-
-    def _reconcile_one_light(self, lid: int, obj: dict[str, Any]) -> None:
-        schema, values = self._light_values(obj)
-        prev = self._light_schemas.get(lid)
-        if prev == schema and self.is_child_registered("light", lid):
-            self.set_child_state_batch("light", lid, values)
-        else:
-            if self.is_child_registered("light", lid):
-                self.deregister_child("light", lid)
-            self.register_child("light", lid, schema=schema, initial_state=values)
-        self._light_schemas[lid] = schema
+                raise ValueError(f"Unknown command: {command}")
 
     # ── Device settings ──
 
@@ -1404,12 +1334,14 @@ class PhilipsHueDriver(BaseDriver):
         name = str(value).strip()
         if not name:
             raise ValueError("Bridge name cannot be empty")
+        if not self._bridge_device_rid:
+            raise ConnectionError("Bridge device record not enumerated yet")
         await self._request(
-            "PUT", f"/api/{self._app_key}/config", {"name": name}
+            "PUT", f"/clip/v2/resource/device/{self._bridge_device_rid}",
+            {"metadata": {"name": name}},
         )
-        config = await self._request("GET", f"/api/{self._app_key}/config")
-        self._apply_config(config)
-        return self.get_state("bridge_name")
+        self.set_state("bridge_name", name)
+        return name
 
     # ── Setup wizard: pair with the bridge's link button ──
 
@@ -1419,7 +1351,12 @@ class PhilipsHueDriver(BaseDriver):
         """Pair with the bridge (out-of-band; runs while the device is
         offline). Verifies a Hue bridge answers at the configured host,
         requests an app key (the user must have pressed the link button),
-        and optionally saves the key + reconnects."""
+        and optionally saves the key + reconnects.
+
+        App-key creation is still the v1 POST /api endpoint — there is no
+        v2 pairing call. The bridge-identity check uses the unauthenticated
+        v1 GET /api/config, which every bridge answers.
+        """
         if action_id != "pair_bridge":
             raise ValueError(f"Unknown setup action: {action_id}")
 
@@ -1431,6 +1368,7 @@ class PhilipsHueDriver(BaseDriver):
         async with httpx.AsyncClient(
             base_url=self._base_url(),
             timeout=float(self.config.get("timeout", 5.0)),
+            verify=False,
         ) as client:
             await progress(f"Checking the bridge at {host}…", 10)
             try:

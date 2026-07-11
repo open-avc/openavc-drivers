@@ -4549,22 +4549,22 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "2.0.1",
+      "version": "3.0.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Controls Philips Hue lights, rooms, zones, and scenes via the local REST API V1 on a Hue Bridge (HTTP, port 80). Every light and group is a child entity with live state; pair with the bridge's link button straight from the device page.",
-      "source_url": "https://github.com/home-assistant-libs/aiohue/tree/master/aiohue/v1",
+      "description": "Controls Philips Hue lights, rooms, zones, and scenes via the CLIP v2 API on a Hue Bridge (HTTPS). Live push state from the bridge's event stream; every light and group is a child entity; pair with the bridge's link button straight from the device page. Requires the square v2 bridge (BSB002).",
+      "source_url": "https://github.com/home-assistant-libs/aiohue/tree/main/aiohue/v2",
       "file": "lighting/philips_hue.py",
       "format": "python",
       "ports": [
-        80
+        443
       ],
       "protocols": [
-        "hue_v1"
+        "hue_clip_v2"
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.23.0",
       "tags": [
         "hue",
         "philips",
@@ -4575,8 +4575,8 @@
         "scenes"
       ],
       "help": {
-        "overview": "Philips Hue is the most widely deployed residential and small-commercial smart-lighting platform. The bridge sits on the LAN and bridges Zigbee bulbs / fixtures to a local REST API. AV integrators commonly use it for accent lighting in boardrooms, hospitality spaces, and houses of worship \u2014 recall a \"Presentation\" scene when the projector turns on, fade up \"Q&A\" lighting when the session ends.\n\nEvery light and every group (room / zone, plus the special \"all lights\" group 0) appears as a child entity with live on/brightness/color state, so bindings, macros, and triggers can react to individual lights. Scenes are offered in a picker on the recall commands.",
-        "setup": "1. Set a static IP (or DHCP reservation) on the Hue Bridge in your router. The bridge is also discoverable via mDNS.\n2. Add the device with the bridge's IP address, leaving the App Key blank.\n3. Press the round link button on top of the bridge, then run the \"Pair with Bridge (Link Button)\" action from this device's page within 30 seconds. It requests an app key, saves it, and reconnects automatically.\n4. Lights, groups, and scenes are enumerated on connect. Use \"Refresh from Device\" (or the refresh command) after adding fixtures in the Hue app.\n5. Commands that act on a light or group offer a picker of the discovered children; scene commands offer a scene picker."
+        "overview": "Philips Hue is the most widely deployed residential and small-commercial smart-lighting platform. The bridge sits on the LAN and bridges Zigbee bulbs / fixtures to a local REST API. AV integrators commonly use it for accent lighting in boardrooms, hospitality spaces, and houses of worship \u2014 recall a \"Presentation\" scene when the projector turns on, fade up \"Q&A\" lighting when the session ends.\n\nEvery light and every group (room / zone, plus the whole-home \"All Lights\" group) appears as a child entity with live on/brightness/color state pushed by the bridge the moment it changes \u2014 including changes made from the Hue app or Hue dimmer switches. Scenes are offered in a picker on the recall command.",
+        "setup": "1. Set a static IP (or DHCP reservation) on the Hue Bridge in your router. The bridge is also discoverable via mDNS.\n2. Add the device with the bridge's IP address, leaving the App Key blank.\n3. Press the round link button on top of the bridge, then run the \"Pair with Bridge (Link Button)\" action from this device's page within 30 seconds. It requests an app key, saves it, and reconnects automatically.\n4. Lights, groups, and scenes are enumerated on connect and stay in sync live \u2014 new fixtures added in the Hue app appear on their own.\n5. Commands that act on a light or group offer a picker of the discovered children; the recall command offers a scene picker. Brightness and color commands take an optional transition time for smooth fades."
       },
       "compatible_models": [
         {
@@ -4585,15 +4585,7 @@
             "Hue Bridge V2 (BSB002)"
           ],
           "confidence": "full",
-          "notes": "Verified against a BSB002 bridge (API 1.77.0): discovery probe, link-button pairing wizard, light/group/scene enumeration, and control. The V2 bridge also supports the V2 / CLIP V2 API over HTTPS \u2014 this driver targets V1 only."
-        },
-        {
-          "manufacturer": "Signify",
-          "models": [
-            "Hue Bridge V1 (BSB001)"
-          ],
-          "confidence": "untested",
-          "notes": "Exposes the same V1 REST API on port 80. End-of-life for new firmware but still functional."
+          "notes": "Verified against a BSB002 bridge (firmware 1.78.1978074000): HTTPS + application-key connect, enumeration of a 19-light install with rooms/zones/scenes, live event-stream updates, and a light write confirmed back over the stream. The CLIP v2 API requires firmware 1948086000 or newer (any bridge updated since late 2019). The link-button pairing flow is unchanged from the previous driver generation, which was verified on the same bridge."
         }
       ],
       "discovery": {

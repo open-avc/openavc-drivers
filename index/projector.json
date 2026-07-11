@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 9,
+    "total_drivers": 10,
     "shards": null,
     "category": "projector"
   },
@@ -475,6 +475,69 @@
         },
         "port_open": [
           4352
+        ]
+      }
+    },
+    {
+      "id": "optoma_projector",
+      "name": "Optoma Projector",
+      "manufacturer": "Optoma",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Optoma projectors over Optoma's RS232/LAN command protocol (Telnet port 23 or direct RS-232). Power, input select, A/V mute, shutter, audio, display modes, aspect, brightness/contrast, keystone, motorized lens with lens memories, remote-key navigation, light-source hours, and live fault notifications. Covers the ZU/ZK installation and large-venue laser series and other Optoma models sharing the published command table \u2014 the full brand feature set beyond what generic PJLink offers.",
+      "source_url": "https://www.optomaeurope.com/ContentStorage/Documents/869372d2-6854-4dd6-b26e-2f246a5f6ea8.pdf",
+      "file": "projectors/optoma_projector.py",
+      "format": "python",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "optoma_rs232"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "projector",
+        "optoma",
+        "laser",
+        "install",
+        "proscene",
+        "rs232",
+        "telnet",
+        "lan-control"
+      ],
+      "help": {
+        "overview": "Optoma's own control protocol \u2014 the same ~XX command set over the LAN (Telnet) or RS-232. Compared to PJLink it adds display modes, shutter, motorized lens control with position memories, keystone, remote-key navigation, light-source hours, and live fault reporting (fan, thermal, light source). The projector pushes power and fault transitions as they happen; other state is polled.",
+        "setup": "1. Connect the projector's LAN port and give it a static IP (or a DHCP reservation).\n2. In the projector's Network / Communications menu make sure Telnet control is enabled (on most models it is on by default alongside the web control page).\n3. Set Standby Power Mode to 'Communication' (some menus say 'Active' or 'Network Standby') so the projector still answers \u2014 and can be powered on \u2014 while in standby. The eco '0.5W' standby powers the network module down completely.\n4. Serial control instead: connect the RS-232 port (9600 8N1 on most models; newer large-venue units default to 19200 \u2014 match the projector's Serial Port Baud Rate setting).\n5. Leave Projector ID at 0 unless you have assigned IDs on an RS-232 chain; ID 0 addresses any projector.",
+        "connection": "A projector in eco (0.5W) standby does not answer on the network at all \u2014 set Standby Power Mode to Communication so power_on works remotely. Power on/off feedback can take 6-10 seconds; the driver waits accordingly."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Optoma",
+          "models": [
+            "ZU506Te / ZU606TSTe / ZU610T / ZU510T",
+            "ZU660e / ZU720T / ZU720TST / ZU725TST",
+            "ZK507 / ZK750 / ZK1050",
+            "ZU860 / ZU1050 / ZU1300 (ProScene large venue)",
+            "EH / WU / X / W business series",
+            "UHD home cinema series"
+          ],
+          "confidence": "untested",
+          "notes": "Optoma publishes the same command grammar across its range; each model's RS232 Protocol Function List documents its supported subset, and a command a model lacks answers F (ignored by the driver). Lens shift/zoom/focus and lens memories need a motorized lens (ZK/ZU install and large-venue models); the shutter commands need a mechanical shutter. Volume range is 0-10 on most models, 0-15 on some."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "send_ascii": "~00124 1\r",
+          "expect_regex": "(?i)\\bOk[01]\\b",
+          "extract_manufacturer": "Optoma"
+        },
+        "manufacturer_alias": [
+          "optoma",
+          "optoma corporation"
         ]
       }
     },

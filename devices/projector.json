@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 189,
+    "total_devices": 195,
     "shards": null,
     "category": "projector"
   },
@@ -1041,6 +1041,18 @@
     },
     {
       "manufacturer": "Optoma",
+      "model": "EH / WU / X / W business series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "optoma_projector",
+          "confidence": "untested",
+          "notes": "Optoma publishes the same command grammar across its range; each model's RS232 Protocol Function List documents its supported subset, and a command a model lacks answers F (ignored by the driver). Lens shift/zoom/focus and lens memories need a motorized lens (ZK/ZU install and large-venue models); the shutter commands need a mechanical shutter. Volume range is 0-10 on most models, 0-15 on some."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
       "model": "Professional J-Series (JEV, JSV, JNV, JWV, JTV, JCV, JPV)",
       "category": "projector",
       "drivers": [
@@ -1048,6 +1060,18 @@
           "id": "pjlink_class1",
           "confidence": "full",
           "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "UHD home cinema series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "optoma_projector",
+          "confidence": "untested",
+          "notes": "Optoma publishes the same command grammar across its range; each model's RS232 Protocol Function List documents its supported subset, and a command a model lacks answers F (ignored by the driver). Lens shift/zoom/focus and lens memories need a motorized lens (ZK/ZU install and large-venue models); the shutter commands need a mechanical shutter. Volume range is 0-10 on most models, 0-15 on some."
         }
       ]
     },
@@ -1096,6 +1120,54 @@
           "id": "pjlink_class1",
           "confidence": "full",
           "notes": "JBMIA-registered as Class 2. Optoma commercial / professional install projectors."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "ZK507 / ZK750 / ZK1050",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "optoma_projector",
+          "confidence": "untested",
+          "notes": "Optoma publishes the same command grammar across its range; each model's RS232 Protocol Function List documents its supported subset, and a command a model lacks answers F (ignored by the driver). Lens shift/zoom/focus and lens memories need a motorized lens (ZK/ZU install and large-venue models); the shutter commands need a mechanical shutter. Volume range is 0-10 on most models, 0-15 on some."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "ZU506Te / ZU606TSTe / ZU610T / ZU510T",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "optoma_projector",
+          "confidence": "untested",
+          "notes": "Optoma publishes the same command grammar across its range; each model's RS232 Protocol Function List documents its supported subset, and a command a model lacks answers F (ignored by the driver). Lens shift/zoom/focus and lens memories need a motorized lens (ZK/ZU install and large-venue models); the shutter commands need a mechanical shutter. Volume range is 0-10 on most models, 0-15 on some."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "ZU660e / ZU720T / ZU720TST / ZU725TST",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "optoma_projector",
+          "confidence": "untested",
+          "notes": "Optoma publishes the same command grammar across its range; each model's RS232 Protocol Function List documents its supported subset, and a command a model lacks answers F (ignored by the driver). Lens shift/zoom/focus and lens memories need a motorized lens (ZK/ZU install and large-venue models); the shutter commands need a mechanical shutter. Volume range is 0-10 on most models, 0-15 on some."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Optoma",
+      "model": "ZU860 / ZU1050 / ZU1300 (ProScene large venue)",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "optoma_projector",
+          "confidence": "untested",
+          "notes": "Optoma publishes the same command grammar across its range; each model's RS232 Protocol Function List documents its supported subset, and a command a model lacks answers F (ignored by the driver). Lens shift/zoom/focus and lens memories need a motorized lens (ZK/ZU install and large-venue models); the shutter commands need a mechanical shutter. Volume range is 0-10 on most models, 0-15 on some."
         }
       ]
     },

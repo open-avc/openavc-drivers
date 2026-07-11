@@ -54,7 +54,7 @@ id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -684,6 +684,23 @@ commands:
         help: "Preset bank 1-6"
 
   # ── System Commands ──
+  meters_on:
+    label: Meters On
+    send: 's_network S 0000 00 NC ,,,,,,,1,,,,,,,,,,, \r'
+    help: >
+      Start the live level-meter stream now (lasts until the next reconnect
+      or mixer reboot -- set Enable Level Meters in the device config to
+      keep meters on permanently). The meter flag is a global mixer setting
+      shared by every connected controller.
+
+  meters_off:
+    label: Meters Off
+    send: 's_network S 0000 00 NC ,,,,,,,0,,,,,,,,,,, \r'
+    help: >
+      Stop the live level-meter stream now. This clears the mixer's global
+      Audio Level Notification flag, so it also stops the stream for any
+      other controller that enabled it.
+
   set_meter_interval:
     label: Set Meter Interval
     send: 's_level_meter_interval S 0000 00 NC {interval} \r'
@@ -806,6 +823,10 @@ actions:
     icon: volume-2
   - id: identify
     icon: sun
+  - id: meters_on
+    icon: eye
+  - id: meters_off
+    icon: eye-off
 
 responses:
   # ── Firmware version answer (capture stops before the trailing space) ──

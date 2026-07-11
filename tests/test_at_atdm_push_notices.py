@@ -244,3 +244,21 @@ def test_family_arming_write_and_throttle(name, group):
         if "level_meter_notice" in (r.get("match") or "")
     ]
     assert meter_rules and all(r.get("throttle", 0) >= 0.5 for r in meter_rules)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["at_atdm_0604a.avcdriver", "at_atdm_0604.avcdriver", "at_atdm_1012.avcdriver"],
+)
+def test_family_meters_commands_and_quick_actions(name):
+    """meters_on/meters_off write ONLY field 8 (Audio Level Notification) of
+    the 19-field s_network layout, and both are promoted as quick actions."""
+    driver = load_driver(name)
+    for cmd, flag in (("meters_on", "1"), ("meters_off", "0")):
+        send = driver["commands"][cmd]["send"]
+        fields = send.split("NC ", 1)[1].rsplit("\\r", 1)[0].strip().split(",")
+        assert len(fields) == 19, (name, cmd, fields)
+        assert fields[7] == flag, (name, cmd, fields)
+        assert all(f == "" for i, f in enumerate(fields) if i != 7), (name, cmd)
+    action_ids = [a["id"] for a in driver.get("actions", [])]
+    assert "meters_on" in action_ids and "meters_off" in action_ids

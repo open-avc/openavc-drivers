@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 73,
+    "total_drivers": 74,
     "shards": null
   },
   "drivers": [
@@ -3213,6 +3213,76 @@
         ],
         "manufacturer_alias": [
           "panasonic"
+        ]
+      }
+    },
+    {
+      "id": "panasonic_display",
+      "name": "Panasonic Professional Display",
+      "manufacturer": "Panasonic",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Panasonic TH-series professional displays (SQ / EQ / CQ / VF / SF / BQ lines) over the LAN command channel. Power, input, volume, audio / video mute, aspect, and the picture adjustment surface. Speaks both of Panasonic's LAN control protocols (auto-detected) and supports the MD5 challenge authentication, so the display works whichever way its service menu is set.",
+      "source_url": "https://docs.connect.panasonic.com/prodisplays/support/download/pdf/LAN_Protocol_exp.pdf",
+      "file": "displays/panasonic_display.py",
+      "format": "python",
+      "ports": [
+        1024
+      ],
+      "protocols": [
+        "ntcontrol",
+        "pdpcontrol"
+      ],
+      "simulated": true,
+      "tags": [
+        "display",
+        "panasonic",
+        "th",
+        "signage",
+        "ntcontrol"
+      ],
+      "help": {
+        "overview": "Panasonic professional displays are controlled over TCP port 1024 using one of two LAN control protocols selected in the display's service menu. This driver auto-detects the protocol from the connection greeting, so either setting works. Optional MD5 challenge authentication is tied to the display's Web Control administrator account. The display closes the control connection between commands \u2014 this is normal, documented behaviour the driver expects.",
+        "setup": "1. Connect the display to the network and assign a static IP.\n2. Enable network control: [Initial settings] -> [Network settings] -> [Network control] = On. The default command port is 1024 (shown under [LAN settings]).\n3. Open the display's Web Control page in a browser. Set or note the Administrator-Authorized password (default username is ``admin1``, default password is ``panasonic``).\n4. In OpenAVC, enter the display's IP and the Web Control admin username and password. If the display has no password set (non-protected mode), leave the password field empty."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Panasonic",
+          "models": [
+            "TH-98/86/75/65/55/50/43SQ2H",
+            "TH-98/86/75/65/55/50/43SQ1H",
+            "TH-98/86/75/65/55/49/43SQ1",
+            "TH-86/75/65/55/50/43SQ3",
+            "TH-86/75/65/55/50/43SQE2",
+            "TH-98/86/75/65/55/49/43SQE1",
+            "TH-86/75/65/55/50/43EQ3",
+            "TH-86/75/65/55/50/43EQ2",
+            "TH-86/75/65/55/49/43EQ1",
+            "TH-86/75/65/55/50/43CQE2",
+            "TH-98/86/75/65/55/50/43CQE1",
+            "TH-86/75/65/55/50/43CQ2",
+            "TH-86/75/65/55/50/43CQ1",
+            "TH-55VF2H / TH-55VF2",
+            "TH-55VF1H",
+            "TH-80/70SF2H / TH-80/70SF2",
+            "TH-86/75/65BQ1",
+            "TH-55LFV9",
+            "TH-98/84LQ70"
+          ],
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 1024,
+          "expect_regex": "^(NTCONTROL|PDPCONTROL) [01]",
+          "extract_manufacturer": "Panasonic"
+        },
+        "manufacturer_alias": [
+          "Panasonic"
         ]
       }
     },

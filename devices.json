@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 590,
+    "total_devices": 609,
     "shards": null
   },
   "devices": [
@@ -4756,6 +4756,234 @@
           "id": "panasonic_pt",
           "confidence": "untested",
           "notes": "Protocol 2 / NTCONTROL is the same on every Panasonic professional projector \u2014 the universal command surface (power, input select, shutter, freeze, operating hours) is consistent. Per-model variation is which physical inputs are present; the driver exposes the union and the projector returns ``ERR2`` for inputs it doesn't have, which the driver logs at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-55LFV9",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-55VF1H",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-55VF2H / TH-55VF2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-80/70SF2H / TH-80/70SF2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/49/43EQ1",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/50/43CQ1",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/50/43CQ2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/50/43CQE2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/50/43EQ2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/50/43EQ3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/50/43SQ3",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65/55/50/43SQE2",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-86/75/65BQ1",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-98/84LQ70",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-98/86/75/65/55/49/43SQ1",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-98/86/75/65/55/49/43SQE1",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-98/86/75/65/55/50/43CQE1",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-98/86/75/65/55/50/43SQ1H",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Panasonic",
+      "model": "TH-98/86/75/65/55/50/43SQ2H",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "panasonic_display",
+          "confidence": "untested",
+          "notes": "The command core (power, input, volume, mutes, aspect, picture) is uniform across the TH-series professional line; the SQ2H and EQ2 command lists are identical and CQ1 carries the same core. Per-series variation is which inputs exist \u2014 the input picker offers the SQ2H/EQ2 union and free-typed protocol codes pass through for model extras (e.g. CQ1's TV1 tuner input). Unsupported values return ERR2 on the display, logged at debug."
         }
       ]
     },

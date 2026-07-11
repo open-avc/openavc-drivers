@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 76,
+    "total_drivers": 77,
     "shards": null
   },
   "drivers": [
@@ -4052,6 +4052,76 @@
         "manufacturer_alias": [
           "NEC",
           "Sharp NEC",
+          "Sharp"
+        ]
+      }
+    },
+    {
+      "id": "sharp_nec_display",
+      "name": "Sharp/NEC Display (External Control)",
+      "manufacturer": "Sharp NEC",
+      "category": "display",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Sharp/NEC professional large-format displays over the NEC External Control protocol on TCP 7142. Each Monitor ID on the daisy chain is a display child entity with power, input, volume, mutes, picture settings, panel temperature, and self-diagnosis status. Includes a raw opcode escape hatch for the full protocol surface.",
+      "source_url": "https://www.sharpdisplays.eu/p/download/cp/Products/LargeFormatDisplays/Products/CurrentProducts/Shared/Command_Lists/PDF-ExternalControlManual-LCDMonitor-(english).pdf",
+      "file": "displays/sharp_nec_display.py",
+      "format": "python",
+      "ports": [
+        7142
+      ],
+      "protocols": [
+        "nec_external_control"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.13.0",
+      "tags": [
+        "display",
+        "signage",
+        "nec",
+        "sharp",
+        "video-wall"
+      ],
+      "help": {
+        "overview": "NEC External Control runs on TCP 7142 (fixed). One connection can address a whole RS-232 daisy chain of displays by Monitor ID \u2014 list the IDs and each becomes a display child entity with its own power, input, volume, picture values, temperature, and self-diagnosis status. The protocol requires the controller to pause 15 seconds after a power command (10 after an input change), so commands sent right after those are delayed briefly. Use Get/Set Opcode for protocol features not surfaced as named commands (PIP, OSD, IR lock, gamma, and more).",
+        "setup": "1. Connect the display's LAN port and give it a fixed IP. External control is always on; port 7142 is fixed.\n2. Check the display's Monitor ID in its OSD (MULTI DISPLAY menu). Factory default is 1.\n3. For a daisy-chained wall, connect RS-232 OUT to the next display's IN, give each display a unique Monitor ID, and list them all in 'Monitor IDs' (e.g. 1,2,3,4).\n4. Values changed over the protocol are volatile until stored \u2014 run Save Settings after commissioning changes."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sharp NEC",
+          "models": [
+            "P series",
+            "V series",
+            "X series",
+            "X-UN video wall series"
+          ],
+          "confidence": "untested",
+          "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
+        },
+        {
+          "manufacturer": "Sharp NEC",
+          "models": [
+            "E series",
+            "ME series",
+            "M series",
+            "MA series",
+            "C series",
+            "UN series"
+          ],
+          "confidence": "untested",
+          "notes": "Newer NEC and Sharp-era large-format series publish the same External Control protocol per model (framing, check code, power procedure and core opcodes verified identical in the Exx8-series manual). Expected to work unchanged; not tested on hardware."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 7142,
+          "send_hex": "01304130413036023031443603740D",
+          "expect_hex": "0130304142",
+          "extract_manufacturer": "Sharp NEC"
+        },
+        "manufacturer_alias": [
+          "NEC",
           "Sharp"
         ]
       }

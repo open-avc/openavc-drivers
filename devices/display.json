@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 33,
+    "total_devices": 43,
     "shards": null,
     "category": "display"
   },
@@ -354,6 +354,126 @@
         {
           "id": "samsung_mdc",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "C series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "Newer NEC and Sharp-era large-format series publish the same External Control protocol per model (framing, check code, power procedure and core opcodes verified identical in the Exx8-series manual). Expected to work unchanged; not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "E series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "Newer NEC and Sharp-era large-format series publish the same External Control protocol per model (framing, check code, power procedure and core opcodes verified identical in the Exx8-series manual). Expected to work unchanged; not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "M series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "Newer NEC and Sharp-era large-format series publish the same External Control protocol per model (framing, check code, power procedure and core opcodes verified identical in the Exx8-series manual). Expected to work unchanged; not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "MA series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "Newer NEC and Sharp-era large-format series publish the same External Control protocol per model (framing, check code, power procedure and core opcodes verified identical in the Exx8-series manual). Expected to work unchanged; not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "ME series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "Newer NEC and Sharp-era large-format series publish the same External Control protocol per model (framing, check code, power procedure and core opcodes verified identical in the Exx8-series manual). Expected to work unchanged; not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "P series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "UN series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "Newer NEC and Sharp-era large-format series publish the same External Control protocol per model (framing, check code, power procedure and core opcodes verified identical in the Exx8-series manual). Expected to work unchanged; not tested on hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "V series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "X series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sharp NEC",
+      "model": "X-UN video wall series",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "sharp_nec_display",
+          "confidence": "untested",
+          "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
         }
       ]
     },

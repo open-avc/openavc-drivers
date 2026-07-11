@@ -958,8 +958,8 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
     notifications, platform >= 0.23.0).
 
     Mirrors the runtime rules in driver_loader.validate_driver_definition:
-    only type: multicast is supported; group/port are IPv4-multicast/port
-    literals or {config_field} templates whose fields must be declared in
+    type is multicast (group/port) or sse (path/idle_timeout, http transport
+    only); {config_field} templates must reference fields declared in
     config_schema or default_config. Catching this at catalog-build time
     keeps a driver that would fail to load out of the index.
     """
@@ -977,14 +977,24 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
         if isinstance(src, dict):
             config_fields.update(src)
 
+    known_keys_by_type = {
+        "multicast": {"type", "group", "port"},
+        "sse": {"type", "path", "idle_timeout"},
+    }
     ptype = push.get("type")
-    if ptype in ("tcp_listener", "http_listener", "sse"):
+    if ptype in ("tcp_listener", "http_listener"):
         errors.append(
-            f"{file}: push type '{ptype}' is not supported yet (only 'multicast')"
+            f"{file}: push type '{ptype}' is not supported yet "
+            f"(only 'multicast' and 'sse')"
         )
-    elif ptype != "multicast":
-        errors.append(f"{file}: push missing or unknown 'type' (supported: multicast)")
-    unknown = set(push) - {"type", "group", "port"}
+    elif ptype not in known_keys_by_type:
+        errors.append(
+            f"{file}: push missing or unknown 'type' (supported: multicast, sse)"
+        )
+    known_keys = known_keys_by_type.get(
+        ptype, {"type", "group", "port", "path", "idle_timeout"}
+    )
+    unknown = set(push) - known_keys
     if unknown:
         errors.append(
             f"{file}: push has unknown key(s): {', '.join(sorted(unknown))}"
@@ -1004,34 +1014,81 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
                     f"not declared in config_schema or default_config"
                 )
 
-    group = push.get("group")
-    if group is None:
-        errors.append(f"{file}: push missing 'group'")
-    elif isinstance(group, str) and "{" in group:
-        check_template("group", group)
-    else:
-        ok = False
-        if isinstance(group, str):
-            parts = group.split(".")
-            if len(parts) == 4 and all(p.isdigit() and int(p) <= 255 for p in parts):
-                ok = 224 <= int(parts[0]) <= 239
-        if not ok:
+    if ptype == "multicast":
+        group = push.get("group")
+        if group is None:
+            errors.append(f"{file}: push missing 'group'")
+        elif isinstance(group, str) and "{" in group:
+            check_template("group", group)
+        else:
+            ok = False
+            if isinstance(group, str):
+                parts = group.split(".")
+                if len(parts) == 4 and all(
+                    p.isdigit() and int(p) <= 255 for p in parts
+                ):
+                    ok = 224 <= int(parts[0]) <= 239
+            if not ok:
+                errors.append(
+                    f"{file}: push.group {group!r} must be an IPv4 multicast "
+                    f"address (224.0.0.0 - 239.255.255.255) or a "
+                    f"{{config_field}} template"
+                )
+
+        port = push.get("port")
+        if port is None:
+            errors.append(f"{file}: push missing 'port'")
+        elif isinstance(port, str) and "{" in port:
+            check_template("port", port)
+        elif isinstance(port, bool) or not isinstance(port, int) or not (0 < port < 65536):
             errors.append(
-                f"{file}: push.group {group!r} must be an IPv4 multicast "
-                f"address (224.0.0.0 - 239.255.255.255) or a "
+                f"{file}: push.port must be an integer 1-65535 or a "
                 f"{{config_field}} template"
             )
 
-    port = push.get("port")
-    if port is None:
-        errors.append(f"{file}: push missing 'port'")
-    elif isinstance(port, str) and "{" in port:
-        check_template("port", port)
-    elif isinstance(port, bool) or not isinstance(port, int) or not (0 < port < 65536):
-        errors.append(
-            f"{file}: push.port must be an integer 1-65535 or a "
-            f"{{config_field}} template"
+    elif ptype == "sse":
+        if data.get("transport") != "http":
+            errors.append(
+                f"{file}: push type 'sse' requires the http transport"
+            )
+        raw_path = push.get("path")
+        paths = (
+            [raw_path] if isinstance(raw_path, str)
+            else raw_path if isinstance(raw_path, list) else None
         )
+        if raw_path is None or paths == []:
+            errors.append(
+                f"{file}: push missing 'path' (an event-stream URL path, "
+                f"or a list of them)"
+            )
+        elif paths is None:
+            errors.append(
+                f"{file}: push.path must be a string or a list of strings"
+            )
+        else:
+            for p in paths:
+                if not isinstance(p, str) or not p.strip():
+                    errors.append(
+                        f"{file}: push.path entry {p!r} must be a "
+                        f"non-empty string"
+                    )
+                elif "{" in p:
+                    check_template("path", p)
+                elif not p.startswith("/"):
+                    errors.append(
+                        f"{file}: push.path {p!r} must start with '/' or "
+                        f"be a {{config_field}} template"
+                    )
+        idle = push.get("idle_timeout")
+        if idle is not None and (
+            isinstance(idle, bool)
+            or not isinstance(idle, (int, float))
+            or idle <= 0
+        ):
+            errors.append(
+                f"{file}: push.idle_timeout must be a positive number of "
+                f"seconds"
+            )
     return errors
 
 
@@ -1235,6 +1292,33 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
                 f"{file}: Response {i}: throttle must be a positive number "
                 f"of seconds"
             )
+        # Optional require: scope on json rules (platform >= 0.23.0) —
+        # mirrors the runtime loader.
+        require = resp.get("require")
+        if require is not None:
+            if not resp.get("json"):
+                errors.append(
+                    f"{file}: Response {i}: require only applies to "
+                    f"json: true responses"
+                )
+            if isinstance(require, str):
+                if not require.strip():
+                    errors.append(
+                        f"{file}: Response {i}: require must name a JSON key"
+                    )
+            elif isinstance(require, list):
+                if not require or not all(
+                    isinstance(k, str) and k.strip() for k in require
+                ):
+                    errors.append(
+                        f"{file}: Response {i}: require list entries must "
+                        f"be non-empty JSON key names"
+                    )
+            else:
+                errors.append(
+                    f"{file}: Response {i}: require must be a JSON key name "
+                    f"or a list of them"
+                )
         child_set = resp.get("child_set")
         if child_set is None:
             continue

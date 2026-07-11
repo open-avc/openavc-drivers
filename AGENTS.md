@@ -964,7 +964,18 @@ responses:
 
 A `set` value is the JSON field to read: a string key, a dot path (`video.mode`, `items.0`), or a `{key, type, map}` object. Native JSON bools/ints/floats are preserved (no string round-trip). Missing keys are skipped (state untouched); a key landing on an array/object yields its length, same as `json_path`. Multiple `json: true` rules are additive — each is applied to every body — so split related fields across rules freely. A reply wrapped in a single-element top-level array (`[{...}]` — some devices wrap every reply that way) is unwrapped to its one object first (platform 0.22.0+); multi-element arrays are ambiguous and are not parsed. If a body isn't a JSON object the engine falls through to your regex rules. Use this for JSON APIs; reserve mega-regexes for non-JSON text.
 
-**`require: <key>` — scope a json rule to the replies that carry a marker key (platform 0.23.0+).** Because every json rule runs against every reply, two endpoints that reuse a field name with different meanings would cross-write each other's state (a paired peripheral's `status` landing in the main unit's power state, say). Declare `require:` with a JSON key — or a list of keys, all of which must be present in the body — and the rule only applies to bodies carrying it (dot paths allowed, same resolution as `set` keys; the single-element array unwrap happens first). Rules whose mapped keys are unique across the device's replies don't need it. Validation: json rules only, non-empty key names.
+**`require:` — scope a json rule to its endpoint's bodies (platform 0.23.0+).** Because every json rule runs against every body, two endpoints on one device that reuse a field name with different meanings cross-write each other's state — and the single-element array unwrap makes this reachable from list endpoints too (a list with one paired peripheral in it unwraps, and the peripheral's `status`/`id`/`serialNumber` land in the main unit's state). Declare `require: <key>` (or a list — all keys must be present; dot paths allowed, same resolution as `set` keys) so the rule only applies to bodies carrying a key unique to its endpoint:
+
+```yaml
+responses:
+  - json: true
+    require: supportedStatuses      # only the power-management body has this
+    set:
+      system_status: status         # a Button's "status" (Ok/Error) can no longer land here
+      power_mode: powerMode
+```
+
+Rules whose mapped keys are unique across every body the driver can receive don't need it. Reference: `barco_clickshare_cx` guards its power/identity/wallpaper rules this way. Validation: json rules only; non-empty key names.
 
 **`throttle: <seconds>` — rate-cap a high-rate telemetry rule (platform 0.23.0+).** After the rule matches and applies, further matches of the *same rule* are dropped until the window elapses (drop-style — each skipped frame is superseded by the next). Built for continuous streams like audio level meters (a 10 Hz meter frame with `throttle: 0.5` becomes ~2 state writes/sec). Works on regex, `json: true`, and OSC rules. Do NOT throttle command replies or state-change notices — a dropped frame there means stale state until the next poll. Pair meter-style state variables with `cloud_priority: low` so the cloud relay treats them as background tier. Validation: must be a positive number.
 
@@ -1116,14 +1127,13 @@ the socket stays up, and works on connectionless transports. They compose.
 
 Some devices report state changes on a channel the platform must **open**,
 not on the established control connection. The `push:` block declares that
-channel. Two types are supported: `multicast` — the device sends
-notification frames to a multicast group the platform joins — and `sse` —
-the device streams updates over a Server-Sent-Events endpoint on its HTTP
-API (HTTP-transport drivers only):
+channel. Two types exist: `multicast` (the device sends notification frames
+to a multicast group the platform joins) and `sse` (the device streams
+updates over Server-Sent Events on its HTTP API):
 
 ```yaml
 push:
-  type: multicast              # multicast | sse
+  type: multicast              # UDP multicast group listen
   group: "{notification_group}"  # IPv4 multicast literal (224.0.0.0-239.255.255.255)
                                  # or a {config_field} template
   port: "{notification_port}"    # 1-65535 literal or {config_field} template
@@ -1131,13 +1141,12 @@ push:
 
 ```yaml
 push:
-  type: sse
-  path: /v2/configuration/system/status  # one path, or a LIST of paths for
-                                         # devices that stream each resource
-                                         # separately; {config_field} allowed
-  idle_timeout: 200            # optional seconds — reopen a stream that goes
-                               # silent this long; set it above the device's
-                               # keepalive interval, omit to wait forever
+  type: sse                    # Server-Sent Events (HTTP transport only)
+  path: /v2/configuration/system/status   # one path, or a list of paths for
+                                           # devices that stream per resource
+  idle_timeout: 200            # optional: reconnect after this many seconds
+                               # of silence (set above the device's keepalive
+                               # interval; omit to wait indefinitely)
 ```
 
 Behavior contract:
@@ -1147,47 +1156,59 @@ Behavior contract:
   never races the listener. It stops on disconnect and re-arms on reconnect
   (which also re-runs `on_connect`, covering devices whose notification
   flags reset on reboot).
-- Each datagram feeds the driver's normal `responses:` rules (first match
-  wins, same as any reply). If the driver declares a `delimiter`, a datagram
-  carrying several frames is split on it first. An SSE event dispatches
-  whole, like an HTTP response body — SSE payloads are typically JSON, so
-  pair them with `json: true` response rules.
+- Everything that arrives feeds the driver's normal `responses:` rules
+  (first match wins, same as any reply). A multicast datagram carrying
+  several frames is split on the driver's `delimiter` first; an SSE event's
+  data block dispatches whole, exactly like an HTTP response body — pair it
+  with `json: true` rules for JSON payloads (see 2.7).
 - Multicast frames are accepted **only from the device's own host address**,
   so two identical devices multicasting to the same group each update their
-  own device instance. SSE needs no filtering — the stream rides the
-  driver's own HTTP session (its auth and TLS settings apply).
-- A dropped SSE stream reconnects on its own with exponential backoff (1 s
-  doubling to 30 s), so a device reboot re-establishes the subscription.
+  own device instance. SSE needs no source filtering — each stream rides
+  the driver's own HTTP session, with its auth and TLS settings.
 - A failed group join or unreachable stream is non-fatal (logged); polling
-  still covers the device. Keep the `polling:` block as the baseline
+  still covers the device, and a dropped SSE stream reconnects on its own
+  with exponential backoff. Keep the `polling:` block as the baseline
   resync — networks that filter multicast (IGMP snooping without a querier,
-  cross-VLAN) silently eat those frames.
+  cross-VLAN) silently eat those frames, and idle event streams can be
+  killed by middleboxes.
 
 Conventions:
 
-- Make `group`/`port` **config fields with the device's factory defaults**
-  (not hard-coded literals) whenever the device lets users change its
-  notification target, and say so in `help.setup`.
+- Make multicast `group`/`port` **config fields with the device's factory
+  defaults** (not hard-coded literals) whenever the device lets users change
+  its notification target, and say so in `help.setup`. SSE paths are fixed
+  API routes — literals are normal there.
 - If notifications must be armed at runtime, send the arming command from
   `on_connect`. Gate a continuous meter/telemetry stream behind an opt-in
   boolean config field substituted into the arming command, and put a
   `throttle:` on the meter response rule (see 2.7).
-- Mention the network requirements in `help.setup`: same VLAN as the
-  OpenAVC host, and IGMP-snooping switches need an IGMP querier.
+- For multicast, mention the network requirements in `help.setup`: same
+  VLAN as the OpenAVC host, and IGMP-snooping switches need an IGMP querier.
+  SSE has no network requirements beyond the API port the driver already
+  uses.
+- Set `idle_timeout` only when the device documents a keepalive cadence
+  (ClickShare sends one every 90 s per stream — the reference retrofit uses
+  200). Without documented keepalives, omit it: an event stream that is
+  legitimately quiet for hours would otherwise reconnect in a loop.
 - Simulators: with a multicast `push:` block, the `simulator.notifications`
   templates are emitted to the group instead of the control connection; with
-  an SSE block the auto-sim serves the declared event-stream paths and
-  delivers the templates there (see 5.1) — either way push flows end-to-end
-  against the simulator. Hand-written HTTP sims get `sse_paths` +
-  `push_sse_event()` on `HTTPSimulator`.
+  an SSE block, the simulated HTTP device serves the declared event-stream
+  paths and delivers the templates to subscribers (see 5.1). Either way push
+  flows end-to-end against the simulator. Hand-written HTTP sims get
+  `sse_paths` + `push_sse_event()` on `HTTPSimulator`.
+
+Reference drivers: `at_atdm_0604a` (multicast, with an arming command and a
+throttled meter stream), `barco_clickshare_cx` (SSE, one stream per polled
+endpoint + require-scoped json rules).
 
 Validation (load time): `type` must be `multicast` or `sse` (`tcp_listener`
-/ `http_listener` are reserved and rejected as "not supported yet");
-multicast `group`/`port` literals must be a valid IPv4 multicast address /
-port; `sse` requires the http transport and `path` entries that start with
-`/`; `{config_field}` templates must reference a field declared in
-`config_schema` or `default_config`; no keys beyond the declared type's are
-allowed.
+/ `http_listener` are reserved and rejected as "not supported yet"). For
+multicast, `group`/`port` literals must be a valid IPv4 multicast address /
+port. For sse, the driver's transport must be `http`, each `path` must be a
+URL path starting with `/`, and `idle_timeout` must be a positive number.
+`{config_field}` templates must reference a field declared in
+`config_schema` or `default_config`; keys outside the declared type's set
+are rejected.
 
 ### 2.11 device_settings
 

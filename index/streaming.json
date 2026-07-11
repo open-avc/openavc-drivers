@@ -12,10 +12,10 @@
       "name": "Barco ClickShare CX",
       "manufacturer": "Barco",
       "category": "streaming",
-      "version": "1.2.3",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Wireless presentation Base Unit control via local REST API V2 (HTTPS, port 4003). System status, standby / wake / reboot, audio + video + wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50, C-5 / C-10 / C-10A, CB-Core / CB-Pro.\n",
+      "description": "Wireless presentation Base Unit control via local REST API V2 (HTTPS, port 4003). Live sharing/standby state over the API's event streams, standby / wake / reboot, audio + video + wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50, C-5 / C-10 / C-10A, CB-Core / CB-Pro.\n",
       "source_url": "https://www.barco.com/services/website/en/TdeFiles/Download?FileNumber=R5915531&TdeType=3&MajorVersion=12",
       "file": "streaming/barco_clickshare_cx.avcdriver",
       "format": "avcdriver",
@@ -26,6 +26,7 @@
         "clickshare_v2"
       ],
       "simulated": true,
+      "min_platform_version": "0.23.0",
       "tags": [
         "barco",
         "clickshare",
@@ -37,7 +38,7 @@
       ],
       "help": {
         "overview": "The ClickShare Base Unit exposes a local REST API on port 4003 (HTTPS). Use this driver to mirror runtime status (is anyone sharing?), force the Base Unit into / out of standby, reboot, and switch audio output / wallpaper / video mode under macro control. Typical room logic: when the room shutdown macro fires, send `standby`; when the room comes up, send `wakeup` (or rely on the Base Unit's auto-wake on first share).\n",
-        "setup": "1. Set a static IP (or DHCP reservation) on the Base Unit \u2014 its\n   Ethernet MAC is on the bottom label. Leave port 4003 open between\n   the OpenAVC server and the Base Unit.\n2. In the Base Unit's web Configurator (https://<base-unit>), open\n   Security \u2192 Pin Code / API and confirm the API is enabled. Default\n   credentials are integrator / integrator. Change them and supply\n   the new ones below.\n3. (Recommended) Replace the self-signed HTTPS certificate with one\n   trusted by the OpenAVC host, then flip \"Verify SSL Certificate\"\n   on. The driver works either way; verifying is just defense in\n   depth.\n4. Click Save. The driver polls every 30 seconds by default \u2014 drop\n   to 10 s if you need faster sharing-state updates (the Base Unit\n   can handle it; ClickShare's own integrations poll more frequently).\n"
+        "setup": "1. Set a static IP (or DHCP reservation) on the Base Unit \u2014 its\n   Ethernet MAC is on the bottom label. Leave port 4003 open between\n   the OpenAVC server and the Base Unit.\n2. In the Base Unit's web Configurator (https://<base-unit>), open\n   Security \u2192 Pin Code / API and confirm the API is enabled. Default\n   credentials are integrator / integrator. Change them and supply\n   the new ones below.\n3. (Recommended) Replace the self-signed HTTPS certificate with one\n   trusted by the OpenAVC host, then flip \"Verify SSL Certificate\"\n   on. The driver works either way; verifying is just defense in\n   depth.\n4. Click Save. State changes stream in live over the API's event\n   subscriptions \u2014 someone starting to share shows up immediately.\n   The 30-second poll is a background resync; there is no need to\n   shorten it.\n"
       },
       "compatible_models": [
         {

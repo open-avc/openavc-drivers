@@ -31,13 +31,22 @@
 #   flip verify_ssl to true. There is no plain-HTTP endpoint.
 #
 # Push vs poll:
-#   The V2 API supports SSE subscriptions (Accept: text/event-stream keeps
-#   the connection open and pushes updates) per §1.1 of the spec. The
-#   platform's HTTP transport is request/response only today, so this
-#   driver polls. The endpoints we poll are cheap and the cadence is 30 s
-#   by default — fast enough for "is anyone presenting right now?" use
-#   cases. Subscription support is a future platform improvement (tracked
-#   alongside other push-deferred drivers).
+#   The V2 API supports SSE subscriptions per §1.1 of the spec: a GET with
+#   Accept: text/event-stream stays open and the Base Unit streams the
+#   resource's JSON whenever it changes, plus a keepalive every 90 s. This
+#   driver subscribes to every endpoint it mirrors (push: {type: sse}), so
+#   sharing/standby/audio/video/wallpaper changes land in state instantly.
+#   Polling stays on as the baseline resync (30 s default) — a dropped
+#   stream degrades to poll speed, never to stale state. idle_timeout 200
+#   sits above two missed keepalives so a half-open connection is noticed
+#   and reopened.
+#
+# Response parsing:
+#   Every endpoint answers a multi-field JSON object, and SSE events carry
+#   the same bodies — responses are json: true rules so one body fills all
+#   its fields. Rules whose field names also appear in other endpoints'
+#   bodies (a Button's status/serialNumber/id vs the Base Unit's own) are
+#   scoped with require: to a key unique to their endpoint.
 #
 # Scope:
 #   Universal AV-integrator runtime control surface — system status (in_use
@@ -53,13 +62,16 @@ id: barco_clickshare_cx
 name: Barco ClickShare CX
 manufacturer: Barco
 category: streaming
-version: 1.2.3
+version: 1.3.0
+# SSE push (push: {type: sse}) and require-scoped json responses.
+min_platform_version: "0.23.0"
 author: OpenAVC
 description: >
   Wireless presentation Base Unit control via local REST API V2 (HTTPS,
-  port 4003). System status, standby / wake / reboot, audio + video +
-  wallpaper + CEC, paired-button readback. Covers CX-20 / CX-30 / CX-50,
-  C-5 / C-10 / C-10A, CB-Core / CB-Pro.
+  port 4003). Live sharing/standby state over the API's event streams,
+  standby / wake / reboot, audio + video + wallpaper + CEC, paired-button
+  readback. Covers CX-20 / CX-30 / CX-50, C-5 / C-10 / C-10A,
+  CB-Core / CB-Pro.
 
 source_url: https://www.barco.com/services/website/en/TdeFiles/Download?FileNumber=R5915531&TdeType=3&MajorVersion=12
 tags: [barco, clickshare, wireless-presentation, byod, cx, c-series, cb-series]
@@ -94,6 +106,19 @@ compatible_models:
 
 transport: http
 
+# Subscribe to every endpoint the driver mirrors — the Base Unit streams the
+# resource JSON on change and a keepalive every 90 s per resource stream.
+# idle_timeout 200 = two missed keepalives before the stream is reopened.
+push:
+  type: sse
+  path:
+    - /v2/configuration/system/status
+    - /v2/configuration/system/power-management
+    - /v2/configuration/audio
+    - /v2/configuration/video
+    - /v2/configuration/wallpapers/selected
+  idle_timeout: 200
+
 help:
   overview: >
     The ClickShare Base Unit exposes a local REST API on port 4003 (HTTPS).
@@ -114,9 +139,10 @@ help:
        trusted by the OpenAVC host, then flip "Verify SSL Certificate"
        on. The driver works either way; verifying is just defense in
        depth.
-    4. Click Save. The driver polls every 30 seconds by default — drop
-       to 10 s if you need faster sharing-state updates (the Base Unit
-       can handle it; ClickShare's own integrations poll more frequently).
+    4. Click Save. State changes stream in live over the API's event
+       subscriptions — someone starting to share shows up immediately.
+       The 30-second poll is a background resync; there is no need to
+       shorten it.
 
 discovery:
   # ClickShare Base Units do not advertise a Barco-specific SSDP URN.
@@ -457,66 +483,142 @@ commands:
         required: true
         label: Timeout (min)
 
-# Response patterns. The V2 API returns JSON objects — match by field name.
-# Field names are unique enough across the endpoints we poll that simple
-# per-key regexes don't cross-fire. Notable choices:
-#   - `"status":"(On|Standby)"` (anchored on the two valid values) only
-#     matches the power-management response; per-button "status" values
-#     are Ok / Error / Warning and don't alternate-match.
-#   - `"output":"(DisplayPort|Jack|HDMI|SPDIF)"` is anchored on the audio
-#     output enum so it doesn't capture stray "output" keys elsewhere.
-#   - The wallpaper response is `{"id":N,"md5":"...","name":"..."}` — match
-#     id and name in one regex with two captures so we set both atomically.
+# Device settings — writable values that persist on the Base Unit and read
+# back through polling / the event streams. Writes reuse the same PATCH the
+# matching command sends; the commands stay declared so macros can drive
+# these too (macro steps address commands, not settings). Boolean toggles
+# (audio enable, CEC) stay commands only: substituting a boolean into a JSON
+# body renders Python's True/False, so they use split literal-body commands
+# per the catalog convention.
+device_settings:
+  power_mode:
+    type: enum
+    values: ["EcoStandby", "NetworkedStandby", "DeepStandby"]
+    label: Power Mode
+    help: "Standby depth: EcoStandby = lowest power (no LAN wake), NetworkedStandby = LAN-wakeable, DeepStandby = deepest sleep."
+    state_key: power_mode
+    default: "NetworkedStandby"
+    setup: false
+    write:
+      method: PATCH
+      path: "/v2/configuration/system/power-management"
+      body: '{"powerMode": "{value}"}'
+  standby_timeout:
+    type: enum
+    values: ["Infinite", "1", "5", "10", "15", "30", "45", "60"]
+    label: Standby Timeout (min)
+    help: "Minutes of inactivity before standby, or Infinite to disable auto-standby. The Base Unit reports its valid values in supportedStandbyTimeouts."
+    state_key: standby_timeout
+    default: "30"
+    setup: false
+    write:
+      method: PATCH
+      path: "/v2/configuration/system/power-management"
+      body: '{"standbyTimeout": "{value}"}'
+  audio_output:
+    type: enum
+    values: ["DisplayPort", "Jack", "HDMI", "SPDIF"]
+    label: Audio Output
+    help: "Which output plays audio. Only outputs the Base Unit lists in supportedOutputs are accepted."
+    state_key: audio_output
+    default: "HDMI"
+    setup: false
+    write:
+      method: PATCH
+      path: "/v2/configuration/audio"
+      body: '{"output": "{value}"}'
+  video_mode:
+    type: enum
+    values: ["Extended", "Clone"]
+    label: Video Mode
+    help: "Dual-output Base Units only: Extended = independent screens, Clone = mirrored."
+    state_key: video_mode
+    default: "Extended"
+    setup: false
+    write:
+      method: PATCH
+      path: "/v2/configuration/video"
+      body: '{"mode": "{value}"}'
+
+# Quick Action strip: the room on/off pair swaps on the live power state
+# (labels show the next action), reboot behind a confirm.
+actions:
+  - id: standby
+    icon: moon
+    visible_when: { key: "device.$id.system_status", operator: eq, value: "On" }
+  - id: wakeup
+    icon: sun
+    visible_when: { key: "device.$id.system_status", operator: eq, value: "Standby" }
+  - id: reboot
+    icon: power
+    confirm: "Reboot the Base Unit? Anyone sharing is disconnected while it restarts."
+
+# Response parsing. Every endpoint (and every SSE event) is a multi-field
+# JSON object, so each is one json: true rule — the whole body applies at
+# once. Per-field regex rules would stop at the first match and leave the
+# rest of the body unread.
+#
+# require: scopes a rule to bodies that carry a key unique to its endpoint.
+# Without it, a single-element JSON array (one paired Button, one wallpaper
+# in the catalog) unwraps to an object whose status / serialNumber / id
+# fields collide with the Base Unit's own:
+#   - power rule requires supportedStatuses (a Button's "status" is
+#     Ok/Error/Warning, not a power state)
+#   - identity rule requires articleNumber (a Button carries its own
+#     serialNumber)
+#   - wallpaper rule requires md5 (a Button carries an "id"). A one-entry
+#     wallpaper CATALOG body also passes this — harmless, the only
+#     wallpaper is by definition the selected one.
 responses:
 
-  # System status
-  - match: '"currentUptime":\s*(\d+)'
-    set: { current_uptime: "$1" }
-  - match: '"totalUptime":\s*(\d+)'
-    set: { total_uptime: "$1" }
-  - match: '"errorCode":\s*(\d+)'
-    set: { error_code: "$1" }
-  - match: '"errorMessage":"([^"]*)"'
-    set: { error_message: "$1" }
-  - match: '"inUse":(true|false)'
-    set: { in_use: "$1" }
-  - match: '"sharing":(true|false)'
-    set: { sharing: "$1" }
+  # System status (configuration/system/status) — its keys appear nowhere
+  # else among the bodies this driver requests.
+  - json: true
+    set:
+      current_uptime: currentUptime
+      total_uptime: totalUptime
+      error_code: errorCode
+      error_message: errorMessage
+      in_use: inUse
+      sharing: sharing
 
-  # Power management
-  - match: '"powerMode":"([^"]+)"'
-    set: { power_mode: "$1" }
-  - match: '"standbyTimeout":"([^"]+)"'
-    set: { standby_timeout: "$1" }
-  - match: '"status":"(On|Standby)"'
-    set: { system_status: "$1" }
+  # Power management (configuration/system/power-management)
+  - json: true
+    require: supportedStatuses
+    set:
+      power_mode: powerMode
+      standby_timeout: standbyTimeout
+      system_status: status
 
-  # Device identity
-  - match: '"articleNumber":"([^"]+)"'
-    set: { article_number: "$1" }
-  - match: '"modelName":"([^"]+)"'
-    set: { model_name: "$1" }
-  - match: '"productName":"([^"]+)"'
-    set: { product_name: "$1" }
-  - match: '"serialNumber":"([^"]+)"'
-    set: { serial_number: "$1" }
+  # Device identity (configuration/system/device-identity)
+  - json: true
+    require: articleNumber
+    set:
+      article_number: articleNumber
+      model_name: modelName
+      product_name: productName
+      serial_number: serialNumber
 
-  # Audio
-  - match: '"enabled":(true|false),"output":"(DisplayPort|Jack|HDMI|SPDIF)"'
-    set: { audio_enabled: "$1", audio_output: "$2" }
-  - match: '"output":"(DisplayPort|Jack|HDMI|SPDIF)"'
-    set: { audio_output: "$1" }
+  # Audio (configuration/audio)
+  - json: true
+    require: supportedOutputs
+    set:
+      audio_enabled: enabled
+      audio_output: output
 
-  # Video — `mode` is unique to the video endpoint among polled responses.
-  # `cecEnabled` is anchored to its own field name.
-  - match: '"cecEnabled":(true|false)'
-    set: { cec_enabled: "$1" }
-  - match: '"mode":"(Extended|Clone)"'
-    set: { video_mode: "$1" }
+  # Video (configuration/video)
+  - json: true
+    require: supportedModes
+    set:
+      cec_enabled: cecEnabled
+      video_mode: mode
 
-  # Wallpaper selected — capture id + name in one shot.
-  - match: '"id":\s*(\d+),"md5":"[^"]*","name":"([^"]+)"'
-    set: { selected_wallpaper_id: "$1", selected_wallpaper_name: "$2" }
+  # Selected wallpaper (configuration/wallpapers/selected)
+  - json: true
+    require: md5
+    set:
+      selected_wallpaper_id: id
+      selected_wallpaper_name: name
 
 on_connect:
   - query_identity
@@ -559,6 +661,32 @@ simulator:
 
   delays:
     command_response: 0.02
+
+  # With the SSE push block, these emit to event-stream subscribers when
+  # state changes from the Simulator UI — the real Base Unit streams the
+  # full resource JSON; these carry the changed field plus the key the
+  # driver's require-scoped rule needs. Booleans use per-value templates so
+  # the JSON literals stay lowercase.
+  notifications:
+    in_use:
+      "true": '{"inUse":true}'
+      "false": '{"inUse":false}'
+    sharing:
+      "true": '{"sharing":true}'
+      "false": '{"sharing":false}'
+    system_status: '{"status":"{value}","supportedStatuses":["On","Standby"]}'
+    power_mode: '{"powerMode":"{value}","supportedStatuses":["On","Standby"]}'
+    standby_timeout: '{"standbyTimeout":"{value}","supportedStatuses":["On","Standby"]}'
+    audio_enabled:
+      "true": '{"enabled":true,"supportedOutputs":["DisplayPort","Jack","HDMI","SPDIF"]}'
+      "false": '{"enabled":false,"supportedOutputs":["DisplayPort","Jack","HDMI","SPDIF"]}'
+    audio_output: '{"output":"{value}","supportedOutputs":["DisplayPort","Jack","HDMI","SPDIF"]}'
+    cec_enabled:
+      "true": '{"cecEnabled":true,"supportedModes":["Extended","Clone"]}'
+      "false": '{"cecEnabled":false,"supportedModes":["Extended","Clone"]}'
+    video_mode: '{"mode":"{value}","supportedModes":["Extended","Clone"]}'
+    selected_wallpaper_id: '{"id":{value},"md5":"6f34fedd3c91a130fde57b7c76ab44f5"}'
+    selected_wallpaper_name: '{"md5":"6f34fedd3c91a130fde57b7c76ab44f5","name":"{value}"}'
 
   controls:
     - type: indicator

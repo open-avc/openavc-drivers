@@ -222,7 +222,7 @@
       "additionalProperties": {
         "type": "string"
       },
-      "description": "Computed config values, each a template substituted from other config fields, e.g. {\"ws\": \"/workspace/{workspace_id}\"}. If any {field} the template references is empty or missing, the derived value is \"\" \u2014 so an optional prefixed address segment simply disappears. Computed once when the device connects and visible to every command address, on_connect entry, response, and poll query (just like a real config field). Lets one friendly field (e.g. a workspace id) drive both a bare and a prefixed address form without conditional logic in every command."
+      "description": "Computed config values, each a template substituted from other config fields, e.g. {\"ws\": \"/workspace/{workspace_id}\"}. If any {field} the template references is empty or missing, the derived value is \"\" — so an optional prefixed address segment simply disappears. Computed once when the device connects and visible to every command address, on_connect entry, response, and poll query (just like a real config field). Lets one friendly field (e.g. a workspace id) drive both a bare and a prefixed address form without conditional logic in every command."
     },
     "config_schema": {
       "type": "object",
@@ -538,7 +538,7 @@
         },
         "control": {
           "type": "boolean",
-          "description": "Marks a variable an integrator would bind a panel control to (a fader level, a mute). The UI Builder's value picker lists flagged variables first. Ordering only \u2014 unflagged variables stay pickable."
+          "description": "Marks a variable an integrator would bind a panel control to (a fader level, a mute). The UI Builder's value picker lists flagged variables first. Ordering only — unflagged variables stay pickable."
         },
         "default": true,
         "cloud_priority": {
@@ -659,7 +659,7 @@
     },
     "childInstances": {
       "type": "object",
-      "description": "Declarative roster \u2014 makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), or ids_from (a comma-separated config field; sparse IDs). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
+      "description": "Declarative roster — makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), or ids_from (a comma-separated config field; sparse IDs). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
       "oneOf": [
         {
           "required": [
@@ -685,11 +685,11 @@
         },
         "count_from": {
           "type": "string",
-          "description": "Name of an integer config field (config_schema / default_config) holding the count \u2014 lets one driver cover different frame sizes."
+          "description": "Name of an integer config field (config_schema / default_config) holding the count — lets one driver cover different frame sizes."
         },
         "ids_from": {
           "type": "string",
-          "description": "Name of a comma-separated config field listing the IDs (e.g. \"1,2,4\") \u2014 for sparse or installer-chosen rosters."
+          "description": "Name of a comma-separated config field listing the IDs (e.g. \"1,2,4\") — for sparse or installer-chosen rosters."
         },
         "label": {
           "type": "string",
@@ -840,11 +840,11 @@
         "pattern": {
           "type": "string",
           "format": "regex",
-          "description": "Regex a free-text value must fully match \u2014 a shape check for values that can't be enumerated (IP, hostname, fixed-length ID). The runtime validates it at command time; the IDE shows an inline error while authoring. Must compile and avoid catastrophic backtracking."
+          "description": "Regex a free-text value must fully match — a shape check for values that can't be enumerated (IP, hostname, fixed-length ID). The runtime validates it at command time; the IDE shows an inline error while authoring. Must compile and avoid catastrophic backtracking."
         },
         "trim": {
           "type": "boolean",
-          "description": "For string params. Default true: leading/trailing whitespace is trimmed before the value goes on the wire. Set false to pass the value through verbatim \u2014 for raw payloads where edge whitespace is meaningful (typed text, verbatim titles, relay bodies whose trailing terminator is part of the protocol). Requires platform 0.22.0."
+          "description": "For string params. Default true: leading/trailing whitespace is trimmed before the value goes on the wire. Set false to pass the value through verbatim — for raw payloads where edge whitespace is meaningful (typed text, verbatim titles, relay bodies whose trailing terminator is part of the protocol). Requires platform 0.22.0."
         },
         "default": true
       },
@@ -1005,7 +1005,7 @@
         },
         "command": {
           "type": "string",
-          "description": "kind:\"command\" only \u2014 the command id to send. Defaults to the action id."
+          "description": "kind:\"command\" only — the command id to send. Defaults to the action id."
         },
         "params": {
           "type": "object",
@@ -1203,6 +1203,18 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Optional. After this rule matches and applies, further matches of the same rule are dropped for this many seconds (drop-style; each skipped frame is superseded by the next). For continuous push telemetry like audio level meters — do not throttle ordinary replies or state-change notices. Works on regex, json, and OSC rules. Requires platform 0.23.0."
+        },
+        "require": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minLength": 1,
+          "description": "json: true rules only. Apply this rule only to bodies carrying the named JSON key (or every key in the list). Scopes a rule when different endpoints on one device reuse a field name with different meanings. Requires platform 0.23.0."
         }
       },
       "additionalProperties": true,
@@ -1210,35 +1222,94 @@
     },
     "pushBlock": {
       "type": "object",
-      "description": "Device-initiated push notifications arriving on a channel the platform opens (not the established control connection). type: multicast joins the device's notification group; incoming datagrams feed the driver's responses rules (split on the driver delimiter first) and are accepted only from the device's own address. The subscription starts before on_connect runs (so arming commands never race the listener) and stops on disconnect. Requires platform 0.23.0.",
+      "description": "Device-initiated push notifications arriving on a channel the platform opens (not the established control connection). type: multicast joins the device's notification group; incoming datagrams feed the driver's responses rules (split on the driver delimiter first) and are accepted only from the device's own address. type: sse holds GET path(s) open on the driver's own HTTP session with Accept: text/event-stream; each event's data block feeds the responses rules whole (pair with json: true rules for JSON payloads). Either way the subscription starts before on_connect runs (so arming commands never race the listener) and stops on disconnect; a dropped SSE stream reconnects with exponential backoff. Requires platform 0.23.0.",
       "required": [
-        "type",
-        "group",
-        "port"
+        "type"
       ],
       "properties": {
         "type": {
           "type": "string",
           "enum": [
-            "multicast"
+            "multicast",
+            "sse"
           ],
-          "description": "Push channel kind. Only multicast is supported today."
+          "description": "Push channel kind. multicast = UDP group listen; sse = Server-Sent Events stream on the HTTP transport."
         },
         "group": {
           "type": [
             "string"
           ],
-          "description": "IPv4 multicast group (224.0.0.0 - 239.255.255.255) as a literal, or a {config_field} template naming a declared config_schema/default_config field (use a template when the device's notification target is user-configurable)."
+          "description": "multicast only: IPv4 multicast group (224.0.0.0 - 239.255.255.255) as a literal, or a {config_field} template naming a declared config_schema/default_config field (use a template when the device's notification target is user-configurable)."
         },
         "port": {
           "type": [
             "integer",
             "string"
           ],
-          "description": "UDP port (1-65535) as an integer literal, or a {config_field} template string."
+          "description": "multicast only: UDP port (1-65535) as an integer literal, or a {config_field} template string."
+        },
+        "path": {
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "sse only: event-stream URL path on the device (literal starting with /, or a {config_field} template) - or a list of paths for devices that stream each resource separately."
+        },
+        "idle_timeout": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "sse only, optional: seconds of stream silence (keepalives included) before the connection is presumed dead and reopened. Set above the device's keepalive interval; omit to wait indefinitely."
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "multicast"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "type",
+              "group",
+              "port"
+            ],
+            "properties": {
+              "type": true,
+              "group": true,
+              "port": true
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "sse"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "type",
+              "path"
+            ],
+            "properties": {
+              "type": true,
+              "path": true,
+              "idle_timeout": true
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
     },
     "authBlock": {
       "type": "object",
@@ -1391,7 +1462,7 @@
     },
     "sendFrame": {
       "type": "object",
-      "description": "Send-side packet framing \u2014 the send twin of frame_parser. Wraps every byte-stream command in a binary header whose data-length is computed per message (e.g. eISCP). Requires platform 0.23.0.",
+      "description": "Send-side packet framing — the send twin of frame_parser. Wraps every byte-stream command in a binary header whose data-length is computed per message (e.g. eISCP). Requires platform 0.23.0.",
       "properties": {
         "type": {
           "type": "string",

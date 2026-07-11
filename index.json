@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 75,
+    "total_drivers": 76,
     "shards": null
   },
   "drivers": [
@@ -877,6 +877,84 @@
         "manufacturer_alias": [
           "barco",
           "clickshare"
+        ]
+      }
+    },
+    {
+      "id": "barco_pulse",
+      "name": "Barco Pulse Projector",
+      "manufacturer": "Barco",
+      "category": "projector",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Barco Pulse-platform laser projectors (F70 / F80 / F90, UDX, UDM, HDX 4K, I600, G62 / G100, XDL and other Pulse models) over the Pulse JSON-RPC API on TCP 9090. Live push updates for power, source, shutter, laser power and picture settings; source picker built from the projector's own input list; lens shift / zoom / focus; test patterns; environment temperatures; and a raw property/method escape hatch for the full Pulse API.",
+      "source_url": "https://www.audiogeneral.com/barco/UDX%20Series/JSON_ReferenceGuide.pdf",
+      "file": "projectors/barco_pulse.py",
+      "format": "python",
+      "ports": [
+        9090
+      ],
+      "protocols": [
+        "barco_pulse"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.22.0",
+      "tags": [
+        "projector",
+        "barco",
+        "pulse",
+        "laser",
+        "large-venue",
+        "json-rpc"
+      ],
+      "help": {
+        "overview": "Barco Pulse projectors speak JSON-RPC 2.0 on TCP 9090. The driver subscribes to the projector's change notifications, so power, source, shutter, laser power and picture values update live. The source picker offers the projector's own input list (read at connect). Lens shift / zoom / focus move by motor steps; models without a motorized lens answer those commands with an error, which is reported but harmless. The Get Property / Set Property / Invoke Method commands expose the full Pulse API for anything not surfaced as a named command.",
+        "setup": "1. Connect the projector's LAN port and give it a fixed IP (OSD: System Settings > Communication > LAN).\n2. In OpenAVC, enter the IP. Leave port at 9090.\n3. Leave the API pass code empty \u2014 it is only needed when the projector's API access has been restricted with a code.\n4. ECO standby powers the network interface down, so a projector in ECO cannot be reached over the API. For fully controllable rooms leave ECO disabled (the Eco Standby device setting), or pair a Wake-on-LAN device to wake it."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Barco",
+          "models": [
+            "F80 series",
+            "F90 series",
+            "UDX series"
+          ],
+          "confidence": "untested",
+          "notes": "These families' Pulse API catalogs were used to build the driver (F80 End User v1.7, UDX Power User v1.7, F90 protocol manual 601-0421). The command surface is the shared Pulse API; per-model availability of lens motors, ECO mode and alarm state varies and the driver tolerates absent features."
+        },
+        {
+          "manufacturer": "Barco",
+          "models": [
+            "F70 series",
+            "UDM series",
+            "HDX 4K series",
+            "I600 series",
+            "G62 series",
+            "G100 series",
+            "XDL series"
+          ],
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 9090,
+          "send_ascii": "{\"jsonrpc\":\"2.0\",\"method\":\"property.get\",\"params\":{\"property\":[\"system.modelname\",\"system.serialnumber\"]},\"id\":1}",
+          "expect_regex": "\"system\\.modelname\"\\s*:\\s*\"",
+          "extract_manufacturer": "Barco",
+          "extract": {
+            "model": {
+              "regex": "\"system\\.modelname\"\\s*:\\s*\"([^\"]+)\""
+            },
+            "serial": {
+              "regex": "\"system\\.serialnumber\"\\s*:\\s*\"([^\"]+)\""
+            }
+          }
+        },
+        "manufacturer_alias": [
+          "Barco"
         ]
       }
     },

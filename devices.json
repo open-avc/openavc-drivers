@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 610,
+    "total_devices": 620,
     "shards": null
   },
   "devices": [
@@ -926,6 +926,18 @@
     },
     {
       "manufacturer": "Barco",
+      "model": "F70 series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
       "model": "F70 Series",
       "category": "projector",
       "drivers": [
@@ -933,6 +945,18 @@
           "id": "pjlink_class1",
           "confidence": "untested",
           "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "F80 series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "These families' Pulse API catalogs were used to build the driver (F80 End User v1.7, UDX Power User v1.7, F90 protocol manual 601-0421). The command surface is the shared Pulse API; per-model availability of lens motors, ECO mode and alarm state varies and the driver tolerates absent features."
         }
       ]
     },
@@ -950,6 +974,18 @@
     },
     {
       "manufacturer": "Barco",
+      "model": "F90 series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "These families' Pulse API catalogs were used to build the driver (F80 End User v1.7, UDX Power User v1.7, F90 protocol manual 601-0421). The command surface is the shared Pulse API; per-model availability of lens motors, ECO mode and alarm state varies and the driver tolerates absent features."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
       "model": "F90 Series",
       "category": "projector",
       "drivers": [
@@ -962,6 +998,54 @@
     },
     {
       "manufacturer": "Barco",
+      "model": "G100 series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "G62 series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "HDX 4K series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "I600 series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
       "model": "Loop II Series",
       "category": "projector",
       "drivers": [
@@ -969,6 +1053,42 @@
           "id": "pjlink_class1",
           "confidence": "untested",
           "notes": "Barco F-series and Loop projectors. PJLink is a fallback to Barco's native Pulse REST API which exposes more capability."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "UDM series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "UDX series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "These families' Pulse API catalogs were used to build the driver (F80 End User v1.7, UDX Power User v1.7, F90 protocol manual 601-0421). The command surface is the shared Pulse API; per-model availability of lens motors, ECO mode and alarm state varies and the driver tolerates absent features."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Barco",
+      "model": "XDL series",
+      "category": "projector",
+      "drivers": [
+        {
+          "id": "barco_pulse",
+          "confidence": "untested",
+          "notes": "Barco lists these as Pulse-platform projectors (same JSON-RPC API, per-family catalog editions). Expected to work identically; not verified against hardware. The Pulse API self-describes \u2014 use the Get Property / Invoke Method commands with the projector's own catalog for model-specific extras."
         }
       ]
     },

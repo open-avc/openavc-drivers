@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 712,
+    "total_devices": 717,
     "shards": null
   },
   "devices": [
@@ -7707,6 +7707,66 @@
           "id": "darwin_control",
           "confidence": "full",
           "notes": "Verified end-to-end against live hardware (FW 1.50.02) with a live HDMI source on the TX and a display on the RX: connect, discovery, child enumeration, status parsing, enrolment/idempotency, and the operational SET surface (routing, output/mute/pause/OSD/auto, resolution, rotate, no-signal standby, HDCP/Osp SNK/SRC/OFF/H14/H22, TX encoding, LED/FPLED, audio input, IR, GPIO). OSD, mute, pause, resolution, rotation, output on/off, and a single-RX video wall tile were confirmed rendering on the attached display; the source-binding commands (video-wall class/matrix source, KVM hotkey) were accepted with a live source. Decoder video-wall mode (MODE VW) requires the RX assigned to a wall with an applied class region first. Only reboot/reset/network commands were held back on the live unit; their wire formats match the manufacturer reference. Multi-endpoint routing and multi-screen walls need additional TX/RX units to exercise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "CORIOmaster (C3-540)",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_coriomaster",
+          "confidence": "untested",
+          "notes": "All frames speak the same CORIOmax command-line API (CORIOmaster document v411.0.1, CORIOmaster2 document v503.0.1). Live event updates need firmware with the AddEvents mechanism (M411 / G503 documents); older firmware falls back to polling automatically. The unit accepts ONE controlling connection at a time \u2014 close CORIOgrapher before connecting OpenAVC. Standby mode is supported on the CORIOmaster micro only. Factory login is admin / adminpw."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "CORIOmaster micro (C3-503)",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_coriomaster",
+          "confidence": "untested",
+          "notes": "All frames speak the same CORIOmax command-line API (CORIOmaster document v411.0.1, CORIOmaster2 document v503.0.1). Live event updates need firmware with the AddEvents mechanism (M411 / G503 documents); older firmware falls back to polling automatically. The unit accepts ONE controlling connection at a time \u2014 close CORIOgrapher before connecting OpenAVC. Standby mode is supported on the CORIOmaster micro only. Factory login is admin / adminpw."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "CORIOmaster mini (C3-510)",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_coriomaster",
+          "confidence": "untested",
+          "notes": "All frames speak the same CORIOmax command-line API (CORIOmaster document v411.0.1, CORIOmaster2 document v503.0.1). Live event updates need firmware with the AddEvents mechanism (M411 / G503 documents); older firmware falls back to polling automatically. The unit accepts ONE controlling connection at a time \u2014 close CORIOgrapher before connecting OpenAVC. Standby mode is supported on the CORIOmaster micro only. Factory login is admin / adminpw."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "CORIOmaster2 (CM2-547)",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_coriomaster",
+          "confidence": "untested",
+          "notes": "All frames speak the same CORIOmax command-line API (CORIOmaster document v411.0.1, CORIOmaster2 document v503.0.1). Live event updates need firmware with the AddEvents mechanism (M411 / G503 documents); older firmware falls back to polling automatically. The unit accepts ONE controlling connection at a time \u2014 close CORIOgrapher before connecting OpenAVC. Standby mode is supported on the CORIOmaster micro only. Factory login is admin / adminpw."
+        }
+      ]
+    },
+    {
+      "manufacturer": "tvONE",
+      "model": "CORIOmaster2 (CM2-547-MK2)",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "tvone_coriomaster",
+          "confidence": "untested",
+          "notes": "All frames speak the same CORIOmax command-line API (CORIOmaster document v411.0.1, CORIOmaster2 document v503.0.1). Live event updates need firmware with the AddEvents mechanism (M411 / G503 documents); older firmware falls back to polling automatically. The unit accepts ONE controlling connection at a time \u2014 close CORIOgrapher before connecting OpenAVC. Standby mode is supported on the CORIOmaster micro only. Factory login is admin / adminpw."
         }
       ]
     },

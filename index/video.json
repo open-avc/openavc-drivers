@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 6,
+    "total_drivers": 7,
     "shards": null,
     "category": "video"
   },
@@ -352,6 +352,61 @@
         "manufacturer_alias": [
           "vmix",
           "studiocoast"
+        ]
+      }
+    },
+    {
+      "id": "tvone_coriomaster",
+      "name": "tvONE CORIOmaster",
+      "manufacturer": "tvONE",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and CORIOmaster2 video wall processors over the CORIOmax command-line API (TCP 10001). Windows, canvases, and the installed input/output cards are discovered from the unit and modeled as child entities \u2014 route sources into wall windows, move and resize windows, recall presets and storyboards, run canvas audio, and drive the Streaming Media card's playback, with live updates over the unit's event subscription.",
+      "source_url": "https://api.tvone.com/products/c3-series/c3-5xx/tvONE%20CORIOmaster%20Commands_current.pdf",
+      "file": "video/tvone_coriomaster.py",
+      "format": "python",
+      "ports": [
+        10001
+      ],
+      "protocols": [
+        "coriomax_cli"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.19.4",
+      "tags": [
+        "video-wall",
+        "processor",
+        "coriomaster",
+        "coriomax",
+        "tvone"
+      ],
+      "help": {
+        "overview": "CORIOmaster is tvONE's modular video wall processor \u2014 slots take DVI, HDMI, SDI, HDBaseT, and Streaming Media cards, and outputs are composed into canvases carrying movable source windows. The driver logs in, discovers the installed cards, windows, and canvases, and models each as a child entity: windows carry their source and geometry, canvases their audio and active storyboard, outputs their cut-to-black state, inputs their signal status. Wall presets and storyboards recall from live dropdowns, and Streaming Media inputs expose playback transport controls. State updates arrive live through the unit's event subscription; polling covers older firmware.",
+        "setup": "1. Give the unit a static IP (default 192.168.0.10) and add it here with port 10001.\n2. Enter the control login \u2014 the factory account is username admin, password adminpw (the password field is left blank on purpose; type the unit's real password).\n3. The unit accepts one controller at a time: close any open CORIOgrapher / CORIOdiscover session first.\n4. Build walls, windows, and presets in CORIOgrapher first; this driver operates what commissioning created. Use Refresh from Device after changing the configuration.\n5. Keep polling enabled: the session logs out after a few minutes idle, and polling doubles as the keep-alive."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "tvONE",
+          "models": [
+            "CORIOmaster (C3-540)",
+            "CORIOmaster mini (C3-510)",
+            "CORIOmaster micro (C3-503)",
+            "CORIOmaster2 (CM2-547)",
+            "CORIOmaster2 (CM2-547-MK2)"
+          ],
+          "confidence": "untested",
+          "notes": "All frames speak the same CORIOmax command-line API (CORIOmaster document v411.0.1, CORIOmaster2 document v503.0.1). Live event updates need firmware with the AddEvents mechanism (M411 / G503 documents); older firmware falls back to polling automatically. The unit accepts ONE controlling connection at a time \u2014 close CORIOgrapher before connecting OpenAVC. Standby mode is supported on the CORIOmaster micro only. Factory login is admin / adminpw."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          10001
+        ],
+        "manufacturer_alias": [
+          "tvone",
+          "tv one"
         ]
       }
     }

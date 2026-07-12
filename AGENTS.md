@@ -606,10 +606,11 @@ child_entity_types:
       # ids_from: zone_ids        # or a comma-separated config field ("1,2,4" — sparse IDs;
       #                           # with id_format type string, string ids: "A,B,C,D" letter
       #                           # outputs — count/count_from require integer ids)
+      # ids: [st, m]              # or a literal fixed list (protocol-fixed rosters like main buses; platform >= 0.23.0)
       label: "Output {id}"        # optional initial label; a user's project label always wins
 ```
 
-**`child_set:`** on a regex response entry — routes captures into child state. `id` is a capture ref (`$1`) or a literal; values are capture refs or literals, coerced by the child property's declared type. May coexist with `set:`/`mappings:` on the same entry; first-match-wins dispatch is unchanged. Unregistered IDs skip quietly. Not supported on OSC or `json: true` responses.
+**`child_set:`** on a regex response entry — routes captures into child state. `id` is a capture ref (`$1`) or a literal; values are capture refs or literals, coerced by the child property's declared type. May coexist with `set:`/`mappings:` on the same entry; first-match-wins dispatch is unchanged. Unregistered IDs skip quietly. Not supported on `json: true` responses. (For OSC address rules, see the OSC form below.)
 
 ```yaml
 responses:
@@ -636,13 +637,33 @@ responses:
         state: { level: $2 }
 ```
 
-**`each_child:`** entries in `polling.queries` (and `on_connect`) — one query per registered child, `{child_id}` substituting the unpadded local ID:
+**OSC `child_set:` (platform ≥ 0.23.0).** An OSC rule matches by address — there are no capture groups — so the child id comes from an **address segment** (`{segment: N}`, a 0-based index into the `/`-split address: in `/ch/07/mix/fader` segment 1 is `"07"`) or a literal, and each state value from a **positional argument** (`{arg: N}`) or a literal. The `map:` forms (id translation with unmapped-skip, per-value maps) behave exactly as on regex rules:
+
+```yaml
+responses:
+  - address: "/ch/*/mix/fader"          # one rule covers every channel
+    child_set:
+      - { type: channel, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/ch/*/mix/on"             # on=1 means unmuted -> map + bool coercion
+    child_set:
+      - type: channel
+        id: { segment: 1 }
+        state: { mute: { arg: 0, map: { "0": "true", "1": "false" } } }
+  - address: "/main/st/mix/fader"       # fixed address -> literal (string) child id
+    child_set:
+      - { type: main, id: st, state: { fader: { arg: 0 } } }
+```
+
+Note the auto-simulator builds OSC query/set handlers only from `mappings:`-bearing rules — a `child_set`-only rule needs explicit `simulator: command_handlers` script handlers (`address:` + `handler:`) owning those addresses (per-unit state lives in flat sim state keys; the sim mimics the device, not the driver).
+
+**`each_child:`** entries in `polling.queries` (and `on_connect`) — one query per registered child, `{child_id}` substituting the unpadded local ID. Format specs work (platform ≥ 0.23.0): `{child_id:02d}` zero-pads for padded-address protocols:
 
 ```yaml
 polling:
   queries:
     - "PWR?\r"
     - { each_child: output, send: "?VOUT{child_id}\r" }
+    - { each_child: channel, send: "/ch/{child_id:02d}/mix/fader" }   # OSC, zero-padded
 ```
 
 Per-child **writes** need nothing new: declare a command with a `child_id` param (§2.6). Per-child persisted values (zone volume, output mute) are child state variables + a `child_id` command, **not** `device_settings` (a setting's flat `state_key` can't address a child). The catalog validator enforces all three shapes (roster source rules, declared types/props, capture-ref bounds, `{child_id}` presence).

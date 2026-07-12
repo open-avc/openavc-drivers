@@ -622,7 +622,7 @@
                 "integer",
                 "string"
               ],
-              "description": "Local child id type. String ids pair with an instances.ids_from roster (e.g. letter-addressed matrix outputs)."
+              "description": "Local child id type. min/max/pad_width apply to integer ids; string ids pair with an instances ids_from roster (letter-addressed matrix outputs) or a literal ids list (main buses st/m; platform 0.23.0+)."
             },
             "min": {
               "type": "integer"
@@ -660,7 +660,7 @@
     },
     "childInstances": {
       "type": "object",
-      "description": "Declarative roster — makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), or ids_from (a comma-separated config field; sparse IDs). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
+      "description": "Declarative roster — makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), ids_from (a comma-separated config field; sparse IDs), or ids (a literal fixed list; requires platform 0.23.0). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
       "oneOf": [
         {
           "required": [
@@ -675,6 +675,11 @@
         {
           "required": [
             "ids_from"
+          ]
+        },
+        {
+          "required": [
+            "ids"
           ]
         }
       ],
@@ -692,6 +697,21 @@
           "type": "string",
           "description": "Name of a comma-separated config field listing the IDs (e.g. \"1,2,4\") — for sparse or installer-chosen rosters."
         },
+        "ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "description": "Literal fixed roster (e.g. [st, m]) — for protocol-fixed string or sparse-integer IDs that no config field should have to carry. Requires platform 0.23.0."
+        },
         "label": {
           "type": "string",
           "description": "Initial label template; {id} substitutes the local ID. A user-set project label always wins."
@@ -706,7 +726,7 @@
         "id",
         "state"
       ],
-      "description": "Routes a regex response's captures into one child's state. id is a capture ref ($1) or a literal; each state value is a capture ref or a literal, coerced by the child property's declared type.",
+      "description": "Routes a matched response into one child's state. Regex rules: id is a capture ref ($1), a literal, or {group, map}; state values are capture refs or literals. OSC rules (platform 0.23.0+): id is {segment: N} (0-based index into the /-split address) or a literal; state values are {arg: N} positional-argument specs or literals. Values coerce by the child property's declared type.",
       "properties": {
         "type": {
           "type": "string",
@@ -756,14 +776,43 @@
                 "group"
               ],
               "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "segment": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "OSC rules only: which address segment holds the wire id (0-based over the /-split address — in /ch/07/mix/fader, segment 1 is \"07\")."
+                },
+                "map": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "additionalProperties": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "description": "Wire id -> local child id translation. A segment value the map doesn't cover skips the entry."
+                }
+              },
+              "required": [
+                "segment"
+              ],
+              "additionalProperties": false
             }
           ],
-          "description": "A capture ref ($1), a literal child id, or {group, map} to translate a captured wire id (0-based channels, ST codes) to the local child id."
+          "description": "A capture ref ($1, regex rules), {segment: N} (OSC rules), a literal child id, or the map long form to translate a wire id (0-based channels, ST codes) to the local child id."
         },
         "state": {
           "type": "object",
           "minProperties": 1,
-          "description": "Child property -> capture ref or literal value."
+          "description": "Child property -> capture ref or literal (regex rules); {arg: N[, map, type]}, {value: ...}, or literal (OSC rules)."
         }
       },
       "additionalProperties": false
@@ -782,8 +831,8 @@
         },
         "send": {
           "type": "string",
-          "pattern": "\\{child_id\\}",
-          "description": "Query template; must contain {child_id}."
+          "pattern": "\\{child_id(:[^{}]*)?\\}",
+          "description": "Query template; must contain {child_id} (a format spec like {child_id:02d} zero-pads — requires platform 0.23.0)."
         }
       },
       "additionalProperties": false
@@ -1257,7 +1306,7 @@
           "items": {
             "$ref": "#/$defs/childSetEntry"
           },
-          "description": "Route captures into child-entity state. Regex responses only (not OSC or json: true). May coexist with set/mappings on the same entry."
+          "description": "Route a matched response into child-entity state. Works on regex responses (captures) and OSC address rules (address segments + positional args; platform 0.23.0+) — not json: true. May coexist with set/mappings on the same entry."
         },
         "throttle": {
           "type": "number",

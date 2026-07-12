@@ -1216,13 +1216,38 @@ def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
             id_fmt = id_fmt if isinstance(id_fmt, dict) else {}
             id_type = id_fmt.get("type", "integer")
             sources = [
-                k for k in ("count", "count_from", "ids_from") if k in instances
+                k for k in ("count", "count_from", "ids_from", "ids")
+                if k in instances
             ]
             if len(sources) != 1:
                 errors.append(
                     f"{where}.instances: declare exactly one of 'count', "
-                    f"'count_from', 'ids_from'"
+                    f"'count_from', 'ids_from', 'ids'"
                 )
+            elif sources[0] == "ids":
+                raw_ids = instances["ids"]
+                if not isinstance(raw_ids, list) or not raw_ids:
+                    errors.append(
+                        f"{where}.instances: ids must be a non-empty list of "
+                        f"literal child ids"
+                    )
+                else:
+                    for item in raw_ids:
+                        if isinstance(item, bool) or not isinstance(item, (str, int)):
+                            errors.append(
+                                f"{where}.instances: ids entries must be "
+                                f"scalars (got {item!r})"
+                            )
+                            break
+                        if id_type == "integer":
+                            try:
+                                int(str(item).strip())
+                            except ValueError:
+                                errors.append(
+                                    f"{where}.instances: id {item!r} is not "
+                                    f"an integer (integer id_format)"
+                                )
+                                break
             elif sources[0] == "count":
                 count = instances["count"]
                 if isinstance(count, bool) or not isinstance(count, int) or count < 1:
@@ -1323,10 +1348,125 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
         if child_set is None:
             continue
         if "address" in resp:
-            errors.append(
-                f"{file}: Response {i}: child_set is not supported on OSC "
-                f"responses"
-            )
+            # OSC form (platform >= 0.23.0): id from an address segment
+            # ({segment: N}, 0-based over the /-split address) or a literal;
+            # values from positional args ({arg: N}) or literals. No capture
+            # groups exist on an address match (mirrors driver_loader.py).
+            if not isinstance(child_set, list) or not child_set:
+                errors.append(
+                    f"{file}: Response {i}: child_set must be a non-empty list"
+                )
+                continue
+            addr = resp.get("address")
+            nsegs = None
+            if isinstance(addr, str) and addr.strip("/"):
+                nsegs = len(addr.strip("/").split("/"))
+            for j, entry in enumerate(child_set):
+                where = f"{file}: Response {i}: child_set[{j}]"
+                if not isinstance(entry, dict):
+                    errors.append(f"{where}: must be a mapping")
+                    continue
+                ctype = entry.get("type")
+                if not isinstance(ctype, str) or ctype not in child_types:
+                    errors.append(
+                        f"{where}: type {ctype!r} is not a declared "
+                        f"child_entity_type"
+                    )
+                    continue
+                tdef = child_types.get(ctype)
+                tdef = tdef if isinstance(tdef, dict) else {}
+                cvars = tdef.get("state_variables")
+                cvars = cvars if isinstance(cvars, dict) else {}
+                id_fmt = tdef.get("id_format")
+                id_fmt = id_fmt if isinstance(id_fmt, dict) else {}
+                id_type = id_fmt.get("type", "integer")
+                cid = entry.get("id")
+                if cid is None:
+                    errors.append(
+                        f"{where}: missing 'id' ({{segment: N}} for an "
+                        f"address segment, or a literal)"
+                    )
+                elif isinstance(cid, dict):
+                    seg = cid.get("segment")
+                    if isinstance(seg, bool) or not isinstance(seg, int):
+                        errors.append(
+                            f"{where}: id needs an integer 'segment' "
+                            f"(0-based index into the /-split address; OSC "
+                            f"rules have no capture groups)"
+                        )
+                    elif seg < 0:
+                        errors.append(f"{where}: segment must be 0 or higher")
+                    elif nsegs is not None and seg >= nsegs:
+                        errors.append(
+                            f"{where}: segment {seg} is past the end of the "
+                            f"address pattern ({nsegs} segment(s))"
+                        )
+                    id_map = cid.get("map")
+                    if id_map is not None:
+                        if not isinstance(id_map, dict) or not id_map:
+                            errors.append(
+                                f"{where}: id map must be a non-empty "
+                                f"mapping of wire id -> local child id"
+                            )
+                        else:
+                            for mk, mv in id_map.items():
+                                if isinstance(mv, bool) or not isinstance(
+                                    mk, (str, int)
+                                ) or not isinstance(mv, (str, int)):
+                                    errors.append(
+                                        f"{where}: id map entries must be "
+                                        f"scalar wire id -> local id pairs"
+                                    )
+                                    break
+                                if id_type == "integer":
+                                    try:
+                                        int(str(mv).strip())
+                                    except ValueError:
+                                        errors.append(
+                                            f"{where}: id map value {mv!r} "
+                                            f"is not an integer ({ctype} "
+                                            f"declares integer ids)"
+                                        )
+                                        break
+                elif isinstance(cid, str) and cid.startswith("$"):
+                    errors.append(
+                        f"{where}: OSC rules have no capture groups — use "
+                        f"{{segment: N}} for the id, {{arg: N}} for values"
+                    )
+                state_map = entry.get("state")
+                if not isinstance(state_map, dict) or not state_map:
+                    errors.append(
+                        f"{where}: missing 'state' mapping "
+                        f"(prop -> {{arg: N}} or literal)"
+                    )
+                    continue
+                for prop, expr in state_map.items():
+                    if prop not in cvars:
+                        errors.append(
+                            f"{where}: state prop '{prop}' is not declared "
+                            f"in child_entity_types.{ctype}.state_variables"
+                        )
+                    if isinstance(expr, str) and expr.startswith("$"):
+                        errors.append(
+                            f"{where}: state '{prop}' — OSC rules have no "
+                            f"capture groups; use {{arg: N}}"
+                        )
+                    elif isinstance(expr, dict):
+                        arg_ref = expr.get("arg")
+                        if arg_ref is None and "value" not in expr:
+                            errors.append(
+                                f"{where}: state '{prop}' needs {{arg: N}} "
+                                f"or {{value: ...}}"
+                            )
+                        elif arg_ref is not None and (
+                            isinstance(arg_ref, bool)
+                            or not isinstance(arg_ref, int)
+                            or arg_ref < 0
+                        ):
+                            errors.append(
+                                f"{where}: state '{prop}' arg must be an "
+                                f"integer >= 0 (got {arg_ref!r})"
+                            )
             continue
         if resp.get("json"):
             errors.append(
@@ -1476,9 +1616,10 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
             send = q.get("send")
             if not isinstance(send, str) or not send:
                 errors.append(f"{file}: {name}[{i}]: missing 'send' template")
-            elif "{child_id}" not in send:
+            elif not re.search(r"\{child_id(?::[^{}]*)?\}", send):
                 errors.append(
-                    f"{file}: {name}[{i}]: 'send' must contain {{child_id}}"
+                    f"{file}: {name}[{i}]: 'send' must contain {{child_id}} "
+                    f"(a format spec like {{child_id:02d}} works too)"
                 )
 
     polling = data.get("polling")

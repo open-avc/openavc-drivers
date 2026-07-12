@@ -482,10 +482,10 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.7.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Input/output level and mute control, bus assign, SmartMix configuration, operator faders, preset recall, and optional live level meters.\n",
+      "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Inputs, sub-inputs, outputs, and SmartMix groups are child entities with fader, mute, gain, source select, bus routing, and live meters, labelled by the mixer's own channel names. Preset recall, operator faders, USB output routing, test oscillator, and front-panel lockout.\n",
       "source_url": "https://docs.audio-technica.com/all/IP_Control_Protocol_Specification_-_ATDM-1012_ATDM-1012DAN.pdf",
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
@@ -502,8 +502,8 @@
         "dante"
       ],
       "help": {
-        "overview": "Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers. The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses, designed for conference rooms, courtrooms, and council chambers. The DAN variant adds Dante audio networking.\n",
-        "setup": "1. Connect the ATDM-1012 to the network (default control port 17300). 2. Configure the mixer's IP address via the front panel or Web Remote. 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8.\n   Output channels: 1-8, ST1, ST2.\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   225.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the meter state values.\n7. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
+        "overview": "Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers. The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses, designed for conference rooms, courtrooms, and council chambers. The DAN variant adds Dante audio networking. Each input, sub-input, output, and SmartMix group appears as a child entity, labelled with the channel name configured on the mixer.\n",
+        "setup": "1. Connect the ATDM-1012 to the network (default control port 17300). 2. Configure the mixer's IP address via the front panel or Web Remote. 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Inputs 1-10, ST1/ST2, Sub-inputs 1-8, Outputs 1-8 and ST1/ST2, and\n   SmartMix Groups 1-4 appear as this device's child entities, labelled\n   by the names set on the mixer (rename them with the Rename commands\n   or in Web Remote).\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   225.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead. Channel names and\n   input settings have no change notice and refresh at the poll\n   interval.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the child meter values.\n7. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
       },
       "compatible_models": [
         {

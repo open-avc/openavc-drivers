@@ -18,20 +18,32 @@
 # comma-separated; a parameter may be omitted (left empty between commas)
 # to leave that field unchanged on a Set.
 #
-# The ATDM-1012 supports two command styles:
-#   Short (individual):  SICL, GICL, SOCL, GOCL, etc. — used here for
-#                        fast level/mute control
-#   Verbose (shared):    s_input_gain_level, g_output_level, etc. — same
-#                        as ATDM-0604, used for detailed settings
-#
-# Key concepts:
-#   - 10 mic/line inputs (0-9), 2 stereo inputs (10-11), 8 sub-inputs (12-19)
-#   - 8 outputs (0-7), 2 stereo outputs (8-9)
-#   - 12 mix buses with per-input bus assign
-#   - 4 SmartMix groups with Gate or Gain Share modes
-#   - 8 operator pages with 8 faders each
-#   - 8 presets + 40 partial presets
+# Channel model (child entities; wire ids differ from child ids, so
+# commands carry wire value maps and response rules use child_set id maps —
+# platform >= 0.23.0):
+#   - Inputs 1-10        wire 0-9   (SICL/GICL space; settings verb same)
+#   - Inputs ST1/ST2     wire 10/11
+#   - Sub-inputs 1-8     wire 12-19 in the SICL/GICL space, but 0-7 in
+#                        their own s_subinput_channel_settings verb — the
+#                        two command families number them differently
+#   - Outputs 1-8        wire 0-7
+#   - Outputs ST1/ST2    wire 8/9
+#   - SmartMix groups 1-4 (child ids = wire ids; per-group
+#     s_smart_mix_general carries the group in field 9)
+#   - 12 mix buses: per-input send cells (assign + level) stay commands —
+#     a 20x12 cell matrix is send-cell state (dlive precedent, not stored)
+#   - 8 operator pages x 8 faders: front-panel paging surface, commands only
 #   - Fader values: 0 = mute(-inf), 1-511 = -120dB to +10dB (0.25dB steps)
+#
+# Spec reliability note: this spec's EXAMPLES contradict its own tables
+# (colors shown as hex RGB where the table says index 0-7; field counts
+# drift). On the ATDM-0604a the tables matched real hardware and the
+# examples did not, so this driver is built from the tables; color captures
+# tolerate both forms. Fields after the channel-settings color (virtual-mic
+# geometry, fader group, SmartMix group membership, ST mono) are NOT parsed
+# — their positions are contradicted between the spec's own examples and
+# need real hardware to pin down.
+#
 #   - Push notifications: the mixer multicasts MD state-change notices over
 #     UDP (factory default 225.0.0.100:17000) — never on the TCP control
 #     connection. This driver joins that group (push: block) and arms the
@@ -42,31 +54,28 @@
 #     if this model applies it only after the reboot its spec calls for,
 #     the write is harmless (ACK) and notices simply stay off until enabled
 #     in Web Remote. Level meters (level_meter_notice, 42 values at the
-#     meter interval) ride the same channel and are opt-in via the Enable
-#     Level Meters config field; when off the arming write omits the Audio
-#     Level Notification field entirely so another controller's meter feed
-#     is never disturbed. Polling stays on as the baseline resync for
-#     networks that filter multicast.
+#     meter interval; the first 22 are post-fader channel meters) ride the
+#     same channel and are opt-in via the Enable Level Meters config field;
+#     when off the arming write omits the Audio Level Notification field
+#     entirely so another controller's meter feed is never disturbed.
+#     Polling stays on as the baseline resync (channel names and settings
+#     have no MD notice and only refresh by poll).
 #   - Max 5 simultaneous TCP connections
-#
-# No device_settings on purpose: every writable-and-readable config surface
-# (bus assign GBUS, SmartMix GSMM/GNOOM + per-group s_smart_mix_general,
-# operator faders GOPL/GOPM) carries a channel/group/page dimension, and a
-# flat setting cannot take a dimension. Modeling those axes is child-entity
-# territory — the audio-consoles CE pass decides that.
 
 id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 1.7.0
+version: 2.0.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
-  via TCP with real-time multicast push updates. Input/output level and
-  mute control, bus assign, SmartMix configuration, operator faders,
-  preset recall, and optional live level meters.
+  via TCP with real-time multicast push updates. Inputs, sub-inputs,
+  outputs, and SmartMix groups are child entities with fader, mute, gain,
+  source select, bus routing, and live meters, labelled by the mixer's own
+  channel names. Preset recall, operator faders, USB output routing, test
+  oscillator, and front-panel lockout.
 
 source_url: https://docs.audio-technica.com/all/IP_Control_Protocol_Specification_-_ATDM-1012_ATDM-1012DAN.pdf
 tags: [mixer, smartmixer, conferencing, automixer, dante]
@@ -86,14 +95,18 @@ help:
     Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers.
     The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses,
     designed for conference rooms, courtrooms, and council chambers.
-    The DAN variant adds Dante audio networking.
+    The DAN variant adds Dante audio networking. Each input, sub-input,
+    output, and SmartMix group appears as a child entity, labelled with the
+    channel name configured on the mixer.
   setup: >
     1. Connect the ATDM-1012 to the network (default control port 17300).
     2. Configure the mixer's IP address via the front panel or Web Remote.
     3. To let OpenAVC find the mixer in a network scan, enable
        "Allow Discovery" (UPnP) in the mixer's network settings.
-    4. Input channels: 1-10 (mic/line), ST1, ST2, Sub 1-8.
-       Output channels: 1-8, ST1, ST2.
+    4. Inputs 1-10, ST1/ST2, Sub-inputs 1-8, Outputs 1-8 and ST1/ST2, and
+       SmartMix Groups 1-4 appear as this device's child entities, labelled
+       by the names set on the mixer (rename them with the Rename commands
+       or in Web Remote).
     5. Front-panel and Web Remote changes appear in OpenAVC instantly:
        the mixer multicasts change notices (factory default group
        225.0.0.100, port 17000) and OpenAVC listens automatically. If you
@@ -102,10 +115,12 @@ help:
        Group / Notification Port fields. The mixer and the OpenAVC server
        must be on the same VLAN, and switches with IGMP snooping need an
        IGMP querier — if notices are filtered, control still works and
-       changes appear at the poll interval instead.
+       changes appear at the poll interval instead. Channel names and
+       input settings have no change notice and refresh at the poll
+       interval.
     6. Enable Level Meters (off by default) streams live input/output
        meters into OpenAVC at about two updates per second — bind panel
-       meter elements to the meter state values.
+       meter elements to the child meter values.
     7. The ATDM-1012DAN uses the same protocol with added Dante settings.
 
 discovery:
@@ -146,7 +161,7 @@ discovery:
 default_config:
   host: ""
   port: 17300
-  poll_interval: 15
+  poll_interval: 20
   inter_command_delay: 0.05
   notification_group: "225.0.0.100"
   notification_port: 17000
@@ -163,9 +178,13 @@ config_schema:
     label: Port
   poll_interval:
     type: integer
-    default: 15
+    default: 20
     min: 0
     label: Poll Interval (sec)
+    help: >
+      The full resync poll is ~90 queries (level/mute/gain, channel names
+      and settings, groups, system settings); the default 20 s keeps a
+      comfortable margin over the ~5 s a full cycle takes.
   inter_command_delay:
     type: number
     default: 0.05
@@ -219,379 +238,415 @@ push:
 on_connect:
   - 's_network S 0000 00 NC ,,,,,,1,{meters_flag},,,,,,,,,,, \r'
 
+# ── Child entities: the mixer's channel strips and SmartMix groups.
+#    Children are labelled by the mixer's own channel names (label_field).
+child_entity_types:
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 10 }
+    label_field: name
+    summary_fields: [name, level, mute]
+    state_variables:
+      level:
+        type: number
+        label: Level (Fader)
+        min: 0
+        max: 511
+        step: 1
+        control: true
+        help: "Fader level on this input (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+      mute:
+        type: boolean
+        label: Muted
+        control: true
+        cloud_priority: high
+        help: "True when this input is muted."
+      gain:
+        type: integer
+        label: Preamp Gain
+        min: 0
+        max: 40
+        step: 1
+        control: true
+        help: "Preamp gain step 0-40: Mic = +20 to +60 dB, Line = -20 to -60 dBu."
+      source:
+        type: enum
+        values: ["Mic", "Line +4dBu", "Line 0dBV", "Line -10dBV", "Line -20dBV", "USB", "Virtual Mic 1", "Virtual Mic 2", "Dante"]
+        label: Input Source
+        control: true
+        help: "Signal source feeding this input channel."
+      phantom:
+        type: boolean
+        label: Phantom Power
+        control: true
+        cloud_priority: high
+        help: "True when +48 V phantom power is on for this input."
+      phase:
+        type: boolean
+        label: Phase Invert
+        help: "True when this input's polarity is inverted."
+      low_cut:
+        type: boolean
+        label: Low Cut
+        help: "True when the low-cut filter is engaged."
+      aec_enabled:
+        type: boolean
+        label: AEC Enabled
+        help: "True when this input feeds the acoustic echo canceller."
+      smart_mix_enabled:
+        type: boolean
+        label: SmartMix Enabled
+        help: "True when this input participates in the SmartMix automixer."
+      gate_open:
+        type: boolean
+        label: Gate Open
+        help: "True while SmartMix holds this input's gate open (updates instantly via push)."
+      meter:
+        type: integer
+        label: Level Meter
+        min: 0
+        max: 61
+        cloud_priority: low
+        help: "Post-fader level meter (0-61; requires Enable Level Meters)."
+      name:
+        type: string
+        label: Channel Name
+        cloud_priority: low
+        help: "Channel name configured on the mixer (labels this child)."
+      color:
+        type: string
+        label: Channel Color
+        cloud_priority: low
+        help: "Channel color as reported by the mixer (color index, or a hex RGB value on some firmware)."
+    instances:
+      count: 10
+      label: "Input {id}"
+  stereo_input:
+    label: Stereo Input
+    label_plural: Stereo Inputs
+    id_format: { type: integer, min: 1, max: 2 }
+    label_field: name
+    summary_fields: [name, level, mute]
+    state_variables:
+      level:
+        type: number
+        label: Level (Fader)
+        min: 0
+        max: 511
+        step: 1
+        control: true
+        help: "Fader level on this stereo input (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+      mute:
+        type: boolean
+        label: Muted
+        control: true
+        cloud_priority: high
+        help: "True when this stereo input is muted."
+      gain:
+        type: integer
+        label: Input Trim
+        min: 0
+        max: 40
+        step: 1
+        control: true
+        help: "Input trim step 0-40."
+      source:
+        type: enum
+        values: ["Mic", "Line +4dBu", "Line 0dBV", "Line -10dBV", "Line -20dBV", "USB", "Virtual Mic 1", "Virtual Mic 2", "Dante"]
+        label: Input Source
+        control: true
+        help: "Signal source feeding this stereo input."
+      phase:
+        type: boolean
+        label: Phase Invert
+        help: "True when this input's polarity is inverted."
+      low_cut:
+        type: boolean
+        label: Low Cut
+        help: "True when the low-cut filter is engaged."
+      meter:
+        type: integer
+        label: Level Meter
+        min: 0
+        max: 61
+        cloud_priority: low
+        help: "Post-fader level meter (0-61; requires Enable Level Meters)."
+      name:
+        type: string
+        label: Channel Name
+        cloud_priority: low
+        help: "Channel name configured on the mixer (labels this child)."
+      color:
+        type: string
+        label: Channel Color
+        cloud_priority: low
+        help: "Channel color as reported by the mixer (color index, or a hex RGB value on some firmware)."
+    instances:
+      count: 2
+      label: "Input ST{id}"
+  sub_input:
+    label: Sub-Input
+    label_plural: Sub-Inputs
+    id_format: { type: integer, min: 1, max: 8 }
+    label_field: name
+    summary_fields: [name, level, mute]
+    state_variables:
+      level:
+        type: number
+        label: Level (Fader)
+        min: 0
+        max: 511
+        step: 1
+        control: true
+        help: "Fader level on this sub-input (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+      mute:
+        type: boolean
+        label: Muted
+        control: true
+        cloud_priority: high
+        help: "True when this sub-input is muted."
+      gain:
+        type: integer
+        label: Input Gain
+        min: 0
+        max: 40
+        step: 1
+        control: true
+        help: "Input gain step 0-40 (+20 to +60 dB)."
+      source:
+        type: string
+        label: Source Code
+        cloud_priority: low
+        help: "Raw source select code (0 = Off, 1-10 = Input N, 21-36 = Dante, 37+ = Bus; see the protocol manual)."
+      low_cut:
+        type: boolean
+        label: Low Cut
+        help: "True when the low-cut filter is engaged."
+      name:
+        type: string
+        label: Channel Name
+        cloud_priority: low
+        help: "Channel name configured on the mixer (labels this child)."
+      color:
+        type: string
+        label: Channel Color
+        cloud_priority: low
+        help: "Channel color as reported by the mixer (color index, or a hex RGB value on some firmware)."
+    instances:
+      count: 8
+      label: "Sub-Input {id}"
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 8 }
+    label_field: name
+    summary_fields: [name, level, mute]
+    state_variables:
+      level:
+        type: number
+        label: Level (Fader)
+        min: 0
+        max: 511
+        step: 1
+        control: true
+        help: "Fader level on this output (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+      mute:
+        type: boolean
+        label: Muted
+        control: true
+        cloud_priority: high
+        help: "True when this output is muted."
+      source:
+        type: enum
+        values: ["Off", "Bus 1", "Bus 2", "Bus 3", "Bus 4", "Bus 5", "Bus 6", "Bus 7", "Bus 8", "Bus 9", "Bus 10", "Bus 11", "Bus 12", "Direct Out"]
+        label: Source
+        control: true
+        help: "Bus (or Direct Out) feeding this output."
+      meter:
+        type: integer
+        label: Level Meter
+        min: 0
+        max: 61
+        cloud_priority: low
+        help: "Post-fader level meter (0-61; requires Enable Level Meters)."
+      name:
+        type: string
+        label: Channel Name
+        cloud_priority: low
+        help: "Channel name configured on the mixer (labels this child)."
+      color:
+        type: string
+        label: Channel Color
+        cloud_priority: low
+        help: "Channel color as reported by the mixer (color index, or a hex RGB value on some firmware)."
+    instances:
+      count: 8
+      label: "Output {id}"
+  stereo_output:
+    label: Stereo Output
+    label_plural: Stereo Outputs
+    id_format: { type: integer, min: 1, max: 2 }
+    label_field: name
+    summary_fields: [name, level, mute]
+    state_variables:
+      level:
+        type: number
+        label: Level (Fader)
+        min: 0
+        max: 511
+        step: 1
+        control: true
+        help: "Fader level on this stereo output (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+      mute:
+        type: boolean
+        label: Muted
+        control: true
+        cloud_priority: high
+        help: "True when this stereo output is muted."
+      source:
+        type: enum
+        values: ["Off", "Bus 1", "Bus 2", "Bus 3", "Bus 4", "Bus 5", "Bus 6", "Bus 7", "Bus 8", "Bus 9", "Bus 10", "Bus 11", "Bus 12", "Direct Out"]
+        label: Source
+        control: true
+        help: "Bus (or Direct Out) feeding this stereo output."
+      meter:
+        type: integer
+        label: Level Meter
+        min: 0
+        max: 61
+        cloud_priority: low
+        help: "Post-fader level meter (0-61; requires Enable Level Meters)."
+      name:
+        type: string
+        label: Channel Name
+        cloud_priority: low
+        help: "Channel name configured on the mixer (labels this child)."
+      color:
+        type: string
+        label: Channel Color
+        cloud_priority: low
+        help: "Channel color as reported by the mixer (color index, or a hex RGB value on some firmware)."
+    instances:
+      count: 2
+      label: "Output ST{id}"
+  smart_mix_group:
+    label: SmartMix Group
+    label_plural: SmartMix Groups
+    id_format: { type: integer, min: 1, max: 4 }
+    summary_fields: [mode, open_mic_count]
+    state_variables:
+      mode:
+        type: integer
+        label: Mode
+        min: 0
+        max: 2
+        help: "SmartMix mode for this group (0 = Off, 1 = Gate, 2 = Gain Share)."
+      last_mic_on:
+        type: boolean
+        label: Last Mic On
+        help: "Keep the last open microphone open in Gate mode."
+      gate_hold_time:
+        type: string
+        label: Gate Hold Time (ms)
+        help: "Gate hold time in milliseconds."
+      noma:
+        type: boolean
+        label: NOM Attenuation
+        help: "Attenuate as more microphones open."
+      open_mic_count:
+        type: integer
+        label: Open Mic Count
+        min: 1
+        max: 10
+        help: "Maximum simultaneously open microphones in Gate mode."
+      priority_mode:
+        type: integer
+        label: Priority Mode
+        min: 0
+        max: 1
+        help: "Gate priority behavior: 0 = Mode 1, 1 = Mode 2."
+      gate_threshold_enabled:
+        type: boolean
+        label: Gate Threshold Enabled
+        help: "Manual gate threshold instead of adaptive gating."
+      gate_threshold:
+        type: integer
+        label: Gate Threshold
+        min: 0
+        max: 80
+        help: "Manual gate threshold (0-80 maps to -80 dB to 0 dB)."
+    instances:
+      count: 4
+      label: "SmartMix Group {id}"
+
 state_variables:
   firmware_version:
     type: string
     label: Firmware Version
-    help: "Firmware version string reported by the device (g_firmware_version)."
-  input_1_level:
-    type: number
-    label: Input 1 Level
-    help: "Fader level on input 1 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_2_level:
-    type: number
-    label: Input 2 Level
-    help: "Fader level on input 2 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_3_level:
-    type: number
-    label: Input 3 Level
-    help: "Fader level on input 3 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_4_level:
-    type: number
-    label: Input 4 Level
-    help: "Fader level on input 4 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_5_level:
-    type: number
-    label: Input 5 Level
-    help: "Fader level on input 5 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_6_level:
-    type: number
-    label: Input 6 Level
-    help: "Fader level on input 6 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_7_level:
-    type: number
-    label: Input 7 Level
-    help: "Fader level on input 7 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_8_level:
-    type: number
-    label: Input 8 Level
-    help: "Fader level on input 8 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_9_level:
-    type: number
-    label: Input 9 Level
-    help: "Fader level on input 9 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_10_level:
-    type: number
-    label: Input 10 Level
-    help: "Fader level on input 10 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  input_1_mute:
+    help: "Firmware version string reported by the mixer (g_firmware_version)."
+  at_link_mode:
     type: boolean
-    label: Input 1 Mute
-    help: "True when input 1 is muted."
-  input_2_mute:
-    type: boolean
-    label: Input 2 Mute
-    help: "True when input 2 is muted."
-  input_3_mute:
-    type: boolean
-    label: Input 3 Mute
-    help: "True when input 3 is muted."
-  input_4_mute:
-    type: boolean
-    label: Input 4 Mute
-    help: "True when input 4 is muted."
-  input_5_mute:
-    type: boolean
-    label: Input 5 Mute
-    help: "True when input 5 is muted."
-  input_6_mute:
-    type: boolean
-    label: Input 6 Mute
-    help: "True when input 6 is muted."
-  input_7_mute:
-    type: boolean
-    label: Input 7 Mute
-    help: "True when input 7 is muted."
-  input_8_mute:
-    type: boolean
-    label: Input 8 Mute
-    help: "True when input 8 is muted."
-  input_9_mute:
-    type: boolean
-    label: Input 9 Mute
-    help: "True when input 9 is muted."
-  input_10_mute:
-    type: boolean
-    label: Input 10 Mute
-    help: "True when input 10 is muted."
-  output_1_level:
-    type: number
-    label: Output 1 Level
-    help: "Fader level on output 1 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_2_level:
-    type: number
-    label: Output 2 Level
-    help: "Fader level on output 2 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_3_level:
-    type: number
-    label: Output 3 Level
-    help: "Fader level on output 3 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_4_level:
-    type: number
-    label: Output 4 Level
-    help: "Fader level on output 4 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_5_level:
-    type: number
-    label: Output 5 Level
-    help: "Fader level on output 5 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_6_level:
-    type: number
-    label: Output 6 Level
-    help: "Fader level on output 6 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_7_level:
-    type: number
-    label: Output 7 Level
-    help: "Fader level on output 7 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_8_level:
-    type: number
-    label: Output 8 Level
-    help: "Fader level on output 8 (0 = mute, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
-  output_1_mute:
-    type: boolean
-    label: Output 1 Mute
-    help: "True when output 1 is muted."
-  output_2_mute:
-    type: boolean
-    label: Output 2 Mute
-    help: "True when output 2 is muted."
-  output_3_mute:
-    type: boolean
-    label: Output 3 Mute
-    help: "True when output 3 is muted."
-  output_4_mute:
-    type: boolean
-    label: Output 4 Mute
-    help: "True when output 4 is muted."
-  output_5_mute:
-    type: boolean
-    label: Output 5 Mute
-    help: "True when output 5 is muted."
-  output_6_mute:
-    type: boolean
-    label: Output 6 Mute
-    help: "True when output 6 is muted."
-  output_7_mute:
-    type: boolean
-    label: Output 7 Mute
-    help: "True when output 7 is muted."
-  output_8_mute:
-    type: boolean
-    label: Output 8 Mute
-    help: "True when output 8 is muted."
-
-  # ── SmartMix gate activity (updated live via push notification when
-  #    SmartMix is enabled — great for "mic went live" automation) ──
-  input_1_gate_open:
-    type: boolean
-    label: Input 1 Gate Open
-    help: "True while SmartMix holds input 1's gate open (updates instantly via push)."
-  input_2_gate_open:
-    type: boolean
-    label: Input 2 Gate Open
-    help: "True while SmartMix holds input 2's gate open (updates instantly via push)."
-  input_3_gate_open:
-    type: boolean
-    label: Input 3 Gate Open
-    help: "True while SmartMix holds input 3's gate open (updates instantly via push)."
-  input_4_gate_open:
-    type: boolean
-    label: Input 4 Gate Open
-    help: "True while SmartMix holds input 4's gate open (updates instantly via push)."
-  input_5_gate_open:
-    type: boolean
-    label: Input 5 Gate Open
-    help: "True while SmartMix holds input 5's gate open (updates instantly via push)."
-  input_6_gate_open:
-    type: boolean
-    label: Input 6 Gate Open
-    help: "True while SmartMix holds input 6's gate open (updates instantly via push)."
-  input_7_gate_open:
-    type: boolean
-    label: Input 7 Gate Open
-    help: "True while SmartMix holds input 7's gate open (updates instantly via push)."
-  input_8_gate_open:
-    type: boolean
-    label: Input 8 Gate Open
-    help: "True while SmartMix holds input 8's gate open (updates instantly via push)."
-  input_9_gate_open:
-    type: boolean
-    label: Input 9 Gate Open
-    help: "True while SmartMix holds input 9's gate open (updates instantly via push)."
-  input_10_gate_open:
-    type: boolean
-    label: Input 10 Gate Open
-    help: "True while SmartMix holds input 10's gate open (updates instantly via push)."
-
+    label: AT-LINK Mode
+    help: "True when Audio-Technica LINK mode (multi-unit extension) is enabled."
   last_recalled_preset:
     type: integer
     label: Last Recalled Preset
     min: 1
     max: 8
     help: "Preset bank most recently recalled on the mixer (updates via push notification)."
-
-  # ── Live level meters (post-fader, 0-61; only stream while Enable Level
-  #    Meters is on — updates ~2/sec, background tier for the cloud relay) ──
-  input_1_meter:
+  aec_mode:
+    type: string
+    label: AEC Mode
+    help: "Echo processing mode (0 = Off, 1 = AEC, 2 = Noise Canceling)."
+  usb_out1_source:
+    type: string
+    label: USB OUT1 Source
+    help: "Bus feeding USB output 1 (0 = Off, 1-12 = Bus 1-12)."
+  usb_out2_source:
+    type: string
+    label: USB OUT2 Source
+    help: "Bus feeding USB output 2 (0 = Off, 1-12 = Bus 1-12)."
+  usb_send_level:
     type: integer
-    label: Input 1 Meter
+    label: USB Send Level
     min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 1 (0-61; requires Enable Level Meters)."
-  input_2_meter:
-    type: integer
-    label: Input 2 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 2 (0-61; requires Enable Level Meters)."
-  input_3_meter:
-    type: integer
-    label: Input 3 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 3 (0-61; requires Enable Level Meters)."
-  input_4_meter:
-    type: integer
-    label: Input 4 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 4 (0-61; requires Enable Level Meters)."
-  input_5_meter:
-    type: integer
-    label: Input 5 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 5 (0-61; requires Enable Level Meters)."
-  input_6_meter:
-    type: integer
-    label: Input 6 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 6 (0-61; requires Enable Level Meters)."
-  input_7_meter:
-    type: integer
-    label: Input 7 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 7 (0-61; requires Enable Level Meters)."
-  input_8_meter:
-    type: integer
-    label: Input 8 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 8 (0-61; requires Enable Level Meters)."
-  input_9_meter:
-    type: integer
-    label: Input 9 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 9 (0-61; requires Enable Level Meters)."
-  input_10_meter:
-    type: integer
-    label: Input 10 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for input 10 (0-61; requires Enable Level Meters)."
-  input_st1_meter:
-    type: integer
-    label: Input ST1 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for stereo input 1 (0-61; requires Enable Level Meters)."
-  input_st2_meter:
-    type: integer
-    label: Input ST2 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for stereo input 2 (0-61; requires Enable Level Meters)."
-  output_1_meter:
-    type: integer
-    label: Output 1 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 1 (0-61; requires Enable Level Meters)."
-  output_2_meter:
-    type: integer
-    label: Output 2 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 2 (0-61; requires Enable Level Meters)."
-  output_3_meter:
-    type: integer
-    label: Output 3 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 3 (0-61; requires Enable Level Meters)."
-  output_4_meter:
-    type: integer
-    label: Output 4 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 4 (0-61; requires Enable Level Meters)."
-  output_5_meter:
-    type: integer
-    label: Output 5 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 5 (0-61; requires Enable Level Meters)."
-  output_6_meter:
-    type: integer
-    label: Output 6 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 6 (0-61; requires Enable Level Meters)."
-  output_7_meter:
-    type: integer
-    label: Output 7 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 7 (0-61; requires Enable Level Meters)."
-  output_8_meter:
-    type: integer
-    label: Output 8 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for output 8 (0-61; requires Enable Level Meters)."
-  output_st1_meter:
-    type: integer
-    label: Output ST1 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for stereo output 1 (0-61; requires Enable Level Meters)."
-  output_st2_meter:
-    type: integer
-    label: Output ST2 Meter
-    min: 0
-    max: 61
-    cloud_priority: low
-    help: "Post-fader level meter for stereo output 2 (0-61; requires Enable Level Meters)."
+    max: 411
+    help: "USB output send level (0 = mute, 411 = 0 dB)."
+  oscillator_on:
+    type: boolean
+    label: Oscillator On
+    help: "True while the built-in test oscillator is running."
+  front_recall_preset:
+    type: boolean
+    label: Front Panel Preset Recall
+    help: "True when presets can be recalled from the front panel."
+  front_led_dimmer:
+    type: boolean
+    label: Front Panel LED Dimmer
+    help: "True when the front panel LED dimmer is enabled."
+  front_error_notice:
+    type: boolean
+    label: Front Panel Error Display
+    help: "True when errors are shown on the front panel display."
+  bootup_preset:
+    type: string
+    label: Boot-Up Preset
+    help: "Preset recalled at power-on (0 = resume last state, 1-8 = preset bank)."
 
 commands:
-  # ── Input Level Control (short commands) ──
+  # ── Input strips (children: inputs 1-10; wire channels 0-9) ──
   set_input_level:
     label: Set Input Level
     send: 'SICL S 0000 00 NC {channel},{level} \r'
-    help: >
-      Set the input level for a channel using the short command format.
-      Level is a fader value (0=mute, 1=-120dB, 411=0dB, 511=+10dB).
+    help: "Set the fader level for an input (0=mute, 411=0dB, 511=+10dB)."
     params:
       channel:
-        type: integer
+        type: child_id
+        child_type: input
         required: true
-        label: Input Channel
-        min: 0
-        max: 19
-        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
       level:
         type: integer
         required: true
@@ -600,48 +655,236 @@ commands:
         max: 511
         help: "0=mute, 1=-120dB, 411=0dB, 511=+10dB"
 
-  # ── Input Mute Control ──
   input_mute_on:
     label: Input Mute On
     send: 'SICM S 0000 00 NC {channel},1 \r'
-    help: "Mute an input channel."
+    help: "Mute an input."
     params:
       channel:
-        type: integer
+        type: child_id
+        child_type: input
         required: true
-        label: Input Channel
-        min: 0
-        max: 19
-        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
 
   input_mute_off:
     label: Input Mute Off
     send: 'SICM S 0000 00 NC {channel},0 \r'
-    help: "Unmute an input channel."
+    help: "Unmute an input."
     params:
       channel:
-        type: integer
+        type: child_id
+        child_type: input
         required: true
-        label: Input Channel
-        min: 0
-        max: 19
-        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
 
-  # ── Output Level Control (short commands) ──
-  set_output_level:
-    label: Set Output Level
-    send: 'SOCL S 0000 00 NC {channel},{level} \r'
+  set_input_gain:
+    label: Set Input Gain
+    send: 's_input_gain_level S 0000 00 NC {channel},{gain},{gain},,,,,,, \r'
     help: >
-      Set the output level for a channel. Level is a fader value (0=mute,
-      1=-120dB, 411=0dB, 511=+10dB).
+      Set the preamp gain for an input. The fader level and the other input
+      settings are left unchanged (omitted-parameter write).
     params:
       channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      gain:
         type: integer
         required: true
-        label: Output Channel
+        label: Preamp Gain
         min: 0
-        max: 9
-        help: "0-7 = Output 1-8, 8 = ST1, 9 = ST2"
+        max: 40
+        help: "0-40: Mic = +20 to +60 dB, Line = -20 to -60 dBu"
+
+  set_input_source:
+    label: Set Input Source
+    send: 's_input_channel_settings S 0000 00 NC {channel},{source},,,,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Select the signal source feeding an input channel."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      source:
+        type: enum
+        required: true
+        label: Source
+        values:
+          - { value: "0", label: "Mic" }
+          - { value: "1", label: "Line +4dBu" }
+          - { value: "2", label: "Line 0dBV" }
+          - { value: "3", label: "Line -10dBV" }
+          - { value: "4", label: "Line -20dBV" }
+          - { value: "5", label: "USB" }
+          - { value: "6", label: "Virtual Mic 1" }
+          - { value: "7", label: "Virtual Mic 2" }
+          - { value: "9", label: "Dante" }
+
+  set_input_phantom:
+    label: Set Input Phantom Power
+    send: 's_input_channel_settings S 0000 00 NC {channel},,{state},,,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Switch +48 V phantom power for an input (Mic source only)."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      state:
+        type: enum
+        required: true
+        label: Phantom
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  set_input_phase:
+    label: Set Input Phase
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,{state},,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Set an input channel's polarity."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      state:
+        type: enum
+        required: true
+        label: Phase
+        values:
+          - { value: "0", label: "Normal" }
+          - { value: "1", label: "Invert" }
+
+  set_input_low_cut:
+    label: Set Input Low Cut
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,{state},,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Engage or release the low-cut filter on an input."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      state:
+        type: enum
+        required: true
+        label: Low Cut
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  set_input_aec:
+    label: Set Input AEC
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,,{state},,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Include or exclude an input from the acoustic echo canceller."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      state:
+        type: enum
+        required: true
+        label: AEC
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  set_input_smart_mix:
+    label: Set Input SmartMix
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,{state},,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Add or remove an input from the SmartMix automixer."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      state:
+        type: enum
+        required: true
+        label: SmartMix
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  rename_input:
+    label: Rename Input
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,,,,,,,,,,,,,,"{name}",,,,,,,, \r'
+    help: "Set an input's channel name (labels the child entity)."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[^"]*'
+        help: "New channel name (quotes are not allowed)."
+
+  set_input_bus_send:
+    label: Set Input Bus Send
+    send: 'SBUS S 0000 00 NC {channel},{bus},{assign},{level} \r'
+    help: "Route an input to a mix bus with a send level (bus send cells are not tracked as state)."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7", "9": "8", "10": "9" }
+      bus:
+        type: integer
+        required: true
+        label: Bus
+        min: 1
+        max: 12
+        help: "Mix bus 1-12"
+      assign:
+        type: enum
+        required: true
+        label: Assign
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "Pre" }
+          - { value: "2", label: "Post (SmartMix Bus)" }
+      level:
+        type: integer
+        default: 411
+        label: Send Level
+        min: 0
+        max: 411
+        help: "0 = mute, 411 = 0 dB"
+
+  # ── Stereo input strips (children ST1/ST2; wire channels 10/11) ──
+  set_st_input_level:
+    label: Set Stereo Input Level
+    send: 'SICL S 0000 00 NC {channel},{level} \r'
+    help: "Set a stereo input's fader level (0=mute, 411=0dB, 511=+10dB)."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
       level:
         type: integer
         required: true
@@ -650,69 +893,645 @@ commands:
         max: 511
         help: "0=mute, 1=-120dB, 411=0dB, 511=+10dB"
 
-  # ── Output Mute Control ──
+  st_input_mute_on:
+    label: Stereo Input Mute On
+    send: 'SICM S 0000 00 NC {channel},1 \r'
+    help: "Mute a stereo input."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+
+  st_input_mute_off:
+    label: Stereo Input Mute Off
+    send: 'SICM S 0000 00 NC {channel},0 \r'
+    help: "Unmute a stereo input."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+
+  set_st_input_gain:
+    label: Set Stereo Input Trim
+    send: 's_input_gain_level S 0000 00 NC {channel},{gain},{gain},,,,,,, \r'
+    help: "Set a stereo input's trim (fader level unchanged)."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+      gain:
+        type: integer
+        required: true
+        label: Trim
+        min: 0
+        max: 40
+
+  set_st_input_source:
+    label: Set Stereo Input Source
+    send: 's_input_channel_settings S 0000 00 NC {channel},{source},,,,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Select the signal source feeding a stereo input."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+      source:
+        type: enum
+        required: true
+        label: Source
+        values:
+          - { value: "1", label: "Line +4dBu" }
+          - { value: "2", label: "Line 0dBV" }
+          - { value: "3", label: "Line -10dBV" }
+          - { value: "4", label: "Line -20dBV" }
+          - { value: "5", label: "USB" }
+          - { value: "9", label: "Dante" }
+
+  set_st_input_phase:
+    label: Set Stereo Input Phase
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,{state},,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Set a stereo input's polarity."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+      state:
+        type: enum
+        required: true
+        label: Phase
+        values:
+          - { value: "0", label: "Normal" }
+          - { value: "1", label: "Invert" }
+
+  set_st_input_low_cut:
+    label: Set Stereo Input Low Cut
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,{state},,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Engage or release the low-cut filter on a stereo input."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+      state:
+        type: enum
+        required: true
+        label: Low Cut
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  rename_st_input:
+    label: Rename Stereo Input
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,,,,,,,,,,,,,,"{name}",,,,,,,, \r'
+    help: "Set a stereo input's channel name (labels the child entity)."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[^"]*'
+        help: "New channel name (quotes are not allowed)."
+
+  set_st_input_bus_send:
+    label: Set Stereo Input Bus Send
+    send: 'SBUS S 0000 00 NC {channel},{bus},{assign},{level} \r'
+    help: "Route a stereo input to a mix bus with a send level."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_input
+        required: true
+        label: Stereo Input
+        map: { "1": "10", "2": "11" }
+      bus:
+        type: integer
+        required: true
+        label: Bus
+        min: 1
+        max: 12
+        help: "Mix bus 1-12"
+      assign:
+        type: enum
+        required: true
+        label: Assign
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "Pre" }
+          - { value: "2", label: "Post (SmartMix Bus)" }
+      level:
+        type: integer
+        default: 411
+        label: Send Level
+        min: 0
+        max: 411
+        help: "0 = mute, 411 = 0 dB"
+
+  # ── Sub-input strips (children 1-8; wire 12-19 in the SICL/GICL
+  #    space, 0-7 in the s_subinput_channel_settings verb) ──
+  set_sub_input_level:
+    label: Set Sub-Input Level
+    send: 'SICL S 0000 00 NC {channel},{level} \r'
+    help: "Set a sub-input's fader level (0=mute, 411=0dB, 511=+10dB)."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "12", "2": "13", "3": "14", "4": "15", "5": "16", "6": "17", "7": "18", "8": "19" }
+      level:
+        type: integer
+        required: true
+        label: Level (Fader)
+        min: 0
+        max: 511
+        help: "0=mute, 1=-120dB, 411=0dB, 511=+10dB"
+
+  sub_input_mute_on:
+    label: Sub-Input Mute On
+    send: 'SICM S 0000 00 NC {channel},1 \r'
+    help: "Mute a sub-input."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "12", "2": "13", "3": "14", "4": "15", "5": "16", "6": "17", "7": "18", "8": "19" }
+
+  sub_input_mute_off:
+    label: Sub-Input Mute Off
+    send: 'SICM S 0000 00 NC {channel},0 \r'
+    help: "Unmute a sub-input."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "12", "2": "13", "3": "14", "4": "15", "5": "16", "6": "17", "7": "18", "8": "19" }
+
+  set_sub_input_gain:
+    label: Set Sub-Input Gain
+    send: 's_subinput_channel_settings S 0000 00 NC {channel},,{gain},,,,, \r'
+    help: "Set a sub-input's gain (other settings unchanged)."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
+      gain:
+        type: integer
+        required: true
+        label: Gain
+        min: 0
+        max: 40
+        help: "+20 to +60 dB"
+
+  set_sub_input_source:
+    label: Set Sub-Input Source
+    send: 's_subinput_channel_settings S 0000 00 NC {channel},{source},,,,,, \r'
+    help: "Set a sub-input's source by protocol code (0 = Off, 1-10 = Input N, 21-36 = Dante, 37+ = Bus; see the manual)."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
+      source:
+        type: integer
+        required: true
+        label: Source Code
+        min: 0
+        max: 48
+
+  set_sub_input_low_cut:
+    label: Set Sub-Input Low Cut
+    send: 's_subinput_channel_settings S 0000 00 NC {channel},,,{state},,,, \r'
+    help: "Engage or release the low-cut filter on a sub-input."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
+      state:
+        type: enum
+        required: true
+        label: Low Cut
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  rename_sub_input:
+    label: Rename Sub-Input
+    send: 's_subinput_channel_settings S 0000 00 NC {channel},,,,,"{name}",, \r'
+    help: "Set a sub-input's name (labels the child entity)."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[^"]*'
+        help: "New channel name (quotes are not allowed)."
+
+  set_sub_input_bus_send:
+    label: Set Sub-Input Bus Send
+    send: 'SBUS S 0000 00 NC {channel},{bus},{assign},{level} \r'
+    help: "Route a sub-input to a mix bus with a send level."
+    params:
+      channel:
+        type: child_id
+        child_type: sub_input
+        required: true
+        label: Sub-Input
+        map: { "1": "12", "2": "13", "3": "14", "4": "15", "5": "16", "6": "17", "7": "18", "8": "19" }
+      bus:
+        type: integer
+        required: true
+        label: Bus
+        min: 1
+        max: 12
+        help: "Mix bus 1-12"
+      assign:
+        type: enum
+        required: true
+        label: Assign
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "Pre" }
+          - { value: "2", label: "Post (SmartMix Bus)" }
+      level:
+        type: integer
+        default: 411
+        label: Send Level
+        min: 0
+        max: 411
+        help: "0 = mute, 411 = 0 dB"
+
+  # ── Output strips (children 1-8; wire 0-7) ──
+  set_output_level:
+    label: Set Output Level
+    send: 'SOCL S 0000 00 NC {channel},{level} \r'
+    help: "Set the fader level for an output (0=mute, 411=0dB, 511=+10dB)."
+    params:
+      channel:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
+      level:
+        type: integer
+        required: true
+        label: Level (Fader)
+        min: 0
+        max: 511
+        help: "0=mute, 1=-120dB, 411=0dB, 511=+10dB"
+
   output_mute_on:
     label: Output Mute On
     send: 'SOCM S 0000 00 NC {channel},1 \r'
-    help: "Mute an output channel."
+    help: "Mute an output."
     params:
       channel:
-        type: integer
+        type: child_id
+        child_type: output
         required: true
-        label: Output Channel
-        min: 0
-        max: 9
-        help: "0-7 = Output 1-8, 8 = ST1, 9 = ST2"
+        label: Output
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
 
   output_mute_off:
     label: Output Mute Off
     send: 'SOCM S 0000 00 NC {channel},0 \r'
-    help: "Unmute an output channel."
+    help: "Unmute an output."
     params:
       channel:
-        type: integer
+        type: child_id
+        child_type: output
         required: true
-        label: Output Channel
-        min: 0
-        max: 9
-        help: "0-7 = Output 1-8, 8 = ST1, 9 = ST2"
+        label: Output
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
 
-  # ── Bus Assign ──
-  set_bus_assign:
-    label: Set Bus Assign
-    send: 'SBUS S 0000 00 NC {channel},{bus},{assign},{level} \r'
-    help: "Set the bus assign and level for an input-to-bus routing."
+  set_output_source:
+    label: Set Output Source
+    send: 's_output_channel_settings S 0000 00 NC {channel},,,,,{source}, \r'
+    help: "Select which bus (or Direct Out) feeds an output."
     params:
       channel:
-        type: integer
+        type: child_id
+        child_type: output
         required: true
-        label: Input Channel
-        min: 0
-        max: 19
-        help: "0-9 = Input 1-10, 10 = ST1, 11 = ST2, 12-19 = Sub Input 1-8"
-      bus:
-        type: integer
+        label: Output
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
+      source:
+        type: enum
         required: true
-        label: Bus Channel
-        min: 1
-        max: 12
-        help: "Bus 1-12"
-      assign:
-        type: integer
+        label: Source
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "Bus 1" }
+          - { value: "2", label: "Bus 2" }
+          - { value: "3", label: "Bus 3" }
+          - { value: "4", label: "Bus 4" }
+          - { value: "5", label: "Bus 5" }
+          - { value: "6", label: "Bus 6" }
+          - { value: "7", label: "Bus 7" }
+          - { value: "8", label: "Bus 8" }
+          - { value: "9", label: "Bus 9" }
+          - { value: "10", label: "Bus 10" }
+          - { value: "11", label: "Bus 11" }
+          - { value: "12", label: "Bus 12" }
+          - { value: "13", label: "Direct Out" }
+
+  rename_output:
+    label: Rename Output
+    send: 's_output_channel_settings S 0000 00 NC {channel},,"{name}",,,, \r'
+    help: "Set an output's name (labels the child entity)."
+    params:
+      channel:
+        type: child_id
+        child_type: output
         required: true
-        label: Bus Assign
-        min: 0
-        max: 2
-        help: "0=Off, 1=SmartMix Pre, 2=SmartMix Post"
+        label: Output
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6", "8": "7" }
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[^"]*'
+        help: "New channel name (quotes are not allowed)."
+
+  # ── Stereo output strips (children ST1/ST2; wire 8/9) ──
+  set_st_output_level:
+    label: Set Stereo Output Level
+    send: 'SOCL S 0000 00 NC {channel},{level} \r'
+    help: "Set a stereo output's fader level (0=mute, 411=0dB, 511=+10dB)."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_output
+        required: true
+        label: Stereo Output
+        map: { "1": "8", "2": "9" }
       level:
         type: integer
-        default: 411
+        required: true
         label: Level (Fader)
         min: 0
-        max: 411
-        help: "0=mute, 1=-120dB, 411=0dB"
+        max: 511
+        help: "0=mute, 1=-120dB, 411=0dB, 511=+10dB"
 
-  # ── Operator Fader Control ──
+  st_output_mute_on:
+    label: Stereo Output Mute On
+    send: 'SOCM S 0000 00 NC {channel},1 \r'
+    help: "Mute a stereo output."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_output
+        required: true
+        label: Stereo Output
+        map: { "1": "8", "2": "9" }
+
+  st_output_mute_off:
+    label: Stereo Output Mute Off
+    send: 'SOCM S 0000 00 NC {channel},0 \r'
+    help: "Unmute a stereo output."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_output
+        required: true
+        label: Stereo Output
+        map: { "1": "8", "2": "9" }
+
+  set_st_output_source:
+    label: Set Stereo Output Source
+    send: 's_output_channel_settings S 0000 00 NC {channel},,,,,{source}, \r'
+    help: "Select which bus (or Direct Out) feeds a stereo output."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_output
+        required: true
+        label: Stereo Output
+        map: { "1": "8", "2": "9" }
+      source:
+        type: enum
+        required: true
+        label: Source
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "Bus 1" }
+          - { value: "2", label: "Bus 2" }
+          - { value: "3", label: "Bus 3" }
+          - { value: "4", label: "Bus 4" }
+          - { value: "5", label: "Bus 5" }
+          - { value: "6", label: "Bus 6" }
+          - { value: "7", label: "Bus 7" }
+          - { value: "8", label: "Bus 8" }
+          - { value: "9", label: "Bus 9" }
+          - { value: "10", label: "Bus 10" }
+          - { value: "11", label: "Bus 11" }
+          - { value: "12", label: "Bus 12" }
+          - { value: "13", label: "Direct Out" }
+
+  rename_st_output:
+    label: Rename Stereo Output
+    send: 's_output_channel_settings S 0000 00 NC {channel},,"{name}",,,, \r'
+    help: "Set a stereo output's name (labels the child entity)."
+    params:
+      channel:
+        type: child_id
+        child_type: stereo_output
+        required: true
+        label: Stereo Output
+        map: { "1": "8", "2": "9" }
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[^"]*'
+        help: "New channel name (quotes are not allowed)."
+
+  # ── SmartMix groups (children 1-4 = wire group numbers; per-group
+  #    settings write via s_smart_mix_general with the group in field 9) ──
+  set_group_mode:
+    label: Set Group Mode
+    send: 's_smart_mix_general S 0000 00 NC {mode},,,,,,,,{group} \r'
+    help: "Set a SmartMix group's operating mode."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      mode:
+        type: enum
+        required: true
+        label: Mode
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "Gate" }
+          - { value: "2", label: "Gain Share" }
+
+  set_group_last_mic_on:
+    label: Set Group Last Mic On
+    send: 's_smart_mix_general S 0000 00 NC ,{state},,,,,,,{group} \r'
+    help: "Keep the last open microphone open in Gate mode."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      state:
+        type: enum
+        required: true
+        label: Last Mic On
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  set_group_gate_hold_time:
+    label: Set Group Gate Hold Time
+    send: 's_smart_mix_general S 0000 00 NC ,,{hold},,,,,,{group} \r'
+    help: "How long a gated mic stays open after the signal drops."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      hold:
+        type: enum
+        required: true
+        label: Hold Time (ms)
+        values: ["100", "200", "300", "400", "500", "1000", "1500", "2000", "2500", "3000", "3500", "4000", "4500", "5000", "5500", "6000", "6500", "7000", "7500", "8000", "8500", "9000", "9500", "10000"]
+
+  set_group_noma:
+    label: Set Group NOM Attenuation
+    send: 's_smart_mix_general S 0000 00 NC ,,,{state},,,,,{group} \r'
+    help: "Attenuate the output as more microphones open."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      state:
+        type: enum
+        required: true
+        label: NOM Attenuation
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  set_group_open_mic_count:
+    label: Set Group Open Mic Count
+    send: 's_smart_mix_general S 0000 00 NC ,,,,{count},,,,{group} \r'
+    help: "Maximum simultaneously open microphones in Gate mode."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      count:
+        type: integer
+        required: true
+        label: Open Mic Count
+        min: 1
+        max: 10
+
+  set_group_priority_mode:
+    label: Set Group Priority Mode
+    send: 's_smart_mix_general S 0000 00 NC ,,,,,{mode},,,{group} \r'
+    help: "Gate priority behavior."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      mode:
+        type: enum
+        required: true
+        label: Priority Mode
+        values:
+          - { value: "0", label: "Mode 1" }
+          - { value: "1", label: "Mode 2" }
+
+  set_group_gate_threshold_enabled:
+    label: Set Group Gate Threshold Enabled
+    send: 's_smart_mix_general S 0000 00 NC ,,,,,,{state},,{group} \r'
+    help: "Use a manual gate threshold instead of adaptive gating."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      state:
+        type: enum
+        required: true
+        label: Gate Threshold
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  set_group_gate_threshold:
+    label: Set Group Gate Threshold
+    send: 's_smart_mix_general S 0000 00 NC ,,,,,,,{threshold},{group} \r'
+    help: "Manual gate threshold level."
+    params:
+      group:
+        type: child_id
+        child_type: smart_mix_group
+        required: true
+        label: SmartMix Group
+      threshold:
+        type: integer
+        required: true
+        label: Gate Threshold
+        min: 0
+        max: 80
+        help: "0-80 maps to -80 dB to 0 dB"
+
+  # ── Operator pages (front-panel paging surface; commands only) ──
   set_operator_fader:
     label: Set Operator Fader
     send: 'SOPL S 0000 00 NC {page},{fader},{level} \r'
@@ -721,101 +1540,57 @@ commands:
       page:
         type: integer
         required: true
-        label: Operator Page
+        label: Page
         min: 1
         max: 8
-        help: "Operator page 1-8"
       fader:
         type: integer
         required: true
-        label: Fader Number
+        label: Fader
         min: 1
         max: 8
-        help: "Fader 1-8"
       level:
         type: integer
         required: true
         label: Level
         min: 0
         max: 100
-        help: "0-100"
 
   operator_fader_mute_on:
     label: Operator Fader Mute On
     send: 'SOPM S 0000 00 NC {page},{fader},1 \r'
-    help: "Mute an operator fader."
+    help: "Mute an operator page fader."
     params:
       page:
         type: integer
         required: true
-        label: Operator Page
+        label: Page
         min: 1
         max: 8
       fader:
         type: integer
         required: true
-        label: Fader Number
+        label: Fader
         min: 1
         max: 8
 
   operator_fader_mute_off:
     label: Operator Fader Mute Off
     send: 'SOPM S 0000 00 NC {page},{fader},0 \r'
-    help: "Unmute an operator fader."
+    help: "Unmute an operator page fader."
     params:
       page:
         type: integer
         required: true
-        label: Operator Page
+        label: Page
         min: 1
         max: 8
       fader:
         type: integer
         required: true
-        label: Fader Number
+        label: Fader
         min: 1
         max: 8
-
-  # ── SmartMix Control ──
-  set_smart_mix_mode:
-    label: Set SmartMix Mode
-    send: 'SSMM S 0000 00 NC {group},{mode} \r'
-    help: "Set the SmartMix operating mode for a group."
-    params:
-      group:
-        type: integer
-        required: true
-        label: Group
-        min: 1
-        max: 4
-        help: "SmartMix group 1-4"
-      mode:
-        type: integer
-        required: true
-        label: Mode
-        min: 0
-        max: 2
-        help: "0=Off, 1=Gate, 2=Gain Share"
-
-  set_open_mic_count:
-    label: Set Open Mic Count
-    send: 'NOOM S 0000 00 NC {group},{count} \r'
-    help: "Set the maximum number of simultaneously open microphones in a group."
-    params:
-      group:
-        type: integer
-        required: true
-        label: Group
-        min: 1
-        max: 4
-        help: "SmartMix group 1-4"
-      count:
-        type: integer
-        required: true
-        label: Open Mic Count
-        min: 1
-        max: 10
-        help: "Max simultaneously open mics"
 
   # ── Preset Control ──
   recall_preset:
@@ -824,30 +1599,26 @@ commands:
     help: "Load a saved preset."
     params:
       preset:
-        type: integer
+        type: enum
         required: true
-        label: Preset Bank
-        min: 1
-        max: 8
-        help: "Preset bank 1-8"
+        label: Preset Number
+        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
 
   save_preset:
     label: Save Preset
     send: 'REGIP S 0000 00 NC {preset} \r'
-    help: "Save current settings to a preset bank."
+    help: "Save current settings to a preset."
     params:
       preset:
-        type: integer
+        type: enum
         required: true
-        label: Preset Bank
-        min: 1
-        max: 8
-        help: "Preset bank 1-8"
+        label: Preset Number
+        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
 
   recall_partial_preset:
     label: Recall Partial Preset
     send: 'CALLPP S 0000 00 NC {preset} \r'
-    help: "Load a partial preset (subset of settings)."
+    help: "Load a saved partial preset (1-40)."
     params:
       preset:
         type: integer
@@ -855,7 +1626,113 @@ commands:
         label: Partial Preset
         min: 1
         max: 40
-        help: "Partial preset 1-40"
+
+  # ── Test oscillator (internal sine / pink noise generator) ──
+  oscillator_on:
+    label: Oscillator On
+    send: 's_oscillator S 0000 00 NC 1,{source},{frequency},{level},{out1},{out2},{out3},{out4},{out5},{out6},{out7},{out8},{out_st1},{out_st2} \r'
+    help: >
+      Start the built-in test oscillator into the selected outputs. Turn it
+      off with Oscillator Off when the check is done.
+    params:
+      source:
+        type: enum
+        default: "0"
+        label: Source
+        values:
+          - { value: "0", label: "Sine Wave" }
+          - { value: "1", label: "Pink Noise" }
+      frequency:
+        type: enum
+        default: "1"
+        label: Frequency
+        values:
+          - { value: "0", label: "100 Hz" }
+          - { value: "1", label: "1 kHz" }
+          - { value: "2", label: "10 kHz" }
+        help: "Sine wave only; ignored for pink noise."
+      level:
+        type: integer
+        default: 61
+        label: Level
+        min: 0
+        max: 121
+        help: "0 = -inf; 1-121 spans -120 dB to +10 dB per the fader table (61 is a safe check level)."
+      out1:
+        type: enum
+        default: "0"
+        label: To Output 1
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out2:
+        type: enum
+        default: "0"
+        label: To Output 2
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out3:
+        type: enum
+        default: "0"
+        label: To Output 3
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out4:
+        type: enum
+        default: "0"
+        label: To Output 4
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out5:
+        type: enum
+        default: "0"
+        label: To Output 5
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out6:
+        type: enum
+        default: "0"
+        label: To Output 6
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out7:
+        type: enum
+        default: "0"
+        label: To Output 7
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out8:
+        type: enum
+        default: "0"
+        label: To Output 8
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out_st1:
+        type: enum
+        default: "0"
+        label: To Output ST1
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+      out_st2:
+        type: enum
+        default: "0"
+        label: To Output ST2
+        values:
+          - { value: "1", label: "On" }
+          - { value: "0", label: "Off" }
+
+  oscillator_off:
+    label: Oscillator Off
+    send: 's_oscillator S 0000 00 NC 0,,,,,,,,,,,,, \r'
+    help: "Stop the built-in test oscillator (other oscillator settings unchanged)."
 
   # ── System Commands ──
   meters_on:
@@ -889,7 +1766,6 @@ commands:
         label: Interval (ms)
         min: 100
         max: 10000
-        help: "Meter notification interval in milliseconds (mixer default 100)."
 
   identify:
     label: Identify (Blink LED)
@@ -901,14 +1777,145 @@ commands:
     send: 'reboot S 0000 00 NC \r'
     help: "Reboots the ATDM-1012."
 
+# ── Device settings (device-level system config with read-back; every
+#    per-channel/per-group value lives on the child entities instead). ──
+device_settings:
+  aec_mode:
+    type: enum
+    values:
+      - { value: "0", label: "Off" }
+      - { value: "1", label: "AEC" }
+      - { value: "2", label: "Noise Canceling" }
+    label: AEC Mode
+    help: >
+      Echo processing mode: AEC cancels far-end echo for conferencing;
+      Noise Canceling reduces steady background noise instead. Per-channel
+      participation is set on each input child (AEC Enabled).
+    state_key: aec_mode
+    default: "1"
+    setup: false
+    write:
+      send: 's_aec_general S 0000 00 NC {value},,,,,,,,,, \r'
+  usb_out1_source:
+    type: enum
+    values:
+      - { value: "0", label: "Off" }
+      - { value: "1", label: "Bus 1" }
+      - { value: "2", label: "Bus 2" }
+      - { value: "3", label: "Bus 3" }
+      - { value: "4", label: "Bus 4" }
+      - { value: "5", label: "Bus 5" }
+      - { value: "6", label: "Bus 6" }
+      - { value: "7", label: "Bus 7" }
+      - { value: "8", label: "Bus 8" }
+      - { value: "9", label: "Bus 9" }
+      - { value: "10", label: "Bus 10" }
+      - { value: "11", label: "Bus 11" }
+      - { value: "12", label: "Bus 12" }
+    label: USB OUT1 Source
+    help: "Bus feeding USB output channel 1."
+    state_key: usb_out1_source
+    default: "0"
+    setup: false
+    write:
+      send: 's_usb_out S 0000 00 NC {value},, \r'
+  usb_out2_source:
+    type: enum
+    values:
+      - { value: "0", label: "Off" }
+      - { value: "1", label: "Bus 1" }
+      - { value: "2", label: "Bus 2" }
+      - { value: "3", label: "Bus 3" }
+      - { value: "4", label: "Bus 4" }
+      - { value: "5", label: "Bus 5" }
+      - { value: "6", label: "Bus 6" }
+      - { value: "7", label: "Bus 7" }
+      - { value: "8", label: "Bus 8" }
+      - { value: "9", label: "Bus 9" }
+      - { value: "10", label: "Bus 10" }
+      - { value: "11", label: "Bus 11" }
+      - { value: "12", label: "Bus 12" }
+    label: USB OUT2 Source
+    help: "Bus feeding USB output channel 2."
+    state_key: usb_out2_source
+    default: "0"
+    setup: false
+    write:
+      send: 's_usb_out S 0000 00 NC ,{value}, \r'
+  usb_send_level:
+    type: integer
+    min: 0
+    max: 411
+    label: USB Send Level
+    help: "USB output send level (0 = mute, 411 = 0 dB)."
+    state_key: usb_send_level
+    default: 411
+    setup: false
+    write:
+      send: 's_usb_out S 0000 00 NC ,,{value} \r'
+  at_link_mode:
+    type: boolean
+    label: AT-LINK Mode
+    help: >
+      Audio-Technica LINK multi-unit extension mode. Only change this when
+      physically chaining units -- it reconfigures how the mixer expects to
+      be addressed.
+    state_key: at_link_mode
+    default: false
+    setup: false
+    write:
+      send: 's_link S 0000 00 NC {value:d} \r'
+  front_recall_preset:
+    type: boolean
+    label: Front Panel Preset Recall
+    help: "Allow presets to be recalled from the mixer's front panel."
+    state_key: front_recall_preset
+    default: true
+    setup: false
+    write:
+      send: 's_front_panel S 0000 00 NC {value:d},, \r'
+  front_led_dimmer:
+    type: boolean
+    label: Front Panel LED Dimmer
+    help: "Dim the front panel LEDs (for racks in dark rooms)."
+    state_key: front_led_dimmer
+    default: false
+    setup: false
+    write:
+      send: 's_front_panel S 0000 00 NC ,{value:d}, \r'
+  front_error_notice:
+    type: boolean
+    label: Front Panel Error Display
+    help: "Show error notices on the front panel display."
+    state_key: front_error_notice
+    default: true
+    setup: false
+    write:
+      send: 's_front_panel S 0000 00 NC ,,{value:d} \r'
+  bootup_preset:
+    type: enum
+    values:
+      - { value: "0", label: "Resume Last State" }
+      - { value: "1", label: "Preset 1" }
+      - { value: "2", label: "Preset 2" }
+      - { value: "3", label: "Preset 3" }
+      - { value: "4", label: "Preset 4" }
+      - { value: "5", label: "Preset 5" }
+      - { value: "6", label: "Preset 6" }
+      - { value: "7", label: "Preset 7" }
+      - { value: "8", label: "Preset 8" }
+    label: Boot-Up Preset
+    help: "Preset the mixer recalls at power-on."
+    state_key: bootup_preset
+    default: "0"
+    setup: false
+    write:
+      send: 's_bootup_preset S 0000 00 NC {value} \r'
+
 # ── Quick actions ──
 actions:
   - id: recall_preset
     icon: bookmark
-  - id: input_mute_on
-    icon: mic-off
-  - id: input_mute_off
-    icon: mic
   - id: output_mute_on
     icon: volume-x
   - id: output_mute_off
@@ -919,278 +1926,330 @@ actions:
     icon: eye
   - id: meters_off
     icon: eye-off
+  - id: oscillator_on
+    icon: activity
+    confirm: >
+      Send a test tone into the selected outputs? Check levels first --
+      the tone plays through the room's speakers.
+  - id: oscillator_off
+    icon: square
 
 responses:
   # ── Firmware version answer ──
   - match: 'g_firmware_version 0000 \S+ NC (\S+)'
     set: { firmware_version: "$1" }
 
-  # ── Input level answers (short command format) ──
-  - match: 'GICL 0000 \S+ NC 0,(\d+)'
-    set: { input_1_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 1,(\d+)'
-    set: { input_2_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 2,(\d+)'
-    set: { input_3_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 3,(\d+)'
-    set: { input_4_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 4,(\d+)'
-    set: { input_5_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 5,(\d+)'
-    set: { input_6_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 6,(\d+)'
-    set: { input_7_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 7,(\d+)'
-    set: { input_8_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 8,(\d+)'
-    set: { input_9_level: "$1" }
-  - match: 'GICL 0000 \S+ NC 9,(\d+)'
-    set: { input_10_level: "$1" }
+  # ── AT-LINK mode answer ──
+  - match: 'g_link 0000 \S+ NC 1'
+    set: { at_link_mode: "true" }
+  - match: 'g_link 0000 \S+ NC 0'
+    set: { at_link_mode: "false" }
 
-  # ── Input mute answers ──
-  - match: 'GICM 0000 \S+ NC 0,1'
-    set: { input_1_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 0,0'
-    set: { input_1_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 1,1'
-    set: { input_2_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 1,0'
-    set: { input_2_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 2,1'
-    set: { input_3_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 2,0'
-    set: { input_3_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 3,1'
-    set: { input_4_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 3,0'
-    set: { input_4_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 4,1'
-    set: { input_5_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 4,0'
-    set: { input_5_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 5,1'
-    set: { input_6_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 5,0'
-    set: { input_6_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 6,1'
-    set: { input_7_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 6,0'
-    set: { input_7_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 7,1'
-    set: { input_8_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 7,0'
-    set: { input_8_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 8,1'
-    set: { input_9_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 8,0'
-    set: { input_9_mute: "false" }
-  - match: 'GICM 0000 \S+ NC 9,1'
-    set: { input_10_mute: "true" }
-  - match: 'GICM 0000 \S+ NC 9,0'
-    set: { input_10_mute: "false" }
+  # ── Per-group SmartMix settings (9 fields, group LAST — the group
+  #    number doubles as the child id, no map needed) ──
+  - match: 'g_smart_mix_general 0000 \S+ NC (\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),([1-4])'
+    child_set:
+      - type: smart_mix_group
+        id: $9
+        state:
+          mode: $1
+          last_mic_on: $2
+          gate_hold_time: $3
+          noma: $4
+          open_mic_count: $5
+          priority_mode: $6
+          gate_threshold_enabled: $7
+          gate_threshold: $8
 
-  # ── Output level answers ──
-  - match: 'GOCL 0000 \S+ NC 0,(\d+)'
-    set: { output_1_level: "$1" }
-  - match: 'GOCL 0000 \S+ NC 1,(\d+)'
-    set: { output_2_level: "$1" }
-  - match: 'GOCL 0000 \S+ NC 2,(\d+)'
-    set: { output_3_level: "$1" }
-  - match: 'GOCL 0000 \S+ NC 3,(\d+)'
-    set: { output_4_level: "$1" }
-  - match: 'GOCL 0000 \S+ NC 4,(\d+)'
-    set: { output_5_level: "$1" }
-  - match: 'GOCL 0000 \S+ NC 5,(\d+)'
-    set: { output_6_level: "$1" }
-  - match: 'GOCL 0000 \S+ NC 6,(\d+)'
-    set: { output_7_level: "$1" }
-  - match: 'GOCL 0000 \S+ NC 7,(\d+)'
-    set: { output_8_level: "$1" }
+  # ── Input gain/level/mute answers (10 fields: ch, mic gain, line gain,
+  #    level, mute, ...). Channel classes are disambiguated in the REGEX
+  #    (single digit = input 1-10, 1[01] = ST) because dispatch stops at
+  #    the first matching rule. ──
+  - match: 'g_input_gain_level 0000 \S+ NC (1[01]),(\d+),\d+,(\d+),([01])'
+    child_set:
+      - type: stereo_input
+        id: { group: 1, map: { "10": 1, "11": 2 } }
+        state: { gain: $2, level: $3, mute: $4 }
+  - match: 'g_input_gain_level 0000 \S+ NC ([0-9]),(\d+),\d+,(\d+),([01])'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10 } }
+        state: { gain: $2, level: $3, mute: $4 }
 
-  # ── Output mute answers ──
-  - match: 'GOCM 0000 \S+ NC 0,1'
-    set: { output_1_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 0,0'
-    set: { output_1_mute: "false" }
-  - match: 'GOCM 0000 \S+ NC 1,1'
-    set: { output_2_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 1,0'
-    set: { output_2_mute: "false" }
-  - match: 'GOCM 0000 \S+ NC 2,1'
-    set: { output_3_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 2,0'
-    set: { output_3_mute: "false" }
-  - match: 'GOCM 0000 \S+ NC 3,1'
-    set: { output_4_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 3,0'
-    set: { output_4_mute: "false" }
-  - match: 'GOCM 0000 \S+ NC 4,1'
-    set: { output_5_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 4,0'
-    set: { output_5_mute: "false" }
-  - match: 'GOCM 0000 \S+ NC 5,1'
-    set: { output_6_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 5,0'
-    set: { output_6_mute: "false" }
-  - match: 'GOCM 0000 \S+ NC 6,1'
-    set: { output_7_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 6,0'
-    set: { output_7_mute: "false" }
-  - match: 'GOCM 0000 \S+ NC 7,1'
-    set: { output_8_mute: "true" }
-  - match: 'GOCM 0000 \S+ NC 7,0'
-    set: { output_8_mute: "false" }
+  # ── Input channel settings answers (28 fields per the table; only the
+  #    position-stable head (source..SmartMix) and the quoted name + the
+  #    color right after it are parsed — the tail is contradicted between
+  #    the spec's own examples). Color tolerates index or hex forms. ──
+  - match: 'g_input_channel_settings 0000 \S+ NC (1[01]),(\d+),[01]?,([01]?),([01]?),[01]?,[01]?,[01]?,[^"]*"((?:[^"]|"")*)",([0-9A-Za-z]+)'
+    child_set:
+      - type: stereo_input
+        id: { group: 1, map: { "10": 1, "11": 2 } }
+        state:
+          source:
+            group: 2
+            map: { "0": "Mic", "1": "Line +4dBu", "2": "Line 0dBV", "3": "Line -10dBV", "4": "Line -20dBV", "5": "USB", "6": "Virtual Mic 1", "7": "Virtual Mic 2", "9": "Dante" }
+          phase: $3
+          low_cut: $4
+          name: $5
+          color:
+            group: 6
+            map: { "0": "Green", "1": "Yellow", "2": "Brown", "3": "Red", "4": "Pink", "5": "Blue", "6": "Gray", "7": "DarkGray" }
+  - match: 'g_input_channel_settings 0000 \S+ NC ([0-9]),(\d+),([01]?),([01]?),([01]?),([01]?),([01]?),[01]?,[^"]*"((?:[^"]|"")*)",([0-9A-Za-z]+)'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10 } }
+        state:
+          source:
+            group: 2
+            map: { "0": "Mic", "1": "Line +4dBu", "2": "Line 0dBV", "3": "Line -10dBV", "4": "Line -20dBV", "5": "USB", "6": "Virtual Mic 1", "7": "Virtual Mic 2", "9": "Dante" }
+          phantom: $3
+          phase: $4
+          low_cut: $5
+          aec_enabled: $6
+          smart_mix_enabled: $7
+          name: $8
+          color:
+            group: 9
+            map: { "0": "Green", "1": "Yellow", "2": "Brown", "3": "Red", "4": "Pink", "5": "Blue", "6": "Gray", "7": "DarkGray" }
 
-  # ── MD push notices (multicast; see push: block). Same first-match
-  #    dispatch as the answers above. The device-ID slot is \S+ (the 1012
-  #    reports a real Device ID, 00-FF). The grammar lets fields be omitted
-  #    (empty between commas), so level/mute captures are OPTIONAL groups —
-  #    an omitted field simply skips its mapping instead of storing
-  #    garbage. ──
+  # ── Sub-input settings answers (8 fields: ch 0-7, source, gain,
+  #    low cut, link, "name", color, fader group) ──
+  - match: 'g_subinput_channel_settings 0000 \S+ NC ([0-7]),(\d*),(\d+),([01]),[01],"((?:[^"]|"")*)",([0-9A-Za-z]+)'
+    child_set:
+      - type: sub_input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8 } }
+        state:
+          source: $2
+          gain: $3
+          low_cut: $4
+          name: $5
+          color:
+            group: 6
+            map: { "0": "Green", "1": "Yellow", "2": "Brown", "3": "Red", "4": "Pink", "5": "Blue", "6": "Gray", "7": "DarkGray" }
 
-  # Input gain/level/mute changed (Table 5-3: ch, mic_gain, line_gain,
-  # level, mute). ST1/ST2 (channels 10/11) are deliberately unmapped — the
-  # driver does not model ST-channel state (matches the polling scope).
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 0,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_1_level: "$1", input_1_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 1,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_2_level: "$1", input_2_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 2,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_3_level: "$1", input_3_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 3,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_4_level: "$1", input_4_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 4,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_5_level: "$1", input_5_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 5,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_6_level: "$1", input_6_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 6,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_7_level: "$1", input_7_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 7,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_8_level: "$1", input_8_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 8,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_9_level: "$1", input_9_mute: "$2" }
-  - match: 'MD input_gain_level_notice 0000 \S+ NC 9,[^,]*,[^,]*,(\d+)?,([01])?'
-    set: { input_10_level: "$1", input_10_mute: "$2" }
+  # ── Sub-input level/mute via the short codes (wire 12-19) ──
+  - match: 'GICL 0000 \S+ NC (1[2-9]),(\d+)'
+    child_set:
+      - type: sub_input
+        id: { group: 1, map: { "12": 1, "13": 2, "14": 3, "15": 4, "16": 5, "17": 6, "18": 7, "19": 8 } }
+        state: { level: $2 }
+  - match: 'GICM 0000 \S+ NC (1[2-9]),([01])'
+    child_set:
+      - type: sub_input
+        id: { group: 1, map: { "12": 1, "13": 2, "14": 3, "15": 4, "16": 5, "17": 6, "18": 7, "19": 8 } }
+        state: { mute: $2 }
 
-  # Output level changed (Table 5-4: ch, level). ST1/ST2 (channels 8/9)
-  # unmapped — no ST output state vars.
-  - match: 'MD output_level_notice 0000 \S+ NC 0,(\d+)'
-    set: { output_1_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 1,(\d+)'
-    set: { output_2_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 2,(\d+)'
-    set: { output_3_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 3,(\d+)'
-    set: { output_4_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 4,(\d+)'
-    set: { output_5_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 5,(\d+)'
-    set: { output_6_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 6,(\d+)'
-    set: { output_7_level: "$1" }
-  - match: 'MD output_level_notice 0000 \S+ NC 7,(\d+)'
-    set: { output_8_level: "$1" }
+  # ── Output level/mute answers (GOCL/GOCM; 0-7 outputs, 8/9 ST) ──
+  - match: 'GOCL 0000 \S+ NC ([89]),(\d+)'
+    child_set:
+      - type: stereo_output
+        id: { group: 1, map: { "8": 1, "9": 2 } }
+        state: { level: $2 }
+  - match: 'GOCL 0000 \S+ NC ([0-7]),(\d+)'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8 } }
+        state: { level: $2 }
+  - match: 'GOCM 0000 \S+ NC ([89]),([01])'
+    child_set:
+      - type: stereo_output
+        id: { group: 1, map: { "8": 1, "9": 2 } }
+        state: { mute: $2 }
+  - match: 'GOCM 0000 \S+ NC ([0-7]),([01])'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8 } }
+        state: { mute: $2 }
 
-  # Output mute changed (Table 5-5: ch, mute)
-  - match: 'MD output_mute_notice 0000 \S+ NC 0,([01])'
-    set: { output_1_mute: "$1" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 1,([01])'
-    set: { output_2_mute: "$1" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 2,([01])'
-    set: { output_3_mute: "$1" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 3,([01])'
-    set: { output_4_mute: "$1" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 4,([01])'
-    set: { output_5_mute: "$1" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 5,([01])'
-    set: { output_6_mute: "$1" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 6,([01])'
-    set: { output_7_mute: "$1" }
-  - match: 'MD output_mute_notice 0000 \S+ NC 7,([01])'
-    set: { output_8_mute: "$1" }
+  # ── Output channel settings (7 fields: ch, unity, "name", color,
+  #    link, source, fader group) ──
+  - match: 'g_output_channel_settings 0000 \S+ NC ([89]),\d*,"((?:[^"]|"")*)",([0-9A-Za-z]+),[01]?,(\d*)'
+    child_set:
+      - type: stereo_output
+        id: { group: 1, map: { "8": 1, "9": 2 } }
+        state:
+          name: $2
+          color:
+            group: 3
+            map: { "0": "Green", "1": "Yellow", "2": "Brown", "3": "Red", "4": "Pink", "5": "Blue", "6": "Gray", "7": "DarkGray" }
+          source:
+            group: 4
+            map: { "0": "Off", "1": "Bus 1", "2": "Bus 2", "3": "Bus 3", "4": "Bus 4", "5": "Bus 5", "6": "Bus 6", "7": "Bus 7", "8": "Bus 8", "9": "Bus 9", "10": "Bus 10", "11": "Bus 11", "12": "Bus 12", "13": "Direct Out" }
+  - match: 'g_output_channel_settings 0000 \S+ NC ([0-7]),\d*,"((?:[^"]|"")*)",([0-9A-Za-z]+),[01]?,(\d*)'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8 } }
+        state:
+          name: $2
+          color:
+            group: 3
+            map: { "0": "Green", "1": "Yellow", "2": "Brown", "3": "Red", "4": "Pink", "5": "Blue", "6": "Gray", "7": "DarkGray" }
+          source:
+            group: 4
+            map: { "0": "Off", "1": "Bus 1", "2": "Bus 2", "3": "Bus 3", "4": "Bus 4", "5": "Bus 5", "6": "Bus 6", "7": "Bus 7", "8": "Bus 8", "9": "Bus 9", "10": "Bus 10", "11": "Bus 11", "12": "Bus 12", "13": "Direct Out" }
 
-  # SmartMix gate open/close (Table 5-11: ch 0-9, SmartMix group 1-4,
-  # status) — per-channel on this model; the group slot is matched but not
-  # captured (gate state is per input, the group is a routing detail)
-  - match: 'MD open_channel_notice 0000 \S+ NC 0,[1-4],([01])'
-    set: { input_1_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 1,[1-4],([01])'
-    set: { input_2_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 2,[1-4],([01])'
-    set: { input_3_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 3,[1-4],([01])'
-    set: { input_4_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 4,[1-4],([01])'
-    set: { input_5_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 5,[1-4],([01])'
-    set: { input_6_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 6,[1-4],([01])'
-    set: { input_7_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 7,[1-4],([01])'
-    set: { input_8_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 8,[1-4],([01])'
-    set: { input_9_gate_open: "$1" }
-  - match: 'MD open_channel_notice 0000 \S+ NC 9,[1-4],([01])'
-    set: { input_10_gate_open: "$1" }
+  # ── System settings answers ──
+  - match: 'g_usb_out 0000 \S+ NC (\d+),(\d+),(\d+)'
+    set:
+      usb_out1_source: "$1"
+      usb_out2_source: "$2"
+      usb_send_level: "$3"
+  - match: 'g_aec_general 0000 \S+ NC (\d+),'
+    set: { aec_mode: "$1" }
+  - match: 'g_oscillator 0000 \S+ NC ([01]),'
+    set: { oscillator_on: "$1" }
+  - match: 'g_front_panel 0000 \S+ NC ([01]),([01]),([01])'
+    set:
+      front_recall_preset: "$1"
+      front_led_dimmer: "$2"
+      front_error_notice: "$3"
+  - match: 'g_bootup_preset 0000 \S+ NC (\d+)'
+    set: { bootup_preset: "$1" }
 
-  # Preset recalled (Table 5-9: bank 1-8) — fires for front-panel, Web
-  # Remote, and IP
+  # ── MD push notices (multicast; see push: block). Spec allows omitted
+  #    parameters — gain/level/mute captures are OPTIONAL groups so an
+  #    omitted field skips its mapping. Channel classes live in the regex
+  #    (dispatch stops at the first matching rule). ──
+  - match: 'MD input_gain_level_notice 0000 \S+ NC (1[01]),(\d+)?,[^,]*,(\d+)?,([01])?'
+    child_set:
+      - type: stereo_input
+        id: { group: 1, map: { "10": 1, "11": 2 } }
+        state: { gain: $2, level: $3, mute: $4 }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC (1[2-9]),(\d+)?,[^,]*,(\d+)?,([01])?'
+    child_set:
+      - type: sub_input
+        id: { group: 1, map: { "12": 1, "13": 2, "14": 3, "15": 4, "16": 5, "17": 6, "18": 7, "19": 8 } }
+        state: { level: $3, mute: $4 }
+  - match: 'MD input_gain_level_notice 0000 \S+ NC ([0-9]),(\d+)?,[^,]*,(\d+)?,([01])?'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10 } }
+        state: { gain: $2, level: $3, mute: $4 }
+
+  - match: 'MD output_level_notice 0000 \S+ NC ([89]),(\d+)'
+    child_set:
+      - type: stereo_output
+        id: { group: 1, map: { "8": 1, "9": 2 } }
+        state: { level: $2 }
+  - match: 'MD output_level_notice 0000 \S+ NC ([0-7]),(\d+)'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8 } }
+        state: { level: $2 }
+  - match: 'MD output_mute_notice 0000 \S+ NC ([89]),([01])'
+    child_set:
+      - type: stereo_output
+        id: { group: 1, map: { "8": 1, "9": 2 } }
+        state: { mute: $2 }
+  - match: 'MD output_mute_notice 0000 \S+ NC ([0-7]),([01])'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8 } }
+        state: { mute: $2 }
+
+  # SmartMix gate open/close (ch 0-9, group 1-4 matched not captured)
+  - match: 'MD open_channel_notice 0000 \S+ NC ([0-9]),[1-4],([01])'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10 } }
+        state: { gate_open: $2 }
+
+  # Preset recalled (bank 1-8) — front panel, Web Remote, and IP
   - match: 'MD recall_preset_notice 0000 \S+ NC ([1-8])'
     set: { last_recalled_preset: "$1" }
 
-  # Level meters: 42 values (Table 5-2) — 22 post-fader (In1-10, ST1, ST2,
-  # Out1-8, ST1, ST2, 0-61) then 10 AEC + 10 gain-share (unmapped).
-  # Arrives at the meter interval (mixer default 100 ms); throttled to
-  # ~2 writes/sec.
+  # Level meters: 42 values — the first 22 are post-fader channel meters
+  # (In 1-10, ST1, ST2, Out 1-8, ST1, ST2; single value per stereo channel
+  # on this model), the rest AEC/gain-share diagnostics (unmapped).
+  # Arrives at the meter interval (mixer default 100 ms); throttled.
   - match: 'MD level_meter_notice 0000 \S+ NC (\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),'
     throttle: 0.5
-    set:
-      input_1_meter: "$1"
-      input_2_meter: "$2"
-      input_3_meter: "$3"
-      input_4_meter: "$4"
-      input_5_meter: "$5"
-      input_6_meter: "$6"
-      input_7_meter: "$7"
-      input_8_meter: "$8"
-      input_9_meter: "$9"
-      input_10_meter: "$10"
-      input_st1_meter: "$11"
-      input_st2_meter: "$12"
-      output_1_meter: "$13"
-      output_2_meter: "$14"
-      output_3_meter: "$15"
-      output_4_meter: "$16"
-      output_5_meter: "$17"
-      output_6_meter: "$18"
-      output_7_meter: "$19"
-      output_8_meter: "$20"
-      output_st1_meter: "$21"
-      output_st2_meter: "$22"
+    child_set:
+      - { type: input, id: 1, state: { meter: $1 } }
+      - { type: input, id: 2, state: { meter: $2 } }
+      - { type: input, id: 3, state: { meter: $3 } }
+      - { type: input, id: 4, state: { meter: $4 } }
+      - { type: input, id: 5, state: { meter: $5 } }
+      - { type: input, id: 6, state: { meter: $6 } }
+      - { type: input, id: 7, state: { meter: $7 } }
+      - { type: input, id: 8, state: { meter: $8 } }
+      - { type: input, id: 9, state: { meter: $9 } }
+      - { type: input, id: 10, state: { meter: $10 } }
+      - { type: stereo_input, id: 1, state: { meter: $11 } }
+      - { type: stereo_input, id: 2, state: { meter: $12 } }
+      - { type: output, id: 1, state: { meter: $13 } }
+      - { type: output, id: 2, state: { meter: $14 } }
+      - { type: output, id: 3, state: { meter: $15 } }
+      - { type: output, id: 4, state: { meter: $16 } }
+      - { type: output, id: 5, state: { meter: $17 } }
+      - { type: output, id: 6, state: { meter: $18 } }
+      - { type: output, id: 7, state: { meter: $19 } }
+      - { type: output, id: 8, state: { meter: $20 } }
+      - { type: stereo_output, id: 1, state: { meter: $21 } }
+      - { type: stereo_output, id: 2, state: { meter: $22 } }
 
 polling:
+  # Every query ends "<params> \r" — the trailing space is required by the
+  # protocol grammar (hardware-verified on the ATDM-0604a; same family).
+  # g_input_gain_level answers gain + level + mute per channel for inputs
+  # and STs; sub-inputs poll level/mute via the short codes (the verbose
+  # gain/level verb excludes their gain). Channel names and settings have
+  # no MD notice, so the poll is their only resync.
   queries:
     - 'g_firmware_version O 0000 00 NC \r'
-    - 'GICL O 0000 00 NC 0 \r'
-    - 'GICL O 0000 00 NC 1 \r'
-    - 'GICL O 0000 00 NC 2 \r'
-    - 'GICL O 0000 00 NC 3 \r'
-    - 'GICL O 0000 00 NC 4 \r'
-    - 'GICL O 0000 00 NC 5 \r'
-    - 'GICL O 0000 00 NC 6 \r'
-    - 'GICL O 0000 00 NC 7 \r'
-    - 'GICL O 0000 00 NC 8 \r'
-    - 'GICL O 0000 00 NC 9 \r'
-    - 'GICM O 0000 00 NC 0 \r'
-    - 'GICM O 0000 00 NC 1 \r'
-    - 'GICM O 0000 00 NC 2 \r'
-    - 'GICM O 0000 00 NC 3 \r'
-    - 'GICM O 0000 00 NC 4 \r'
-    - 'GICM O 0000 00 NC 5 \r'
-    - 'GICM O 0000 00 NC 6 \r'
-    - 'GICM O 0000 00 NC 7 \r'
-    - 'GICM O 0000 00 NC 8 \r'
-    - 'GICM O 0000 00 NC 9 \r'
+    - 'g_link O 0000 00 NC \r'
+    - 'g_smart_mix_general O 0000 00 NC 1 \r'
+    - 'g_smart_mix_general O 0000 00 NC 2 \r'
+    - 'g_smart_mix_general O 0000 00 NC 3 \r'
+    - 'g_smart_mix_general O 0000 00 NC 4 \r'
+    - 'g_input_gain_level O 0000 00 NC 0 \r'
+    - 'g_input_gain_level O 0000 00 NC 1 \r'
+    - 'g_input_gain_level O 0000 00 NC 2 \r'
+    - 'g_input_gain_level O 0000 00 NC 3 \r'
+    - 'g_input_gain_level O 0000 00 NC 4 \r'
+    - 'g_input_gain_level O 0000 00 NC 5 \r'
+    - 'g_input_gain_level O 0000 00 NC 6 \r'
+    - 'g_input_gain_level O 0000 00 NC 7 \r'
+    - 'g_input_gain_level O 0000 00 NC 8 \r'
+    - 'g_input_gain_level O 0000 00 NC 9 \r'
+    - 'g_input_gain_level O 0000 00 NC 10 \r'
+    - 'g_input_gain_level O 0000 00 NC 11 \r'
+    - 'g_input_channel_settings O 0000 00 NC 0 \r'
+    - 'g_input_channel_settings O 0000 00 NC 1 \r'
+    - 'g_input_channel_settings O 0000 00 NC 2 \r'
+    - 'g_input_channel_settings O 0000 00 NC 3 \r'
+    - 'g_input_channel_settings O 0000 00 NC 4 \r'
+    - 'g_input_channel_settings O 0000 00 NC 5 \r'
+    - 'g_input_channel_settings O 0000 00 NC 6 \r'
+    - 'g_input_channel_settings O 0000 00 NC 7 \r'
+    - 'g_input_channel_settings O 0000 00 NC 8 \r'
+    - 'g_input_channel_settings O 0000 00 NC 9 \r'
+    - 'g_input_channel_settings O 0000 00 NC 10 \r'
+    - 'g_input_channel_settings O 0000 00 NC 11 \r'
+    - 'GICL O 0000 00 NC 12 \r'
+    - 'GICL O 0000 00 NC 13 \r'
+    - 'GICL O 0000 00 NC 14 \r'
+    - 'GICL O 0000 00 NC 15 \r'
+    - 'GICL O 0000 00 NC 16 \r'
+    - 'GICL O 0000 00 NC 17 \r'
+    - 'GICL O 0000 00 NC 18 \r'
+    - 'GICL O 0000 00 NC 19 \r'
+    - 'GICM O 0000 00 NC 12 \r'
+    - 'GICM O 0000 00 NC 13 \r'
+    - 'GICM O 0000 00 NC 14 \r'
+    - 'GICM O 0000 00 NC 15 \r'
+    - 'GICM O 0000 00 NC 16 \r'
+    - 'GICM O 0000 00 NC 17 \r'
+    - 'GICM O 0000 00 NC 18 \r'
+    - 'GICM O 0000 00 NC 19 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 0 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 1 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 2 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 3 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 4 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 5 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 6 \r'
+    - 'g_subinput_channel_settings O 0000 00 NC 7 \r'
     - 'GOCL O 0000 00 NC 0 \r'
     - 'GOCL O 0000 00 NC 1 \r'
     - 'GOCL O 0000 00 NC 2 \r'
@@ -1199,6 +2258,8 @@ polling:
     - 'GOCL O 0000 00 NC 5 \r'
     - 'GOCL O 0000 00 NC 6 \r'
     - 'GOCL O 0000 00 NC 7 \r'
+    - 'GOCL O 0000 00 NC 8 \r'
+    - 'GOCL O 0000 00 NC 9 \r'
     - 'GOCM O 0000 00 NC 0 \r'
     - 'GOCM O 0000 00 NC 1 \r'
     - 'GOCM O 0000 00 NC 2 \r'
@@ -1207,15 +2268,29 @@ polling:
     - 'GOCM O 0000 00 NC 5 \r'
     - 'GOCM O 0000 00 NC 6 \r'
     - 'GOCM O 0000 00 NC 7 \r'
+    - 'GOCM O 0000 00 NC 8 \r'
+    - 'GOCM O 0000 00 NC 9 \r'
+    - 'g_output_channel_settings O 0000 00 NC 0 \r'
+    - 'g_output_channel_settings O 0000 00 NC 1 \r'
+    - 'g_output_channel_settings O 0000 00 NC 2 \r'
+    - 'g_output_channel_settings O 0000 00 NC 3 \r'
+    - 'g_output_channel_settings O 0000 00 NC 4 \r'
+    - 'g_output_channel_settings O 0000 00 NC 5 \r'
+    - 'g_output_channel_settings O 0000 00 NC 6 \r'
+    - 'g_output_channel_settings O 0000 00 NC 7 \r'
+    - 'g_output_channel_settings O 0000 00 NC 8 \r'
+    - 'g_output_channel_settings O 0000 00 NC 9 \r'
+    - 'g_usb_out O 0000 00 NC \r'
+    - 'g_aec_general O 0000 00 NC \r'
+    - 'g_oscillator O 0000 00 NC \r'
+    - 'g_front_panel O 0000 00 NC \r'
+    - 'g_bootup_preset O 0000 00 NC \r'
 
 # ── LIVENESS WATCHDOG ──
-# The ATDM protocol is asynchronous and push-capable: between polls a quiet
-# room produces no traffic, and fire-and-forget poll queries never notice a
-# mixer that dropped without a FIN. Probe the documented firmware-version
-# query (the same one polling uses) and require its answer within 5 s; two
-# silent probes force a reconnect with a typed no_response fault. The expect
-# is unanchored — the poll cycle's own g_firmware_version answer satisfies a
-# pending probe too, but MD pushes cannot.
+# Asynchronous protocol; a quiet mixer produces no traffic between polls.
+# Probe the firmware-version query and require its answer within 5 s; two
+# silent probes force a reconnect with a typed no_response fault. The
+# expect is unanchored — the poll cycle's own answer satisfies it too.
 liveness:
   send: 'g_firmware_version O 0000 00 NC \r'
   expect: 'g_firmware_version 0000'
@@ -1225,472 +2300,960 @@ liveness:
 
 # ── SIMULATOR DEFINITION ──
 # Simulates the TCP control surface (polling + commands) plus the MD push
-# channel: because the driver declares a multicast push: block, the
-# notifications templates below are emitted to the notification group over
-# UDP multicast — never on the TCP connection — exactly like the real mixer.
+# channel (multicast, never TCP — like the real mixer). Sim state keys are
+# flat per-channel keys; the driver's child_set rules route them into
+# child entities.
 simulator:
   initial_state:
-    firmware_version: "1.0.0"
-    input_1_level: 411
-    input_2_level: 411
-    input_3_level: 411
-    input_4_level: 411
-    input_5_level: 411
-    input_6_level: 411
-    input_7_level: 411
-    input_8_level: 411
-    input_9_level: 411
-    input_10_level: 411
-    input_1_mute: false
-    input_2_mute: false
-    input_3_mute: false
-    input_4_mute: false
-    input_5_mute: false
-    input_6_mute: false
-    input_7_mute: false
-    input_8_mute: false
-    input_9_mute: false
-    input_10_mute: false
-    output_1_level: 411
-    output_2_level: 411
-    output_3_level: 411
-    output_4_level: 411
-    output_5_level: 411
-    output_6_level: 411
-    output_7_level: 411
-    output_8_level: 411
-    output_1_mute: false
-    output_2_mute: false
-    output_3_mute: false
-    output_4_mute: false
-    output_5_mute: false
-    output_6_mute: false
-    output_7_mute: false
-    output_8_mute: false
-    input_1_gate_open: false
-    input_2_gate_open: false
-    input_3_gate_open: false
-    input_4_gate_open: false
-    input_5_gate_open: false
-    input_6_gate_open: false
-    input_7_gate_open: false
-    input_8_gate_open: false
-    input_9_gate_open: false
-    input_10_gate_open: false
+    firmware_version: "01.00.00"
+    at_link_mode: 0
     last_recalled_preset: 1
+    aec_mode: 1
+    usb_out1: 0
+    usb_out2: 0
+    usb_level: 411
+    osc_on: 0
+    osc_source: 0
+    osc_freq: 1
+    osc_level: 61
+    front_recall: 1
+    front_dimmer: 0
+    front_error: 1
+    bootup_preset: 0
+    in1_level: 411
+    in1_mute: false
+    in1_gain: 20
+    in1_source: 0
+    in1_phantom: 0
+    in1_phase: 0
+    in1_lowcut: 0
+    in1_aec: 0
+    in1_sm: 0
+    in1_name: "CH 1"
+    in1_color: 0
+    in1_gate: false
+    in2_level: 411
+    in2_mute: false
+    in2_gain: 20
+    in2_source: 0
+    in2_phantom: 0
+    in2_phase: 0
+    in2_lowcut: 0
+    in2_aec: 0
+    in2_sm: 0
+    in2_name: "CH 2"
+    in2_color: 0
+    in2_gate: false
+    in3_level: 411
+    in3_mute: false
+    in3_gain: 20
+    in3_source: 0
+    in3_phantom: 0
+    in3_phase: 0
+    in3_lowcut: 0
+    in3_aec: 0
+    in3_sm: 0
+    in3_name: "CH 3"
+    in3_color: 0
+    in3_gate: false
+    in4_level: 411
+    in4_mute: false
+    in4_gain: 20
+    in4_source: 0
+    in4_phantom: 0
+    in4_phase: 0
+    in4_lowcut: 0
+    in4_aec: 0
+    in4_sm: 0
+    in4_name: "CH 4"
+    in4_color: 0
+    in4_gate: false
+    in5_level: 411
+    in5_mute: false
+    in5_gain: 20
+    in5_source: 0
+    in5_phantom: 0
+    in5_phase: 0
+    in5_lowcut: 0
+    in5_aec: 0
+    in5_sm: 0
+    in5_name: "CH 5"
+    in5_color: 0
+    in5_gate: false
+    in6_level: 411
+    in6_mute: false
+    in6_gain: 20
+    in6_source: 0
+    in6_phantom: 0
+    in6_phase: 0
+    in6_lowcut: 0
+    in6_aec: 0
+    in6_sm: 0
+    in6_name: "CH 6"
+    in6_color: 0
+    in6_gate: false
+    in7_level: 411
+    in7_mute: false
+    in7_gain: 20
+    in7_source: 0
+    in7_phantom: 0
+    in7_phase: 0
+    in7_lowcut: 0
+    in7_aec: 0
+    in7_sm: 0
+    in7_name: "CH 7"
+    in7_color: 0
+    in7_gate: false
+    in8_level: 411
+    in8_mute: false
+    in8_gain: 20
+    in8_source: 0
+    in8_phantom: 0
+    in8_phase: 0
+    in8_lowcut: 0
+    in8_aec: 0
+    in8_sm: 0
+    in8_name: "CH 8"
+    in8_color: 0
+    in8_gate: false
+    in9_level: 411
+    in9_mute: false
+    in9_gain: 20
+    in9_source: 0
+    in9_phantom: 0
+    in9_phase: 0
+    in9_lowcut: 0
+    in9_aec: 0
+    in9_sm: 0
+    in9_name: "CH 9"
+    in9_color: 0
+    in9_gate: false
+    in10_level: 411
+    in10_mute: false
+    in10_gain: 20
+    in10_source: 0
+    in10_phantom: 0
+    in10_phase: 0
+    in10_lowcut: 0
+    in10_aec: 0
+    in10_sm: 0
+    in10_name: "CH 10"
+    in10_color: 0
+    in10_gate: false
+    st1_level: 411
+    st1_mute: false
+    st1_gain: 20
+    st1_source: 3
+    st1_phase: 0
+    st1_lowcut: 0
+    st1_name: "CH ST1"
+    st1_color: 0
+    st2_level: 411
+    st2_mute: false
+    st2_gain: 20
+    st2_source: 3
+    st2_phase: 0
+    st2_lowcut: 0
+    st2_name: "CH ST2"
+    st2_color: 0
+    sub1_level: 411
+    sub1_mute: false
+    sub1_gain: 20
+    sub1_source: 0
+    sub1_lowcut: 0
+    sub1_name: "SUB 1"
+    sub1_color: 0
+    sub2_level: 411
+    sub2_mute: false
+    sub2_gain: 20
+    sub2_source: 0
+    sub2_lowcut: 0
+    sub2_name: "SUB 2"
+    sub2_color: 0
+    sub3_level: 411
+    sub3_mute: false
+    sub3_gain: 20
+    sub3_source: 0
+    sub3_lowcut: 0
+    sub3_name: "SUB 3"
+    sub3_color: 0
+    sub4_level: 411
+    sub4_mute: false
+    sub4_gain: 20
+    sub4_source: 0
+    sub4_lowcut: 0
+    sub4_name: "SUB 4"
+    sub4_color: 0
+    sub5_level: 411
+    sub5_mute: false
+    sub5_gain: 20
+    sub5_source: 0
+    sub5_lowcut: 0
+    sub5_name: "SUB 5"
+    sub5_color: 0
+    sub6_level: 411
+    sub6_mute: false
+    sub6_gain: 20
+    sub6_source: 0
+    sub6_lowcut: 0
+    sub6_name: "SUB 6"
+    sub6_color: 0
+    sub7_level: 411
+    sub7_mute: false
+    sub7_gain: 20
+    sub7_source: 0
+    sub7_lowcut: 0
+    sub7_name: "SUB 7"
+    sub7_color: 0
+    sub8_level: 411
+    sub8_mute: false
+    sub8_gain: 20
+    sub8_source: 0
+    sub8_lowcut: 0
+    sub8_name: "SUB 8"
+    sub8_color: 0
+    out1_level: 411
+    out1_mute: false
+    out1_name: "OUT 1"
+    out1_color: 0
+    out1_source: 1
+    out2_level: 411
+    out2_mute: false
+    out2_name: "OUT 2"
+    out2_color: 0
+    out2_source: 2
+    out3_level: 411
+    out3_mute: false
+    out3_name: "OUT 3"
+    out3_color: 0
+    out3_source: 3
+    out4_level: 411
+    out4_mute: false
+    out4_name: "OUT 4"
+    out4_color: 0
+    out4_source: 4
+    out5_level: 411
+    out5_mute: false
+    out5_name: "OUT 5"
+    out5_color: 0
+    out5_source: 5
+    out6_level: 411
+    out6_mute: false
+    out6_name: "OUT 6"
+    out6_color: 0
+    out6_source: 6
+    out7_level: 411
+    out7_mute: false
+    out7_name: "OUT 7"
+    out7_color: 0
+    out7_source: 7
+    out8_level: 411
+    out8_mute: false
+    out8_name: "OUT 8"
+    out8_color: 0
+    out8_source: 8
+    sto1_level: 411
+    sto1_mute: false
+    sto1_name: "OUT ST1"
+    sto1_color: 0
+    sto1_source: 0
+    sto2_level: 411
+    sto2_mute: false
+    sto2_name: "OUT ST2"
+    sto2_color: 0
+    sto2_source: 0
+    grp1_mode: 0
+    grp1_lastmic: 0
+    grp1_hold: 2500
+    grp1_noma: 0
+    grp1_openmic: 4
+    grp1_priority: 0
+    grp1_gate_en: 0
+    grp1_gate: 30
+    grp2_mode: 0
+    grp2_lastmic: 0
+    grp2_hold: 2500
+    grp2_noma: 0
+    grp2_openmic: 4
+    grp2_priority: 0
+    grp2_gate_en: 0
+    grp2_gate: 30
+    grp3_mode: 0
+    grp3_lastmic: 0
+    grp3_hold: 2500
+    grp3_noma: 0
+    grp3_openmic: 4
+    grp3_priority: 0
+    grp3_gate_en: 0
+    grp3_gate: 30
+    grp4_mode: 0
+    grp4_lastmic: 0
+    grp4_hold: 2500
+    grp4_noma: 0
+    grp4_openmic: 4
+    grp4_priority: 0
+    grp4_gate_en: 0
+    grp4_gate: 30
 
   delays:
     command_response: 0.03
 
-  # MD notices, emitted to the driver's multicast push group on any state
-  # change (Simulator UI toggles included). Templates render the same frame
-  # grammar the response rules parse; {value:d} turns booleans into 0/1.
-  # Level/mute changes use the omitted-parameter forms the real mixer's
-  # grammar allows, so the optional-capture response rules are exercised.
-  # Gate-open templates render SmartMix group 1 (any 1-4 matches the rules).
+  # MD notices emitted to the driver's multicast push group on state
+  # change. Templates use the omitted-parameter forms the grammar allows.
   notifications:
-    input_1_level:
+    in1_level:
       '*': 'MD input_gain_level_notice 0000 00 NC 0,,,{value}, '
-    input_2_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 1,,,{value}, '
-    input_3_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 2,,,{value}, '
-    input_4_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 3,,,{value}, '
-    input_5_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 4,,,{value}, '
-    input_6_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 5,,,{value}, '
-    input_7_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 6,,,{value}, '
-    input_8_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 7,,,{value}, '
-    input_9_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 8,,,{value}, '
-    input_10_level:
-      '*': 'MD input_gain_level_notice 0000 00 NC 9,,,{value}, '
-    input_1_mute:
+    in1_mute:
       '*': 'MD input_gain_level_notice 0000 00 NC 0,,,,{value:d} '
-    input_2_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 1,,,,{value:d} '
-    input_3_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 2,,,,{value:d} '
-    input_4_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 3,,,,{value:d} '
-    input_5_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 4,,,,{value:d} '
-    input_6_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 5,,,,{value:d} '
-    input_7_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 6,,,,{value:d} '
-    input_8_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 7,,,,{value:d} '
-    input_9_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 8,,,,{value:d} '
-    input_10_mute:
-      '*': 'MD input_gain_level_notice 0000 00 NC 9,,,,{value:d} '
-    output_1_level:
-      '*': 'MD output_level_notice 0000 00 NC 0,{value} '
-    output_2_level:
-      '*': 'MD output_level_notice 0000 00 NC 1,{value} '
-    output_3_level:
-      '*': 'MD output_level_notice 0000 00 NC 2,{value} '
-    output_4_level:
-      '*': 'MD output_level_notice 0000 00 NC 3,{value} '
-    output_5_level:
-      '*': 'MD output_level_notice 0000 00 NC 4,{value} '
-    output_6_level:
-      '*': 'MD output_level_notice 0000 00 NC 5,{value} '
-    output_7_level:
-      '*': 'MD output_level_notice 0000 00 NC 6,{value} '
-    output_8_level:
-      '*': 'MD output_level_notice 0000 00 NC 7,{value} '
-    output_1_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 0,{value:d} '
-    output_2_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 1,{value:d} '
-    output_3_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 2,{value:d} '
-    output_4_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 3,{value:d} '
-    output_5_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 4,{value:d} '
-    output_6_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 5,{value:d} '
-    output_7_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 6,{value:d} '
-    output_8_mute:
-      '*': 'MD output_mute_notice 0000 00 NC 7,{value:d} '
-    input_1_gate_open:
+    in1_gate:
       '*': 'MD open_channel_notice 0000 00 NC 0,1,{value:d} '
-    input_2_gate_open:
+    in2_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,,,{value}, '
+    in2_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,,,,{value:d} '
+    in2_gate:
       '*': 'MD open_channel_notice 0000 00 NC 1,1,{value:d} '
-    input_3_gate_open:
+    in3_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,,,{value}, '
+    in3_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,,,,{value:d} '
+    in3_gate:
       '*': 'MD open_channel_notice 0000 00 NC 2,1,{value:d} '
-    input_4_gate_open:
+    in4_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,,,{value}, '
+    in4_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,,,,{value:d} '
+    in4_gate:
       '*': 'MD open_channel_notice 0000 00 NC 3,1,{value:d} '
-    input_5_gate_open:
+    in5_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,,,{value}, '
+    in5_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,,,,{value:d} '
+    in5_gate:
       '*': 'MD open_channel_notice 0000 00 NC 4,1,{value:d} '
-    input_6_gate_open:
+    in6_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,,,{value}, '
+    in6_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,,,,{value:d} '
+    in6_gate:
       '*': 'MD open_channel_notice 0000 00 NC 5,1,{value:d} '
-    input_7_gate_open:
+    in7_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 6,,,{value}, '
+    in7_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 6,,,,{value:d} '
+    in7_gate:
       '*': 'MD open_channel_notice 0000 00 NC 6,1,{value:d} '
-    input_8_gate_open:
+    in8_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 7,,,{value}, '
+    in8_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 7,,,,{value:d} '
+    in8_gate:
       '*': 'MD open_channel_notice 0000 00 NC 7,1,{value:d} '
-    input_9_gate_open:
+    in9_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 8,,,{value}, '
+    in9_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 8,,,,{value:d} '
+    in9_gate:
       '*': 'MD open_channel_notice 0000 00 NC 8,1,{value:d} '
-    input_10_gate_open:
+    in10_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 9,,,{value}, '
+    in10_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 9,,,,{value:d} '
+    in10_gate:
       '*': 'MD open_channel_notice 0000 00 NC 9,1,{value:d} '
+    st1_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 10,,,{value}, '
+    st1_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 10,,,,{value:d} '
+    st2_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 11,,,{value}, '
+    st2_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 11,,,,{value:d} '
+    out1_level:
+      '*': 'MD output_level_notice 0000 00 NC 0,{value} '
+    out1_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 0,{value:d} '
+    out2_level:
+      '*': 'MD output_level_notice 0000 00 NC 1,{value} '
+    out2_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 1,{value:d} '
+    out3_level:
+      '*': 'MD output_level_notice 0000 00 NC 2,{value} '
+    out3_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 2,{value:d} '
+    out4_level:
+      '*': 'MD output_level_notice 0000 00 NC 3,{value} '
+    out4_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 3,{value:d} '
+    out5_level:
+      '*': 'MD output_level_notice 0000 00 NC 4,{value} '
+    out5_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 4,{value:d} '
+    out6_level:
+      '*': 'MD output_level_notice 0000 00 NC 5,{value} '
+    out6_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 5,{value:d} '
+    out7_level:
+      '*': 'MD output_level_notice 0000 00 NC 6,{value} '
+    out7_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 6,{value:d} '
+    out8_level:
+      '*': 'MD output_level_notice 0000 00 NC 7,{value} '
+    out8_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 7,{value:d} '
+    sto1_level:
+      '*': 'MD output_level_notice 0000 00 NC 8,{value} '
+    sto1_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 8,{value:d} '
+    sto2_level:
+      '*': 'MD output_level_notice 0000 00 NC 9,{value} '
+    sto2_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 9,{value:d} '
     last_recalled_preset:
       '*': 'MD recall_preset_notice 0000 00 NC {value} '
 
   controls:
     - type: slider
-      key: input_1_level
+      key: in1_level
       label: Input 1 Level
       min: 0
       max: 511
       step: 1
     - type: toggle
-      key: input_1_mute
+      key: in1_mute
       label: Input 1 Mute
     - type: slider
-      key: input_2_level
-      label: Input 2 Level
+      key: in1_gain
+      label: Input 1 Gain
+      min: 0
+      max: 40
+      step: 1
+    - type: toggle
+      key: in1_gate
+      label: Input 1 Gate Open
+    - type: slider
+      key: st1_level
+      label: Input ST1 Level
       min: 0
       max: 511
       step: 1
-    - type: toggle
-      key: input_2_mute
-      label: Input 2 Mute
     - type: slider
-      key: input_3_level
-      label: Input 3 Level
+      key: sub1_level
+      label: Sub-Input 1 Level
       min: 0
       max: 511
       step: 1
-    - type: toggle
-      key: input_3_mute
-      label: Input 3 Mute
     - type: slider
-      key: input_4_level
-      label: Input 4 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: input_4_mute
-      label: Input 4 Mute
-    - type: slider
-      key: input_5_level
-      label: Input 5 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: input_5_mute
-      label: Input 5 Mute
-    - type: slider
-      key: input_6_level
-      label: Input 6 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: input_6_mute
-      label: Input 6 Mute
-    - type: slider
-      key: input_7_level
-      label: Input 7 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: input_7_mute
-      label: Input 7 Mute
-    - type: slider
-      key: input_8_level
-      label: Input 8 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: input_8_mute
-      label: Input 8 Mute
-    - type: slider
-      key: input_9_level
-      label: Input 9 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: input_9_mute
-      label: Input 9 Mute
-    - type: slider
-      key: input_10_level
-      label: Input 10 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: input_10_mute
-      label: Input 10 Mute
-    - type: slider
-      key: output_1_level
+      key: out1_level
       label: Output 1 Level
       min: 0
       max: 511
       step: 1
     - type: toggle
-      key: output_1_mute
+      key: out1_mute
       label: Output 1 Mute
-    - type: slider
-      key: output_2_level
-      label: Output 2 Level
-      min: 0
-      max: 511
-      step: 1
     - type: toggle
-      key: output_2_mute
-      label: Output 2 Mute
-    - type: slider
-      key: output_3_level
-      label: Output 3 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: output_3_mute
-      label: Output 3 Mute
-    - type: slider
-      key: output_4_level
-      label: Output 4 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: output_4_mute
-      label: Output 4 Mute
-    - type: slider
-      key: output_5_level
-      label: Output 5 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: output_5_mute
-      label: Output 5 Mute
-    - type: slider
-      key: output_6_level
-      label: Output 6 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: output_6_mute
-      label: Output 6 Mute
-    - type: slider
-      key: output_7_level
-      label: Output 7 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: output_7_mute
-      label: Output 7 Mute
-    - type: slider
-      key: output_8_level
-      label: Output 8 Level
-      min: 0
-      max: 511
-      step: 1
-    - type: toggle
-      key: output_8_mute
-      label: Output 8 Mute
-    - type: toggle
-      key: input_1_gate_open
-      label: Input 1 Gate Open
-    - type: toggle
-      key: input_2_gate_open
-      label: Input 2 Gate Open
+      key: osc_on
+      label: Oscillator On
 
   command_handlers:
-    # Firmware version query
+    # Grammar: parametered commands require the trailing space before CR
+    # (family behavior, hardware-verified on the 0604a).
+
     - match: 'g_firmware_version O 0000 00 NC ?'
       handler: |
         respond(f'g_firmware_version 0000 00 NC {state["firmware_version"]} \r')
 
-    # Device ID query (1012-only command — backs the discovery probe)
+    - match: 'g_link O 0000 00 NC ?'
+      handler: |
+        respond(f'g_link 0000 00 NC {state["at_link_mode"]} \r')
+
+    - match: 's_link S 0000 00 NC (\d) ?'
+      handler: |
+        state['at_link_mode'] = int(match.group(1))
+        respond('s_link ACK \r')
+
     - match: 'g_deviceid O 0000 00 NC ?'
       handler: |
         respond('g_deviceid 0000 00 NC 00 \r')
 
-    # Input level query (short command)
+    # Per-group SmartMix settings (answer carries the group last)
+    - match: 'g_smart_mix_general O 0000 00 NC ([1-4]) ?'
+      handler: |
+        g = match.group(1)
+        respond(
+            f'g_smart_mix_general 0000 00 NC {state[f"grp{g}_mode"]},'
+            f'{state[f"grp{g}_lastmic"]},{state[f"grp{g}_hold"]},'
+            f'{state[f"grp{g}_noma"]},{state[f"grp{g}_openmic"]},'
+            f'{state[f"grp{g}_priority"]},{state[f"grp{g}_gate_en"]},'
+            f'{state[f"grp{g}_gate"]},{g} \r'
+        )
+
+    - match: 's_smart_mix_general S 0000 00 NC (.*)'
+      handler: |
+        parts = match.group(1).strip().split(',')
+        g = parts[8].strip() if len(parts) >= 9 and parts[8].strip() else '1'
+        keys = ['mode', 'lastmic', 'hold', 'noma', 'openmic', 'priority',
+                'gate_en', 'gate']
+        for i, value in enumerate(parts[:8]):
+            if value.strip():
+                state[f'grp{g}_{keys[i]}'] = int(value)
+        respond('s_smart_mix_general ACK \r')
+
+    - match: 'SSMM S 0000 00 NC ([1-4]),(\d) ?'
+      handler: |
+        state[f'grp{match.group(1)}_mode'] = int(match.group(2))
+        respond('SSMM ACK \r')
+
+    - match: 'GSMM O 0000 00 NC ([1-4]) ?'
+      handler: |
+        g = match.group(1)
+        respond(f'GSMM 0000 00 NC {g},{state[f"grp{g}_mode"]} \r')
+
+    - match: 'NOOM S 0000 00 NC ([1-4]),(\d+) ?'
+      handler: |
+        state[f'grp{match.group(1)}_openmic'] = int(match.group(2))
+        respond('NOOM ACK \r')
+
+    # Input gain/level (channels 0-11; the verbose verb excludes sub gain)
+    - match: 'g_input_gain_level O 0000 00 NC (\d+) ?'
+      handler: |
+        ch = int(match.group(1))
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None or ch > 11:
+            respond('g_input_gain_level NAK 04 \r')
+        else:
+            g = state[f'{stem}_gain']
+            lv = state[f'{stem}_level']
+            mu = 1 if state[f'{stem}_mute'] else 0
+            respond(f'g_input_gain_level 0000 00 NC {ch},{g},{g},{lv},{mu},511,0,{g},0,0 \r')
+
+    - match: 's_input_gain_level S 0000 00 NC (\d+),(\d*),(\d*),?.*'
+      handler: |
+        ch = int(match.group(1))
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None or ch > 11:
+            respond('s_input_gain_level NAK 04 \r')
+        else:
+            if match.group(2):
+                state[f'{stem}_gain'] = int(match.group(2))
+            respond('s_input_gain_level ACK \r')
+
+    # Input channel settings (channels 0-11; 28-field answer per the table)
+    - match: 'g_input_channel_settings O 0000 00 NC (\d+) ?'
+      handler: |
+        ch = int(match.group(1))
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None or ch > 11:
+            respond('g_input_channel_settings NAK 04 \r')
+        else:
+            ph = state.get(f'{stem}_phantom', 0)
+            aec = state.get(f'{stem}_aec', 0)
+            sm = state.get(f'{stem}_sm', 0)
+            respond(
+                f'g_input_channel_settings 0000 00 NC {ch},{state[f"{stem}_source"]},'
+                f'{ph},{state[f"{stem}_phase"]},{state[f"{stem}_lowcut"]},'
+                f'{aec},{sm},0,0,0,0,0,0,0,0,0,0,0,0,'
+                f'"{state[f"{stem}_name"]}",{state[f"{stem}_color"]},0,0,1,0,0,1,0 \r'
+            )
+
+    - match: 's_input_channel_settings S 0000 00 NC (\d+),(.*)'
+      handler: |
+        ch = int(match.group(1))
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None or ch > 11:
+            respond('s_input_channel_settings NAK 04 \r')
+        else:
+            rest = match.group(2)
+            parts = []
+            buf = ''
+            in_q = False
+            for c in rest:
+                if c == '"':
+                    in_q = not in_q
+                    buf += c
+                elif c == ',' and not in_q:
+                    parts.append(buf)
+                    buf = ''
+                else:
+                    buf += c
+            parts.append(buf)
+            keys = ['source', 'phantom', 'phase', 'lowcut', 'aec', 'sm']
+            for i, value in enumerate(parts[:6]):
+                v = value.strip()
+                if v:
+                    state[f'{stem}_{keys[i]}'] = int(v)
+            if len(parts) >= 19 and parts[18].strip().startswith('"'):
+                state[f'{stem}_name'] = parts[18].strip().strip('"')
+            if len(parts) >= 20 and parts[19].strip():
+                state[f'{stem}_color'] = int(parts[19])
+            respond('s_input_channel_settings ACK \r')
+
+    # Sub-input settings (this verb numbers subs 0-7)
+    - match: 'g_subinput_channel_settings O 0000 00 NC ([0-7]) ?'
+      handler: |
+        n = int(match.group(1)) + 1
+        respond(
+            f'g_subinput_channel_settings 0000 00 NC {match.group(1)},'
+            f'{state[f"sub{n}_source"]},{state[f"sub{n}_gain"]},'
+            f'{state[f"sub{n}_lowcut"]},0,"{state[f"sub{n}_name"]}",'
+            f'{state[f"sub{n}_color"]},0 \r'
+        )
+
+    - match: 's_subinput_channel_settings S 0000 00 NC ([0-7]),(.*)'
+      handler: |
+        n = int(match.group(1)) + 1
+        rest = match.group(2)
+        parts = []
+        buf = ''
+        in_q = False
+        for c in rest:
+            if c == '"':
+                in_q = not in_q
+                buf += c
+            elif c == ',' and not in_q:
+                parts.append(buf)
+                buf = ''
+            else:
+                buf += c
+        parts.append(buf)
+        keys = ['source', 'gain', 'lowcut', 'link']
+        for i, value in enumerate(parts[:4]):
+            v = value.strip()
+            if v and i != 3:
+                state[f'sub{n}_{keys[i]}'] = int(v)
+        if len(parts) >= 5 and parts[4].strip().startswith('"'):
+            state[f'sub{n}_name'] = parts[4].strip().strip('"')
+        if len(parts) >= 6 and parts[5].strip():
+            state[f'sub{n}_color'] = int(parts[5])
+        respond('s_subinput_channel_settings ACK \r')
+
+    # Input level/mute short codes (channels 0-19)
     - match: 'GICL O 0000 00 NC (\d+) ?'
       handler: |
         ch = int(match.group(1))
-        key = f'input_{ch+1}_level'
-        level = state.get(key, 411)
-        respond(f'GICL 0000 00 NC {ch},{level} \r')
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None:
+            respond('GICL NAK 04 \r')
+        else:
+            respond(f'GICL 0000 00 NC {ch},{state[f"{stem}_level"]} \r')
 
-    # Input level set (short command)
     - match: 'SICL S 0000 00 NC (\d+),(\d+) ?'
       handler: |
         ch = int(match.group(1))
-        level = int(match.group(2))
-        key = f'input_{ch+1}_level'
-        state[key] = level
-        respond('SICL ACK \r')
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None:
+            respond('SICL NAK 04 \r')
+        else:
+            state[f'{stem}_level'] = int(match.group(2))
+            respond('SICL ACK \r')
 
-    # Input mute query (short command)
     - match: 'GICM O 0000 00 NC (\d+) ?'
       handler: |
         ch = int(match.group(1))
-        key = f'input_{ch+1}_mute'
-        val = 1 if state.get(key, False) else 0
-        respond(f'GICM 0000 00 NC {ch},{val} \r')
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None:
+            respond('GICM NAK 04 \r')
+        else:
+            respond(f'GICM 0000 00 NC {ch},{1 if state[f"{stem}_mute"] else 0} \r')
 
-    # Input mute set (short command)
     - match: 'SICM S 0000 00 NC (\d+),(\d+) ?'
       handler: |
         ch = int(match.group(1))
-        mute = match.group(2) == '1'
-        key = f'input_{ch+1}_mute'
-        state[key] = mute
-        respond('SICM ACK \r')
+        if 0 <= ch <= 9:
+            stem = f'in{ch+1}'
+        elif ch in (10, 11):
+            stem = f'st{ch-9}'
+        elif 12 <= ch <= 19:
+            stem = f'sub{ch-11}'
+        else:
+            stem = None
+        if stem is None:
+            respond('SICM NAK 04 \r')
+        else:
+            state[f'{stem}_mute'] = match.group(2) == '1'
+            respond('SICM ACK \r')
 
-    # Output level query (short command)
+    # Output level/mute short codes (channels 0-9)
     - match: 'GOCL O 0000 00 NC (\d+) ?'
       handler: |
         ch = int(match.group(1))
-        key = f'output_{ch+1}_level'
-        level = state.get(key, 411)
-        respond(f'GOCL 0000 00 NC {ch},{level} \r')
+        if 0 <= ch <= 7:
+            stem = f'out{ch+1}'
+        elif ch in (8, 9):
+            stem = f'sto{ch-7}'
+        else:
+            stem = None
+        if stem is None:
+            respond('GOCL NAK 04 \r')
+        else:
+            respond(f'GOCL 0000 00 NC {ch},{state[f"{stem}_level"]} \r')
 
-    # Output level set (short command)
     - match: 'SOCL S 0000 00 NC (\d+),(\d+) ?'
       handler: |
         ch = int(match.group(1))
-        level = int(match.group(2))
-        key = f'output_{ch+1}_level'
-        state[key] = level
-        respond('SOCL ACK \r')
+        if 0 <= ch <= 7:
+            stem = f'out{ch+1}'
+        elif ch in (8, 9):
+            stem = f'sto{ch-7}'
+        else:
+            stem = None
+        if stem is None:
+            respond('SOCL NAK 04 \r')
+        else:
+            state[f'{stem}_level'] = int(match.group(2))
+            respond('SOCL ACK \r')
 
-    # Output mute query (short command)
     - match: 'GOCM O 0000 00 NC (\d+) ?'
       handler: |
         ch = int(match.group(1))
-        key = f'output_{ch+1}_mute'
-        val = 1 if state.get(key, False) else 0
-        respond(f'GOCM 0000 00 NC {ch},{val} \r')
+        if 0 <= ch <= 7:
+            stem = f'out{ch+1}'
+        elif ch in (8, 9):
+            stem = f'sto{ch-7}'
+        else:
+            stem = None
+        if stem is None:
+            respond('GOCM NAK 04 \r')
+        else:
+            respond(f'GOCM 0000 00 NC {ch},{1 if state[f"{stem}_mute"] else 0} \r')
 
-    # Output mute set (short command)
     - match: 'SOCM S 0000 00 NC (\d+),(\d+) ?'
       handler: |
         ch = int(match.group(1))
-        mute = match.group(2) == '1'
-        key = f'output_{ch+1}_mute'
-        state[key] = mute
-        respond('SOCM ACK \r')
+        if 0 <= ch <= 7:
+            stem = f'out{ch+1}'
+        elif ch in (8, 9):
+            stem = f'sto{ch-7}'
+        else:
+            stem = None
+        if stem is None:
+            respond('SOCM NAK 04 \r')
+        else:
+            state[f'{stem}_mute'] = match.group(2) == '1'
+            respond('SOCM ACK \r')
 
-    # Bus assign set
+    # Output channel settings (channels 0-9)
+    - match: 'g_output_channel_settings O 0000 00 NC (\d+) ?'
+      handler: |
+        ch = int(match.group(1))
+        if 0 <= ch <= 7:
+            stem = f'out{ch+1}'
+        elif ch in (8, 9):
+            stem = f'sto{ch-7}'
+        else:
+            stem = None
+        if stem is None:
+            respond('g_output_channel_settings NAK 04 \r')
+        else:
+            respond(
+                f'g_output_channel_settings 0000 00 NC {ch},0,'
+                f'"{state[f"{stem}_name"]}",{state[f"{stem}_color"]},0,'
+                f'{state[f"{stem}_source"]},0 \r'
+            )
+
+    - match: 's_output_channel_settings S 0000 00 NC (\d+),(.*)'
+      handler: |
+        ch = int(match.group(1))
+        if 0 <= ch <= 7:
+            stem = f'out{ch+1}'
+        elif ch in (8, 9):
+            stem = f'sto{ch-7}'
+        else:
+            stem = None
+        if stem is None:
+            respond('s_output_channel_settings NAK 04 \r')
+        else:
+            rest = match.group(2)
+            parts = []
+            buf = ''
+            in_q = False
+            for c in rest:
+                if c == '"':
+                    in_q = not in_q
+                    buf += c
+                elif c == ',' and not in_q:
+                    parts.append(buf)
+                    buf = ''
+                else:
+                    buf += c
+            parts.append(buf)
+            if len(parts) >= 2 and parts[1].strip().startswith('"'):
+                state[f'{stem}_name'] = parts[1].strip().strip('"')
+            if len(parts) >= 5 and parts[4].strip():
+                state[f'{stem}_source'] = int(parts[4])
+            respond('s_output_channel_settings ACK \r')
+
+    # Bus assign + operator faders (send cells / paging — ACK only)
     - match: 'SBUS S 0000 00 NC.*'
       handler: |
         respond('SBUS ACK \r')
 
-    # Operator fader level set
+    - match: 'GBUS O 0000 00 NC (\d+),(\d+) ?'
+      handler: |
+        respond(f'GBUS 0000 00 NC {match.group(1)},{match.group(2)},1,411 \r')
+
     - match: 'SOPL S 0000 00 NC.*'
       handler: |
         respond('SOPL ACK \r')
 
-    # Operator fader mute set
+    - match: 'GOPL O 0000 00 NC (\d+),(\d+) ?'
+      handler: |
+        respond(f'GOPL 0000 00 NC {match.group(1)},{match.group(2)},100 \r')
+
     - match: 'SOPM S 0000 00 NC.*'
       handler: |
         respond('SOPM ACK \r')
 
-    # SmartMix mode set
-    - match: 'SSMM S 0000 00 NC.*'
+    - match: 'GOPM O 0000 00 NC (\d+),(\d+) ?'
       handler: |
-        respond('SSMM ACK \r')
+        respond(f'GOPM 0000 00 NC {match.group(1)},{match.group(2)},0 \r')
 
-    # Open mic count set
-    - match: 'NOOM S 0000 00 NC.*'
+    # USB output settings
+    - match: 'g_usb_out O 0000 00 NC ?'
       handler: |
-        respond('NOOM ACK \r')
+        respond(f'g_usb_out 0000 00 NC {state["usb_out1"]},{state["usb_out2"]},{state["usb_level"]} \r')
 
-    # Network settings write (the driver's on_connect notification arming)
+    - match: 's_usb_out S 0000 00 NC (\d*),(\d*),?(\d*) ?'
+      handler: |
+        if match.group(1):
+            state['usb_out1'] = int(match.group(1))
+        if match.group(2):
+            state['usb_out2'] = int(match.group(2))
+        if match.group(3):
+            state['usb_level'] = int(match.group(3))
+        respond('s_usb_out ACK \r')
+
+    # AEC general settings (mode is field 1)
+    - match: 'g_aec_general O 0000 00 NC ?'
+      handler: |
+        respond(f'g_aec_general 0000 00 NC {state["aec_mode"]},22,,1,,12,100,100,1,1, \r')
+
+    - match: 's_aec_general S 0000 00 NC (\d*),?.*'
+      handler: |
+        if match.group(1):
+            state['aec_mode'] = int(match.group(1))
+        respond('s_aec_general ACK \r')
+
+    # Oscillator control (14 fields)
+    - match: 'g_oscillator O 0000 00 NC ?'
+      handler: |
+        respond(
+            f'g_oscillator 0000 00 NC {state["osc_on"]},{state["osc_source"]},'
+            f'{state["osc_freq"]},{state["osc_level"]},0,0,0,0,0,0,0,0,0,0 \r'
+        )
+
+    - match: 's_oscillator S 0000 00 NC (\d*),(\d*),(\d*),(\d*),?.*'
+      handler: |
+        keys = ['osc_on', 'osc_source', 'osc_freq', 'osc_level']
+        for i in range(4):
+            v = match.group(i + 1)
+            if v:
+                state[keys[i]] = int(v)
+        respond('s_oscillator ACK \r')
+
+    # Front panel settings (3 fields on this model)
+    - match: 'g_front_panel O 0000 00 NC ?'
+      handler: |
+        respond(f'g_front_panel 0000 00 NC {state["front_recall"]},{state["front_dimmer"]},{state["front_error"]} \r')
+
+    - match: 's_front_panel S 0000 00 NC (\d*),?(\d*),?(\d*) ?'
+      handler: |
+        if match.group(1):
+            state['front_recall'] = int(match.group(1))
+        if match.group(2):
+            state['front_dimmer'] = int(match.group(2))
+        if match.group(3):
+            state['front_error'] = int(match.group(3))
+        respond('s_front_panel ACK \r')
+
+    # Boot-up preset
+    - match: 'g_bootup_preset O 0000 00 NC ?'
+      handler: |
+        respond(f'g_bootup_preset 0000 00 NC {state["bootup_preset"]} \r')
+
+    - match: 's_bootup_preset S 0000 00 NC (\d) ?'
+      handler: |
+        state['bootup_preset'] = int(match.group(1))
+        respond('s_bootup_preset ACK \r')
+
+    # Network settings write (notification arming) + meter interval
     - match: 's_network S 0000 00 NC.*'
       handler: |
         respond('s_network ACK \r')
 
-    # Level meter interval write
     - match: 's_level_meter_interval S 0000 00 NC.*'
       handler: |
         respond('s_level_meter_interval ACK \r')
 
-    # Preset recall (recall updates state, which emits the MD notice)
+    # Presets (recall updates state, which emits the MD notice)
     - match: 'CALLP S 0000 00 NC (\d) ?'
       handler: |
         state['last_recalled_preset'] = int(match.group(1))
         respond('CALLP ACK \r')
 
-    # Preset save
     - match: 'REGIP S 0000 00 NC.*'
       handler: |
         respond('REGIP ACK \r')
 
-    # Partial preset recall
     - match: 'CALLPP S 0000 00 NC.*'
       handler: |
         respond('CALLPP ACK \r')
 
-    # Identify
-    - match: 'identify S 0000 00 NC.*'
+    - match: 'identify S 0000 00 NC ?'
       handler: |
         respond('identify ACK \r')
 
-    # Reboot
-    - match: 'reboot S 0000 00 NC.*'
+    - match: 'reboot S 0000 00 NC ?'
       handler: |
         respond('reboot ACK \r')
 

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 710,
+    "total_devices": 712,
     "shards": null
   },
   "devices": [
@@ -8331,6 +8331,30 @@
           "id": "wyrestorm_mx",
           "confidence": "untested",
           "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "NHD-000-CTL",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_networkhd",
+          "confidence": "untested",
+          "notes": "Add the CONTROLLER as the device \u2014 endpoints appear as children. Controls NetworkHD 100/110/140, 200/210/220/250, 400, 500, and 600 series endpoints per the v6.5 API; series-specific commands answer 'unknown command' or are ignored on endpoints that lack the feature. Factory CONTROL port IP is 192.168.11.243."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "NHD-CTL-PRO",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_networkhd",
+          "confidence": "untested",
+          "notes": "Add the CONTROLLER as the device \u2014 endpoints appear as children. Controls NetworkHD 100/110/140, 200/210/220/250, 400, 500, and 600 series endpoints per the v6.5 API; series-specific commands answer 'unknown command' or are ignored on endpoints that lack the feature. Factory CONTROL port IP is 192.168.11.243."
         }
       ]
     },

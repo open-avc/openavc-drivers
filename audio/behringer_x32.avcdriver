@@ -10,6 +10,13 @@
 # every <=10 seconds to receive feedback. This driver handles that
 # automatically via polling.
 #
+# Strips are child entities: 32 input channels, 8 aux ins, 8 FX returns,
+# 16 mix buses, 6 matrices, 8 DCAs, and the stereo/mono mains, each with
+# fader, mute, and name. Wildcard OSC response rules route by address
+# segment (/ch/07/mix/fader -> channel 7), so one rule covers a whole
+# strip family. Children are labelled by the console's own scribble-strip
+# names (label_field: name).
+#
 # Liveness: /xremote gets no direct reply and UDP sends always "succeed",
 # so a console that dropped off the network stayed online forever. The
 # liveness: block probes /info (a documented request/response) every 15 s
@@ -17,36 +24,34 @@
 # silent probes.
 #
 # Read-back note: the console echoes parameter changes only to OTHER
-# subscribed clients, never back to the sender. Device-setting writes
-# (channel/bus names) therefore read back via the name queries in the
-# poll cycle, not from a write echo.
+# subscribed clients, never back to the sender. The per-child poll
+# queries (fader/mute/name every cycle) are the read-back path for this
+# driver's own writes, including renames.
 #
 # Querying values: send any address with no arguments to get the
 # current value back.
-#
-# Full console coverage: 32 input channels, 16 mix buses, 6 matrices,
-# 8 DCAs, 8 aux inputs, 8 FX returns, main stereo, main mono.
 
 id: behringer_x32
 name: Behringer X32 Digital Mixer
 manufacturer: Behringer
 category: audio
-version: 1.6.0
+version: 2.0.0
 author: OpenAVC
 description: >-
   Controls Behringer X32 and X32 Compact digital mixing consoles via OSC.
-  32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs,
-  8 FX returns, main stereo and mono outputs, channel/bus name settings,
-  and a liveness watchdog. Also compatible with Midas M32.
+  32 input channels, 8 aux ins, 8 FX returns, 16 mix buses, 6 matrices,
+  8 DCAs, and stereo/mono mains as child entities with fader, mute, and
+  console-side names, plus scene recall and a liveness watchdog. Also
+  compatible with Midas M32.
 
 source_url: https://sites.google.com/site/patrickmaillot/x32
 tags: [mixer, console, osc, midas]
 verified: false
 simulated: true
 ports: [10023]
-# 0.22.0 ships the liveness watchdog runtime + OSC device-setting writes
-# are validated at load since then; older platforms ignore both blocks.
-min_platform_version: "0.22.0"
+# 0.23.0 ships the OSC child-routing runtime (child_set on address rules,
+# segment ids, {child_id:02d} poll templates, literal id rosters).
+min_platform_version: "0.23.0"
 compatible_models:
   - manufacturer: Behringer
     models: [X32, X32 Compact, X32 Producer, X32 Rack, X32 Core]
@@ -61,15 +66,17 @@ transport: osc
 help:
   overview: >-
     Controls a Behringer X32 or X32 Compact digital mixer over the network
-    using the OSC (Open Sound Control) protocol. Full console coverage
-    including all 32 input channels, 16 mix buses, 6 matrices, 8 DCAs,
-    8 aux inputs, 8 FX returns, and main stereo/mono outputs.
+    using the OSC (Open Sound Control) protocol. Every strip is a child
+    entity — all 32 input channels, 8 aux ins, 8 FX returns, 16 mix buses,
+    6 matrices, 8 DCAs, and the stereo/mono mains — with fader, mute, and
+    the console's own scribble-strip name as the child label.
   setup: >-
     1. Connect the X32 to the same network as the OpenAVC server.
     2. On the X32, go to Setup > Network and note the IP address.
     3. Enter the IP address in the device config. The default port is 10023.
     4. The driver will automatically subscribe to feedback and start
-       receiving fader/mute updates.
+       receiving fader/mute updates. Strip names load on connect and
+       become the child labels.
 
 discovery:
   # X32 / M32 speak OSC and do NOT advertise on the network — the OSC
@@ -124,1023 +131,220 @@ state_variables:
     label: Show Name
     help: "Display name of the currently-loaded show."
 
-  # ── Input Channels 1-32 ──
-  ch01_fader:
-    type: number
-    label: Ch 01 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 1 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch01_mute:
-    type: boolean
-    label: Ch 01 Mute
-    help: "True when input channel 1 is muted."
-  ch01_name:
-    type: string
-    label: Ch 01 Name
-    help: "Display name for input channel 1."
-  ch02_fader:
-    type: number
-    label: Ch 02 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 2 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch02_mute:
-    type: boolean
-    label: Ch 02 Mute
-    help: "True when input channel 2 is muted."
-  ch02_name:
-    type: string
-    label: Ch 02 Name
-    help: "Display name for input channel 2."
-  ch03_fader:
-    type: number
-    label: Ch 03 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 3 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch03_mute:
-    type: boolean
-    label: Ch 03 Mute
-    help: "True when input channel 3 is muted."
-  ch03_name:
-    type: string
-    label: Ch 03 Name
-    help: "Display name for input channel 3."
-  ch04_fader:
-    type: number
-    label: Ch 04 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 4 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch04_mute:
-    type: boolean
-    label: Ch 04 Mute
-    help: "True when input channel 4 is muted."
-  ch04_name:
-    type: string
-    label: Ch 04 Name
-    help: "Display name for input channel 4."
-  ch05_fader:
-    type: number
-    label: Ch 05 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 5 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch05_mute:
-    type: boolean
-    label: Ch 05 Mute
-    help: "True when input channel 5 is muted."
-  ch05_name:
-    type: string
-    label: Ch 05 Name
-    help: "Display name for input channel 5."
-  ch06_fader:
-    type: number
-    label: Ch 06 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 6 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch06_mute:
-    type: boolean
-    label: Ch 06 Mute
-    help: "True when input channel 6 is muted."
-  ch06_name:
-    type: string
-    label: Ch 06 Name
-    help: "Display name for input channel 6."
-  ch07_fader:
-    type: number
-    label: Ch 07 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 7 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch07_mute:
-    type: boolean
-    label: Ch 07 Mute
-    help: "True when input channel 7 is muted."
-  ch07_name:
-    type: string
-    label: Ch 07 Name
-    help: "Display name for input channel 7."
-  ch08_fader:
-    type: number
-    label: Ch 08 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 8 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch08_mute:
-    type: boolean
-    label: Ch 08 Mute
-    help: "True when input channel 8 is muted."
-  ch08_name:
-    type: string
-    label: Ch 08 Name
-    help: "Display name for input channel 8."
-  ch09_fader:
-    type: number
-    label: Ch 09 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 9 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch09_mute:
-    type: boolean
-    label: Ch 09 Mute
-    help: "True when input channel 9 is muted."
-  ch09_name:
-    type: string
-    label: Ch 09 Name
-    help: "Display name for input channel 9."
-  ch10_fader:
-    type: number
-    label: Ch 10 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 10 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch10_mute:
-    type: boolean
-    label: Ch 10 Mute
-    help: "True when input channel 10 is muted."
-  ch10_name:
-    type: string
-    label: Ch 10 Name
-    help: "Display name for input channel 10."
-  ch11_fader:
-    type: number
-    label: Ch 11 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 11 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch11_mute:
-    type: boolean
-    label: Ch 11 Mute
-    help: "True when input channel 11 is muted."
-  ch11_name:
-    type: string
-    label: Ch 11 Name
-    help: "Display name for input channel 11."
-  ch12_fader:
-    type: number
-    label: Ch 12 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 12 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch12_mute:
-    type: boolean
-    label: Ch 12 Mute
-    help: "True when input channel 12 is muted."
-  ch12_name:
-    type: string
-    label: Ch 12 Name
-    help: "Display name for input channel 12."
-  ch13_fader:
-    type: number
-    label: Ch 13 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 13 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch13_mute:
-    type: boolean
-    label: Ch 13 Mute
-    help: "True when input channel 13 is muted."
-  ch13_name:
-    type: string
-    label: Ch 13 Name
-    help: "Display name for input channel 13."
-  ch14_fader:
-    type: number
-    label: Ch 14 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 14 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch14_mute:
-    type: boolean
-    label: Ch 14 Mute
-    help: "True when input channel 14 is muted."
-  ch14_name:
-    type: string
-    label: Ch 14 Name
-    help: "Display name for input channel 14."
-  ch15_fader:
-    type: number
-    label: Ch 15 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 15 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch15_mute:
-    type: boolean
-    label: Ch 15 Mute
-    help: "True when input channel 15 is muted."
-  ch15_name:
-    type: string
-    label: Ch 15 Name
-    help: "Display name for input channel 15."
-  ch16_fader:
-    type: number
-    label: Ch 16 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 16 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch16_mute:
-    type: boolean
-    label: Ch 16 Mute
-    help: "True when input channel 16 is muted."
-  ch16_name:
-    type: string
-    label: Ch 16 Name
-    help: "Display name for input channel 16."
-  ch17_fader:
-    type: number
-    label: Ch 17 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 17 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch17_mute:
-    type: boolean
-    label: Ch 17 Mute
-    help: "True when input channel 17 is muted."
-  ch17_name:
-    type: string
-    label: Ch 17 Name
-    help: "Display name for input channel 17."
-  ch18_fader:
-    type: number
-    label: Ch 18 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 18 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch18_mute:
-    type: boolean
-    label: Ch 18 Mute
-    help: "True when input channel 18 is muted."
-  ch18_name:
-    type: string
-    label: Ch 18 Name
-    help: "Display name for input channel 18."
-  ch19_fader:
-    type: number
-    label: Ch 19 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 19 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch19_mute:
-    type: boolean
-    label: Ch 19 Mute
-    help: "True when input channel 19 is muted."
-  ch19_name:
-    type: string
-    label: Ch 19 Name
-    help: "Display name for input channel 19."
-  ch20_fader:
-    type: number
-    label: Ch 20 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 20 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch20_mute:
-    type: boolean
-    label: Ch 20 Mute
-    help: "True when input channel 20 is muted."
-  ch20_name:
-    type: string
-    label: Ch 20 Name
-    help: "Display name for input channel 20."
-  ch21_fader:
-    type: number
-    label: Ch 21 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 21 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch21_mute:
-    type: boolean
-    label: Ch 21 Mute
-    help: "True when input channel 21 is muted."
-  ch21_name:
-    type: string
-    label: Ch 21 Name
-    help: "Display name for input channel 21."
-  ch22_fader:
-    type: number
-    label: Ch 22 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 22 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch22_mute:
-    type: boolean
-    label: Ch 22 Mute
-    help: "True when input channel 22 is muted."
-  ch22_name:
-    type: string
-    label: Ch 22 Name
-    help: "Display name for input channel 22."
-  ch23_fader:
-    type: number
-    label: Ch 23 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 23 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch23_mute:
-    type: boolean
-    label: Ch 23 Mute
-    help: "True when input channel 23 is muted."
-  ch23_name:
-    type: string
-    label: Ch 23 Name
-    help: "Display name for input channel 23."
-  ch24_fader:
-    type: number
-    label: Ch 24 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 24 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch24_mute:
-    type: boolean
-    label: Ch 24 Mute
-    help: "True when input channel 24 is muted."
-  ch24_name:
-    type: string
-    label: Ch 24 Name
-    help: "Display name for input channel 24."
-  ch25_fader:
-    type: number
-    label: Ch 25 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 25 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch25_mute:
-    type: boolean
-    label: Ch 25 Mute
-    help: "True when input channel 25 is muted."
-  ch25_name:
-    type: string
-    label: Ch 25 Name
-    help: "Display name for input channel 25."
-  ch26_fader:
-    type: number
-    label: Ch 26 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 26 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch26_mute:
-    type: boolean
-    label: Ch 26 Mute
-    help: "True when input channel 26 is muted."
-  ch26_name:
-    type: string
-    label: Ch 26 Name
-    help: "Display name for input channel 26."
-  ch27_fader:
-    type: number
-    label: Ch 27 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 27 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch27_mute:
-    type: boolean
-    label: Ch 27 Mute
-    help: "True when input channel 27 is muted."
-  ch27_name:
-    type: string
-    label: Ch 27 Name
-    help: "Display name for input channel 27."
-  ch28_fader:
-    type: number
-    label: Ch 28 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 28 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch28_mute:
-    type: boolean
-    label: Ch 28 Mute
-    help: "True when input channel 28 is muted."
-  ch28_name:
-    type: string
-    label: Ch 28 Name
-    help: "Display name for input channel 28."
-  ch29_fader:
-    type: number
-    label: Ch 29 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 29 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch29_mute:
-    type: boolean
-    label: Ch 29 Mute
-    help: "True when input channel 29 is muted."
-  ch29_name:
-    type: string
-    label: Ch 29 Name
-    help: "Display name for input channel 29."
-  ch30_fader:
-    type: number
-    label: Ch 30 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 30 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch30_mute:
-    type: boolean
-    label: Ch 30 Mute
-    help: "True when input channel 30 is muted."
-  ch30_name:
-    type: string
-    label: Ch 30 Name
-    help: "Display name for input channel 30."
-  ch31_fader:
-    type: number
-    label: Ch 31 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 31 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch31_mute:
-    type: boolean
-    label: Ch 31 Mute
-    help: "True when input channel 31 is muted."
-  ch31_name:
-    type: string
-    label: Ch 31 Name
-    help: "Display name for input channel 31."
-  ch32_fader:
-    type: number
-    label: Ch 32 Fader
-    min: 0
-    max: 1
-    help: "Fader level for input channel 32 (0.0 = -inf dB, 1.0 = +10 dB)."
-  ch32_mute:
-    type: boolean
-    label: Ch 32 Mute
-    help: "True when input channel 32 is muted."
-  ch32_name:
-    type: string
-    label: Ch 32 Name
-    help: "Display name for input channel 32."
-
-  # ── Mix Buses 1-16 ──
-  bus01_fader:
-    type: number
-    label: Bus 01 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 1 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus01_mute:
-    type: boolean
-    label: Bus 01 Mute
-    help: "True when mix bus 1 is muted."
-  bus01_name:
-    type: string
-    label: Bus 01 Name
-    help: "Display name for mix bus 1."
-  bus02_fader:
-    type: number
-    label: Bus 02 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 2 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus02_mute:
-    type: boolean
-    label: Bus 02 Mute
-    help: "True when mix bus 2 is muted."
-  bus02_name:
-    type: string
-    label: Bus 02 Name
-    help: "Display name for mix bus 2."
-  bus03_fader:
-    type: number
-    label: Bus 03 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 3 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus03_mute:
-    type: boolean
-    label: Bus 03 Mute
-    help: "True when mix bus 3 is muted."
-  bus03_name:
-    type: string
-    label: Bus 03 Name
-    help: "Display name for mix bus 3."
-  bus04_fader:
-    type: number
-    label: Bus 04 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 4 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus04_mute:
-    type: boolean
-    label: Bus 04 Mute
-    help: "True when mix bus 4 is muted."
-  bus04_name:
-    type: string
-    label: Bus 04 Name
-    help: "Display name for mix bus 4."
-  bus05_fader:
-    type: number
-    label: Bus 05 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 5 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus05_mute:
-    type: boolean
-    label: Bus 05 Mute
-    help: "True when mix bus 5 is muted."
-  bus05_name:
-    type: string
-    label: Bus 05 Name
-    help: "Display name for mix bus 5."
-  bus06_fader:
-    type: number
-    label: Bus 06 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 6 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus06_mute:
-    type: boolean
-    label: Bus 06 Mute
-    help: "True when mix bus 6 is muted."
-  bus06_name:
-    type: string
-    label: Bus 06 Name
-    help: "Display name for mix bus 6."
-  bus07_fader:
-    type: number
-    label: Bus 07 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 7 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus07_mute:
-    type: boolean
-    label: Bus 07 Mute
-    help: "True when mix bus 7 is muted."
-  bus07_name:
-    type: string
-    label: Bus 07 Name
-    help: "Display name for mix bus 7."
-  bus08_fader:
-    type: number
-    label: Bus 08 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 8 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus08_mute:
-    type: boolean
-    label: Bus 08 Mute
-    help: "True when mix bus 8 is muted."
-  bus08_name:
-    type: string
-    label: Bus 08 Name
-    help: "Display name for mix bus 8."
-  bus09_fader:
-    type: number
-    label: Bus 09 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 9 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus09_mute:
-    type: boolean
-    label: Bus 09 Mute
-    help: "True when mix bus 9 is muted."
-  bus09_name:
-    type: string
-    label: Bus 09 Name
-    help: "Display name for mix bus 9."
-  bus10_fader:
-    type: number
-    label: Bus 10 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 10 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus10_mute:
-    type: boolean
-    label: Bus 10 Mute
-    help: "True when mix bus 10 is muted."
-  bus10_name:
-    type: string
-    label: Bus 10 Name
-    help: "Display name for mix bus 10."
-  bus11_fader:
-    type: number
-    label: Bus 11 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 11 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus11_mute:
-    type: boolean
-    label: Bus 11 Mute
-    help: "True when mix bus 11 is muted."
-  bus11_name:
-    type: string
-    label: Bus 11 Name
-    help: "Display name for mix bus 11."
-  bus12_fader:
-    type: number
-    label: Bus 12 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 12 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus12_mute:
-    type: boolean
-    label: Bus 12 Mute
-    help: "True when mix bus 12 is muted."
-  bus12_name:
-    type: string
-    label: Bus 12 Name
-    help: "Display name for mix bus 12."
-  bus13_fader:
-    type: number
-    label: Bus 13 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 13 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus13_mute:
-    type: boolean
-    label: Bus 13 Mute
-    help: "True when mix bus 13 is muted."
-  bus13_name:
-    type: string
-    label: Bus 13 Name
-    help: "Display name for mix bus 13."
-  bus14_fader:
-    type: number
-    label: Bus 14 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 14 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus14_mute:
-    type: boolean
-    label: Bus 14 Mute
-    help: "True when mix bus 14 is muted."
-  bus14_name:
-    type: string
-    label: Bus 14 Name
-    help: "Display name for mix bus 14."
-  bus15_fader:
-    type: number
-    label: Bus 15 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 15 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus15_mute:
-    type: boolean
-    label: Bus 15 Mute
-    help: "True when mix bus 15 is muted."
-  bus15_name:
-    type: string
-    label: Bus 15 Name
-    help: "Display name for mix bus 15."
-  bus16_fader:
-    type: number
-    label: Bus 16 Fader
-    min: 0
-    max: 1
-    help: "Fader level for mix bus 16 (0.0 = -inf dB, 1.0 = +10 dB)."
-  bus16_mute:
-    type: boolean
-    label: Bus 16 Mute
-    help: "True when mix bus 16 is muted."
-  bus16_name:
-    type: string
-    label: Bus 16 Name
-    help: "Display name for mix bus 16."
-
-  # ── Matrices 1-6 ──
-  mtx01_fader:
-    type: number
-    label: Matrix 01 Fader
-    min: 0
-    max: 1
-    help: "Fader level for matrix output 1 (0.0 = -inf dB, 1.0 = +10 dB)."
-  mtx01_mute:
-    type: boolean
-    label: Matrix 01 Mute
-    help: "True when matrix output 1 is muted."
-  mtx02_fader:
-    type: number
-    label: Matrix 02 Fader
-    min: 0
-    max: 1
-    help: "Fader level for matrix output 2 (0.0 = -inf dB, 1.0 = +10 dB)."
-  mtx02_mute:
-    type: boolean
-    label: Matrix 02 Mute
-    help: "True when matrix output 2 is muted."
-  mtx03_fader:
-    type: number
-    label: Matrix 03 Fader
-    min: 0
-    max: 1
-    help: "Fader level for matrix output 3 (0.0 = -inf dB, 1.0 = +10 dB)."
-  mtx03_mute:
-    type: boolean
-    label: Matrix 03 Mute
-    help: "True when matrix output 3 is muted."
-  mtx04_fader:
-    type: number
-    label: Matrix 04 Fader
-    min: 0
-    max: 1
-    help: "Fader level for matrix output 4 (0.0 = -inf dB, 1.0 = +10 dB)."
-  mtx04_mute:
-    type: boolean
-    label: Matrix 04 Mute
-    help: "True when matrix output 4 is muted."
-  mtx05_fader:
-    type: number
-    label: Matrix 05 Fader
-    min: 0
-    max: 1
-    help: "Fader level for matrix output 5 (0.0 = -inf dB, 1.0 = +10 dB)."
-  mtx05_mute:
-    type: boolean
-    label: Matrix 05 Mute
-    help: "True when matrix output 5 is muted."
-  mtx06_fader:
-    type: number
-    label: Matrix 06 Fader
-    min: 0
-    max: 1
-    help: "Fader level for matrix output 6 (0.0 = -inf dB, 1.0 = +10 dB)."
-  mtx06_mute:
-    type: boolean
-    label: Matrix 06 Mute
-    help: "True when matrix output 6 is muted."
-
-  # ── DCAs 1-8 ──
-  dca1_fader:
-    type: number
-    label: DCA 1 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 1 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca1_mute:
-    type: boolean
-    label: DCA 1 Mute
-    help: "True when DCA group 1 is muted."
-  dca2_fader:
-    type: number
-    label: DCA 2 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 2 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca2_mute:
-    type: boolean
-    label: DCA 2 Mute
-    help: "True when DCA group 2 is muted."
-  dca3_fader:
-    type: number
-    label: DCA 3 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 3 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca3_mute:
-    type: boolean
-    label: DCA 3 Mute
-    help: "True when DCA group 3 is muted."
-  dca4_fader:
-    type: number
-    label: DCA 4 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 4 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca4_mute:
-    type: boolean
-    label: DCA 4 Mute
-    help: "True when DCA group 4 is muted."
-  dca5_fader:
-    type: number
-    label: DCA 5 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 5 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca5_mute:
-    type: boolean
-    label: DCA 5 Mute
-    help: "True when DCA group 5 is muted."
-  dca6_fader:
-    type: number
-    label: DCA 6 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 6 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca6_mute:
-    type: boolean
-    label: DCA 6 Mute
-    help: "True when DCA group 6 is muted."
-  dca7_fader:
-    type: number
-    label: DCA 7 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 7 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca7_mute:
-    type: boolean
-    label: DCA 7 Mute
-    help: "True when DCA group 7 is muted."
-  dca8_fader:
-    type: number
-    label: DCA 8 Fader
-    min: 0
-    max: 1
-    help: "Fader level for DCA group 8 (0.0 = -inf dB, 1.0 = +10 dB)."
-  dca8_mute:
-    type: boolean
-    label: DCA 8 Mute
-    help: "True when DCA group 8 is muted."
-
-  # ── Aux Inputs 1-8 ──
-  auxin01_fader:
-    type: number
-    label: Aux In 01 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 1 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin01_mute:
-    type: boolean
-    label: Aux In 01 Mute
-    help: "True when aux input 1 is muted."
-  auxin02_fader:
-    type: number
-    label: Aux In 02 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 2 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin02_mute:
-    type: boolean
-    label: Aux In 02 Mute
-    help: "True when aux input 2 is muted."
-  auxin03_fader:
-    type: number
-    label: Aux In 03 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 3 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin03_mute:
-    type: boolean
-    label: Aux In 03 Mute
-    help: "True when aux input 3 is muted."
-  auxin04_fader:
-    type: number
-    label: Aux In 04 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 4 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin04_mute:
-    type: boolean
-    label: Aux In 04 Mute
-    help: "True when aux input 4 is muted."
-  auxin05_fader:
-    type: number
-    label: Aux In 05 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 5 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin05_mute:
-    type: boolean
-    label: Aux In 05 Mute
-    help: "True when aux input 5 is muted."
-  auxin06_fader:
-    type: number
-    label: Aux In 06 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 6 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin06_mute:
-    type: boolean
-    label: Aux In 06 Mute
-    help: "True when aux input 6 is muted."
-  auxin07_fader:
-    type: number
-    label: Aux In 07 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 7 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin07_mute:
-    type: boolean
-    label: Aux In 07 Mute
-    help: "True when aux input 7 is muted."
-  auxin08_fader:
-    type: number
-    label: Aux In 08 Fader
-    min: 0
-    max: 1
-    help: "Fader level for aux input 8 (0.0 = -inf dB, 1.0 = +10 dB)."
-  auxin08_mute:
-    type: boolean
-    label: Aux In 08 Mute
-    help: "True when aux input 8 is muted."
-
-  # ── FX Returns 1-8 ──
-  fxrtn01_fader:
-    type: number
-    label: FX Return 01 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 1 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn01_mute:
-    type: boolean
-    label: FX Return 01 Mute
-    help: "True when FX return 1 is muted."
-  fxrtn02_fader:
-    type: number
-    label: FX Return 02 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 2 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn02_mute:
-    type: boolean
-    label: FX Return 02 Mute
-    help: "True when FX return 2 is muted."
-  fxrtn03_fader:
-    type: number
-    label: FX Return 03 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 3 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn03_mute:
-    type: boolean
-    label: FX Return 03 Mute
-    help: "True when FX return 3 is muted."
-  fxrtn04_fader:
-    type: number
-    label: FX Return 04 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 4 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn04_mute:
-    type: boolean
-    label: FX Return 04 Mute
-    help: "True when FX return 4 is muted."
-  fxrtn05_fader:
-    type: number
-    label: FX Return 05 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 5 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn05_mute:
-    type: boolean
-    label: FX Return 05 Mute
-    help: "True when FX return 5 is muted."
-  fxrtn06_fader:
-    type: number
-    label: FX Return 06 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 6 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn06_mute:
-    type: boolean
-    label: FX Return 06 Mute
-    help: "True when FX return 6 is muted."
-  fxrtn07_fader:
-    type: number
-    label: FX Return 07 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 7 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn07_mute:
-    type: boolean
-    label: FX Return 07 Mute
-    help: "True when FX return 7 is muted."
-  fxrtn08_fader:
-    type: number
-    label: FX Return 08 Fader
-    min: 0
-    max: 1
-    help: "Fader level for FX return 8 (0.0 = -inf dB, 1.0 = +10 dB)."
-  fxrtn08_mute:
-    type: boolean
-    label: FX Return 08 Mute
-    help: "True when FX return 8 is muted."
-
-  # ── Main Outputs ──
-  main_st_fader:
-    type: number
-    label: Main Stereo Fader
-    min: 0
-    max: 1
-    help: "Fader level for the main stereo (LR) output (0.0 = -inf dB, 1.0 = +10 dB)."
-  main_st_mute:
-    type: boolean
-    label: Main Stereo Mute
-    help: "True when the main stereo (LR) output is muted."
-  main_m_fader:
-    type: number
-    label: Main Mono Fader
-    min: 0
-    max: 1
-    help: "Fader level for the main M (center) output (0.0 = -inf dB, 1.0 = +10 dB)."
-  main_m_mute:
-    type: boolean
-    label: Main Mono Mute
-    help: "True when the main M (center) output is muted."
+# ── CHILD ENTITIES ──
+# One type per strip class (the console's own families). Every type
+# carries fader/mute/name; children are labelled by the console's
+# scribble-strip names (label_field: name), which load on connect.
+child_entity_types:
+  channel:
+    label: Channel
+    label_plural: Channels
+    id_format: { type: integer, min: 1, max: 32, pad_width: 2 }
+    label_field: name
+    state_variables:
+      fader:
+        type: number
+        label: Fader
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+        help: "Fader level (0.0 = -inf dB, 0.75 = 0 dB, 1.0 = +10 dB)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when the channel is muted."
+      name:
+        type: string
+        label: Name
+        cloud_priority: low
+        help: "Console scribble-strip name (12 characters max)."
+    instances:
+      count: 32
+      label: "Ch {id}"
+  aux_in:
+    label: Aux In
+    label_plural: Aux Ins
+    id_format: { type: integer, min: 1, max: 8, pad_width: 2 }
+    label_field: name
+    state_variables:
+      fader:
+        type: number
+        label: Fader
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+        help: "Fader level (0.0 = -inf dB, 0.75 = 0 dB, 1.0 = +10 dB)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when the aux input is muted."
+      name:
+        type: string
+        label: Name
+        cloud_priority: low
+        help: "Console scribble-strip name (12 characters max)."
+    instances:
+      count: 8
+      label: "Aux {id}"
+  fx_return:
+    label: FX Return
+    label_plural: FX Returns
+    id_format: { type: integer, min: 1, max: 8, pad_width: 2 }
+    label_field: name
+    state_variables:
+      fader:
+        type: number
+        label: Fader
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+        help: "Fader level (0.0 = -inf dB, 0.75 = 0 dB, 1.0 = +10 dB)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when the FX return is muted."
+      name:
+        type: string
+        label: Name
+        cloud_priority: low
+        help: "Console scribble-strip name (12 characters max)."
+    instances:
+      count: 8
+      label: "FX Rtn {id}"
+  bus:
+    label: Bus
+    label_plural: Buses
+    id_format: { type: integer, min: 1, max: 16, pad_width: 2 }
+    label_field: name
+    state_variables:
+      fader:
+        type: number
+        label: Fader
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+        help: "Fader level (0.0 = -inf dB, 0.75 = 0 dB, 1.0 = +10 dB)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when the bus is muted."
+      name:
+        type: string
+        label: Name
+        cloud_priority: low
+        help: "Console scribble-strip name (12 characters max)."
+    instances:
+      count: 16
+      label: "Bus {id}"
+  matrix:
+    label: Matrix
+    label_plural: Matrices
+    id_format: { type: integer, min: 1, max: 6, pad_width: 2 }
+    label_field: name
+    state_variables:
+      fader:
+        type: number
+        label: Fader
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+        help: "Fader level (0.0 = -inf dB, 0.75 = 0 dB, 1.0 = +10 dB)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when the matrix is muted."
+      name:
+        type: string
+        label: Name
+        cloud_priority: low
+        help: "Console scribble-strip name (12 characters max)."
+    instances:
+      count: 6
+      label: "Matrix {id}"
+  dca:
+    label: DCA
+    label_plural: DCAs
+    id_format: { type: integer, min: 1, max: 8 }
+    label_field: name
+    state_variables:
+      fader:
+        type: number
+        label: Fader
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+        help: "DCA fader level (0.0 = -inf dB, 0.75 = 0 dB, 1.0 = +10 dB)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when the DCA is muted."
+      name:
+        type: string
+        label: Name
+        cloud_priority: low
+        help: "Console scribble-strip name (12 characters max)."
+    instances:
+      count: 8
+      label: "DCA {id}"
+  main:
+    label: Main
+    label_plural: Mains
+    id_format: { type: string }
+    label_field: name
+    state_variables:
+      fader:
+        type: number
+        label: Fader
+        min: 0
+        max: 1
+        step: 0.01
+        control: true
+        help: "Main fader level (0.0 = -inf dB, 0.75 = 0 dB, 1.0 = +10 dB)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when the main output is muted."
+      name:
+        type: string
+        label: Name
+        cloud_priority: low
+        help: "Console scribble-strip name (12 characters max)."
+    instances:
+      ids: [st, m]
+      label: "Main {id}"
 
 commands:
-  # Subscription renewal (called by polling)
   renew:
     label: Renew Subscription
     address: "/xremote"
+    help: "Re-arm the console's feedback subscription (expires after ~10 s; the poll cycle sends this automatically)."
 
   query_info:
     label: Query Console Info
     address: "/info"
+    help: "Ask the console for its model and firmware version."
 
-  # ── Scene/Show commands ──
+  # ── Scene / snippet / cue recall (0-99 per the protocol doc) ──
   recall_scene:
     label: Recall Scene
     address: "/-action/goscene"
@@ -1150,9 +354,10 @@ commands:
     params:
       scene:
         type: integer
+        label: Scene (0-99)
         min: 0
         max: 99
-        label: Scene Number (0-99)
+    help: "Load a scene from the console's scene list."
 
   recall_snippet:
     label: Recall Snippet
@@ -1163,9 +368,10 @@ commands:
     params:
       snippet:
         type: integer
+        label: Snippet (0-99)
         min: 0
         max: 99
-        label: Snippet Number (0-99)
+    help: "Load a snippet from the console's snippet list."
 
   recall_cue:
     label: Recall Cue
@@ -1176,30 +382,31 @@ commands:
     params:
       cue:
         type: integer
+        label: Cue (0-99)
         min: 0
         max: 99
-        label: Cue Number (0-99)
+    help: "Fire a cue from the console's cue list."
 
   clear_solo:
-    label: Clear All Solo
+    label: Clear All Solos
     address: "/-action/clearsolo"
     args:
       - type: i
         value: "1"
+    help: "Release every active solo on the console."
 
-  # ── Channel commands ──
-  # Channel faders (0.0 = -inf, 1.0 = +10 dB, 0.75 ≈ 0 dB)
+  # ── Input channels 1-32 ──
   set_ch_fader:
     label: Set Channel Fader
-    address: "/ch/{channel}/mix/fader"
+    address: "/ch/{channel:02d}/mix/fader"
     args:
       - type: f
         value: "{level}"
     params:
       channel:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"]
-        label: Channel (01-32)
+        type: child_id
+        child_type: channel
+        label: Channel
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1207,43 +414,176 @@ commands:
         max: 1.0
         description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
-  # Channel mute (0 = muted, 1 = unmuted)
   mute_ch:
     label: Mute Channel
-    address: "/ch/{channel}/mix/on"
+    address: "/ch/{channel:02d}/mix/on"
     args:
       - type: i
         value: "0"
     params:
       channel:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"]
-        label: Channel (01-32)
+        type: child_id
+        child_type: channel
+        label: Channel
 
   unmute_ch:
     label: Unmute Channel
-    address: "/ch/{channel}/mix/on"
+    address: "/ch/{channel:02d}/mix/on"
     args:
       - type: i
         value: "1"
     params:
       channel:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"]
-        label: Channel (01-32)
+        type: child_id
+        child_type: channel
+        label: Channel
 
-  # ── Bus commands ──
+  rename_ch:
+    label: Rename Channel
+    address: "/ch/{channel:02d}/config/name"
+    args:
+      - type: s
+        value: "{name}"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        label: Channel
+      name:
+        type: string
+        label: Name
+        description: "12 characters max on-console"
+
+  # ── Aux ins 1-8 ──
+  set_auxin_fader:
+    label: Set Aux In Fader
+    address: "/auxin/{auxin:02d}/mix/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      auxin:
+        type: child_id
+        child_type: aux_in
+        label: Aux In
+      level:
+        type: number
+        label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
+
+  mute_auxin:
+    label: Mute Aux In
+    address: "/auxin/{auxin:02d}/mix/on"
+    args:
+      - type: i
+        value: "0"
+    params:
+      auxin:
+        type: child_id
+        child_type: aux_in
+        label: Aux In
+
+  unmute_auxin:
+    label: Unmute Aux In
+    address: "/auxin/{auxin:02d}/mix/on"
+    args:
+      - type: i
+        value: "1"
+    params:
+      auxin:
+        type: child_id
+        child_type: aux_in
+        label: Aux In
+
+  rename_auxin:
+    label: Rename Aux In
+    address: "/auxin/{auxin:02d}/config/name"
+    args:
+      - type: s
+        value: "{name}"
+    params:
+      auxin:
+        type: child_id
+        child_type: aux_in
+        label: Aux In
+      name:
+        type: string
+        label: Name
+        description: "12 characters max on-console"
+
+  # ── FX returns 1-8 ──
+  set_fxrtn_fader:
+    label: Set FX Return Fader
+    address: "/fxrtn/{fxrtn:02d}/mix/fader"
+    args:
+      - type: f
+        value: "{level}"
+    params:
+      fxrtn:
+        type: child_id
+        child_type: fx_return
+        label: FX Return
+      level:
+        type: number
+        label: Level (0.0-1.0)
+        min: 0.0
+        max: 1.0
+        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
+
+  mute_fxrtn:
+    label: Mute FX Return
+    address: "/fxrtn/{fxrtn:02d}/mix/on"
+    args:
+      - type: i
+        value: "0"
+    params:
+      fxrtn:
+        type: child_id
+        child_type: fx_return
+        label: FX Return
+
+  unmute_fxrtn:
+    label: Unmute FX Return
+    address: "/fxrtn/{fxrtn:02d}/mix/on"
+    args:
+      - type: i
+        value: "1"
+    params:
+      fxrtn:
+        type: child_id
+        child_type: fx_return
+        label: FX Return
+
+  rename_fxrtn:
+    label: Rename FX Return
+    address: "/fxrtn/{fxrtn:02d}/config/name"
+    args:
+      - type: s
+        value: "{name}"
+    params:
+      fxrtn:
+        type: child_id
+        child_type: fx_return
+        label: FX Return
+      name:
+        type: string
+        label: Name
+        description: "12 characters max on-console"
+
+  # ── Mix buses 1-16 ──
   set_bus_fader:
     label: Set Bus Fader
-    address: "/bus/{bus}/mix/fader"
+    address: "/bus/{bus:02d}/mix/fader"
     args:
       - type: f
         value: "{level}"
     params:
       bus:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16"]
-        label: Bus (01-16)
+        type: child_id
+        child_type: bus
+        label: Bus
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1253,40 +593,56 @@ commands:
 
   mute_bus:
     label: Mute Bus
-    address: "/bus/{bus}/mix/on"
+    address: "/bus/{bus:02d}/mix/on"
     args:
       - type: i
         value: "0"
     params:
       bus:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16"]
-        label: Bus (01-16)
+        type: child_id
+        child_type: bus
+        label: Bus
 
   unmute_bus:
     label: Unmute Bus
-    address: "/bus/{bus}/mix/on"
+    address: "/bus/{bus:02d}/mix/on"
     args:
       - type: i
         value: "1"
     params:
       bus:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16"]
-        label: Bus (01-16)
+        type: child_id
+        child_type: bus
+        label: Bus
 
-  # ── Matrix commands ──
+  rename_bus:
+    label: Rename Bus
+    address: "/bus/{bus:02d}/config/name"
+    args:
+      - type: s
+        value: "{name}"
+    params:
+      bus:
+        type: child_id
+        child_type: bus
+        label: Bus
+      name:
+        type: string
+        label: Name
+        description: "12 characters max on-console"
+
+  # ── Matrices 1-6 ──
   set_mtx_fader:
     label: Set Matrix Fader
-    address: "/mtx/{mtx}/mix/fader"
+    address: "/mtx/{mtx:02d}/mix/fader"
     args:
       - type: f
         value: "{level}"
     params:
       mtx:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06"]
-        label: Matrix (01-06)
+        type: child_id
+        child_type: matrix
+        label: Matrix
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1296,29 +652,45 @@ commands:
 
   mute_mtx:
     label: Mute Matrix
-    address: "/mtx/{mtx}/mix/on"
+    address: "/mtx/{mtx:02d}/mix/on"
     args:
       - type: i
         value: "0"
     params:
       mtx:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06"]
-        label: Matrix (01-06)
+        type: child_id
+        child_type: matrix
+        label: Matrix
 
   unmute_mtx:
     label: Unmute Matrix
-    address: "/mtx/{mtx}/mix/on"
+    address: "/mtx/{mtx:02d}/mix/on"
     args:
       - type: i
         value: "1"
     params:
       mtx:
-        type: enum
-        values: ["01", "02", "03", "04", "05", "06"]
-        label: Matrix (01-06)
+        type: child_id
+        child_type: matrix
+        label: Matrix
 
-  # ── DCA commands ──
+  rename_mtx:
+    label: Rename Matrix
+    address: "/mtx/{mtx:02d}/config/name"
+    args:
+      - type: s
+        value: "{name}"
+    params:
+      mtx:
+        type: child_id
+        child_type: matrix
+        label: Matrix
+      name:
+        type: string
+        label: Name
+        description: "12 characters max on-console"
+
+  # ── DCAs 1-8 (addresses are unpadded per the protocol tree) ──
   set_dca_fader:
     label: Set DCA Fader
     address: "/dca/{dca}/fader"
@@ -1327,9 +699,9 @@ commands:
         value: "{level}"
     params:
       dca:
-        type: enum
-        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
-        label: DCA (1-8)
+        type: child_id
+        child_type: dca
+        label: DCA
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1345,9 +717,9 @@ commands:
         value: "0"
     params:
       dca:
-        type: enum
-        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
-        label: DCA (1-8)
+        type: child_id
+        child_type: dca
+        label: DCA
 
   unmute_dca:
     label: Unmute DCA
@@ -1357,18 +729,38 @@ commands:
         value: "1"
     params:
       dca:
-        type: enum
-        values: ["1", "2", "3", "4", "5", "6", "7", "8"]
-        label: DCA (1-8)
+        type: child_id
+        child_type: dca
+        label: DCA
 
-  # ── Main stereo output ──
-  set_main_st_fader:
-    label: Set Main Stereo Fader
-    address: "/main/st/mix/fader"
+  rename_dca:
+    label: Rename DCA
+    address: "/dca/{dca}/config/name"
+    args:
+      - type: s
+        value: "{name}"
+    params:
+      dca:
+        type: child_id
+        child_type: dca
+        label: DCA
+      name:
+        type: string
+        label: Name
+        description: "12 characters max on-console"
+
+  # ── Mains (st = stereo, m = mono) ──
+  set_main_fader:
+    label: Set Main Fader
+    address: "/main/{main}/mix/fader"
     args:
       - type: f
         value: "{level}"
     params:
+      main:
+        type: child_id
+        child_type: main
+        label: Main
       level:
         type: number
         label: Level (0.0-1.0)
@@ -1376,6 +768,48 @@ commands:
         max: 1.0
         description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
 
+  mute_main:
+    label: Mute Main
+    address: "/main/{main}/mix/on"
+    args:
+      - type: i
+        value: "0"
+    params:
+      main:
+        type: child_id
+        child_type: main
+        label: Main
+
+  unmute_main:
+    label: Unmute Main
+    address: "/main/{main}/mix/on"
+    args:
+      - type: i
+        value: "1"
+    params:
+      main:
+        type: child_id
+        child_type: main
+        label: Main
+
+  rename_main:
+    label: Rename Main
+    address: "/main/{main}/config/name"
+    args:
+      - type: s
+        value: "{name}"
+    params:
+      main:
+        type: child_id
+        child_type: main
+        label: Main
+      name:
+        type: string
+        label: Name
+        description: "12 characters max on-console"
+
+  # No-param main-stereo mute pair kept for the quick-action strip
+  # (actions fire commands directly; these avoid a param prompt).
   mute_main_st:
     label: Mute Main Stereo
     address: "/main/st/mix/on"
@@ -1390,679 +824,62 @@ commands:
       - type: i
         value: "1"
 
-  # ── Main mono output ──
-  set_main_m_fader:
-    label: Set Main Mono Fader
-    address: "/main/m/mix/fader"
-    args:
-      - type: f
-        value: "{level}"
-    params:
-      level:
-        type: number
-        label: Level (0.0-1.0)
-        min: 0.0
-        max: 1.0
-        description: "0.0 = -inf, 0.75 = 0 dB, 1.0 = +10 dB"
-
-  mute_main_m:
-    label: Mute Main Mono
-    address: "/main/m/mix/on"
-    args:
-      - type: i
-        value: "0"
-
-  unmute_main_m:
-    label: Unmute Main Mono
-    address: "/main/m/mix/on"
-    args:
-      - type: i
-        value: "1"
-
-# ── DEVICE SETTINGS ──
-# Channel and bus names are persisted console-side config with a query
-# read-back (/.../config/name with no args), so they're first-class
-# device settings (editable field + offline pending queue). The console
-# does NOT echo a client's own set back; the name queries in the poll
-# cycle are the read-back path (names cap at 12 characters on-console).
-device_settings:
-  ch01_name:
-    type: string
-    label: Ch 01 Name
-    help: "Display name for input channel 1 (12 characters max)."
-    state_key: ch01_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/01/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch02_name:
-    type: string
-    label: Ch 02 Name
-    help: "Display name for input channel 2 (12 characters max)."
-    state_key: ch02_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/02/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch03_name:
-    type: string
-    label: Ch 03 Name
-    help: "Display name for input channel 3 (12 characters max)."
-    state_key: ch03_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/03/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch04_name:
-    type: string
-    label: Ch 04 Name
-    help: "Display name for input channel 4 (12 characters max)."
-    state_key: ch04_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/04/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch05_name:
-    type: string
-    label: Ch 05 Name
-    help: "Display name for input channel 5 (12 characters max)."
-    state_key: ch05_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/05/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch06_name:
-    type: string
-    label: Ch 06 Name
-    help: "Display name for input channel 6 (12 characters max)."
-    state_key: ch06_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/06/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch07_name:
-    type: string
-    label: Ch 07 Name
-    help: "Display name for input channel 7 (12 characters max)."
-    state_key: ch07_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/07/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch08_name:
-    type: string
-    label: Ch 08 Name
-    help: "Display name for input channel 8 (12 characters max)."
-    state_key: ch08_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/08/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch09_name:
-    type: string
-    label: Ch 09 Name
-    help: "Display name for input channel 9 (12 characters max)."
-    state_key: ch09_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/09/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch10_name:
-    type: string
-    label: Ch 10 Name
-    help: "Display name for input channel 10 (12 characters max)."
-    state_key: ch10_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/10/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch11_name:
-    type: string
-    label: Ch 11 Name
-    help: "Display name for input channel 11 (12 characters max)."
-    state_key: ch11_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/11/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch12_name:
-    type: string
-    label: Ch 12 Name
-    help: "Display name for input channel 12 (12 characters max)."
-    state_key: ch12_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/12/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch13_name:
-    type: string
-    label: Ch 13 Name
-    help: "Display name for input channel 13 (12 characters max)."
-    state_key: ch13_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/13/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch14_name:
-    type: string
-    label: Ch 14 Name
-    help: "Display name for input channel 14 (12 characters max)."
-    state_key: ch14_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/14/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch15_name:
-    type: string
-    label: Ch 15 Name
-    help: "Display name for input channel 15 (12 characters max)."
-    state_key: ch15_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/15/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch16_name:
-    type: string
-    label: Ch 16 Name
-    help: "Display name for input channel 16 (12 characters max)."
-    state_key: ch16_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/16/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch17_name:
-    type: string
-    label: Ch 17 Name
-    help: "Display name for input channel 17 (12 characters max)."
-    state_key: ch17_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/17/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch18_name:
-    type: string
-    label: Ch 18 Name
-    help: "Display name for input channel 18 (12 characters max)."
-    state_key: ch18_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/18/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch19_name:
-    type: string
-    label: Ch 19 Name
-    help: "Display name for input channel 19 (12 characters max)."
-    state_key: ch19_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/19/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch20_name:
-    type: string
-    label: Ch 20 Name
-    help: "Display name for input channel 20 (12 characters max)."
-    state_key: ch20_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/20/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch21_name:
-    type: string
-    label: Ch 21 Name
-    help: "Display name for input channel 21 (12 characters max)."
-    state_key: ch21_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/21/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch22_name:
-    type: string
-    label: Ch 22 Name
-    help: "Display name for input channel 22 (12 characters max)."
-    state_key: ch22_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/22/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch23_name:
-    type: string
-    label: Ch 23 Name
-    help: "Display name for input channel 23 (12 characters max)."
-    state_key: ch23_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/23/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch24_name:
-    type: string
-    label: Ch 24 Name
-    help: "Display name for input channel 24 (12 characters max)."
-    state_key: ch24_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/24/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch25_name:
-    type: string
-    label: Ch 25 Name
-    help: "Display name for input channel 25 (12 characters max)."
-    state_key: ch25_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/25/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch26_name:
-    type: string
-    label: Ch 26 Name
-    help: "Display name for input channel 26 (12 characters max)."
-    state_key: ch26_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/26/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch27_name:
-    type: string
-    label: Ch 27 Name
-    help: "Display name for input channel 27 (12 characters max)."
-    state_key: ch27_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/27/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch28_name:
-    type: string
-    label: Ch 28 Name
-    help: "Display name for input channel 28 (12 characters max)."
-    state_key: ch28_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/28/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch29_name:
-    type: string
-    label: Ch 29 Name
-    help: "Display name for input channel 29 (12 characters max)."
-    state_key: ch29_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/29/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch30_name:
-    type: string
-    label: Ch 30 Name
-    help: "Display name for input channel 30 (12 characters max)."
-    state_key: ch30_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/30/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch31_name:
-    type: string
-    label: Ch 31 Name
-    help: "Display name for input channel 31 (12 characters max)."
-    state_key: ch31_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/31/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  ch32_name:
-    type: string
-    label: Ch 32 Name
-    help: "Display name for input channel 32 (12 characters max)."
-    state_key: ch32_name
-    default: ""
-    setup: false
-    write:
-      address: "/ch/32/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus01_name:
-    type: string
-    label: Bus 01 Name
-    help: "Display name for mix bus 1 (12 characters max)."
-    state_key: bus01_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/01/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus02_name:
-    type: string
-    label: Bus 02 Name
-    help: "Display name for mix bus 2 (12 characters max)."
-    state_key: bus02_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/02/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus03_name:
-    type: string
-    label: Bus 03 Name
-    help: "Display name for mix bus 3 (12 characters max)."
-    state_key: bus03_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/03/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus04_name:
-    type: string
-    label: Bus 04 Name
-    help: "Display name for mix bus 4 (12 characters max)."
-    state_key: bus04_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/04/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus05_name:
-    type: string
-    label: Bus 05 Name
-    help: "Display name for mix bus 5 (12 characters max)."
-    state_key: bus05_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/05/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus06_name:
-    type: string
-    label: Bus 06 Name
-    help: "Display name for mix bus 6 (12 characters max)."
-    state_key: bus06_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/06/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus07_name:
-    type: string
-    label: Bus 07 Name
-    help: "Display name for mix bus 7 (12 characters max)."
-    state_key: bus07_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/07/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus08_name:
-    type: string
-    label: Bus 08 Name
-    help: "Display name for mix bus 8 (12 characters max)."
-    state_key: bus08_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/08/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus09_name:
-    type: string
-    label: Bus 09 Name
-    help: "Display name for mix bus 9 (12 characters max)."
-    state_key: bus09_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/09/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus10_name:
-    type: string
-    label: Bus 10 Name
-    help: "Display name for mix bus 10 (12 characters max)."
-    state_key: bus10_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/10/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus11_name:
-    type: string
-    label: Bus 11 Name
-    help: "Display name for mix bus 11 (12 characters max)."
-    state_key: bus11_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/11/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus12_name:
-    type: string
-    label: Bus 12 Name
-    help: "Display name for mix bus 12 (12 characters max)."
-    state_key: bus12_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/12/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus13_name:
-    type: string
-    label: Bus 13 Name
-    help: "Display name for mix bus 13 (12 characters max)."
-    state_key: bus13_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/13/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus14_name:
-    type: string
-    label: Bus 14 Name
-    help: "Display name for mix bus 14 (12 characters max)."
-    state_key: bus14_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/14/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus15_name:
-    type: string
-    label: Bus 15 Name
-    help: "Display name for mix bus 15 (12 characters max)."
-    state_key: bus15_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/15/config/name"
-      args:
-        - type: s
-          value: "{value}"
-  bus16_name:
-    type: string
-    label: Bus 16 Name
-    help: "Display name for mix bus 16 (12 characters max)."
-    state_key: bus16_name
-    default: ""
-    setup: false
-    write:
-      address: "/bus/16/config/name"
-      args:
-        - type: s
-          value: "{value}"
-
-# Subscribe to feedback on connect, query console info
 on_connect:
   - "/xremote"
   - "/info"
+  # Populate every strip immediately (name first so child labels appear,
+  # then fader/mute). The poll cycle repeats these as the read-back path.
+  - { each_child: channel, send: "/ch/{child_id:02d}/config/name" }
+  - { each_child: channel, send: "/ch/{child_id:02d}/mix/fader" }
+  - { each_child: channel, send: "/ch/{child_id:02d}/mix/on" }
+  - { each_child: aux_in, send: "/auxin/{child_id:02d}/config/name" }
+  - { each_child: aux_in, send: "/auxin/{child_id:02d}/mix/fader" }
+  - { each_child: aux_in, send: "/auxin/{child_id:02d}/mix/on" }
+  - { each_child: fx_return, send: "/fxrtn/{child_id:02d}/config/name" }
+  - { each_child: fx_return, send: "/fxrtn/{child_id:02d}/mix/fader" }
+  - { each_child: fx_return, send: "/fxrtn/{child_id:02d}/mix/on" }
+  - { each_child: bus, send: "/bus/{child_id:02d}/config/name" }
+  - { each_child: bus, send: "/bus/{child_id:02d}/mix/fader" }
+  - { each_child: bus, send: "/bus/{child_id:02d}/mix/on" }
+  - { each_child: matrix, send: "/mtx/{child_id:02d}/config/name" }
+  - { each_child: matrix, send: "/mtx/{child_id:02d}/mix/fader" }
+  - { each_child: matrix, send: "/mtx/{child_id:02d}/mix/on" }
+  - { each_child: dca, send: "/dca/{child_id}/config/name" }
+  - { each_child: dca, send: "/dca/{child_id}/fader" }
+  - { each_child: dca, send: "/dca/{child_id}/on" }
+  - { each_child: main, send: "/main/{child_id}/config/name" }
+  - { each_child: main, send: "/main/{child_id}/mix/fader" }
+  - { each_child: main, send: "/main/{child_id}/mix/on" }
 
-# Renew subscription every 9 seconds (X32 expires after ~10s).
-# The name queries are the read-back path for the channel/bus name
-# device settings: the console never echoes a client's own set back,
-# so each poll cycle re-reads the names (48 tiny UDP datagrams).
+# Renew subscription every 9 seconds (X32 expires after ~10s) and re-read
+# every strip's fader/mute/name. The console never echoes a client's own
+# set back, so this poll cycle is the read-back path for this driver's
+# writes (~240 tiny UDP datagrams per cycle — far lighter than the
+# console's own remote apps).
 polling:
   queries:
     - "renew"
-    - "/ch/01/config/name"
-    - "/ch/02/config/name"
-    - "/ch/03/config/name"
-    - "/ch/04/config/name"
-    - "/ch/05/config/name"
-    - "/ch/06/config/name"
-    - "/ch/07/config/name"
-    - "/ch/08/config/name"
-    - "/ch/09/config/name"
-    - "/ch/10/config/name"
-    - "/ch/11/config/name"
-    - "/ch/12/config/name"
-    - "/ch/13/config/name"
-    - "/ch/14/config/name"
-    - "/ch/15/config/name"
-    - "/ch/16/config/name"
-    - "/ch/17/config/name"
-    - "/ch/18/config/name"
-    - "/ch/19/config/name"
-    - "/ch/20/config/name"
-    - "/ch/21/config/name"
-    - "/ch/22/config/name"
-    - "/ch/23/config/name"
-    - "/ch/24/config/name"
-    - "/ch/25/config/name"
-    - "/ch/26/config/name"
-    - "/ch/27/config/name"
-    - "/ch/28/config/name"
-    - "/ch/29/config/name"
-    - "/ch/30/config/name"
-    - "/ch/31/config/name"
-    - "/ch/32/config/name"
-    - "/bus/01/config/name"
-    - "/bus/02/config/name"
-    - "/bus/03/config/name"
-    - "/bus/04/config/name"
-    - "/bus/05/config/name"
-    - "/bus/06/config/name"
-    - "/bus/07/config/name"
-    - "/bus/08/config/name"
-    - "/bus/09/config/name"
-    - "/bus/10/config/name"
-    - "/bus/11/config/name"
-    - "/bus/12/config/name"
-    - "/bus/13/config/name"
-    - "/bus/14/config/name"
-    - "/bus/15/config/name"
-    - "/bus/16/config/name"
+    - { each_child: channel, send: "/ch/{child_id:02d}/config/name" }
+    - { each_child: channel, send: "/ch/{child_id:02d}/mix/fader" }
+    - { each_child: channel, send: "/ch/{child_id:02d}/mix/on" }
+    - { each_child: aux_in, send: "/auxin/{child_id:02d}/config/name" }
+    - { each_child: aux_in, send: "/auxin/{child_id:02d}/mix/fader" }
+    - { each_child: aux_in, send: "/auxin/{child_id:02d}/mix/on" }
+    - { each_child: fx_return, send: "/fxrtn/{child_id:02d}/config/name" }
+    - { each_child: fx_return, send: "/fxrtn/{child_id:02d}/mix/fader" }
+    - { each_child: fx_return, send: "/fxrtn/{child_id:02d}/mix/on" }
+    - { each_child: bus, send: "/bus/{child_id:02d}/config/name" }
+    - { each_child: bus, send: "/bus/{child_id:02d}/mix/fader" }
+    - { each_child: bus, send: "/bus/{child_id:02d}/mix/on" }
+    - { each_child: matrix, send: "/mtx/{child_id:02d}/config/name" }
+    - { each_child: matrix, send: "/mtx/{child_id:02d}/mix/fader" }
+    - { each_child: matrix, send: "/mtx/{child_id:02d}/mix/on" }
+    - { each_child: dca, send: "/dca/{child_id}/config/name" }
+    - { each_child: dca, send: "/dca/{child_id}/fader" }
+    - { each_child: dca, send: "/dca/{child_id}/on" }
+    - { each_child: main, send: "/main/{child_id}/config/name" }
+    - { each_child: main, send: "/main/{child_id}/mix/fader" }
+    - { each_child: main, send: "/main/{child_id}/mix/on" }
 
 # ── QUICK ACTIONS ──
 actions:
@@ -2089,6 +906,10 @@ liveness:
   timeout: 5
   max_failures: 2
 
+# One wildcard rule per strip family routes into child state by address
+# segment: in /ch/07/mix/fader, segment 1 (0-based over the /-split
+# address) is "07" — the channel's local id. The console reports mute as
+# on (1 = unmuted, 0 = muted), hence the inverting value map.
 responses:
   # Console info (4 string args: server version, server name, model, firmware)
   - address: "/info"
@@ -2112,1324 +933,103 @@ responses:
         state: show_name
         type: string
 
-  # ── Channel 01-32 faders ──
-  - address: "/ch/01/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch01_fader
-        type: float
-  - address: "/ch/02/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch02_fader
-        type: float
-  - address: "/ch/03/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch03_fader
-        type: float
-  - address: "/ch/04/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch04_fader
-        type: float
-  - address: "/ch/05/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch05_fader
-        type: float
-  - address: "/ch/06/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch06_fader
-        type: float
-  - address: "/ch/07/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch07_fader
-        type: float
-  - address: "/ch/08/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch08_fader
-        type: float
-  - address: "/ch/09/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch09_fader
-        type: float
-  - address: "/ch/10/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch10_fader
-        type: float
-  - address: "/ch/11/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch11_fader
-        type: float
-  - address: "/ch/12/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch12_fader
-        type: float
-  - address: "/ch/13/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch13_fader
-        type: float
-  - address: "/ch/14/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch14_fader
-        type: float
-  - address: "/ch/15/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch15_fader
-        type: float
-  - address: "/ch/16/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch16_fader
-        type: float
-  - address: "/ch/17/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch17_fader
-        type: float
-  - address: "/ch/18/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch18_fader
-        type: float
-  - address: "/ch/19/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch19_fader
-        type: float
-  - address: "/ch/20/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch20_fader
-        type: float
-  - address: "/ch/21/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch21_fader
-        type: float
-  - address: "/ch/22/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch22_fader
-        type: float
-  - address: "/ch/23/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch23_fader
-        type: float
-  - address: "/ch/24/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch24_fader
-        type: float
-  - address: "/ch/25/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch25_fader
-        type: float
-  - address: "/ch/26/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch26_fader
-        type: float
-  - address: "/ch/27/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch27_fader
-        type: float
-  - address: "/ch/28/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch28_fader
-        type: float
-  - address: "/ch/29/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch29_fader
-        type: float
-  - address: "/ch/30/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch30_fader
-        type: float
-  - address: "/ch/31/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch31_fader
-        type: float
-  - address: "/ch/32/mix/fader"
-    mappings:
-      - arg: 0
-        state: ch32_fader
-        type: float
+  # ── Input channels 1-32 ──
+  - address: "/ch/*/mix/fader"
+    child_set:
+      - { type: channel, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/ch/*/mix/on"
+    child_set:
+      - type: channel
+        id: { segment: 1 }
+        state:
+          mute: { arg: 0, map: { "0": "true", "1": "false" } }
+  - address: "/ch/*/config/name"
+    child_set:
+      - { type: channel, id: { segment: 1 }, state: { name: { arg: 0 } } }
 
-  # ── Channel 01-32 mutes (0=muted, 1=unmuted → invert for boolean mute state) ──
-  - address: "/ch/01/mix/on"
-    mappings:
-      - arg: 0
-        state: ch01_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/02/mix/on"
-    mappings:
-      - arg: 0
-        state: ch02_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/03/mix/on"
-    mappings:
-      - arg: 0
-        state: ch03_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/04/mix/on"
-    mappings:
-      - arg: 0
-        state: ch04_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/05/mix/on"
-    mappings:
-      - arg: 0
-        state: ch05_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/06/mix/on"
-    mappings:
-      - arg: 0
-        state: ch06_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/07/mix/on"
-    mappings:
-      - arg: 0
-        state: ch07_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/08/mix/on"
-    mappings:
-      - arg: 0
-        state: ch08_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/09/mix/on"
-    mappings:
-      - arg: 0
-        state: ch09_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/10/mix/on"
-    mappings:
-      - arg: 0
-        state: ch10_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/11/mix/on"
-    mappings:
-      - arg: 0
-        state: ch11_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/12/mix/on"
-    mappings:
-      - arg: 0
-        state: ch12_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/13/mix/on"
-    mappings:
-      - arg: 0
-        state: ch13_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/14/mix/on"
-    mappings:
-      - arg: 0
-        state: ch14_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/15/mix/on"
-    mappings:
-      - arg: 0
-        state: ch15_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/16/mix/on"
-    mappings:
-      - arg: 0
-        state: ch16_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/17/mix/on"
-    mappings:
-      - arg: 0
-        state: ch17_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/18/mix/on"
-    mappings:
-      - arg: 0
-        state: ch18_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/19/mix/on"
-    mappings:
-      - arg: 0
-        state: ch19_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/20/mix/on"
-    mappings:
-      - arg: 0
-        state: ch20_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/21/mix/on"
-    mappings:
-      - arg: 0
-        state: ch21_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/22/mix/on"
-    mappings:
-      - arg: 0
-        state: ch22_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/23/mix/on"
-    mappings:
-      - arg: 0
-        state: ch23_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/24/mix/on"
-    mappings:
-      - arg: 0
-        state: ch24_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/25/mix/on"
-    mappings:
-      - arg: 0
-        state: ch25_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/26/mix/on"
-    mappings:
-      - arg: 0
-        state: ch26_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/27/mix/on"
-    mappings:
-      - arg: 0
-        state: ch27_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/28/mix/on"
-    mappings:
-      - arg: 0
-        state: ch28_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/29/mix/on"
-    mappings:
-      - arg: 0
-        state: ch29_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/30/mix/on"
-    mappings:
-      - arg: 0
-        state: ch30_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/31/mix/on"
-    mappings:
-      - arg: 0
-        state: ch31_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/ch/32/mix/on"
-    mappings:
-      - arg: 0
-        state: ch32_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
+  # ── Aux ins 1-8 ──
+  - address: "/auxin/*/mix/fader"
+    child_set:
+      - { type: aux_in, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/auxin/*/mix/on"
+    child_set:
+      - type: aux_in
+        id: { segment: 1 }
+        state:
+          mute: { arg: 0, map: { "0": "true", "1": "false" } }
+  - address: "/auxin/*/config/name"
+    child_set:
+      - { type: aux_in, id: { segment: 1 }, state: { name: { arg: 0 } } }
 
-  # ── Channel 01-32 names ──
-  - address: "/ch/01/config/name"
-    mappings:
-      - arg: 0
-        state: ch01_name
-        type: string
-  - address: "/ch/02/config/name"
-    mappings:
-      - arg: 0
-        state: ch02_name
-        type: string
-  - address: "/ch/03/config/name"
-    mappings:
-      - arg: 0
-        state: ch03_name
-        type: string
-  - address: "/ch/04/config/name"
-    mappings:
-      - arg: 0
-        state: ch04_name
-        type: string
-  - address: "/ch/05/config/name"
-    mappings:
-      - arg: 0
-        state: ch05_name
-        type: string
-  - address: "/ch/06/config/name"
-    mappings:
-      - arg: 0
-        state: ch06_name
-        type: string
-  - address: "/ch/07/config/name"
-    mappings:
-      - arg: 0
-        state: ch07_name
-        type: string
-  - address: "/ch/08/config/name"
-    mappings:
-      - arg: 0
-        state: ch08_name
-        type: string
-  - address: "/ch/09/config/name"
-    mappings:
-      - arg: 0
-        state: ch09_name
-        type: string
-  - address: "/ch/10/config/name"
-    mappings:
-      - arg: 0
-        state: ch10_name
-        type: string
-  - address: "/ch/11/config/name"
-    mappings:
-      - arg: 0
-        state: ch11_name
-        type: string
-  - address: "/ch/12/config/name"
-    mappings:
-      - arg: 0
-        state: ch12_name
-        type: string
-  - address: "/ch/13/config/name"
-    mappings:
-      - arg: 0
-        state: ch13_name
-        type: string
-  - address: "/ch/14/config/name"
-    mappings:
-      - arg: 0
-        state: ch14_name
-        type: string
-  - address: "/ch/15/config/name"
-    mappings:
-      - arg: 0
-        state: ch15_name
-        type: string
-  - address: "/ch/16/config/name"
-    mappings:
-      - arg: 0
-        state: ch16_name
-        type: string
-  - address: "/ch/17/config/name"
-    mappings:
-      - arg: 0
-        state: ch17_name
-        type: string
-  - address: "/ch/18/config/name"
-    mappings:
-      - arg: 0
-        state: ch18_name
-        type: string
-  - address: "/ch/19/config/name"
-    mappings:
-      - arg: 0
-        state: ch19_name
-        type: string
-  - address: "/ch/20/config/name"
-    mappings:
-      - arg: 0
-        state: ch20_name
-        type: string
-  - address: "/ch/21/config/name"
-    mappings:
-      - arg: 0
-        state: ch21_name
-        type: string
-  - address: "/ch/22/config/name"
-    mappings:
-      - arg: 0
-        state: ch22_name
-        type: string
-  - address: "/ch/23/config/name"
-    mappings:
-      - arg: 0
-        state: ch23_name
-        type: string
-  - address: "/ch/24/config/name"
-    mappings:
-      - arg: 0
-        state: ch24_name
-        type: string
-  - address: "/ch/25/config/name"
-    mappings:
-      - arg: 0
-        state: ch25_name
-        type: string
-  - address: "/ch/26/config/name"
-    mappings:
-      - arg: 0
-        state: ch26_name
-        type: string
-  - address: "/ch/27/config/name"
-    mappings:
-      - arg: 0
-        state: ch27_name
-        type: string
-  - address: "/ch/28/config/name"
-    mappings:
-      - arg: 0
-        state: ch28_name
-        type: string
-  - address: "/ch/29/config/name"
-    mappings:
-      - arg: 0
-        state: ch29_name
-        type: string
-  - address: "/ch/30/config/name"
-    mappings:
-      - arg: 0
-        state: ch30_name
-        type: string
-  - address: "/ch/31/config/name"
-    mappings:
-      - arg: 0
-        state: ch31_name
-        type: string
-  - address: "/ch/32/config/name"
-    mappings:
-      - arg: 0
-        state: ch32_name
-        type: string
+  # ── FX returns 1-8 ──
+  - address: "/fxrtn/*/mix/fader"
+    child_set:
+      - { type: fx_return, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/fxrtn/*/mix/on"
+    child_set:
+      - type: fx_return
+        id: { segment: 1 }
+        state:
+          mute: { arg: 0, map: { "0": "true", "1": "false" } }
+  - address: "/fxrtn/*/config/name"
+    child_set:
+      - { type: fx_return, id: { segment: 1 }, state: { name: { arg: 0 } } }
 
-  # ── Bus 01-16 faders ──
-  - address: "/bus/01/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus01_fader
-        type: float
-  - address: "/bus/02/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus02_fader
-        type: float
-  - address: "/bus/03/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus03_fader
-        type: float
-  - address: "/bus/04/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus04_fader
-        type: float
-  - address: "/bus/05/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus05_fader
-        type: float
-  - address: "/bus/06/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus06_fader
-        type: float
-  - address: "/bus/07/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus07_fader
-        type: float
-  - address: "/bus/08/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus08_fader
-        type: float
-  - address: "/bus/09/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus09_fader
-        type: float
-  - address: "/bus/10/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus10_fader
-        type: float
-  - address: "/bus/11/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus11_fader
-        type: float
-  - address: "/bus/12/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus12_fader
-        type: float
-  - address: "/bus/13/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus13_fader
-        type: float
-  - address: "/bus/14/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus14_fader
-        type: float
-  - address: "/bus/15/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus15_fader
-        type: float
-  - address: "/bus/16/mix/fader"
-    mappings:
-      - arg: 0
-        state: bus16_fader
-        type: float
+  # ── Mix buses 1-16 ──
+  - address: "/bus/*/mix/fader"
+    child_set:
+      - { type: bus, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/bus/*/mix/on"
+    child_set:
+      - type: bus
+        id: { segment: 1 }
+        state:
+          mute: { arg: 0, map: { "0": "true", "1": "false" } }
+  - address: "/bus/*/config/name"
+    child_set:
+      - { type: bus, id: { segment: 1 }, state: { name: { arg: 0 } } }
 
-  # ── Bus 01-16 mutes ──
-  - address: "/bus/01/mix/on"
-    mappings:
-      - arg: 0
-        state: bus01_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/02/mix/on"
-    mappings:
-      - arg: 0
-        state: bus02_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/03/mix/on"
-    mappings:
-      - arg: 0
-        state: bus03_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/04/mix/on"
-    mappings:
-      - arg: 0
-        state: bus04_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/05/mix/on"
-    mappings:
-      - arg: 0
-        state: bus05_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/06/mix/on"
-    mappings:
-      - arg: 0
-        state: bus06_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/07/mix/on"
-    mappings:
-      - arg: 0
-        state: bus07_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/08/mix/on"
-    mappings:
-      - arg: 0
-        state: bus08_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/09/mix/on"
-    mappings:
-      - arg: 0
-        state: bus09_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/10/mix/on"
-    mappings:
-      - arg: 0
-        state: bus10_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/11/mix/on"
-    mappings:
-      - arg: 0
-        state: bus11_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/12/mix/on"
-    mappings:
-      - arg: 0
-        state: bus12_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/13/mix/on"
-    mappings:
-      - arg: 0
-        state: bus13_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/14/mix/on"
-    mappings:
-      - arg: 0
-        state: bus14_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/15/mix/on"
-    mappings:
-      - arg: 0
-        state: bus15_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/bus/16/mix/on"
-    mappings:
-      - arg: 0
-        state: bus16_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
+  # ── Matrices 1-6 ──
+  - address: "/mtx/*/mix/fader"
+    child_set:
+      - { type: matrix, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/mtx/*/mix/on"
+    child_set:
+      - type: matrix
+        id: { segment: 1 }
+        state:
+          mute: { arg: 0, map: { "0": "true", "1": "false" } }
+  - address: "/mtx/*/config/name"
+    child_set:
+      - { type: matrix, id: { segment: 1 }, state: { name: { arg: 0 } } }
 
-  # ── Bus 01-16 names ──
-  - address: "/bus/01/config/name"
-    mappings:
-      - arg: 0
-        state: bus01_name
-        type: string
-  - address: "/bus/02/config/name"
-    mappings:
-      - arg: 0
-        state: bus02_name
-        type: string
-  - address: "/bus/03/config/name"
-    mappings:
-      - arg: 0
-        state: bus03_name
-        type: string
-  - address: "/bus/04/config/name"
-    mappings:
-      - arg: 0
-        state: bus04_name
-        type: string
-  - address: "/bus/05/config/name"
-    mappings:
-      - arg: 0
-        state: bus05_name
-        type: string
-  - address: "/bus/06/config/name"
-    mappings:
-      - arg: 0
-        state: bus06_name
-        type: string
-  - address: "/bus/07/config/name"
-    mappings:
-      - arg: 0
-        state: bus07_name
-        type: string
-  - address: "/bus/08/config/name"
-    mappings:
-      - arg: 0
-        state: bus08_name
-        type: string
-  - address: "/bus/09/config/name"
-    mappings:
-      - arg: 0
-        state: bus09_name
-        type: string
-  - address: "/bus/10/config/name"
-    mappings:
-      - arg: 0
-        state: bus10_name
-        type: string
-  - address: "/bus/11/config/name"
-    mappings:
-      - arg: 0
-        state: bus11_name
-        type: string
-  - address: "/bus/12/config/name"
-    mappings:
-      - arg: 0
-        state: bus12_name
-        type: string
-  - address: "/bus/13/config/name"
-    mappings:
-      - arg: 0
-        state: bus13_name
-        type: string
-  - address: "/bus/14/config/name"
-    mappings:
-      - arg: 0
-        state: bus14_name
-        type: string
-  - address: "/bus/15/config/name"
-    mappings:
-      - arg: 0
-        state: bus15_name
-        type: string
-  - address: "/bus/16/config/name"
-    mappings:
-      - arg: 0
-        state: bus16_name
-        type: string
+  # ── DCAs 1-8 (no mix/ level in the address tree) ──
+  - address: "/dca/*/fader"
+    child_set:
+      - { type: dca, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/dca/*/on"
+    child_set:
+      - type: dca
+        id: { segment: 1 }
+        state:
+          mute: { arg: 0, map: { "0": "true", "1": "false" } }
+  - address: "/dca/*/config/name"
+    child_set:
+      - { type: dca, id: { segment: 1 }, state: { name: { arg: 0 } } }
 
-  # ── Matrix 01-06 faders ──
-  - address: "/mtx/01/mix/fader"
-    mappings:
-      - arg: 0
-        state: mtx01_fader
-        type: float
-  - address: "/mtx/02/mix/fader"
-    mappings:
-      - arg: 0
-        state: mtx02_fader
-        type: float
-  - address: "/mtx/03/mix/fader"
-    mappings:
-      - arg: 0
-        state: mtx03_fader
-        type: float
-  - address: "/mtx/04/mix/fader"
-    mappings:
-      - arg: 0
-        state: mtx04_fader
-        type: float
-  - address: "/mtx/05/mix/fader"
-    mappings:
-      - arg: 0
-        state: mtx05_fader
-        type: float
-  - address: "/mtx/06/mix/fader"
-    mappings:
-      - arg: 0
-        state: mtx06_fader
-        type: float
-
-  # ── Matrix 01-06 mutes ──
-  - address: "/mtx/01/mix/on"
-    mappings:
-      - arg: 0
-        state: mtx01_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/mtx/02/mix/on"
-    mappings:
-      - arg: 0
-        state: mtx02_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/mtx/03/mix/on"
-    mappings:
-      - arg: 0
-        state: mtx03_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/mtx/04/mix/on"
-    mappings:
-      - arg: 0
-        state: mtx04_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/mtx/05/mix/on"
-    mappings:
-      - arg: 0
-        state: mtx05_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/mtx/06/mix/on"
-    mappings:
-      - arg: 0
-        state: mtx06_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-
-  # ── DCA 1-8 faders ──
-  - address: "/dca/1/fader"
-    mappings:
-      - arg: 0
-        state: dca1_fader
-        type: float
-  - address: "/dca/2/fader"
-    mappings:
-      - arg: 0
-        state: dca2_fader
-        type: float
-  - address: "/dca/3/fader"
-    mappings:
-      - arg: 0
-        state: dca3_fader
-        type: float
-  - address: "/dca/4/fader"
-    mappings:
-      - arg: 0
-        state: dca4_fader
-        type: float
-  - address: "/dca/5/fader"
-    mappings:
-      - arg: 0
-        state: dca5_fader
-        type: float
-  - address: "/dca/6/fader"
-    mappings:
-      - arg: 0
-        state: dca6_fader
-        type: float
-  - address: "/dca/7/fader"
-    mappings:
-      - arg: 0
-        state: dca7_fader
-        type: float
-  - address: "/dca/8/fader"
-    mappings:
-      - arg: 0
-        state: dca8_fader
-        type: float
-
-  # ── DCA 1-8 mutes ──
-  - address: "/dca/1/on"
-    mappings:
-      - arg: 0
-        state: dca1_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/dca/2/on"
-    mappings:
-      - arg: 0
-        state: dca2_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/dca/3/on"
-    mappings:
-      - arg: 0
-        state: dca3_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/dca/4/on"
-    mappings:
-      - arg: 0
-        state: dca4_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/dca/5/on"
-    mappings:
-      - arg: 0
-        state: dca5_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/dca/6/on"
-    mappings:
-      - arg: 0
-        state: dca6_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/dca/7/on"
-    mappings:
-      - arg: 0
-        state: dca7_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/dca/8/on"
-    mappings:
-      - arg: 0
-        state: dca8_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-
-  # ── Aux Input 01-08 faders ──
-  - address: "/auxin/01/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin01_fader
-        type: float
-  - address: "/auxin/02/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin02_fader
-        type: float
-  - address: "/auxin/03/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin03_fader
-        type: float
-  - address: "/auxin/04/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin04_fader
-        type: float
-  - address: "/auxin/05/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin05_fader
-        type: float
-  - address: "/auxin/06/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin06_fader
-        type: float
-  - address: "/auxin/07/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin07_fader
-        type: float
-  - address: "/auxin/08/mix/fader"
-    mappings:
-      - arg: 0
-        state: auxin08_fader
-        type: float
-
-  # ── Aux Input 01-08 mutes ──
-  - address: "/auxin/01/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin01_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/auxin/02/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin02_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/auxin/03/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin03_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/auxin/04/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin04_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/auxin/05/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin05_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/auxin/06/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin06_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/auxin/07/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin07_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/auxin/08/mix/on"
-    mappings:
-      - arg: 0
-        state: auxin08_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-
-  # ── FX Return 01-08 faders ──
-  - address: "/fxrtn/01/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn01_fader
-        type: float
-  - address: "/fxrtn/02/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn02_fader
-        type: float
-  - address: "/fxrtn/03/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn03_fader
-        type: float
-  - address: "/fxrtn/04/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn04_fader
-        type: float
-  - address: "/fxrtn/05/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn05_fader
-        type: float
-  - address: "/fxrtn/06/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn06_fader
-        type: float
-  - address: "/fxrtn/07/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn07_fader
-        type: float
-  - address: "/fxrtn/08/mix/fader"
-    mappings:
-      - arg: 0
-        state: fxrtn08_fader
-        type: float
-
-  # ── FX Return 01-08 mutes ──
-  - address: "/fxrtn/01/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn01_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/fxrtn/02/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn02_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/fxrtn/03/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn03_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/fxrtn/04/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn04_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/fxrtn/05/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn05_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/fxrtn/06/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn06_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/fxrtn/07/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn07_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-  - address: "/fxrtn/08/mix/on"
-    mappings:
-      - arg: 0
-        state: fxrtn08_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-
-  # ── Main stereo ──
-  - address: "/main/st/mix/fader"
-    mappings:
-      - arg: 0
-        state: main_st_fader
-        type: float
-  - address: "/main/st/mix/on"
-    mappings:
-      - arg: 0
-        state: main_st_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-
-  # ── Main mono ──
-  - address: "/main/m/mix/fader"
-    mappings:
-      - arg: 0
-        state: main_m_fader
-        type: float
-  - address: "/main/m/mix/on"
-    mappings:
-      - arg: 0
-        state: main_m_mute
-        type: boolean
-        map:
-          "0": "true"
-          "1": "false"
-
-# ── SIMULATOR ──
-# The auto-generator handles most behavior from the responses section:
-# - Messages with args → update state, echo back
-# - Messages without args → respond with current state (query)
-# The simulator section adds controls for the Simulator UI and
-# initial state values matching a realistic X32 default scene.
+  # ── Mains (segment 1 is the string id: st / m) ──
+  - address: "/main/*/mix/fader"
+    child_set:
+      - { type: main, id: { segment: 1 }, state: { fader: { arg: 0 } } }
+  - address: "/main/*/mix/on"
+    child_set:
+      - type: main
+        id: { segment: 1 }
+        state:
+          mute: { arg: 0, map: { "0": "true", "1": "false" } }
+  - address: "/main/*/config/name"
+    child_set:
+      - { type: main, id: { segment: 1 }, state: { name: { arg: 0 } } }
 
 simulator:
   push_state: true
@@ -3827,3 +1427,194 @@ simulator:
     - type: toggle
       key: main_m_mute
       label: Main Mono Mute
+
+  # Per-strip OSC behavior. child_set-only response rules build no
+  # auto-generated sim handlers (those come from `mappings:`), so these
+  # script handlers own the strip addresses: SET + echo when args arrive,
+  # answer the current value on a bare query — mirroring the real
+  # console's query convention. Per-strip state lives in the flat sim
+  # keys above (ch01_fader, dca1_mute, main_st_fader, ...) — the sim
+  # models the device, independent of the driver's child state names.
+  command_handlers:
+    - address: "/ch/*"
+      handler: |
+        seg = address.split("/")
+        n = seg[2]
+        node = "/".join(seg[3:])
+        if node == "mix/fader":
+            key = "ch" + n + "_fader"
+            if args:
+                state[key] = float(args[0][1])
+                respond(address, args)
+            else:
+                respond(address, [("f", float(state.get(key, 0.0)))])
+        elif node == "mix/on":
+            key = "ch" + n + "_mute"
+            if args:
+                state[key] = int(args[0][1]) == 0
+                respond(address, args)
+            else:
+                respond(address, [("i", 0 if state.get(key, False) else 1)])
+        elif node == "config/name":
+            key = "ch" + n + "_name"
+            if args:
+                state[key] = str(args[0][1])[:12]
+                respond(address, args)
+            else:
+                respond(address, [("s", str(state.get(key, "Ch " + n.lstrip("0"))))])
+    - address: "/auxin/*"
+      handler: |
+        seg = address.split("/")
+        n = seg[2]
+        node = "/".join(seg[3:])
+        if node == "mix/fader":
+            key = "auxin" + n + "_fader"
+            if args:
+                state[key] = float(args[0][1])
+                respond(address, args)
+            else:
+                respond(address, [("f", float(state.get(key, 0.0)))])
+        elif node == "mix/on":
+            key = "auxin" + n + "_mute"
+            if args:
+                state[key] = int(args[0][1]) == 0
+                respond(address, args)
+            else:
+                respond(address, [("i", 0 if state.get(key, False) else 1)])
+        elif node == "config/name":
+            key = "auxin" + n + "_name"
+            if args:
+                state[key] = str(args[0][1])[:12]
+                respond(address, args)
+            else:
+                respond(address, [("s", str(state.get(key, "Aux " + n.lstrip("0"))))])
+    - address: "/fxrtn/*"
+      handler: |
+        seg = address.split("/")
+        n = seg[2]
+        node = "/".join(seg[3:])
+        if node == "mix/fader":
+            key = "fxrtn" + n + "_fader"
+            if args:
+                state[key] = float(args[0][1])
+                respond(address, args)
+            else:
+                respond(address, [("f", float(state.get(key, 0.0)))])
+        elif node == "mix/on":
+            key = "fxrtn" + n + "_mute"
+            if args:
+                state[key] = int(args[0][1]) == 0
+                respond(address, args)
+            else:
+                respond(address, [("i", 0 if state.get(key, False) else 1)])
+        elif node == "config/name":
+            key = "fxrtn" + n + "_name"
+            if args:
+                state[key] = str(args[0][1])[:12]
+                respond(address, args)
+            else:
+                respond(address, [("s", str(state.get(key, "FX " + n.lstrip("0"))))])
+    - address: "/bus/*"
+      handler: |
+        seg = address.split("/")
+        n = seg[2]
+        node = "/".join(seg[3:])
+        if node == "mix/fader":
+            key = "bus" + n + "_fader"
+            if args:
+                state[key] = float(args[0][1])
+                respond(address, args)
+            else:
+                respond(address, [("f", float(state.get(key, 0.0)))])
+        elif node == "mix/on":
+            key = "bus" + n + "_mute"
+            if args:
+                state[key] = int(args[0][1]) == 0
+                respond(address, args)
+            else:
+                respond(address, [("i", 0 if state.get(key, False) else 1)])
+        elif node == "config/name":
+            key = "bus" + n + "_name"
+            if args:
+                state[key] = str(args[0][1])[:12]
+                respond(address, args)
+            else:
+                respond(address, [("s", str(state.get(key, "Bus " + n.lstrip("0"))))])
+    - address: "/mtx/*"
+      handler: |
+        seg = address.split("/")
+        n = seg[2]
+        node = "/".join(seg[3:])
+        if node == "mix/fader":
+            key = "mtx" + n + "_fader"
+            if args:
+                state[key] = float(args[0][1])
+                respond(address, args)
+            else:
+                respond(address, [("f", float(state.get(key, 0.0)))])
+        elif node == "mix/on":
+            key = "mtx" + n + "_mute"
+            if args:
+                state[key] = int(args[0][1]) == 0
+                respond(address, args)
+            else:
+                respond(address, [("i", 0 if state.get(key, False) else 1)])
+        elif node == "config/name":
+            key = "mtx" + n + "_name"
+            if args:
+                state[key] = str(args[0][1])[:12]
+                respond(address, args)
+            else:
+                respond(address, [("s", str(state.get(key, "Mtx " + n.lstrip("0"))))])
+    - address: "/dca/*"
+      handler: |
+        seg = address.split("/")
+        n = seg[2]
+        node = "/".join(seg[3:])
+        if node == "fader":
+            key = "dca" + n + "_fader"
+            if args:
+                state[key] = float(args[0][1])
+                respond(address, args)
+            else:
+                respond(address, [("f", float(state.get(key, 0.0)))])
+        elif node == "on":
+            key = "dca" + n + "_mute"
+            if args:
+                state[key] = int(args[0][1]) == 0
+                respond(address, args)
+            else:
+                respond(address, [("i", 0 if state.get(key, False) else 1)])
+        elif node == "config/name":
+            key = "dca" + n + "_name"
+            if args:
+                state[key] = str(args[0][1])[:12]
+                respond(address, args)
+            else:
+                respond(address, [("s", str(state.get(key, "DCA " + n)))])
+    - address: "/main/*"
+      handler: |
+        seg = address.split("/")
+        n = seg[2]
+        node = "/".join(seg[3:])
+        if node == "mix/fader":
+            key = "main_" + n + "_fader"
+            if args:
+                state[key] = float(args[0][1])
+                respond(address, args)
+            else:
+                respond(address, [("f", float(state.get(key, 0.0)))])
+        elif node == "mix/on":
+            key = "main_" + n + "_mute"
+            if args:
+                state[key] = int(args[0][1]) == 0
+                respond(address, args)
+            else:
+                respond(address, [("i", 0 if state.get(key, False) else 1)])
+        elif node == "config/name":
+            key = "main_" + n + "_name"
+            if args:
+                state[key] = str(args[0][1])[:12]
+                respond(address, args)
+            else:
+                respond(address, [("s", str(state.get(key, "Main" if n == "st" else "Mono")))])

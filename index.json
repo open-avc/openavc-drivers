@@ -1028,10 +1028,10 @@
       "name": "Behringer X32 Digital Mixer",
       "manufacturer": "Behringer",
       "category": "audio",
-      "version": "1.6.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "osc",
-      "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, main stereo and mono outputs, channel/bus name settings, and a liveness watchdog. Also compatible with Midas M32.",
+      "description": "Controls Behringer X32 and X32 Compact digital mixing consoles via OSC. 32 input channels, 8 aux ins, 8 FX returns, 16 mix buses, 6 matrices, 8 DCAs, and stereo/mono mains as child entities with fader, mute, and console-side names, plus scene recall and a liveness watchdog. Also compatible with Midas M32.",
       "source_url": "https://sites.google.com/site/patrickmaillot/x32",
       "file": "audio/behringer_x32.avcdriver",
       "format": "avcdriver",
@@ -1039,7 +1039,7 @@
         10023
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.23.0",
       "tags": [
         "mixer",
         "console",
@@ -1047,8 +1047,8 @@
         "midas"
       ],
       "help": {
-        "overview": "Controls a Behringer X32 or X32 Compact digital mixer over the network using the OSC (Open Sound Control) protocol. Full console coverage including all 32 input channels, 16 mix buses, 6 matrices, 8 DCAs, 8 aux inputs, 8 FX returns, and main stereo/mono outputs.",
-        "setup": "1. Connect the X32 to the same network as the OpenAVC server. 2. On the X32, go to Setup > Network and note the IP address. 3. Enter the IP address in the device config. The default port is 10023. 4. The driver will automatically subscribe to feedback and start\n   receiving fader/mute updates."
+        "overview": "Controls a Behringer X32 or X32 Compact digital mixer over the network using the OSC (Open Sound Control) protocol. Every strip is a child entity \u2014 all 32 input channels, 8 aux ins, 8 FX returns, 16 mix buses, 6 matrices, 8 DCAs, and the stereo/mono mains \u2014 with fader, mute, and the console's own scribble-strip name as the child label.",
+        "setup": "1. Connect the X32 to the same network as the OpenAVC server. 2. On the X32, go to Setup > Network and note the IP address. 3. Enter the IP address in the device config. The default port is 10023. 4. The driver will automatically subscribe to feedback and start\n   receiving fader/mute updates. Strip names load on connect and\n   become the child labels."
       },
       "compatible_models": [
         {

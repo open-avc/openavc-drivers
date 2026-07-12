@@ -444,6 +444,22 @@ When a `notifications` entry exists for a state variable, it takes priority over
 
 **Dial-back (tcp_listener) push drivers.** When the driver declares `push: {type: tcp_listener}`, the simulator plays the device's side of the dial-back loop. It recognizes the driver's `register`/`unregister` commands automatically — their `{listener_port}` token becomes a port capture, so the exact command the driver sends is what registers a subscriber — and answers them with an empty ack when no explicit handler matches (like a real device's `204 No Content`). On a state change, every `notifications` template is rendered, wrapped in the frame container declared by the push block's `frame_parser` (zeroed reserve regions around a correctly-computed length field), and delivered by dialing each registered subscriber with one connection per notification. Author templates to match the device's payload exactly — if the payload embeds CR/LF (Panasonic wraps each response in `[CR][LF]...[CR][LF]`), put real escapes in a double-quoted YAML string (`"\r\np{value}\r\n"`). A subscriber that can't be reached three times in a row is dropped, mirroring real devices. See `panasonic_awhe` for a full example.
 
+**HTTP-listener push drivers (webhooks).** When a driver declares `push: {type: http_listener}`, the real device POSTs its notifications to a callback URL OpenAVC assigns. The simulated device does the same: a script handler matching the driver's registration command captures the URL with **`register_callback(url)`**, and from then on every `notifications` template is POSTed to it when state changes (`unregister_callback(url)` drops it again). With no registration captured, nothing is delivered — matching a real device that was never told where to post. Author the templates as the bodies the driver's `responses:` rules parse (they dispatch whole, like an HTTP response body):
+
+```yaml
+simulator:
+  notifications:
+    audio_volume:
+      "*": '<Status><Audio item="1"><Volume item="1">{value}</Volume></Audio></Status>'
+  command_handlers:
+    - match: '^POST /register\|<Register><Url>(.+)</Url></Register>'
+      handler: |
+        register_callback(match.group(1))
+        respond('<OK/>')
+```
+
+See `cisco_roomos_xapi` for a full example (HttpFeedback registration + XML feedback bodies). Python HTTP simulators (`HTTPSimulator` subclasses) get the same capability from **`await self.post_http_callback(url, body, headers=..., method=...)`** — `sonos_sim.py` uses it to deliver UPnP GENA `NOTIFY` requests, and its `handle_request` returns a 3-tuple `(status, body, headers)` to answer the `SUBSCRIBE` handshake with its `SID` / `TIMEOUT` headers.
+
 ---
 
 ## Level 2: Python Simulator (30-60 Minutes)

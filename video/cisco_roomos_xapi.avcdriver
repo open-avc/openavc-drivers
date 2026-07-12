@@ -17,41 +17,61 @@
 #     - Desk, Desk Mini, Desk Pro
 #
 # Protocol reference:
-#   Cisco RoomOS xAPI over HTTP — https://roomos.cisco.com/print/TechDocs/HttpApi
+#   Cisco RoomOS 11 API Reference Guide (D15502.11, RoomOS 11.27, 05-2025) —
+#   https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/roomos-1127/api-reference-guide-roomos-1127.pdf
+#   (browsable form: https://roomos.cisco.com/print/TechDocs/HttpApi)
 #   Two HTTPS endpoints on port 443:
 #     GET  /getxml?location=/Status/...     — read xStatus / xConfiguration tree
 #     POST /putxml  (Content-Type: text/xml) — execute xCommand or set
 #                                              xConfiguration via XML body
-#   Authentication: HTTP Basic (any local user with at least Integrator role).
 #
 # Push vs. poll:
-#   The codec supports HttpFeedback — it can dial OUT to a registered URL and
-#   POST xEvent / xStatus updates as they happen. That requires an inbound
-#   HTTP listener on the controller, which OpenAVC doesn't yet expose to YAML
-#   drivers (tracked in openavc-backlog.md §18 — Inbound TCP Listener Primitive,
-#   alongside panasonic_awhe). This driver therefore polls for now; when the
-#   listener primitive lands we'll add HttpFeedback subscriptions and switch to
-#   push for the same state surface.
+#   Push via HttpFeedback (the codec's webhook mechanism): on connect the
+#   driver registers OpenAVC's callback URL on one of the codec's four
+#   feedback slots (xCommand HttpFeedback Register) with XPath expressions
+#   covering the polled status paths. The codec then POSTs the changed
+#   xStatus subtree as XML the moment it changes, and the body feeds the
+#   same response rules as a poll reply. Polling stays on as the resync
+#   baseline (30 s), and the registration repeats in each poll cycle —
+#   re-registering is idempotent and re-activates a slot the codec
+#   deactivated after failed deliveries (the xCommand HttpFeedback Enable
+#   case in the API guide).
+#
+#   Feedback bodies wrap the changed node with item="1" attributes and an
+#   <Identification> block (SystemName / MACAddress / SerialNumber / ...) —
+#   the response rules below are attribute-tolerant and anchored so the
+#   Identification fields never shadow the payload (the serial rule requires
+#   the SystemUnit poll's <Module> parent on purpose).
+#
+#   Status polling is leaf-level (one getxml location per state variable):
+#   response dispatch applies the first matching rule per body, so a broad
+#   /Status/Audio body could only ever update one of volume / output mute /
+#   mic mute per poll. One location per value makes every poll body — and
+#   every push body, which arrives leaf-shaped anyway — hit exactly its rule.
 #
 # Authentication:
-#   Username and password are supplied in the Add Device dialog. The codec's
-#   Integrator-level user is sufficient for everything in this driver. Admin
-#   role is only needed for xConfiguration writes, which this driver does not
-#   include (settings live in the Cisco web UI, not the AV control surface).
+#   Username and password are supplied in the Add Device dialog. A codec
+#   user with the Admin role (the default "admin" user qualifies) enables
+#   everything, including push feedback registration — xCommand HttpFeedback
+#   Register requires ADMIN per the API guide. An Integrator-role user can
+#   still control the codec fully, but the feedback registration is refused,
+#   leaving state updates at poll speed. xConfiguration writes are not
+#   included either way (settings live in the Cisco web UI, not the AV
+#   control surface).
 
 id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.2.4
+version: 1.3.0
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
   Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via
   the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND,
-  presentation, camera presets, on-screen messaging, reboot. Polling-based —
-  HttpFeedback push deferred until the platform's inbound-listener primitive
-  lands.
+  presentation, camera presets, on-screen messaging, reboot. State changes
+  arrive instantly — the codec pushes them over HttpFeedback, with polling
+  as the resync baseline.
 
 source_url: https://roomos.cisco.com/print/TechDocs/HttpApi
 tags: [cisco, webex, roomos, xapi, codec, room, board, desk, video-conferencing, vc]
@@ -59,7 +79,7 @@ verified: false
 simulated: true
 protocols: [xapi_http]
 ports: [443]
-min_platform_version: "0.9.1"
+min_platform_version: "0.23.0"
 
 compatible_models:
   - manufacturer: Cisco
@@ -103,24 +123,34 @@ help:
     same xAPI over HTTPS. This driver covers the controls an AV integrator
     actually wires to a touch panel: standby on / off, volume, mute, dial,
     hangup, do-not-disturb, presentation start / stop, camera presets, and
-    on-screen messages. xConfiguration writes are intentionally NOT included —
-    settings belong in the Cisco web UI at install time, not on a control
-    surface where they can be changed by accident.
+    on-screen messages. Standby, audio, DND, presentation, and occupancy
+    changes are pushed by the codec the moment they happen (HttpFeedback);
+    polling every 30 seconds keeps everything in sync as a fallback.
+    xConfiguration writes are intentionally NOT included — settings belong
+    in the Cisco web UI at install time, not on a control surface where
+    they can be changed by accident.
   setup: >
     1. Set a static IP (or DHCP reservation) on the codec.
     2. In the codec's web UI (https://<codec-ip>) go to Users and create
-       (or note) a local user with at least the "Integrator" role. The
-       default "admin" user works too. This driver uses HTTP Basic auth —
-       SSO / single-sign-on users will not work.
+       (or note) a local user with the "Admin" role — the default "admin"
+       user works. Admin is what allows the codec to register instant push
+       updates; a user with only the "Integrator" role still controls the
+       codec, but state updates then arrive at poll speed. This driver
+       uses HTTP Basic auth — SSO / single-sign-on users will not work.
     3. Confirm xAPI over HTTPS is enabled. In the web UI: Settings ->
        Configurations -> NetworkServices -> HTTP Mode. Default is
        HTTP+HTTPS, which is fine. (HTTP-only is also supported by toggling
        the Use HTTPS field on this device.)
     4. Add the codec in OpenAVC: enter the IP, leave port 443 / HTTPS on,
        enter the username and password from step 2.
-    5. Polling refreshes system info, standby, audio, DND, presentation,
-       and people-presence every 30 seconds. Adjust the Poll Interval if
-       you want faster touch-panel feedback.
+    5. Push updates need the codec to reach the OpenAVC server over the
+       network (it posts to OpenAVC's web port). If a firewall sits
+       between them, allow that direction too. The Feedback Slot field
+       only matters if another system also registers feedback on this
+       codec: Cisco TMS uses slot 3, so pick a different one there.
+    6. Polling refreshes system info, standby, audio, DND, presentation,
+       and people-presence every 30 seconds as a resync baseline — with
+       push active, panels update in about a second.
 
 discovery:
   # The `_cisco-phone._tcp` candidate is widely associated with Cisco UC
@@ -140,6 +170,12 @@ discovery:
     - "tandberg"
     - "webex"
 
+# Device-initiated push: the codec POSTs xStatus changes to a callback URL
+# OpenAVC assigns (HttpFeedback webhooks). The register_feedback command in
+# on_connect / polling hands the URL to the codec via {push_callback_url}.
+push:
+  type: http_listener
+
 default_config:
   host: ""
   port: 443
@@ -150,6 +186,7 @@ default_config:
   password: ""
   timeout: 10.0
   poll_interval: 30
+  feedback_slot: 1
 
 config_schema:
   host:
@@ -190,11 +227,18 @@ config_schema:
     default: 30
     min: 5
     label: Poll Interval (sec)
-    description: "How often to refresh status. 30s is fine for room control; lower for snappier touch panels."
+    description: "Resync interval. Push feedback delivers changes instantly; polling is the fallback baseline."
   timeout:
     type: number
     default: 10.0
     label: Request Timeout (sec)
+  feedback_slot:
+    type: integer
+    default: 1
+    min: 1
+    max: 4
+    label: Feedback Slot (1-4)
+    description: "Which of the codec's four HttpFeedback slots OpenAVC uses for push updates. Change it only if another system registers feedback on this codec — Cisco TMS uses slot 3."
 
 state_variables:
   product_id:
@@ -216,22 +260,30 @@ state_variables:
   uptime_seconds:
     type: integer
     label: Uptime (sec)
+    cloud_priority: low
     help: "Seconds since the codec last booted (xStatus SystemUnit Uptime)."
   standby_state:
     type: string
     label: Standby State
+    control: true
     help: "Standby state from xStatus Standby State: Off / Standby / EnteringStandby / Halfwake."
   audio_volume:
     type: integer
     label: Volume (0-100)
-    help: "Speaker output volume, 0–100, from xStatus Audio Volume."
+    min: 0
+    max: 100
+    step: 1
+    control: true
+    help: "Speaker output volume, 0–100, from xStatus Audio Volume. 70 equals 0 dB gain."
   audio_volume_mute:
     type: string
     label: Output Mute
+    control: true
     help: "Speaker mute state from xStatus Audio VolumeMute: On / Off."
   microphones_mute:
     type: string
     label: Microphone Mute
+    control: true
     help: "Microphone mute state from xStatus Audio Microphones Mute: On / Off."
   dnd_state:
     type: string
@@ -254,24 +306,33 @@ state_variables:
 # Content-Type: text/xml — without it the codec rejects the body.
 commands:
 
-  # ── Pairing / metadata ──────────────────────────────────────────────────
+  # ── Push feedback registration ──────────────────────────────────────────
+  # Registers OpenAVC's callback URL on the codec's feedback slot so xStatus
+  # changes on the listed paths are POSTed the moment they happen (RoomOS 11
+  # API guide, "Feedback from the device over HTTP"). Sent on connect and
+  # repeated each poll cycle: registration is idempotent, and repeating it
+  # re-activates a slot the codec shut off after failed deliveries. Requires
+  # an Admin-role user. The expressions mirror the polled status paths —
+  # never register the whole /Status tree (the guide warns a device in a
+  # call produces more feedback than a controller should take).
 
-  query_system_unit:
-    label: Query System Info
-    method: GET
-    path: "/getxml"
-    query_params:
-      location: "/Status/SystemUnit"
-    help: "Refreshes product, platform, software version, serial, uptime."
+  register_feedback:
+    label: Register Push Feedback
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: '<Command><HttpFeedback><Register command="True"><FeedbackSlot>{feedback_slot}</FeedbackSlot><ServerUrl>{push_callback_url}</ServerUrl><Format>XML</Format><Expression item="1">/Status/Standby</Expression><Expression item="2">/Status/Audio/Volume</Expression><Expression item="3">/Status/Audio/VolumeMute</Expression><Expression item="4">/Status/Audio/Microphones/Mute</Expression><Expression item="5">/Status/Conference/DoNotDisturb</Expression><Expression item="6">/Status/Conference/Presentation/Mode</Expression><Expression item="7">/Status/RoomAnalytics/PeoplePresence</Expression><Expression item="8">/Status/RoomAnalytics/PeopleCount/Current</Expression></Register></HttpFeedback></Command>'
+    help: "Points the codec's push feedback at OpenAVC. Runs automatically on connect and during polling — only needed manually after deregistering."
+
+  deregister_feedback:
+    label: Deregister Push Feedback
+    method: POST
+    path: "/putxml"
+    headers: { Content-Type: "text/xml" }
+    body: '<Command><HttpFeedback><Deregister command="True"><FeedbackSlot>{feedback_slot}</FeedbackSlot></Deregister></HttpFeedback></Command>'
+    help: "Clears OpenAVC's feedback slot on the codec. Use before retiring this OpenAVC server so the codec stops posting to it (the next poll cycle re-registers while the device stays connected here)."
 
   # ── Standby ─────────────────────────────────────────────────────────────
-
-  query_standby:
-    label: Query Standby State
-    method: GET
-    path: "/getxml"
-    query_params:
-      location: "/Status/Standby"
 
   standby_activate:
     label: Standby On
@@ -298,14 +359,6 @@ commands:
     help: "Drop the codec to half-wake (logo + welcome screen, instant resume)."
 
   # ── Audio: speaker volume + output mute ─────────────────────────────────
-
-  query_audio:
-    label: Query Audio Status
-    method: GET
-    path: "/getxml"
-    query_params:
-      location: "/Status/Audio"
-    help: "Refreshes volume, output mute, and microphone mute."
 
   audio_volume_set:
     label: Set Volume
@@ -475,28 +528,20 @@ commands:
 
   # ── Conference: do not disturb ──────────────────────────────────────────
 
-  query_conference:
-    label: Query Conference Status
-    method: GET
-    path: "/getxml"
-    query_params:
-      location: "/Status/Conference"
-    help: "Refreshes DND and presentation state."
-
   dnd_activate:
     label: Do Not Disturb On
     method: POST
     path: "/putxml"
     headers: { Content-Type: "text/xml" }
     body: "<Command><Conference><DoNotDisturb><Activate><Timeout>{timeout}</Timeout></Activate></DoNotDisturb></Conference></Command>"
-    help: "Block incoming calls and notifications for N minutes (1-1440)."
+    help: "Block incoming calls and notifications for N minutes (1-20160, i.e. up to 14 days)."
     params:
       timeout:
         type: integer
         required: true
         default: 60
         min: 1
-        max: 1440
+        max: 20160
         label: Timeout (minutes)
 
   dnd_deactivate:
@@ -670,16 +715,6 @@ commands:
         max: 7
         label: Camera ID
 
-  # ── Room analytics (occupancy) ──────────────────────────────────────────
-
-  query_room_analytics:
-    label: Query Room Analytics
-    method: GET
-    path: "/getxml"
-    query_params:
-      location: "/Status/RoomAnalytics"
-    help: "Refreshes room-occupancy presence and head count."
-
   # ── On-screen messaging ─────────────────────────────────────────────────
 
   ui_alert_display:
@@ -753,65 +788,110 @@ commands:
     body: "<Command><SystemUnit><Boot><Action>Restart</Action></Boot></SystemUnit></Command>"
     help: "Restart the codec. Takes 60-120 seconds to come back."
 
-# Response patterns. xAPI returns XML with nested elements. Use \s* to span
-# whitespace between tags. Each line below targets one state variable.
+# Response patterns — shared by leaf poll replies AND HttpFeedback push
+# bodies. Every tag test is written as <Name(?:\s[^>]*)?> because push
+# bodies carry item="1" attributes on each element while poll replies may
+# not; the (?:\s...) form also keeps <Volume> from swallowing <VolumeMute>.
+# Push bodies additionally carry an <Identification> header block whose
+# SystemName / MACAddress / SerialNumber / ProductID (uppercase D) / etc.
+# must not shadow the payload — the serial rule requires the SystemUnit
+# poll's <Module> parent, and <ProductId> (lowercase d) only exists in the
+# SystemUnit poll body. First match wins, and with leaf-level polling every
+# body contains exactly one target value.
 responses:
 
-  # SystemUnit
-  - match: '<ProductId>([^<]+)</ProductId>'
+  # SystemUnit (poll-only — metadata isn't registered for push)
+  - match: '<ProductId(?:\s[^>]*)?>([^<]+)</ProductId>'
     set: { product_id: "$1" }
-  - match: '<ProductPlatform>([^<]+)</ProductPlatform>'
+  - match: '<ProductPlatform(?:\s[^>]*)?>([^<]+)</ProductPlatform>'
     set: { product_platform: "$1" }
-  - match: '<Software>\s*<Version>([^<]+)</Version>'
+  - match: '<Software(?:\s[^>]*)?>\s*<Version(?:\s[^>]*)?>([^<]+)</Version>'
     set: { software_version: "$1" }
-  - match: '<SerialNumber>([^<]+)</SerialNumber>'
+  - match: '<Module(?:\s[^>]*)?>\s*<SerialNumber(?:\s[^>]*)?>([^<]+)</SerialNumber>'
     set: { serial_number: "$1" }
-  - match: '<Uptime>(\d+)</Uptime>'
+  - match: '<Uptime(?:\s[^>]*)?>(\d+)</Uptime>'
     set: { uptime_seconds: "$1" }
 
   # Standby
-  - match: '<Standby[^>]*>\s*<State>(\w+)</State>'
+  - match: '<Standby(?:\s[^>]*)?>\s*<State(?:\s[^>]*)?>(\w+)</State>'
     set: { standby_state: "$1" }
 
-  # Audio
-  - match: '<Volume>(\d+)</Volume>'
-    set: { audio_volume: "$1" }
-  - match: '<VolumeMute>(\w+)</VolumeMute>'
-    set: { audio_volume_mute: "$1" }
-  - match: '<Microphones[^>]*>\s*<Mute>(\w+)</Mute>'
+  # Audio — Microphones/Mute before the Volume rules keeps intent obvious;
+  # the tag anchoring already prevents any cross-matching.
+  - match: '<Microphones(?:\s[^>]*)?>\s*<Mute(?:\s[^>]*)?>(\w+)</Mute>'
     set: { microphones_mute: "$1" }
+  - match: '<VolumeMute(?:\s[^>]*)?>(\w+)</VolumeMute>'
+    set: { audio_volume_mute: "$1" }
+  - match: '<Volume(?:\s[^>]*)?>(\d+)</Volume>'
+    set: { audio_volume: "$1" }
 
   # Conference
-  - match: '<DoNotDisturb[^>]*>(\w+)</DoNotDisturb>'
+  - match: '<DoNotDisturb(?:\s[^>]*)?>(\w+)</DoNotDisturb>'
     set: { dnd_state: "$1" }
-  - match: '<Presentation[^>]*>\s*<Mode>(\w+)</Mode>'
+  - match: '<Presentation(?:\s[^>]*)?>\s*<Mode(?:\s[^>]*)?>(\w+)</Mode>'
     set: { presentation_mode: "$1" }
 
   # Room analytics
-  - match: '<PeoplePresence>(\w+)</PeoplePresence>'
+  - match: '<PeoplePresence(?:\s[^>]*)?>(\w+)</PeoplePresence>'
     set: { people_presence: "$1" }
-  - match: '<PeopleCount[^>]*>\s*<Current>(-?\d+)</Current>'
+  - match: '<PeopleCount(?:\s[^>]*)?>\s*<Current(?:\s[^>]*)?>(-?\d+)</Current>'
     set: { people_count: "$1" }
 
+# High-use parameterless actions surfaced as one-tap buttons.
+quick_actions:
+  - standby_deactivate
+  - standby_activate
+  - audio_microphones_mute_toggle
+  - audio_volume_mute_toggle
+
+# Leaf-level resync — one getxml location per state variable (raw paths, so
+# each reply body matches exactly its rule; see the header note). The
+# register_feedback repeat keeps the push registration alive: idempotent,
+# and it re-activates a slot the codec deactivated after failed deliveries.
 polling:
   queries:
-    - query_system_unit
-    - query_standby
-    - query_audio
-    - query_conference
-    - query_room_analytics
+    - "/getxml?location=/Status/SystemUnit/ProductId"
+    - "/getxml?location=/Status/SystemUnit/ProductPlatform"
+    - "/getxml?location=/Status/SystemUnit/Software/Version"
+    - "/getxml?location=/Status/SystemUnit/Hardware/Module/SerialNumber"
+    - "/getxml?location=/Status/SystemUnit/Uptime"
+    - "/getxml?location=/Status/Standby"
+    - "/getxml?location=/Status/Audio/Volume"
+    - "/getxml?location=/Status/Audio/VolumeMute"
+    - "/getxml?location=/Status/Audio/Microphones/Mute"
+    - "/getxml?location=/Status/Conference/DoNotDisturb"
+    - "/getxml?location=/Status/Conference/Presentation/Mode"
+    - "/getxml?location=/Status/RoomAnalytics/PeoplePresence"
+    - "/getxml?location=/Status/RoomAnalytics/PeopleCount/Current"
+    - register_feedback
 
+# Push registration first — the platform's listener is already up before
+# on_connect runs, so no feedback body is missed — then the initial reads.
 on_connect:
-  - query_system_unit
-  - query_standby
-  - query_audio
-  - query_conference
-  - query_room_analytics
+  - register_feedback
+  - "/getxml?location=/Status/SystemUnit/ProductId"
+  - "/getxml?location=/Status/SystemUnit/ProductPlatform"
+  - "/getxml?location=/Status/SystemUnit/Software/Version"
+  - "/getxml?location=/Status/SystemUnit/Hardware/Module/SerialNumber"
+  - "/getxml?location=/Status/SystemUnit/Uptime"
+  - "/getxml?location=/Status/Standby"
+  - "/getxml?location=/Status/Audio/Volume"
+  - "/getxml?location=/Status/Audio/VolumeMute"
+  - "/getxml?location=/Status/Audio/Microphones/Mute"
+  - "/getxml?location=/Status/Conference/DoNotDisturb"
+  - "/getxml?location=/Status/Conference/Presentation/Mode"
+  - "/getxml?location=/Status/RoomAnalytics/PeoplePresence"
+  - "/getxml?location=/Status/RoomAnalytics/PeopleCount/Current"
 
 # ── SIMULATOR DEFINITION ──────────────────────────────────────────────────
 # The auto-simulator answers GET /getxml?location=... and POST /putxml. Body
 # is appended after a "|" delimiter so the handlers can match it. The XML we
-# emit mirrors the shapes the driver's response patterns expect.
+# emit mirrors the real codec: leaf getxml replies wrap the value from the
+# root with item="1" attributes, and push feedback bodies (the notifications
+# templates below, POSTed to the URL captured from HttpFeedback Register)
+# carry the same wrapping plus an <Identification> header block — so the
+# driver's attribute-tolerance and Identification-shadowing anchors are
+# exercised end to end.
 simulator:
   initial_state:
     product_id: "Cisco Webex Codec Pro"
@@ -827,9 +907,30 @@ simulator:
     presentation_mode: "Off"
     people_presence: "No"
     people_count: 0
+    feedback_url: ""
 
   delays:
     command_response: 0.02
+
+  # Cisco-shaped push bodies (Identification block included on purpose —
+  # its SerialNumber/ProductID must not cross-write other state vars).
+  notifications:
+    standby_state:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><Standby item="1"><State item="1">{value}</State></Standby></Status>'
+    audio_volume:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><Audio item="1"><Volume item="1">{value}</Volume></Audio></Status>'
+    audio_volume_mute:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><Audio item="1"><VolumeMute item="1">{value}</VolumeMute></Audio></Status>'
+    microphones_mute:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><Audio item="1"><Microphones item="1"><Mute item="1">{value}</Mute></Microphones></Audio></Status>'
+    dnd_state:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><Conference item="1"><DoNotDisturb item="1">{value}</DoNotDisturb></Conference></Status>'
+    presentation_mode:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><Conference item="1"><Presentation item="1"><Mode item="1">{value}</Mode></Presentation></Conference></Status>'
+    people_presence:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><RoomAnalytics item="1"><PeoplePresence item="1">{value}</PeoplePresence></RoomAnalytics></Status>'
+    people_count:
+      "*": '<Status><Identification><SystemName>Sim Room</SystemName><SerialNumber>FCH99999SIM</SerialNumber><ProductID>Cisco Webex Codec Pro</ProductID></Identification><RoomAnalytics item="1"><PeopleCount item="1"><Current item="1">{value}</Current></PeopleCount></RoomAnalytics></Status>'
 
   controls:
     - type: indicator
@@ -883,77 +984,84 @@ simulator:
       label: People Count
       min: -1
       max: 50
+    - type: indicator
+      key: feedback_url
+      label: Push Feedback URL
 
   command_handlers:
 
-    # ── GET /getxml?location=... ─────────────────────────────────────────
+    # ── POST /putxml — HttpFeedback registration ─────────────────────────
+    # Captures the ServerUrl the controller registers; state changes are
+    # then POSTed there (see notifications above). The URL is surfaced in
+    # the Simulator UI so a live test can confirm the registration landed.
 
-    - match: '^GET /getxml\?location=/?Status/SystemUnit\b.*'
+    - match: '^POST /putxml\|<Command><HttpFeedback><Register command="True"><FeedbackSlot>(\d+)</FeedbackSlot><ServerUrl>([^<]+)</ServerUrl>.*'
       handler: |
-        body = (
-          '<?xml version="1.0"?>'
-          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
-          '<SystemUnit>'
-          f'<ProductId>{state["product_id"]}</ProductId>'
-          f'<ProductPlatform>{state["product_platform"]}</ProductPlatform>'
-          f'<Uptime>{state["uptime_seconds"]}</Uptime>'
-          '<Software>'
-          f'<Version>{state["software_version"]}</Version>'
-          f'<DisplayName>RoomOS {state["software_version"]}</DisplayName>'
-          '</Software>'
-          '<Hardware><Module>'
-          f'<SerialNumber>{state["serial_number"]}</SerialNumber>'
-          '</Module></Hardware>'
-          '</SystemUnit></Status>'
-        )
-        respond(body)
+        state["feedback_url"] = match.group(2)
+        register_callback(match.group(2))
+        respond('<?xml version="1.0"?><Command><HttpFeedbackRegisterResult status="OK"><FeedbackSlot>' + match.group(1) + '</FeedbackSlot></HttpFeedbackRegisterResult></Command>')
+
+    - match: '^POST /putxml\|<Command><HttpFeedback><Deregister command="True"><FeedbackSlot>(\d+)</FeedbackSlot>.*'
+      handler: |
+        unregister_callback(state["feedback_url"])
+        state["feedback_url"] = ""
+        respond('<?xml version="1.0"?><Command><HttpFeedbackDeregisterResult status="OK"/></Command>')
+
+    # ── GET /getxml?location=... (leaf locations, matching the driver's
+    #    polling list; replies wrap the value from the root with item
+    #    attributes like the real codec) ────────────────────────────────
+
+    - match: '^GET /getxml\?location=/?Status/SystemUnit/ProductId\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><SystemUnit item="1"><ProductId item="1">{state["product_id"]}</ProductId></SystemUnit></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/SystemUnit/ProductPlatform\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><SystemUnit item="1"><ProductPlatform item="1">{state["product_platform"]}</ProductPlatform></SystemUnit></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/SystemUnit/Software/Version\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><SystemUnit item="1"><Software item="1"><Version item="1">{state["software_version"]}</Version></Software></SystemUnit></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/SystemUnit/Hardware/Module/SerialNumber\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><SystemUnit item="1"><Hardware item="1"><Module item="1"><SerialNumber item="1">{state["serial_number"]}</SerialNumber></Module></Hardware></SystemUnit></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/SystemUnit/Uptime\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><SystemUnit item="1"><Uptime item="1">{state["uptime_seconds"]}</Uptime></SystemUnit></Status>')
 
     - match: '^GET /getxml\?location=/?Status/Standby\b.*'
       handler: |
-        body = (
-          '<?xml version="1.0"?>'
-          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
-          f'<Standby><State>{state["standby_state"]}</State></Standby>'
-          '</Status>'
-        )
-        respond(body)
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><Standby item="1"><State item="1">{state["standby_state"]}</State></Standby></Status>')
 
-    - match: '^GET /getxml\?location=/?Status/Audio\b.*'
+    - match: '^GET /getxml\?location=/?Status/Audio/Volume\b.*'
       handler: |
-        body = (
-          '<?xml version="1.0"?>'
-          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
-          '<Audio>'
-          f'<Microphones><Mute>{state["microphones_mute"]}</Mute></Microphones>'
-          f'<Volume>{state["audio_volume"]}</Volume>'
-          f'<VolumeMute>{state["audio_volume_mute"]}</VolumeMute>'
-          '</Audio></Status>'
-        )
-        respond(body)
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><Audio item="1"><Volume item="1">{state["audio_volume"]}</Volume></Audio></Status>')
 
-    - match: '^GET /getxml\?location=/?Status/Conference\b.*'
+    - match: '^GET /getxml\?location=/?Status/Audio/VolumeMute\b.*'
       handler: |
-        body = (
-          '<?xml version="1.0"?>'
-          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
-          '<Conference>'
-          f'<DoNotDisturb>{state["dnd_state"]}</DoNotDisturb>'
-          f'<Presentation><Mode>{state["presentation_mode"]}</Mode></Presentation>'
-          '</Conference></Status>'
-        )
-        respond(body)
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><Audio item="1"><VolumeMute item="1">{state["audio_volume_mute"]}</VolumeMute></Audio></Status>')
 
-    - match: '^GET /getxml\?location=/?Status/RoomAnalytics\b.*'
+    - match: '^GET /getxml\?location=/?Status/Audio/Microphones/Mute\b.*'
       handler: |
-        body = (
-          '<?xml version="1.0"?>'
-          '<Status product="Cisco Codec" version="ce26.0.0" apiVersion="4">'
-          '<RoomAnalytics>'
-          f'<PeoplePresence>{state["people_presence"]}</PeoplePresence>'
-          f'<PeopleCount><Current>{state["people_count"]}</Current></PeopleCount>'
-          '</RoomAnalytics></Status>'
-        )
-        respond(body)
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><Audio item="1"><Microphones item="1"><Mute item="1">{state["microphones_mute"]}</Mute></Microphones></Audio></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/Conference/DoNotDisturb\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><Conference item="1"><DoNotDisturb item="1">{state["dnd_state"]}</DoNotDisturb></Conference></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/Conference/Presentation/Mode\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><Conference item="1"><Presentation item="1"><Mode item="1">{state["presentation_mode"]}</Mode></Presentation></Conference></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/RoomAnalytics/PeoplePresence\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><RoomAnalytics item="1"><PeoplePresence item="1">{state["people_presence"]}</PeoplePresence></RoomAnalytics></Status>')
+
+    - match: '^GET /getxml\?location=/?Status/RoomAnalytics/PeopleCount/Current\b.*'
+      handler: |
+        respond(f'<?xml version="1.0"?><Status product="Cisco Codec" version="ce26.0.0" apiVersion="4"><RoomAnalytics item="1"><PeopleCount item="1"><Current item="1">{state["people_count"]}</Current></PeopleCount></RoomAnalytics></Status>')
 
     - match: '^GET /getxml\?location=/?Status/Call\b.*'
       handler: |

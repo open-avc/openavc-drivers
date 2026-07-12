@@ -1331,7 +1331,7 @@
     },
     "pushBlock": {
       "type": "object",
-      "description": "Device-initiated push notifications arriving on a channel the platform opens (not the established control connection). type: multicast joins the device's notification group; incoming datagrams feed the driver's responses rules (split on the driver delimiter first) and are accepted only from the device's own address. type: sse holds GET path(s) open on the driver's own HTTP session with Accept: text/event-stream; each event's data block feeds the responses rules whole (pair with json: true rules for JSON payloads). type: tcp_listener opens a local TCP port the device dials back to after a registration command carrying {listener_port} tells it where; frames are parsed by the declared frame_parser, split on the driver delimiter, and accepted only from the device's own address. In every shape the subscription starts before on_connect (and any register command) runs, and stops on disconnect; a dropped SSE stream reconnects with exponential backoff. Requires platform 0.23.0.",
+      "description": "Device-initiated push notifications arriving on a channel the platform opens (not the established control connection). type: multicast joins the device's notification group; incoming datagrams feed the driver's responses rules (split on the driver delimiter first) and are accepted only from the device's own address. type: sse holds GET path(s) open on the driver's own HTTP session with Accept: text/event-stream; each event's data block feeds the responses rules whole (pair with json: true rules for JSON payloads). type: tcp_listener opens a local TCP port the device dials back to after a registration command carrying {listener_port} tells it where; frames are parsed by the declared frame_parser, split on the driver delimiter, and accepted only from the device's own address. In every shape the subscription starts before on_connect (and any register command) runs, and stops on disconnect; a dropped SSE stream reconnects with exponential backoff. type: http_listener accepts the device's own HTTP POSTs (webhooks) on a callback path the platform assigns per device — send the URL to the device from an on_connect registration command, where the token {push_callback_url} substitutes it into command bodies, paths, and headers; request bodies feed the responses rules whole and are accepted only from the device's own address. Requires platform 0.23.0.",
       "required": [
         "type"
       ],
@@ -1341,9 +1341,10 @@
           "enum": [
             "multicast",
             "sse",
-            "tcp_listener"
+            "tcp_listener",
+            "http_listener"
           ],
-          "description": "Push channel kind. multicast = UDP group listen; sse = Server-Sent Events stream on the HTTP transport; tcp_listener = local port the device dials back to."
+          "description": "Push channel kind. multicast = UDP group listen; sse = Server-Sent Events stream on the HTTP transport; tcp_listener = local port the device dials back to; http_listener = the device POSTs to a callback URL OpenAVC assigns (no other keys; use {push_callback_url} in the registration command)."
         },
         "group": {
           "type": [
@@ -1450,6 +1451,24 @@
               "frame_parser": true,
               "register": true,
               "unregister": true
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "http_listener"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": true
             },
             "additionalProperties": false
           }

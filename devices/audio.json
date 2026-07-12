@@ -977,7 +977,7 @@
         {
           "id": "sonos",
           "confidence": "full",
-          "notes": "UPnP API stable across all Sonos models."
+          "notes": "UPnP API stable across all Sonos models. Control and eventing verified on a Sonos Amp (S16) and a Sonos One (S18), firmware 95.1 (S2)."
         }
       ]
     },
@@ -989,7 +989,7 @@
         {
           "id": "sonos",
           "confidence": "full",
-          "notes": "UPnP API stable across all Sonos models."
+          "notes": "UPnP API stable across all Sonos models. Control and eventing verified on a Sonos Amp (S16) and a Sonos One (S18), firmware 95.1 (S2)."
         }
       ]
     },

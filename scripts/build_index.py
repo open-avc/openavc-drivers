@@ -959,10 +959,12 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
 
     Mirrors the runtime rules in driver_loader.validate_driver_definition:
     type is multicast (group/port), sse (path/idle_timeout, http transport
-    only), or tcp_listener (port/frame_parser/register/unregister);
-    {config_field} templates must reference fields declared in
-    config_schema or default_config. Catching this at catalog-build time
-    keeps a driver that would fail to load out of the index.
+    only), tcp_listener (port/frame_parser/register/unregister), or
+    http_listener (no keys of its own — the platform assigns the callback URL
+    and the registration command references {push_callback_url});
+    {config_field} templates must reference fields declared in config_schema
+    or default_config. Catching this at catalog-build time keeps a driver that
+    would fail to load out of the index.
     """
     errors: list[str] = []
     push = data.get("push")
@@ -984,17 +986,13 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
         "tcp_listener": {
             "type", "port", "frame_parser", "register", "unregister",
         },
+        "http_listener": {"type"},
     }
     ptype = push.get("type")
-    if ptype == "http_listener":
-        errors.append(
-            f"{file}: push type '{ptype}' is not supported yet "
-            f"(only 'multicast', 'sse', and 'tcp_listener')"
-        )
-    elif ptype not in known_keys_by_type:
+    if ptype not in known_keys_by_type:
         errors.append(
             f"{file}: push missing or unknown 'type' "
-            f"(supported: multicast, sse, tcp_listener)"
+            f"(supported: multicast, sse, tcp_listener, http_listener)"
         )
     known_keys = known_keys_by_type.get(
         ptype,

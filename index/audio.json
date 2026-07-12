@@ -1014,10 +1014,10 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "1.4.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, track info, and transport control.",
+      "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, bass/treble, track info, and transport control. The speaker pushes state changes as they happen (UPnP eventing).",
       "source_url": "https://sonos.svrooij.io/services/",
       "file": "audio/sonos.py",
       "format": "python",
@@ -1026,6 +1026,7 @@
       ],
       "simulated": true,
       "verified": true,
+      "min_platform_version": "0.23.0",
       "tags": [
         "speaker",
         "wireless-audio",
@@ -1033,8 +1034,8 @@
         "upnp"
       ],
       "help": {
-        "overview": "Controls any Sonos speaker on the local network via UPnP. Works with all Sonos models including One, Five, Beam, Arc, Era, Move, Roam, Port, Amp, and legacy Play/Connect models. No cloud account or API key required.",
-        "setup": "1. Ensure the Sonos speaker is on the same network\n2. Enter the speaker's IP address (find it in the Sonos app under Settings > System > About)\n3. Default port is 1400 (do not change)\n4. UPnP control must be enabled on the speaker (on by default)"
+        "overview": "Controls any Sonos speaker on the local network via UPnP. Works with all Sonos models including One, Five, Beam, Arc, Era, Move, Roam, Port, Amp, and legacy Play/Connect models. No cloud account or API key required. The speaker pushes state changes as they happen, so transport state, volume, mute and now-playing info update on panels within about a second \u2014 whether the change came from OpenAVC, the Sonos app, or a button on the speaker itself.",
+        "setup": "1. Ensure the Sonos speaker is on the same network\n2. Enter the speaker's IP address (find it in the Sonos app under Settings > System > About)\n3. Default port is 1400 (do not change)\n4. UPnP control must be enabled on the speaker (on by default)\n5. For instant updates the speaker must be able to reach the OpenAVC server, because it posts events back to it. If a firewall sits between them, allow that direction too. Without it everything still works, just at poll speed."
       },
       "compatible_models": [
         {
@@ -1044,7 +1045,7 @@
             "Sonos S2 platform speakers"
           ],
           "confidence": "full",
-          "notes": "UPnP API stable across all Sonos models."
+          "notes": "UPnP API stable across all Sonos models. Control and eventing verified on a Sonos Amp (S16) and a Sonos One (S18), firmware 95.1 (S2)."
         }
       ],
       "discovery": {

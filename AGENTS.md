@@ -1178,11 +1178,12 @@ the socket stays up, and works on connectionless transports. They compose.
 
 Some devices report state changes on a channel the platform must **open**,
 not on the established control connection. The `push:` block declares that
-channel. Three types exist: `multicast` (the device sends notification
+channel. Four types exist: `multicast` (the device sends notification
 frames to a multicast group the platform joins), `sse` (the device streams
-updates over Server-Sent Events on its HTTP API), and `tcp_listener` (the
+updates over Server-Sent Events on its HTTP API), `tcp_listener` (the
 device dials back to a TCP port on the OpenAVC host after a registration
-command tells it where):
+command tells it where), and `http_listener` (the device POSTs
+notifications to a callback URL the platform assigns — webhooks):
 
 ```yaml
 push:
@@ -1223,6 +1224,32 @@ push:
     trailer_reserve: 24
 ```
 
+  type: http_listener          # the device POSTs to a URL OpenAVC assigns
+                               # (no other keys — the platform builds the URL)
+```
+
+For `http_listener`, tell the device where to post by sending its registration
+command from `on_connect`. The token `{push_callback_url}` substitutes the
+assigned URL into command bodies, paths, and headers:
+
+```yaml
+on_connect:
+  - register_feedback
+
+commands:
+  register_feedback:
+    method: POST
+    path: /putxml
+    headers: { Content-Type: "text/xml" }
+    body: '<Command><HttpFeedback><Register command="True"><FeedbackSlot>{feedback_slot}</FeedbackSlot><ServerUrl>{push_callback_url}</ServerUrl><Format>XML</Format><Expression item="1">/Status/Audio</Expression></Register></HttpFeedback></Command>'
+```
+
+Because `on_connect` re-runs on every reconnect, the registration refreshes
+itself. Devices that drop a registration after failed deliveries (Cisco
+codecs deactivate the feedback slot) should ALSO list the registration
+command in `polling:` — re-registering is idempotent and re-activates the
+slot.
+
 Behavior contract:
 
 - The subscription starts when the device connects, **before** `on_connect`
@@ -1253,6 +1280,27 @@ Behavior contract:
   (IGMP snooping without a querier, cross-VLAN) silently eat those frames,
   idle event streams can be killed by middleboxes, and a host firewall can
   block a dial-back port.
+  (first match wins, same as any reply). A multicast datagram carrying
+  several frames is split on the driver's `delimiter` first; an SSE event's
+  data block and an http_listener request body dispatch whole, exactly like
+  an HTTP response body — pair JSON payloads with `json: true` rules (2.7).
+- Multicast frames and http_listener requests are accepted **only from the
+  device's own host address**, so two identical devices pushing the same way
+  each update their own device instance. SSE needs no source filtering —
+  each stream rides the driver's own HTTP session, with its auth and TLS
+  settings.
+- **Response dispatch applies only the FIRST matching rule per body.** With
+  push, that bites where it didn't before: a device that pushes a small
+  leaf-shaped body per change, but is polled with one broad query returning
+  many values, will parse the push fine and drop all but one value on every
+  poll. Poll at the same granularity the device pushes (one query per value)
+  — `cisco_roomos_xapi` does exactly this.
+- A failed group join or unreachable stream is non-fatal (logged); polling
+  still covers the device, and a dropped SSE stream reconnects on its own
+  with exponential backoff. Keep the `polling:` block as the baseline
+  resync — networks that filter multicast (IGMP snooping without a querier,
+  cross-VLAN) silently eat those frames, and idle event streams can be
+  killed by middleboxes.
 
 Conventions:
 
@@ -1291,20 +1339,35 @@ Conventions:
   simulator. Hand-written HTTP sims get `sse_paths` + `push_sse_event()` on
   `HTTPSimulator`.
 
+Network note for `http_listener` (say it in `help.setup`): the **device
+connects to OpenAVC**, so it must be able to reach the server — a firewall
+rule that only allows OpenAVC → device silently eats the notifications. The
+callback URL is plain HTTP on the web port unless the server is HTTPS-only.
+
 Reference drivers: `at_atdm_0604a` (multicast, with an arming command and a
 throttled meter stream), `barco_clickshare_cx` (SSE, one stream per polled
 endpoint + require-scoped json rules), `panasonic_awhe` (tcp_listener,
-registration CGI + struct_frame container).
+registration CGI + struct_frame container), `cisco_roomos_xapi`
+(http_listener, HttpFeedback registration with `{push_callback_url}` +
+leaf-level polling).
 
-Validation (load time): `type` must be `multicast`, `sse`, or
-`tcp_listener` (`http_listener` is reserved and rejected as "not supported
-yet"). For multicast, `group`/`port` literals must be a valid IPv4
-multicast address / port. For sse, the driver's transport must be `http`,
-each `path` must be a URL path starting with `/`, and `idle_timeout` must
-be a positive number. For tcp_listener, `port` must be 0-65535 (0 =
-OS-assigned) or a template, `frame_parser.type` must be `struct_frame` /
-`length_prefix` / `fixed_length` (struct fields validated), and
-`register`/`unregister` must name declared commands. `{config_field}`
+**Python drivers with a handshake** (UPnP GENA, or any protocol where
+subscribing is a real conversation with SIDs and renewals) declare
+`push: {type: http_listener}` for the catalog and override `_start_push()` /
+`_stop_push()` to drive it themselves, calling
+`server.transport.http_listener.subscribe(...)` directly. A `label` gives one
+device several callback paths (`/api/push/<device>/<label>`), and
+`http_listener.callback_url(host, sub.path)` builds the URL to hand the
+device. `sonos` is the reference.
+
+Validation (load time): `type` must be `multicast`, `sse`, `tcp_listener`, or
+`http_listener`. For multicast, `group`/`port` literals must be a valid IPv4
+multicast address / port. For sse, the driver's transport must be `http`, each
+`path` must be a URL path starting with `/`, and `idle_timeout` must be a
+positive number. For tcp_listener, `port` must be 0-65535 (0 = OS-assigned) or
+a template, `frame_parser.type` must be `struct_frame` / `length_prefix` /
+`fixed_length` (struct fields validated), and `register`/`unregister` must name
+declared commands. `http_listener` takes no keys of its own. `{config_field}`
 templates must reference a field declared in `config_schema` or
 `default_config`; keys outside the declared type's set are rejected.
 

@@ -69,10 +69,10 @@
       "name": "Cisco Webex Codec / Room Series (xAPI)",
       "manufacturer": "Cisco",
       "category": "video",
-      "version": "1.2.4",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ, Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND, presentation, camera presets, on-screen messaging, reboot. Polling-based \u2014 HttpFeedback push deferred until the platform's inbound-listener primitive lands.\n",
+      "description": "Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ, Room Bar, Room Kit family, Room 55/70 family, Board Pro, Desk family) via the RoomOS xAPI over HTTPS. Standby, volume, mute, dial / hangup, DND, presentation, camera presets, on-screen messaging, reboot. State changes arrive instantly \u2014 the codec pushes them over HttpFeedback, with polling as the resync baseline.\n",
       "source_url": "https://roomos.cisco.com/print/TechDocs/HttpApi",
       "file": "video/cisco_roomos_xapi.avcdriver",
       "format": "avcdriver",
@@ -83,7 +83,7 @@
         "xapi_http"
       ],
       "simulated": true,
-      "min_platform_version": "0.9.1",
+      "min_platform_version": "0.23.0",
       "tags": [
         "cisco",
         "webex",
@@ -97,8 +97,8 @@
         "vc"
       ],
       "help": {
-        "overview": "Cisco Webex video-conferencing endpoints \u2014 the Codec Pro / Plus, Room Kit family, Room 55 / 70 series, Board Pro, and Desk Pro \u2014 all expose the same xAPI over HTTPS. This driver covers the controls an AV integrator actually wires to a touch panel: standby on / off, volume, mute, dial, hangup, do-not-disturb, presentation start / stop, camera presets, and on-screen messages. xConfiguration writes are intentionally NOT included \u2014 settings belong in the Cisco web UI at install time, not on a control surface where they can be changed by accident.\n",
-        "setup": "1. Set a static IP (or DHCP reservation) on the codec. 2. In the codec's web UI (https://<codec-ip>) go to Users and create\n   (or note) a local user with at least the \"Integrator\" role. The\n   default \"admin\" user works too. This driver uses HTTP Basic auth \u2014\n   SSO / single-sign-on users will not work.\n3. Confirm xAPI over HTTPS is enabled. In the web UI: Settings ->\n   Configurations -> NetworkServices -> HTTP Mode. Default is\n   HTTP+HTTPS, which is fine. (HTTP-only is also supported by toggling\n   the Use HTTPS field on this device.)\n4. Add the codec in OpenAVC: enter the IP, leave port 443 / HTTPS on,\n   enter the username and password from step 2.\n5. Polling refreshes system info, standby, audio, DND, presentation,\n   and people-presence every 30 seconds. Adjust the Poll Interval if\n   you want faster touch-panel feedback.\n"
+        "overview": "Cisco Webex video-conferencing endpoints \u2014 the Codec Pro / Plus, Room Kit family, Room 55 / 70 series, Board Pro, and Desk Pro \u2014 all expose the same xAPI over HTTPS. This driver covers the controls an AV integrator actually wires to a touch panel: standby on / off, volume, mute, dial, hangup, do-not-disturb, presentation start / stop, camera presets, and on-screen messages. Standby, audio, DND, presentation, and occupancy changes are pushed by the codec the moment they happen (HttpFeedback); polling every 30 seconds keeps everything in sync as a fallback. xConfiguration writes are intentionally NOT included \u2014 settings belong in the Cisco web UI at install time, not on a control surface where they can be changed by accident.\n",
+        "setup": "1. Set a static IP (or DHCP reservation) on the codec. 2. In the codec's web UI (https://<codec-ip>) go to Users and create\n   (or note) a local user with the \"Admin\" role \u2014 the default \"admin\"\n   user works. Admin is what allows the codec to register instant push\n   updates; a user with only the \"Integrator\" role still controls the\n   codec, but state updates then arrive at poll speed. This driver\n   uses HTTP Basic auth \u2014 SSO / single-sign-on users will not work.\n3. Confirm xAPI over HTTPS is enabled. In the web UI: Settings ->\n   Configurations -> NetworkServices -> HTTP Mode. Default is\n   HTTP+HTTPS, which is fine. (HTTP-only is also supported by toggling\n   the Use HTTPS field on this device.)\n4. Add the codec in OpenAVC: enter the IP, leave port 443 / HTTPS on,\n   enter the username and password from step 2.\n5. Push updates need the codec to reach the OpenAVC server over the\n   network (it posts to OpenAVC's web port). If a firewall sits\n   between them, allow that direction too. The Feedback Slot field\n   only matters if another system also registers feedback on this\n   codec: Cisco TMS uses slot 3, so pick a different one there.\n6. Polling refreshes system info, standby, audio, DND, presentation,\n   and people-presence every 30 seconds as a resync baseline \u2014 with\n   push active, panels update in about a second.\n"
       },
       "compatible_models": [
         {

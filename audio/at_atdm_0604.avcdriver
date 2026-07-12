@@ -66,7 +66,7 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 2.0.0
+version: 2.0.1
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -1062,12 +1062,29 @@ responses:
         id: { group: 1, map: { "0": 1, "1": 2 } }
         state: { mute: $2 }
 
-  # SmartMix gate open/close (ch 0-5)
-  - match: 'MD open_channel_notice 0000 \S+ NC (\d),([01])'
+  # SmartMix gate open/close (Table 5-3: all six inputs in ONE frame —
+  # unlike the per-channel notice of the newer protocol generation) — sent
+  # while SmartMix is on
+  - match: 'MD open_channel_notice 0000 \S+ NC ([01]),([01]),([01]),([01]),([01]),([01])'
     child_set:
       - type: input
-        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6 } }
+        id: 1
+        state: { gate_open: $1 }
+      - type: input
+        id: 2
         state: { gate_open: $2 }
+      - type: input
+        id: 3
+        state: { gate_open: $3 }
+      - type: input
+        id: 4
+        state: { gate_open: $4 }
+      - type: input
+        id: 5
+        state: { gate_open: $5 }
+      - type: input
+        id: 6
+        state: { gate_open: $6 }
 
   # Preset recalled (bank 1-6)
   - match: 'MD recall_preset_notice 0000 \S+ NC ([1-6])'
@@ -1216,38 +1233,41 @@ simulator:
       '*': 'MD input_gain_level_notice 0000 00 NC 0,,,{value}, '
     in1_mute:
       '*': 'MD input_gain_level_notice 0000 00 NC 0,,,,{value:d} '
+    # The 0604's open_channel_notice carries all six gates in one frame; a
+    # template can only render the toggled key, so the other five slots
+    # render 0 (the real mixer sends the live snapshot of all six).
     in1_gate:
-      '*': 'MD open_channel_notice 0000 00 NC 0,{value:d} '
+      '*': 'MD open_channel_notice 0000 00 NC {value:d},0,0,0,0,0 '
     in2_level:
       '*': 'MD input_gain_level_notice 0000 00 NC 1,,,{value}, '
     in2_mute:
       '*': 'MD input_gain_level_notice 0000 00 NC 1,,,,{value:d} '
     in2_gate:
-      '*': 'MD open_channel_notice 0000 00 NC 1,{value:d} '
+      '*': 'MD open_channel_notice 0000 00 NC 0,{value:d},0,0,0,0 '
     in3_level:
       '*': 'MD input_gain_level_notice 0000 00 NC 2,,,{value}, '
     in3_mute:
       '*': 'MD input_gain_level_notice 0000 00 NC 2,,,,{value:d} '
     in3_gate:
-      '*': 'MD open_channel_notice 0000 00 NC 2,{value:d} '
+      '*': 'MD open_channel_notice 0000 00 NC 0,0,{value:d},0,0,0 '
     in4_level:
       '*': 'MD input_gain_level_notice 0000 00 NC 3,,,{value}, '
     in4_mute:
       '*': 'MD input_gain_level_notice 0000 00 NC 3,,,,{value:d} '
     in4_gate:
-      '*': 'MD open_channel_notice 0000 00 NC 3,{value:d} '
+      '*': 'MD open_channel_notice 0000 00 NC 0,0,0,{value:d},0,0 '
     in5_level:
       '*': 'MD input_gain_level_notice 0000 00 NC 4,,,{value}, '
     in5_mute:
       '*': 'MD input_gain_level_notice 0000 00 NC 4,,,,{value:d} '
     in5_gate:
-      '*': 'MD open_channel_notice 0000 00 NC 4,{value:d} '
+      '*': 'MD open_channel_notice 0000 00 NC 0,0,0,0,{value:d},0 '
     in6_level:
       '*': 'MD input_gain_level_notice 0000 00 NC 5,,,{value}, '
     in6_mute:
       '*': 'MD input_gain_level_notice 0000 00 NC 5,,,,{value:d} '
     in6_gate:
-      '*': 'MD open_channel_notice 0000 00 NC 5,{value:d} '
+      '*': 'MD open_channel_notice 0000 00 NC 0,0,0,0,0,{value:d} '
     st_level:
       '*': 'MD input_gain_level_notice 0000 00 NC 10,,,{value}, '
     st_mute:

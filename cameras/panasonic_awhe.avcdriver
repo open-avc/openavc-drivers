@@ -21,14 +21,20 @@
 #                 - HTTP keep-alive not supported (one TCP connect per request)
 #                 - Don't poll setting-change commands (EEPROM wear)
 #
-# Push notifications:
-#   The cameras ALSO support unsolicited TCP push notifications: the driver
-#   registers with /cgi-bin/event?connect=start&my_port=<port>&uid=0, and the
-#   camera then dials OUT to <port> on the OpenAVC server and pushes binary
-#   frames on every state change. This driver currently uses polling only —
-#   push support is deferred until the platform inbound-TCP-listener primitive
-#   lands (openavc-backlog.md §18). When that primitive exists, this driver
-#   will be retrofitted to subscribe and react to pushes instead of polling.
+# Push notifications (spec section 4, "Camera information update notification"):
+#   The driver registers /cgi-bin/event?connect=start&my_port=<port>&uid=0 and
+#   the camera dials OUT to that TCP port on the OpenAVC server, pushing one
+#   framed notification per connection whenever a setting or status changes
+#   (including changes made from other controllers or the camera's web UI).
+#   Frame container: 22-byte reserve + 2-byte size (big-endian, = payload + 8)
+#   + 4-byte reserve + payload ([CR][LF]<command response>[CR][LF], max 504
+#   bytes) + 24-byte reserve. The payload uses the same response grammar as
+#   the CGI replies, so the pushed frames feed the normal response rules.
+#   A camera accepts up to 5 registered receivers and keeps one registration
+#   per client IP (re-registering replaces it); registrations do not survive
+#   a reboot or link cut, so the driver re-registers on every reconnect and
+#   sends connect=stop on a clean disconnect to free the slot. Polling stays
+#   on as the baseline resync for anything a filtered network drops.
 #
 # Scope:
 #   Runtime PTZ control surface only (aw_ptz CGI). Image-quality controls
@@ -40,15 +46,17 @@ id: panasonic_awhe
 name: Panasonic AW-HE/UE/UN PTZ Camera
 manufacturer: Panasonic
 category: camera
-version: 1.2.0
+version: 1.3.0
 author: OpenAVC
+min_platform_version: "0.23.0"
 description: >
   Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras
   via the documented HTTP CGI protocol (port 80). Covers power, pan/tilt
   drive and absolute positioning, zoom, focus (auto/manual), iris (auto/
   manual), 100 presets, tally, wireless remote enable, and zoom-linked
-  pan/tilt speed. Image-quality controls (gain, white balance, scene files,
-  gamma) are install-time setup left to the camera's web UI.
+  pan/tilt speed, with state changes pushed instantly by the camera's
+  update-notification channel. Image-quality controls (gain, white balance,
+  scene files, gamma) are install-time setup left to the camera's web UI.
 
 source_url: https://eww.pass.panasonic.co.jp/pro-av/support/content/guide/DEF/HE50_120_IP/HDIntegratedCamera_InterfaceSpecifications-E.pdf
 tags: [ptz, camera, broadcast, panasonic, awhe, awue, awun]
@@ -119,7 +127,16 @@ help:
        internally, but the driver exposes the 1..100 numbering.
     6. Polling is set to 10 seconds by default. Keep this at or above 5 s
        — the cameras throttle aggressive polling and have a 130 ms minimum
-       inter-command gap.
+       inter-command gap. Changes still show up instantly: the camera
+       pushes update notifications the moment anything changes, from any
+       controller.
+    7. Push notifications work by the camera connecting back to the OpenAVC
+       server on the Notification Port (31004 by default; several cameras
+       can share it). If the server runs a firewall, allow that port
+       inbound from the cameras. If the port is blocked, nothing breaks —
+       state simply updates at poll speed. Each camera accepts up to 5
+       registered receivers; OpenAVC uses one and releases it when the
+       device is removed.
 
 discovery:
   # Panasonic AW-HE/UE/UN cameras advertise via ONVIF when enabled in
@@ -144,6 +161,7 @@ default_config:
   timeout: 5.0
   poll_interval: 10
   inter_command_delay: 0.13   # 130 ms min per spec
+  notify_port: 31004          # local TCP port the camera pushes updates to
 
 config_schema:
   host:
@@ -183,7 +201,35 @@ config_schema:
     default: 10
     min: 5
     label: Poll Interval (sec)
-    description: "How often to refresh state. Keep at 5 s or higher — the camera throttles aggressive polling."
+    description: "How often to refresh state. Keep at 5 s or higher — the camera throttles aggressive polling. State changes arrive instantly via the camera's push notifications; polling is the baseline resync."
+  notify_port:
+    type: integer
+    default: 31004
+    min: 0
+    max: 65535
+    label: Notification Port (local)
+    description: "Local TCP port on the OpenAVC server that the camera pushes update notifications to. Several cameras can share one port. 0 picks a free port automatically; keep a fixed port if a firewall on the server must allow it. The server's firewall must accept inbound connections from the camera on this port."
+
+# Device-initiated update notifications (spec section 4): OpenAVC listens on
+# notify_port, tells the camera where to dial with connect=start (re-armed on
+# every reconnect — camera registrations don't survive a reboot or link cut),
+# and frees the camera's receiver slot with connect=stop on clean disconnect.
+# The camera pushes one container-framed notification per outbound connection;
+# the payload inside carries the same response tokens the CGI replies use, so
+# the frames flow through the response rules below unchanged.
+push:
+  type: tcp_listener
+  port: "{notify_port}"
+  register: start_notifications
+  unregister: stop_notifications
+  frame_parser:
+    type: struct_frame
+    header_reserve: 22    # reserved metadata block
+    length_size: 2        # big-endian size field
+    length_endian: big
+    length_adjust: -8     # size counts payload + 8
+    mid_reserve: 4        # reserved bytes before the payload
+    trailer_reserve: 24   # reserved trailer
 
 state_variables:
   power:
@@ -242,6 +288,10 @@ state_variables:
     type: boolean
     label: Zoom-Linked PT Speed
     help: "Zoom-linked pan/tilt speed mode from #LPC (true = pan/tilt slows automatically at high zoom)."
+  event_sessions:
+    type: integer
+    label: Notification Receivers
+    help: "Number of controllers registered for the camera's update notifications (man_session query). The camera allows up to 5; OpenAVC uses one while connected — run Query Notification Receivers to check. 0 means push isn't armed and state updates at poll speed."
 
 # Device settings: persisted device-side configuration the camera reports back
 # (the matching query_* polls are the read-back), so each gets the editable-field
@@ -705,7 +755,30 @@ commands:
     method: GET
     path: "/cgi-bin/aw_ptz?cmd=%23SWZ&res=1"
 
-# Response patterns (matched against HTTP body text).
+  # ── Update notifications (spec section 4) ──
+  # start/stop are wired to the push block (register/unregister) and run
+  # automatically on connect/disconnect; they're exposed here so an
+  # integrator can re-arm manually if the camera was power-cycled and the
+  # next reconnect hasn't happened yet. {listener_port} resolves to the
+  # local port OpenAVC is listening on. The camera answers 204 No Content.
+  start_notifications:
+    label: Start Update Notifications
+    method: GET
+    path: "/cgi-bin/event?connect=start&my_port={listener_port}&uid=0"
+
+  stop_notifications:
+    label: Stop Update Notifications
+    method: GET
+    path: "/cgi-bin/event?connect=stop&my_port={listener_port}&uid=0"
+
+  query_event_sessions:
+    label: Query Notification Receivers
+    method: GET
+    path: "/cgi-bin/man_session?command=get"
+
+# Response patterns (matched against HTTP body text). Pushed update
+# notifications carry the same tokens the CGI replies use, so every rule
+# below serves both the polled responses and the push channel.
 responses:
 
   # Power: "p0" / "p1" / "p3"
@@ -743,6 +816,13 @@ responses:
   - match: '^s([0-9]{2})$'
     set: { preset_last: "$1" }
 
+  # Preset recall COMPLETION: "qNN" arrives on the notification channel when
+  # the pan/tilt move finishes (the immediate "sNN" only acknowledges the
+  # recall starting). Mirrors the sNN mapping so preset_last also reflects
+  # recalls made by other controllers.
+  - match: '^q([0-9]{2})$'
+    set: { preset_last: "$1" }
+
   # Preset speed: "uPVSNNN"
   - match: '^uPVS([0-9]{3})$'
     set: { preset_speed: "$1" }
@@ -762,6 +842,10 @@ responses:
   # Zoom-linked PT speed: "sWZ0" / "sWZ1"
   - match: '^sWZ([01])$'
     set: { zoom_linked_pt_speed: "$1" }
+
+  # Registered notification receivers: "Event session:N" (man_session query)
+  - match: '^Event session:(\d+)$'
+    set: { event_sessions: "$1" }
 
 # Polling — refresh state at the configured interval.
 polling:
@@ -797,9 +881,43 @@ simulator:
     tally_input_enabled: true
     wireless_remote_enabled: true
     zoom_linked_pt_speed: false
+    event_sessions: 0
 
   delays:
     command_response: 0.02
+
+  # Update-notification templates: on a state change from the Simulator UI or
+  # API, the simulator dials each registered receiver (the driver registers
+  # via the event CGI, observed automatically) and pushes the rendered
+  # payload wrapped in the spec's frame container — matching a real camera,
+  # which sends [CR][LF]<response>[CR][LF] inside the frame, one connection
+  # per notification. pan/tilt has no per-key template (a real aPC notice
+  # carries both axes in one token); polling covers position changes.
+  notifications:
+    power: "\r\np{value}\r\n"
+    zoom_position: "\r\ngz{value}\r\n"
+    focus_position: "\r\ngf{value}\r\n"
+    iris_position: "\r\ngi{value}\r\n"
+    focus_auto:
+      "true": "\r\nd11\r\n"
+      "false": "\r\nd10\r\n"
+    iris_auto:
+      "true": "\r\nd31\r\n"
+      "false": "\r\nd30\r\n"
+    preset_last: "\r\ns{value:02d}\r\n"
+    preset_speed: "\r\nuPVS{value:03d}\r\n"
+    r_tally:
+      "true": "\r\ndA1\r\n"
+      "false": "\r\ndA0\r\n"
+    tally_input_enabled:
+      "true": "\r\ntAE1\r\n"
+      "false": "\r\ntAE0\r\n"
+    wireless_remote_enabled:
+      "true": "\r\nwLC1\r\n"
+      "false": "\r\nwLC0\r\n"
+    zoom_linked_pt_speed:
+      "true": "\r\nsWZ1\r\n"
+      "false": "\r\nsWZ0\r\n"
 
   controls:
     - type: power
@@ -842,6 +960,16 @@ simulator:
       label: Zoom-Linked PT Speed
 
   command_handlers:
+
+    # ── Update notifications ──
+    # The event CGI (connect=start / connect=stop) needs no handler — the
+    # simulator recognizes the registration commands from the push block and
+    # acknowledges them itself, like the camera's 204 No Content. The session
+    # count query answers 1 (the sim tracks its registered receivers, but a
+    # static count is enough for the driver's read-back).
+    - match: '^GET /cgi-bin/man_session\?command=get$'
+      handler: |
+        respond("Event session:1")
 
     # ── Power ──
     - match: '^GET /cgi-bin/aw_ptz\?cmd=#O([01])&res=1$'

@@ -1178,9 +1178,11 @@ the socket stays up, and works on connectionless transports. They compose.
 
 Some devices report state changes on a channel the platform must **open**,
 not on the established control connection. The `push:` block declares that
-channel. Two types exist: `multicast` (the device sends notification frames
-to a multicast group the platform joins) and `sse` (the device streams
-updates over Server-Sent Events on its HTTP API):
+channel. Three types exist: `multicast` (the device sends notification
+frames to a multicast group the platform joins), `sse` (the device streams
+updates over Server-Sent Events on its HTTP API), and `tcp_listener` (the
+device dials back to a TCP port on the OpenAVC host after a registration
+command tells it where):
 
 ```yaml
 push:
@@ -1200,43 +1202,79 @@ push:
                                # interval; omit to wait indefinitely)
 ```
 
+```yaml
+push:
+  type: tcp_listener           # device dials back to the OpenAVC host
+  port: "{notify_port}"        # local inbound port: 0-65535 literal
+                               # (0 = OS-assigned) or {config_field} template
+  register: start_notifications    # command that tells the device where to
+                                   # dial — reference {listener_port} in its
+                                   # path/send string; runs after the listener
+                                   # opens and again on every reconnect
+  unregister: stop_notifications   # optional: cancels the registration,
+                                   # best-effort on graceful disconnect
+  frame_parser:                # framing for the pushed frames (the dial-back
+    type: struct_frame         # channel is its own byte stream); also
+    header_reserve: 22         # accepts length_prefix / fixed_length; omit
+    length_size: 2             # to dispatch raw reads
+    length_endian: big         # big (default) | little
+    length_adjust: -8          # added to the length value -> payload size
+    mid_reserve: 4
+    trailer_reserve: 24
+```
+
 Behavior contract:
 
 - The subscription starts when the device connects, **before** `on_connect`
-  runs — so an `on_connect` command that arms the device's notifications
-  never races the listener. It stops on disconnect and re-arms on reconnect
-  (which also re-runs `on_connect`, covering devices whose notification
-  flags reset on reboot).
+  (and any `register` command) runs — so an arming command never races the
+  listener. It stops on disconnect and re-arms on reconnect (which also
+  re-runs `on_connect` and the `register` command, covering devices whose
+  notification flags or registrations reset on reboot).
 - Everything that arrives feeds the driver's normal `responses:` rules
-  (first match wins, same as any reply). A multicast datagram carrying
-  several frames is split on the driver's `delimiter` first; an SSE event's
-  data block dispatches whole, exactly like an HTTP response body — pair it
-  with `json: true` rules for JSON payloads (see 2.7).
-- Multicast frames are accepted **only from the device's own host address**,
-  so two identical devices multicasting to the same group each update their
-  own device instance. SSE needs no source filtering — each stream rides
-  the driver's own HTTP session, with its auth and TLS settings.
-- A failed group join or unreachable stream is non-fatal (logged); polling
-  still covers the device, and a dropped SSE stream reconnects on its own
-  with exponential backoff. Keep the `polling:` block as the baseline
-  resync — networks that filter multicast (IGMP snooping without a querier,
-  cross-VLAN) silently eat those frames, and idle event streams can be
-  killed by middleboxes.
+  (first match wins, same as any reply). A multicast datagram or dial-back
+  frame carrying several messages is split on the driver's `delimiter`
+  first; an SSE event's data block dispatches whole, exactly like an HTTP
+  response body — pair it with `json: true` rules for JSON payloads (see
+  2.7).
+- Multicast frames and dial-back connections are accepted **only from the
+  device's own host address**, so two identical devices pointed at the same
+  group or listener port each update their own device instance (devices can
+  share one listener port). SSE needs no source filtering — each stream
+  rides the driver's own HTTP session, with its auth and TLS settings.
+- For `tcp_listener`, the platform injects the actual bound port into the
+  device config as the reserved **`{listener_port}`** token — usable in any
+  command, `on_connect` entry, or poll query (it resolves a port-0
+  ephemeral bind to the real port). Don't declare a config field named
+  `listener_port`; it would be overwritten.
+- A failed group join, unreachable stream, or un-bindable listener port is
+  non-fatal (logged); polling still covers the device, and a dropped SSE
+  stream reconnects on its own with exponential backoff. Keep the
+  `polling:` block as the baseline resync — networks that filter multicast
+  (IGMP snooping without a querier, cross-VLAN) silently eat those frames,
+  idle event streams can be killed by middleboxes, and a host firewall can
+  block a dial-back port.
 
 Conventions:
 
-- Make multicast `group`/`port` **config fields with the device's factory
-  defaults** (not hard-coded literals) whenever the device lets users change
-  its notification target, and say so in `help.setup`. SSE paths are fixed
-  API routes — literals are normal there.
+- Make multicast `group`/`port` — and a dial-back listener `port` — **config
+  fields with the device's factory defaults** (not hard-coded literals)
+  whenever the device or install might need a different value, and say so in
+  `help.setup`. SSE paths are fixed API routes — literals are normal there.
 - If notifications must be armed at runtime, send the arming command from
-  `on_connect`. Gate a continuous meter/telemetry stream behind an opt-in
-  boolean config field substituted into the arming command, and put a
-  `throttle:` on the meter response rule (see 2.7).
+  `on_connect` — or, for a dial-back device, name it in `push.register` so
+  the platform runs it right after the listener opens. Gate a continuous
+  meter/telemetry stream behind an opt-in boolean config field substituted
+  into the arming command, and put a `throttle:` on the meter response rule
+  (see 2.7).
+- Declare `push.unregister` when the device holds a limited receiver list
+  (the Panasonic cameras allow 5 registered controllers) — without it, a
+  removed device keeps its slot until the device notices deliveries failing
+  or reboots.
 - For multicast, mention the network requirements in `help.setup`: same
   VLAN as the OpenAVC host, and IGMP-snooping switches need an IGMP querier.
-  SSE has no network requirements beyond the API port the driver already
-  uses.
+  For a dial-back listener, mention the inbound port a host firewall must
+  allow. SSE has no network requirements beyond the API port the driver
+  already uses.
 - Set `idle_timeout` only when the device documents a keepalive cadence
   (ClickShare sends one every 90 s per stream — the reference retrofit uses
   200). Without documented keepalives, omit it: an event stream that is
@@ -1244,22 +1282,31 @@ Conventions:
 - Simulators: with a multicast `push:` block, the `simulator.notifications`
   templates are emitted to the group instead of the control connection; with
   an SSE block, the simulated HTTP device serves the declared event-stream
-  paths and delivers the templates to subscribers (see 5.1). Either way push
-  flows end-to-end against the simulator. Hand-written HTTP sims get
-  `sse_paths` + `push_sse_event()` on `HTTPSimulator`.
+  paths and delivers the templates to subscribers (see 5.1); with a
+  `tcp_listener` block, the simulator recognizes the `register`/`unregister`
+  commands by their `{listener_port}` token (answering them with an empty
+  ack when no explicit handler does), tracks subscribers, and dials each one
+  per notification with the template wrapped in the declared frame
+  container. In all three shapes push flows end-to-end against the
+  simulator. Hand-written HTTP sims get `sse_paths` + `push_sse_event()` on
+  `HTTPSimulator`.
 
 Reference drivers: `at_atdm_0604a` (multicast, with an arming command and a
 throttled meter stream), `barco_clickshare_cx` (SSE, one stream per polled
-endpoint + require-scoped json rules).
+endpoint + require-scoped json rules), `panasonic_awhe` (tcp_listener,
+registration CGI + struct_frame container).
 
-Validation (load time): `type` must be `multicast` or `sse` (`tcp_listener`
-/ `http_listener` are reserved and rejected as "not supported yet"). For
-multicast, `group`/`port` literals must be a valid IPv4 multicast address /
-port. For sse, the driver's transport must be `http`, each `path` must be a
-URL path starting with `/`, and `idle_timeout` must be a positive number.
-`{config_field}` templates must reference a field declared in
-`config_schema` or `default_config`; keys outside the declared type's set
-are rejected.
+Validation (load time): `type` must be `multicast`, `sse`, or
+`tcp_listener` (`http_listener` is reserved and rejected as "not supported
+yet"). For multicast, `group`/`port` literals must be a valid IPv4
+multicast address / port. For sse, the driver's transport must be `http`,
+each `path` must be a URL path starting with `/`, and `idle_timeout` must
+be a positive number. For tcp_listener, `port` must be 0-65535 (0 =
+OS-assigned) or a template, `frame_parser.type` must be `struct_frame` /
+`length_prefix` / `fixed_length` (struct fields validated), and
+`register`/`unregister` must name declared commands. `{config_field}`
+templates must reference a field declared in `config_schema` or
+`default_config`; keys outside the declared type's set are rejected.
 
 ### 2.11 device_settings
 

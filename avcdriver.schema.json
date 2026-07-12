@@ -1331,7 +1331,7 @@
     },
     "pushBlock": {
       "type": "object",
-      "description": "Device-initiated push notifications arriving on a channel the platform opens (not the established control connection). type: multicast joins the device's notification group; incoming datagrams feed the driver's responses rules (split on the driver delimiter first) and are accepted only from the device's own address. type: sse holds GET path(s) open on the driver's own HTTP session with Accept: text/event-stream; each event's data block feeds the responses rules whole (pair with json: true rules for JSON payloads). Either way the subscription starts before on_connect runs (so arming commands never race the listener) and stops on disconnect; a dropped SSE stream reconnects with exponential backoff. Requires platform 0.23.0.",
+      "description": "Device-initiated push notifications arriving on a channel the platform opens (not the established control connection). type: multicast joins the device's notification group; incoming datagrams feed the driver's responses rules (split on the driver delimiter first) and are accepted only from the device's own address. type: sse holds GET path(s) open on the driver's own HTTP session with Accept: text/event-stream; each event's data block feeds the responses rules whole (pair with json: true rules for JSON payloads). type: tcp_listener opens a local TCP port the device dials back to after a registration command carrying {listener_port} tells it where; frames are parsed by the declared frame_parser, split on the driver delimiter, and accepted only from the device's own address. In every shape the subscription starts before on_connect (and any register command) runs, and stops on disconnect; a dropped SSE stream reconnects with exponential backoff. Requires platform 0.23.0.",
       "required": [
         "type"
       ],
@@ -1340,9 +1340,10 @@
           "type": "string",
           "enum": [
             "multicast",
-            "sse"
+            "sse",
+            "tcp_listener"
           ],
-          "description": "Push channel kind. multicast = UDP group listen; sse = Server-Sent Events stream on the HTTP transport."
+          "description": "Push channel kind. multicast = UDP group listen; sse = Server-Sent Events stream on the HTTP transport; tcp_listener = local port the device dials back to."
         },
         "group": {
           "type": [
@@ -1355,7 +1356,7 @@
             "integer",
             "string"
           ],
-          "description": "multicast only: UDP port (1-65535) as an integer literal, or a {config_field} template string."
+          "description": "multicast: UDP port (1-65535) as an integer literal, or a {config_field} template string. tcp_listener: local inbound TCP port (0-65535, 0 = OS-assigned) or a {config_field} template."
         },
         "path": {
           "type": [
@@ -1371,6 +1372,18 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "sse only, optional: seconds of stream silence (keepalives included) before the connection is presumed dead and reopened. Set above the device's keepalive interval; omit to wait indefinitely."
+        },
+        "frame_parser": {
+          "$ref": "#/$defs/frameParser",
+          "description": "tcp_listener only, optional: framing for the pushed frames (struct_frame / length_prefix / fixed_length) - the dial-back channel is its own byte stream, independent of the control transport's framing. Omit to dispatch raw reads."
+        },
+        "register": {
+          "type": "string",
+          "description": "tcp_listener only, optional: name of the command that registers the dial-back target with the device (reference {listener_port} in its path/send string). Runs after the listener opens, and again on every reconnect."
+        },
+        "unregister": {
+          "type": "string",
+          "description": "tcp_listener only, optional: name of the command that cancels the registration. Runs best-effort on graceful disconnect, freeing the device's receiver slot."
         }
       },
       "additionalProperties": false,
@@ -1414,6 +1427,29 @@
               "type": true,
               "path": true,
               "idle_timeout": true
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "tcp_listener"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "type",
+              "port"
+            ],
+            "properties": {
+              "type": true,
+              "port": true,
+              "frame_parser": true,
+              "register": true,
+              "unregister": true
             },
             "additionalProperties": false
           }
@@ -1523,9 +1559,10 @@
           "type": "string",
           "enum": [
             "length_prefix",
-            "fixed_length"
+            "fixed_length",
+            "struct_frame"
           ],
-          "description": "Frame parser kind interpreted at runtime."
+          "description": "Frame parser kind interpreted at runtime. struct_frame (fixed reserved regions around a length field and payload - common in device dial-back notification containers) requires platform 0.23.0."
         },
         "header_size": {
           "type": "integer",
@@ -1560,11 +1597,39 @@
             "big",
             "little"
           ],
-          "description": "length_prefix: byte order of the length field. Default big. Requires platform 0.23.0."
+          "description": "length_prefix / struct_frame: byte order of the length field. Default big. Requires platform 0.23.0."
         },
         "length": {
           "type": "integer",
           "description": "fixed_length: frame size in bytes. Default 1."
+        },
+        "header_reserve": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "struct_frame: reserved bytes before the length field (discarded). Default 0. Requires platform 0.23.0."
+        },
+        "length_size": {
+          "type": "integer",
+          "enum": [
+            1,
+            2,
+            4
+          ],
+          "description": "struct_frame: bytes holding the length field. Default 2. Requires platform 0.23.0."
+        },
+        "length_adjust": {
+          "type": "integer",
+          "description": "struct_frame: added to the decoded length value to get the payload byte count, for length fields that include constant overhead (Panasonic camera containers count payload + 8, so -8). Default 0. Requires platform 0.23.0."
+        },
+        "mid_reserve": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "struct_frame: reserved bytes between the length field and the payload (discarded). Default 0. Requires platform 0.23.0."
+        },
+        "trailer_reserve": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "struct_frame: reserved bytes after the payload (discarded). Default 0. Requires platform 0.23.0."
         }
       },
       "additionalProperties": true

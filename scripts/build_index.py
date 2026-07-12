@@ -958,8 +958,9 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
     notifications, platform >= 0.23.0).
 
     Mirrors the runtime rules in driver_loader.validate_driver_definition:
-    type is multicast (group/port) or sse (path/idle_timeout, http transport
-    only); {config_field} templates must reference fields declared in
+    type is multicast (group/port), sse (path/idle_timeout, http transport
+    only), or tcp_listener (port/frame_parser/register/unregister);
+    {config_field} templates must reference fields declared in
     config_schema or default_config. Catching this at catalog-build time
     keeps a driver that would fail to load out of the index.
     """
@@ -980,19 +981,27 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
     known_keys_by_type = {
         "multicast": {"type", "group", "port"},
         "sse": {"type", "path", "idle_timeout"},
+        "tcp_listener": {
+            "type", "port", "frame_parser", "register", "unregister",
+        },
     }
     ptype = push.get("type")
-    if ptype in ("tcp_listener", "http_listener"):
+    if ptype == "http_listener":
         errors.append(
             f"{file}: push type '{ptype}' is not supported yet "
-            f"(only 'multicast' and 'sse')"
+            f"(only 'multicast', 'sse', and 'tcp_listener')"
         )
     elif ptype not in known_keys_by_type:
         errors.append(
-            f"{file}: push missing or unknown 'type' (supported: multicast, sse)"
+            f"{file}: push missing or unknown 'type' "
+            f"(supported: multicast, sse, tcp_listener)"
         )
     known_keys = known_keys_by_type.get(
-        ptype, {"type", "group", "port", "path", "idle_timeout"}
+        ptype,
+        {
+            "type", "group", "port", "path", "idle_timeout",
+            "frame_parser", "register", "unregister",
+        },
     )
     unknown = set(push) - known_keys
     if unknown:
@@ -1089,6 +1098,66 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
                 f"{file}: push.idle_timeout must be a positive number of "
                 f"seconds"
             )
+
+    elif ptype == "tcp_listener":
+        port = push.get("port")
+        if port is None:
+            errors.append(f"{file}: push missing 'port'")
+        elif isinstance(port, str) and "{" in port:
+            check_template("port", port)
+        elif isinstance(port, bool) or not isinstance(port, int) or not (0 <= port < 65536):
+            errors.append(
+                f"{file}: push.port must be an integer 0-65535 (0 = "
+                f"OS-assigned) or a {{config_field}} template"
+            )
+
+        frame_cfg = push.get("frame_parser")
+        if frame_cfg is not None:
+            if not isinstance(frame_cfg, dict):
+                errors.append(f"{file}: push.frame_parser must be a mapping")
+            else:
+                ftype = frame_cfg.get("type")
+                if ftype not in ("struct_frame", "length_prefix", "fixed_length"):
+                    errors.append(
+                        f"{file}: push.frame_parser type {ftype!r} must be "
+                        f"struct_frame, length_prefix, or fixed_length"
+                    )
+                elif ftype == "struct_frame":
+                    for fkey in ("header_reserve", "mid_reserve", "trailer_reserve"):
+                        fval = frame_cfg.get(fkey, 0)
+                        if isinstance(fval, bool) or not isinstance(fval, int) or fval < 0:
+                            errors.append(
+                                f"{file}: push.frame_parser {fkey} must be a "
+                                f"non-negative integer"
+                            )
+                    if frame_cfg.get("length_size", 2) not in (1, 2, 4):
+                        errors.append(
+                            f"{file}: push.frame_parser length_size must be 1, 2, or 4"
+                        )
+                    fadj = frame_cfg.get("length_adjust", 0)
+                    if isinstance(fadj, bool) or not isinstance(fadj, int):
+                        errors.append(
+                            f"{file}: push.frame_parser length_adjust must be an integer"
+                        )
+                    if frame_cfg.get("length_endian", "big") not in ("big", "little"):
+                        errors.append(
+                            f"{file}: push.frame_parser length_endian must be "
+                            f"'big' or 'little'"
+                        )
+
+        commands = data.get("commands")
+        command_names = set(commands) if isinstance(commands, dict) else set()
+        for ckey in ("register", "unregister"):
+            cval = push.get(ckey)
+            if cval is None:
+                continue
+            if not isinstance(cval, str) or not cval.strip():
+                errors.append(f"{file}: push.{ckey} must be a command name")
+            elif cval not in command_names:
+                errors.append(
+                    f"{file}: push.{ckey} command '{cval}' is not declared "
+                    f"in commands"
+                )
     return errors
 
 

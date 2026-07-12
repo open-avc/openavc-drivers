@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 4,
+    "total_drivers": 5,
     "shards": null,
     "category": "lighting"
   },
@@ -235,6 +235,145 @@
         "manufacturer_alias": [
           "artnet",
           "art-net"
+        ]
+      }
+    },
+    {
+      "id": "sacn_e131",
+      "name": "sACN / E1.31 DMX (Generic)",
+      "manufacturer": "Generic",
+      "category": "lighting",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Streams DMX512 lighting data over sACN (Streaming ACN, ANSI E1.31) to any sACN-compatible node, gateway, fixture, or controller. Uses per-universe multicast (239.255.x.x, UDP 5568) by default, or unicast to a specific node. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; per-source priority tunes multi-source merging; a keep-alive re-send holds static looks alive and a graceful stream-termination releases the universe on disconnect.",
+      "source_url": "https://tsp.esta.org/tsp/documents/docs/E1-31-2018.pdf",
+      "file": "lighting/sacn_e131.py",
+      "format": "python",
+      "ports": [
+        5568
+      ],
+      "protocols": [
+        "sacn",
+        "e131"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.10.3",
+      "tags": [
+        "sacn",
+        "e131",
+        "e1-31",
+        "dmx",
+        "dmx512",
+        "lighting",
+        "generic",
+        "etc",
+        "ma",
+        "pathway",
+        "enttec"
+      ],
+      "help": {
+        "overview": "sACN (Streaming ACN, ANSI E1.31) is the open ANSI standard for DMX512 over IP. Controllers send E1.31 Data Packets to nodes (sACN-to-DMX gateways) or directly to network-native fixtures. Each universe has its own multicast group (239.255.<hi>.<lo>), so traffic reaches only the receivers that joined it. The driver keeps a 512-channel buffer per universe, re-sends on a ~900 ms keep-alive cadence so a static look never times out, and stamps a per-source priority for multi-source merging.",
+        "setup": "1. Put the sACN node/gateway on the same VLAN as the OpenAVC server and confirm its universe number (1..63999).\n2. Leave Addressing on 'Multicast' (the sACN default) unless the node is configured for unicast \u2014 multicast is derived automatically as 239.255.<hi>.<lo> from the universe, so nothing else to enter. For 'Unicast', fill in the node's IP as the Target Host.\n3. Set the Priority if the universe has more than one source (higher wins; default 100). Set a Source Name so the universe is identifiable on the network.\n4. Run set_channel / blackout / full_on. The driver starts sending and re-broadcasting automatically; no separate start is needed. On disconnect it sends a graceful stream-termination so receivers release the universe immediately."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Generic",
+          "models": [
+            "sACN / E1.31 Node / Gateway / Fixture (any conforming vendor)"
+          ],
+          "confidence": "untested",
+          "notes": "sACN is the ANSI E1.31 public standard maintained by ESTA. This driver sends E1.31 Data Packets and works with any conforming sACN receiver. Brand entries below name major node / gateway / fixture vendors confirmed by their published product literature."
+        },
+        {
+          "manufacturer": "ETC",
+          "models": [
+            "Response Mk2 Gateway",
+            "Net3 Gateway",
+            "Net3 Show Control Gateway",
+            "Net3 4-port Gateway"
+          ],
+          "confidence": "untested",
+          "notes": "ETC's Response and Net3 gateway families translate sACN (and Art-Net) to physical DMX outputs. ETC's Eos console is also covered by the dedicated etc_eos OSC driver, which is the right choice when controlling cues directly rather than driving fixtures."
+        },
+        {
+          "manufacturer": "Pathway Connectivity",
+          "models": [
+            "Pathport Octo",
+            "Pathport Quattro",
+            "Pathport Q42",
+            "VIA 12 / VIA 24"
+          ],
+          "confidence": "untested",
+          "notes": "Pathway Pathport gateways translate sACN and Art-Net to DMX. Common in pro AV and theatrical installs; sACN is Pathway's preferred network protocol."
+        },
+        {
+          "manufacturer": "Enttec",
+          "models": [
+            "ODE Mk3",
+            "DIN-ODE Mk3",
+            "S-Play Mini",
+            "Storm 24"
+          ],
+          "confidence": "untested",
+          "notes": "Enttec ODE Mk3 and S-Play families accept sACN and convert to DMX. The DIN-ODE fits a DIN rail in install racks."
+        },
+        {
+          "manufacturer": "Elation",
+          "models": [
+            "E-Node 2",
+            "E-Node 4",
+            "E-Node 8"
+          ],
+          "confidence": "untested",
+          "notes": "Elation E-Node series sACN / Art-Net to DMX gateways."
+        },
+        {
+          "manufacturer": "Chauvet",
+          "models": [
+            "Net-X II",
+            "DataStream 4"
+          ],
+          "confidence": "untested",
+          "notes": "Chauvet Professional network nodes for entertainment lighting; sACN and Art-Net capable."
+        },
+        {
+          "manufacturer": "Color Kinetics",
+          "models": [
+            "Data Enabler Pro",
+            "Antumbra Touch",
+            "PDS-150e / PDS-200e"
+          ],
+          "confidence": "untested",
+          "notes": "Color Kinetics (Signify) architectural LED gateways. The controller side speaks sACN to drive Color Kinetics fixtures via PDS power/data supplies and Antumbra controllers."
+        },
+        {
+          "manufacturer": "MA Lighting",
+          "models": [
+            "grandMA3 onPC",
+            "grandMA3 NPU",
+            "grandMA2 NPU (legacy)"
+          ],
+          "confidence": "untested",
+          "notes": "MA Lighting Network Processing Units translate console output to sACN and Art-Net for downstream gateways."
+        },
+        {
+          "manufacturer": "Madrix",
+          "models": [
+            "Madrix 5 Software",
+            "Madrix Aura Ethernet-DMX Bridge",
+            "Madrix Plexus"
+          ],
+          "confidence": "untested",
+          "notes": "Madrix is primarily an sACN / Art-Net source for LED pixel-mapping, but its Aura and Plexus hardware bridges accept sACN input and convert to DMX or play back shows."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "sacn",
+          "e131",
+          "e1.31",
+          "streaming acn"
         ]
       }
     },

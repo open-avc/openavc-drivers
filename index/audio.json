@@ -366,7 +366,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, gain, mute, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, and AT-LINK mode.\n",

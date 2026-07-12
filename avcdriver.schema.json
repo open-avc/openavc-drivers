@@ -619,9 +619,10 @@
             "type": {
               "type": "string",
               "enum": [
-                "integer"
+                "integer",
+                "string"
               ],
-              "description": "Only integer local IDs are supported in v1."
+              "description": "Local child id type. String ids pair with an instances.ids_from roster (e.g. letter-addressed matrix outputs)."
             },
             "min": {
               "type": "integer"

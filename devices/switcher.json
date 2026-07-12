@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 70,
+    "total_devices": 72,
     "shards": null,
     "category": "switcher"
   },
@@ -508,6 +508,30 @@
           "id": "extron_sis",
           "confidence": "untested",
           "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Gefen",
+      "model": "EXT-UHD600A-44",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "gefen_uhd600a",
+          "confidence": "untested",
+          "notes": "One CLI grammar covers both frames. For the 44 keep the default Output IDs \"A,B,C,D\" and Input Count 4; for the 88 set \"A,B,C,D,E,F,G,H\" and 8. Per-output video scaling and the button/LED brightness settings exist on the 44 only; the LCD brightness setting exists on the 88 only \u2014 the other model answers an error the driver ignores, and unsupported settings simply never populate. If \"Require Password on Connect\" is enabled for Telnet, disable it (Network > Telnet Settings) for driver use.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Gefen",
+      "model": "EXT-UHD600A-88",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "gefen_uhd600a",
+          "confidence": "untested",
+          "notes": "One CLI grammar covers both frames. For the 44 keep the default Output IDs \"A,B,C,D\" and Input Count 4; for the 88 set \"A,B,C,D,E,F,G,H\" and 8. Per-output video scaling and the button/LED brightness settings exist on the 44 only; the LCD brightness setting exists on the 88 only \u2014 the other model answers an error the driver ignores, and unsupported settings simply never populate. If \"Require Password on Connect\" is enabled for Telnet, disable it (Network > Telnet Settings) for driver use.\n"
         }
       ]
     },

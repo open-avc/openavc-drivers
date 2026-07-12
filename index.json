@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 85,
+    "total_drivers": 86,
     "shards": null
   },
   "drivers": [
@@ -2016,6 +2016,66 @@
           "notes": "Shares the same OSC address grammar as QLab 5; video-specific addresses differ. Not tested against real QLab 4 hardware."
         }
       ]
+    },
+    {
+      "id": "gefen_uhd600a",
+      "name": "Gefen EXT-UHD600A Matrix",
+      "manufacturer": "Gefen",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Gefen EXT-UHD600A-44 and EXT-UHD600A-88 4K HDMI matrix switchers via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed input, analog audio volume/mute, masking, sink status, and HDCP; every input is a child tracking signal presence, HDCP, and EDID mode. Covers routing presets, input/output naming, HDCP modes, per-output video scaling (44), panel brightness, IR channel, and the RS-232 feedback setting.\n",
+      "source_url": "https://www.markertek.com/Attachments/Manuals/Gefen/EXT-UHD600A-44-Manual.pdf",
+      "file": "switchers/gefen_uhd600a.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "gefen_cli"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.22.0",
+      "tags": [
+        "matrix-switcher",
+        "hdmi",
+        "4k",
+        "hdr",
+        "gefen",
+        "telnet"
+      ],
+      "help": {
+        "overview": "Gefen EXT-UHD600A matrices route up to eight 4K HDMI inputs to up to eight outputs, with analog audio de-embedding per output. Each output is a child entity showing its routed input (0 = off), analog volume and mute, video masking, sink hot-plug/Rsense status, and HDCP; each input is a child showing signal presence, HDCP status, and EDID mode. Sixteen routing presets can be recalled and renamed. Front-panel names given to inputs and outputs label the children.\n",
+        "setup": "1. Add the matrix by IP with Telnet port 23 (factory default), or pick Direct serial / a bridge for RS-232 at 19200 8N1. 2. Match the roster to the frame: the defaults describe a 44 (Output IDs \"A,B,C,D\", Input Count 4); for an 88 set \"A,B,C,D,E,F,G,H\" and 8. Use uppercase letters. 3. If the matrix has \"Require Password on Connect\" enabled for Telnet (off from the factory), disable it in the web UI (Network > Telnet Settings) \u2014 the login prompt is not machine-documented. 4. For live push updates over RS-232, enable the RS-232 Feedback device setting (on from the factory); polling covers Telnet.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Gefen",
+          "models": [
+            "EXT-UHD600A-44",
+            "EXT-UHD600A-88"
+          ],
+          "confidence": "untested",
+          "notes": "One CLI grammar covers both frames. For the 44 keep the default Output IDs \"A,B,C,D\" and Input Count 4; for the 88 set \"A,B,C,D,E,F,G,H\" and 8. Per-output video scaling and the button/LED brightness settings exist on the 44 only; the LCD brightness setting exists on the 88 only \u2014 the other model answers an error the driver ignores, and unsupported settings simply never populate. If \"Require Password on Connect\" is enabled for Telnet, disable it (Network > Telnet Settings) for driver use.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "expect_regex": "Welcome to EXT-UHD600A",
+          "extract_manufacturer": "Gefen",
+          "extract": {
+            "model": {
+              "regex": "Welcome to (EXT-UHD600A-\\d+)",
+              "group": 1
+            }
+          }
+        },
+        "manufacturer_alias": [
+          "gefen"
+        ]
+      }
     },
     {
       "id": "artnet_dmx",

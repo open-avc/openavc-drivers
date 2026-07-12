@@ -603,7 +603,9 @@ child_entity_types:
     instances:
       count: 6                    # fixed: IDs 1..6
       # count_from: output_count  # or an integer config field (frame size varies by model)
-      # ids_from: zone_ids        # or a comma-separated config field ("1,2,4" — sparse IDs)
+      # ids_from: zone_ids        # or a comma-separated config field ("1,2,4" — sparse IDs;
+      #                           # with id_format type string, string ids: "A,B,C,D" letter
+      #                           # outputs — count/count_from require integer ids)
       label: "Output {id}"        # optional initial label; a user's project label always wins
 ```
 

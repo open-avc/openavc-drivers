@@ -1,0 +1,1313 @@
+# Gefen EXT-UHD600A Matrix Switcher Driver
+#
+# Controls Gefen EXT-UHD600A-44 (4x4) and EXT-UHD600A-88 (8x8) 4K Ultra HD
+# 600 MHz HDMI matrix switchers with HDR and analog audio de-embedding,
+# over Telnet (port 23) or RS-232 (19200 8N1).
+#
+# Protocol references (manufacturer user manuals; Gefen is a Nice North
+# America brand, ex Nortek / Core Brands — the manuals carry the full
+# RS-232 / Telnet / UDP command chapters):
+#   44: https://www.markertek.com/Attachments/Manuals/Gefen/EXT-UHD600A-44-Manual.pdf
+#       (Version A2, 192 pages; also on resources.nortekcontrol.com)
+#   88: https://www.egeratedocuments.com/markalar/gefen/Manual/EXT-UHD600A-88-Manual.pdf
+#       (Version A1, 232 pages; also on resources.nortekcontrol.com)
+# Both manuals document the same CLI grammar; the models differ only in
+# frame width and panel hardware (44: per-output video scaling and
+# button/LED brightness; 88: LCD display brightness, HTTP-port and
+# Telnet-welcome settings).
+#
+# Wire format:
+#   Plain ASCII lines. "#"-prefixed get/set commands ("#get_vol a",
+#   "#set_mute a 1") plus bare routing verbs: "r <input> <output...>"
+#   (outputs are LETTERS A-H, input X = off, output 0 = all), "s" (full
+#   routing dump "S A 1 B 2 C 3 D X") and "p <n>" (preset recall).
+#   Replies restate state in uppercase ("VOL A 100", "MUTE A 0",
+#   "R A 1 B 1 C 1"). Commands are case-insensitive; this driver sends
+#   CRLF-terminated lines and frames replies on CRLF.
+#
+# Push vs poll: POLLED, with opt-in push. The device has a persisted
+# "RS-232 Feedback" setting (#set_feedback, factory default on) that
+# emits unsolicited state feedback — the manual scopes it to the RS-232
+# port ("Main RS-232 Feedback"), and UDP has its own remote-feedback
+# channel; nothing documents unsolicited frames on Telnet sessions. The
+# setting is exposed here as the "RS-232 Feedback" device setting rather
+# than force-armed on connect (arming it from a Telnet session would
+# flip a persisted setting that affects whatever sits on the serial
+# port). The response rules double as push handlers, so any unsolicited
+# feedback that does arrive — RS-232 connections in particular — updates
+# state immediately; polling is the steady-state resync either way.
+#
+# Reply-grammar quirks handled here (all from the manuals):
+#   - #get_input_hdcp (configured handshake mode 0/1/2) and
+#     #gets_input_hdcp (live status 1/2/U/F) both answer
+#     "INPUT_HDCP <in> <v>" with overlapping value sets. Only the live
+#     status is polled; a #set_input_hdcp echo briefly writes its mode
+#     digit into the status until the next poll refreshes it. Same
+#     collision on OUTPUT_HDCP (mode 0/1 vs status 1/2/U/F).
+#   - Both manuals' #gets_input_hpd examples answer "INPUT_HDCP <in> <v>"
+#     (a doc typo, or the firmware reuses the token) — the HPD rule
+#     accepts either token with an L/H value, disjoint from the HDCP
+#     value sets.
+#   - "0"-target set commands ("#set_mute 0 1") answer multi-pair lines
+#     whose exact shape the manuals don't show; those echoes go unparsed
+#     and the next poll refreshes state. Routing multi-pair echoes ARE
+#     documented ("R A 1 B 1 C 1") and parse at any width.
+#   - The Telnet welcome banner and "telnet->" prompt arrive without
+#     their own line ending, so response patterns tolerate a leading
+#     prompt fragment (no start anchor; tight token boundaries).
+#
+# Telnet login: the device can require a password at the start of a
+# Telnet session ("Require Password on Connect", factory default OFF;
+# sessions are fixed to the Admin user). Neither manual documents the
+# literal login prompt strings, so no auth block is declared — the
+# driver works with the factory default. If login is enabled on the
+# matrix, disable it (web UI: Network > Telnet Settings) for driver use.
+#
+# Why YAML: strictly line-oriented request/response ASCII where every
+# reply restates identity + value — declarative rosters (letter output
+# ids via ids_from, integer input count), child_set fan-out (optional
+# capture pairs cover every routing-echo width), and device_settings
+# cover the whole documented surface. Modeled on wyrestorm_mx.
+
+id: gefen_uhd600a
+name: Gefen EXT-UHD600A Matrix
+manufacturer: Gefen
+category: switcher
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.22.0"
+description: >
+  Controls Gefen EXT-UHD600A-44 and EXT-UHD600A-88 4K HDMI matrix
+  switchers via Telnet on port 23 or RS-232. Every output is a child
+  entity tracking its routed input, analog audio volume/mute, masking,
+  sink status, and HDCP; every input is a child tracking signal
+  presence, HDCP, and EDID mode. Covers routing presets, input/output
+  naming, HDCP modes, per-output video scaling (44), panel brightness,
+  IR channel, and the RS-232 feedback setting.
+
+source_url: https://www.markertek.com/Attachments/Manuals/Gefen/EXT-UHD600A-44-Manual.pdf
+tags: [matrix-switcher, hdmi, 4k, hdr, gefen, telnet]
+verified: false
+simulated: true
+protocols: [gefen_cli]
+ports: [23]
+compatible_models:
+  - manufacturer: Gefen
+    models:
+      - EXT-UHD600A-44
+      - EXT-UHD600A-88
+    confidence: untested
+    notes: >
+      One CLI grammar covers both frames. For the 44 keep the default
+      Output IDs "A,B,C,D" and Input Count 4; for the 88 set
+      "A,B,C,D,E,F,G,H" and 8. Per-output video scaling and the
+      button/LED brightness settings exist on the 44 only; the LCD
+      brightness setting exists on the 88 only — the other model answers
+      an error the driver ignores, and unsupported settings simply never
+      populate. If "Require Password on Connect" is enabled for Telnet,
+      disable it (Network > Telnet Settings) for driver use.
+
+transport: tcp
+transports: [tcp, serial]
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Gefen EXT-UHD600A matrices route up to eight 4K HDMI inputs to up to
+    eight outputs, with analog audio de-embedding per output. Each
+    output is a child entity showing its routed input (0 = off), analog
+    volume and mute, video masking, sink hot-plug/Rsense status, and
+    HDCP; each input is a child showing signal presence, HDCP status,
+    and EDID mode. Sixteen routing presets can be recalled and renamed.
+    Front-panel names given to inputs and outputs label the children.
+  setup: >
+    1. Add the matrix by IP with Telnet port 23 (factory default), or
+    pick Direct serial / a bridge for RS-232 at 19200 8N1.
+    2. Match the roster to the frame: the defaults describe a 44
+    (Output IDs "A,B,C,D", Input Count 4); for an 88 set
+    "A,B,C,D,E,F,G,H" and 8. Use uppercase letters.
+    3. If the matrix has "Require Password on Connect" enabled for
+    Telnet (off from the factory), disable it in the web UI (Network >
+    Telnet Settings) — the login prompt is not machine-documented.
+    4. For live push updates over RS-232, enable the RS-232 Feedback
+    device setting (on from the factory); polling covers Telnet.
+
+discovery:
+  # Banner-read probe: the Telnet CLI greets server-first with
+  # "Welcome to EXT-UHD600A-44 Telnet" (manual, Telnet Configuration).
+  # Connect-only — no bytes are sent on the shared Telnet port. If the
+  # welcome message is hidden (a web-UI setting), the probe simply
+  # never matches and the alias hints remain.
+  tcp_probe:
+    port: 23
+    expect_regex: 'Welcome to EXT-UHD600A'
+    extract_manufacturer: "Gefen"
+    extract:
+      model: { regex: 'Welcome to (EXT-UHD600A-\d+)', group: 1 }
+  manufacturer_alias:
+    - "gefen"
+
+default_config:
+  host: ""
+  port: 23
+  baudrate: 19200
+  output_ids: "A,B,C,D"
+  input_count: 4
+  poll_interval: 20
+  inter_command_delay: 0.05
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Telnet Port
+    description: "EXT-UHD600A matrices listen on Telnet port 23 by default."
+  baudrate:
+    type: integer
+    default: 19200
+    label: Baud Rate (serial)
+    description: "RS-232 control runs at 19200 8N1, no flow control."
+  output_ids:
+    type: string
+    default: "A,B,C,D"
+    label: Output IDs
+    description: >
+      Comma-separated output letters, uppercase — each becomes an Output
+      child. "A,B,C,D" for the 44, "A,B,C,D,E,F,G,H" for the 88.
+  input_count:
+    type: integer
+    default: 4
+    min: 0
+    max: 8
+    label: Input Count
+    description: >
+      Number of HDMI inputs — each becomes an Input child. 4 for the
+      44, 8 for the 88.
+  poll_interval:
+    type: integer
+    default: 20
+    min: 0
+    label: Poll Interval (sec)
+    description: >
+      Refreshes routing plus per-output volume, mute, masking, audio
+      mode, sink status, HDCP, scaling, and name, and per-input signal,
+      HPD, mode, HDCP, EDID mode, and name. Set to 0 to disable.
+  inter_command_delay:
+    type: number
+    default: 0.05
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: "Brief safety delay between commands (none documented by Gefen)."
+
+state_variables:
+  firmware_version:
+    type: string
+    label: Firmware Version
+    help: "Matrix firmware version, read on connect."
+  device_desc:
+    type: string
+    label: Device Description
+    help: "The matrix's device-description string (also shown by the Syner-G discovery tool)."
+  rs232_feedback:
+    type: boolean
+    label: RS-232 Feedback
+    help: >
+      True when the matrix emits unsolicited state feedback on its
+      RS-232 port (factory default on). With feedback on and the driver
+      connected over RS-232, front-panel and web changes update state
+      instantly instead of at the next poll.
+  ir_channel:
+    type: enum
+    values: ["1", "2", "3", "4"]
+    label: IR Channel
+    help: "IR channel the matrix listens on — must match the IR remote's channel switch."
+  led_brightness:
+    type: integer
+    label: LED Brightness
+    min: 1
+    max: 100
+    help: "Front-panel LED indicator brightness (EXT-UHD600A-44 only)."
+  button_brightness:
+    type: integer
+    label: Button Brightness
+    min: 1
+    max: 100
+    help: "Front-panel button brightness (EXT-UHD600A-44 only)."
+  lcd_brightness:
+    type: integer
+    label: LCD Brightness
+    min: 0
+    max: 100
+    help: "Front-panel LCD display brightness (EXT-UHD600A-88 only)."
+
+child_entity_types:
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 8 }
+    label_field: name
+    state_variables:
+      signal:
+        type: boolean
+        label: Signal Present
+        help: "True when a valid clock signal is detected at this HDMI input."
+        cloud_priority: high
+      hpd:
+        type: string
+        label: HPD State
+        help: "Hot-plug detect state toward the source: high or low."
+      video_mode:
+        type: string
+        label: Video Mode
+        help: "Signal type detected at this input: hdmi or dvi."
+      hdcp_status:
+        type: string
+        label: HDCP Status
+        help: >
+          Live HDCP status: 1 = encrypted HDCP 1.4, 2 = encrypted HDCP
+          2.2, U = unencrypted, F = fail. Briefly shows the configured
+          handshake mode digit right after Set Input HDCP Mode (the
+          device reuses the same reply token); the next poll restores
+          the live status.
+      edid_mode:
+        type: integer
+        label: EDID Mode
+        min: 0
+        max: 7
+        help: >
+          EDID source for this input: 0-5 = internal presets (720p/
+          1080p/4K, 2ch/multichannel), 6 = external (downstream sink),
+          7 = custom.
+      name:
+        type: string
+        label: Name
+        help: "Input name stored in the matrix (up to 30 characters); labels this child."
+    summary_fields: [signal, hdcp_status]
+    instances:
+      count_from: input_count
+      label: "Input {id}"
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: string }
+    label_field: name
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        min: 0
+        max: 8
+        control: true
+        cloud_priority: high
+        help: "Input routed to this output (0 = off / no input)."
+      volume:
+        type: integer
+        label: Volume
+        min: 0
+        max: 100
+        step: 1
+        control: true
+        help: "Analog audio de-embed volume for this output (0-100)."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "True when this output's analog audio is muted."
+      mask:
+        type: boolean
+        label: Mask
+        control: true
+        cloud_priority: high
+        help: "True when this output's video is masked (blanked)."
+      audio_mode:
+        type: string
+        label: Audio Mode
+        help: "Analog audio mode: fixed or variable (variable follows the volume setting)."
+      hpd:
+        type: string
+        label: HPD State
+        help: "Hot-plug detect state from the connected display: high or low."
+      rsense:
+        type: string
+        label: Rsense
+        help: "Receiver sense: high when the attached display is powered (termination detected)."
+      video_mode:
+        type: string
+        label: Video Mode
+        help: "Signal type on this output: hdmi or dvi."
+      hdcp_status:
+        type: string
+        label: HDCP Status
+        help: >
+          Live HDCP status: 1 = encrypted HDCP 1.4, 2 = encrypted HDCP
+          2.2, U = unencrypted, F = fail. Briefly shows the configured
+          mode digit (0 = follow input, 1 = always encode) right after
+          Set Output HDCP Mode; the next poll restores the live status.
+      scaling:
+        type: boolean
+        label: Video Scaling
+        help: >
+          EXT-UHD600A-44 only — true when scaling is enabled on this
+          output (A and C downscale 2160p to 1080p; B and D upscale
+          1080p to 2160p).
+      name:
+        type: string
+        label: Name
+        help: "Output name stored in the matrix (up to 30 characters); labels this child."
+    summary_fields: [input, mute]
+    instances:
+      ids_from: output_ids
+      label: "Output {id}"
+
+# Persisted device-side values with documented read-back. Per-output /
+# per-input values live on the children instead (settled rule); preset
+# names have a per-slot dimension a flat setting can't take, so they
+# stay on the Set Preset Name command.
+device_settings:
+  rs232_feedback:
+    type: boolean
+    label: RS-232 Feedback
+    help: >
+      Emit unsolicited state feedback on the RS-232 port (factory
+      default on). Enable for live push updates when controlling over
+      RS-232; the setting is persisted on the matrix and shared with
+      anything else on that port.
+    state_key: rs232_feedback
+    default: true
+    setup: false
+    write:
+      send: "#set_feedback {value:d}\r\n"
+  ir_channel:
+    type: enum
+    values: ["1", "2", "3", "4"]
+    label: IR Channel
+    help: "IR channel the matrix listens on — set it to match the IR remote."
+    state_key: ir_channel
+    default: "1"
+    setup: false
+    write:
+      send: "#set_ir_channel {value}\r\n"
+  device_desc:
+    type: string
+    label: Device Description
+    help: "Description string shown by the Syner-G discovery tool."
+    state_key: device_desc
+    default: ""
+    setup: false
+    write:
+      send: "#set_device_desc {value}\r\n"
+  led_brightness:
+    type: integer
+    label: LED Brightness
+    min: 1
+    max: 100
+    help: "Front-panel LED indicator brightness, 1-100 (EXT-UHD600A-44 only)."
+    state_key: led_brightness
+    default: 60
+    setup: false
+    write:
+      send: "#set_led_brightness {value}\r\n"
+  button_brightness:
+    type: integer
+    label: Button Brightness
+    min: 1
+    max: 100
+    help: "Front-panel button brightness, 1-100 (EXT-UHD600A-44 only)."
+    state_key: button_brightness
+    default: 60
+    setup: false
+    write:
+      send: "#set_button_brightness {value}\r\n"
+  lcd_brightness:
+    type: integer
+    label: LCD Brightness
+    min: 0
+    max: 100
+    help: "Front-panel LCD brightness, 0-100 (EXT-UHD600A-88 only)."
+    state_key: lcd_brightness
+    default: 75
+    setup: false
+    write:
+      send: "#set_lcd_brightness {value}\r\n"
+
+commands:
+
+  # ── Routing ──
+
+  route:
+    label: Route Input to Output
+    send: "r {input} {output}\r\n"
+    help: "Route a video input to an output."
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  route_all:
+    label: Route Input to All Outputs
+    send: "r {input} 0\r\n"
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+
+  route_off:
+    label: Turn Off Output
+    send: "r x {output}\r\n"
+    help: "Route 'no input' to an output — the output behaves as if no source is connected."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  recall_preset:
+    label: Recall Routing Preset
+    send: "p {preset}\r\n"
+    help: "Recall one of the 16 routing presets (presets are saved from the web interface or front panel)."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 16
+
+  mask_on:
+    label: Mask Output
+    send: "#set_mask {output} 1\r\n"
+    help: "Mask (blank) an output's video."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  mask_off:
+    label: Unmask Output
+    send: "#set_mask {output} 0\r\n"
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  # ── Analog audio ──
+
+  set_volume:
+    label: Set Output Volume
+    send: "#set_vol {output} {level}\r\n"
+    help: "Set the analog audio de-embed volume for an output."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+      level:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+
+  mute_on:
+    label: Mute Output Audio
+    send: "#set_mute {output} 1\r\n"
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  mute_off:
+    label: Unmute Output Audio
+    send: "#set_mute {output} 0\r\n"
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  mute_all_on:
+    label: Mute All Outputs
+    send: "#set_mute 0 1\r\n"
+    help: "Mute the analog audio on every output (state refreshes at the next poll)."
+
+  mute_all_off:
+    label: Unmute All Outputs
+    send: "#set_mute 0 0\r\n"
+
+  set_audio_mode:
+    label: Set Output Audio Mode
+    send: "#set_audio_output {output} {mode}\r\n"
+    help: "Fixed = line level; variable = follows the volume setting."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+      mode:
+        type: enum
+        required: true
+        label: Mode
+        values:
+          - { value: "f", label: "Fixed" }
+          - { value: "v", label: "Variable" }
+
+  # ── Names ──
+
+  set_input_name:
+    label: Set Input Name
+    send: "#set_io_name {input} {name}\r\n"
+    help: "Name an input (up to 30 characters); the name labels the Input child."
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: "^.{1,30}$"
+
+  set_output_name:
+    label: Set Output Name
+    send: "#set_io_name {output} {name}\r\n"
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: "^.{1,30}$"
+
+  set_preset_name:
+    label: Set Preset Name
+    send: "#set_preset_name {preset} {name}\r\n"
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset
+        min: 1
+        max: 16
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: "^.{1,30}$"
+
+  # ── HDCP / EDID / signal ──
+
+  set_input_hdcp:
+    label: Set Input HDCP Mode
+    send: "#set_input_hdcp {input} {mode}\r\n"
+    help: "Configured HDCP handshake for an input. Reject helps sources that force encryption (e.g. computers) on non-protected content."
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+      mode:
+        type: enum
+        required: true
+        label: Mode
+        values:
+          - { value: "0", label: "Reject HDCP" }
+          - { value: "1", label: "HDCP 2.2 and below" }
+          - { value: "2", label: "HDCP 1.4 and below" }
+
+  set_output_hdcp:
+    label: Set Output HDCP Mode
+    send: "#set_output_hdcp {output} {mode}\r\n"
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+      mode:
+        type: enum
+        required: true
+        label: Mode
+        values:
+          - { value: "0", label: "Follow Input" }
+          - { value: "1", label: "Always Encode" }
+
+  set_edid_mode:
+    label: Set Input EDID Mode
+    send: "#set_edid_mode {input} {mode}\r\n"
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+      mode:
+        type: enum
+        required: true
+        label: EDID
+        values:
+          - { value: "0", label: "Internal 720p 2ch" }
+          - { value: "1", label: "Internal 720p Multichannel" }
+          - { value: "2", label: "Internal 1080p 2ch" }
+          - { value: "3", label: "Internal 1080p Multichannel" }
+          - { value: "4", label: "Internal 4K 2ch" }
+          - { value: "5", label: "Internal 4K Multichannel" }
+          - { value: "6", label: "External (Downstream Sink)" }
+          - { value: "7", label: "Custom" }
+
+  set_video_scaling:
+    label: Set Output Video Scaling
+    send: "#set_video_scaling {output} {state}\r\n"
+    help: "EXT-UHD600A-44 only — outputs A and C downscale 2160p to 1080p, B and D upscale 1080p to 2160p."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+      state:
+        type: enum
+        required: true
+        label: Scaling
+        values:
+          - { value: "0", label: "Disabled" }
+          - { value: "1", label: "Enabled" }
+
+  send_hpd:
+    label: Send HPD Pulse to Input
+    send: "#send_hpd {input}\r\n"
+    help: "Pulse hot-plug detect toward the source — forces it to re-read the EDID and restart its output."
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+
+  # ── System ──
+
+  lock_front_panel:
+    label: Lock Front Panel
+    send: "#lock_matrix 1\r\n"
+    help: "Locks the front panel and web interface (this driver keeps control)."
+
+  unlock_front_panel:
+    label: Unlock Front Panel
+    send: "#lock_matrix 0\r\n"
+
+  identify_on:
+    label: Identify On (Show Me)
+    send: "#set_showme 1\r\n"
+    help: "Turns on the matrix's Show Me locate indication."
+
+  identify_off:
+    label: Identify Off
+    send: "#set_showme 0\r\n"
+
+  reboot:
+    label: Reboot Matrix
+    send: "#reboot\r\n"
+
+  raw_command:
+    label: Send Raw Command
+    send: "{command}\r\n"
+    help: "Send any CLI command from the manual, e.g. '#get_ipconfig' or '#help'."
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+actions:
+  - id: route
+    icon: route
+  - id: route_all
+    icon: copy
+  - id: recall_preset
+    icon: bookmark
+  - id: mute_all_on
+    icon: volume-x
+  - id: identify_on
+    icon: eye
+  - id: reboot
+    icon: power
+    confirm: true
+
+responses:
+
+  # Input / output names — "IO_NAME 1 Bluray" / "IO_NAME D BIG_screen".
+  # Digit vs letter disambiguates the two directions. These sit above
+  # the routing rule so a name containing routing-like text can't
+  # cross-fire.
+  - match: 'IO_NAME\s+(\d{1,2})\s+(.+?)\s*$'
+    child_set:
+      - { type: input, id: "$1", state: { name: "$2" } }
+  - match: 'IO_NAME\s+([A-H])\s+(.+?)\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { name: "$2" } }
+
+  # Analog audio — "VOL A 100", "MUTE A 0" (1 = muted).
+  - match: 'VOL\s+([A-H])\s+(\d{1,3})\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { volume: "$2" } }
+  - match: 'MUTE\s+([A-H])\s+([01])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { mute: "$2" } }
+
+  # Masking — "MASK A 1" (1 = masked).
+  - match: 'MASK\s+([A-H])\s+([01])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { mask: "$2" } }
+
+  # Audio mode — the get reply is "AUDIO_OUTPUT A V"; the set echo is
+  # printed "AUDIO OUTPUT A F" in the manual, so accept both spellings.
+  - match: 'AUDIO[_ ]OUTPUT\s+([A-H])\s+([FV])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { audio_mode: { group: 2, map: { F: "fixed", V: "variable" } } } }
+
+  # Output sink status — "OUTPUT_HPD A H", "OUTPUT_RSENSE A L",
+  # "OUTPUT_MODE A H" (H = HDMI, D = DVI), "OUTPUT_HDCP A 2".
+  - match: 'OUTPUT_HPD\s+([A-H])\s+([LH])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { hpd: { group: 2, map: { H: "high", L: "low" } } } }
+  - match: 'OUTPUT_RSENSE\s+([A-H])\s+([LH])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { rsense: { group: 2, map: { H: "high", L: "low" } } } }
+  - match: 'OUTPUT_MODE\s+([A-H])\s+([DH])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { video_mode: { group: 2, map: { H: "hdmi", D: "dvi" } } } }
+  - match: 'OUTPUT_HDCP\s+([A-H])\s+([12UF])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { hdcp_status: "$2" } }
+
+  # Video scaling (44 only) — "VIDEO_SCALING A 1".
+  - match: 'VIDEO_SCALING\s+([A-H])\s+([01])\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { scaling: "$2" } }
+
+  # Input status — "INPUT_SIGNAL 1 Y", "INPUT_MODE 1 H",
+  # "INPUT_HDCP 1 2". Both manuals' #gets_input_hpd examples answer
+  # with the INPUT_HDCP token, so the HPD rule accepts either token
+  # with an L/H value (disjoint from the HDCP value sets).
+  - match: 'INPUT_SIGNAL\s+(\d{1,2})\s+([YN])\s*$'
+    child_set:
+      - { type: input, id: "$1", state: { signal: { group: 2, map: { Y: "true", N: "false" } } } }
+  - match: 'INPUT_H(?:PD|DCP)\s+(\d{1,2})\s+([LH])\s*$'
+    child_set:
+      - { type: input, id: "$1", state: { hpd: { group: 2, map: { H: "high", L: "low" } } } }
+  - match: 'INPUT_HDCP\s+(\d{1,2})\s+([12UF])\s*$'
+    child_set:
+      - { type: input, id: "$1", state: { hdcp_status: "$2" } }
+  - match: 'INPUT_MODE\s+(\d{1,2})\s+([DH])\s*$'
+    child_set:
+      - { type: input, id: "$1", state: { video_mode: { group: 2, map: { H: "hdmi", D: "dvi" } } } }
+
+  # EDID mode — "EDID_MODE 1 0".
+  - match: 'EDID_MODE\s+(\d{1,2})\s+([0-7])\s*$'
+    child_set:
+      - { type: input, id: "$1", state: { edid_mode: "$2" } }
+
+  # Device-level values. "FIRMWARE VERSION IS 1.0",
+  # "DEVICE DESCRIPTION IS EXT-UHD600A-44", "FEEDBACK 1" (get) /
+  # "SET_FEEDBACK 1" (set echo), "IR_CHANNEL 1", brightness echoes.
+  - match: 'FIRMWARE VERSION IS\s+(\S.*?)\s*$'
+    set: { firmware_version: "$1" }
+  - match: 'DEVICE DESCRIPTION IS\s+(\S.*?)\s*$'
+    set: { device_desc: "$1" }
+  - match: '(?:SET_)?FEEDBACK\s+([01])\s*$'
+    set: { rs232_feedback: "$1" }
+  - match: 'IR_CHANNEL\s+([1-4])\s*$'
+    set: { ir_channel: "$1" }
+  - match: 'LED_BRIGHTNESS\s+(\d{1,3})\s*$'
+    set: { led_brightness: "$1" }
+  - match: 'BUTTON_BRIGHTNESS\s+(\d{1,3})\s*$'
+    set: { button_brightness: "$1" }
+  - match: 'LCD_BRIGHTNESS\s+(\d{1,3})\s*$'
+    set: { lcd_brightness: "$1" }
+
+  # Routing — one rule covers every width: "R A 1" (single tie),
+  # "R A X" (off), "R A 1 B 1 C 1" (multi-output route echo), and the
+  # full dump "S A 1 B 2 C 3 D X" / 8-pair 88 form. Optional pairs that
+  # didn't participate skip their child_set entry; X (and the 88
+  # manual's bare 0) mean no input. Kept last — it's the loosest
+  # pattern.
+  - match: '\b[RS]\s+([A-H])\s+(\d+|X)(?:\s+([A-H])\s+(\d+|X))?(?:\s+([A-H])\s+(\d+|X))?(?:\s+([A-H])\s+(\d+|X))?(?:\s+([A-H])\s+(\d+|X))?(?:\s+([A-H])\s+(\d+|X))?(?:\s+([A-H])\s+(\d+|X))?(?:\s+([A-H])\s+(\d+|X))?\s*$'
+    child_set:
+      - { type: output, id: "$1", state: { input: { group: 2, map: { X: 0 } } } }
+      - { type: output, id: "$3", state: { input: { group: 4, map: { X: 0 } } } }
+      - { type: output, id: "$5", state: { input: { group: 6, map: { X: 0 } } } }
+      - { type: output, id: "$7", state: { input: { group: 8, map: { X: 0 } } } }
+      - { type: output, id: "$9", state: { input: { group: 10, map: { X: 0 } } } }
+      - { type: output, id: "$11", state: { input: { group: 12, map: { X: 0 } } } }
+      - { type: output, id: "$13", state: { input: { group: 14, map: { X: 0 } } } }
+      - { type: output, id: "$15", state: { input: { group: 16, map: { X: 0 } } } }
+
+on_connect:
+  - "#get_firmware_version\r\n"
+  - "#get_device_desc\r\n"
+  - "s\r\n"
+
+polling:
+  queries:
+    - "s\r\n"
+    - { each_child: output, send: "#get_vol {child_id}\r\n" }
+    - { each_child: output, send: "#get_mute {child_id}\r\n" }
+    - { each_child: output, send: "#get_mask {child_id}\r\n" }
+    - { each_child: output, send: "#get_audio_output {child_id}\r\n" }
+    - { each_child: output, send: "#gets_output_hpd {child_id}\r\n" }
+    - { each_child: output, send: "#gets_output_rsense {child_id}\r\n" }
+    - { each_child: output, send: "#gets_output_mode {child_id}\r\n" }
+    - { each_child: output, send: "#gets_output_hdcp {child_id}\r\n" }
+    - { each_child: output, send: "#get_video_scaling {child_id}\r\n" }
+    - { each_child: output, send: "#get_io_name {child_id}\r\n" }
+    - { each_child: input, send: "#gets_input_signal {child_id}\r\n" }
+    - { each_child: input, send: "#gets_input_hpd {child_id}\r\n" }
+    - { each_child: input, send: "#gets_input_mode {child_id}\r\n" }
+    - { each_child: input, send: "#gets_input_hdcp {child_id}\r\n" }
+    - { each_child: input, send: "#get_edid_mode {child_id}\r\n" }
+    - { each_child: input, send: "#get_io_name {child_id}\r\n" }
+    - "#get_feedback\r\n"
+    - "#get_ir_channel\r\n"
+    - "#get_led_brightness\r\n"
+    - "#get_button_brightness\r\n"
+    - "#get_lcd_brightness\r\n"
+
+# ── SIMULATOR DEFINITION ──
+# Models an EXT-UHD600A-44 (matches the driver defaults): 4 inputs,
+# outputs A-D with per-output volume/mute/mask/audio-mode/scaling and
+# sink status, identity routing, three seeded presets, and the
+# device-level settings. LCD brightness answers the 88-model error path
+# (INVALID COMMAND) so the benign-error posture is exercised. Letters
+# map to route_1..route_4 state keys so the Simulator UI matrix control
+# works. One dispatcher script handler owns the whole grammar (matched
+# script handlers never fall through).
+simulator:
+  push_state: false
+  initial_state:
+    outputs: "ABCD"
+    inputs: 4
+    route_1: 1
+    route_2: 2
+    route_3: 3
+    route_4: 4
+    vol_1: 100
+    vol_2: 100
+    vol_3: 100
+    vol_4: 100
+    mute_1: false
+    mute_2: false
+    mute_3: false
+    mute_4: false
+    mask_1: false
+    mask_2: false
+    mask_3: false
+    mask_4: false
+    audio_1: "V"
+    audio_2: "V"
+    audio_3: "V"
+    audio_4: "V"
+    out_hpd_1: "H"
+    out_hpd_2: "H"
+    out_hpd_3: "L"
+    out_hpd_4: "H"
+    out_rsense_1: "H"
+    out_rsense_2: "H"
+    out_rsense_3: "L"
+    out_rsense_4: "H"
+    out_mode_1: "H"
+    out_mode_2: "H"
+    out_mode_3: "H"
+    out_mode_4: "H"
+    out_hdcp_1: "2"
+    out_hdcp_2: "1"
+    out_hdcp_3: "U"
+    out_hdcp_4: "2"
+    scaling_1: false
+    scaling_2: false
+    scaling_3: false
+    scaling_4: false
+    out_name_1: "Output A"
+    out_name_2: "Output B"
+    out_name_3: "Output C"
+    out_name_4: "Output D"
+    in_signal_1: "Y"
+    in_signal_2: "Y"
+    in_signal_3: "N"
+    in_signal_4: "Y"
+    in_hpd_1: "H"
+    in_hpd_2: "H"
+    in_hpd_3: "L"
+    in_hpd_4: "H"
+    in_mode_1: "H"
+    in_mode_2: "H"
+    in_mode_3: "H"
+    in_mode_4: "D"
+    in_hdcp_1: "2"
+    in_hdcp_2: "1"
+    in_hdcp_3: "U"
+    in_hdcp_4: "U"
+    edid_1: 4
+    edid_2: 4
+    edid_3: 6
+    edid_4: 0
+    in_name_1: "Bluray"
+    in_name_2: "PC"
+    in_name_3: "Doc Cam"
+    in_name_4: "Media Player"
+    preset_1: "1,1,1,1"
+    preset_2: "2,2,2,2"
+    preset_3: "1,2,3,4"
+    preset_name_1: "All Bluray"
+    preset_name_2: "All PC"
+    preset_name_3: "Default"
+    feedback: true
+    ir_channel: 1
+    led_brightness: 60
+    button_brightness: 60
+    device_desc: "EXT-UHD600A-44"
+    firmware: "1.0"
+    showme: false
+    locked: false
+
+  delays:
+    command_response: 0.05
+
+  controls:
+    - type: matrix
+      label: Video Routing
+      inputs: 4
+      outputs: 4
+      state_pattern: "route_{output}"
+    - type: toggle
+      key: mute_1
+      label: Output A Mute
+    - type: slider
+      key: vol_1
+      label: Output A Volume
+      min: 0
+      max: 100
+    - type: toggle
+      key: mask_1
+      label: Output A Mask
+    - type: toggle
+      key: in_signal_1
+      label: Input 1 Signal (Y/N)
+    - type: toggle
+      key: feedback
+      label: RS-232 Feedback
+    - type: indicator
+      key: firmware
+      label: Firmware
+
+  command_handlers:
+
+    # One dispatcher for the entire CLI grammar (a matched script
+    # handler never falls through, so protocol-wide behavior lives in
+    # one block). Letters map to numeric state suffixes (A=1...) so the
+    # Simulator UI matrix control works. The body lives in _run() so
+    # early returns are legal in the exec'd handler.
+    - match: '.+'
+      handler: |
+        line = match.group(0).strip()
+        low = line.lower()
+        outs = str(state.get("outputs", "ABCD"))
+        n_in = int(state.get("inputs", 4))
+
+        def _idx(letter):
+            pos = outs.upper().find(letter.upper())
+            return pos + 1 if pos >= 0 else None
+
+        def _letter(i):
+            return outs.upper()[i - 1]
+
+        def _b01(v):
+            return "1" if v in (True, "true", 1, "1") else "0"
+
+        def _run():
+            # r <input|x> <out...|0>
+            m = re.match(r'(?i)^r\s+(\d+|x)\s+(.+)$', low)
+            if m:
+                src = 0 if m.group(1) == "x" else int(m.group(1))
+                if src > n_in:
+                    respond("INVALID COMMAND\r\n")
+                    return
+                targets = m.group(2).split()
+                if targets == ["0"]:
+                    idxs = list(range(1, len(outs) + 1))
+                else:
+                    idxs = []
+                    for t in targets:
+                        i = _idx(t) if len(t) == 1 and t.isalpha() else None
+                        if i is None:
+                            respond("INVALID COMMAND\r\n")
+                            return
+                        idxs.append(i)
+                for i in idxs:
+                    state[f"route_{i}"] = src
+                shown = "X" if src == 0 else str(src)
+                respond("R " + " ".join(f"{_letter(i)} {shown}" for i in idxs) + "\r\n")
+                return
+
+            # s — full routing dump
+            if low == "s":
+                bits = []
+                for i in range(1, len(outs) + 1):
+                    v = int(state.get(f"route_{i}", 0))
+                    bits.append(f"{_letter(i)} {'X' if v == 0 else v}")
+                respond("S " + " ".join(bits) + "\r\n")
+                return
+
+            # p <n> — recall preset
+            m = re.match(r'(?i)^p\s+(\d+)$', low)
+            if m:
+                slot = int(m.group(1))
+                if 1 <= slot <= 16:
+                    stored = state.get(f"preset_{slot}", "")
+                    if stored:
+                        vals = str(stored).split(",")
+                        for i in range(1, min(len(vals), len(outs)) + 1):
+                            state[f"route_{i}"] = int(vals[i - 1])
+                    respond(f"P {slot}\r\n")
+                else:
+                    respond("INVALID COMMAND\r\n")
+                return
+
+            # #-commands
+            m = re.match(r'^#(\w+)\s*(.*)$', low)
+            if not m:
+                respond("INVALID COMMAND\r\n")
+                return
+            cmd = m.group(1)
+            rest = m.group(2).strip()
+            args = rest.split() if rest else []
+
+            def _out_arg(a):
+                if len(a) == 1 and a.isalpha() and a.upper() in outs.upper():
+                    return _idx(a)
+                return None
+
+            def _per_output(token, key, value=None, fmt=str, target=None):
+                sel = target if target is not None else (args[0] if args else None)
+                if sel is None:
+                    respond("INVALID COMMAND\r\n")
+                    return
+                if sel == "0":
+                    idxs = list(range(1, len(outs) + 1))
+                else:
+                    i = _out_arg(sel)
+                    if i is None:
+                        respond("INVALID COMMAND\r\n")
+                        return
+                    idxs = [i]
+                lines = []
+                for i in idxs:
+                    if value is not None:
+                        state[f"{key}_{i}"] = value
+                    lines.append(f"{token} {_letter(i)} {fmt(state.get(f'{key}_{i}'))}")
+                respond("\r\n".join(lines) + "\r\n")
+
+            def _per_input(token, key, fmt=str):
+                if not args:
+                    respond("INVALID COMMAND\r\n")
+                    return
+                if args[0] == "0":
+                    idxs = list(range(1, n_in + 1))
+                else:
+                    if not args[0].isdigit() or not 1 <= int(args[0]) <= n_in:
+                        respond("INVALID COMMAND\r\n")
+                        return
+                    idxs = [int(args[0])]
+                lines = [f"{token} {i} {fmt(state.get(f'{key}_{i}'))}" for i in idxs]
+                respond("\r\n".join(lines) + "\r\n")
+
+            def _upper(v):
+                return str(v).upper()
+
+            def _yn(v):
+                return "Y" if v in (True, "true", "Y", 1) else "N"
+
+            if cmd == "get_vol":
+                _per_output("VOL", "vol")
+            elif cmd == "set_vol" and len(args) >= 2:
+                _per_output("VOL", "vol", target=args[0],
+                            value=max(0, min(100, int(args[1]))))
+            elif cmd == "get_mute":
+                _per_output("MUTE", "mute", fmt=_b01)
+            elif cmd == "set_mute" and len(args) >= 2:
+                _per_output("MUTE", "mute", target=args[0],
+                            value=(args[1] == "1"), fmt=_b01)
+            elif cmd == "get_mask":
+                _per_output("MASK", "mask", fmt=_b01)
+            elif cmd == "set_mask" and len(args) >= 2:
+                _per_output("MASK", "mask", target=args[0],
+                            value=(args[1] == "1"), fmt=_b01)
+            elif cmd == "get_audio_output":
+                _per_output("AUDIO_OUTPUT", "audio", fmt=_upper)
+            elif cmd == "set_audio_output" and len(args) >= 2:
+                _per_output("AUDIO_OUTPUT", "audio", target=args[0],
+                            value=args[1].upper(), fmt=_upper)
+            elif cmd == "gets_output_hpd":
+                _per_output("OUTPUT_HPD", "out_hpd")
+            elif cmd == "gets_output_rsense":
+                _per_output("OUTPUT_RSENSE", "out_rsense")
+            elif cmd == "gets_output_mode":
+                _per_output("OUTPUT_MODE", "out_mode")
+            elif cmd == "gets_output_hdcp":
+                _per_output("OUTPUT_HDCP", "out_hdcp")
+            elif cmd == "get_video_scaling":
+                _per_output("VIDEO_SCALING", "scaling", fmt=_b01)
+            elif cmd == "set_video_scaling" and len(args) >= 2:
+                _per_output("VIDEO_SCALING", "scaling", target=args[0],
+                            value=(args[1] == "1"), fmt=_b01)
+            elif cmd == "gets_input_signal":
+                _per_input("INPUT_SIGNAL", "in_signal", fmt=_yn)
+            elif cmd == "gets_input_hpd":
+                _per_input("INPUT_HPD", "in_hpd")
+            elif cmd == "gets_input_mode":
+                _per_input("INPUT_MODE", "in_mode")
+            elif cmd == "gets_input_hdcp":
+                _per_input("INPUT_HDCP", "in_hdcp")
+            elif cmd == "get_edid_mode":
+                _per_input("EDID_MODE", "edid")
+            elif cmd == "set_edid_mode" and len(args) >= 2:
+                if (args[0].isdigit() and 1 <= int(args[0]) <= n_in
+                        and args[1].isdigit() and 0 <= int(args[1]) <= 7):
+                    state[f"edid_{args[0]}"] = int(args[1])
+                    respond(f"EDID_MODE {args[0]} {args[1]}\r\n")
+                else:
+                    respond("INVALID COMMAND\r\n")
+            elif cmd == "get_io_name" and args:
+                i = _out_arg(args[0])
+                if i is not None:
+                    respond(f"IO_NAME {_letter(i)} {state.get(f'out_name_{i}')}\r\n")
+                elif args[0].isdigit() and 1 <= int(args[0]) <= n_in:
+                    respond(f"IO_NAME {args[0]} {state.get('in_name_' + args[0])}\r\n")
+                else:
+                    respond("INVALID COMMAND\r\n")
+            elif cmd == "set_io_name" and len(args) >= 2:
+                # take the name from the raw line to preserve case
+                raw_parts = line.split(None, 2)
+                name = raw_parts[2] if len(raw_parts) > 2 else ""
+                if len(name) > 30:
+                    respond("INVALID COMMAND\r\n")
+                    return
+                i = _out_arg(args[0])
+                if i is not None:
+                    state[f"out_name_{i}"] = name
+                    respond(f"IO_NAME {_letter(i)} {name}\r\n")
+                elif args[0].isdigit() and 1 <= int(args[0]) <= n_in:
+                    state[f"in_name_{args[0]}"] = name
+                    respond(f"IO_NAME {args[0]} {name}\r\n")
+                else:
+                    respond("INVALID COMMAND\r\n")
+            elif cmd == "get_preset_name" and args and args[0].isdigit():
+                slot = int(args[0])
+                if 1 <= slot <= 16:
+                    respond(f"PRESET_NAME {slot} {state.get(f'preset_name_{slot}', '')}\r\n")
+                else:
+                    respond("INVALID COMMAND\r\n")
+            elif cmd == "set_preset_name" and len(args) >= 2 and args[0].isdigit():
+                raw_parts = line.split(None, 2)
+                slot = int(args[0])
+                if 1 <= slot <= 16 and len(raw_parts) > 2:
+                    state[f"preset_name_{slot}"] = raw_parts[2]
+                    respond(f"PRESET_NAME {slot} {raw_parts[2]}\r\n")
+                else:
+                    respond("INVALID COMMAND\r\n")
+            elif cmd == "set_input_hdcp" and len(args) >= 2:
+                # Mode echo shares the INPUT_HDCP token with the live
+                # status (the documented collision).
+                respond(f"INPUT_HDCP {args[0]} {args[1]}\r\n")
+            elif cmd == "get_input_hdcp":
+                _per_input("INPUT_HDCP", "in_hdcp_mode",
+                           fmt=lambda v: "1" if v is None else str(v))
+            elif cmd == "set_output_hdcp" and len(args) >= 2:
+                i = _out_arg(args[0])
+                if i is not None:
+                    respond(f"OUTPUT_HDCP {_letter(i)} {args[1]}\r\n")
+                else:
+                    respond("INVALID COMMAND\r\n")
+            elif cmd == "get_output_hdcp":
+                _per_output("OUTPUT_HDCP", "out_hdcp_mode",
+                            fmt=lambda v: "0" if v is None else str(v))
+            elif cmd == "send_hpd":
+                respond("HPD SENT\r\n")
+            elif cmd == "lock_matrix" and args:
+                state["locked"] = args[0] == "1"
+                respond(f"LOCK_MATRIX {args[0]}\r\n")
+            elif cmd == "set_showme" and args:
+                state["showme"] = args[0] == "1"
+                respond(f"SET_SHOWME {args[0]}\r\n")
+            elif cmd == "get_showme":
+                respond(f"SHOWME {_b01(state.get('showme'))}\r\n")
+            elif cmd == "get_feedback":
+                respond(f"FEEDBACK {_b01(state.get('feedback'))}\r\n")
+            elif cmd == "set_feedback" and args:
+                state["feedback"] = args[0] == "1"
+                respond(f"SET_FEEDBACK {args[0]}\r\n")
+            elif cmd == "get_ir_channel":
+                respond(f"IR_CHANNEL {state.get('ir_channel')}\r\n")
+            elif cmd == "set_ir_channel" and args:
+                state["ir_channel"] = int(args[0])
+                respond(f"IR_CHANNEL {args[0]}\r\n")
+            elif cmd == "get_led_brightness":
+                respond(f"LED_BRIGHTNESS {state.get('led_brightness')}\r\n")
+            elif cmd == "set_led_brightness" and args:
+                state["led_brightness"] = int(args[0])
+                respond(f"LED_BRIGHTNESS {args[0]}\r\n")
+            elif cmd == "get_button_brightness":
+                respond(f"BUTTON_BRIGHTNESS {state.get('button_brightness')}\r\n")
+            elif cmd == "set_button_brightness" and args:
+                state["button_brightness"] = int(args[0])
+                respond(f"BUTTON_BRIGHTNESS {args[0]}\r\n")
+            elif cmd in ("get_lcd_brightness", "set_lcd_brightness"):
+                # This sim models a 44 — no LCD; exercises the driver's
+                # benign-error posture for the other model's settings.
+                respond("INVALID COMMAND\r\n")
+            elif cmd == "get_device_desc":
+                respond(f"DEVICE DESCRIPTION IS {state.get('device_desc')}\r\n")
+            elif cmd == "set_device_desc":
+                raw_parts = line.split(None, 1)
+                desc = raw_parts[1] if len(raw_parts) > 1 else ""
+                state["device_desc"] = desc
+                respond(f"DEVICE DESCRIPTION IS {desc}\r\n")
+            elif cmd == "get_firmware_version":
+                respond(f"FIRMWARE VERSION IS {state.get('firmware')}\r\n")
+            elif cmd == "reboot":
+                respond("UNIT WILL REBOOT SHORTLY\r\n")
+            elif cmd == "help":
+                respond("#help\r\n")
+            else:
+                respond("INVALID COMMAND\r\n")
+
+        _run()

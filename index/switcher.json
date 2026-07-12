@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 12,
+    "total_drivers": 13,
     "shards": null,
     "category": "switcher"
   },
@@ -781,6 +781,68 @@
         "manufacturer_alias": [
           "turtleav",
           "darwin"
+        ]
+      }
+    },
+    {
+      "id": "wyrestorm_mx",
+      "name": "WyreStorm MX / MXV Matrix",
+      "manufacturer": "WyreStorm",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls WyreStorm MX-H2A, MXV, and MX-KIT series HDMI/HDBaseT matrix switchers (4x4 up to 8x8) via Telnet on port 23 or RS-232. Every video output and every audio de-embed output is a child entity tracking its routed source; audio outputs also track mute. Covers independent audio routing, A/V scene presets, CEC display power (manual and automatic), low-power standby, IR system codes, and input EDID presets on the MX-0404-HDMI.\n",
+      "source_url": "https://uisupplies.com/Portals/1/Downloads/MXV_MX-KIT_MK2%20Series_API_28042020.pdf",
+      "file": "switchers/wyrestorm_mx.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "wyrestorm_mx"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.22.0",
+      "tags": [
+        "matrix-switcher",
+        "hdmi",
+        "hdbaset",
+        "wyrestorm",
+        "mxv",
+        "telnet"
+      ],
+      "help": {
+        "overview": "WyreStorm MX/MXV matrices route HDMI sources to HDMI or HDBaseT outputs, with balanced/S-PDIF audio de-embed ports that either follow the video or switch independently. Each video output is a child entity showing its routed input (0 means the output is powered down); each audio output is a child showing its routed audio source and mute state. Three A/V scene presets can be saved and recalled, and displays can be powered over CEC \u2014 manually or automatically on signal detection.\n",
+        "setup": "1. Find the matrix IP (hold the front-panel UP and DOWN buttons for 3 seconds to show it) and add it here with Telnet port 23. 2. Set the Output Token for your series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. 3. Match the Output IDs and Audio Output IDs lists to the model (a 4x4 uses \"1,2,3,4\"; the defaults describe an 8x8). Each ID becomes a child entity that is polled for state. 4. To route audio independently of video, set the Audio Switch Mode setting to \"independent\" first (not supported on MX-KIT, MK2, HDMI, or MXV-KIT models). 5. RS-232 control instead: 9600 8N1 (115200 on the MX-0404-HDMI), no flow control.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "WyreStorm",
+          "models": [
+            "MXV-0404-H2A-KIT / MXV-0408-H2A",
+            "MXV-0606-H2A / MXV-0606-H2A-70",
+            "MXV-0808-H2A / MXV-0808-H2A-70",
+            "MX-0404-H2A / MX-0606-H2A / MX-0808-H2A",
+            "MX-0808-H2A-MK2",
+            "MX-0404-HDMI",
+            "MX-0404-KIT / MX-0808-KIT",
+            "EXP-MX-0404-KIT / EXP-MX-0808-KIT"
+          ],
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "send_ascii": "GET IPADDR\r\n",
+          "expect_regex": "(?i)IPADDR\\s+\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}",
+          "extract_manufacturer": "WyreStorm"
+        },
+        "manufacturer_alias": [
+          "wyrestorm",
+          "wyrestorm technologies"
         ]
       }
     }

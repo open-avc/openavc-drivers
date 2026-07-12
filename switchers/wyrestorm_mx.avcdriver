@@ -1,0 +1,1033 @@
+# WyreStorm MX / MXV Matrix Switcher Driver
+#
+# Controls WyreStorm MX-H2A, MX-0404-HDMI, MXV, and MX-KIT/EXP-KIT series
+# HDMI / HDBaseT matrix switchers over Telnet (port 23) or RS-232
+# (9600 8N1; the MX-0404-HDMI uses 115200).
+#
+# Protocol reference: "MX-H2A, MXV and MX-KIT Series Matrix Switchers —
+# Application Programming Interface", document revision v4.0 (April 2021),
+# WyreStorm Technologies (dealer-hosted copy of the official API doc):
+# https://uisupplies.com/Portals/1/Downloads/MXV_MX-KIT_MK2%20Series_API_28042020.pdf
+#
+# Wire format:
+#   Plain ASCII lines. Sent commands must end with LF (CRLF accepted; the
+#   doc stresses the LAST character must be LF, never a bare CR). Replies
+#   restate the state in the command grammar without the SET/GET verb
+#   ("SW hdmiin4 out1"). The doc's "Query Video Output Mapping" section
+#   shows the response both as "MP GET <input> <output>" (syntax line) and
+#   "MP hdmiin4 out1" (example) — the response rules accept both forms.
+#
+# Family variance (all from the v4.0 API doc):
+#   - Video-switch output tokens differ by series: MXV & MX-KIT/EXP-KIT
+#     address outputs as "out1..out8", the H2A & HDMI series as
+#     "hdmiout1..hdmiout8". The Output Token config field holds the form
+#     for the connected model and is substituted into every video
+#     routing command and poll query.
+#   - Discrete audio routing (independent mode) is NOT supported on
+#     MX-KIT, MK2, HDMI, and MXV-KIT models (audio follows video there).
+#   - Audio mute is NOT supported on the MK2 platform; the audio
+#     de-embed type (HDMI vs ARC) is MK2-only. Unsupported commands
+#     answer an error line that matches no response rule (benign).
+#   - Standby / Wake requires v2+ firmware on most MXV models (see the
+#     doc's "Supported Matrix Versions" list); IR callback is MXV-only.
+#   - Input EDID presets are MX-0404-HDMI only.
+#
+# Push vs poll: POLL-ONLY. The v4.0 API documents no unsolicited
+# notifications — the protocol is strictly request/response — but every
+# SET answers a state echo which the response rules apply immediately.
+#
+# Why YAML: request/response ASCII where every reply restates identity +
+# value in one line — statelessly pattern-matchable, no correlation
+# problem. Declarative child rosters (ids_from) + child_set fan-out fit
+# exactly; modeled on avproedge_acmx / atlona_uhd_pro3.
+
+id: wyrestorm_mx
+name: WyreStorm MX / MXV Matrix
+manufacturer: WyreStorm
+category: switcher
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.22.0"
+description: >
+  Controls WyreStorm MX-H2A, MXV, and MX-KIT series HDMI/HDBaseT matrix
+  switchers (4x4 up to 8x8) via Telnet on port 23 or RS-232. Every video
+  output and every audio de-embed output is a child entity tracking its
+  routed source; audio outputs also track mute. Covers independent audio
+  routing, A/V scene presets, CEC display power (manual and automatic),
+  low-power standby, IR system codes, and input EDID presets on the
+  MX-0404-HDMI.
+
+source_url: https://uisupplies.com/Portals/1/Downloads/MXV_MX-KIT_MK2%20Series_API_28042020.pdf
+tags: [matrix-switcher, hdmi, hdbaset, wyrestorm, mxv, telnet]
+verified: false
+simulated: true
+protocols: [wyrestorm_mx]
+ports: [23]
+compatible_models:
+  - manufacturer: WyreStorm
+    models:
+      - MXV-0404-H2A-KIT / MXV-0408-H2A
+      - MXV-0606-H2A / MXV-0606-H2A-70
+      - MXV-0808-H2A / MXV-0808-H2A-70
+      - MX-0404-H2A / MX-0606-H2A / MX-0808-H2A
+      - MX-0808-H2A-MK2
+      - MX-0404-HDMI
+      - MX-0404-KIT / MX-0808-KIT
+      - EXP-MX-0404-KIT / EXP-MX-0808-KIT
+    confidence: untested
+    notes: >
+      One API document (v4.0) covers the whole family; each series
+      supports its own subset and an unsupported command answers an error
+      the driver ignores. Set the Output Token to match the series: "out"
+      for MXV and MX-KIT/EXP-KIT models, "hdmiout" for MX-H2A and
+      MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists
+      to the model's port count. Discrete audio routing is unavailable on
+      MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on
+      the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The
+      H2X/H2XC 10x10 and 16x16 matrices use a different command set — not
+      this driver.
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    WyreStorm MX/MXV matrices route HDMI sources to HDMI or HDBaseT
+    outputs, with balanced/S-PDIF audio de-embed ports that either follow
+    the video or switch independently. Each video output is a child
+    entity showing its routed input (0 means the output is powered down);
+    each audio output is a child showing its routed audio source and mute
+    state. Three A/V scene presets can be saved and recalled, and
+    displays can be powered over CEC — manually or automatically on
+    signal detection.
+  setup: >
+    1. Find the matrix IP (hold the front-panel UP and DOWN buttons for 3
+    seconds to show it) and add it here with Telnet port 23.
+    2. Set the Output Token for your series: "out" for MXV and
+    MX-KIT/EXP-KIT models, "hdmiout" for MX-H2A and MX-0404-HDMI models.
+    3. Match the Output IDs and Audio Output IDs lists to the model (a
+    4x4 uses "1,2,3,4"; the defaults describe an 8x8). Each ID becomes a
+    child entity that is polled for state.
+    4. To route audio independently of video, set the Audio Switch Mode
+    setting to "independent" first (not supported on MX-KIT, MK2, HDMI,
+    or MXV-KIT models).
+    5. RS-232 control instead: 9600 8N1 (115200 on the MX-0404-HDMI), no
+    flow control.
+
+discovery:
+  # Active fingerprint: the troubleshooting IP query on the Telnet
+  # control port — the family answers "IPADDR <ip>". Other port-23 gear
+  # answers prompts/banners that never match.
+  tcp_probe:
+    port: 23
+    send_ascii: "GET IPADDR\r\n"
+    expect_regex: '(?i)IPADDR\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+    extract_manufacturer: "WyreStorm"
+  manufacturer_alias:
+    - "wyrestorm"
+    - "wyrestorm technologies"
+
+default_config:
+  host: ""
+  port: 23
+  out_token: "out"
+  output_ids: "1,2,3,4,5,6,7,8"
+  audio_output_ids: "1,2,3,4,5,6,7,8"
+  poll_interval: 15
+  inter_command_delay: 0.1
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Telnet Port
+    description: "WyreStorm MX/MXV matrices listen on Telnet port 23."
+  out_token:
+    type: enum
+    values: ["out", "hdmiout"]
+    default: "out"
+    label: Output Token
+    description: >
+      How the series addresses video outputs on the wire: MXV and
+      MX-KIT/EXP-KIT models use "out1..out8", MX-H2A and MX-0404-HDMI
+      models use "hdmiout1..hdmiout8".
+  output_ids:
+    type: string
+    default: "1,2,3,4,5,6,7,8"
+    label: Output IDs
+    description: >
+      Comma-separated video output numbers — each becomes an Output child
+      tracking its routed input. Match the model: "1,2,3,4" for a 4x4.
+      Default describes an 8x8.
+  audio_output_ids:
+    type: string
+    default: "1,2,3,4,5,6,7,8"
+    label: Audio Output IDs
+    description: >
+      Comma-separated audio de-embed output numbers — each becomes an
+      Audio Output child tracking its routed source and mute state.
+  poll_interval:
+    type: integer
+    default: 15
+    min: 0
+    label: Poll Interval (sec)
+    description: >
+      Refreshes routing, audio routing, mutes, audio switch mode, standby
+      state, and IR system code (one query per child plus three device
+      queries per cycle). Set to 0 to disable.
+  inter_command_delay:
+    type: number
+    default: 0.1
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: "Brief safety delay between commands."
+
+state_variables:
+  audio_switch_mode:
+    type: enum
+    values: ["followvm", "independent"]
+    label: Audio Switch Mode
+    help: >
+      "followvm" — each audio output follows the matching video output;
+      "independent" — audio routes separately with the Route Audio
+      command.
+  standby:
+    type: boolean
+    label: Standby
+    help: "True when the matrix is in low-power standby (front panel dark, outputs off). Any command wakes it."
+  ir_system_code:
+    type: enum
+    values: ["mode1", "mode2", "all"]
+    label: IR System Code
+    help: "IR remote code set the matrix listens to (mode1 = 0x00, mode2 = 0x4E) — change it if the remote clashes with other gear."
+  firmware_version:
+    type: string
+    label: Firmware Version
+    help: "Installed firmware, read once on connect."
+  ip_address:
+    type: string
+    label: Reported IP Address
+    help: "The IP address the matrix reports for itself, read once on connect."
+
+child_entity_types:
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 8 }
+    state_variables:
+      input:
+        type: integer
+        label: Routed Input
+        help: "Video input routed to this output (0 = output powered down via hdmiin0)."
+        min: 0
+        max: 8
+        control: true
+        cloud_priority: high
+    summary_fields: [input]
+    instances:
+      ids_from: output_ids
+      label: "Output {id}"
+  audio_output:
+    label: Audio Output
+    label_plural: Audio Outputs
+    id_format: { type: integer, min: 1, max: 8 }
+    state_variables:
+      audio_input:
+        type: integer
+        label: Routed Audio Input
+        help: "Input whose audio feeds this de-embed output (meaningful in independent mode; in followvm mode it mirrors the video routing)."
+        min: 1
+        max: 8
+        control: true
+        cloud_priority: high
+      mute:
+        type: boolean
+        label: Mute
+        help: "True when this audio output is muted (not supported on the MK2 platform)."
+        control: true
+        cloud_priority: high
+      deembed_source:
+        type: enum
+        values: ["hdmi", "arc"]
+        label: De-embed Source
+        help: >
+          MK2 models only — whether this port de-embeds the HDMI output
+          audio or the display's ARC return. Updates when set or queried
+          (not polled).
+    summary_fields: [audio_input, mute]
+    instances:
+      ids_from: audio_output_ids
+      label: "Audio Output {id}"
+
+# Persisted device-side values with read-back. Audio switch mode and the
+# IR system code are polled and survive reboots; both writes reuse the
+# matching command's send string.
+device_settings:
+  audio_switch_mode:
+    type: enum
+    values: ["followvm", "independent"]
+    label: Audio Switch Mode
+    help: >
+      "independent" lets the Route Audio command switch audio separately
+      from video. Not supported on MX-KIT, MK2, HDMI, or MXV-KIT models
+      (those stay in followvm).
+    state_key: audio_switch_mode
+    default: "followvm"
+    setup: false
+    write:
+      send: "SET AUDIOSW_M {value}\r\n"
+  ir_system_code:
+    type: enum
+    values: ["mode1", "mode2", "all"]
+    label: IR System Code
+    help: "IR remote code set (mode1 = 0x00, mode2 = 0x4E). Change it if the matrix remote interferes with other devices."
+    state_key: ir_system_code
+    default: "mode1"
+    setup: false
+    write:
+      send: "SET IR_SC {value}\r\n"
+
+commands:
+
+  # ── Video routing ──
+
+  route:
+    label: Route Input to Output
+    send: "SET SW hdmiin{input} {out_token}{output}\r\n"
+    help: "Route a video input to an output."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 8
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  route_all:
+    label: Route Input to All Outputs
+    send: "SET SW hdmiin{input} all\r\n"
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 8
+
+  output_off:
+    label: Power Down Output
+    send: "SET SW hdmiin0 {out_token}{output}\r\n"
+    help: "Powers down an output's video (routes hdmiin0). Route any input to restore it."
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+
+  query_all_routes:
+    label: Query All Video Routes
+    send: "GET MP all\r\n"
+
+  # ── Audio routing ──
+
+  set_audio_switch_mode:
+    label: Set Audio Switch Mode
+    send: "SET AUDIOSW_M {mode}\r\n"
+    help: "independent = audio routes separately from video. Not supported on MX-KIT, MK2, HDMI, or MXV-KIT models."
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Mode
+        values:
+          - { value: "followvm", label: "Follow Video" }
+          - { value: "independent", label: "Independent" }
+
+  audio_route:
+    label: Route Audio Input to Output
+    send: "SET AUDIOSW hdmiin{input} audioout{output}\r\n"
+    help: "Route an input's audio to a de-embed output. Requires the independent audio switch mode."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 8
+      output:
+        type: child_id
+        child_type: audio_output
+        required: true
+        label: Audio Output
+
+  audio_route_all:
+    label: Route Audio Input to All Outputs
+    send: "SET AUDIOSW hdmiin{input} all\r\n"
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 8
+
+  mute_on:
+    label: Mute Audio Output
+    send: "SET MUTE audioout{output} on\r\n"
+    help: "Mute an audio de-embed output (not supported on the MK2 platform)."
+    params:
+      output:
+        type: child_id
+        child_type: audio_output
+        required: true
+        label: Audio Output
+
+  mute_off:
+    label: Unmute Audio Output
+    send: "SET MUTE audioout{output} off\r\n"
+    params:
+      output:
+        type: child_id
+        child_type: audio_output
+        required: true
+        label: Audio Output
+
+  mute_all_on:
+    label: Mute All Audio Outputs
+    send: "SET MUTE all on\r\n"
+
+  mute_all_off:
+    label: Unmute All Audio Outputs
+    send: "SET MUTE all off\r\n"
+
+  set_deembed_source:
+    label: Set Audio De-embed Source
+    send: "SET AUDIOSW {source} audioout{output}\r\n"
+    help: "MK2 models only — de-embed the HDMI output audio or the display's ARC return on this port."
+    params:
+      source:
+        type: enum
+        required: true
+        label: Source
+        values:
+          - { value: "hdmi", label: "HDMI Output Audio" }
+          - { value: "arc", label: "Display ARC Return" }
+      output:
+        type: child_id
+        child_type: audio_output
+        required: true
+        label: Audio Output
+
+  query_deembed_source:
+    label: Query Audio De-embed Source
+    send: "GET AUDIOSW audioout{output}\r\n"
+    params:
+      output:
+        type: child_id
+        child_type: audio_output
+        required: true
+        label: Audio Output
+
+  # ── A/V scene presets ──
+
+  save_preset:
+    label: Save A/V Preset
+    send: "SAVE PRESET {preset}\r\n"
+    help: "Save the current audio/video routing to one of three preset slots."
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset (1-3)
+        min: 1
+        max: 3
+
+  recall_preset:
+    label: Recall A/V Preset
+    send: "RESTORE PRESET {preset}\r\n"
+    params:
+      preset:
+        type: integer
+        required: true
+        label: Preset (1-3)
+        min: 1
+        max: 3
+
+  # ── CEC display power ──
+
+  cec_display_on:
+    label: CEC Display Power On
+    send: "SET CEC_PWR {port}{output} on\r\n"
+    help: "Power on the display attached to an output over CEC. H2A/HDMI models use HDMI ports; MXV models also expose HDBaseT ports."
+    params:
+      port:
+        type: enum
+        required: true
+        label: Port Type
+        values:
+          - { value: "hdmiout", label: "HDMI Output" }
+          - { value: "hdbtout", label: "HDBaseT Output" }
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 8
+
+  cec_display_off:
+    label: CEC Display Power Off
+    send: "SET CEC_PWR {port}{output} off\r\n"
+    params:
+      port:
+        type: enum
+        required: true
+        label: Port Type
+        values:
+          - { value: "hdmiout", label: "HDMI Output" }
+          - { value: "hdbtout", label: "HDBaseT Output" }
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 8
+
+  auto_cec_on:
+    label: Auto CEC Power On
+    send: "SET AUTOCEC_FN {port}{output} on\r\n"
+    help: "Have the matrix power the display on when an input signal is detected (and off after the Auto CEC delay when it is lost)."
+    params:
+      port:
+        type: enum
+        required: true
+        label: Port Type
+        values:
+          - { value: "hdmiout", label: "HDMI Output" }
+          - { value: "hdbtout", label: "HDBaseT Output" }
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 8
+
+  auto_cec_off:
+    label: Auto CEC Power Off
+    send: "SET AUTOCEC_FN {port}{output} off\r\n"
+    params:
+      port:
+        type: enum
+        required: true
+        label: Port Type
+        values:
+          - { value: "hdmiout", label: "HDMI Output" }
+          - { value: "hdbtout", label: "HDBaseT Output" }
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 8
+
+  set_auto_cec_delay:
+    label: Set Auto CEC Off Delay
+    send: "SET AUTOCEC_D {port}{output} {minutes}\r\n"
+    help: "Minutes without signal before Auto CEC powers the display off."
+    params:
+      port:
+        type: enum
+        required: true
+        label: Port Type
+        values:
+          - { value: "hdmiout", label: "HDMI Output" }
+          - { value: "hdbtout", label: "HDBaseT Output" }
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 8
+      minutes:
+        type: integer
+        required: true
+        label: Delay (minutes)
+        min: 1
+        max: 30
+
+  cec_send:
+    label: Send Custom CEC Command
+    send: "SET CEC_CMD {port}{output} {code}\r\n"
+    help: "Send raw CEC hex to a display (MX-0808-H2A-MK2 and MXV-0808 v3 models), e.g. '40 04'. Up to 16 hex characters."
+    params:
+      port:
+        type: enum
+        required: true
+        label: Port Type
+        values:
+          - { value: "hdmiout", label: "HDMI Output" }
+          - { value: "hdbtout", label: "HDBaseT Output" }
+      output:
+        type: integer
+        required: true
+        label: Output
+        min: 1
+        max: 8
+      code:
+        type: string
+        required: true
+        label: CEC Hex
+        pattern: "^[0-9A-Fa-f]{2}( [0-9A-Fa-f]{2}){0,7}$"
+
+  # ── Standby / system ──
+
+  standby:
+    label: Enter Standby
+    send: "STANDBY\r\n"
+    help: "Low-power mode — front panel and outputs power down. Any command wakes the unit. Requires v2+ firmware on most MXV models."
+
+  wake:
+    label: Wake from Standby
+    send: "WAKE\r\n"
+
+  ir_callback_on:
+    label: Enable Remote IR Callback
+    send: "SET IRBACK_FN on\r\n"
+    help: "MXV models only — lets a remote HDBaseT receiver's IR input control the matrix."
+
+  ir_callback_off:
+    label: Disable Remote IR Callback
+    send: "SET IRBACK_FN off\r\n"
+
+  set_input_edid:
+    label: Set Input EDID
+    send: "SET EDID hdmiin{input} {edid}\r\n"
+    help: "MX-0404-HDMI only — assign an EDID preset to an input."
+    params:
+      input:
+        type: integer
+        required: true
+        label: Input
+        min: 1
+        max: 4
+      edid:
+        type: enum
+        required: true
+        label: EDID Preset
+        values:
+          - { value: "1", label: "Copy from Output 1" }
+          - { value: "2", label: "Copy from Output 2" }
+          - { value: "3", label: "Copy from Output 3" }
+          - { value: "4", label: "Copy from Output 4" }
+          - { value: "5", label: "4K60 5.1ch HDR" }
+          - { value: "6", label: "4K60 2.0ch HDR" }
+          - { value: "7", label: "4K60 2.0ch" }
+          - { value: "8", label: "4K30 5.1ch HDR" }
+          - { value: "9", label: "4K30 5.1ch Dolby Vision" }
+          - { value: "10", label: "4K30 2.0ch HDR" }
+          - { value: "11", label: "4K30 2.0ch" }
+          - { value: "12", label: "1080p60 2.0ch" }
+
+  reboot:
+    label: Reboot Matrix
+    send: "REBOOT\r\n"
+    help: "Reboots the unit — routing and settings are kept."
+
+  raw_command:
+    label: Send Raw Command
+    send: "{command}\r\n"
+    help: "Escape hatch for anything in the API document, e.g. GET AUTOCEC_D hdmiout1 or GET EDID all."
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+# Quick Action strip: routing + presets + standby. The full command list
+# still shows everything, including CEC and audio management.
+actions:
+  - id: route
+    icon: route
+  - id: route_all
+    icon: copy
+  - id: audio_route
+    icon: volume-2
+  - id: recall_preset
+    icon: bookmark
+  - id: standby
+    icon: moon
+  - id: wake
+    icon: sun
+
+responses:
+
+  # Video route — SET echo ("SW hdmiin4 out1" / "SW hdmiin4 hdmiout1")
+  # and GET answer ("MP hdmiin4 out1"; some firmware prints the doc's
+  # "MP GET" form) share one shape. hdmiin0 = output powered down.
+  - match: '(?i:^(?:SW|MP(?:\s+GET)?)\s+hdmiin(\d+)\s+(?:hdmi)?out(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$2", state: { input: "$1" } }
+
+  # Audio route — SET echo ("AUDIOSW hdmiin4 audioout1") and GET answer
+  # ("AUDIOMP hdmiin4 audioout1").
+  - match: '(?i:^(?:AUDIOSW|AUDIOMP(?:\s+GET)?)\s+hdmiin(\d+)\s+audioout(\d+)\s*$)'
+    child_set:
+      - { type: audio_output, id: "$2", state: { audio_input: "$1" } }
+
+  # Audio de-embed type (MK2): "AUDIOSW arc audioout2".
+  - match: '(?i:^AUDIOSW\s+(hdmi|arc)\s+audioout(\d+)\s*$)'
+    child_set:
+      - { type: audio_output, id: "$2", state: { deembed_source: "$1" } }
+
+  # Mute: "MUTE audioout2 on" (on = muted).
+  - match: '(?i:^MUTE\s+audioout(\d+)\s+(on|off)\s*$)'
+    child_set:
+      - { type: audio_output, id: "$1", state: { mute: "$2" } }
+
+  # Audio switch mode: "AUDIOSW_M independent".
+  - match: '(?i:^AUDIOSW_M\s+(followvm|independent)\s*$)'
+    set: { audio_switch_mode: "$1" }
+
+  # Standby state — entering standby and GET STANDBY both answer
+  # "STANDBY"; waking and GET STANDBY when awake answer "WAKE".
+  - match: '(?i:^STANDBY\s*$)'
+    set: { standby: "true" }
+  - match: '(?i:^WAKE\s*$)'
+    set: { standby: "false" }
+
+  # IR system code: "IR_SC mode2".
+  - match: '(?i:^IR_SC\s+(mode1|mode2|all)\s*$)'
+    set: { ir_system_code: "$1" }
+
+  # Firmware / IP (read on connect): "VER V1.10.08", "IPADDR 192.168.11.143".
+  - match: '(?i:^VER\s+(\S.*?)\s*$)'
+    set: { firmware_version: "$1" }
+  - match: '(?i:^IPADDR\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s*$)'
+    set: { ip_address: "$1" }
+
+on_connect:
+  - "GET VER\r\n"
+  - "GET IPADDR\r\n"
+
+polling:
+  queries:
+    - { each_child: output, send: "GET MP {out_token}{child_id}\r\n" }
+    - { each_child: audio_output, send: "GET AUDIOMP audioout{child_id}\r\n" }
+    - { each_child: audio_output, send: "GET MUTE audioout{child_id}\r\n" }
+    - "GET AUDIOSW_M\r\n"
+    - "GET STANDBY\r\n"
+    - "GET IR_SC\r\n"
+
+# ── SIMULATOR DEFINITION ──
+# Models an MXV-0808-H2A (8x8, "out" tokens) that also accepts the H2A
+# "hdmiout" form and echoes back whichever token form the command used.
+# Identity routing by default; audio follows video until the switch mode
+# is set to independent (per the doc, audio routes are rejected in
+# followvm mode); mute state per audio output; three working preset
+# slots; standby gate replicated (commands other than WAKE answer while
+# in standby — the real unit wakes on any traffic, so the sim just stays
+# functional and lets GET STANDBY report the state).
+simulator:
+  push_state: false
+  initial_state:
+    route_1: 1
+    route_2: 2
+    route_3: 3
+    route_4: 4
+    route_5: 5
+    route_6: 6
+    route_7: 7
+    route_8: 8
+    audio_route_1: 1
+    audio_route_2: 2
+    audio_route_3: 3
+    audio_route_4: 4
+    audio_route_5: 5
+    audio_route_6: 6
+    audio_route_7: 7
+    audio_route_8: 8
+    mute_1: false
+    mute_2: false
+    mute_3: false
+    mute_4: false
+    mute_5: false
+    mute_6: false
+    mute_7: false
+    mute_8: false
+    deembed_1: "hdmi"
+    deembed_2: "hdmi"
+    deembed_3: "hdmi"
+    deembed_4: "hdmi"
+    deembed_5: "hdmi"
+    deembed_6: "hdmi"
+    deembed_7: "hdmi"
+    deembed_8: "hdmi"
+    audiosw_mode: "followvm"
+    standby: false
+    ir_code: "mode1"
+    ir_callback: "off"
+    preset_1: ""
+    preset_2: ""
+    preset_3: ""
+    firmware: "V1.10.08"
+    ip: "192.168.11.143"
+
+  delays:
+    command_response: 0.05
+
+  controls:
+    - type: matrix
+      label: Video Routing
+      inputs: 8
+      outputs: 8
+      state_pattern: "route_{output}"
+    - type: select
+      key: audiosw_mode
+      label: Audio Switch Mode
+      options: ["followvm", "independent"]
+    - type: toggle
+      key: standby
+      label: Standby
+    - type: toggle
+      key: mute_1
+      label: Audio Out 1 Mute
+    - type: select
+      key: ir_code
+      label: IR System Code
+      options: ["mode1", "mode2", "all"]
+    - type: indicator
+      key: firmware
+      label: Firmware
+
+  command_handlers:
+
+    # ── Video routing: SET SW hdmiinX out/hdmioutY|all ──
+    - match: 'SET SW hdmiin(\d+) (out|hdmiout)(\d+)'
+      handler: |
+        inp = int(match.group(1))
+        tok = match.group(2)
+        out = int(match.group(3))
+        if inp > 8 or out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            state[f"route_{out}"] = inp
+            state["standby"] = False
+            respond(f"SW hdmiin{inp} {tok}{out}\r\n")
+    - match: 'SET SW hdmiin(\d+) all'
+      handler: |
+        inp = int(match.group(1))
+        if inp > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            for o in range(1, 9):
+                state[f"route_{o}"] = inp
+            state["standby"] = False
+            respond(f"SW hdmiin{inp} all\r\n")
+
+    # ── Video route query: GET MP out/hdmioutY|all ──
+    - match: 'GET MP (out|hdmiout)(\d+)'
+      handler: |
+        tok = match.group(1)
+        out = int(match.group(2))
+        if out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            respond(f"MP hdmiin{state[f'route_{out}']} {tok}{out}\r\n")
+    - match: 'GET MP all'
+      handler: |
+        lines = [f"MP hdmiin{state[f'route_{o}']} out{o}" for o in range(1, 9)]
+        respond("\r\n".join(lines) + "\r\n")
+
+    # ── Audio switch mode ──
+    - match: 'SET AUDIOSW_M (followvm|independent)'
+      handler: |
+        state["audiosw_mode"] = match.group(1)
+        respond(f"AUDIOSW_M {match.group(1)}\r\n")
+    - match: 'GET AUDIOSW_M'
+      handler: |
+        respond(f"AUDIOSW_M {state['audiosw_mode']}\r\n")
+
+    # ── Audio routing (needs independent mode, per the API doc) ──
+    - match: 'SET AUDIOSW hdmiin(\d+) audioout(\d+)'
+      handler: |
+        inp = int(match.group(1))
+        out = int(match.group(2))
+        if state["audiosw_mode"] != "independent" or inp < 1 or inp > 8 or out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            state[f"audio_route_{out}"] = inp
+            respond(f"AUDIOSW hdmiin{inp} audioout{out}\r\n")
+    - match: 'SET AUDIOSW hdmiin(\d+) all'
+      handler: |
+        inp = int(match.group(1))
+        if state["audiosw_mode"] != "independent" or inp < 1 or inp > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            for o in range(1, 9):
+                state[f"audio_route_{o}"] = inp
+            respond(f"AUDIOSW hdmiin{inp} all\r\n")
+
+    # ── Audio de-embed type (MK2 surface) ──
+    - match: 'SET AUDIOSW (hdmi|arc) audioout(\d+)'
+      handler: |
+        src = match.group(1)
+        out = int(match.group(2))
+        if out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            state[f"deembed_{out}"] = src
+            respond(f"AUDIOSW {src} audioout{out}\r\n")
+    - match: 'GET AUDIOSW audioout(\d+)'
+      handler: |
+        out = int(match.group(1))
+        if out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            respond(f"AUDIOSW {state[f'deembed_{out}']} audioout{out}\r\n")
+
+    # ── Audio route query ──
+    - match: 'GET AUDIOMP audioout(\d+)'
+      handler: |
+        out = int(match.group(1))
+        if out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            respond(f"AUDIOMP hdmiin{state[f'audio_route_{out}']} audioout{out}\r\n")
+    - match: 'GET AUDIOMP all'
+      handler: |
+        lines = [f"AUDIOMP hdmiin{state[f'audio_route_{o}']} audioout{o}" for o in range(1, 9)]
+        respond("\r\n".join(lines) + "\r\n")
+
+    # ── Mute ──
+    - match: 'SET MUTE audioout(\d+) (on|off)'
+      handler: |
+        out = int(match.group(1))
+        val = match.group(2)
+        if out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            state[f"mute_{out}"] = val == "on"
+            respond(f"MUTE audioout{out} {val}\r\n")
+    - match: 'SET MUTE all (on|off)'
+      handler: |
+        val = match.group(1)
+        lines = []
+        for o in range(1, 9):
+            state[f"mute_{o}"] = val == "on"
+            lines.append(f"MUTE audioout{o} {val}")
+        respond("\r\n".join(lines) + "\r\n")
+    - match: 'GET MUTE audioout(\d+)'
+      handler: |
+        out = int(match.group(1))
+        if out < 1 or out > 8:
+            respond("COMMAND ERROR\r\n")
+        else:
+            respond(f"MUTE audioout{out} {'on' if state[f'mute_{out}'] else 'off'}\r\n")
+
+    # ── A/V presets: three working slots (routes + audio routes) ──
+    - match: 'SAVE PRESET ([1-3])'
+      handler: |
+        n = match.group(1)
+        snap = ",".join(str(state[f"route_{o}"]) for o in range(1, 9))
+        snap += "|" + ",".join(str(state[f"audio_route_{o}"]) for o in range(1, 9))
+        state[f"preset_{n}"] = snap
+        respond(f"PRESET {n}\r\n")
+    - match: 'RESTORE PRESET ([1-3])'
+      handler: |
+        n = match.group(1)
+        snap = state[f"preset_{n}"]
+        if snap:
+            vid, aud = snap.split("|")
+            for o, v in enumerate(vid.split(","), start=1):
+                state[f"route_{o}"] = int(v)
+            for o, v in enumerate(aud.split(","), start=1):
+                state[f"audio_route_{o}"] = int(v)
+        respond(f"PRESET {n}\r\n")
+
+    # ── CEC / Auto-CEC: echo-only (no query verb in the v4.0 API) ──
+    - match: 'SET CEC_PWR (hdmiout|hdbtout)(\d+|all) (on|off)'
+      handler: |
+        respond(f"CEC_PWR {match.group(1)}{match.group(2)} {match.group(3)}\r\n")
+    - match: 'SET AUTOCEC_FN (hdmiout|hdbtout)(\d+|all) (on|off)'
+      handler: |
+        respond(f"AUTOCEC_FN {match.group(1)}{match.group(2)} {match.group(3)}\r\n")
+    - match: 'SET AUTOCEC_D (hdmiout|hdbtout)(\d+) (\d+)'
+      handler: |
+        mins = int(match.group(3))
+        if mins < 1 or mins > 30:
+            respond("COMMAND ERROR\r\n")
+        else:
+            respond(f"AUTOCEC_D {match.group(1)}{match.group(2)} {mins}\r\n")
+    - match: 'SET CEC_CMD (hdmiout|hdbtout)(\d+) ([0-9A-Fa-f ]+)'
+      handler: |
+        respond(f"CEC_CMD {match.group(1)}{match.group(2)} {match.group(3)}\r\n")
+
+    # ── Standby ──
+    - match: 'STANDBY'
+      handler: |
+        state["standby"] = True
+        respond("STANDBY\r\n")
+    - match: 'WAKE'
+      handler: |
+        state["standby"] = False
+        respond("WAKE\r\n")
+    - match: 'GET STANDBY'
+      handler: |
+        respond(f"{'STANDBY' if state['standby'] else 'WAKE'}\r\n")
+
+    # ── IR system code / callback ──
+    - match: 'SET IR_SC (mode1|mode2|all)'
+      handler: |
+        state["ir_code"] = match.group(1)
+        respond(f"IR_SC {match.group(1)}\r\n")
+    - match: 'GET IR_SC'
+      handler: |
+        respond(f"IR_SC {state['ir_code']}\r\n")
+    - match: 'SET IRBACK_FN (on|off)'
+      handler: |
+        state["ir_callback"] = match.group(1)
+        respond(f"IRBACK_FN {match.group(1)}\r\n")
+    - match: 'GET IRBACK_FN'
+      handler: |
+        respond(f"IRBACK_FN {state['ir_callback']}\r\n")
+
+    # ── EDID (MX-0404-HDMI surface; sim accepts it for testing) ──
+    - match: 'SET EDID hdmiin(\d+) (\d+)'
+      handler: |
+        inp = int(match.group(1))
+        code = int(match.group(2))
+        if inp < 1 or inp > 4 or code < 1 or code > 12:
+            respond("COMMAND ERROR\r\n")
+        else:
+            respond(f"EDID hdmiin{inp} {code}\r\n")
+
+    # ── System ──
+    - match: 'GET IPADDR'
+      handler: |
+        respond(f"IPADDR {state['ip']}\r\n")
+    - match: 'GET VER'
+      handler: |
+        respond(f"VER {state['firmware']}\r\n")
+    - match: 'REBOOT'
+      handler: |
+        respond("REBOOT\r\n")
+
+    # Catch-all — must stay last (script form so it runs after the
+    # specific handlers above).
+    - match: '.+'
+      handler: |
+        respond("COMMAND ERROR\r\n")
+
+  error_modes:
+    communication_timeout:
+      description: "Device stops responding to commands"
+      behavior: no_response

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 60,
+    "total_devices": 68,
     "shards": null,
     "category": "switcher"
   },
@@ -724,6 +724,102 @@
           "id": "darwin_control",
           "confidence": "full",
           "notes": "Verified end-to-end against live hardware (FW 1.50.02) with a live HDMI source on the TX and a display on the RX: connect, discovery, child enumeration, status parsing, enrolment/idempotency, and the operational SET surface (routing, output/mute/pause/OSD/auto, resolution, rotate, no-signal standby, HDCP/Osp SNK/SRC/OFF/H14/H22, TX encoding, LED/FPLED, audio input, IR, GPIO). OSD, mute, pause, resolution, rotation, output on/off, and a single-RX video wall tile were confirmed rendering on the attached display; the source-binding commands (video-wall class/matrix source, KVM hotkey) were accepted with a live source. Decoder video-wall mode (MODE VW) requires the RX assigned to a wall with an applied class region first. Only reboot/reset/network commands were held back on the live unit; their wire formats match the manufacturer reference. Multi-endpoint routing and multi-screen walls need additional TX/RX units to exercise."
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "EXP-MX-0404-KIT / EXP-MX-0808-KIT",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "MX-0404-H2A / MX-0606-H2A / MX-0808-H2A",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "MX-0404-HDMI",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "MX-0404-KIT / MX-0808-KIT",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "MX-0808-H2A-MK2",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "MXV-0404-H2A-KIT / MXV-0408-H2A",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "MXV-0606-H2A / MXV-0606-H2A-70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "WyreStorm",
+      "model": "MXV-0808-H2A / MXV-0808-H2A-70",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "wyrestorm_mx",
+          "confidence": "untested",
+          "notes": "One API document (v4.0) covers the whole family; each series supports its own subset and an unsupported command answers an error the driver ignores. Set the Output Token to match the series: \"out\" for MXV and MX-KIT/EXP-KIT models, \"hdmiout\" for MX-H2A and MX-0404-HDMI models. Match the Output IDs / Audio Output IDs lists to the model's port count. Discrete audio routing is unavailable on MX-KIT, MK2, HDMI, and MXV-KIT models; audio mute is unavailable on the MK2; the audio de-embed type (HDMI/ARC) is MK2-only. The H2X/H2XC 10x10 and 16x16 matrices use a different command set \u2014 not this driver.\n"
         }
       ]
     }

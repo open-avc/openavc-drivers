@@ -266,10 +266,10 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Covers source / zone / mix / group gain and mute, zone source select, group combine, message and routine and scene playback, GPO state, and today's bell schedule. Subscribes for state updates on connect.",
+      "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Models sources, zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs, and bell schedules as child entities labelled with the names from the Atmosphere configuration. Covers gain and mute per source / zone / mix / group, zone and group source select, group combine, message / routine / scene / GPO-preset triggers, GPO pin state, and today's bell schedule. Subscribes for state updates on connect.",
       "source_url": "https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf",
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
@@ -290,8 +290,8 @@
         "json-rpc"
       ],
       "help": {
-        "overview": "AtlasIED Atmosphere is a configurable audio DSP / mixer / paging system widely deployed in restaurants, retail, fitness, and house-of-worship installs. This driver speaks the third-party JSON-RPC protocol on TCP port 5321. It subscribes to entity state on connect, so updates push live as users change settings on the front panel or in the web UI.\n\nParameter names are assigned during device configuration (via the Atmosphere web UI). The driver addresses entities by zero-based index \u2014 Source 0, Zone 0, etc. Use the Atmosphere web UI's Settings \u2192 Third Party Control \u2192 Message Table to map names to indices.",
-        "setup": "1. In the Atmosphere web UI, go to Settings \u2192 Third Party Control \u2192 General and toggle 'Enable' on for the third-party control API.\n2. Confirm the Atmosphere has a static IP (or DHCP reservation).\n3. In OpenAVC, enter the IP. Port 5321 is fixed.\n4. Set the entity counts (zones, sources, mixes, groups) to match the device configuration. Counts default to AZM8 sizing; over-sizing is harmless but bigger than needed clutters the state list.\n5. After connecting, confirm the source / zone / mix / group names from the Atmosphere config show up in the device state."
+        "overview": "AtlasIED Atmosphere is a configurable audio DSP / mixer / paging system widely deployed in restaurants, retail, fitness, and house-of-worship installs. This driver speaks the third-party JSON-RPC protocol on TCP port 5321. It subscribes to entity state on connect, so updates push live as users change settings on the front panel or in the web UI.\n\nSources, zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs, and bell schedules appear as child entities, labelled with the names assigned during device configuration (via the Atmosphere web UI). Indices are zero-based, matching the device's Settings \u2192 Third Party Control \u2192 Message Table.\n\nEntity names and GPO pin states are read-only over third-party control \u2014 rename entities in the Atmosphere web UI, and drive GPOs by recalling GPO presets.",
+        "setup": "1. In the Atmosphere web UI, go to Settings \u2192 Third Party Control \u2192 General and toggle 'Enable' on for the third-party control API.\n2. Confirm the Atmosphere has a static IP (or DHCP reservation).\n3. In OpenAVC, enter the IP. Port 5321 is fixed.\n4. Set the entity counts (zones, sources, mixes, groups) to match the device configuration. Counts default to AZM8 sizing; over-sizing is harmless but bigger than needed clutters the child entity lists.\n5. After connecting, confirm the source / zone / mix / group names from the Atmosphere config show up as the child entity labels."
       },
       "compatible_models": [
         {

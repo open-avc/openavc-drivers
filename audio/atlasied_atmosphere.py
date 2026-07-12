@@ -9,10 +9,16 @@ Protocol summary:
       "set", "bmp" (bump), "sub" (subscribe), "unsub" (unsubscribe), "get".
       Methods sent back to the client: "update", "getResp", "error".
     - Parameter names are dynamically assigned during device configuration
-      (e.g., "ZoneGain_0", "SourceMute_3"). The driver subscribes to a
-      configurable count of zones, sources, mixes, and groups — controllers
-      with more or fewer entities than the configured counts get
-      out-of-range subscribes that the device silently rejects.
+      (e.g., "ZoneGain_0", "SourceMute_3"). There is no enumeration API —
+      the client subscribes to indices 0..N-1 and the device silently
+      ignores out-of-range subscribes — so the rosters are sized from the
+      driver config and registered as child entities per type: sources,
+      zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs,
+      and bell schedules. Entity names arrive over the subscription and
+      become the child labels.
+    - Names, ZoneGrouped, and GpoState are read-only for third-party
+      clients (ATS006993 §6 parameter table). GPOs are driven through GPO
+      presets (RecallGpoPreset), not by setting GpoState directly.
     - Inactivity drops the TCP connection after 5 minutes. The BaseDriver
       liveness watchdog probes `get KeepAlive` (every HEALTH_INTERVAL_S,
       default 30 s) and awaits the getResp — the probe both holds the
@@ -22,6 +28,11 @@ Protocol summary:
       UDP port 3131 and are not exposed by this driver — most integration
       use cases don't need realtime level metering, and the TCP control
       surface is fully usable without it.
+
+Python driver because the protocol is push-subscription JSON-RPC whose
+per-param updates fan out into config-sized child rosters, and the
+liveness probe correlates KeepAlive replies by param name — none of which
+the YAML runtime expresses.
 
 Source: https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf
 """
@@ -60,132 +71,189 @@ DEFAULT_NUM_GPOS = 4
 DEFAULT_NUM_BELL_SCHEDULES = 4
 
 
-def _build_state_vars(
-    num_sources: int,
-    num_zones: int,
-    num_mixes: int,
-    num_groups: int,
-    num_messages: int,
-    num_routines: int,
-    num_scenes: int,
-    num_gpo_presets: int,
-    num_gpos: int,
-    num_bell_schedules: int,
-) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {
-        "firmware_version": {"type": "string", "label": "Firmware Version"},
-        "todays_bell_schedule": {
-            "type": "integer",
-            "label": "Today's Bell Schedule Index",
-        },
+# ── Child entity types ───────────────────────────────────────────────────────
+#
+# Mutes relay at high cloud priority (a muted paging zone is an incident),
+# as do GPO pin states (they drive strobes / door releases); continuous
+# gains and cosmetic names are low. Indices are zero-based to match the
+# device's own Third Party Control Message Table (SourceMute_2 = index 2).
+
+_ID_FORMAT: dict[str, Any] = {"type": "integer", "min": 0, "pad_width": 2}
+
+
+def _gain_prop() -> dict[str, Any]:
+    return {"type": "number", "label": "Gain (dB)", "min": -80, "max": 0,
+            "unit": "dB", "cloud_priority": "low", "control": True}
+
+
+def _mute_prop() -> dict[str, Any]:
+    return {"type": "boolean", "label": "Mute", "cloud_priority": "high",
+            "control": True}
+
+
+def _name_prop() -> dict[str, Any]:
+    # Names are assigned in the Atmosphere web UI and are read-only to
+    # third-party clients (ATS006993 §4) — no control flag, no rename.
+    return {"type": "string", "label": "Name", "cloud_priority": "low"}
+
+
+def _named_roster_type(label: str, plural: str) -> dict[str, Any]:
+    return {
+        "label": label,
+        "label_plural": plural,
+        "id_format": dict(_ID_FORMAT),
+        "state_variables": {"name": _name_prop()},
+        "summary_fields": ["name"],
+        "label_field": "name",
     }
-    for n in range(num_sources):
-        out[f"source_{n}_name"] = {
-            "type": "string",
-            "label": f"Source {n} Name",
-        }
-        out[f"source_{n}_gain"] = {
-            "type": "number",
-            "label": f"Source {n} Gain (dB)",
-            "min": -80,
-            "max": 0,
-        }
-        out[f"source_{n}_mute"] = {
-            "type": "boolean",
-            "label": f"Source {n} Mute",
-        }
-    for n in range(num_zones):
-        out[f"zone_{n}_name"] = {
-            "type": "string",
-            "label": f"Zone {n} Name",
-        }
-        out[f"zone_{n}_gain"] = {
-            "type": "number",
-            "label": f"Zone {n} Gain (dB)",
-            "min": -80,
-            "max": 0,
-        }
-        out[f"zone_{n}_mute"] = {
-            "type": "boolean",
-            "label": f"Zone {n} Mute",
-        }
-        out[f"zone_{n}_source"] = {
-            "type": "integer",
-            "label": f"Zone {n} Selected Source",
-        }
-        out[f"zone_{n}_grouped"] = {
-            "type": "boolean",
-            "label": f"Zone {n} Grouped",
-        }
-    for n in range(num_mixes):
-        out[f"mix_{n}_name"] = {
-            "type": "string",
-            "label": f"Mix {n} Name",
-        }
-        out[f"mix_{n}_gain"] = {
-            "type": "number",
-            "label": f"Mix {n} Gain (dB)",
-            "min": -80,
-            "max": 0,
-        }
-        out[f"mix_{n}_mute"] = {
-            "type": "boolean",
-            "label": f"Mix {n} Mute",
-        }
-    for n in range(num_groups):
-        out[f"group_{n}_name"] = {
-            "type": "string",
-            "label": f"Group {n} Name",
-        }
-        out[f"group_{n}_gain"] = {
-            "type": "number",
-            "label": f"Group {n} Gain (dB)",
-            "min": -80,
-            "max": 0,
-        }
-        out[f"group_{n}_mute"] = {
-            "type": "boolean",
-            "label": f"Group {n} Mute",
-        }
-        out[f"group_{n}_source"] = {
-            "type": "integer",
-            "label": f"Group {n} Selected Source",
-        }
-        out[f"group_{n}_active"] = {
-            "type": "boolean",
-            "label": f"Group {n} Active (Combined)",
-        }
-    for n in range(num_messages):
-        out[f"message_{n}_name"] = {
-            "type": "string",
-            "label": f"Message {n} Name",
-        }
-    for n in range(num_routines):
-        out[f"routine_{n}_name"] = {
-            "type": "string",
-            "label": f"Routine {n} Name",
-        }
-    for n in range(num_scenes):
-        out[f"scene_{n}_name"] = {
-            "type": "string",
-            "label": f"Scene {n} Name",
-        }
-    for n in range(num_gpo_presets):
-        out[f"gpo_preset_{n}_name"] = {
-            "type": "string",
-            "label": f"GPO Preset {n} Name",
-        }
-    for n in range(num_gpos):
-        out[f"gpo_{n}_state"] = {
-            "type": "boolean",
-            "label": f"GPO {n} State",
-        }
-    for n in range(num_bell_schedules):
-        out[f"bell_schedule_{n}_name"] = {
-            "type": "string",
-            "label": f"Bell Schedule {n} Name",
-        }
-    return out
+
+
+def _build_child_types() -> dict[str, dict[str, Any]]:
+    return {
+        "source": {
+            "label": "Source",
+            "label_plural": "Sources",
+            "id_format": dict(_ID_FORMAT),
+            "state_variables": {
+                "name": _name_prop(),
+                "gain": _gain_prop(),
+                "mute": _mute_prop(),
+            },
+            "summary_fields": ["mute", "gain"],
+            "label_field": "name",
+        },
+        "zone": {
+            "label": "Zone",
+            "label_plural": "Zones",
+            "id_format": dict(_ID_FORMAT),
+            "state_variables": {
+                "name": _name_prop(),
+                "gain": _gain_prop(),
+                "mute": _mute_prop(),
+                "source": {"type": "integer", "label": "Selected Source",
+                           "min": -1, "cloud_priority": "low",
+                           "control": True},
+                "grouped": {"type": "boolean", "label": "Grouped",
+                            "cloud_priority": "low"},
+            },
+            "summary_fields": ["mute", "gain", "source"],
+            "label_field": "name",
+        },
+        "mix": {
+            "label": "Mix",
+            "label_plural": "Mixes",
+            "id_format": dict(_ID_FORMAT),
+            "state_variables": {
+                "name": _name_prop(),
+                "gain": _gain_prop(),
+                "mute": _mute_prop(),
+            },
+            "summary_fields": ["mute", "gain"],
+            "label_field": "name",
+        },
+        "group": {
+            "label": "Group",
+            "label_plural": "Groups",
+            "id_format": dict(_ID_FORMAT),
+            "state_variables": {
+                "name": _name_prop(),
+                "gain": _gain_prop(),
+                "mute": _mute_prop(),
+                "source": {"type": "integer", "label": "Selected Source",
+                           "min": -1, "cloud_priority": "low",
+                           "control": True},
+                "active": {"type": "boolean", "label": "Active (Combined)",
+                           "cloud_priority": "high", "control": True},
+            },
+            "summary_fields": ["mute", "gain", "active"],
+            "label_field": "name",
+        },
+        "message": _named_roster_type("Message", "Messages"),
+        "routine": _named_roster_type("Routine", "Routines"),
+        "scene": _named_roster_type("Scene", "Scenes"),
+        "gpo_preset": _named_roster_type("GPO Preset", "GPO Presets"),
+        "gpo": {
+            # GpoState is read-only over third-party control (ATS006993
+            # §6) — pins are driven by recalling GPO presets.
+            "label": "GPO",
+            "label_plural": "GPOs",
+            "id_format": dict(_ID_FORMAT),
+            "state_variables": {
+                "state": {"type": "boolean", "label": "State",
+                          "cloud_priority": "high"},
+            },
+            "summary_fields": ["state"],
+        },
+        "bell_schedule": _named_roster_type("Bell Schedule", "Bell Schedules"),
+    }
+
+
+CHILD_ENTITY_TYPES: dict[str, dict[str, Any]] = _build_child_types()
+
+# Roster sizing: (child_type, config_key, default, placeholder label prefix).
+_ROSTERS: list[tuple[str, str, int, str]] = [
+    ("source", "num_sources", DEFAULT_NUM_SOURCES, "Source"),
+    ("zone", "num_zones", DEFAULT_NUM_ZONES, "Zone"),
+    ("mix", "num_mixes", DEFAULT_NUM_MIXES, "Mix"),
+    ("group", "num_groups", DEFAULT_NUM_GROUPS, "Group"),
+    ("message", "num_messages", DEFAULT_NUM_MESSAGES, "Message"),
+    ("routine", "num_routines", DEFAULT_NUM_ROUTINES, "Routine"),
+    ("scene", "num_scenes", DEFAULT_NUM_SCENES, "Scene"),
+    ("gpo_preset", "num_gpo_presets", DEFAULT_NUM_GPO_PRESETS, "GPO Preset"),
+    ("gpo", "num_gpos", DEFAULT_NUM_GPOS, "GPO"),
+    ("bell_schedule", "num_bell_schedules", DEFAULT_NUM_BELL_SCHEDULES,
+     "Bell Schedule"),
+]
+
+# Wire params subscribed per child type: (param prefix, fmt). Names first
+# so child labels populate before the numeric sweep.
+_TYPE_SUBS: dict[str, list[tuple[str, str]]] = {
+    "source": [("SourceName", "str"), ("SourceGain", "val"),
+               ("SourceMute", "val")],
+    "zone": [("ZoneName", "str"), ("ZoneGain", "val"), ("ZoneMute", "val"),
+             ("ZoneSource", "val"), ("ZoneGrouped", "val")],
+    "mix": [("MixName", "str"), ("MixGain", "val"), ("MixMute", "val")],
+    "group": [("GroupName", "str"), ("GroupGain", "val"),
+              ("GroupMute", "val"), ("GroupSource", "val"),
+              ("GroupActive", "val")],
+    "message": [("MessageName", "str")],
+    "routine": [("RoutineName", "str")],
+    "scene": [("SceneName", "str")],
+    "gpo_preset": [("GpoPresetName", "str")],
+    "gpo": [("GpoState", "val")],
+    "bell_schedule": [("BellScheduleName", "str")],
+}
+
+# Incoming wire param prefix -> (child type, child prop, converter).
+_PARAM_MAP: dict[str, tuple[str, str, str]] = {
+    "SourceGain": ("source", "gain", "float"),
+    "SourceMute": ("source", "mute", "bool"),
+    "SourceName": ("source", "name", "str"),
+    "ZoneGain": ("zone", "gain", "float"),
+    "ZoneMute": ("zone", "mute", "bool"),
+    "ZoneName": ("zone", "name", "str"),
+    "ZoneSource": ("zone", "source", "int"),
+    "ZoneGrouped": ("zone", "grouped", "bool"),
+    "MixGain": ("mix", "gain", "float"),
+    "MixMute": ("mix", "mute", "bool"),
+    "MixName": ("mix", "name", "str"),
+    "GroupGain": ("group", "gain", "float"),
+    "GroupMute": ("group", "mute", "bool"),
+    "GroupName": ("group", "name", "str"),
+    "GroupSource": ("group", "source", "int"),
+    "GroupActive": ("group", "active", "bool"),
+    "MessageName": ("message", "name", "str"),
+    "RoutineName": ("routine", "name", "str"),
+    "SceneName": ("scene", "name", "str"),
+    "GpoPresetName": ("gpo_preset", "name", "str"),
+    "GpoState": ("gpo", "state", "bool"),
+    "BellScheduleName": ("bell_schedule", "name", "str"),
+}
+
+
+def _child_param(ctype: str, label: str | None = None) -> dict[str, Any]:
+    return {"type": "child_id", "child_type": ctype, "required": True,
+            "label": label or CHILD_ENTITY_TYPES[ctype]["label"]}
 
 
 class AtlasIEDAtmosphereDriver(BaseDriver):
@@ -196,16 +264,20 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "1.3.0",
+        "version": "2.0.0",
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
             "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing "
             "and control systems over the third-party JSON-RPC protocol "
-            "on TCP port 5321. Covers source / zone / mix / group gain "
-            "and mute, zone source select, group combine, message and "
-            "routine and scene playback, GPO state, and today's bell "
-            "schedule. Subscribes for state updates on connect."
+            "on TCP port 5321. Models sources, zones, mixes, groups, "
+            "messages, routines, scenes, GPO presets, GPOs, and bell "
+            "schedules as child entities labelled with the names from the "
+            "Atmosphere configuration. Covers gain and mute per source / "
+            "zone / mix / group, zone and group source select, group "
+            "combine, message / routine / scene / GPO-preset triggers, "
+            "GPO pin state, and today's bell schedule. Subscribes for "
+            "state updates on connect."
         ),
         "source_url": "https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf",
         "tags": ["atmosphere", "azm4", "azm8", "paging", "install-amp", "json-rpc"],
@@ -252,11 +324,15 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
                 "subscribes to entity state on connect, so updates push "
                 "live as users change settings on the front panel or in "
                 "the web UI.\n\n"
-                "Parameter names are assigned during device configuration "
-                "(via the Atmosphere web UI). The driver addresses entities "
-                "by zero-based index — Source 0, Zone 0, etc. Use the "
-                "Atmosphere web UI's Settings → Third Party Control → "
-                "Message Table to map names to indices."
+                "Sources, zones, mixes, groups, messages, routines, "
+                "scenes, GPO presets, GPOs, and bell schedules appear as "
+                "child entities, labelled with the names assigned during "
+                "device configuration (via the Atmosphere web UI). "
+                "Indices are zero-based, matching the device's Settings → "
+                "Third Party Control → Message Table.\n\n"
+                "Entity names and GPO pin states are read-only over "
+                "third-party control — rename entities in the Atmosphere "
+                "web UI, and drive GPOs by recalling GPO presets."
             ),
             "setup": (
                 "1. In the Atmosphere web UI, go to Settings → Third Party "
@@ -268,10 +344,10 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
                 "4. Set the entity counts (zones, sources, mixes, groups) "
                 "to match the device configuration. Counts default to "
                 "AZM8 sizing; over-sizing is harmless but bigger than "
-                "needed clutters the state list.\n"
+                "needed clutters the child entity lists.\n"
                 "5. After connecting, confirm the source / zone / mix / "
-                "group names from the Atmosphere config show up in the "
-                "device state."
+                "group names from the Atmosphere config show up as the "
+                "child entity labels."
             ),
         },
         "default_config": {
@@ -368,23 +444,19 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
                 "label": "Bell Schedule Count",
             },
         },
-        "state_variables": _build_state_vars(
-            DEFAULT_NUM_SOURCES,
-            DEFAULT_NUM_ZONES,
-            DEFAULT_NUM_MIXES,
-            DEFAULT_NUM_GROUPS,
-            DEFAULT_NUM_MESSAGES,
-            DEFAULT_NUM_ROUTINES,
-            DEFAULT_NUM_SCENES,
-            DEFAULT_NUM_GPO_PRESETS,
-            DEFAULT_NUM_GPOS,
-            DEFAULT_NUM_BELL_SCHEDULES,
-        ),
+        "state_variables": {
+            "firmware_version": {"type": "string", "label": "Firmware Version"},
+            "todays_bell_schedule": {
+                "type": "integer",
+                "label": "Today's Bell Schedule Index",
+            },
+        },
+        "child_entity_types": CHILD_ENTITY_TYPES,
         "commands": {
             "set_source_gain": {
                 "label": "Set Source Gain",
                 "params": {
-                    "source": {"type": "integer", "required": True, "min": 0},
+                    "source": _child_param("source"),
                     "gain_db": {
                         "type": "number",
                         "required": True,
@@ -398,14 +470,14 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "set_source_mute": {
                 "label": "Set Source Mute",
                 "params": {
-                    "source": {"type": "integer", "required": True, "min": 0},
+                    "source": _child_param("source"),
                     "mute": {"type": "boolean", "required": True},
                 },
             },
             "bump_source_gain": {
                 "label": "Bump Source Gain",
                 "params": {
-                    "source": {"type": "integer", "required": True, "min": 0},
+                    "source": _child_param("source"),
                     "delta_db": {
                         "type": "number",
                         "required": True,
@@ -417,7 +489,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "set_zone_gain": {
                 "label": "Set Zone Gain",
                 "params": {
-                    "zone": {"type": "integer", "required": True, "min": 0},
+                    "zone": _child_param("zone"),
                     "gain_db": {
                         "type": "number",
                         "required": True,
@@ -429,34 +501,39 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "set_zone_mute": {
                 "label": "Set Zone Mute",
                 "params": {
-                    "zone": {"type": "integer", "required": True, "min": 0},
+                    "zone": _child_param("zone"),
                     "mute": {"type": "boolean", "required": True},
                 },
             },
             "bump_zone_gain": {
                 "label": "Bump Zone Gain",
                 "params": {
-                    "zone": {"type": "integer", "required": True, "min": 0},
+                    "zone": _child_param("zone"),
                     "delta_db": {"type": "number", "required": True},
                 },
             },
             "set_zone_source": {
                 "label": "Select Zone Source",
                 "params": {
-                    "zone": {"type": "integer", "required": True, "min": 0},
-                    "source": {
-                        "type": "integer",
-                        "required": True,
-                        "min": -1,
-                        "help": "Source index, or -1 for none.",
-                    },
+                    "zone": _child_param("zone"),
+                    "source": _child_param("source"),
                 },
-                "help": "Select which source feeds a zone.",
+                "help": (
+                    "Select which source feeds a zone. Use Clear Zone "
+                    "Source to select none."
+                ),
+            },
+            "clear_zone_source": {
+                "label": "Clear Zone Source",
+                "params": {
+                    "zone": _child_param("zone"),
+                },
+                "help": "Select no source for a zone (silence it).",
             },
             "set_mix_gain": {
                 "label": "Set Mix Gain",
                 "params": {
-                    "mix": {"type": "integer", "required": True, "min": 0},
+                    "mix": _child_param("mix"),
                     "gain_db": {
                         "type": "number",
                         "required": True,
@@ -468,21 +545,21 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "set_mix_mute": {
                 "label": "Set Mix Mute",
                 "params": {
-                    "mix": {"type": "integer", "required": True, "min": 0},
+                    "mix": _child_param("mix"),
                     "mute": {"type": "boolean", "required": True},
                 },
             },
             "bump_mix_gain": {
                 "label": "Bump Mix Gain",
                 "params": {
-                    "mix": {"type": "integer", "required": True, "min": 0},
+                    "mix": _child_param("mix"),
                     "delta_db": {"type": "number", "required": True},
                 },
             },
             "set_group_gain": {
                 "label": "Set Group Gain",
                 "params": {
-                    "group": {"type": "integer", "required": True, "min": 0},
+                    "group": _child_param("group"),
                     "gain_db": {
                         "type": "number",
                         "required": True,
@@ -494,32 +571,39 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "set_group_mute": {
                 "label": "Set Group Mute",
                 "params": {
-                    "group": {"type": "integer", "required": True, "min": 0},
+                    "group": _child_param("group"),
                     "mute": {"type": "boolean", "required": True},
                 },
             },
             "bump_group_gain": {
                 "label": "Bump Group Gain",
                 "params": {
-                    "group": {"type": "integer", "required": True, "min": 0},
+                    "group": _child_param("group"),
                     "delta_db": {"type": "number", "required": True},
                 },
             },
             "set_group_source": {
                 "label": "Select Group Source",
                 "params": {
-                    "group": {"type": "integer", "required": True, "min": 0},
-                    "source": {
-                        "type": "integer",
-                        "required": True,
-                        "min": -1,
-                    },
+                    "group": _child_param("group"),
+                    "source": _child_param("source"),
                 },
+                "help": (
+                    "Select which source feeds a group. Use Clear Group "
+                    "Source to select none."
+                ),
+            },
+            "clear_group_source": {
+                "label": "Clear Group Source",
+                "params": {
+                    "group": _child_param("group"),
+                },
+                "help": "Select no source for a group.",
             },
             "set_group_active": {
                 "label": "Combine / Uncombine Group",
                 "params": {
-                    "group": {"type": "integer", "required": True, "min": 0},
+                    "group": _child_param("group"),
                     "active": {
                         "type": "boolean",
                         "required": True,
@@ -535,45 +619,37 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "play_message": {
                 "label": "Play Message",
                 "params": {
-                    "message": {"type": "integer", "required": True, "min": 0},
+                    "message": _child_param("message"),
                 },
                 "help": "Trigger playback of a stored message.",
             },
             "recall_routine": {
                 "label": "Recall Routine",
                 "params": {
-                    "routine": {"type": "integer", "required": True, "min": 0},
+                    "routine": _child_param("routine"),
                 },
             },
             "recall_scene": {
                 "label": "Recall Scene",
                 "params": {
-                    "scene": {"type": "integer", "required": True, "min": 0},
+                    "scene": _child_param("scene"),
                 },
             },
             "recall_gpo_preset": {
                 "label": "Recall GPO Preset",
                 "params": {
-                    "preset": {"type": "integer", "required": True, "min": 0},
+                    "preset": _child_param("gpo_preset"),
                 },
-            },
-            "set_gpo": {
-                "label": "Set GPO State",
-                "params": {
-                    "gpo": {"type": "integer", "required": True, "min": 0},
-                    "state": {"type": "boolean", "required": True},
-                },
-                "help": "Drive a general-purpose output high (true) or low (false).",
+                "help": (
+                    "Recall a GPO preset. This is the only way to drive "
+                    "GPO pins over third-party control — pin states are "
+                    "read-only."
+                ),
             },
             "set_todays_bell_schedule": {
                 "label": "Set Today's Bell Schedule",
                 "params": {
-                    "schedule": {
-                        "type": "integer",
-                        "required": True,
-                        "min": 0,
-                        "help": "Bell schedule index to use today.",
-                    },
+                    "schedule": _child_param("bell_schedule"),
                 },
             },
         },
@@ -597,6 +673,11 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         self._next_msg_id = 1
         # Resolved when a KeepAlive getResp arrives (see _liveness_probe).
         self._probe_fut: asyncio.Future[None] | None = None
+        # Configured roster sizes, used to gate incoming param updates.
+        self._counts: dict[str, int] = {
+            ctype: max(0, int(config.get(key, default)))
+            for ctype, key, default, _ in _ROSTERS
+        }
         super().__init__(device_id, config, state, events)
 
     async def connect(self) -> None:
@@ -623,10 +704,12 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         await self.events.emit(f"device.connected.{self.device_id}")
         log.info(f"[{self.device_id}] Connected to AtlasIED Atmosphere at {host}:{port}")
 
+        self._register_topology()
+
         # Subscribe to all configured params. Out-of-range subscribes
         # are silently ignored by the device, so over-sizing is harmless.
         try:
-            await self._subscribe_all()
+            await self._request_all("sub")
             await self._send_get("FirmwareVersion", "str")
             await self._send_get("TodaysBellSchedule", "val")
         except (ConnectionError, OSError):
@@ -648,6 +731,39 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         self.set_state("connected", False)
         await self.events.emit(f"device.disconnected.{self.device_id}")
         log.info(f"[{self.device_id}] Disconnected")
+
+    # ── Topology ──
+
+    def _register_topology(self) -> None:
+        """Register the config-sized rosters as children. Safe to re-run —
+        register_child is idempotent, and a driver-seeded placeholder label
+        never overrides one the user set in the project. Once the name
+        subscription answers, the device's own entity name displays via
+        ``label_field``."""
+        for ctype, _key, _default, label in _ROSTERS:
+            count = self._counts[ctype]
+            for n in range(count):
+                initial = None
+                project = self._project_child_entities.get(
+                    ctype, {}).get(f"{n:02d}")
+                if not (project and project.get("label")):
+                    initial = {"label": f"{label} {n}"}
+                self.register_child(ctype, n, initial_state=initial)
+            # Reconcile a shrunk count: children beyond the roster are
+            # leftovers from an earlier, larger configuration.
+            for existing in list(self.list_children(ctype)):
+                if not (0 <= existing < count):
+                    self.deregister_child(ctype, existing)
+
+    async def refresh_children(self) -> dict[str, Any]:
+        """IDE 'Refresh from Device': re-read every subscribed param."""
+        if not (self.transport and self.transport.connected):
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        self._register_topology()
+        await self._request_all("get")
+        await self._send_get("FirmwareVersion", "str")
+        await self._send_get("TodaysBellSchedule", "val")
+        return dict(self._counts)
 
     # ── Sending ──
 
@@ -691,61 +807,23 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             "params": {"param": param, "fmt": fmt},
         })
 
-    async def _subscribe_all(self) -> None:
-        cfg = self.config
-
-        # Sources: gain (val), mute (val), name (str)
-        for n in range(int(cfg.get("num_sources", DEFAULT_NUM_SOURCES))):
-            await self._send_sub(f"SourceGain_{n}", "val")
-            await self._send_sub(f"SourceMute_{n}", "val")
-            await self._send_sub(f"SourceName_{n}", "str")
-
-        for n in range(int(cfg.get("num_zones", DEFAULT_NUM_ZONES))):
-            await self._send_sub(f"ZoneGain_{n}", "val")
-            await self._send_sub(f"ZoneMute_{n}", "val")
-            await self._send_sub(f"ZoneName_{n}", "str")
-            await self._send_sub(f"ZoneSource_{n}", "val")
-            await self._send_sub(f"ZoneGrouped_{n}", "val")
-
-        for n in range(int(cfg.get("num_mixes", DEFAULT_NUM_MIXES))):
-            await self._send_sub(f"MixGain_{n}", "val")
-            await self._send_sub(f"MixMute_{n}", "val")
-            await self._send_sub(f"MixName_{n}", "str")
-
-        for n in range(int(cfg.get("num_groups", DEFAULT_NUM_GROUPS))):
-            await self._send_sub(f"GroupGain_{n}", "val")
-            await self._send_sub(f"GroupMute_{n}", "val")
-            await self._send_sub(f"GroupName_{n}", "str")
-            await self._send_sub(f"GroupSource_{n}", "val")
-            await self._send_sub(f"GroupActive_{n}", "val")
-
-        for n in range(int(cfg.get("num_messages", DEFAULT_NUM_MESSAGES))):
-            await self._send_sub(f"MessageName_{n}", "str")
-
-        for n in range(int(cfg.get("num_routines", DEFAULT_NUM_ROUTINES))):
-            await self._send_sub(f"RoutineName_{n}", "str")
-
-        for n in range(int(cfg.get("num_scenes", DEFAULT_NUM_SCENES))):
-            await self._send_sub(f"SceneName_{n}", "str")
-
-        for n in range(int(cfg.get("num_gpo_presets", DEFAULT_NUM_GPO_PRESETS))):
-            await self._send_sub(f"GpoPresetName_{n}", "str")
-
-        for n in range(int(cfg.get("num_gpos", DEFAULT_NUM_GPOS))):
-            await self._send_sub(f"GpoState_{n}", "val")
-
-        for n in range(int(cfg.get("num_bell_schedules", DEFAULT_NUM_BELL_SCHEDULES))):
-            await self._send_sub(f"BellScheduleName_{n}", "str")
-
-        await self._send_sub("TodaysBellSchedule", "val")
-        await self._send_sub("FirmwareVersion", "str")
+    async def _request_all(self, method: str) -> None:
+        """Send `sub` (or `get`, for a refresh) for every rostered param."""
+        send = self._send_sub if method == "sub" else self._send_get
+        for ctype, _key, _default, _label in _ROSTERS:
+            for prefix, fmt in _TYPE_SUBS[ctype]:
+                for n in range(self._counts[ctype]):
+                    await send(f"{prefix}_{n}", fmt)
+        if method == "sub":
+            await send("TodaysBellSchedule", "val")
+            await send("FirmwareVersion", "str")
 
     async def _liveness_probe(self) -> None:
         """Send `get KeepAlive` and await the getResp (ATS006993 §2).
 
         Correlation is by param name: _dispatch_param_update resolves the
         future when a KeepAlive reply arrives. Subscription updates for
-        other params do NOT satisfy the probe.
+        other params do NOT satisfy it.
         """
         fut: asyncio.Future[None] = asyncio.get_running_loop().create_future()
         self._probe_fut = fut
@@ -794,6 +872,10 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             await self._send_set(
                 f"ZoneSource_{int(params['zone'])}", "val", int(params["source"])
             )
+        elif command == "clear_zone_source":
+            await self._send_set(
+                f"ZoneSource_{int(params['zone'])}", "val", -1
+            )
         elif command == "set_mix_gain":
             await self._send_set(
                 f"MixGain_{int(params['mix'])}", "val", float(params["gain_db"])
@@ -822,6 +904,10 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             await self._send_set(
                 f"GroupSource_{int(params['group'])}", "val", int(params["source"])
             )
+        elif command == "clear_group_source":
+            await self._send_set(
+                f"GroupSource_{int(params['group'])}", "val", -1
+            )
         elif command == "set_group_active":
             await self._send_set(
                 f"GroupActive_{int(params['group'])}",
@@ -843,10 +929,6 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         elif command == "recall_gpo_preset":
             await self._send_set(
                 f"RecallGpoPreset_{int(params['preset'])}", "val", 1
-            )
-        elif command == "set_gpo":
-            await self._send_set(
-                f"GpoState_{int(params['gpo'])}", "val", 1 if params["state"] else 0
             )
         elif command == "set_todays_bell_schedule":
             await self._send_set(
@@ -929,57 +1011,32 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
             self.set_state("todays_bell_schedule", _to_int(value))
             return
 
-        # SourceGain_3 / ZoneMute_0 / GroupActive_2 / etc.
+        # SourceGain_3 / ZoneMute_0 / GroupActive_2 / etc. — route the
+        # wire param into the matching child prop.
         prefix, _, idx_str = param.rpartition("_")
         if not prefix or not idx_str.isdigit():
             return
-        idx = int(idx_str)
+        mapped = _PARAM_MAP.get(prefix)
+        if not mapped:
+            return
+        ctype, prop, conv = mapped
 
-        # Map (prefix, value handler) -> state key
-        if prefix == "SourceGain":
-            self.set_state(f"source_{idx}_gain", _to_float(value))
-        elif prefix == "SourceMute":
-            self.set_state(f"source_{idx}_mute", _to_bool(value))
-        elif prefix == "SourceName":
-            self.set_state(f"source_{idx}_name", str(value))
-        elif prefix == "ZoneGain":
-            self.set_state(f"zone_{idx}_gain", _to_float(value))
-        elif prefix == "ZoneMute":
-            self.set_state(f"zone_{idx}_mute", _to_bool(value))
-        elif prefix == "ZoneName":
-            self.set_state(f"zone_{idx}_name", str(value))
-        elif prefix == "ZoneSource":
-            self.set_state(f"zone_{idx}_source", _to_int(value))
-        elif prefix == "ZoneGrouped":
-            self.set_state(f"zone_{idx}_grouped", _to_bool(value))
-        elif prefix == "MixGain":
-            self.set_state(f"mix_{idx}_gain", _to_float(value))
-        elif prefix == "MixMute":
-            self.set_state(f"mix_{idx}_mute", _to_bool(value))
-        elif prefix == "MixName":
-            self.set_state(f"mix_{idx}_name", str(value))
-        elif prefix == "GroupGain":
-            self.set_state(f"group_{idx}_gain", _to_float(value))
-        elif prefix == "GroupMute":
-            self.set_state(f"group_{idx}_mute", _to_bool(value))
-        elif prefix == "GroupName":
-            self.set_state(f"group_{idx}_name", str(value))
-        elif prefix == "GroupSource":
-            self.set_state(f"group_{idx}_source", _to_int(value))
-        elif prefix == "GroupActive":
-            self.set_state(f"group_{idx}_active", _to_bool(value))
-        elif prefix == "MessageName":
-            self.set_state(f"message_{idx}_name", str(value))
-        elif prefix == "RoutineName":
-            self.set_state(f"routine_{idx}_name", str(value))
-        elif prefix == "SceneName":
-            self.set_state(f"scene_{idx}_name", str(value))
-        elif prefix == "GpoPresetName":
-            self.set_state(f"gpo_preset_{idx}_name", str(value))
-        elif prefix == "GpoState":
-            self.set_state(f"gpo_{idx}_state", _to_bool(value))
-        elif prefix == "BellScheduleName":
-            self.set_state(f"bell_schedule_{idx}_name", str(value))
+        idx = int(idx_str)
+        if not (0 <= idx < self._counts.get(ctype, 0)):
+            return
+
+        if conv == "float":
+            converted: Any = _to_float(value)
+        elif conv == "int":
+            converted = _to_int(value)
+        elif conv == "bool":
+            converted = _to_bool(value)
+        else:
+            converted = str(value)
+        if converted is None:
+            return
+
+        self.set_child_state(ctype, idx, prop, converted)
 
 
 def _to_float(value: Any) -> float | None:

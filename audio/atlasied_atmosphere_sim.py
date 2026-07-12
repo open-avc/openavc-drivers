@@ -15,12 +15,13 @@ TCP port 5321.
 
 Read-only "Name" parameters can be set by the simulator config and are
 returned via subscribe / get; client "set" attempts on Name params are
-ignored, matching the device behavior.
+ignored, matching the device behavior. GpoState and ZoneGrouped are
+likewise read-only for third-party clients (ATS006993 §6 parameter
+table) — GPO pins are driven by recalling GPO presets.
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
@@ -54,6 +55,10 @@ NAME_PARAMS = {
     "FirmwareVersion",
     "KeepAlive",
 }
+
+# GpoState and ZoneGrouped can be subscribed but not set by third-party
+# clients (ATS006993 §6 parameter table) — GPOs change via RecallGpoPreset.
+READ_ONLY_PARAMS = NAME_PARAMS | {"GpoState", "ZoneGrouped"}
 
 
 class AtlasIEDAtmosphereSimulator(TCPSimulator):
@@ -231,8 +236,9 @@ class AtlasIEDAtmosphereSimulator(TCPSimulator):
             return
 
         prefix = param.rsplit("_", 1)[0]
-        # Read-only Name params + FirmwareVersion can't be set by clients.
-        if prefix in NAME_PARAMS:
+        # Read-only params (Names, FirmwareVersion, GpoState, ZoneGrouped)
+        # can't be set by clients.
+        if prefix in READ_ONLY_PARAMS:
             return
 
         # Action params (PlayMessage / RecallRoutine / etc.) just trigger.
@@ -260,7 +266,7 @@ class AtlasIEDAtmosphereSimulator(TCPSimulator):
             return
 
         prefix = param.rsplit("_", 1)[0]
-        if prefix in NAME_PARAMS:
+        if prefix in READ_ONLY_PARAMS:
             return
 
         # Bump on action params triggers them.
@@ -373,8 +379,8 @@ class AtlasIEDAtmosphereSimulator(TCPSimulator):
         else:
             return None
 
-        # Mute / GroupActive / GpoState are 0/1 ints.
-        if prefix in ("SourceMute", "ZoneMute", "MixMute", "GroupMute", "GroupActive", "GpoState"):
+        # Mute / GroupActive are 0/1 ints.
+        if prefix in ("SourceMute", "ZoneMute", "MixMute", "GroupMute", "GroupActive"):
             try:
                 return 1 if int(v) != 0 else 0
             except (TypeError, ValueError):

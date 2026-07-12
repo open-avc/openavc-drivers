@@ -12,6 +12,16 @@ Covers the v1.3.0 first-class adoption:
     device forces a reconnect with a typed no_response fault;
   - quick actions promote the one-shot paging actions.
 
+And the v2.0.0 child-entity conversion:
+  - config-sized rosters registered per type (sources / zones / mixes /
+    groups / messages / routines / scenes / GPO presets / GPOs / bell
+    schedules), reconciled when a count shrinks;
+  - subscription updates route into child props; entity names land in the
+    child `name` prop that feeds `label_field`;
+  - commands take child_id params; set_gpo is gone (GpoState is read-only
+    per the ATS006993 §6 parameter table) and the simulator ignores
+    third-party sets on GpoState / ZoneGrouped.
+
 Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected).
@@ -47,7 +57,8 @@ class _FakeEvents:
 
 
 class _FakeBaseDriver:
-    """Stand-in mirroring the platform BaseDriver liveness watchdog."""
+    """Stand-in mirroring the platform BaseDriver liveness watchdog and
+    child-entity registry (integer-id validation included)."""
 
     DRIVER_INFO: dict = {}
 
@@ -69,12 +80,83 @@ class _FakeBaseDriver:
         self.stashed_fault: tuple[str, str] | None = None
         self._health_task = None
         self._health_failures = 0
+        self._children: dict = {}
+        self._order: dict = {}
+        self._project_child_entities: dict = {}
 
     def set_state(self, key, value) -> None:
         self.state.set(key, value)
 
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
+
+    # -- child registry (mirrors the platform's integer-id validation) --
+
+    def _eff_schema(self, child_type, local_id):
+        types = self.DRIVER_INFO.get("child_entity_types", {})
+        sch = dict(types.get(child_type, {}).get("state_variables", {}))
+        sch.setdefault("online", {"type": "boolean"})
+        sch.setdefault("label", {"type": "string"})
+        return sch
+
+    def register_child(self, child_type, local_id, initial_state=None,
+                       schema=None):
+        tdef = self.DRIVER_INFO.get("child_entity_types", {}).get(
+            child_type)
+        if tdef is None:
+            raise ValueError(f"unknown child type {child_type!r}")
+        id_fmt = tdef.get("id_format", {})
+        if not isinstance(local_id, int):
+            raise TypeError(
+                f"Child {child_type} local_id must be int, got "
+                f"{type(local_id).__name__}: {local_id!r}")
+        if local_id < id_fmt.get("min", 1):
+            raise ValueError(
+                f"Child {child_type} local_id {local_id} below id_format min")
+        if (child_type, local_id) in self._children:
+            return
+        eff = self._eff_schema(child_type, local_id)
+        st = {}
+        for prop, vd in eff.items():
+            t = vd.get("type")
+            st[prop] = (True if prop == "online" else
+                        False if t == "boolean" else
+                        0 if t == "integer" else
+                        0.0 if t in ("number", "float") else "")
+        for prop, val in (initial_state or {}).items():
+            if prop not in eff:
+                raise ValueError(f"unknown prop {prop!r} for {child_type}")
+            st[prop] = val
+        self._children[(child_type, local_id)] = st
+        self._order.setdefault(child_type, []).append(local_id)
+
+    def deregister_child(self, child_type, local_id):
+        self._children.pop((child_type, local_id), None)
+        if local_id in self._order.get(child_type, []):
+            self._order[child_type].remove(local_id)
+
+    def list_children(self, child_type):
+        return list(self._order.get(child_type, []))
+
+    def get_child_state(self, child_type, local_id):
+        return dict(self._children.get((child_type, local_id), {}))
+
+    def set_child_state(self, child_type, local_id, prop, value):
+        if (child_type, local_id) not in self._children:
+            raise ValueError(f"unregistered child {child_type}/{local_id}")
+        eff = self._eff_schema(child_type, local_id)
+        if prop not in eff:
+            raise ValueError(f"bad prop {prop!r} for {child_type}")
+        self._children[(child_type, local_id)][prop] = value
+
+    def set_child_state_batch(self, child_type, local_id, updates):
+        for prop, value in updates.items():
+            self.set_child_state(child_type, local_id, prop, value)
+
+    def count_children(self, child_type):
+        return len(self._order.get(child_type, []))
+
+    # -- disconnect bookkeeping + liveness watchdog (mirrors the platform) --
 
     def _handle_transport_disconnect(self) -> None:
         self.disconnect_calls += 1
@@ -231,10 +313,10 @@ SIM = _load("atmosphere_sim_under_test", SIM_PATH)
 
 # ── Pairing harness ─────────────────────────────────────────────────────────
 
-async def _make_pair(driver_overrides=None):
+async def _make_pair(driver_overrides=None, sim_overrides=None):
     global _CURRENT_SIM, _SWALLOW
     _SWALLOW = False
-    sim = SIM.AtlasIEDAtmosphereSimulator("sim1", {})
+    sim = SIM.AtlasIEDAtmosphereSimulator("sim1", sim_overrides or {})
     _CURRENT_SIM = sim
 
     cfg = {"host": "10.0.0.5", "port": 5321}
@@ -252,11 +334,153 @@ def _run(coro):
 
 def test_metadata_and_actions_shape():
     info = DRV.AtlasIEDAtmosphereDriver.DRIVER_INFO
-    assert info["version"] == "1.3.0"
+    assert info["version"] == "2.0.0"
     assert info["min_platform_version"] == "0.22.0"
     for cid in info["quick_actions"]:
         assert cid in info["commands"], cid
     assert {a["id"] for a in info["actions"]} == set(info["quick_actions"])
+    # GpoState is read-only per ATS006993 §6 — no direct GPO set command.
+    assert "set_gpo" not in info["commands"]
+
+
+def test_child_types_and_pickers():
+    info = DRV.AtlasIEDAtmosphereDriver.DRIVER_INFO
+    types = info["child_entity_types"]
+    assert set(types) == {
+        "source", "zone", "mix", "group", "message", "routine", "scene",
+        "gpo_preset", "gpo", "bell_schedule",
+    }
+    # Zero-based ids matching the device's message table indexing.
+    for tdef in types.values():
+        assert tdef["id_format"]["min"] == 0
+    # Every child_id param points at a declared type.
+    for cid, cmd in info["commands"].items():
+        for pname, pdef in cmd.get("params", {}).items():
+            if pdef.get("type") == "child_id":
+                assert pdef["child_type"] in types, f"{cid}.{pname}"
+    # Flat state is down to the two device-level vars — everything indexed
+    # lives on children now (the config-count sizing fix).
+    assert set(info["state_variables"]) == {
+        "firmware_version", "todays_bell_schedule",
+    }
+
+
+# ── Topology registration ───────────────────────────────────────────────────
+
+def test_roster_registration_counts_follow_config():
+    async def scenario():
+        driver, _sim = await _make_pair(
+            {"num_zones": 4, "num_groups": 2, "num_gpos": 2})
+        await driver.connect()
+        try:
+            assert driver.count_children("source") == 8
+            assert driver.count_children("zone") == 4
+            assert driver.count_children("mix") == 8
+            assert driver.count_children("group") == 2
+            assert driver.count_children("message") == 8
+            assert driver.count_children("gpo") == 2
+            assert driver.count_children("bell_schedule") == 4
+            # Placeholder labels are zero-based like the message table.
+            assert driver.get_child_state("zone", 0)["label"] == "Zone 0"
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_topology_reconciles_shrunk_roster():
+    async def scenario():
+        driver, _sim = await _make_pair({"num_zones": 4})
+        # A leftover child from an earlier, larger configuration.
+        driver.register_child("zone", 7)
+        driver._register_topology()
+        assert 7 not in driver.list_children("zone")
+        assert driver.count_children("zone") == 4
+    _run(scenario())
+
+
+def test_project_label_not_overridden_by_placeholder():
+    async def scenario():
+        driver, _sim = await _make_pair()
+        driver._project_child_entities = {
+            "zone": {"00": {"label": "Dining Room"}}}
+        driver._register_topology()
+        # No placeholder seeded — the platform would apply the project
+        # label; the stub default is "" when no initial label is passed.
+        assert driver.get_child_state("zone", 0)["label"] == ""
+        assert driver.get_child_state("zone", 1)["label"] == "Zone 1"
+    _run(scenario())
+
+
+# ── Connect round trip / push into children ─────────────────────────────────
+
+def test_connect_populates_children_from_sim():
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            assert driver._connected
+            assert driver.get_state("firmware_version")
+            # Subscribe answers with the sim's initial values.
+            zone0 = driver.get_child_state("zone", 0)
+            assert zone0["name"] == "Zone 1"
+            assert zone0["gain"] == -10.0
+            assert zone0["mute"] is False
+            assert zone0["source"] == 0
+            assert driver.get_child_state("message", 2)["name"] == "Message 3"
+            assert driver.get_child_state("gpo", 0)["state"] is False
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_command_round_trip_updates_child_state():
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            await driver.send_command(
+                "set_zone_gain", {"zone": 3, "gain_db": -25.0})
+            assert sim._values["ZoneGain_3"] == -25.0
+            assert driver.get_child_state("zone", 3)["gain"] == -25.0
+
+            await driver.send_command(
+                "set_source_mute", {"source": 1, "mute": True})
+            assert sim._values["SourceMute_1"] == 1
+            assert driver.get_child_state("source", 1)["mute"] is True
+
+            await driver.send_command(
+                "set_group_active", {"group": 0, "active": True})
+            assert sim._values["GroupActive_0"] == 1
+            assert driver.get_child_state("group", 0)["active"] is True
+
+            await driver.send_command(
+                "set_zone_source", {"zone": 2, "source": 5})
+            assert sim._values["ZoneSource_2"] == 5
+            assert driver.get_child_state("zone", 2)["source"] == 5
+
+            await driver.send_command("clear_zone_source", {"zone": 2})
+            assert sim._values["ZoneSource_2"] == -1
+            assert driver.get_child_state("zone", 2)["source"] == -1
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_sim_ignores_set_on_read_only_params():
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            # GpoState / ZoneGrouped / names are read-only per ATS006993
+            # §6 — a third-party set must not change the sim's value.
+            for param, value in (("GpoState_0", 1), ("ZoneGrouped_0", 1),
+                                 ("ZoneName_0", "Hacked")):
+                before = sim._values[param]
+                await driver._send_set(param, "val", value)
+                assert sim._values[param] == before, param
+        finally:
+            await driver.disconnect()
+    _run(scenario())
 
 
 # ── Liveness ────────────────────────────────────────────────────────────────
@@ -307,7 +531,7 @@ def test_subscription_update_does_not_satisfy_probe():
                 b'"params":{"param":"ZoneGain_0","val":-12.0}}\n')
             await asyncio.sleep(0.05)
             assert not probe.done()
-            assert driver.get_state("zone_0_gain") == -12.0
+            assert driver.get_child_state("zone", 0)["gain"] == -12.0
             await driver.on_data_received(
                 b'{"jsonrpc":"2.0","method":"getResp",'
                 b'"params":[{"param":"KeepAlive","str":"OK"}]}\n')
@@ -345,15 +569,20 @@ def test_health_loop_forces_reconnect_on_silent_device():
     _run(scenario())
 
 
-# ── Connect round trip (guards the harness itself) ──────────────────────────
+# ── Refresh ─────────────────────────────────────────────────────────────────
 
-def test_connect_populates_state_from_sim():
+def test_refresh_children_resyncs_after_device_side_change():
     async def scenario():
         driver, sim = await _make_pair()
         await driver.connect()
         try:
-            assert driver._connected
-            assert driver.get_state("firmware_version")
+            # Device-side change while our updates were lost: mutate the
+            # sim store directly (no push), then refresh via `get`.
+            sim._values["MixGain_1"] = -30.0
+            assert driver.get_child_state("mix", 1)["gain"] == -10.0
+            result = await driver.refresh_children()
+            assert result["mix"] == 8
+            assert driver.get_child_state("mix", 1)["gain"] == -30.0
         finally:
             await driver.disconnect()
     _run(scenario())

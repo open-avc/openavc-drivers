@@ -1379,10 +1379,54 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
             cvars = tdef.get("state_variables")
             cvars = cvars if isinstance(cvars, dict) else {}
             cid = entry.get("id")
+            id_fmt = tdef.get("id_format")
+            id_fmt = id_fmt if isinstance(id_fmt, dict) else {}
+            id_type = id_fmt.get("type", "integer")
             if cid is None:
                 errors.append(
-                    f"{where}: missing 'id' (a capture ref like $1, or a literal)"
+                    f"{where}: missing 'id' (a capture ref like $1, a "
+                    f"literal, or {{group, map}})"
                 )
+            elif isinstance(cid, dict):
+                # Long form {group, map}: wire-id translation on a capture
+                # ref (mirrors driver_loader.py).
+                gref = cid.get("group")
+                if isinstance(gref, str) and gref.startswith("$"):
+                    _check_ref(f"{where}: id group", gref)
+                elif isinstance(gref, int) and not isinstance(gref, bool):
+                    _check_ref(f"{where}: id group", f"${gref}")
+                else:
+                    errors.append(
+                        f"{where}: id group must be a capture ref "
+                        f"(1, 2, ... or '$1')"
+                    )
+                id_map = cid.get("map")
+                if id_map is not None:
+                    if not isinstance(id_map, dict) or not id_map:
+                        errors.append(
+                            f"{where}: id map must be a non-empty mapping "
+                            f"of wire id -> local child id"
+                        )
+                    else:
+                        for mk, mv in id_map.items():
+                            if isinstance(mv, bool) or not isinstance(
+                                mk, (str, int)
+                            ) or not isinstance(mv, (str, int)):
+                                errors.append(
+                                    f"{where}: id map entries must be "
+                                    f"scalar wire id -> local id pairs"
+                                )
+                                break
+                            if id_type == "integer":
+                                try:
+                                    int(str(mv).strip())
+                                except ValueError:
+                                    errors.append(
+                                        f"{where}: id map value {mv!r} is "
+                                        f"not an integer ({ctype} declares "
+                                        f"integer ids)"
+                                    )
+                                    break
             elif isinstance(cid, str) and cid.startswith("$"):
                 _check_ref(f"{where}: id", cid)
             state_map = entry.get("state")

@@ -712,11 +712,52 @@
           "description": "A declared child_entity_types name."
         },
         "id": {
-          "type": [
-            "string",
-            "integer"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "group": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^\\$\\d+$"
+                    }
+                  ],
+                  "description": "Which capture group holds the wire id."
+                },
+                "map": {
+                  "type": "object",
+                  "minProperties": 1,
+                  "additionalProperties": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "description": "Wire id -> local child id translation. A captured id the map doesn't cover skips the entry."
+                }
+              },
+              "required": [
+                "group"
+              ],
+              "additionalProperties": false
+            }
           ],
-          "description": "Capture ref ($1, $2, ...) or a literal child ID."
+          "description": "A capture ref ($1), a literal child id, or {group, map} to translate a captured wire id (0-based channels, ST codes) to the local child id."
         },
         "state": {
           "type": "object",
@@ -846,7 +887,25 @@
           "type": "boolean",
           "description": "For string params. Default true: leading/trailing whitespace is trimmed before the value goes on the wire. Set false to pass the value through verbatim — for raw payloads where edge whitespace is meaningful (typed text, verbatim titles, relay bodies whose trailing terminator is part of the protocol). Requires platform 0.22.0."
         },
-        "default": true
+        "default": true,
+        "map": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "description": "Wire-value translation applied after validation, before substitution: the validated value (string-keyed) is replaced by the mapped wire value. Values not in the map pass through unchanged. Most useful on child_id params whose local ids differ from the protocol's channel numbers."
+        }
       },
       "additionalProperties": true
     },

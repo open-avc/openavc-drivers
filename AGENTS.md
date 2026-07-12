@@ -620,6 +620,20 @@ responses:
       - { type: output, id: 2, state: { input: $2 } }
 ```
 
+**Wire-id translation (platform ≥ 0.23.0).** When the protocol's channel numbers differ from the local child ids (0-based wire, a special stereo-channel code), use the long id form `{group, map}` — the captured wire id is looked up (string-keyed) and the mapped local id used. A wire id the map doesn't cover **skips the entry** (debug log), so a preceding rule can claim special channels with a literal id:
+
+```yaml
+responses:
+  - match: 'GICL \S+ NC 10,(\d+)'      # ST channel first (10 isn't in the map)
+    child_set:
+      - { type: stereo_input, id: 1, state: { level: $1 } }
+  - match: 'GICL \S+ NC (\d+),(\d+)'   # wire 0-5 -> inputs 1-6
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6 } }
+        state: { level: $2 }
+```
+
 **`each_child:`** entries in `polling.queries` (and `on_connect`) — one query per registered child, `{child_id}` substituting the unpadded local ID:
 
 ```yaml
@@ -687,6 +701,20 @@ commands:
 ```
 
 Both are opt-in and byte-stream only (tcp/serial/udp) — an OSC or HTTP command is never framed. A single command opts out with `raw: true`. To poll a framed command, list its **name** in `polling.queries` (it runs as that command, so the frame is applied) rather than re-typing the framed wire string. Requires platform 0.23.0. When a protocol also wraps commands in a binary packet header with a **computed** data-length (e.g. eISCP over TCP) that a static prefix can't express, add a `send_frame` block on top — see §2.12.
+
+**Wire value maps (platform ≥ 0.23.0).** Any param may declare a `map:` translating the **validated** value into what actually goes on the wire — applied once, after the min/max/enum/pattern gate (which sees the user-facing value) and before `{placeholder}` substitution, on every transport. Values not in the map pass through unchanged. The main use is a `child_id` param whose local ids differ from the protocol's channel numbers:
+
+```yaml
+  set_input_level:
+    send: 'SICL S 0000 00 NC {channel},{level} \r'
+    params:
+      channel:
+        type: child_id
+        child_type: input          # children are inputs 1-6...
+        required: true
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5" }   # ...wire wants 0-5
+      level: { type: integer, required: true, min: 0, max: 511 }
+```
 
 **Enum labels.** An `enum` param's `values` entries may be plain strings or `{value, label}` pairs. The **label** is what the operator picks and reads in a macro; the **value** goes on the wire — so you label a code set once instead of defining one command per code. A caller may pass either the label or the wire value (picker, macro `$var`, REST/cloud API); the runtime normalizes to the value. Requires platform 0.23.0.
 

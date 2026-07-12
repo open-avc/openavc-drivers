@@ -641,10 +641,10 @@
       "name": "Audio-Technica ATDM-0604a",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Input/output level and mute control, preset recall, SmartMix configuration including gate threshold, and optional live level meters.\n",
+      "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout.\n",
       "source_url": "https://docs.audio-technica.com/all/ATDM-0604a_IP_Control_Protocol_Specifications_EN_Ver1.0_web_221209.pdf",
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
@@ -661,8 +661,8 @@
         "automixer"
       ],
       "help": {
-        "overview": "Controls the Audio-Technica ATDM-0604a Digital SmartMixer, a 6-input automatic mixer for conference and installed sound applications.\n",
-        "setup": "1. Connect the ATDM-0604a to the network (default control port 17300). 2. Configure the mixer's IP address via Web Remote (http://<mixer-ip>/). 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Input channels: 1-6 (mic/line) and ST (stereo).\n   Output channels: 1-2 and ST (stereo).\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   239.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the meter state values.\n"
+        "overview": "Controls the Audio-Technica ATDM-0604a Digital SmartMixer, a 6-input automatic mixer for conference and installed sound applications. Each input and output appears as a child entity carrying its fader, mute, gain, and settings, labelled with the channel name configured on the mixer.\n",
+        "setup": "1. Connect the ATDM-0604a to the network (default control port 17300). 2. Configure the mixer's IP address via Web Remote (http://<mixer-ip>/). 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Inputs 1-6 and Input ST, Outputs 1-2 and Output ST appear as this\n   device's child entities, labelled by the channel names set on the\n   mixer (rename them with the Rename commands or in Web Remote).\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   239.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead. Channel names and\n   input settings have no change notice and refresh at the poll\n   interval.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the child meter values.\n"
       },
       "compatible_models": [
         {

@@ -2108,7 +2108,16 @@ simulator:
       state_pattern: "route_{output}"
 
   notifications:
-    # Push unsolicited messages when state changes (simulates real device behavior)
+    # Push unsolicited messages when state changes (simulates real device behavior).
+    # These go out on the CONTROL CONNECTION by default — but if the driver
+    # declares a `push:` block (§2.10.2), the simulator routes them to that
+    # channel instead (multicast group / SSE subscribers / dial-back
+    # connections), never to the control connection, matching the real device.
+    # Author each template as the EXACT bytes the device sends, including any
+    # framing the payload itself carries (a dial-back container's payload wraps
+    # its response in CRLF: "\r\np{value}\r\n" — use a double-quoted YAML string
+    # so the escapes are real). The container/reserve bytes are added for you
+    # from the push block's frame_parser declaration.
     volume:
       '*': 'Vol{value}'            # {value} replaced with new state value
     mute:

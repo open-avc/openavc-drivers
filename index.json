@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 84,
+    "total_drivers": 85,
     "shards": null
   },
   "drivers": [
@@ -5240,6 +5240,58 @@
         "manufacturer_alias": [
           "turtleav",
           "darwin"
+        ]
+      }
+    },
+    {
+      "id": "tvone_coriomatrix",
+      "name": "tvONE CORIOmatrix",
+      "manufacturer": "tvONE",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls tvONE CORIOmatrix and CORIOmatrix mini modular matrix routers over the CORIOmax command-line API (TCP 10001). The installed input/output cards are discovered from the frame, so every port appears as a child entity with its routing, signal status, and cut-to-black state. Includes routing preset recall and save with a live preset picker.",
+      "source_url": "https://tvone.com/filestore/Manuals-CORIO-Products/tvONE%20CORIOmatrix%20Commands-v2.0.8.pdf",
+      "file": "switchers/tvone_coriomatrix.py",
+      "format": "python",
+      "ports": [
+        10001
+      ],
+      "protocols": [
+        "coriomax_cli"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.19.4",
+      "tags": [
+        "matrix-switcher",
+        "modular",
+        "coriomatrix",
+        "coriomax",
+        "tvone"
+      ],
+      "help": {
+        "overview": "CORIOmatrix is tvONE's modular card-frame matrix router \u2014 slots take DVI, HDMI, SDI, and HDBaseT input or output cards. The driver logs in, discovers which cards are installed, and models every port as a child entity: outputs carry their routed source and cut-to-black state, inputs their signal status. Routing presets stored on the unit can be recalled from a live dropdown or saved from the current routing.",
+        "setup": "1. Give the unit a static IP (default 192.168.0.10) and add it here with port 10001.\n2. Enter the control login \u2014 the factory account is username admin, password adminpw (the password field is left blank on purpose; type the unit's real password).\n3. The unit accepts one controller at a time: close any open CORIOdiscover / web session first.\n4. Ports are addressed by their factory alias \u2014 slot 3 input 1 is s3i1 \u2014 matching what the front panel and web UI show. Use Refresh from Device after changing cards.\n5. Keep polling enabled: the session logs out after five minutes idle, and polling doubles as the keep-alive."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "tvONE",
+          "models": [
+            "CORIOmatrix (C3-340)",
+            "CORIOmatrix mini (C3-310)"
+          ],
+          "confidence": "untested",
+          "notes": "Both frames speak the same CORIOmax command-line API (document v2.0.8, System API 4.5+). The unit accepts ONE controlling connection at a time (serial or Ethernet) \u2014 close CORIOdiscover / CORIOgrapher sessions before connecting OpenAVC. Factory login is admin / adminpw."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          10001
+        ],
+        "manufacturer_alias": [
+          "tvone",
+          "tv one"
         ]
       }
     },

@@ -932,13 +932,13 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.6.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Shure networked audio devices over TCP (port 2202). Covers MXA910/920/710 ceiling microphone arrays, ANI interfaces, P300 IntelliMix processor, and SCM820 automixer.\n",
-      "source_url": "https://pubs.shure.com/guide/commandstrings",
-      "file": "audio/shure_network.avcdriver",
-      "format": "avcdriver",
+      "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
+      "source_url": "https://pubs.shure.com/command-strings/",
+      "file": "audio/shure_network.py",
+      "format": "python",
       "ports": [
         2202
       ],
@@ -949,9 +949,15 @@
       "min_platform_version": "0.22.0",
       "tags": [
         "ceiling-mic",
-        "wireless-mic",
-        "intellimix"
+        "microphone",
+        "automixer",
+        "intellimix",
+        "dsp"
       ],
+      "help": {
+        "overview": "Shure networked microphones, interfaces, and processors speak the Device Control Strings (DCS) protocol on TCP port 2202. This driver models each audio channel as a child entity carrying its mute, gain (in dB), name, and live level, and controls device-level mute, presets, and the status LED directly.\n\nState is push-driven: after connecting, the driver seeds every channel from the device, then mirrors the REP messages the device sends whenever anything changes \u2014 including changes made on the front panel or in Shure Designer.\n\nChannel names are read-only over third-party control \u2014 set them in Shure Designer, and they appear here as the channel labels.",
+        "setup": "1. In Shure Designer (or the device web UI), the third-party control interface on TCP 2202 is enabled by default.\n2. Give the device a static IP or a DHCP reservation.\n3. In OpenAVC, enter the IP. Port 2202 is fixed.\n4. Set Channel Count to match the device (e.g. 9 for an MXA array's 8 lobes plus the automixer output, 4 for an ANI4IN). Over-sizing is harmless \u2014 extra channels just answer REP ERR \u2014 but clutters the channel list.\n5. To see live level meters, set Meter Interval to a value like 500 ms (0 disables metering)."
+      },
       "compatible_models": [
         {
           "manufacturer": "Shure",
@@ -965,7 +971,8 @@
             "P300 IntelliMix",
             "SCM820"
           ],
-          "confidence": "untested"
+          "confidence": "untested",
+          "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
         }
       ],
       "discovery": {

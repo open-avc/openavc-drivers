@@ -477,7 +477,7 @@ Defines the fields shown in the Add Device dialog. Each key is a config field na
 ```yaml
 config_schema:
   host:
-    type: string             # string | text | integer | number | boolean | enum | object
+    type: string             # string | text | integer | number | boolean | enum | object | table
     required: true
     default: ""
     label: "IP Address"
@@ -507,14 +507,43 @@ config_schema:
     label: "Password"
     secret: true             # Masks the value in the UI
   blocks:
-    type: text               # Multi-line textarea — for declarative block lists,
-                             # channel maps, scripted patterns. The Add Device
-                             # dialog renders a 6-row monospace textarea. The
-                             # raw string is preserved (no JSON / number coercion
-                             # on save). Driver parses the string at __init__.
+    type: text               # Multi-line textarea — free text the driver parses
+                             # at __init__. Prefer `table` (below) for a
+                             # structured list; use `text` only for genuinely
+                             # free-form config.
     label: "DSP Block List"
     description: "One block per line: <TAG> <TYPE> [CHANNELS]"
+  register_map:
+    type: table              # Repeatable typed rows, edited by a friendly row
+                             # editor on the DEVICE PAGE (the Add Device dialog
+                             # just points to it). Stored as a list of row
+                             # objects keyed by column id — the driver reads
+                             # config["register_map"] as a list of dicts, no
+                             # string parsing. This is the first-class
+                             # replacement for a hand-typed `text` list.
+    label: "Register Map"
+    row_label: "register"    # singular noun for the "+ Add register" button
+    columns:                 # each column is a scalar field spec
+      name:    { type: string,  label: "Name", required: true }
+      address: { type: integer, label: "Address", min: 0, max: 65535 }
+      access:  { type: enum,    label: "Access", default: "r",
+                 values: [ { value: "r", label: "Read" },
+                           { value: "w", label: "Write" },
+                           { value: "rw", label: "Read/Write" } ] }
+      scale:   { type: number,  label: "Scale", default: 1 }
+      unit:    { type: string,  label: "Unit" }
 ```
+
+**`type: table`** renders a device-page row editor driven by the `columns` map.
+Column cell types: `string`/`text` (text input), `integer`/`number`/`float`
+(number input, honoring `min`/`max`), `boolean` (checkbox), `enum` (dropdown
+over `values`, plain strings or `{value, label}` pairs). A column may set
+`required`, `default`, and `help` (header tooltip). The stored value is a list
+of row objects — a blank row is dropped on save. First consumer: the
+`modbus_tcp` register map; also used by DSP block/point lists. **Requires
+platform ≥ 0.23.0.** Authoring a `table` field in the Driver Builder GUI is a
+tracked follow-up; declare it directly in the `.avcdriver` / Python
+`DRIVER_INFO` for now.
 
 ### 2.5 state_variables
 

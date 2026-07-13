@@ -1700,7 +1700,8 @@
             "number",
             "float",
             "boolean",
-            "enum"
+            "enum",
+            "table"
           ]
         },
         "label": {
@@ -1719,6 +1720,31 @@
         "values": {
           "type": "array",
           "description": "Allowed values for enum type."
+        },
+        "row_label": {
+          "type": "string",
+          "description": "Singular noun for a table field's Add-row button (e.g. \"register\")."
+        },
+        "columns": {
+          "type": "object",
+          "description": "For type: table. Map of column id -> column spec (scalar field spec: type/label/required/default/values/min/max/help). Rendered by the device-page table editor.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["string", "text", "integer", "number", "float", "boolean", "enum"]
+              },
+              "label": { "type": "string" },
+              "help": { "type": "string" },
+              "required": { "type": "boolean" },
+              "default": true,
+              "values": { "type": "array" },
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            },
+            "additionalProperties": true
+          }
         },
         "secret": {
           "type": "boolean",

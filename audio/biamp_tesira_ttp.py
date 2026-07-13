@@ -12,12 +12,15 @@ Dialer surfaces.
 Why Python (rules.md Principle 9):
     Tesira's instance-tag/channel topology is declared by the integrator in
     Tesira software, not fixed by the driver. Each install has a different
-    set of blocks. ConfigurableDriver loads `state_variables` and `commands`
-    statically from the YAML at class-creation time — there's no per-instance
-    expansion hook. This driver follows the Symetrix Composer precedent of
-    rebuilding `state_variables` and `commands` in __init__ from a user
-    `blocks` config, so panel UIs can bind directly to per-block / per-channel
-    state keys.
+    set of blocks, and each block type exposes a different control set (a
+    Level block vs a Matrix Mixer vs a Dialer). ConfigurableDriver has no
+    per-instance child roster with per-child dynamic schemas. So — following
+    the qsc_qrc reference — each declared block is registered as a dynamic
+    `block` child at connect, with a per-child schema built from the block
+    type + channels. Panel UIs bind to child properties
+    (device.<id>.block.<tag>.<control>), and one set of child-scoped commands
+    (set_control / step_control / ... with a block picker + control cascade)
+    drives every block type.
 
 Why subscriptions, not polling (rules.md Principle 2):
     Tesira natively pushes state-change notifications via the `subscribe`
@@ -303,21 +306,46 @@ def parse_blocks_config(text: str) -> list[dict[str, Any]]:
     return blocks
 
 
-# ── State variable / subscription / command expansion ──
+# ── Child entities, state, schema, subscriptions, commands ──
 
-def _state_var(block: dict[str, Any], suffix: str) -> str:
-    """Build a state-var key from a block + attribute suffix."""
-    return f"{_safe_token(block['tag'])}_{suffix}"
+# One dynamic child entity type: every declared Tesira block becomes a
+# "block" child whose per-instance schema (the controls it exposes) is
+# published at register_child(schema=...). This follows the qsc_qrc
+# reference — the roster and each child's control set are known only from
+# the user's declared block list, so a per-child dynamic schema is the
+# right shape. (Contrast a config-SIZED static roster where every child
+# shares one schema; a Tesira level block and a matrix mixer expose
+# entirely different controls.)
+BLOCK_CHILD_TYPE = "block"
+
+# Summary fields shared by every block child. For a dynamic child type the
+# per-child schema supplied at register_child(schema=...) is the child's full
+# schema (the type-level state_variables don't merge in), so these are also
+# spliced into each block's schema at registration — see _register_blocks.
+_BLOCK_SUMMARY_SCHEMA = {
+    "name": {"type": "string", "label": "Instance Tag"},
+    "block_type": {"type": "string", "label": "Block Type"},
+    "channels": {"type": "string", "label": "Channels"},
+}
+
+BLOCK_CHILD_TYPES = {
+    BLOCK_CHILD_TYPE: {
+        "label": "DSP Block",
+        "label_plural": "DSP Blocks",
+        "dynamic": True,
+        "id_format": {"type": "string", "max_length": 128},
+        "state_variables": dict(_BLOCK_SUMMARY_SCHEMA),
+        "summary_fields": ["block_type", "channels"],
+        "label_field": "name",
+    },
+}
 
 
-def expand_state_variables(blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Build a state_variables dict for the driver, given parsed blocks.
-
-    Always includes a small set of system-level state vars (firmware,
-    serial, last_preset, last_query_result, last_raw_response). Then
-    appends per-block state vars based on type.
-    """
-    out: dict[str, dict[str, Any]] = {
+def system_state_variables() -> dict[str, dict[str, Any]]:
+    """Device-level state vars present on every instance. Per-block/per-channel
+    values live on child entities now (device.<id>.block.<tag>.<control>),
+    not flat keys."""
+    return {
         "firmware_version": {"type": "string", "label": "Firmware Version"},
         "serial_number": {"type": "string", "label": "Serial Number"},
         "device_id_str": {"type": "string", "label": "Device ID"},
@@ -335,314 +363,212 @@ def expand_state_variables(blocks: list[dict[str, Any]]) -> dict[str, dict[str, 
         "last_error": {"type": "string", "label": "Last DSP Error"},
     }
 
-    for blk in blocks:
-        bt = blk["type"]
-        chans = blk["channels"]
-        extra = blk["extra"]
 
-        if bt == "mute":
-            for ch in chans:
-                out[_state_var(blk, f"mute_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Mute Ch {ch}",
-                }
-        elif bt == "level":
-            for ch in chans:
-                out[_state_var(blk, f"level_{ch}")] = {
-                    "type": "number",
-                    "label": f"{blk['tag']} Level Ch {ch} (dB)",
-                    "min": -100,
-                    "max": 12,
-                }
-                out[_state_var(blk, f"mute_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Mute Ch {ch}",
-                }
-        elif bt == "source_select":
-            out[_state_var(blk, "source")] = {
-                "type": "integer",
-                "label": f"{blk['tag']} Selected Source",
-                "min": 0,
-            }
-            out[_state_var(blk, "output_level")] = {
-                "type": "number",
-                "label": f"{blk['tag']} Output Level (dB)",
-                "min": -100,
-                "max": 12,
-            }
-            out[_state_var(blk, "output_mute")] = {
-                "type": "boolean",
-                "label": f"{blk['tag']} Output Mute",
-            }
-        elif bt == "matrix_mixer":
-            inputs = extra.get("inputs", 4)
-            outputs = extra.get("outputs", 4)
-            for i in range(1, inputs + 1):
-                out[_state_var(blk, f"input_mute_{i}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Input {i} Mute",
-                }
-            for o in range(1, outputs + 1):
-                out[_state_var(blk, f"output_level_{o}")] = {
-                    "type": "number",
-                    "label": f"{blk['tag']} Output {o} Level (dB)",
-                    "min": -100,
-                    "max": 12,
-                }
-                out[_state_var(blk, f"output_mute_{o}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Output {o} Mute",
-                }
-            for i in range(1, inputs + 1):
-                for o in range(1, outputs + 1):
-                    out[_state_var(blk, f"xpoint_{i}_{o}")] = {
-                        "type": "boolean",
-                        "label": f"{blk['tag']} XP {i}->{o} On",
-                    }
-                    out[_state_var(blk, f"xpoint_level_{i}_{o}")] = {
-                        "type": "number",
-                        "label": f"{blk['tag']} XP {i}->{o} Level (dB)",
-                        "min": -100,
-                        "max": 12,
-                    }
-        elif bt == "automixer":
-            for ch in chans:
-                out[_state_var(blk, f"channel_level_{ch}")] = {
-                    "type": "number",
-                    "label": f"{blk['tag']} Ch {ch} Level (dB)",
-                    "min": -100,
-                    "max": 12,
-                }
-                out[_state_var(blk, f"channel_mute_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Ch {ch} Mute",
-                }
-                out[_state_var(blk, f"gain_reduction_{ch}")] = {
-                    "type": "number",
-                    "label": f"{blk['tag']} Ch {ch} Gain Reduction (dB)",
-                }
-            out[_state_var(blk, "output_level")] = {
-                "type": "number",
-                "label": f"{blk['tag']} Output Level (dB)",
-            }
-            out[_state_var(blk, "output_mute")] = {
-                "type": "boolean",
-                "label": f"{blk['tag']} Output Mute",
-            }
-        elif bt == "router":
-            for o in chans:
-                out[_state_var(blk, f"output_{o}")] = {
-                    "type": "integer",
-                    "label": f"{blk['tag']} Output {o} Source",
-                    "min": 0,
-                }
-        elif bt == "logic":
-            for ch in chans:
-                out[_state_var(blk, f"state_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Logic State {ch}",
-                }
-        elif bt == "logic_meter":
-            for ch in chans:
-                out[_state_var(blk, f"state_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Logic Meter {ch}",
-                }
-        elif bt == "aec":
-            for ch in chans:
-                out[_state_var(blk, f"level_{ch}")] = {
-                    "type": "number",
-                    "label": f"{blk['tag']} AEC Ch {ch} Level (dB)",
-                }
-                out[_state_var(blk, f"mute_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} AEC Ch {ch} Mute",
-                }
-                out[_state_var(blk, f"erc_state_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} AEC Ch {ch} ERC Active",
-                }
-        elif bt == "room_combiner":
-            for w in chans:
-                out[_state_var(blk, f"group_{w}")] = {
-                    "type": "integer",
-                    "label": f"{blk['tag']} Wall {w} Group",
-                    "min": 0,
-                }
-                out[_state_var(blk, f"combine_{w}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Wall {w} Combined",
-                }
-        elif bt == "audio_meter":
-            for ch in chans:
-                out[_state_var(blk, f"meter_{ch}")] = {
-                    "type": "number",
-                    "label": f"{blk['tag']} Meter Ch {ch} (dB)",
-                }
-        elif bt == "signal_present":
-            for ch in chans:
-                out[_state_var(blk, f"signal_present_{ch}")] = {
-                    "type": "boolean",
-                    "label": f"{blk['tag']} Signal Present Ch {ch}",
-                }
-                out[_state_var(blk, f"signal_level_{ch}")] = {
-                    "type": "number",
-                    "label": f"{blk['tag']} Signal Level Ch {ch} (dB)",
-                }
-        elif bt == "generator":
-            out[_state_var(blk, "amplitude")] = {
-                "type": "number",
-                "label": f"{blk['tag']} Generator Amplitude (dB)",
-            }
-            out[_state_var(blk, "frequency")] = {
-                "type": "integer",
-                "label": f"{blk['tag']} Generator Frequency (Hz)",
-            }
-            out[_state_var(blk, "state")] = {
-                "type": "boolean",
-                "label": f"{blk['tag']} Generator On",
-            }
-        elif bt == "voip_rx":
-            out[_state_var(blk, "call_state")] = {
-                "type": "string",
-                "label": f"{blk['tag']} Call State",
-            }
-            out[_state_var(blk, "mute")] = {
-                "type": "boolean",
-                "label": f"{blk['tag']} Receive Mute",
-            }
-        # dialer: no state — exposes commands only
-        # preset: no state — convenience commands only
+# ── Per-child var-def helpers ──
+#
+# cloud_priority follows the console convention (mute + on/off high, levels
+# and meters low). `control: true` marks the props a panel control binds to
+# and the ones the set_control / step_control pickers offer.
 
-    return out
+def _level(label: str) -> dict[str, Any]:
+    return {"type": "number", "label": label, "min": -100, "max": 12,
+            "control": True, "cloud_priority": "low"}
 
 
-def expand_subscriptions(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Build the list of subscriptions to register on connect.
+def _mute(label: str) -> dict[str, Any]:
+    return {"type": "boolean", "label": label, "control": True,
+            "cloud_priority": "high"}
 
-    Each entry is a dict with the wire-level pieces we need:
-        {
-            "tag": "Mute1",           # instance tag
-            "attribute": "mute",      # TTP attribute name (case-sensitive)
-            "index": 1,               # channel/index, or None for indexless
-            "token": "Mute1_mute_1",  # publishToken, also used as state-var key
-            "rate_ms": 250,           # subscribe rate
-            "type_hint": "boolean",   # how to coerce push values
-        }
 
-    The token doubles as the state-var name so the push handler doesn't
-    need a separate token-to-state map.
+def _ctl_bool(label: str) -> dict[str, Any]:
+    return {"type": "boolean", "label": label, "control": True,
+            "cloud_priority": "high"}
+
+
+def _ctl_int(label: str) -> dict[str, Any]:
+    return {"type": "integer", "label": label, "min": 0, "control": True,
+            "cloud_priority": "low"}
+
+
+def _ctl_num(label: str) -> dict[str, Any]:
+    # A settable number with no documented device-independent range. No
+    # min/max on purpose — a bound narrower than the device's true range
+    # would block valid commands at the dispatch gate (first-class G3 rule).
+    return {"type": "number", "label": label, "control": True,
+            "cloud_priority": "low"}
+
+
+def _meter(label: str) -> dict[str, Any]:
+    # Read-only measured value (meter, gain reduction) — not a control.
+    return {"type": "number", "label": label, "cloud_priority": "low"}
+
+
+def _ro_bool(label: str) -> dict[str, Any]:
+    return {"type": "boolean", "label": label, "cloud_priority": "low"}
+
+
+def _channels_label(block: dict[str, Any]) -> str:
+    """Human summary of a block's channel span for the child summary row."""
+    if block["type"] == "matrix_mixer":
+        extra = block.get("extra", {})
+        return f"{extra.get('inputs', 0)}x{extra.get('outputs', 0)}"
+    chans = block.get("channels") or []
+    if not chans:
+        return ""
+    if len(chans) > 1 and chans == list(range(chans[0], chans[-1] + 1)):
+        return f"{chans[0]}-{chans[-1]}"
+    return ",".join(str(c) for c in chans)
+
+
+def _expand_block(block: dict[str, Any]) -> tuple[
+    dict[str, dict[str, Any]], dict[str, tuple[str, Any]], list[dict[str, Any]]
+]:
+    """Expand one parsed block into (schema, wire, subs).
+
+    - schema: {prop: var-def} — the child's per-instance dynamic schema.
+    - wire:   {prop: (attribute, index)} — maps a child prop back to the TTP
+              attribute + index for set / toggle / step / get.
+    - subs:   [{prop, attribute, index, type_hint, rate_ms}] — the props to
+              push-subscribe on connect. Every settable prop is in `schema`
+              and `wire`; only the subscribe set is gated (a very large
+              crosspoint grid isn't auto-subscribed, but stays settable).
     """
+    bt = block["type"]
+    chans = block["channels"]
+    extra = block["extra"]
+    schema: dict[str, dict[str, Any]] = {}
+    wire: dict[str, tuple[str, Any]] = {}
     subs: list[dict[str, Any]] = []
 
-    def add(tag: str, attr: str, idx: int | None, state_key: str,
-            type_hint: str, rate_ms: int = DEFAULT_SUBSCRIBE_RATE_MS) -> None:
-        subs.append({
-            "tag": tag,
-            "attribute": attr,
-            "index": idx,
-            "token": state_key,
-            "rate_ms": rate_ms,
-            "type_hint": type_hint,
-        })
+    def add(prop, var_def, attribute, index, type_hint,
+            subscribe=True, rate_ms=DEFAULT_SUBSCRIBE_RATE_MS):
+        schema[prop] = var_def
+        wire[prop] = (attribute, index)
+        if subscribe:
+            subs.append({"prop": prop, "attribute": attribute, "index": index,
+                         "type_hint": type_hint, "rate_ms": rate_ms})
 
-    for blk in blocks:
-        bt = blk["type"]
-        tag = blk["tag"]
-        chans = blk["channels"]
-        extra = blk["extra"]
-
-        if bt == "mute":
-            for ch in chans:
-                add(tag, "mute", ch, _state_var(blk, f"mute_{ch}"), "boolean")
-        elif bt == "level":
-            for ch in chans:
-                add(tag, "level", ch, _state_var(blk, f"level_{ch}"), "number")
-                add(tag, "mute", ch, _state_var(blk, f"mute_{ch}"), "boolean")
-        elif bt == "source_select":
-            add(tag, "sourceSelection", None, _state_var(blk, "source"), "integer")
-            add(tag, "outputLevel", None, _state_var(blk, "output_level"), "number")
-            add(tag, "outputMute", None, _state_var(blk, "output_mute"), "boolean")
-        elif bt == "matrix_mixer":
-            inputs = extra.get("inputs", 4)
-            outputs = extra.get("outputs", 4)
-            for i in range(1, inputs + 1):
-                add(tag, "inputMute", i, _state_var(blk, f"input_mute_{i}"), "boolean")
+    if bt == "mute":
+        for ch in chans:
+            add(f"mute_{ch}", _mute(f"Mute Ch {ch}"), "mute", ch, "boolean")
+    elif bt == "level":
+        for ch in chans:
+            add(f"level_{ch}", _level(f"Level Ch {ch} (dB)"), "level", ch, "number")
+            add(f"mute_{ch}", _mute(f"Mute Ch {ch}"), "mute", ch, "boolean")
+    elif bt == "source_select":
+        add("source", _ctl_int("Selected Source"), "sourceSelection", None, "integer")
+        add("output_level", _level("Output Level (dB)"), "outputLevel", None, "number")
+        add("output_mute", _mute("Output Mute"), "outputMute", None, "boolean")
+    elif bt == "matrix_mixer":
+        inputs = extra.get("inputs", 4)
+        outputs = extra.get("outputs", 4)
+        for i in range(1, inputs + 1):
+            add(f"input_mute_{i}", _mute(f"Input {i} Mute"), "inputMute", i, "boolean")
+        for o in range(1, outputs + 1):
+            add(f"output_level_{o}", _level(f"Output {o} Level (dB)"),
+                "outputLevel", o, "number")
+            add(f"output_mute_{o}", _mute(f"Output {o} Mute"),
+                "outputMute", o, "boolean")
+        # Crosspoints always appear in the schema (settable via set_control),
+        # but a big grid isn't auto-subscribed to avoid flooding the wire —
+        # the integrator can runtime-subscribe the crosspoints they care about.
+        sub_xpoints = inputs * outputs <= 64
+        for i in range(1, inputs + 1):
             for o in range(1, outputs + 1):
-                add(tag, "outputLevel", o, _state_var(blk, f"output_level_{o}"), "number")
-                add(tag, "outputMute", o, _state_var(blk, f"output_mute_{o}"), "boolean")
-            # Crosspoint state grid — two-index attribute. The subscribe
-            # command format is "<TAG> subscribe crosspointLevelState <i>
-            # <o> "<token>" <rate>". We pass the index as a (i, o) tuple
-            # in the subscription dict; _build_subscribe_command renders
-            # it as space-separated indexes, and _push_subscribers in the
-            # simulator matches on the same tuple. Skip subscription on
-            # very large matrices to avoid overwhelming the wire — the
-            # set/get commands still work; the user can subscribe to
-            # specific crosspoints at runtime via subscribe_attribute if
-            # needed.
-            if inputs * outputs <= 64:
-                for i in range(1, inputs + 1):
-                    for o in range(1, outputs + 1):
-                        add(tag, "crosspointLevelState", (i, o),
-                            _state_var(blk, f"xpoint_{i}_{o}"), "boolean",
-                            rate_ms=DEFAULT_SUBSCRIBE_RATE_MS)
-                        add(tag, "crosspointLevel", (i, o),
-                            _state_var(blk, f"xpoint_level_{i}_{o}"), "number",
-                            rate_ms=DEFAULT_SUBSCRIBE_RATE_MS)
-        elif bt == "automixer":
-            for ch in chans:
-                add(tag, "channelLevel", ch, _state_var(blk, f"channel_level_{ch}"), "number")
-                add(tag, "channelMute", ch, _state_var(blk, f"channel_mute_{ch}"), "boolean")
-                add(tag, "gainReduction", ch, _state_var(blk, f"gain_reduction_{ch}"), "number")
-            add(tag, "outputLevel", None, _state_var(blk, "output_level"), "number")
-            add(tag, "outputMute", None, _state_var(blk, "output_mute"), "boolean")
-        elif bt == "router":
-            for o in chans:
-                add(tag, "output", o, _state_var(blk, f"output_{o}"), "integer")
-        elif bt == "logic":
-            for ch in chans:
-                add(tag, "state", ch, _state_var(blk, f"state_{ch}"), "boolean")
-        elif bt == "logic_meter":
-            for ch in chans:
-                add(tag, "state", ch, _state_var(blk, f"state_{ch}"), "boolean")
-        elif bt == "aec":
-            for ch in chans:
-                add(tag, "level", ch, _state_var(blk, f"level_{ch}"), "number")
-                add(tag, "mute", ch, _state_var(blk, f"mute_{ch}"), "boolean")
-                add(tag, "ercState", ch, _state_var(blk, f"erc_state_{ch}"), "boolean")
-        elif bt == "room_combiner":
-            for w in chans:
-                add(tag, "group", w, _state_var(blk, f"group_{w}"), "integer")
-                add(tag, "combine", w, _state_var(blk, f"combine_{w}"), "boolean")
-        elif bt == "audio_meter":
-            for ch in chans:
-                add(tag, "level", ch, _state_var(blk, f"meter_{ch}"), "number",
-                    rate_ms=METER_SUBSCRIBE_RATE_MS)
-        elif bt == "signal_present":
-            for ch in chans:
-                add(tag, "signalPresent", ch, _state_var(blk, f"signal_present_{ch}"), "boolean")
-                add(tag, "signalLevel", ch, _state_var(blk, f"signal_level_{ch}"), "number",
-                    rate_ms=METER_SUBSCRIBE_RATE_MS)
-        elif bt == "generator":
-            add(tag, "amplitude", None, _state_var(blk, "amplitude"), "number")
-            add(tag, "frequency", None, _state_var(blk, "frequency"), "integer")
-            add(tag, "generatorEnable", None, _state_var(blk, "state"), "boolean")
-        elif bt == "voip_rx":
-            add(tag, "callState", None, _state_var(blk, "call_state"), "string")
-            add(tag, "mute", None, _state_var(blk, "mute"), "boolean")
+                add(f"xpoint_{i}_{o}", _ctl_bool(f"XP {i}->{o} On"),
+                    "crosspointLevelState", (i, o), "boolean",
+                    subscribe=sub_xpoints)
+                add(f"xpoint_level_{i}_{o}", _level(f"XP {i}->{o} Level (dB)"),
+                    "crosspointLevel", (i, o), "number", subscribe=sub_xpoints)
+    elif bt == "automixer":
+        for ch in chans:
+            add(f"channel_level_{ch}", _level(f"Ch {ch} Level (dB)"),
+                "channelLevel", ch, "number")
+            add(f"channel_mute_{ch}", _mute(f"Ch {ch} Mute"),
+                "channelMute", ch, "boolean")
+            add(f"gain_reduction_{ch}", _meter(f"Ch {ch} Gain Reduction (dB)"),
+                "gainReduction", ch, "number")
+        add("output_level", _level("Output Level (dB)"), "outputLevel", None, "number")
+        add("output_mute", _mute("Output Mute"), "outputMute", None, "boolean")
+    elif bt == "router":
+        for o in chans:
+            add(f"output_{o}", _ctl_int(f"Output {o} Source"), "output", o, "integer")
+    elif bt == "logic":
+        for ch in chans:
+            add(f"state_{ch}", _ctl_bool(f"Logic State {ch}"), "state", ch, "boolean")
+    elif bt == "logic_meter":
+        for ch in chans:
+            add(f"state_{ch}", _ro_bool(f"Logic Meter {ch}"), "state", ch, "boolean")
+    elif bt == "aec":
+        for ch in chans:
+            add(f"level_{ch}", _level(f"AEC Ch {ch} Level (dB)"), "level", ch, "number")
+            add(f"mute_{ch}", _mute(f"AEC Ch {ch} Mute"), "mute", ch, "boolean")
+            add(f"erc_state_{ch}", _ro_bool(f"AEC Ch {ch} ERC Active"),
+                "ercState", ch, "boolean")
+    elif bt == "room_combiner":
+        for w in chans:
+            add(f"group_{w}", _ctl_int(f"Wall {w} Group"), "group", w, "integer")
+            add(f"combine_{w}", _ctl_bool(f"Wall {w} Combined"), "combine", w, "boolean")
+    elif bt == "audio_meter":
+        for ch in chans:
+            add(f"meter_{ch}", _meter(f"Meter Ch {ch} (dB)"), "level", ch, "number",
+                rate_ms=METER_SUBSCRIBE_RATE_MS)
+    elif bt == "signal_present":
+        for ch in chans:
+            add(f"signal_present_{ch}", _ro_bool(f"Signal Present Ch {ch}"),
+                "signalPresent", ch, "boolean")
+            add(f"signal_level_{ch}", _meter(f"Signal Level Ch {ch} (dB)"),
+                "signalLevel", ch, "number", rate_ms=METER_SUBSCRIBE_RATE_MS)
+    elif bt == "generator":
+        add("amplitude", _ctl_num("Generator Amplitude (dB)"), "amplitude", None, "number")
+        add("frequency", _ctl_int("Generator Frequency (Hz)"), "frequency", None, "integer")
+        add("state", _ctl_bool("Generator On"), "generatorEnable", None, "boolean")
+    elif bt == "voip_rx":
+        add("call_state", {"type": "string", "label": "Call State"},
+            "callState", None, "string")
+        add("mute", _mute("Receive Mute"), "mute", None, "boolean")
+    # dialer: no state — commands only (still registered as a child so the
+    #         dialer commands' block picker can target it).
+    # preset: no state and no per-block commands — recall_preset is
+    #         device-level; a bare preset label registers no child.
 
-    return subs
+    return schema, wire, subs
 
 
-def expand_commands(blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Build the per-instance commands dict.
+# ── Command surface (static — child-scoped, not per-block-named) ──
 
-    Always includes the generic escape hatches (set_attribute, get_attribute,
-    increment_attribute, decrement_attribute, recall_preset, send_raw, etc).
-    Per-block convenience commands are added for each declared block so the
-    Programmer IDE Macros editor surfaces them by name.
-    """
+def _block_param() -> dict[str, Any]:
+    return {"type": "child_id", "child_type": BLOCK_CHILD_TYPE, "required": True,
+            "label": "Block",
+            "help": "Pick one of the DSP blocks you declared in the block list."}
+
+
+def _control_param(help: str | None = None) -> dict[str, Any]:
+    # Cascades off the sibling `block` child_id param: picking a block
+    # populates this with that block's controls (its dynamic schema's
+    # control:true props). Stays free-text-forgiving for anything the
+    # picker hasn't loaded yet.
+    p: dict[str, Any] = {
+        "type": "string", "required": True, "label": "Control",
+        "options_from": {"param": "block", "source": "child_schema"},
+    }
+    if help:
+        p["help"] = help
+    return p
+
+
+def _line_param() -> dict[str, Any]:
+    return {"type": "integer", "required": False, "label": "Line",
+            "default": 1, "min": 1}
+
+
+def build_commands() -> dict[str, dict[str, Any]]:
+    """The driver's static command surface: generic TTP escape hatches plus
+    child-scoped commands that pick a declared block and one of its controls.
+
+    The command set is the same for every instance — the per-block detail
+    lives in the child roster + each child's schema, not in per-block command
+    names (that was the pre-3.0.0 flat model)."""
     cmds: dict[str, dict[str, Any]] = {
         # Generic escape hatches
         "set_attribute": {
@@ -734,9 +660,10 @@ def expand_commands(blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
                 "rate_ms": {"type": "integer", "required": False, "label": "Rate (ms)",
                             "default": 250, "min": 50, "max": 60000},
             },
-            "help": "Add a runtime subscription. The token doubles as the state "
-                    "var name; if it's not declared in your blocks list, scripts "
-                    "can read it via state.get('device.<id>.<token>').",
+            "help": "Add a runtime subscription. The value surfaces under a flat "
+                    "state var named after the token; scripts read it via "
+                    "state.get('device.<id>.<token>'). Use the block children for "
+                    "declared blocks — this is for ad-hoc attributes.",
         },
         "unsubscribe_attribute": {
             "label": "Unsubscribe from Attribute (runtime)",
@@ -754,275 +681,83 @@ def expand_commands(blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         },
     }
 
-    # Per-block convenience commands.
-    for blk in blocks:
-        bt = blk["type"]
-        tag = blk["tag"]
-        chans = blk["channels"]
-        extra = blk["extra"]
-        safe = _safe_token(tag)
-
-        if bt == "mute":
-            cmds[f"{safe}_mute_set"] = {
-                "label": f"{tag}: Set Mute",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": min(chans) if chans else 1,
-                                "max": max(chans) if chans else 1},
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-            cmds[f"{safe}_mute_toggle"] = {
-                "label": f"{tag}: Toggle Mute",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": min(chans) if chans else 1,
-                                "max": max(chans) if chans else 1},
-                },
-            }
-        elif bt == "level":
-            ch_min = min(chans) if chans else 1
-            ch_max = max(chans) if chans else 1
-            cmds[f"{safe}_level_set"] = {
-                "label": f"{tag}: Set Level (dB)",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": ch_min, "max": ch_max},
-                    "level_db": {"type": "number", "required": True, "label": "Level (dB)",
-                                 "min": -100, "max": 12},
-                },
-            }
-            cmds[f"{safe}_level_step"] = {
-                "label": f"{tag}: Step Level",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": ch_min, "max": ch_max},
-                    "amount_db": {"type": "number", "required": True, "label": "Amount (dB)",
-                                  "default": 1.0,
-                                  "help": "Positive = increment, negative = decrement."},
-                },
-            }
-            cmds[f"{safe}_level_ramp"] = {
-                "label": f"{tag}: Ramp Level",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": ch_min, "max": ch_max},
-                    "target_db": {"type": "number", "required": True, "label": "Target (dB)",
-                                  "min": -100, "max": 12},
-                    "duration_s": {"type": "number", "required": True, "label": "Duration (sec)",
-                                   "default": 1.0, "min": 0.0},
-                },
-                "help": "Smoothly ramps the level to the target over the specified duration.",
-            }
-            cmds[f"{safe}_mute_set"] = {
-                "label": f"{tag}: Set Mute",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": ch_min, "max": ch_max},
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-            cmds[f"{safe}_mute_toggle"] = {
-                "label": f"{tag}: Toggle Mute",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": ch_min, "max": ch_max},
-                },
-            }
-        elif bt == "source_select":
-            cmds[f"{safe}_select_source"] = {
-                "label": f"{tag}: Select Source",
-                "params": {
-                    "source": {"type": "integer", "required": True, "label": "Source Index",
-                               "min": 0,
-                               "help": "0 = no source selected; 1..N = pick source N (N is design-dependent)."},
-                },
-            }
-            cmds[f"{safe}_set_output_level"] = {
-                "label": f"{tag}: Set Output Level (dB)",
-                "params": {
-                    "level_db": {"type": "number", "required": True, "label": "Level (dB)",
-                                 "min": -100, "max": 12},
-                },
-            }
-            cmds[f"{safe}_output_mute_set"] = {
-                "label": f"{tag}: Set Output Mute",
-                "params": {
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-        elif bt == "matrix_mixer":
-            inputs = extra.get("inputs", 4)
-            outputs = extra.get("outputs", 4)
-            cmds[f"{safe}_xpoint_set"] = {
-                "label": f"{tag}: Set Crosspoint On/Off",
-                "params": {
-                    "input_n": {"type": "integer", "required": True, "label": "Input",
-                                "min": 1, "max": inputs},
-                    "output_n": {"type": "integer", "required": True, "label": "Output",
-                                 "min": 1, "max": outputs},
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-            cmds[f"{safe}_xpoint_level"] = {
-                "label": f"{tag}: Set Crosspoint Level (dB)",
-                "params": {
-                    "input_n": {"type": "integer", "required": True, "label": "Input",
-                                "min": 1, "max": inputs},
-                    "output_n": {"type": "integer", "required": True, "label": "Output",
-                                 "min": 1, "max": outputs},
-                    "level_db": {"type": "number", "required": True, "label": "Level (dB)",
-                                 "min": -100, "max": 12},
-                },
-            }
-            cmds[f"{safe}_output_level_set"] = {
-                "label": f"{tag}: Set Output Level (dB)",
-                "params": {
-                    "output_n": {"type": "integer", "required": True, "label": "Output",
-                                 "min": 1, "max": outputs},
-                    "level_db": {"type": "number", "required": True, "label": "Level (dB)",
-                                 "min": -100, "max": 12},
-                },
-            }
-            cmds[f"{safe}_output_mute_set"] = {
-                "label": f"{tag}: Set Output Mute",
-                "params": {
-                    "output_n": {"type": "integer", "required": True, "label": "Output",
-                                 "min": 1, "max": outputs},
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-        elif bt == "router":
-            cmds[f"{safe}_route"] = {
-                "label": f"{tag}: Route Source to Output",
-                "params": {
-                    "output_n": {"type": "integer", "required": True, "label": "Output",
-                                 "min": 1, "max": (max(chans) if chans else 8)},
-                    "source": {"type": "integer", "required": True, "label": "Source",
-                               "min": 0,
-                               "help": "0 = disconnect; otherwise pick source N (N is design-dependent)."},
-                },
-            }
-        elif bt == "automixer":
-            ch_max = max(chans) if chans else 1
-            cmds[f"{safe}_channel_mute_set"] = {
-                "label": f"{tag}: Set Channel Mute",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": 1, "max": ch_max},
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-            cmds[f"{safe}_channel_level_set"] = {
-                "label": f"{tag}: Set Channel Level (dB)",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": 1, "max": ch_max},
-                    "level_db": {"type": "number", "required": True, "label": "Level (dB)",
-                                 "min": -100, "max": 12},
-                },
-            }
-        elif bt == "room_combiner":
-            wall_max = max(chans) if chans else 1
-            cmds[f"{safe}_set_group"] = {
-                "label": f"{tag}: Assign Wall to Group",
-                "params": {
-                    "wall": {"type": "integer", "required": True, "label": "Wall",
-                             "min": 1, "max": wall_max},
-                    "group": {"type": "integer", "required": True, "label": "Group",
-                              "min": 0,
-                              "help": "0 = isolated; matching group numbers combine (group count is design-dependent)."},
-                },
-            }
-            cmds[f"{safe}_set_combine"] = {
-                "label": f"{tag}: Set Wall Combine",
-                "params": {
-                    "wall": {"type": "integer", "required": True, "label": "Wall",
-                             "min": 1, "max": wall_max},
-                    "value": {"type": "enum", "required": True, "label": "Combine",
-                              "values": ["true", "false"]},
-                },
-            }
-        elif bt == "logic":
-            ch_max = max(chans) if chans else 1
-            cmds[f"{safe}_set_state"] = {
-                "label": f"{tag}: Set Logic State",
-                "params": {
-                    "channel": {"type": "integer", "required": True, "label": "Channel",
-                                "min": 1, "max": ch_max},
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-        elif bt == "generator":
-            cmds[f"{safe}_set_amplitude"] = {
-                "label": f"{tag}: Set Generator Amplitude (dB)",
-                "params": {
-                    "level_db": {"type": "number", "required": True, "label": "Amplitude (dB)",
-                                 "min": -100, "max": 0},
-                },
-            }
-            cmds[f"{safe}_set_frequency"] = {
-                "label": f"{tag}: Set Generator Frequency (Hz)",
-                "params": {
-                    "hz": {"type": "integer", "required": True, "label": "Frequency (Hz)",
-                           "min": 20, "max": 20000},
-                },
-            }
-            cmds[f"{safe}_enable"] = {
-                "label": f"{tag}: Enable Generator",
-                "params": {
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-        elif bt == "dialer":
-            cmds[f"{safe}_dial"] = {
-                "label": f"{tag}: Dial Number",
-                "params": {
-                    "number": {"type": "string", "required": True, "label": "Phone Number"},
-                    "line": {"type": "integer", "required": False, "label": "Line",
-                             "default": 1, "min": 1, "max": 8},
-                },
-            }
-            cmds[f"{safe}_hangup"] = {
-                "label": f"{tag}: Hang Up",
-                "params": {
-                    "line": {"type": "integer", "required": False, "label": "Line",
-                             "default": 1, "min": 1, "max": 8},
-                },
-            }
-            cmds[f"{safe}_answer"] = {
-                "label": f"{tag}: Answer Call",
-                "params": {
-                    "line": {"type": "integer", "required": False, "label": "Line",
-                             "default": 1, "min": 1, "max": 8},
-                },
-            }
-            cmds[f"{safe}_dtmf"] = {
-                "label": f"{tag}: Send DTMF",
-                "params": {
-                    "digits": {"type": "string", "required": True, "label": "Digits",
-                               "help": "Digits 0-9 plus *, #, A-D."},
-                    "line": {"type": "integer", "required": False, "label": "Line",
-                             "default": 1, "min": 1, "max": 8},
-                },
-            }
-        elif bt == "voip_rx":
-            cmds[f"{safe}_set_mute"] = {
-                "label": f"{tag}: Set Receive Mute",
-                "params": {
-                    "value": {"type": "enum", "required": True, "label": "State",
-                              "values": ["true", "false"]},
-                },
-            }
-
+    # Child-scoped commands — pick a declared block, then one of its controls.
+    cmds.update({
+        "set_control": {
+            "label": "Set Control",
+            "params": {
+                "block": _block_param(),
+                "control": _control_param(
+                    "Pick the block above to list its controls, or type one "
+                    "(e.g. level_1, mute_2, xpoint_1_3, source, output_mute)."),
+                # The Value field follows the picked control's type (a dB
+                # spinner for a level, Yes/No for a mute, a source number, ...).
+                "value": {"type": "string", "required": True, "label": "Value",
+                          "type_from": {"param": "control"},
+                          "help": "Numbers and true/false are auto-typed."},
+            },
+            "help": "Set any control on a declared block — level, mute, "
+                    "crosspoint, source, group, generator amplitude, etc.",
+        },
+        "toggle_control": {
+            "label": "Toggle Control",
+            "params": {
+                "block": _block_param(),
+                "control": _control_param(
+                    "A boolean control — a mute, crosspoint on/off, or logic state."),
+            },
+            "help": "Toggle a boolean control on a declared block.",
+        },
+        "step_control": {
+            "label": "Step Control (± dB)",
+            "params": {
+                "block": _block_param(),
+                "control": _control_param("A level control, e.g. level_1."),
+                "amount": {"type": "number", "required": True, "label": "Amount (dB)",
+                           "default": 1.0,
+                           "help": "Positive increments, negative decrements."},
+            },
+            "help": "Nudge a level control up or down by a relative amount.",
+        },
+        "ramp_level": {
+            "label": "Ramp Level (dB over sec)",
+            "params": {
+                "block": _block_param(),
+                "control": _control_param("A level control to ramp, e.g. level_1."),
+                "target_db": {"type": "number", "required": True, "label": "Target (dB)",
+                              "min": -100, "max": 12},
+                "duration_s": {"type": "number", "required": True, "label": "Duration (sec)",
+                               "min": 0, "default": 2.0},
+            },
+            "help": "Glide a level control to a target dB over a duration "
+                    "(Tesira 'set rampLevel').",
+        },
+        "dial": {
+            "label": "Dialer: Dial",
+            "params": {
+                "block": _block_param(),
+                "number": {"type": "string", "required": True, "label": "Number"},
+                "line": _line_param(),
+            },
+            "help": "Dial a number on a VoIP / POTS dialer block.",
+        },
+        "hangup": {
+            "label": "Dialer: Hang Up",
+            "params": {"block": _block_param(), "line": _line_param()},
+        },
+        "answer": {
+            "label": "Dialer: Answer",
+            "params": {"block": _block_param(), "line": _line_param()},
+        },
+        "dtmf": {
+            "label": "Dialer: Send DTMF",
+            "params": {
+                "block": _block_param(),
+                "digits": {"type": "string", "required": True, "label": "Digits"},
+                "line": _line_param(),
+            },
+        },
+    })
     return cmds
 
 
@@ -1099,7 +834,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "2.2.0",
+        "version": "3.0.0",
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
         "description": (
@@ -1110,8 +845,8 @@ class BiampTesiraTTPDriver(BaseDriver):
             "Present Meter, Tone Generator, Preset recall, and basic VoIP "
             "/ Dialer surfaces. Subscribes to push updates instead of "
             "polling. Declare your Tesira blocks once in the device "
-            "config — the driver expands per-block / per-channel state "
-            "variables and commands automatically."
+            "config — each block becomes a child entity whose per-channel "
+            "controls panel UIs bind to directly."
         ),
         "source_url": "https://support.biamp.com/Tesira/Control/Tesira_Text_Protocol",
         "tags": ["dsp", "tesira", "ttp", "ceiling-mic", "aec", "conferencing"],
@@ -1169,9 +904,10 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "per-channel state changes — UI bindings update in "
                 "real-time without polling. Declare every Tesira block you "
                 "want to monitor or control in the 'DSP Block List' field "
-                "below; the driver expands one state variable per "
-                "(block, attribute, channel) and surfaces typed commands "
-                "named after each block."
+                "below; each block becomes a child entity whose per-channel "
+                "controls (levels, mutes, crosspoints, sources) panel "
+                "elements bind to. Drive them with the Set / Toggle / Step "
+                "Control commands: pick the block, then its control."
             ),
             "setup": (
                 "STEP 1 — Enable network control on the DSP.\n"
@@ -1219,13 +955,12 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "    • The pre-filled textarea has a complete syntax guide\n"
                 "\n"
                 "STEP 5 — Save.\n"
-                "Within seconds the device should show 'Connected'. Open "
-                "Variables → Devices and you'll see one state variable per "
-                "(block, attribute, channel) — e.g. 'Level1_level_3' for "
-                "the third channel of the Level1 block. Bind those state "
-                "keys to UI elements, or use the auto-named per-block "
-                "commands (e.g. 'Level1: Set Level (dB)') in macros and "
-                "panel buttons.\n"
+                "Within seconds the device should show 'Connected'. Each "
+                "block you declared appears as a child entity — e.g. the "
+                "'Level1' block exposes a 'level_3' control for its third "
+                "channel. Bind those child controls to UI elements, or drive "
+                "them with the Set / Toggle / Step Control commands (pick "
+                "the block, then its control) in macros and panel buttons.\n"
                 "\n"
                 "Troubleshooting:\n"
                 "    • 'Connection lost' loop on port 22 — that's SSH, not "
@@ -1328,12 +1063,14 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "availability": "always",
             },
         ],
-        # The class-level surface carries the always-present system state
-        # vars and generic escape-hatch commands so the catalog and the
-        # action validator see them; __init__ re-expands both per-instance
-        # from the declared blocks.
-        "state_variables": expand_state_variables([]),
-        "commands": expand_commands([]),
+        # Every declared Tesira block is registered as a dynamic "block"
+        # child at connect; its controls are published as a per-child schema.
+        "child_entity_types": BLOCK_CHILD_TYPES,
+        # Device-level state vars and the (static) command surface. Both are
+        # class-level and instance-independent now — per-block detail lives in
+        # the child roster, not in per-instance state_variables / commands.
+        "state_variables": system_state_variables(),
+        "commands": build_commands(),
     }
 
     HEALTH_FAULT_MESSAGE = (
@@ -1350,24 +1087,72 @@ class BiampTesiraTTPDriver(BaseDriver):
         state: Any,
         events: Any,
     ) -> None:
-        # Per-instance DRIVER_INFO so state_variables / commands reflect the
-        # blocks declared in the user's config. Mirrors the Symetrix
-        # Composer driver pattern.
+        # Expand the user's declared block list into a dynamic child roster.
+        # Each block becomes a "block" child (registered at connect) with a
+        # per-instance schema; the command surface stays static (class-level),
+        # so DRIVER_INFO is not rebuilt per instance.
         blocks_text = str(config.get("blocks", DEFAULT_BLOCKS_TEXT))
         self._blocks: list[dict[str, Any]] = parse_blocks_config(blocks_text)
-        self._subscriptions: list[dict[str, Any]] = expand_subscriptions(self._blocks)
-        # Map publishToken → subscription dict (for fast lookup on push parse)
-        self._sub_by_token: dict[str, dict[str, Any]] = {
-            s["token"]: s for s in self._subscriptions
-        }
 
-        self.DRIVER_INFO = {
-            **type(self).DRIVER_INFO,
-            "state_variables": expand_state_variables(self._blocks),
-            "commands": expand_commands(self._blocks),
-        }
+        # child_id -> per-child dynamic schema published at register_child().
+        self._block_schemas: dict[str, dict[str, dict[str, Any]]] = {}
+        # child_id -> summary state ({name, block_type, channels}).
+        self._block_meta: dict[str, dict[str, Any]] = {}
+        # child_id -> original instance tag (child_id is the sanitized form).
+        self._tag_by_child: dict[str, str] = {}
+        # (child_id, prop) -> (attribute, index) for command resolution.
+        self._prop_wire: dict[tuple[str, str], tuple[str, Any]] = {}
+        # publishToken -> (child_id, prop) so pushes / initial GETs route to
+        # the right child property.
+        self._route_by_key: dict[str, tuple[str, str]] = {}
+        # Subscriptions to (re)register on every connect. Each carries the
+        # wire pieces plus its child route.
+        self._subscriptions: list[dict[str, Any]] = []
+        self._sub_by_token: dict[str, dict[str, Any]] = {}
+
+        for blk in self._blocks:
+            if blk["type"] == "unknown":
+                continue
+            cid = _safe_token(blk["tag"])
+            if cid in self._block_schemas:
+                log.warning(
+                    f"Tesira: two blocks sanitize to the same child id "
+                    f"{cid!r}; keeping the first, skipping {blk['tag']!r}"
+                )
+                continue
+            schema, wire, subs = _expand_block(blk)
+            self._block_schemas[cid] = schema
+            self._block_meta[cid] = {
+                "name": blk["tag"],
+                "block_type": blk["type"],
+                "channels": _channels_label(blk),
+            }
+            self._tag_by_child[cid] = blk["tag"]
+            for prop, w in wire.items():
+                self._prop_wire[(cid, prop)] = w
+            for s in subs:
+                token = f"{cid}_{s['prop']}"
+                sub = {
+                    "tag": blk["tag"],
+                    "attribute": s["attribute"],
+                    "index": s["index"],
+                    "token": token,
+                    "child_id": cid,
+                    "prop": s["prop"],
+                    "rate_ms": s["rate_ms"],
+                    "type_hint": s["type_hint"],
+                }
+                self._subscriptions.append(sub)
+                self._sub_by_token[token] = sub
+                self._route_by_key[token] = (cid, s["prop"])
 
         super().__init__(device_id, config, state, events)
+
+        # Device-level (non-child) state keys — GET replies for these route
+        # to flat state, everything else routes to a child property.
+        self._system_state_vars = set(
+            type(self).DRIVER_INFO["state_variables"].keys()
+        )
 
         # Outstanding "get" queue: when send_command issues a get, we
         # remember the (state_key, type_hint) so the next +OK "value":...
@@ -1475,6 +1260,11 @@ class BiampTesiraTTPDriver(BaseDriver):
             await self._send_get('DEVICE get hostname', "device_id_str", "string")
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial session setup failed")
+
+        # Register the declared blocks as children before subscribing so
+        # push updates and initial GETs have somewhere to land. Idempotent
+        # on reconnect (same config → same schema).
+        self._register_blocks()
 
         # Re-subscribe to every declared block. This also runs after
         # reconnect — Tesira subscriptions are session-scoped.
@@ -1653,6 +1443,48 @@ class BiampTesiraTTPDriver(BaseDriver):
             raise
         return entry
 
+    def _register_blocks(self) -> None:
+        """Register every declared block as a dynamic child with its schema.
+
+        Safe to re-run on reconnect — register_child is an idempotent no-op
+        for an already-registered id with the same schema (config can't change
+        without a full driver reload), so control values survive a reconnect
+        and the fresh subscriptions / GETs repopulate them."""
+        for cid, schema in self._block_schemas.items():
+            # A dynamic child's schema= is its FULL schema — splice in the
+            # shared summary fields the summary/label rows reference.
+            full_schema = {**_BLOCK_SUMMARY_SCHEMA, **schema}
+            try:
+                self.register_child(
+                    BLOCK_CHILD_TYPE, cid, schema=full_schema,
+                    initial_state=dict(self._block_meta[cid]),
+                )
+            except (ValueError, TypeError) as exc:
+                log.warning(
+                    f"[{self.device_id}] Could not register block child "
+                    f"{cid!r}: {exc}"
+                )
+
+    def _route_value(self, key: str, coerced: Any) -> None:
+        """Route a resolved value (from a push or a GET reply) to its target:
+        a child property if `key` is a declared subscription token, a flat
+        device-level state var if it's a system var, else a raw flat key (an
+        ad-hoc runtime subscription)."""
+        route = self._route_by_key.get(key)
+        if route is not None:
+            cid, prop = route
+            if self.is_child_registered(BLOCK_CHILD_TYPE, cid):
+                try:
+                    self.set_child_state_batch(BLOCK_CHILD_TYPE, cid, {prop: coerced})
+                except ValueError:
+                    pass
+            return
+        if key in self._system_state_vars:
+            self.set_state(key, coerced)
+            return
+        # Ad-hoc runtime-subscribe token — surface raw so scripts can read it.
+        self.state.set(f"device.{self.device_id}.{key}", coerced)
+
     async def _subscribe_all(self) -> None:
         """Send a subscribe command for every declared subscription."""
         if not self._subscriptions:
@@ -1769,7 +1601,9 @@ class BiampTesiraTTPDriver(BaseDriver):
                 state_key, type_hint = entry
                 coerced = self._coerce_response_value(value_str, type_hint)
                 if coerced is not None:
-                    self.set_state(state_key, coerced)
+                    # state_key is a child token for initial GETs, or a
+                    # device-level var for the metadata / get_attribute path.
+                    self._route_value(state_key, coerced)
                 # Also surface in last_query_result for visibility from macros
                 self.set_state("last_query_result", value_str)
                 self._resolve_probe(entry)
@@ -1800,9 +1634,9 @@ class BiampTesiraTTPDriver(BaseDriver):
 
     def _handle_push(self, token: str, value_str: str) -> None:
         sub = self._sub_by_token.get(token)
-        # If we don't recognize the token (e.g. user added a runtime
-        # subscribe via subscribe_attribute), still surface the value
-        # under that token name as a state var so scripts can read it.
+        # An unrecognized token (e.g. a runtime subscribe_attribute) has no
+        # child route — _route_value falls back to a raw flat state var so
+        # the value is still observable.
         type_hint = sub["type_hint"] if sub else "string"
 
         # Array values: "value":[1.0 2.0 3.0]
@@ -1813,13 +1647,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         coerced = self._coerce_response_value(value_str, type_hint)
         if coerced is None:
             return
-        if sub is None:
-            # Register a synthetic state var for unknown tokens so the
-            # value is observable. set_state validates against
-            # DRIVER_INFO state_variables — bypass by writing directly.
-            self.state.set(f"device.{self.device_id}.{token}", coerced)
-        else:
-            self.set_state(token, coerced)
+        self._route_value(token, coerced)
 
     def _handle_array_push(self, token: str, value_str: str, type_hint: str) -> None:
         """Handle 'value':[a b c] — fan out to <token>_1, <token>_2, ..."""
@@ -1943,8 +1771,24 @@ class BiampTesiraTTPDriver(BaseDriver):
             await self._send_line("SESSION quit")
             return True
 
-        # Per-block commands — name format is <safe_tag>_<action>[_<modifier>]
-        return await self._dispatch_per_block_command(command, params)
+        # Child-scoped commands — pick a declared block + one of its controls.
+        if command == "set_control":
+            return await self._cmd_child_set(
+                params["block"], params["control"], params["value"])
+        if command == "toggle_control":
+            return await self._cmd_child_toggle(params["block"], params["control"])
+        if command == "step_control":
+            return await self._cmd_child_step(
+                params["block"], params["control"], params["amount"])
+        if command == "ramp_level":
+            return await self._cmd_ramp_level(
+                params["block"], params["control"],
+                params["target_db"], params["duration_s"])
+        if command in ("dial", "hangup", "answer", "dtmf"):
+            return await self._cmd_dialer(command, params)
+
+        log.warning(f"[{self.device_id}] Unknown command: {command}")
+        return None
 
     async def _send_attribute_action(
         self, action: str, tag: str, attr: str,
@@ -2031,165 +1875,91 @@ class BiampTesiraTTPDriver(BaseDriver):
             return f'"{escaped}"'
         return s
 
-    # ── Per-block command dispatch ──
+    # ── Child-scoped command dispatch ──
 
-    async def _dispatch_per_block_command(
-        self, command: str, params: dict[str, Any],
-    ) -> Any:
-        """Match a per-block command name to the right TTP wire command."""
-        # Find the block whose safe-tag is a prefix
-        for blk in self._blocks:
-            safe = _safe_token(blk["tag"])
-            if not command.startswith(safe + "_"):
-                continue
-            action = command[len(safe) + 1:]
-            return await self._dispatch_block_action(blk, action, params)
-        log.warning(f"[{self.device_id}] Unknown command: {command}")
-        return None
+    def _resolve_wire(
+        self, block: Any, control: Any,
+    ) -> tuple[str | None, tuple[str, Any] | None]:
+        """Resolve (block child_id, control prop) → (instance tag, (attribute,
+        index)). Returns (None, None) if either is unknown."""
+        cid = str(block)
+        tag = self._tag_by_child.get(cid)
+        wire = self._prop_wire.get((cid, str(control)))
+        return tag, wire
 
-    async def _dispatch_block_action(
-        self, blk: dict[str, Any], action: str, params: dict[str, Any],
-    ) -> Any:
-        bt = blk["type"]
-        tag = blk["tag"]
-
-        if bt in ("mute",) and action == "mute_set":
-            return await self._cmd_set_attribute(
-                tag, "mute", params["channel"], params["value"]
-            )
-        if bt in ("mute",) and action == "mute_toggle":
-            return await self._send_attribute_action(
-                "toggle", tag, "mute", params["channel"], None
-            )
-        if bt == "level" and action == "level_set":
-            return await self._cmd_set_attribute(
-                tag, "level", params["channel"], params["level_db"]
-            )
-        if bt == "level" and action == "level_step":
-            amt = float(params["amount_db"])
-            verb = "increment" if amt >= 0 else "decrement"
-            return await self._send_attribute_action(
-                verb, tag, "level", params["channel"], abs(amt)
-            )
-        if bt == "level" and action == "level_ramp":
-            # Tesira level ramp: <TAG> set rampLevel <ch> <dB> <seconds>
-            # (Some firmware variants use 'ramp' as the attribute name; the
-            # canonical TTP command is set rampLevel.)
-            ch = int(params["channel"])
-            target = float(params["target_db"])
-            duration = float(params["duration_s"])
-            await self._send_line(
-                f"{tag} set rampLevel {ch} {target} {duration}"
-            )
-            return True
-        if bt == "level" and action == "mute_set":
-            return await self._cmd_set_attribute(
-                tag, "mute", params["channel"], params["value"]
-            )
-        if bt == "level" and action == "mute_toggle":
-            return await self._send_attribute_action(
-                "toggle", tag, "mute", params["channel"], None
-            )
-        if bt == "source_select" and action == "select_source":
-            return await self._cmd_set_attribute(
-                tag, "sourceSelection", None, params["source"]
-            )
-        if bt == "source_select" and action == "set_output_level":
-            return await self._cmd_set_attribute(
-                tag, "outputLevel", None, params["level_db"]
-            )
-        if bt == "source_select" and action == "output_mute_set":
-            return await self._cmd_set_attribute(
-                tag, "outputMute", None, params["value"]
-            )
-        if bt == "matrix_mixer" and action == "xpoint_set":
-            i = int(params["input_n"])
-            o = int(params["output_n"])
-            val = self._format_value(params["value"])
-            await self._send_line(
-                f"{tag} set crosspointLevelState {i} {o} {val}"
-            )
-            return True
-        if bt == "matrix_mixer" and action == "xpoint_level":
-            i = int(params["input_n"])
-            o = int(params["output_n"])
-            db = float(params["level_db"])
-            await self._send_line(
-                f"{tag} set crosspointLevel {i} {o} {db}"
-            )
-            return True
-        if bt == "matrix_mixer" and action == "output_level_set":
-            return await self._cmd_set_attribute(
-                tag, "outputLevel", params["output_n"], params["level_db"]
-            )
-        if bt == "matrix_mixer" and action == "output_mute_set":
-            return await self._cmd_set_attribute(
-                tag, "outputMute", params["output_n"], params["value"]
-            )
-        if bt == "router" and action == "route":
-            return await self._cmd_set_attribute(
-                tag, "output", params["output_n"], params["source"]
-            )
-        if bt == "automixer" and action == "channel_mute_set":
-            return await self._cmd_set_attribute(
-                tag, "channelMute", params["channel"], params["value"]
-            )
-        if bt == "automixer" and action == "channel_level_set":
-            return await self._cmd_set_attribute(
-                tag, "channelLevel", params["channel"], params["level_db"]
-            )
-        if bt == "room_combiner" and action == "set_group":
-            return await self._cmd_set_attribute(
-                tag, "group", params["wall"], params["group"]
-            )
-        if bt == "room_combiner" and action == "set_combine":
-            return await self._cmd_set_attribute(
-                tag, "combine", params["wall"], params["value"]
-            )
-        if bt == "logic" and action == "set_state":
-            return await self._cmd_set_attribute(
-                tag, "state", params["channel"], params["value"]
-            )
-        if bt == "generator" and action == "set_amplitude":
-            return await self._cmd_set_attribute(
-                tag, "amplitude", None, params["level_db"]
-            )
-        if bt == "generator" and action == "set_frequency":
-            return await self._cmd_set_attribute(
-                tag, "frequency", None, params["hz"]
-            )
-        if bt == "generator" and action == "enable":
-            return await self._cmd_set_attribute(
-                tag, "generatorEnable", None, params["value"]
-            )
-        if bt == "dialer" and action == "dial":
-            num = str(params["number"]).replace('"', '\\"')
-            line = int(params.get("line", 1))
-            await self._send_line(f'{tag} dial {line} "{num}"')
-            return True
-        if bt == "dialer" and action == "hangup":
-            line = int(params.get("line", 1))
-            await self._send_line(f"{tag} end {line}")
-            return True
-        if bt == "dialer" and action == "answer":
-            line = int(params.get("line", 1))
-            await self._send_line(f"{tag} answer {line}")
-            return True
-        if bt == "dialer" and action == "dtmf":
-            digits = str(params["digits"]).replace('"', '\\"')
-            line = int(params.get("line", 1))
-            await self._send_line(f'{tag} dtmf {line} "{digits}"')
-            return True
-        if bt == "voip_rx" and action == "set_mute":
-            return await self._cmd_set_attribute(
-                tag, "mute", None, params["value"]
-            )
-
+    def _warn_unresolved(self, block: Any, control: Any) -> None:
         log.warning(
-            f"[{self.device_id}] Unhandled per-block action: "
-            f"block={tag} type={bt} action={action}"
+            f"[{self.device_id}] Unknown block/control: "
+            f"block={block!r} control={control!r}"
         )
-        return None
+
+    async def _send_wire(
+        self, tag: str, verb: str, attr: str, index: Any, value: Any = None,
+    ) -> bool:
+        parts = [tag, verb, attr]
+        parts.extend(self._format_index(index))
+        if value is not None:
+            parts.append(self._format_value(value))
+        await self._send_line(" ".join(parts))
+        return True
+
+    async def _cmd_child_set(self, block: Any, control: Any, value: Any) -> Any:
+        tag, wire = self._resolve_wire(block, control)
+        if tag is None or wire is None:
+            self._warn_unresolved(block, control)
+            return None
+        attr, index = wire
+        return await self._send_wire(tag, "set", attr, index, value)
+
+    async def _cmd_child_toggle(self, block: Any, control: Any) -> Any:
+        tag, wire = self._resolve_wire(block, control)
+        if tag is None or wire is None:
+            self._warn_unresolved(block, control)
+            return None
+        attr, index = wire
+        return await self._send_wire(tag, "toggle", attr, index)
+
+    async def _cmd_child_step(self, block: Any, control: Any, amount: Any) -> Any:
+        tag, wire = self._resolve_wire(block, control)
+        if tag is None or wire is None:
+            self._warn_unresolved(block, control)
+            return None
+        attr, index = wire
+        amt = float(amount)
+        verb = "increment" if amt >= 0 else "decrement"
+        return await self._send_wire(tag, verb, attr, index, abs(amt))
+
+    async def _cmd_ramp_level(
+        self, block: Any, control: Any, target_db: Any, duration_s: Any,
+    ) -> Any:
+        tag, wire = self._resolve_wire(block, control)
+        if tag is None or wire is None:
+            self._warn_unresolved(block, control)
+            return None
+        _, index = wire
+        # Tesira level ramp: <TAG> set rampLevel <ch> <dB> <seconds>.
+        parts = [tag, "set", "rampLevel", *self._format_index(index),
+                 str(float(target_db)), str(float(duration_s))]
+        await self._send_line(" ".join(parts))
+        return True
+
+    async def _cmd_dialer(self, command: str, params: dict[str, Any]) -> Any:
+        tag = self._tag_by_child.get(str(params["block"]))
+        if tag is None:
+            self._warn_unresolved(params["block"], command)
+            return None
+        line = int(params.get("line", 1) or 1)
+        if command == "dial":
+            num = str(params["number"]).replace('"', '\\"')
+            await self._send_line(f'{tag} dial {line} "{num}"')
+        elif command == "hangup":
+            await self._send_line(f"{tag} end {line}")
+        elif command == "answer":
+            await self._send_line(f"{tag} answer {line}")
+        elif command == "dtmf":
+            digits = str(params["digits"]).replace('"', '\\"')
+            await self._send_line(f'{tag} dtmf {line} "{digits}"')
+        return True
 
     # ── Liveness watchdog (BaseDriver health loop) ──
 

@@ -83,12 +83,72 @@ class _FakeBaseDriver:
         self.stashed_fault: tuple[str, str] | None = None
         self._health_task = None
         self._health_failures = 0
+        # Child-entity registry (mirrors the platform child API closely
+        # enough for the dual-proof tests; the real schema/id validation is
+        # covered by the ad-hoc real-BaseDriver smoke).
+        self._children: dict = {}
+        self._child_schemas: dict = {}
 
     def set_state(self, key, value) -> None:
         self.state.set(key, value)
 
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
+
+    # -- child entities --
+
+    def _child_key(self, child_type, local_id, prop) -> str:
+        return f"device.{self.device_id}.{child_type}.{local_id}.{prop}"
+
+    def register_child(self, child_type, local_id, initial_state=None, schema=None) -> None:
+        bucket = self._children.setdefault(child_type, {})
+        if local_id in bucket:
+            return  # idempotent — same as the platform
+        eff = dict(schema or {})
+        eff.setdefault("online", {"type": "boolean"})
+        eff.setdefault("label", {"type": "string"})
+        overrides = dict(initial_state or {})
+        for prop in overrides:
+            if prop not in eff:
+                raise ValueError(
+                    f"initial_state property {prop!r} not in child schema")
+        bucket[local_id] = True
+        self._child_schemas[(child_type, local_id)] = eff
+        for prop in eff:
+            if prop == "online":
+                value = overrides.get("online", True)
+            elif prop == "label":
+                value = overrides.get("label", "")
+            else:
+                value = overrides.get(prop)
+            self.state.set(self._child_key(child_type, local_id, prop), value)
+
+    def deregister_child(self, child_type, local_id) -> None:
+        self._children.get(child_type, {}).pop(local_id, None)
+        self._child_schemas.pop((child_type, local_id), None)
+
+    def is_child_registered(self, child_type, local_id) -> bool:
+        return local_id in self._children.get(child_type, {})
+
+    def set_child_state_batch(self, child_type, local_id, updates) -> None:
+        if not self.is_child_registered(child_type, local_id):
+            return
+        eff = self._child_schemas.get((child_type, local_id), {})
+        for prop in updates:
+            if prop not in eff:
+                raise ValueError(f"unknown child prop {prop!r}")
+        for prop, value in updates.items():
+            self.state.set(self._child_key(child_type, local_id, prop), value)
+
+    def get_child_schema(self, child_type, local_id):
+        return dict(self._child_schemas.get((child_type, local_id), {}))
+
+    def get_child_state(self, child_type, local_id):
+        eff = self._child_schemas.get((child_type, local_id), {})
+        return {
+            prop: self.state.data.get(self._child_key(child_type, local_id, prop))
+            for prop in eff
+        }
 
     def _handle_transport_disconnect(self) -> None:
         self.disconnect_calls += 1
@@ -361,17 +421,33 @@ def _run(coro):
     return asyncio.new_event_loop().run_until_complete(coro)
 
 
+def _child(driver, cid, prop, default=None):
+    """Read one block child's property from the fake state store."""
+    return driver.state.data.get(f"device.{driver.device_id}.block.{cid}.{prop}", default)
+
+
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_metadata_and_actions_shape():
     info = DRV.BiampTesiraTTPDriver.DRIVER_INFO
-    assert info["version"] == "2.2.0"
+    assert info["version"] == "3.0.0"
     assert info["min_platform_version"] == "0.22.0"
 
-    # The class-level catalog surface must not be empty (the generic escape
-    # hatches and system vars are always present; __init__ re-expands).
+    # Static class-level surface: escape hatches + child-scoped commands +
+    # system state vars, plus the dynamic "block" child type.
     assert "recall_preset" in info["commands"]
+    assert "set_control" in info["commands"]
     assert "firmware_version" in info["state_variables"]
+    block_type = info["child_entity_types"]["block"]
+    assert block_type["dynamic"] is True
+    assert block_type["id_format"]["type"] == "string"
+
+    # set_control wires the block picker + control cascade + typed value.
+    set_ctl = info["commands"]["set_control"]["params"]
+    assert set_ctl["block"]["type"] == "child_id"
+    assert set_ctl["block"]["child_type"] == "block"
+    assert set_ctl["control"]["options_from"] == {"param": "block", "source": "child_schema"}
+    assert set_ctl["value"]["type_from"] == {"param": "control"}
 
     # Every promoted quick action resolves to a declared command.
     for cid in info["quick_actions"]:
@@ -383,11 +459,23 @@ def test_metadata_and_actions_shape():
     assert setup["availability"] == "always"
 
 
-def test_per_instance_expansion_still_works():
+def test_block_children_expanded_from_config():
     driver, _sim = _run(_make_pair())
-    assert "Level1_level_set" in driver.DRIVER_INFO["commands"]
-    assert "Level1_level_1" in driver.DRIVER_INFO["state_variables"]
-    assert "recall_preset" in driver.DRIVER_INFO["commands"]
+    # Each declared block becomes a child with a per-instance schema; the
+    # command surface is static (not per-block-named).
+    assert set(driver._block_schemas) == {"Level1", "Mute1", "PgmSrc"}
+    lvl = driver._block_schemas["Level1"]
+    assert lvl["level_1"]["control"] is True
+    assert lvl["level_1"]["min"] == -100 and lvl["level_1"]["max"] == 12
+    assert lvl["level_1"]["cloud_priority"] == "low"
+    assert lvl["mute_1"]["cloud_priority"] == "high"
+    assert "Level1_level_set" not in driver.DRIVER_INFO["commands"]
+    for c in ("set_control", "toggle_control", "step_control", "ramp_level",
+              "recall_preset"):
+        assert c in driver.DRIVER_INFO["commands"]
+    # The wire map resolves a child (block, control) back to (attr, index).
+    assert driver._prop_wire[("Level1", "level_1")] == ("level", 1)
+    assert driver._prop_wire[("PgmSrc", "source")] == ("sourceSelection", None)
 
 
 # ── Connect round trip ──────────────────────────────────────────────────────
@@ -401,12 +489,114 @@ def test_connect_handshake_and_initial_state():
             # Metadata gets routed through the pending-GET FIFO.
             assert driver.get_state("serial_number") == "SIM00001"
             assert driver.get_state("firmware_version") == "4.14.0"
+            # Every declared block registered as a child.
+            for cid in ("Level1", "Mute1", "PgmSrc"):
+                assert driver.is_child_registered("block", cid)
+            assert _child(driver, "Level1", "block_type") == "level"
             # Subscriptions registered on the sim side.
             subs = sim._client_subs["c1"]
             assert len(subs) == len(driver._subscriptions)
-            # Initial GET populated block state from the sim's DSP state.
-            assert driver.get_state("Level1_level_1") == -10.0
-            assert driver.get_state("Mute1_mute_2") is False
+            # Initial GET populated child state from the sim's DSP state.
+            assert _child(driver, "Level1", "level_1") == -10.0
+            assert _child(driver, "Mute1", "mute_2") is False
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+# ── Child-entity control extraction (CE) ────────────────────────────────────
+
+async def _settle(driver, cid, prop, want, ticks=20):
+    """Yield the loop until an async sim push lands in child state."""
+    for _ in range(ticks):
+        await asyncio.sleep(0)
+        if _child(driver, cid, prop) == want:
+            return
+    return
+
+
+def test_set_control_round_trips_through_sim():
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            await driver.send_command(
+                "set_control", {"block": "Level1", "control": "level_2", "value": -20.0})
+            await _settle(driver, "Level1", "level_2", -20.0)
+            assert sim._dsp[("Level1", "level", 2)] == -20.0
+            assert _child(driver, "Level1", "level_2") == -20.0
+
+            # A source_select (indexless) control resolves too.
+            await driver.send_command(
+                "set_control", {"block": "PgmSrc", "control": "source", "value": 3})
+            await _settle(driver, "PgmSrc", "source", 3)
+            assert sim._dsp[("PgmSrc", "sourceSelection", None)] == 3
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_toggle_and_step_control_reach_wire():
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            sim._dsp[("Mute1", "mute", 1)] = False
+            await driver.send_command(
+                "toggle_control", {"block": "Mute1", "control": "mute_1"})
+            await _settle(driver, "Mute1", "mute_1", True)
+            assert sim._dsp[("Mute1", "mute", 1)] is True
+
+            sim._dsp[("Level1", "level", 1)] = -10.0
+            await driver.send_command(
+                "step_control", {"block": "Level1", "control": "level_1", "amount": -3.0})
+            await _settle(driver, "Level1", "level_1", -13.0)
+            assert sim._dsp[("Level1", "level", 1)] == -13.0
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_external_change_pushes_to_child_state():
+    """A front-panel nudge on the DSP (external state change) pushes to
+    subscribers and updates the block child, no command sent by us."""
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            sim._dsp[("Mute1", "mute", 3)] = True
+            sim._push_subscribers("Mute1", "mute", 3)
+            await _settle(driver, "Mute1", "mute_3", True)
+            assert _child(driver, "Mute1", "mute_3") is True
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_big_matrix_crosspoints_settable_but_not_subscribed():
+    """A >64-crosspoint mixer keeps every crosspoint in the child schema
+    (settable) but does not auto-subscribe them (wire-flood guard)."""
+    driver, _sim = _run(_make_pair({"blocks": "Big matrix_mixer 16x16\n"}))
+    schema = driver._block_schemas["Big"]
+    assert "xpoint_16_16" in schema and schema["xpoint_16_16"]["control"] is True
+    assert ("Big", "xpoint_16_16") in driver._prop_wire
+    assert not any(t.startswith("Big_xpoint") for t in driver._route_by_key)
+    # An 8x4 mixer (32 crosspoints) IS subscribed.
+    d2, _ = _run(_make_pair({"blocks": "Mix matrix_mixer 8x4\n"}))
+    assert any(t.startswith("Mix_xpoint") for t in d2._route_by_key)
+
+
+def test_unknown_block_or_control_is_a_no_op():
+    async def scenario():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            before = dict(sim._dsp)
+            assert await driver.send_command(
+                "set_control", {"block": "Nope", "control": "x", "value": 1}) is None
+            assert await driver.send_command(
+                "set_control", {"block": "Level1", "control": "no_such", "value": 1}) is None
+            assert sim._dsp == before
         finally:
             await driver.disconnect()
     _run(scenario())
@@ -423,9 +613,9 @@ def test_reconnect_clears_stale_pending_gets():
         await driver.connect()
         try:
             # If connect() hadn't cleared the queue, the serial-number reply
-            # would have landed in Level1_level_1.
+            # would have landed in Level1's level_1 child prop.
             assert driver.get_state("serial_number") == "SIM00001"
-            assert driver.get_state("Level1_level_1") == -10.0
+            assert _child(driver, "Level1", "level_1") == -10.0
         finally:
             await driver.disconnect()
     _run(scenario())
@@ -479,7 +669,7 @@ def test_push_does_not_satisfy_probe():
                 b'! "publishToken":"Level1_level_1" "value":-6.0')
             await asyncio.sleep(0.05)
             assert not probe.done()
-            assert driver.get_state("Level1_level_1") == -6.0
+            assert _child(driver, "Level1", "level_1") == -6.0
             # The version reply arrives — probe resolves.
             await driver.on_data_received(b'+OK "value":"4.14.0"')
             await asyncio.wait_for(probe, 1.0)

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 90,
+    "total_drivers": 91,
     "shards": null
   },
   "drivers": [
@@ -2349,6 +2349,28 @@
           "lumens",
           "visca"
         ]
+      }
+    },
+    {
+      "id": "modbus_tcp",
+      "name": "Modbus TCP Device",
+      "manufacturer": "Generic",
+      "category": "utility",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Read and write any Modbus TCP device by declaring its register map.",
+      "source_url": "https://www.modbus.org/modbus-specifications",
+      "file": "utility/modbus_tcp.py",
+      "format": "python",
+      "protocols": [
+        "modbus_tcp"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "help": {
+        "overview": "Controls any Modbus TCP device (PLCs, HVAC controllers, power meters, industrial gear). You declare the device's register map on the device page; the driver turns read registers into live status values, write registers into commands, and read/write registers into device settings.",
+        "setup": "Enter the IP address and Unit ID (usually 1), then add the registers from the device's Modbus register map. Addresses are 0-based: a register listed as 40001 in the manual is holding address 0."
       }
     },
     {

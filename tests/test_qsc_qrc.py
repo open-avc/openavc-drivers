@@ -259,13 +259,50 @@ def _make_driver(config=None):
 
 # ── Pure helpers ──
 
-def test_parse_named_controls():
+def test_parse_named_controls_legacy_string():
+    # A project saved before the `type: table` editor stores a string here;
+    # the parser converts it (reusing the old line grammar) so it still loads.
     txt = "# comment\nVolume number\nMute boolean\nLevel\nGate trigger\nBad weird\n"
     out = qsc.parse_named_controls(txt)
     assert out == [
         ("Volume", "number"), ("Mute", "boolean"), ("Level", None),
         ("Gate", "trigger"), ("Bad", None),
     ]
+
+
+def test_parse_named_controls_rows():
+    # The `type: table` config value is a list of row dicts. A blank/missing
+    # type auto-detects; an unknown type is treated the same; a nameless row
+    # is dropped.
+    rows = [
+        {"name": "Volume", "type": "number"},
+        {"name": "Mute", "type": "boolean"},
+        {"name": "Level"},
+        {"name": "Gate", "type": "trigger"},
+        {"name": "Loose", "type": ""},
+        {"name": "Bad", "type": "weird"},
+        {"name": ""},
+        {"type": "number"},
+        "not-a-dict",
+    ]
+    assert qsc.parse_named_controls(rows) == [
+        ("Volume", "number"), ("Mute", "boolean"), ("Level", None),
+        ("Gate", "trigger"), ("Loose", None), ("Bad", None),
+    ]
+
+
+def test_named_controls_legacy_string_and_rows_agree():
+    # The one-shot text->rows converter and the row parser must produce the
+    # same (name, hint) list from equivalent legacy and table configs — proving
+    # a stored string can be re-authored in the editor without data loss.
+    txt = "Volume number\nMute boolean\nLevel\n"
+    rows = qsc._named_controls_text_to_rows(txt)
+    assert rows == [
+        {"name": "Volume", "type": "number"},
+        {"name": "Mute", "type": "boolean"},
+        {"name": "Level"},
+    ]
+    assert qsc.parse_named_controls(txt) == qsc.parse_named_controls(rows)
 
 
 @pytest.mark.parametrize("raw,hint,expected", [
@@ -661,6 +698,42 @@ def test_discover_topology_publishes_snapshot_banks():
     banks = json.loads(drv.get_state("snapshot_banks"))
     assert banks == ["RoomScenes"]
     assert drv.get_state("component_count") == 5
+
+
+def test_named_control_children_build_from_row_list_config():
+    # Named Controls are now a `type: table` row list; topology import must
+    # register a child per row, with the value type following the declared
+    # hint. (QRC can't enumerate them, so this is the only way they appear.)
+    drv = _make_driver({"named_controls": [
+        {"name": "Volume", "type": "number"},
+        {"name": "Mute", "type": "boolean"},
+        {"name": "Fire", "type": "trigger"},   # write-only: no child
+    ]})
+
+    nc_values = {
+        "Volume": {"Value": -12.0, "String": "-12dB", "Position": 0.4},
+        "Mute": {"Value": True, "String": "muted", "Position": 1.0},
+    }
+
+    async def fake_send(method, params=None, **_kw):
+        if method == "Component.GetComponents":
+            return FX["get_components_result"]
+        if method == "Component.GetControls":
+            return FX["get_controls"][params["Name"]]
+        if method == "Control.Get":
+            return [nc_values[params[0]]]
+        return {}
+
+    drv._send_jsonrpc = fake_send  # type: ignore[assignment]
+    asyncio.run(drv._discover_topology())
+
+    assert drv.is_child_registered("named_control", "Volume")
+    assert drv.is_child_registered("named_control", "Mute")
+    # A trigger control is write-only — fired via trigger_named_control, not a child.
+    assert not drv.is_child_registered("named_control", "Fire")
+    assert drv.get_state("named_control_count") == 2
+    assert drv.get_child_state("named_control", "Volume")["value"] == -12.0
+    assert drv.get_child_state("named_control", "Mute")["value"] is True
 
 
 def test_set_component_control_value_type_follows_control():

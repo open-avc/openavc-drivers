@@ -426,12 +426,62 @@ def _child(driver, cid, prop, default=None):
     return driver.state.data.get(f"device.{driver.device_id}.block.{cid}.{prop}", default)
 
 
+# ── blocks config parsing (row list + legacy string) ────────────────────────
+
+def test_parse_blocks_rows():
+    # The `type: table` config value is a list of row dicts. Channels/NxM come
+    # from the "channels" cell; aliases and unknown types are still handled;
+    # a nameless row is dropped.
+    rows = [
+        {"tag": "Mute1", "type": "mute", "channels": "1-4"},
+        {"tag": "PgmSrc", "type": "source_select"},
+        {"tag": "PgmMix", "type": "matrix_mixer", "channels": "8x4"},
+        {"tag": "Solo", "type": "fader"},              # alias -> level, chan 1
+        {"tag": "Huh", "type": "bogus"},               # unknown -> "unknown"
+        {"tag": "", "type": "mute"},                   # no tag -> dropped
+        {"type": "mute"},                              # no tag -> dropped
+        "not-a-dict",
+    ]
+    blocks = DRV.parse_blocks_config(rows)
+    by_tag = {b["tag"]: b for b in blocks}
+    assert set(by_tag) == {"Mute1", "PgmSrc", "PgmMix", "Solo", "Huh"}
+    assert by_tag["Mute1"]["type"] == "mute" and by_tag["Mute1"]["channels"] == [1, 2, 3, 4]
+    assert by_tag["PgmSrc"]["type"] == "source_select" and by_tag["PgmSrc"]["channels"] == []
+    assert by_tag["PgmMix"]["type"] == "matrix_mixer"
+    assert by_tag["PgmMix"]["extra"] == {"inputs": 8, "outputs": 4}
+    assert by_tag["Solo"]["type"] == "level" and by_tag["Solo"]["channels"] == [1]
+    assert by_tag["Huh"]["type"] == "unknown"
+
+
+def test_parse_blocks_legacy_string_and_rows_agree():
+    # A project saved before the table editor stores a string; the parser
+    # converts it (reusing the old line grammar) so it still loads. The
+    # converter output fed back through the row path must expand identically —
+    # proving a stored string can be re-authored without data loss.
+    txt = (
+        "# comment\n"
+        "Mute1   mute    1-4     # inline comment\n"
+        "PgmSrc  source_select\n"
+        "PgmMix  matrix_mixer 8x4\n"
+        "Short\n"                       # too short -> dropped
+    )
+    from_string = DRV.parse_blocks_config(txt)
+    rows = DRV._blocks_text_to_rows(txt)
+    assert rows == [
+        {"tag": "Mute1", "type": "mute", "channels": "1-4"},
+        {"tag": "PgmSrc", "type": "source_select"},
+        {"tag": "PgmMix", "type": "matrix_mixer", "channels": "8x4"},
+    ]
+    assert from_string == DRV.parse_blocks_config(rows)
+    assert [b["tag"] for b in from_string] == ["Mute1", "PgmSrc", "PgmMix"]
+
+
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_metadata_and_actions_shape():
     info = DRV.BiampTesiraTTPDriver.DRIVER_INFO
-    assert info["version"] == "3.0.0"
-    assert info["min_platform_version"] == "0.22.0"
+    assert info["version"] == "3.1.0"
+    assert info["min_platform_version"] == "0.23.0"
 
     # Static class-level surface: escape hatches + child-scoped commands +
     # system state vars, plus the dynamic "block" child type.
@@ -478,6 +528,24 @@ def test_block_children_expanded_from_config():
     assert driver._prop_wire[("PgmSrc", "source")] == ("sourceSelection", None)
 
 
+def test_block_children_expanded_from_row_list_config():
+    # Same expansion, but the `blocks` config is the `type: table` row list
+    # (list of dicts) rather than a legacy string — the runtime path a device
+    # authored in the table editor takes.
+    rows = [
+        {"tag": "Level1", "type": "level", "channels": "1-4"},
+        {"tag": "Mute1", "type": "mute", "channels": "1-4"},
+        {"tag": "PgmSrc", "type": "source_select"},
+    ]
+    driver, _sim = _run(_make_pair({"blocks": rows}))
+    assert set(driver._block_schemas) == {"Level1", "Mute1", "PgmSrc"}
+    lvl = driver._block_schemas["Level1"]
+    assert lvl["level_1"]["control"] is True
+    assert lvl["level_4"]["min"] == -100 and lvl["level_4"]["max"] == 12
+    assert driver._prop_wire[("Level1", "level_1")] == ("level", 1)
+    assert driver._prop_wire[("PgmSrc", "source")] == ("sourceSelection", None)
+
+
 # ── Connect round trip ──────────────────────────────────────────────────────
 
 def test_connect_handshake_and_initial_state():
@@ -497,6 +565,31 @@ def test_connect_handshake_and_initial_state():
             subs = sim._client_subs["c1"]
             assert len(subs) == len(driver._subscriptions)
             # Initial GET populated child state from the sim's DSP state.
+            assert _child(driver, "Level1", "level_1") == -10.0
+            assert _child(driver, "Mute1", "mute_2") is False
+        finally:
+            await driver.disconnect()
+    _run(scenario())
+
+
+def test_connect_round_trip_row_list_config():
+    # The full connect round-trip through the real simulator, but with the
+    # `type: table` row-list config a device authored in the editor stores —
+    # children register and populate from the DSP's live state identically to
+    # the legacy-string path above.
+    rows = [
+        {"tag": "Level1", "type": "level", "channels": "1-4"},
+        {"tag": "Mute1", "type": "mute", "channels": "1-4"},
+        {"tag": "PgmSrc", "type": "source_select"},
+    ]
+
+    async def scenario():
+        driver, sim = await _make_pair({"blocks": rows})
+        await driver.connect()
+        try:
+            for cid in ("Level1", "Mute1", "PgmSrc"):
+                assert driver.is_child_registered("block", cid)
+            assert _child(driver, "Level1", "block_type") == "level"
             assert _child(driver, "Level1", "level_1") == -10.0
             assert _child(driver, "Mute1", "mute_2") is False
         finally:

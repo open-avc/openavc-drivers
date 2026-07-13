@@ -151,16 +151,28 @@ _SPEC_HELP = (
     "'1-8 !3' (all but 3), '* !3-5'."
 )
 
-_NC_DEFAULT_TEXT = """\
-# Named Controls — one per line:  <Name> [type]
-# type is number | boolean | string | trigger (default: auto-detect).
-# QRC cannot enumerate Named Controls, so list any you want to monitor or
-# bind. Components (Gains, Mixers, etc.) are auto-discovered and do NOT go
-# here. Names are case-sensitive and must match the Named Controls list in
-# Q-SYS Designer exactly. Example:
-# Volume   number
-# Mute     boolean
-"""
+# Columns for the Named Controls `type: table` config field. QRC can't
+# enumerate Named Controls, so the integrator declares the ones to monitor as
+# rows on the device page (Name + optional value type). Declared once and
+# reused in config_schema so the device-page table editor renders the right
+# widgets. Blank/omitted type = auto-detect from the Core's first report.
+NAMED_CONTROLS_COLUMNS = {
+    "name": {
+        "type": "string", "label": "Name", "required": True,
+        "help": "Named Control name — case-sensitive, must match the Named "
+                "Controls list in Q-SYS Designer exactly.",
+    },
+    "type": {
+        "type": "enum", "label": "Type",
+        "values": [
+            {"value": "number", "label": "Number"},
+            {"value": "boolean", "label": "Boolean"},
+            {"value": "string", "label": "String"},
+            {"value": "trigger", "label": "Trigger (write-only button)"},
+        ],
+        "help": "Value type. Leave blank to auto-detect from the Core.",
+    },
+}
 
 
 # ── Helpers ──
@@ -189,31 +201,50 @@ def _category_for(qsys_type: str) -> str:
     return t.replace("_", " ").title() if t else "Component"
 
 
-def parse_named_controls(text: str) -> list[tuple[str, str | None]]:
-    """Parse the Named Controls config field into [(name, type_hint|None)].
+def _named_controls_text_to_rows(text: str) -> list[dict[str, Any]]:
+    """One-shot converter: the legacy ``<Name> [type]`` textarea -> table rows.
 
-    One control per line, ``<Name> [type]``; ``#``/``;`` comments and blank
-    lines ignored. An unknown type token is treated as no hint (auto-detect).
+    Named Controls used to be a `type: text` field the integrator hand-typed
+    one-per-line; it is now a `type: table`. A project saved before the table
+    editor stores a string here — convert it (reusing the old line grammar) so
+    it still loads and can be re-authored in the row editor without hand
+    migration. ``#``/``;`` comment and blank lines are dropped; an unrecognized
+    type token becomes no type (auto-detect).
     """
-    out: list[tuple[str, str | None]] = []
-    if not text:
-        return out
+    rows: list[dict[str, Any]] = []
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or line.startswith(";"):
             continue
         parts = line.split()
-        name = parts[0]
-        hint: str | None = None
-        if len(parts) >= 2:
-            tok = parts[1].lower()
-            if tok in NC_TYPE_HINTS:
-                hint = tok
-            else:
-                log.warning(
-                    "QSC named_controls: unknown type %r for %r; auto-detecting",
-                    tok, name,
-                )
+        row: dict[str, Any] = {"name": parts[0]}
+        if len(parts) >= 2 and parts[1].lower() in NC_TYPE_HINTS:
+            row["type"] = parts[1].lower()
+        rows.append(row)
+    return rows
+
+
+def parse_named_controls(value: Any) -> list[tuple[str, str | None]]:
+    """Parse the Named Controls config into [(name, type_hint|None)].
+
+    Accepts the `type: table` row list (``[{"name", "type"}, ...]``) and, for a
+    project saved before the table editor shipped, a legacy ``<Name> [type]``
+    textarea string (converted to rows first). A blank/unknown type is treated
+    as no hint (auto-detect); a nameless row is skipped.
+    """
+    if isinstance(value, str):
+        value = _named_controls_text_to_rows(value)
+    out: list[tuple[str, str | None]] = []
+    if not isinstance(value, list):
+        return out
+    for row in value:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name", "")).strip()
+        if not name:
+            continue
+        tok = str(row.get("type", "") or "").strip().lower()
+        hint = tok if tok in NC_TYPE_HINTS else None
         out.append((name, hint))
     return out
 
@@ -302,10 +333,11 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.2.4",
-        # Requires typed connection faults (ConnectionFaultError, 0.22.0) on
-        # top of the runtime-discovered child-entity feature (0.19.4).
-        "min_platform_version": "0.22.0",
+        "version": "4.3.0",
+        # Requires the `type: table` config-field editor (Named Controls;
+        # 0.23.0), which supersedes the typed-connection-faults (0.22.0) and
+        # runtime-discovered child-entity (0.19.4) requirements.
+        "min_platform_version": "0.23.0",
         "author": "OpenAVC",
         "description": (
             "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) — "
@@ -407,10 +439,10 @@ class QSCQRCDriver(BaseDriver):
                 "STEP 2 — (Optional) Named Controls.\n"
                 "Individual controls you drag into Designer's Named Controls "
                 "list (e.g. 'Volume', 'Mute') can be monitored too. QRC cannot "
-                "enumerate these, so list any you want in the 'Named Controls' "
-                "field below — one per line, optionally followed by a type "
-                "(number/boolean/string/trigger). Most rooms need none, since "
-                "Components are discovered automatically.\n"
+                "enumerate these, so add each one you want to the 'Named "
+                "Controls' table on the device page (Name, plus an optional "
+                "type — number/boolean/string/trigger). Most rooms need none, "
+                "since Components are discovered automatically.\n"
                 "\n"
                 "STEP 3 — Enter the Core's IP address above.\n"
                 "If the Core has authentication enabled (Core Manager → Users), "
@@ -488,7 +520,7 @@ class QSCQRCDriver(BaseDriver):
             "port": DEFAULT_PORT,
             "username": "",
             "password": "",
-            "named_controls": _NC_DEFAULT_TEXT,
+            "named_controls": [],
             "component_filter": "",
             "autopoll_rate_seconds": DEFAULT_AUTOPOLL_RATE_S,
             "inter_command_delay": DEFAULT_INTER_COMMAND_DELAY,
@@ -516,14 +548,13 @@ class QSCQRCDriver(BaseDriver):
                 "secret": True,
             },
             "named_controls": {
-                "type": "text", "label": "Named Controls",
-                "default": _NC_DEFAULT_TEXT,
-                "description": (
-                    "Optional. Named Controls to monitor — one per line, "
-                    "optionally followed by a type (number/boolean/string/"
-                    "trigger). QRC can't enumerate Named Controls, so list any "
-                    "you want here. Components are auto-discovered and don't go "
-                    "here."
+                "type": "table", "label": "Named Controls",
+                "row_label": "control",
+                "columns": NAMED_CONTROLS_COLUMNS,
+                "help": (
+                    "Optional. QRC can't enumerate Named Controls, so add each "
+                    "one you want to monitor or bind (Name + optional value "
+                    "type). Components are auto-discovered and don't go here."
                 ),
             },
             "component_filter": {
@@ -991,8 +1022,11 @@ class QSCQRCDriver(BaseDriver):
             seen_component_sids.add(sid)
 
         # --- Named Controls (user list; QRC can't enumerate them) ---
+        # config value is the `type: table` row list (or a legacy string for a
+        # project saved before the table editor — parse_named_controls handles
+        # both).
         for name, hint in parse_named_controls(
-            str(self.config.get("named_controls", ""))
+            self.config.get("named_controls", [])
         ):
             if hint == "trigger":
                 continue  # write-only; fired via trigger_named_control

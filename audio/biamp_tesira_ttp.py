@@ -110,9 +110,9 @@ METER_SUBSCRIBE_RATE_MS = 500
 # clean.
 DEFAULT_INTER_COMMAND_DELAY = 0.05
 
-# Block-type vocabulary the textarea grammar accepts. Keys are user-visible
-# type tokens (case-insensitive on parse). Values describe how to expand the
-# block into state vars, subscriptions, and commands.
+# Block-type vocabulary the parser accepts (canonical types + hand-typed
+# aliases below). The canonical types back the table editor's Block Type
+# dropdown; aliases stay parseable for a legacy string config.
 BLOCK_TYPES = {
     "mute",
     "level",
@@ -136,6 +136,59 @@ BLOCK_TYPES = {
     "voip_receive",  # alias
     "dialer",
     "preset",  # bare preset label (no state surface, just convenience commands)
+}
+
+# Aliases the grammar accepts (hand-typed convenience) mapped to the canonical
+# block type. The table editor only offers the canonical values; a legacy
+# string may still carry an alias, so parsing normalizes both.
+_BLOCK_TYPE_ALIASES = {
+    "fader": "level",
+    "source_selector": "source_select",
+    "mixer": "matrix_mixer",
+    "tone_generator": "generator",
+    "voip_receive": "voip_rx",
+    "meter": "audio_meter",
+}
+
+# Columns for the `blocks` `type: table` config field. The integrator declares
+# one row per Tesira block on the device page; the enum offers the canonical
+# block types (aliases above stay parseable for legacy string configs).
+# Declared once and reused in config_schema so the device-page table editor
+# renders the right widgets.
+BLOCK_COLUMNS = {
+    "tag": {
+        "type": "string", "label": "Instance Tag", "required": True,
+        "help": "The block's Instance Tag from your Tesira design "
+                "(case-sensitive, must match exactly).",
+    },
+    "type": {
+        "type": "enum", "label": "Block Type", "required": True,
+        "values": [
+            {"value": "mute", "label": "Mute"},
+            {"value": "level", "label": "Level / Fader"},
+            {"value": "source_select", "label": "Source Selector"},
+            {"value": "matrix_mixer", "label": "Matrix Mixer (NxM)"},
+            {"value": "automixer", "label": "Automixer"},
+            {"value": "router", "label": "Router"},
+            {"value": "logic", "label": "Logic State"},
+            {"value": "logic_meter", "label": "Logic Meter"},
+            {"value": "aec", "label": "AEC Processor"},
+            {"value": "room_combiner", "label": "Room Combiner"},
+            {"value": "audio_meter", "label": "Audio Meter"},
+            {"value": "signal_present", "label": "Signal Present"},
+            {"value": "generator", "label": "Tone Generator"},
+            {"value": "voip_rx", "label": "VoIP Receive"},
+            {"value": "dialer", "label": "VoIP Dialer"},
+            {"value": "preset", "label": "Preset"},
+        ],
+        "help": "The Tesira block class — determines the controls exposed.",
+    },
+    "channels": {
+        "type": "string", "label": "Channels / NxM",
+        "help": "Channel spec for per-channel blocks (1, 1-4, or 1,3,5); "
+                "inputs x outputs for a matrix mixer (e.g. 8x4); blank = "
+                "channel 1.",
+    },
 }
 
 
@@ -200,29 +253,71 @@ def _parse_matrix_spec(spec: str | None) -> tuple[int, int]:
     return int(m.group(1)), int(m.group(2))
 
 
-def parse_blocks_config(text: str) -> list[dict[str, Any]]:
-    """Parse the user-supplied `blocks` textarea into a list of block dicts.
+def _build_block(tag: str, type_token: str, spec: str) -> dict[str, Any]:
+    """Expand one (tag, type, channels/NxM) triple into a block dict.
 
-    Format: one block per line, whitespace-separated.
-        <INSTANCE_TAG> <BLOCK_TYPE> [CHANNELS|MATRIX]
+    Shared by the row-list config path and the legacy-string converter so both
+    apply the same alias normalization, channel/matrix parsing, and defaults.
 
-    Comments start with '#' or ';'. Blank lines are ignored.
-
-    Returns a list of dicts:
-        {"tag": "Mute1", "type": "mute", "channels": [1, 2, 3, 4], "extra": {}}
-
-    For matrix_mixer, "extra" carries {"inputs": 8, "outputs": 4} and
-    "channels" is empty. For source_select / dialer / generator, "channels"
-    is empty. For mute/level/etc., "channels" is the list of channel indexes
-    (e.g. [1,2,3,4] for "1-4").
-
-    Unknown block types are returned with type="unknown" so the driver can
-    log a warning rather than crashing on a typo.
+    Returns {"tag", "type", "channels": [...], "extra": {...}}. For
+    matrix_mixer, "extra" carries {"inputs", "outputs"} and "channels" is
+    empty. For source_select / voip_rx / dialer / generator / preset,
+    "channels" is empty. For mute/level/etc., "channels" is the channel index
+    list (e.g. [1,2,3,4] for "1-4"). An unknown type yields type="unknown" so
+    the driver logs a warning rather than crashing on a typo.
     """
-    blocks: list[dict[str, Any]] = []
-    if not text:
-        return blocks
+    type_token = (type_token or "").strip().lower()
+    if type_token not in BLOCK_TYPES:
+        log.warning(
+            f"Tesira blocks parse: unknown block type {type_token!r} for "
+            f"tag {tag!r}; valid types: {sorted(BLOCK_TYPES)}"
+        )
+        return {"tag": tag, "type": "unknown", "raw_type": type_token,
+                "channels": [], "extra": {}}
 
+    canonical_type = _BLOCK_TYPE_ALIASES.get(type_token, type_token)
+    block: dict[str, Any] = {
+        "tag": tag,
+        "type": canonical_type,
+        "channels": [],
+        "extra": {},
+    }
+
+    if canonical_type == "matrix_mixer":
+        inputs, outputs = _parse_matrix_spec(spec)
+        if inputs == 0 or outputs == 0:
+            # Default to 4x4 if the NxM spec is missing / malformed.
+            inputs, outputs = 4, 4
+            log.warning(
+                f"Tesira blocks parse: matrix_mixer {tag!r} missing "
+                f"NxM spec, defaulting to 4x4"
+            )
+        block["extra"] = {"inputs": inputs, "outputs": outputs}
+    elif canonical_type in ("source_select", "voip_rx", "dialer", "generator", "preset"):
+        # No channel spec needed.
+        pass
+    else:
+        channels = _parse_channel_spec(spec)
+        if not channels:
+            # Default to single channel 1 if the channel spec is omitted.
+            channels = [1]
+        block["channels"] = channels
+
+    return block
+
+
+def _blocks_text_to_rows(text: str) -> list[dict[str, Any]]:
+    """One-shot converter: the legacy `<TAG> <TYPE> [CHANNELS|NxM]` textarea
+    -> table rows.
+
+    The block list used to be a `type: text` field the integrator hand-typed
+    one-per-line; it is now a `type: table`. A project saved before the table
+    editor stores a string here — convert it (reusing the old line grammar) so
+    it still loads and can be re-authored in the row editor without hand
+    migration. ``#``/``;`` comment/blank lines and inline comments are dropped;
+    a line missing a type is dropped with a warning.
+    """
+    rows: list[dict[str, Any]] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or line.startswith(";"):
@@ -246,63 +341,38 @@ def parse_blocks_config(text: str) -> list[dict[str, Any]]:
             log.warning(f"Tesira blocks parse: line too short, skipping: {raw_line!r}")
             continue
 
-        tag = parts[0]
-        type_token = parts[1].lower()
-        spec = parts[2] if len(parts) >= 3 else ""
+        row: dict[str, Any] = {"tag": parts[0], "type": parts[1].lower()}
+        if len(parts) >= 3:
+            row["channels"] = parts[2]
+        rows.append(row)
+    return rows
 
-        if type_token not in BLOCK_TYPES:
-            log.warning(
-                f"Tesira blocks parse: unknown block type {type_token!r} on "
-                f"line {raw_line!r}; valid types: {sorted(BLOCK_TYPES)}"
-            )
-            blocks.append({
-                "tag": tag,
-                "type": "unknown",
-                "raw_type": type_token,
-                "channels": [],
-                "extra": {},
-            })
+
+def parse_blocks_config(value: Any) -> list[dict[str, Any]]:
+    """Parse the `blocks` config into a list of block dicts.
+
+    Accepts the `type: table` row list (``[{"tag", "type", "channels"}, ...]``)
+    and, for a project saved before the table editor shipped, a legacy
+    `<TAG> <TYPE> [CHANNELS|NxM]` textarea string (converted to rows first).
+    Each row is expanded by :func:`_build_block` (same normalization for both
+    paths). A row with no tag is skipped.
+    """
+    if isinstance(value, str):
+        value = _blocks_text_to_rows(value)
+    blocks: list[dict[str, Any]] = []
+    if not isinstance(value, list):
+        return blocks
+    for row in value:
+        if not isinstance(row, dict):
             continue
-
-        # Normalize aliases to canonical names
-        canonical_type = {
-            "fader": "level",
-            "source_selector": "source_select",
-            "mixer": "matrix_mixer",
-            "tone_generator": "generator",
-            "voip_receive": "voip_rx",
-            "meter": "audio_meter",
-        }.get(type_token, type_token)
-
-        block: dict[str, Any] = {
-            "tag": tag,
-            "type": canonical_type,
-            "channels": [],
-            "extra": {},
-        }
-
-        if canonical_type == "matrix_mixer":
-            inputs, outputs = _parse_matrix_spec(spec)
-            if inputs == 0 or outputs == 0:
-                # Default to 4x4 if user forgot to specify
-                inputs, outputs = 4, 4
-                log.warning(
-                    f"Tesira blocks parse: matrix_mixer {tag!r} missing "
-                    f"NxM spec, defaulting to 4x4"
-                )
-            block["extra"] = {"inputs": inputs, "outputs": outputs}
-        elif canonical_type in ("source_select", "voip_rx", "dialer", "generator", "preset"):
-            # No channel spec needed
-            pass
-        else:
-            channels = _parse_channel_spec(spec)
-            if not channels:
-                # Default to single channel 1 if user omitted the channel spec
-                channels = [1]
-            block["channels"] = channels
-
-        blocks.append(block)
-
+        tag = str(row.get("tag", "")).strip()
+        if not tag:
+            log.warning("Tesira blocks parse: row with no instance tag, skipping")
+            continue
+        type_token = str(row.get("type", "") or "")
+        channels = row.get("channels", "")
+        spec = "" if channels is None else str(channels).strip()
+        blocks.append(_build_block(tag, type_token, spec))
     return blocks
 
 
@@ -763,54 +833,16 @@ def build_commands() -> dict[str, dict[str, Any]]:
 
 # ── The driver class ──
 
-# Default block list seeded into the textarea so the Add Device dialog
-# isn't empty. Covers a typical conferencing room: mic mute/level for AEC
-# inputs, program level + mute, source select, recall preset.
-DEFAULT_BLOCKS_TEXT = """\
-# Tesira DSP Block List — one block per line.
-# Format:  <INSTANCE_TAG>  <TYPE>  [CHANNELS|NxM]
-# Lines starting with '#' or ';' are comments and are ignored.
-#
-# To find Instance Tags: in Tesira software, right-click any control
-# block in your design and choose "Properties" — the Instance Tag is
-# the user-assigned label at the top of the dialog. Tags are
-# case-sensitive and must match exactly.
-#
-# CHANNELS:
-#   "1"     single channel
-#   "1-4"   range, four channels
-#   "1,3,5" specific channels
-#   (omit)  defaults to channel 1
-#
-# Block types (CHANNELS unless noted):
-#   mute              mute control block
-#   level             level/fader block (also creates per-channel mute)
-#   source_select     source selector block (no channel)
-#   matrix_mixer NxM  standard or matrix mixer; NxM is INPUTS x OUTPUTS,
-#                     e.g. "8x4" for 8 inputs into 4 outputs
-#   automixer         gain-sharing auto mixer (one channel per mic)
-#   router            audio router (one channel per output)
-#   logic             logic state block (input/output bool)
-#   logic_meter       logic meter block
-#   aec               AEC processor (one channel per AEC input)
-#   room_combiner     room combiner block (one channel per wall/partition)
-#   audio_meter       peak/RMS meter (read-only, dB)
-#   signal_present    signal-present indicator (per channel)
-#   generator         tone generator (no channel)
-#   voip_rx           VoIP receive block (no channel)
-#   dialer            VoIP dialer block (no channel; commands only)
-#
-# Replace the example blocks below with the Instance Tags from YOUR
-# Tesira design. Delete the lines you don't need; you can add more
-# blocks later by editing the device.
-
-# Example: typical conference room
-Mute1   mute    1-4         # 4 microphone mute channels
-Level1  level   1-4         # 4 microphone level channels (with per-channel mute)
-PgmMute mute    1           # program-out master mute
-PgmLvl  level   1           # program-out master level
-PgmSrc  source_select       # program source selector
-"""
+# Default block roster seeded into the block table so a new device isn't
+# empty. Covers a typical conferencing room: mic mute/level, program level +
+# mute, source select. The integrator edits these rows on the device page.
+DEFAULT_BLOCKS = [
+    {"tag": "Mute1", "type": "mute", "channels": "1-4"},
+    {"tag": "Level1", "type": "level", "channels": "1-4"},
+    {"tag": "PgmMute", "type": "mute", "channels": "1"},
+    {"tag": "PgmLvl", "type": "level", "channels": "1"},
+    {"tag": "PgmSrc", "type": "source_select"},
+]
 
 
 # Subscription-push response regex.
@@ -834,8 +866,9 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.0.0",
-        "min_platform_version": "0.22.0",
+        "version": "3.1.0",
+        # The `type: table` block-list editor is a 0.23.0 platform feature.
+        "min_platform_version": "0.23.0",
         "author": "OpenAVC",
         "description": (
             "Controls Biamp Tesira and TesiraFORTÉ DSPs over the Tesira "
@@ -903,8 +936,8 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "(Telnet, port 23). The driver subscribes to per-block, "
                 "per-channel state changes — UI bindings update in "
                 "real-time without polling. Declare every Tesira block you "
-                "want to monitor or control in the 'DSP Block List' field "
-                "below; each block becomes a child entity whose per-channel "
+                "want to monitor or control in the 'DSP Block List' table "
+                "on the device page; each block becomes a child entity whose per-channel "
                 "controls (levels, mutes, crosspoints, sources) panel "
                 "elements bind to. Drive them with the Set / Toggle / Step "
                 "Control commands: pick the block, then its control."
@@ -931,28 +964,19 @@ class BiampTesiraTTPDriver(BaseDriver):
                 "STEP 3 — Enter the device IP address above.\n"
                 "\n"
                 "STEP 4 — Declare your blocks in the 'DSP Block List' "
-                "field below.\n"
-                "Format: one block per line, whitespace-separated\n"
-                "    <INSTANCE_TAG> <TYPE> [CHANNELS|NxM]\n"
-                "\n"
-                "Examples (typical conferencing room):\n"
-                "    Mute1     mute        1-4         # 4 mic mute channels\n"
-                "    Level1    level       1-4         # 4 mic level channels\n"
-                "    PgmMute   mute        1           # program-out mute\n"
-                "    PgmLvl    level       1           # program-out level\n"
-                "    PgmSrc    source_select           # source selector\n"
-                "    AEC1      aec         1-2         # 2-channel AEC\n"
-                "    Combiner1 room_combiner 1-4       # 4-wall combiner\n"
-                "    PgmMix    matrix_mixer 8x4        # 8 inputs × 4 outputs\n"
-                "\n"
-                "Notes on the syntax:\n"
-                "    • CHANNELS can be '1', '1-4' (range), or '1,3,5' (list)\n"
-                "    • NxM for matrix_mixer is INPUTS × OUTPUTS (e.g. 8x4 = "
+                "table on the device page.\n"
+                "Add a row per block: its Instance Tag, its Block Type "
+                "(from the dropdown), and — for per-channel blocks or a "
+                "matrix mixer — the Channels / NxM cell:\n"
+                "    • Channels can be '1', '1-4' (range), or '1,3,5' (list)\n"
+                "    • For a Matrix Mixer, use INPUTS x OUTPUTS (e.g. 8x4 = "
                 "8 inputs, 4 outputs)\n"
-                "    • If you omit CHANNELS, channel 1 is assumed\n"
-                "    • Lines starting with '#' or ';' are comments — keep "
-                "them as a reference or delete them\n"
-                "    • The pre-filled textarea has a complete syntax guide\n"
+                "    • Leave Channels blank and channel 1 is assumed\n"
+                "A new device starts with an example conferencing-room "
+                "roster (mic mute/level, program level + mute, source "
+                "select) — edit those rows to match your Tesira design, "
+                "add rows for AEC / Room Combiner / Matrix Mixer as needed, "
+                "and remove the ones you don't use.\n"
                 "\n"
                 "STEP 5 — Save.\n"
                 "Within seconds the device should show 'Connected'. Each "
@@ -981,7 +1005,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "default_config": {
             "host": "",
             "port": 23,
-            "blocks": DEFAULT_BLOCKS_TEXT,
+            "blocks": DEFAULT_BLOCKS,
             "subscribe_rate_ms": DEFAULT_SUBSCRIBE_RATE_MS,
             "inter_command_delay": DEFAULT_INTER_COMMAND_DELAY,
             "poll_interval": 0,
@@ -1005,16 +1029,17 @@ class BiampTesiraTTPDriver(BaseDriver):
                 ),
             },
             "blocks": {
-                "type": "text",
+                "type": "table",
                 "label": "DSP Block List",
-                "default": DEFAULT_BLOCKS_TEXT,
-                "description": (
-                    "List the Tesira blocks you want to monitor or "
-                    "control — one per line. Format: "
-                    "<INSTANCE_TAG> <TYPE> [CHANNELS|NxM]. The pre-filled "
-                    "textarea has a full syntax guide; see Setup above "
-                    "for a step-by-step walkthrough including how to find "
-                    "Instance Tags in Tesira software."
+                "row_label": "block",
+                "columns": BLOCK_COLUMNS,
+                "help": (
+                    "Declare the Tesira blocks you want to monitor or "
+                    "control — one row each: the Instance Tag, its block "
+                    "type, and (for per-channel blocks or a matrix mixer) "
+                    "the channels. To find Instance Tags, right-click a "
+                    "block in Tesira software and choose Properties. Tags "
+                    "are case-sensitive."
                 ),
             },
             "subscribe_rate_ms": {
@@ -1090,9 +1115,11 @@ class BiampTesiraTTPDriver(BaseDriver):
         # Expand the user's declared block list into a dynamic child roster.
         # Each block becomes a "block" child (registered at connect) with a
         # per-instance schema; the command surface stays static (class-level),
-        # so DRIVER_INFO is not rebuilt per instance.
-        blocks_text = str(config.get("blocks", DEFAULT_BLOCKS_TEXT))
-        self._blocks: list[dict[str, Any]] = parse_blocks_config(blocks_text)
+        # so DRIVER_INFO is not rebuilt per instance. The config value is the
+        # `type: table` row list (or a legacy string for a project saved before
+        # the table editor — parse_blocks_config handles both).
+        self._blocks: list[dict[str, Any]] = parse_blocks_config(
+            config.get("blocks", DEFAULT_BLOCKS))
 
         # child_id -> per-child dynamic schema published at register_child().
         self._block_schemas: dict[str, dict[str, dict[str, Any]]] = {}

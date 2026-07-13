@@ -1,0 +1,1182 @@
+# Turtle AV Dante Bluetooth Wallplate Driver
+#
+# Controls the Turtle AV Dante Bluetooth Wallplate (model WPD20BUS) over a
+# raw Telnet ASCII command channel (default TCP port 23).
+#
+# The wall plate bridges a two-channel Bluetooth audio source into a Dante
+# network. Audio routing/latency/sample-rate live in Dante Controller; this
+# driver covers the device's own control API: input gain/mute/stereo,
+# Bluetooth pairing + volume + bridging mode + transport (play/pause/skip) +
+# now-playing metadata, and per-channel parametric EQ.
+#
+# Protocol (from the manufacturer manual, "7. API Commands"):
+#   - Communication: Telnet port 23 (a separate raw TCP/IP port, default
+#     8000, also exists — change `port` in the device config to use it).
+#   - Plain ASCII, one command per line. Every command echoes a
+#     human-readable feedback line, which this driver parses back into state.
+#   - "x" / "y" in the manual are positional parameters (x = channel /
+#     first arg, y = value / second arg).
+#   - No login handshake on the API channel: the admin/user passwords in the
+#     manual gate the Dante Web GUI, not this control port.
+#
+# Push vs poll: POLL. The manual documents only request/response — there is
+# no subscription/notification/event channel — so connection status, codec
+# format, and now-playing metadata are polled (correct per the roadmap's
+# push-vs-poll rule). A short default poll interval keeps track metadata
+# reasonably live.
+#
+# Line terminator: the manual does not state it. This driver frames on and
+# sends "\r\n" (the near-universal convention for a device that tells you to
+# "open a serial command tool" over Telnet). This is the one detail only real
+# hardware confirms — recorded in the driver's shipped notes.
+#
+# Deliberately out of scope: the Network Setting block (set ip mode / addr /
+# subnet / gateway / tcp-ip port / telnet port / hostname) and the Password
+# Setting block. Changing the IP over the control channel would drop the
+# connection mid-command, and IP/hostname commissioning belongs in Dante
+# Controller / the Web GUI; passwords are a security-config surface. All of
+# these remain reachable through the `raw_command` escape hatch for advanced
+# users. EQ read-back (get x eq / get x eq setting) is likewise reachable via
+# raw_command but not surfaced as state — the 8-band parametric block per
+# channel is install-time configuration, not runtime-monitored state.
+
+id: turtle_bt_wallplate
+name: Turtle AV Dante Bluetooth Wallplate
+manufacturer: TurtleAV
+category: audio
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.23.0"
+description: >
+  Controls the Turtle AV Dante Bluetooth Wallplate (WPD20BUS) over Telnet.
+  Bridges a stereo Bluetooth source into Dante. Input gain/mute/stereo,
+  Bluetooth pairing window, volume, mute, audio bridging mode, transport
+  (play/pause/skip) with now-playing metadata, connection status, and
+  per-channel parametric EQ.
+
+source_url: https://turtleav.com/wp-content/uploads/2026/05/BT-Wallplate-US-User-Manual.pdf
+tags: [bluetooth, dante, audio, wallplate, bridge]
+verified: false
+simulated: true
+ports: [23]
+compatible_models:
+  - manufacturer: TurtleAV
+    models: [WPD20BUS]
+    confidence: untested
+    notes: >
+      Dante Bluetooth Wallplate, 2x2 (US). The device model is confirmed at
+      connect via "get type" (answers WPD20BUS).
+
+transport: tcp
+delimiter: "\r\n"
+
+help:
+  overview: >
+    Controls the Turtle AV Dante Bluetooth Wallplate. The wall plate streams
+    two channels of Bluetooth audio into a Dante network. Use this driver to
+    manage input gain and mute, the Bluetooth pairing window, playback volume
+    and transport, audio bridging mode, and per-channel EQ. Audio routing,
+    sample rate, and Dante latency are configured in Dante Controller.
+  setup: >
+    1. Connect the wall plate's DANTE (PoE) port to your network switch and
+       power it (PoE or 12 V DC).
+    2. Find the device's IP address in Dante Controller (Device Info tab).
+    3. Enter that IP address here. The control port defaults to 23 (Telnet).
+       If you moved control to the raw TCP/IP port, set the port to 8000.
+    4. Pair a phone or laptop: press "Pairing On" (or the front-panel button)
+       and select the wall plate in the source device's Bluetooth settings.
+    5. The wall plate has no control-channel password — credentials in the
+       Dante Web GUI protect that web interface only.
+
+discovery:
+  # Hint-only. The wall plate answers "get type" -> WPD20BUS on Telnet 23, but
+  # an active probe here would blind-send to every Telnet host in a scan
+  # (port 23 is a shared, commonly-open port), so no tcp_probe is declared
+  # (same caution as other telnet:23 devices in the catalog). It is a Dante
+  # device: Dante's mDNS advertisement is generic across all Dante hardware,
+  # so claiming it would false-match unrelated Dante gear. A device found with
+  # TCP 23 open surfaces as a candidate; the manufacturer alias lets a device
+  # already identified as Turtle AV offer this driver. An active get-type
+  # probe is a future improvement once bench hardware confirms it is safe.
+  port_open:
+    - 23
+  manufacturer_alias:
+    - "turtleav"
+    - "turtle av"
+    - "turtle"
+
+default_config:
+  host: ""
+  port: 23
+  poll_interval: 5
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Port
+    help: "Telnet control port (default 23; use 8000 for the raw TCP/IP port)."
+  poll_interval:
+    type: integer
+    default: 5
+    min: 0
+    label: Poll Interval (sec)
+
+# Read model + firmware once (they never change while connected), then pull a
+# full status snapshot so the Bluetooth device name and other one-shot fields
+# populate immediately (the individual poll below refreshes the rest).
+on_connect:
+  - 'get type\r\n'
+  - 'get fw version\r\n'
+  - 'get status\r\n'
+
+state_variables:
+  model:
+    type: string
+    label: Model
+    help: "Device model reported by 'get type' (WPD20BUS)."
+  firmware_mcu:
+    type: string
+    label: MCU Firmware
+  firmware_web:
+    type: string
+    label: Web Firmware
+  firmware_dsp:
+    type: string
+    label: DSP Firmware
+  firmware_bluetooth:
+    type: string
+    label: Bluetooth Firmware
+
+  stereo_mode:
+    type: boolean
+    label: Stereo Mode
+    control: true
+    help: "True when the Bluetooth input is in left/right stereo mode."
+  gain_left:
+    type: number
+    label: Input Gain L
+    min: -12
+    max: 12
+    step: 0.1
+    unit: dB
+    control: true
+    help: "Bluetooth input left gain, -12 to +12 dB (0.1 dB steps)."
+  gain_right:
+    type: number
+    label: Input Gain R
+    min: -12
+    max: 12
+    step: 0.1
+    unit: dB
+    control: true
+    help: "Bluetooth input right gain, -12 to +12 dB (0.1 dB steps)."
+  mute_left:
+    type: boolean
+    label: Input Mute L
+    control: true
+    cloud_priority: high
+    help: "True when the Bluetooth input left channel is muted."
+  mute_right:
+    type: boolean
+    label: Input Mute R
+    control: true
+    cloud_priority: high
+    help: "True when the Bluetooth input right channel is muted."
+
+  bt_name:
+    type: string
+    label: Bluetooth Name
+    help: >
+      The Bluetooth adapter name shown to source devices. Refreshes on
+      connect and whenever it is set from OpenAVC.
+  bt_pairing:
+    type: boolean
+    label: Pairing Active
+    control: true
+    cloud_priority: high
+    help: "True while the wall plate is discoverable / accepting pairing."
+  bt_window_time:
+    type: integer
+    label: Pairing Window
+    min: 30
+    max: 300
+    unit: s
+    help: "How long pairing stays open when activated (30-300 seconds)."
+  bt_window_switch:
+    type: boolean
+    label: Auto Pairing Window
+    control: true
+    help: "True when the timed pairing window is enabled."
+  bt_volume:
+    type: integer
+    label: Bluetooth Volume
+    min: 0
+    max: 100
+    control: true
+    help: "Bluetooth playback volume (0-100)."
+  bt_mute:
+    type: boolean
+    label: Bluetooth Mute
+    control: true
+    cloud_priority: high
+    help: "True when Bluetooth playback is muted."
+  bt_bridging:
+    type: string
+    label: Audio Bridging Mode
+    help: >
+      Bluetooth audio bridging mode code: 1 = Call bridging,
+      2 = Media bridging, 3 = Call & Media bridging (see the Audio Bridging
+      device setting for a friendly picker).
+  bt_device1_connected:
+    type: boolean
+    label: Device 1 Connected
+    cloud_priority: high
+    help: "True when Bluetooth device slot 1 has a connected source."
+  bt_device2_connected:
+    type: boolean
+    label: Device 2 Connected
+    cloud_priority: high
+    help: "True when Bluetooth device slot 2 has a connected source."
+  bt_device1_name:
+    type: string
+    label: Device 1 Name
+    help: "Name of the source connected to Bluetooth slot 1 (N/A if none)."
+  bt_device2_name:
+    type: string
+    label: Device 2 Name
+    help: "Name of the source connected to Bluetooth slot 2 (N/A if none)."
+  bt_format:
+    type: string
+    label: Bluetooth Codec
+    help: "Active Bluetooth transmission codec (e.g. SBC; N/A when idle)."
+
+  artist:
+    type: string
+    label: Artist
+    help: "Now-playing artist reported by the connected source."
+  album:
+    type: string
+    label: Album
+    help: "Now-playing album reported by the connected source."
+  track:
+    type: string
+    label: Track
+    help: "Now-playing track reported by the connected source."
+
+commands:
+  # ── Input channels (0 = both, 1 = left, 2 = right) ──
+  set_input_gain:
+    label: Set Input Gain
+    send: 'set input {channel} gain {value}\r\n'
+    help: "Set an input channel's gain (-12 to +12 dB)."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+      value:
+        type: number
+        required: true
+        label: Gain (dB)
+        min: -12
+        max: 12
+        help: "-12 to +12 dB, 0.1 dB steps."
+
+  input_gain_up:
+    label: Input Gain Up
+    send: 'set input {channel} gain+\r\n'
+    help: "Increase an input channel's gain by 1 dB."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+
+  input_gain_down:
+    label: Input Gain Down
+    send: 'set input {channel} gain-\r\n'
+    help: "Decrease an input channel's gain by 1 dB."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+
+  input_mute_on:
+    label: Input Mute On
+    send: 'set input {channel} mute on\r\n'
+    help: "Mute an input channel."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+
+  input_mute_off:
+    label: Input Mute Off
+    send: 'set input {channel} mute off\r\n'
+    help: "Unmute an input channel."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+
+  stereo_on:
+    label: Stereo Mode On
+    send: 'set input 1 stereo on\r\n'
+    help: "Enable left/right stereo mode on the Bluetooth input."
+
+  stereo_off:
+    label: Stereo Mode Off
+    send: 'set input 1 stereo off\r\n'
+    help: "Disable stereo mode (mono sum) on the Bluetooth input."
+
+  # ── Bluetooth ──
+  set_bt_name:
+    label: Set Bluetooth Name
+    send: 'set bt name <{name}>\r\n'
+    help: "Set the Bluetooth adapter name shown to source devices (max 24 characters)."
+    params:
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[^<>]{1,24}'
+        help: "Up to 24 characters; angle brackets are not allowed."
+
+  bt_pairing_on:
+    label: Pairing On
+    send: 'set bt discoverable/pairing on\r\n'
+    help: "Make the wall plate discoverable and open for pairing."
+
+  bt_pairing_off:
+    label: Pairing Off
+    send: 'set bt discoverable/pairing off\r\n'
+    help: "Stop advertising / close pairing."
+
+  bt_window_switch_on:
+    label: Auto Pairing Window On
+    send: 'set bt window switch on\r\n'
+    help: "Enable the timed pairing window."
+
+  bt_window_switch_off:
+    label: Auto Pairing Window Off
+    send: 'set bt window switch off\r\n'
+    help: "Disable the timed pairing window."
+
+  set_bt_volume:
+    label: Set Bluetooth Volume
+    send: 'set bt vol {value}\r\n'
+    help: "Set Bluetooth playback volume (0-100)."
+    params:
+      value:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+
+  bt_volume_up:
+    label: Bluetooth Volume Up
+    send: 'set bt vol+\r\n'
+    help: "Increase Bluetooth volume by 1."
+
+  bt_volume_down:
+    label: Bluetooth Volume Down
+    send: 'set bt vol-\r\n'
+    help: "Decrease Bluetooth volume by 1."
+
+  bt_mute_on:
+    label: Bluetooth Mute On
+    send: 'set bt mute on\r\n'
+    help: "Mute Bluetooth playback."
+
+  bt_mute_off:
+    label: Bluetooth Mute Off
+    send: 'set bt mute off\r\n'
+    help: "Unmute Bluetooth playback."
+
+  set_bt_bridging:
+    label: Set Audio Bridging Mode
+    send: 'set bt audio bridging {mode}\r\n'
+    help: "Set which Bluetooth audio profiles bridge into Dante."
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Bridging Mode
+        values:
+          - { value: "1", label: "Call bridging" }
+          - { value: "2", label: "Media bridging" }
+          - { value: "3", label: "Call & Media bridging" }
+
+  bt_clear_paired:
+    label: Clear Paired Devices
+    send: 'set bt paired clear {target}\r\n'
+    help: "Clear stored Bluetooth pairings."
+    params:
+      target:
+        type: enum
+        required: true
+        label: Target
+        values:
+          - { value: "0", label: "All" }
+          - { value: "1", label: "Device 1" }
+          - { value: "2", label: "Device 2" }
+
+  bt_play_pause:
+    label: Play / Pause
+    send: 'set bt play/pause\r\n'
+    help: "Toggle play/pause on the connected source."
+
+  bt_next:
+    label: Next Track
+    send: 'set bt forward\r\n'
+    help: "Skip to the next track."
+
+  bt_previous:
+    label: Previous Track
+    send: 'set bt backward\r\n'
+    help: "Skip to the previous track."
+
+  # ── Parametric EQ (channel 0 = both, 1 = left, 2 = right; band 0 = all) ──
+  eq_band_on:
+    label: EQ Band On
+    send: 'set {channel} eq {band} on\r\n'
+    help: "Enable an EQ band on a channel."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+      band:
+        type: enum
+        required: true
+        label: Band
+        values: ["0", "1", "2", "3", "4", "5", "6", "7", "8"]
+
+  eq_band_off:
+    label: EQ Band Off
+    send: 'set {channel} eq {band} off\r\n'
+    help: "Disable an EQ band on a channel."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+      band:
+        type: enum
+        required: true
+        label: Band
+        values: ["0", "1", "2", "3", "4", "5", "6", "7", "8"]
+
+  set_eq_band:
+    label: Set EQ Band
+    send: 'set {channel} eq {band} typ {type} frq {freq} val {gain} q {q}\r\n'
+    help: "Configure a parametric EQ band (type, frequency, gain, Q)."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+      band:
+        type: enum
+        required: true
+        label: Band
+        values: ["0", "1", "2", "3", "4", "5", "6", "7", "8"]
+      type:
+        type: enum
+        required: true
+        label: Filter Type
+        values:
+          - { value: "1", label: "Parametric" }
+          - { value: "2", label: "Lowpass" }
+          - { value: "3", label: "Highpass" }
+          - { value: "4", label: "Low Shelf" }
+          - { value: "5", label: "High Shelf" }
+      freq:
+        type: integer
+        required: true
+        label: Frequency (Hz)
+        min: 20
+        max: 20000
+      gain:
+        type: number
+        required: true
+        label: Gain (dB)
+        min: -15
+        max: 15
+      q:
+        type: number
+        required: true
+        label: Q
+        min: 0.02
+        max: 16
+
+  eq_clear:
+    label: Clear EQ
+    send: 'set {channel} eq clear\r\n'
+    help: "Reset all EQ bands on a channel to flat."
+    params:
+      channel:
+        type: enum
+        required: true
+        label: Channel
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+
+  eq_copy:
+    label: Copy EQ
+    send: 'set {source} eq copy to {dest}\r\n'
+    help: "Copy one channel's EQ settings to another."
+    params:
+      source:
+        type: enum
+        required: true
+        label: From
+        values:
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+      dest:
+        type: enum
+        required: true
+        label: To
+        values:
+          - { value: "0", label: "Both" }
+          - { value: "1", label: "Left" }
+          - { value: "2", label: "Right" }
+
+  eq_stereo_on:
+    label: EQ Stereo Link On
+    send: 'set 1 eq stereo on\r\n'
+    help: "Link left/right EQ (both channels share one EQ)."
+
+  eq_stereo_off:
+    label: EQ Stereo Link Off
+    send: 'set 1 eq stereo off\r\n'
+    help: "Unlink left/right EQ."
+
+  # ── System ──
+  reboot:
+    label: Reboot
+    send: 'set reboot\r\n'
+    help: "Reboot the wall plate."
+
+  raw_command:
+    label: Send Raw Command
+    send: '{command}\r\n'
+    help: >
+      Send a raw API command exactly as documented in the manual (without the
+      line terminator). Use for network/password settings and EQ read-back
+      not otherwise exposed.
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+        trim: false
+
+# ── Device settings (persisted, read-back, offline pending queue) ──
+device_settings:
+  gain_left:
+    type: number
+    min: -12
+    max: 12
+    step: 0.1
+    label: Input Gain L (dB)
+    help: "Bluetooth input left gain calibration, -12 to +12 dB."
+    state_key: gain_left
+    default: 0
+    setup: false
+    write:
+      send: 'set input 1 gain {value}\r\n'
+  gain_right:
+    type: number
+    min: -12
+    max: 12
+    step: 0.1
+    label: Input Gain R (dB)
+    help: "Bluetooth input right gain calibration, -12 to +12 dB."
+    state_key: gain_right
+    default: 0
+    setup: false
+    write:
+      send: 'set input 2 gain {value}\r\n'
+  bt_window_time:
+    type: integer
+    min: 30
+    max: 300
+    label: Pairing Window (s)
+    help: "How long pairing stays open when activated (30-300 seconds)."
+    state_key: bt_window_time
+    default: 60
+    setup: false
+    write:
+      send: 'set bt window time {value}\r\n'
+  bt_bridging:
+    type: enum
+    values:
+      - { value: "1", label: "Call bridging" }
+      - { value: "2", label: "Media bridging" }
+      - { value: "3", label: "Call & Media bridging" }
+    label: Bluetooth Audio Bridging
+    help: >
+      Which Bluetooth audio profiles bridge into Dante: call audio, media
+      audio, or both.
+    state_key: bt_bridging
+    default: "2"
+    setup: false
+    write:
+      send: 'set bt audio bridging {value}\r\n'
+
+# ── Quick actions ──
+actions:
+  - id: bt_pairing_on
+    icon: bluetooth
+  - id: bt_play_pause
+    icon: play
+  - id: bt_mute_on
+    icon: volume-x
+  - id: bt_mute_off
+    icon: volume-2
+  - id: reboot
+    icon: refresh-cw
+
+responses:
+  # ── Model + firmware ──
+  - match: '^(WPD\S+)'
+    set: { model: "$1" }
+  - match: '^MCU:\s*(V\S+)'
+    set: { firmware_mcu: "$1" }
+  - match: '^WEB:\s*(V\S+)'
+    set: { firmware_web: "$1" }
+  - match: '^DEP:\s*(V\S+)'
+    set: { firmware_dsp: "$1" }
+  - match: '^Bluetooth:\s*(V\S+)'
+    set: { firmware_bluetooth: "$1" }
+
+  # ── Input gain (set echo + get answer share this form) ──
+  - match: 'input left gain:\s*(-?[\d.]+)\s*dB'
+    set: { gain_left: "$1" }
+  - match: 'input right gain:\s*(-?[\d.]+)\s*dB'
+    set: { gain_right: "$1" }
+
+  # ── Input mute (static on/off -> real bool) ──
+  - match: 'input left mute:\s*on'
+    set: { mute_left: "true" }
+  - match: 'input left mute:\s*off'
+    set: { mute_left: "false" }
+  - match: 'input right mute:\s*on'
+    set: { mute_right: "true" }
+  - match: 'input right mute:\s*off'
+    set: { mute_right: "false" }
+
+  # ── Input stereo mode (NOT the EQ stereo line, which carries "EQ") ──
+  - match: 'input left/right stereo mode:\s*on'
+    set: { stereo_mode: "true" }
+  - match: 'input left/right stereo mode:\s*off'
+    set: { stereo_mode: "false" }
+
+  # ── Bluetooth name (set echo, and the "Bluetooth Name:" line from status) ──
+  - match: 'Set Bluetooth device name to (.+?)\s*$'
+    set: { bt_name: "$1" }
+  - match: '^Bluetooth Name:\s*(.+?)\s*$'
+    set: { bt_name: "$1" }
+
+  # ── Pairing window ──
+  - match: 'discoverable/pairing\s+on'
+    set: { bt_pairing: "true" }
+  - match: 'discoverable/pairing\s+off'
+    set: { bt_pairing: "false" }
+  - match: 'window time:\s*(\d+)'
+    set: { bt_window_time: "$1" }
+  - match: 'window switch:\s*on'
+    set: { bt_window_switch: "true" }
+  - match: 'window switch:\s*off'
+    set: { bt_window_switch: "false" }
+
+  # ── Bluetooth volume / mute ──
+  - match: '^Bluetooth volume:\s*(\d+)'
+    set: { bt_volume: "$1" }
+  - match: '^Bluetooth mute:\s*on'
+    set: { bt_mute: "true" }
+  - match: '^Bluetooth mute:\s*off'
+    set: { bt_mute: "false" }
+
+  # ── Audio bridging mode (most specific label first; store the code) ──
+  - match: 'audio bridging:\s*Call & Media bridging'
+    set: { bt_bridging: "3" }
+  - match: 'audio bridging:\s*Media bridging'
+    set: { bt_bridging: "2" }
+  - match: 'audio bridging:\s*Call bridging'
+    set: { bt_bridging: "1" }
+
+  # ── Connection status (must precede the device-name rules below: both
+  #    lines start "Connected deviceN:", so the status words are matched
+  #    first and a name line falls through to the name capture) ──
+  - match: 'Connected device1:\s*Connected\b'
+    set: { bt_device1_connected: "true" }
+  - match: 'Connected device1:\s*Disconnected\b'
+    set: { bt_device1_connected: "false" }
+  - match: 'Connected device2:\s*Connected\b'
+    set: { bt_device2_connected: "true" }
+  - match: 'Connected device2:\s*Disconnected\b'
+    set: { bt_device2_connected: "false" }
+
+  # ── Connected device names (from "get bt device" / status) ──
+  - match: 'Connected device1:\s*(.+?)\s*$'
+    set: { bt_device1_name: "$1" }
+  - match: 'Connected device2:\s*(.+?)\s*$'
+    set: { bt_device2_name: "$1" }
+
+  # ── Codec + now-playing ──
+  - match: '^Bluetooth format:\s*(\S+)'
+    set: { bt_format: "$1" }
+  - match: '^Artist:\s*(.+?)\s*$'
+    set: { artist: "$1" }
+  - match: '^Album:\s*(.+?)\s*$'
+    set: { album: "$1" }
+  - match: '^Track:\s*(.+?)\s*$'
+    set: { track: "$1" }
+
+polling:
+  # Raw protocol strings (TCP sends the query verbatim). Model/firmware/name
+  # are read once in on_connect; these refresh the live surface.
+  queries:
+    - 'get input 1 gain\r\n'
+    - 'get input 2 gain\r\n'
+    - 'get input 1 mute\r\n'
+    - 'get input 2 mute\r\n'
+    - 'get input 1 stereo\r\n'
+    - 'get bt discoverable/pairing\r\n'
+    - 'get bt window time\r\n'
+    - 'get bt window switch\r\n'
+    - 'get bt vol\r\n'
+    - 'get bt mute\r\n'
+    - 'get bt audio bridging\r\n'
+    - 'get bt connection\r\n'
+    - 'get bt device\r\n'
+    - 'get bt format\r\n'
+    - 'get artist\r\n'
+    - 'get album\r\n'
+    - 'get track\r\n'
+
+# ── SIMULATOR DEFINITION ──
+# Models the Telnet ASCII control surface. Flat sim state; the driver parses
+# the feedback strings back into its own state vars.
+simulator:
+  initial_state:
+    model: "WPD20BUS"
+    fw_mcu: "V2.0.0"
+    fw_web: "V1.00.01"
+    fw_dep: "V1.3.3.5_20250520"
+    fw_bt: "V0.4.0"
+    stereo: true
+    gain_l: 0
+    gain_r: 0
+    mute_l: false
+    mute_r: false
+    bt_name: "Bluetooth Adapter-EFB45F"
+    bt_pairing: false
+    bt_window_time: 60
+    bt_window_switch: true
+    bt_vol: 50
+    bt_mute: false
+    bt_bridging: 2
+    dev1_conn: false
+    dev2_conn: false
+    dev1_name: "N/A"
+    dev2_name: "N/A"
+    bt_format: "N/A"
+    artist: "N/A"
+    album: "N/A"
+    track: "N/A"
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: slider
+      key: bt_vol
+      label: Bluetooth Volume
+      min: 0
+      max: 100
+      step: 1
+    - type: toggle
+      key: bt_mute
+      label: Bluetooth Mute
+    - type: toggle
+      key: bt_pairing
+      label: Pairing Active
+    - type: slider
+      key: gain_l
+      label: Input Gain L
+      min: -12
+      max: 12
+      step: 1
+    - type: slider
+      key: gain_r
+      label: Input Gain R
+      min: -12
+      max: 12
+      step: 1
+    - type: toggle
+      key: mute_l
+      label: Input Mute L
+    - type: toggle
+      key: mute_r
+      label: Input Mute R
+
+  command_handlers:
+    # ── System ──
+    - match: 'get type ?'
+      handler: |
+        respond(f'{state["model"]}\r\n')
+
+    - match: 'get fw version ?'
+      handler: |
+        respond(
+            f'MCU:{state["fw_mcu"]}\r\n'
+            f'WEB:{state["fw_web"]}\r\n'
+            f'DEP:{state["fw_dep"]}\r\n'
+            f'Bluetooth: {state["fw_bt"]}\r\n'
+        )
+
+    - match: 'get status ?'
+      handler: |
+        def _run():
+            sm = 'On' if state['stereo'] else 'Off'
+            m1 = 'On' if state['mute_l'] else 'Off'
+            m2 = 'On' if state['mute_r'] else 'Off'
+            pr = 'On' if state['bt_pairing'] else 'Off'
+            brmap = {1: 'Call bridging', 2: 'Media bridging', 3: 'Call & Media bridging'}
+            lines = [
+                'Status Info 2x2 Dante Wall Plate with Bluetooth',
+                f'MCU:{state["fw_mcu"]} WEB:{state["fw_web"]} '
+                f'DEP:{state["fw_dep"]} Bluetooth:{state["fw_bt"]}',
+                'Input      Name                    Stereo   Gain(dB)   Mute',
+                f'01          Bluetooth input left    {sm}       '
+                f'{state["gain_l"]}          {m1}',
+                f'02          Bluetooth input right   {sm}       '
+                f'{state["gain_r"]}          {m2}',
+                'Bluetooth:',
+                f'Bluetooth Name: {state["bt_name"]}',
+                f'Activate Pairing: {pr}',
+                f'Bluetooth Volume: {state["bt_vol"]}',
+                f'Bluetooth Bridging: {brmap.get(state["bt_bridging"], "Media bridging")}',
+                f'Connected device1: {state["dev1_name"]}',
+                f'Connected device2: {state["dev2_name"]}',
+                f'Bluetooth Format: {state["bt_format"]}',
+            ]
+            respond('\r\n'.join(lines) + '\r\n')
+        _run()
+
+    - match: 'set reboot ?'
+      handler: |
+        respond('Reboot...\r\n')
+
+    # ── Input gain (channel 0=both, 1=left, 2=right) ──
+    - match: 'get input (\d) gain ?'
+      handler: |
+        ch = match.group(1)
+        if ch == '1':
+            respond(f'Bluetooth input left gain: {state["gain_l"]}dB\r\n')
+        elif ch == '2':
+            respond(f'Bluetooth input right gain: {state["gain_r"]}dB\r\n')
+        else:
+            respond(
+                f'Bluetooth input left gain: {state["gain_l"]}dB\r\n'
+                f'Bluetooth input right gain: {state["gain_r"]}dB\r\n'
+            )
+
+    - match: 'set input (\d) gain (-?[\d.]+) ?'
+      handler: |
+        def _run():
+            ch = match.group(1)
+            val = float(match.group(2))
+            if val == int(val):
+                val = int(val)
+            if ch in ('0', '1'):
+                state['gain_l'] = val
+            if ch in ('0', '2'):
+                state['gain_r'] = val
+            out = []
+            if ch in ('0', '1'):
+                out.append(f'Bluetooth input left gain: {val}dB')
+            if ch in ('0', '2'):
+                out.append(f'Bluetooth input right gain: {val}dB')
+            respond('\r\n'.join(out) + '\r\n')
+        _run()
+
+    - match: 'set input (\d) gain([+-]) ?'
+      handler: |
+        def _run():
+            ch = match.group(1)
+            delta = 1 if match.group(2) == '+' else -1
+            out = []
+            if ch in ('0', '1'):
+                state['gain_l'] = max(-12, min(12, state['gain_l'] + delta))
+                out.append(f'Bluetooth input left gain: {state["gain_l"]}dB')
+            if ch in ('0', '2'):
+                state['gain_r'] = max(-12, min(12, state['gain_r'] + delta))
+                out.append(f'Bluetooth input right gain: {state["gain_r"]}dB')
+            respond('\r\n'.join(out) + '\r\n')
+        _run()
+
+    # ── Input mute ──
+    - match: 'get input (\d) mute ?'
+      handler: |
+        ch = match.group(1)
+        if ch == '1':
+            respond(f'Bluetooth input left mute: {"on" if state["mute_l"] else "off"}\r\n')
+        elif ch == '2':
+            respond(f'Bluetooth input right mute: {"on" if state["mute_r"] else "off"}\r\n')
+        else:
+            respond(
+                f'Bluetooth input left mute: {"on" if state["mute_l"] else "off"}\r\n'
+                f'Bluetooth input right mute: {"on" if state["mute_r"] else "off"}\r\n'
+            )
+
+    - match: 'set input (\d) mute (on|off) ?'
+      handler: |
+        def _run():
+            ch = match.group(1)
+            val = match.group(2) == 'on'
+            out = []
+            if ch in ('0', '1'):
+                state['mute_l'] = val
+                out.append(f'Bluetooth input left mute: {match.group(2)}')
+            if ch in ('0', '2'):
+                state['mute_r'] = val
+                out.append(f'Bluetooth input right mute: {match.group(2)}')
+            respond('\r\n'.join(out) + '\r\n')
+        _run()
+
+    # ── Input stereo ──
+    - match: 'get input 1 stereo ?'
+      handler: |
+        respond(f'Bluetooth input left/right stereo mode: {"on" if state["stereo"] else "off"}\r\n')
+
+    - match: 'set input 1 stereo (on|off) ?'
+      handler: |
+        state['stereo'] = match.group(1) == 'on'
+        respond(f'Bluetooth input left/right stereo mode: {match.group(1)}\r\n')
+
+    # ── Bluetooth name ──
+    - match: 'get bt name ?'
+      handler: |
+        respond(f'{state["bt_name"]}\r\n')
+
+    - match: 'set bt name <(.+)> ?'
+      handler: |
+        state['bt_name'] = match.group(1)
+        respond(f'Set Bluetooth device name to {match.group(1)}\r\n')
+
+    # ── Pairing window ──
+    - match: 'get bt discoverable/pairing ?'
+      handler: |
+        respond(
+            f'Bluetooth discoverable/pairing '
+            f'{"on (" + str(state["bt_window_time"]) + "s)" if state["bt_pairing"] else "off"}\r\n'
+        )
+
+    - match: 'set bt discoverable/pairing (on|off) ?'
+      handler: |
+        def _run():
+            state['bt_pairing'] = match.group(1) == 'on'
+            if state['bt_pairing']:
+                respond(f'Bluetooth discoverable/pairing on ({state["bt_window_time"]}s)\r\n')
+            else:
+                respond('Bluetooth discoverable/pairing off\r\n')
+        _run()
+
+    - match: 'get bt window time ?'
+      handler: |
+        respond(f'Bluetooth window time: {state["bt_window_time"]}s\r\n')
+
+    - match: 'set bt window time (\d+) ?'
+      handler: |
+        state['bt_window_time'] = int(match.group(1))
+        respond(f'Bluetooth window time: {state["bt_window_time"]}s\r\n')
+
+    - match: 'get bt window switch ?'
+      handler: |
+        respond(f'Bluetooth window switch: {"on" if state["bt_window_switch"] else "off"}\r\n')
+
+    - match: 'set bt window switch (on|off) ?'
+      handler: |
+        state['bt_window_switch'] = match.group(1) == 'on'
+        respond(f'Bluetooth window switch: {match.group(1)}\r\n')
+
+    # ── Bluetooth volume ──
+    - match: 'get bt vol ?'
+      handler: |
+        respond(f'Bluetooth volume: {state["bt_vol"]}\r\n')
+
+    - match: 'set bt vol (\d+) ?'
+      handler: |
+        state['bt_vol'] = max(0, min(100, int(match.group(1))))
+        respond(f'Bluetooth volume: {state["bt_vol"]}\r\n')
+
+    - match: 'set bt vol([+-]) ?'
+      handler: |
+        delta = 1 if match.group(1) == '+' else -1
+        state['bt_vol'] = max(0, min(100, state['bt_vol'] + delta))
+        respond(f'Bluetooth volume: {state["bt_vol"]}\r\n')
+
+    # ── Bluetooth mute ──
+    - match: 'get bt mute ?'
+      handler: |
+        respond(f'Bluetooth mute: {"on" if state["bt_mute"] else "off"}\r\n')
+
+    - match: 'set bt mute (on|off) ?'
+      handler: |
+        state['bt_mute'] = match.group(1) == 'on'
+        respond(f'Bluetooth mute: {match.group(1)}\r\n')
+
+    # ── Audio bridging ──
+    - match: 'get bt audio bridging ?'
+      handler: |
+        brmap = {1: 'Call bridging', 2: 'Media bridging', 3: 'Call & Media bridging'}
+        respond(f'Bluetooth audio bridging: {brmap.get(state["bt_bridging"], "Media bridging")}\r\n')
+
+    - match: 'set bt audio bridging (\d) ?'
+      handler: |
+        def _run():
+            brmap = {1: 'Call bridging', 2: 'Media bridging', 3: 'Call & Media bridging'}
+            m = int(match.group(1))
+            if m in brmap:
+                state['bt_bridging'] = m
+                respond(f'Bluetooth audio bridging: {brmap[m]}\r\n')
+            else:
+                respond('Bluetooth audio bridging: Media bridging\r\n')
+        _run()
+
+    # ── Connection / device names ──
+    - match: 'get bt connection ?'
+      handler: |
+        respond(
+            f'Connected device1: {"Connected" if state["dev1_conn"] else "Disconnected"}\r\n'
+            f'Connected device2: {"Connected" if state["dev2_conn"] else "Disconnected"}\r\n'
+        )
+
+    - match: 'get bt device ?'
+      handler: |
+        respond(
+            f'Connected device1: {state["dev1_name"]}\r\n'
+            f'Connected device2: {state["dev2_name"]}\r\n'
+        )
+
+    - match: 'set bt paired clear (\d) ?'
+      handler: |
+        def _run():
+            t = match.group(1)
+            if t in ('0', '1'):
+                state['dev1_name'] = 'N/A'
+                state['dev1_conn'] = False
+            if t in ('0', '2'):
+                state['dev2_name'] = 'N/A'
+                state['dev2_conn'] = False
+            if t == '0':
+                respond('Clear Bluetooth paired devices\r\n')
+            else:
+                respond(f'Clear Bluetooth paired device{t}\r\n')
+        _run()
+
+    # ── Codec + transport + metadata ──
+    - match: 'get bt format ?'
+      handler: |
+        respond(f'Bluetooth format: {state["bt_format"]}\r\n')
+
+    - match: 'set bt play/pause ?'
+      handler: |
+        respond('Bluetooth play\r\n')
+
+    - match: 'set bt forward ?'
+      handler: |
+        respond('Bluetooth forward\r\n')
+
+    - match: 'set bt backward ?'
+      handler: |
+        respond('Bluetooth backward\r\n')
+
+    - match: 'get artist ?'
+      handler: |
+        respond(f'Artist: {state["artist"]}\r\n')
+
+    - match: 'get album ?'
+      handler: |
+        respond(f'Album: {state["album"]}\r\n')
+
+    - match: 'get track ?'
+      handler: |
+        respond(f'Track: {state["track"]}\r\n')
+
+    # ── EQ (echo only; EQ is not tracked as state) ──
+    - match: 'set (\d) eq (\d) (on|off) ?'
+      handler: |
+        side = {'0': 'input left/right', '1': 'input left', '2': 'input right'}.get(match.group(1), 'input')
+        respond(f'Bluetooth {side} EQ: {match.group(3)}\r\n')
+
+    - match: 'set (\d) eq (\d) typ .*'
+      handler: |
+        side = {'0': 'input left/right', '1': 'input left', '2': 'input right'}.get(match.group(1), 'input')
+        respond(f'Bluetooth {side} EQ set\r\n')
+
+    - match: 'set (\d) eq clear ?'
+      handler: |
+        side = {'0': 'input left/right', '1': 'input left', '2': 'input right'}.get(match.group(1), 'input')
+        respond(f'Clear Bluetooth {side} EQ\r\n')
+
+    - match: 'set (\d) eq copy to (\d) ?'
+      handler: |
+        respond('Set Bluetooth EQ copy\r\n')
+
+    - match: 'set 1 eq stereo (on|off) ?'
+      handler: |
+        respond(f'Bluetooth input left/right EQ stereo mode: {match.group(1)}\r\n')
+
+  error_modes:
+    communication_timeout:
+      description: "Wall plate stops responding"
+      behavior: no_response

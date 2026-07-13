@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 20,
+    "total_drivers": 21,
     "shards": null,
     "category": "audio"
   },
@@ -1188,6 +1188,55 @@
           "notes": "9000M2 Series mixer/amplifiers share this RS-232C protocol. Power, phantom, and speaker-preset commands are most relevant to these amp models."
         }
       ]
+    },
+    {
+      "id": "turtle_bt_wallplate",
+      "name": "Turtle AV Dante Bluetooth Wallplate",
+      "manufacturer": "TurtleAV",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Turtle AV Dante Bluetooth Wallplate (WPD20BUS) over Telnet. Bridges a stereo Bluetooth source into Dante. Input gain/mute/stereo, Bluetooth pairing window, volume, mute, audio bridging mode, transport (play/pause/skip) with now-playing metadata, connection status, and per-channel parametric EQ.\n",
+      "source_url": "https://turtleav.com/wp-content/uploads/2026/05/BT-Wallplate-US-User-Manual.pdf",
+      "file": "audio/turtle_bt_wallplate.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        23
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "bluetooth",
+        "dante",
+        "audio",
+        "wallplate",
+        "bridge"
+      ],
+      "help": {
+        "overview": "Controls the Turtle AV Dante Bluetooth Wallplate. The wall plate streams two channels of Bluetooth audio into a Dante network. Use this driver to manage input gain and mute, the Bluetooth pairing window, playback volume and transport, audio bridging mode, and per-channel EQ. Audio routing, sample rate, and Dante latency are configured in Dante Controller.\n",
+        "setup": "1. Connect the wall plate's DANTE (PoE) port to your network switch and\n   power it (PoE or 12 V DC).\n2. Find the device's IP address in Dante Controller (Device Info tab). 3. Enter that IP address here. The control port defaults to 23 (Telnet).\n   If you moved control to the raw TCP/IP port, set the port to 8000.\n4. Pair a phone or laptop: press \"Pairing On\" (or the front-panel button)\n   and select the wall plate in the source device's Bluetooth settings.\n5. The wall plate has no control-channel password \u2014 credentials in the\n   Dante Web GUI protect that web interface only.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "TurtleAV",
+          "models": [
+            "WPD20BUS"
+          ],
+          "confidence": "untested",
+          "notes": "Dante Bluetooth Wallplate, 2x2 (US). The device model is confirmed at connect via \"get type\" (answers WPD20BUS).\n"
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          23
+        ],
+        "manufacturer_alias": [
+          "turtleav",
+          "turtle av",
+          "turtle"
+        ]
+      }
     },
     {
       "id": "yamaha_mtx_mrx",

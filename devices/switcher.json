@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 74,
+    "total_devices": 77,
     "shards": null,
     "category": "switcher"
   },
@@ -268,6 +268,42 @@
           "id": "avproedge_acmx",
           "confidence": "untested",
           "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-CBOX",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_1g",
+          "confidence": "untested",
+          "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Endpoints covered: AC-MXNET-1G-E / -EV2 / -EWP / -AVDM-E / -DANTE-E encoders and AC-MXNET-1G-D / -DV2 / -AVDM-D / -DANTE-D decoders. The CBOX-HA's high-availability pairing and the MV41V2 multiview companion are configured in MENTOR, not here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-CBOX-B",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_1g",
+          "confidence": "untested",
+          "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Endpoints covered: AC-MXNET-1G-E / -EV2 / -EWP / -AVDM-E / -DANTE-E encoders and AC-MXNET-1G-D / -DV2 / -AVDM-D / -DANTE-D decoders. The CBOX-HA's high-availability pairing and the MV41V2 multiview companion are configured in MENTOR, not here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-CBOX-HA",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_1g",
+          "confidence": "untested",
+          "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Endpoints covered: AC-MXNET-1G-E / -EV2 / -EWP / -AVDM-E / -DANTE-E encoders and AC-MXNET-1G-D / -DV2 / -AVDM-D / -DANTE-D decoders. The CBOX-HA's high-availability pairing and the MV41V2 multiview companion are configured in MENTOR, not here."
         }
       ]
     },

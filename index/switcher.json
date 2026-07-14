@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 16,
+    "total_drivers": 17,
     "shards": null,
     "category": "switcher"
   },
@@ -285,6 +285,74 @@
           "avproedge",
           "avpro global"
         ]
+      }
+    },
+    {
+      "id": "avproedge_mxnet_1g",
+      "name": "AVPro Edge MXNet 1G",
+      "manufacturer": "AVPro Edge",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
+      "source_url": "https://support.avproglobal.com/portal/en/kb/articles/mxnet-api",
+      "file": "switchers/avproedge_mxnet_1g.py",
+      "format": "python",
+      "ports": [
+        24
+      ],
+      "protocols": [
+        "mxnet_api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.19.4",
+      "tags": [
+        "av-over-ip",
+        "mxnet",
+        "matrix-switcher",
+        "video-wall",
+        "kvm",
+        "encoder",
+        "decoder"
+      ],
+      "help": {
+        "overview": "The MXNet Control Box is the head end of an MXNet 1G system. Add the CBOX (not the individual encoders/decoders) and every endpoint it knows about shows up as a child you can route, scale and pass CEC/IR/RS-232 through.\n\nRouting works per stream: video, audio, USB, IR and RS-232 can each follow a different source, or move together with the Route command's Media setting of 'All'. Video walls, KVM layouts, scenes and matrix presets built in MENTOR are recalled by name.",
+        "setup": "1. Connect to the CBOX's MENTOR/LAN port (the port used for the web GUI and third-party control) \u2014 not the AV network port.\n2. Enter that port's IP address. The API listens on TCP 24 and needs no login.\n3. Commission the system in MENTOR first (endpoints adopted, names assigned). The driver reads the roster from the CBOX; it does not adopt endpoints.\n4. Endpoints are listed by their MENTOR custom name. Renaming one in MENTOR changes its label here on the next poll; its identity is its MAC address.\n5. RS-232 passthrough requires the endpoint to be in RS-232 mode 2 (set in MENTOR). On connect the driver normalizes the serial feedback encapsulation of every endpoint to the format chosen in Serial Feedback Format, so inbound serial data can be decoded onto each endpoint's Serial Data state."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "AVPro Edge",
+          "models": [
+            "AC-MXNET-CBOX",
+            "AC-MXNET-CBOX-B",
+            "AC-MXNET-CBOX-HA"
+          ],
+          "confidence": "untested",
+          "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Endpoints covered: AC-MXNET-1G-E / -EV2 / -EWP / -AVDM-E / -DANTE-E encoders and AC-MXNET-1G-D / -DV2 / -AVDM-D / -DANTE-D decoders. The CBOX-HA's high-availability pairing and the MV41V2 multiview companion are configured in MENTOR, not here."
+        }
+      ],
+      "discovery": {
+        "port_open": [
+          24
+        ],
+        "manufacturer_alias": [
+          "avpro edge",
+          "avpro global",
+          "avproedge"
+        ],
+        "tcp_probe": {
+          "port": 24,
+          "send_ascii": "config get name\r\n",
+          "expect_regex": "\"info\"\\s*:\\s*\"AC-MXNET[^\"]*\"",
+          "extract_manufacturer": "AVPro Edge",
+          "extract": {
+            "model": {
+              "regex": "\"info\"\\s*:\\s*\"(AC-MXNET[^\"]*)\""
+            }
+          },
+          "timeout_ms": 2000
+        }
       }
     },
     {

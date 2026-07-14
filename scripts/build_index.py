@@ -1651,18 +1651,40 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
                 if isinstance(expr, str) and expr.startswith("$"):
                     _check_ref(f"{where}: state '{prop}'", expr)
 
+    query_config_fields: set[str] = set()
+    for _src in ("config_schema", "default_config"):
+        _block = data.get(_src)
+        if isinstance(_block, dict):
+            query_config_fields.update(_block.keys())
+
     def _check_each_child(name: str, entries: Any, allow_osc_dict: bool) -> None:
         if not isinstance(entries, list):
             return
         for i, q in enumerate(entries):
             if not isinstance(q, dict):
                 continue
+            # `when: <config_field>` gates the entry on a truthy config value.
+            # An unknown field name would disable the entry forever.
+            if "when" in q:
+                when = q.get("when")
+                if not isinstance(when, str) or not when:
+                    errors.append(
+                        f"{file}: {name}[{i}]: 'when' must name a config field"
+                    )
+                elif when not in query_config_fields:
+                    errors.append(
+                        f"{file}: {name}[{i}]: 'when' field '{when}' is not a "
+                        f"declared config field (config_schema / default_config)"
+                    )
             if "each_child" not in q:
                 if allow_osc_dict and "address" in q:
                     continue
+                send = q.get("send")
+                if isinstance(send, str) and send:
+                    continue  # plain {send, when} query
                 errors.append(
                     f"{file}: {name}[{i}]: mapping entries must be "
-                    f"{{each_child, send}}"
+                    f"{{each_child, send}} or {{send, when}}"
                     + (" or {address, args}" if allow_osc_dict else "")
                 )
                 continue

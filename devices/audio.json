@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 119,
+    "total_devices": 141,
     "shards": null,
     "category": "audio"
   },
@@ -639,6 +639,270 @@
           "id": "onkyo_integra_iscp",
           "confidence": "untested",
           "notes": "Integra (Onkyo's professional line) receivers share the same ISCP command set over RS-232."
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 124",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 124D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 1504",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 1504D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 164",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 164D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 168",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 168D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 3004",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 3004D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 352",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 352D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 354",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 354D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 702",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 702D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 704",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 704D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 84",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 84D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 88",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "LEA Professional",
+      "model": "Connect Series 88D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "lea_connect",
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },

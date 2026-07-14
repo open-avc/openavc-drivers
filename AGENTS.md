@@ -608,7 +608,7 @@ child_entity_types:
 
 **Rules:**
 - The child type name (the YAML key, e.g. `encoder`) becomes a state-key segment (`device.<id>.<child_type>...`) and feeds the platform's per-child subscription matching, so it must not contain dots or glob metacharacters (`. * ? [`). Stick to plain identifiers (letters, digits, `_`, `-`). The loader rejects a driver that violates this.
-- `id_format.type` is `integer` (default) or `string`. For `integer`: `min` defaults to 1, `max` is optional (unbounded if omitted), `pad_width` zero-pads the ID in state keys (0 = no padding). For `string`: children are keyed by a device-native name (a Q-SYS Code Name, an MQTT topic leaf) restricted to `[A-Za-z0-9_-]` and at most `max_length` chars (default 128) — sanitize the native name to that charset and keep the original in the child's `label`.
+- `id_format.type` is `integer` (default) or `string`. For `integer`: `min` defaults to 1, `max` is optional (unbounded if omitted), `pad_width` zero-pads the ID in state keys (`encoder.005`) and must be a **positive** integer when declared — omit it for no padding; a literal `pad_width: 0` is rejected by both validators. Catalog convention is `pad_width: 2`. For `string`: children are keyed by a device-native name (a Q-SYS Code Name, an MQTT topic leaf) restricted to `[A-Za-z0-9_-]` and at most `max_length` chars (default 128) — sanitize the native name to that charset and keep the original in the child's `label`.
 - `state_variables` uses the same schema as device `state_variables` (types: `string`, `integer`, `number`, `float`, `boolean`, `enum`), including the optional numeric `min`/`max`/`step`/`unit` metadata and the `control: true` flag — on children, `control` also scopes the `options_from: child_schema` command cascade (when any field is flagged, only flagged fields are offered as command targets). The platform always injects a boolean `online` and a string `label` per child — do not declare those.
 - `dynamic: true` marks a type whose children have **heterogeneous, runtime-discovered control sets** (e.g. a DSP's user-built components, where each block exposes different controls). Leave its `state_variables` empty (or only shared fields); the Python driver publishes each child's own schema at `register_child(schema=...)` and that child validates/renders against it. Python-only.
 - `cloud_priority` (optional, per state variable): `high` relays at the fast top-level cadence, `low` at the slow verbose cadence, omitted uses the default per-child cadence.
@@ -1057,7 +1057,9 @@ responses:
 
 Rules whose mapped keys are unique across every body the driver can receive don't need it. Reference: `barco_clickshare_cx` guards its power/identity/wallpaper rules this way. Validation: json rules only; non-empty key names.
 
-**`throttle: <seconds>` — rate-cap a high-rate telemetry rule (platform 0.23.0+).** After the rule matches and applies, further matches of the *same rule* are dropped until the window elapses (drop-style — each skipped frame is superseded by the next). Built for continuous streams like audio level meters (a 10 Hz meter frame with `throttle: 0.5` becomes ~2 state writes/sec). Works on regex, `json: true`, and OSC rules. Do NOT throttle command replies or state-change notices — a dropped frame there means stale state until the next poll. Pair meter-style state variables with `cloud_priority: low` so the cloud relay treats them as background tier. Validation: must be a positive number.
+**`throttle: <seconds>` — rate-cap a high-rate telemetry rule (platform 0.23.0+).** After the rule matches and applies, further matches of it are dropped until the window elapses (drop-style — each skipped frame is superseded by the next). Built for continuous streams like audio level meters (a 10 Hz meter frame with `throttle: 0.5` becomes ~2 state writes/sec). Works on regex, `json: true`, and OSC rules. Do NOT throttle command replies or state-change notices — a dropped frame there means stale state until the next poll. Pair meter-style state variables with `cloud_priority: low` so the cloud relay treats them as background tier. Validation: must be a positive number.
+
+**The window is per routed child, not per rule.** A per-channel meter is normally ONE `child_set` rule matching every channel (`/amp/channels/(\d+)/levels/level_db`), so a rule-wide window would let whichever channel arrived first consume it and starve the rest — the meter would appear to update only channel 1, and a poll burst across N channels would refresh exactly one of them. The throttle buckets by the child the frame routes to (by concrete address on OSC rules), so `throttle: 0.5` means "2 writes/sec **per channel**", which is what the cap is meant to express. Rules with no `child_set` share one bucket, as before.
 
 ### 2.8 auth
 
@@ -1103,6 +1105,25 @@ on_connect:
 
 This enables real-time push notifications from devices that support it. Without `on_connect`, the driver relies entirely on polling.
 
+**`when:` — gate an entry on a config field (platform ≥ 0.23.0).** Some devices only stream a value once you subscribe to it, so the arming lives in the queries themselves. That traffic is welcome on one job and a nuisance on the next — a level-meter subscription per channel can mean hundreds of frames a second from a single box. Give the entry a `when:` naming a config field and it runs only while that field is truthy, which turns the choice into an integrator checkbox instead of a decision baked into the driver:
+
+```yaml
+config_schema:
+  enable_meters:
+    type: boolean
+    default: false
+    label: "Enable Level Meters"
+    description: "Stream live meter levels. Increases network traffic."
+
+on_connect:
+  - "subscribe /amp/channels/1/output/mute\n"                     # always
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/levels/level_db\n",
+      when: enable_meters }                                        # per channel, gated
+  - { send: "subscribe /amp/powerSupply/acLineWatts\n", when: enable_meters }  # one-off, gated
+```
+
+Valid on entries in `on_connect` **and** `polling.queries`, with or without `each_child` — the plain `{send, when}` mapping form exists only so a one-off query can carry a gate. The field must be declared in `config_schema` or `default_config`; a name that isn't is a load error, not a query that silently never runs (truthiness follows the platform's usual coercion, so `false` / `"false"` / `"0"` / `""` / missing are all off). Pair a gated telemetry stream with `throttle:` on the response rules it feeds and `cloud_priority: low` on its state variables.
+
 ### 2.10 polling
 
 Periodic status queries sent to the device. The poll cadence is set by
@@ -1127,6 +1148,9 @@ polling:
     - "get_status"               # Executes the command named "get_status"
     - "/api/status"              # GET request to this path; response matched against patterns
 ```
+
+A query entry may also carry `when: <config_field>` to run only while that field
+is on — see the `when:` note under §2.9 `on_connect`.
 
 **Command names resolve for HTTP/UDP only.** A query that names a declared
 command runs as that command (so its response is matched) **only on HTTP and

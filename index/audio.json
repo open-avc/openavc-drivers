@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 21,
+    "total_drivers": 22,
     "shards": null,
     "category": "audio"
   },
@@ -708,6 +708,95 @@
         "manufacturer_alias": [
           "Hero AV",
           "SoundCoreHero"
+        ]
+      }
+    },
+    {
+      "id": "lea_connect",
+      "name": "LEA Connect Series Amplifier",
+      "manufacturer": "LEA Professional",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
+      "source_url": "https://leaprofessional.com/wp-content/uploads/2020/10/LEA-Open-API-TCP-Protocol-October-2020.pdf",
+      "file": "audio/lea_connect.avcdriver",
+      "format": "avcdriver",
+      "ports": [
+        4321
+      ],
+      "protocols": [
+        "lea_open_api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "amplifier",
+        "dsp",
+        "dante",
+        "power-amplifier",
+        "lea",
+        "connect-series",
+        "70v",
+        "100v"
+      ],
+      "help": {
+        "overview": "LEA Connect Series amplifiers combine amplification with a full channel DSP: input selection with automatic backup/override, crossover, 8-band output EQ, RMS and peak limiters, and load monitoring on every channel. This driver exposes each amplifier channel as its own entity, so a panel can bind directly to \"channel 3 mute\" or \"channel 1 output level\" and macros can act on one channel without touching the others.\nThe amp pushes changes as they happen, so the panel stays right even when someone changes something from the amplifier's own web UI or its front panel. Faults (channel fault, thermal, power supply, load short/open) arrive the moment they occur rather than on the next poll.\n",
+        "setup": "1. Give the amplifier a static IP (or a DHCP reservation) \u2014 the amp's web UI\n   or the LEA Cloud app both do this.\n2. Enter the IP here. The control port is 4321 and needs no username or\n   password; the amp accepts control commands on it directly.\n3. Set Channels to your model's channel count \u2014 it's the last digit of the\n   model number (704D = 4, 352 = 2, 168 = 8). If it's wrong you'll see it:\n   the amp reports its real channel count in the Num Outputs state value.\n4. Leave Enable Level Meters off unless you want live metering on a panel.\n   The amplifier streams meter values continuously, which is a lot of\n   network traffic across a rack of amps. Output level, volts and watts\n   still refresh on every poll with meters off.\n5. Firmware must be 1.1.0.x or newer. Older firmware only speaks the\n   WebSocket API, which this driver does not use.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "LEA Professional",
+          "models": [
+            "Connect Series 352",
+            "Connect Series 702",
+            "Connect Series 124",
+            "Connect Series 164",
+            "Connect Series 354",
+            "Connect Series 704",
+            "Connect Series 1504",
+            "Connect Series 3004",
+            "Connect Series 84",
+            "Connect Series 88",
+            "Connect Series 168"
+          ],
+          "confidence": "untested",
+          "notes": "Network Connect Series (analog inputs, no Dante). The last digit of the model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8). Analog sources are limited to the number of channels on the amp.\n"
+        },
+        {
+          "manufacturer": "LEA Professional",
+          "models": [
+            "Connect Series 352D",
+            "Connect Series 702D",
+            "Connect Series 124D",
+            "Connect Series 164D",
+            "Connect Series 354D",
+            "Connect Series 704D",
+            "Connect Series 1504D",
+            "Connect Series 3004D",
+            "Connect Series 84D",
+            "Connect Series 88D",
+            "Connect Series 168D"
+          ],
+          "confidence": "untested",
+          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 4321,
+          "send_ascii": "get /amp/deviceInfo/modelID\n",
+          "expect_regex": "/amp/deviceInfo/modelID \"Connect Series",
+          "extract_manufacturer": "LEA Professional",
+          "timeout_ms": 2000
+        },
+        "port_open": [
+          4321
+        ],
+        "manufacturer_alias": [
+          "lea",
+          "lea professional"
         ]
       }
     },

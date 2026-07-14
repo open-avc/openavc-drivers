@@ -296,6 +296,9 @@
             "$ref": "#/$defs/eachChildQuery"
           },
           {
+            "$ref": "#/$defs/gatedQuery"
+          },
+          {
             "type": "object",
             "required": [
               "address"
@@ -314,7 +317,7 @@
           }
         ]
       },
-      "description": "Commands sent immediately after connect, before polling. Strings for TCP/serial/UDP; {address, args} mappings for OSC; {each_child, send} templates expand to one query per registered child."
+      "description": "Commands sent immediately after connect, before polling. Strings for TCP/serial/UDP; {address, args} mappings for OSC; {each_child, send} templates expand to one query per registered child. Any mapping entry may add when: <config_field> to run only while that field is on."
     },
     "polling": {
       "type": "object",
@@ -328,10 +331,13 @@
               },
               {
                 "$ref": "#/$defs/eachChildQuery"
+              },
+              {
+                "$ref": "#/$defs/gatedQuery"
               }
             ]
           },
-          "description": "Query strings (or command names) sent each poll cycle; {each_child, send} templates expand to one query per registered child. Cadence comes from default_config.poll_interval."
+          "description": "Query strings (or command names) sent each poll cycle; {each_child, send} templates expand to one query per registered child; when: <config_field> gates an entry on a config field. Cadence comes from default_config.poll_interval."
         }
       },
       "not": {
@@ -833,6 +839,29 @@
           "type": "string",
           "pattern": "\\{child_id(:[^{}]*)?\\}",
           "description": "Query template; must contain {child_id} (a format spec like {child_id:02d} zero-pads — requires platform 0.23.0)."
+        },
+        "when": {
+          "type": "string",
+          "description": "Config field gating this entry: it runs only while that field is truthy. Must name a field declared in config_schema / default_config. Requires platform 0.23.0."
+        }
+      },
+      "additionalProperties": false
+    },
+    "gatedQuery": {
+      "type": "object",
+      "required": [
+        "send",
+        "when"
+      ],
+      "description": "A plain query in mapping form so it can carry a gate: it runs only while the named config field is truthy. Use it to arm a chatty subscription (a level-meter stream) behind an integrator checkbox instead of forcing it on every site.",
+      "properties": {
+        "send": {
+          "type": "string",
+          "description": "Query sent as authored — a raw protocol string on tcp/serial, a command name or path on http/udp."
+        },
+        "when": {
+          "type": "string",
+          "description": "Config field gating this entry. Must name a field declared in config_schema / default_config. Requires platform 0.23.0."
         }
       },
       "additionalProperties": false

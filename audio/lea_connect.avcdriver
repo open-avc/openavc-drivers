@@ -1,0 +1,2436 @@
+# LEA Professional Connect Series Amplifier Driver
+#
+# Controls LEA Connect Series smart amplifiers over the LEA Open API on TCP
+# 4321. One driver covers the whole family: the Network Connect Series (analog
+# inputs) and the Dante Connect Series ("D" models) speak the same API — LEA's
+# protocol doc is explicit that it "outlines the TCP Protocol including commands
+# that are available for all Dante Connect Series and Network Connect Series
+# models". The differences are which values an element accepts, not which
+# elements exist:
+#   - Dante models add the "Dante 1".."Dante 7+8" input sources (all 8 Dante
+#     inputs are available on every Dante model) and the Dante On Ramp control.
+#   - Network Connect models expose only analog sources, and only as many as the
+#     amp has channels (a 354 has no Analog 5-8).
+# Selecting a source the amp doesn't have is benign: it answers
+# "error: unsupported value: ..." and changes nothing (surfaced in last_error).
+#
+# Protocol reference: LEA Open API - TCP Protocol, Rev 2 (2020-10-02).
+# Archived: driver-roadmap/reference-docs/lea-open-api-tcp-protocol.pdf
+#
+# Wire format:
+#   Commands and responses are newline-delimited ('\n', 0x0a). A command with
+#   no trailing newline gets NO response at all.
+#     get <url>                -> "<url> <value>"
+#     set <url> <value>        -> "OK"    (controls only)
+#     subscribe <url>          -> "<url> <value>", then a fresh line on
+#                                 every change, on this same connection
+#     unsubscribe <url>        -> "OK"
+#   Verbs are case-insensitive; element URLs are case-sensitive.
+#   Values: strings and enums come back double-quoted ("Post Crossover");
+#   booleans as bare true/false; numbers bare and often at full float precision
+#   (-52.78131103515625). String/enum values containing spaces MUST be quoted on
+#   the way in. Out-of-range numbers are CLAMPED, not rejected (set fader -1000
+#   answers OK, then reports -80.0).
+#
+# Push, not polling (Principle 2): every element the amp exposes is
+# subscribable, and notifications arrive on the established control connection —
+# so there is no `push:` block (that's for channels the platform must open).
+# on_connect subscribes to the full surface; the subscribe reply doubles as the
+# initial state sync, so the device is fully populated before the first poll.
+#
+# Level meters are opt-in (Enable Level Meters, default off). The amp streams
+# meter elements continuously — an 8-channel unit with every meter subscribed is
+# roughly 40 streams at ~10 Hz — which is welcome on a job that wants live
+# metering and pure noise on one that doesn't. The meter subscriptions carry
+# `when: enable_meters`; their response rules are throttled and their state vars
+# are cloud_priority: low. With meters off, output level / volts / watts still
+# refresh from the poll loop at poll_interval, which is the right cadence for
+# amp telemetry (watts, impedance) as opposed to a live meter.
+#
+# Model naming decodes as <power per channel><channel count>[D]: a 704D is
+# 700 W x 4 channels with Dante; a 168 is 160 W x 8 channels, analog only. Set
+# Channels to that last digit (2, 4, or 8) — the amp reports its own count in
+# num_outputs, so a mismatch is visible on the device card.
+
+id: lea_connect
+name: LEA Connect Series Amplifier
+manufacturer: LEA Professional
+category: audio
+version: 1.0.0
+author: OpenAVC
+transport: tcp
+delimiter: "\n"
+min_platform_version: "0.23.0"
+
+description: >
+  Controls LEA Professional Connect Series smart amplifiers (Network Connect and
+  Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a
+  child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection
+  with backup/override, crossover, RMS and peak limiters, load monitoring, and
+  live meters. Amp-wide auto-standby, signal generator, power-supply monitoring,
+  and fault reporting. State is push-driven: the driver subscribes to every
+  element and the amp reports changes as they happen, including changes made
+  from its own web UI.
+
+source_url: https://leaprofessional.com/wp-content/uploads/2020/10/LEA-Open-API-TCP-Protocol-October-2020.pdf
+tags: [amplifier, dsp, dante, power-amplifier, lea, connect-series, 70v, 100v]
+verified: false
+simulated: true
+protocols: [lea_open_api]
+ports: [4321]
+
+compatible_models:
+  - manufacturer: LEA Professional
+    models:
+      - Connect Series 352
+      - Connect Series 702
+      - Connect Series 124
+      - Connect Series 164
+      - Connect Series 354
+      - Connect Series 704
+      - Connect Series 1504
+      - Connect Series 3004
+      - Connect Series 84
+      - Connect Series 88
+      - Connect Series 168
+    confidence: untested
+    notes: >
+      Network Connect Series (analog inputs, no Dante). The last digit of the
+      model number is the channel count (352 = 2 channels, 704 = 4, 168 = 8).
+      Analog sources are limited to the number of channels on the amp.
+  - manufacturer: LEA Professional
+    models:
+      - Connect Series 352D
+      - Connect Series 702D
+      - Connect Series 124D
+      - Connect Series 164D
+      - Connect Series 354D
+      - Connect Series 704D
+      - Connect Series 1504D
+      - Connect Series 3004D
+      - Connect Series 84D
+      - Connect Series 88D
+      - Connect Series 168D
+    confidence: untested
+    notes: >
+      Dante Connect Series. Same API; adds the eight Dante input sources (all
+      eight are available on every Dante model regardless of channel count) and
+      the Dante On Ramp control. Requires firmware 1.1.0.x or later — earlier
+      firmware supports only the WebSocket API, not this TCP one.
+
+help:
+  overview: >
+    LEA Connect Series amplifiers combine amplification with a full channel DSP:
+    input selection with automatic backup/override, crossover, 8-band output EQ,
+    RMS and peak limiters, and load monitoring on every channel. This driver
+    exposes each amplifier channel as its own entity, so a panel can bind
+    directly to "channel 3 mute" or "channel 1 output level" and macros can act
+    on one channel without touching the others.
+
+    The amp pushes changes as they happen, so the panel stays right even when
+    someone changes something from the amplifier's own web UI or its front
+    panel. Faults (channel fault, thermal, power supply, load short/open) arrive
+    the moment they occur rather than on the next poll.
+  setup: >
+    1. Give the amplifier a static IP (or a DHCP reservation) — the amp's web UI
+       or the LEA Cloud app both do this.
+    2. Enter the IP here. The control port is 4321 and needs no username or
+       password; the amp accepts control commands on it directly.
+    3. Set Channels to your model's channel count — it's the last digit of the
+       model number (704D = 4, 352 = 2, 168 = 8). If it's wrong you'll see it:
+       the amp reports its real channel count in the Num Outputs state value.
+    4. Leave Enable Level Meters off unless you want live metering on a panel.
+       The amplifier streams meter values continuously, which is a lot of
+       network traffic across a rack of amps. Output level, volts and watts
+       still refresh on every poll with meters off.
+    5. Firmware must be 1.1.0.x or newer. Older firmware only speaks the
+       WebSocket API, which this driver does not use.
+
+default_config:
+  host: ""
+  port: 4321
+  poll_interval: 60
+  inter_command_delay: 0.01
+  channel_count: 4
+  enable_meters: false
+  tcp_keepalive: true
+
+config_schema:
+  host:
+    type: string
+    required: true
+    default: ""
+    label: "IP Address"
+    description: "Amplifier IP address or hostname"
+  port:
+    type: integer
+    required: true
+    default: 4321
+    label: "Port"
+    description: "LEA Open API TCP port (fixed at 4321 on the amplifier)"
+    min: 1
+    max: 65535
+  channel_count:
+    type: enum
+    required: true
+    default: "4"
+    label: "Channels"
+    description: "Amplifier channel count — the last digit of the model number (704D = 4, 352 = 2, 168 = 8)"
+    values:
+      - { value: "2", label: "2 channels (352, 702)" }
+      - { value: "4", label: "4 channels (124, 164, 354, 704, 1504, 3004, 84)" }
+      - { value: "8", label: "8 channels (88, 168)" }
+  enable_meters:
+    type: boolean
+    default: false
+    label: "Enable Level Meters"
+    description: >
+      Subscribe to live meter streams (output level/volts/watts, input levels,
+      limiter gain reduction). The amplifier streams these continuously, so this
+      adds significant network traffic. With it off, output levels still refresh
+      once per poll interval.
+  poll_interval:
+    type: integer
+    default: 60
+    label: "Poll Interval (s)"
+    description: "State is pushed by the amp; this poll is a periodic re-sync and the meter refresh when meters are off."
+    min: 0
+    max: 3600
+
+discovery:
+  # Active fingerprint: the LEA Open API answers a modelID GET on 4321 with a
+  # line no other protocol emits, and the value names the family outright
+  # ("Connect Series Model 704D"). NOTE: OUI is not declared — LEA's MAC prefix
+  # is not published in any LEA document, and this driver was written without an
+  # amp on the network. Add it once it is read off real hardware rather than
+  # guessing a prefix that would mis-attribute other vendors' devices.
+  tcp_probe:
+    port: 4321
+    send_ascii: "get /amp/deviceInfo/modelID\n"
+    expect_regex: '/amp/deviceInfo/modelID "Connect Series'
+    extract_manufacturer: "LEA Professional"
+    timeout_ms: 2000
+  port_open:
+    - 4321
+  manufacturer_alias:
+    - "lea"
+    - "lea professional"
+
+child_entity_types:
+  channel:
+    label: "Channel"
+    label_plural: "Channels"
+    id_format:
+      type: integer
+      min: 1
+      max: 8
+      pad_width: 2
+    instances:
+      count_from: channel_count
+      label: "Channel {id}"
+    label_field: name
+    summary_fields: ["name", "mute", "fader", "output_signal_detect", "fault"]
+    state_variables:
+      # ── Output ──
+      name:
+        type: string
+        label: "Channel Name"
+        help: "The name given to this output channel on the amplifier"
+      enable:
+        type: boolean
+        label: "Channel Ready Enable"
+        help: "Whether the channel is armed to pass audio"
+        cloud_priority: high
+      mute:
+        type: boolean
+        label: "Mute"
+        control: true
+        cloud_priority: high
+      fader:
+        type: number
+        label: "Output Level (dB)"
+        min: -80.0
+        max: 0.0
+        step: 0.5
+        unit: "dB"
+        control: true
+        cloud_priority: high
+      hiz_loz:
+        type: enum
+        values: ["HiZ-70V", "HiZ-100V", "LoZ"]
+        label: "Output Mode"
+        help: "70 V / 100 V constant-voltage, or low-impedance"
+      hiz_hpf_frequency:
+        type: integer
+        label: "Hi-Z High Pass (Hz)"
+        min: 35
+        max: 5000
+        unit: "Hz"
+      fault:
+        type: boolean
+        label: "Fault"
+        help: "Channel shut down by protection — check for a shorted output"
+        cloud_priority: high
+      thermal:
+        type: boolean
+        label: "Thermal Fault"
+        cloud_priority: high
+      limiting:
+        type: boolean
+        label: "Limiting"
+        cloud_priority: high
+      output_clip:
+        type: boolean
+        label: "Output Clip"
+        cloud_priority: high
+      output_signal_detect:
+        type: boolean
+        label: "Output Signal Present"
+        cloud_priority: high
+      ready:
+        type: boolean
+        label: "Ready"
+        help: "Channel is ready to pass audio"
+        cloud_priority: high
+
+      # ── Meters (streamed only while Enable Level Meters is on) ──
+      level_db:
+        type: number
+        label: "Output Level (dBFS)"
+        min: -60.0
+        max: 0.0
+        unit: "dBFS"
+        cloud_priority: low
+      level_volts:
+        type: number
+        label: "Output (V RMS)"
+        min: 0.0
+        max: 200.0
+        unit: "V"
+        cloud_priority: low
+      level_watts:
+        type: number
+        label: "Output (W RMS)"
+        min: 0.0
+        max: 10000.0
+        unit: "W"
+        cloud_priority: low
+
+      # ── Input selector ──
+      primary_source:
+        type: string
+        label: "Primary Source"
+        help: "Analog or Dante input feeding this channel"
+        control: true
+        cloud_priority: high
+      primary_fader:
+        type: number
+        label: "Primary Input Level (dB)"
+        min: -80.0
+        max: 0.0
+        step: 0.5
+        unit: "dB"
+        control: true
+      primary_level:
+        type: number
+        label: "Primary Input Meter (dBFS)"
+        min: -80.0
+        max: 0.0
+        unit: "dBFS"
+        cloud_priority: low
+      primary_signal_detect:
+        type: boolean
+        label: "Primary Signal Present"
+      primary_clip:
+        type: boolean
+        label: "Primary Input Clip"
+      primary_threshold:
+        type: number
+        label: "Primary Override Threshold (dB)"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+      secondary_source:
+        type: string
+        label: "Secondary Source"
+        help: "Backup / override source, or None"
+      secondary_fader:
+        type: number
+        label: "Secondary Input Level (dB)"
+        min: -80.0
+        max: 0.0
+        step: 0.5
+        unit: "dB"
+      secondary_level:
+        type: number
+        label: "Secondary Input Meter (dBFS)"
+        min: -80.0
+        max: 0.0
+        unit: "dBFS"
+        cloud_priority: low
+      secondary_signal_detect:
+        type: boolean
+        label: "Secondary Signal Present"
+      secondary_clip:
+        type: boolean
+        label: "Secondary Input Clip"
+      secondary_threshold:
+        type: number
+        label: "Secondary Override Threshold (dB)"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+      input_signal_detect:
+        type: boolean
+        label: "Input Signal Present"
+        help: "Aggregate of the primary and secondary inputs"
+        cloud_priority: high
+      input_clip:
+        type: boolean
+        label: "Input Clip"
+        help: "Aggregate of the primary and secondary inputs"
+      input_mode:
+        type: enum
+        values: ["Override", "Backup"]
+        label: "Priority Mode"
+        help: "Override = auto-override the primary input; Backup = signal-sensing override"
+      signal_gen_enable:
+        type: boolean
+        label: "Signal Generator On"
+      signal_gen_fader:
+        type: number
+        label: "Signal Generator Level (dB)"
+        min: -80.0
+        max: 0.0
+        step: 0.5
+        unit: "dB"
+      dante_on_ramp:
+        type: string
+        label: "Dante On Ramp"
+        help: "Dante models only — what this channel puts onto the Dante network"
+
+      # ── Crossover ──
+      xover_gain:
+        type: number
+        label: "Crossover Gain (dB)"
+        min: -15.0
+        max: 15.0
+        step: 0.5
+        unit: "dB"
+      xover_delay:
+        type: number
+        label: "Output Delay (ms)"
+        min: 0.0
+        max: 100.0
+        unit: "ms"
+      xover_invert:
+        type: boolean
+        label: "Polarity Invert"
+      lpf_enable:
+        type: boolean
+        label: "Low Pass Filter On"
+      lpf_type:
+        type: string
+        label: "Low Pass Filter Type"
+      lpf_frequency:
+        type: integer
+        label: "Low Pass Frequency (Hz)"
+        min: 20
+        max: 20000
+        unit: "Hz"
+      hpf_enable:
+        type: boolean
+        label: "High Pass Filter On"
+      hpf_type:
+        type: string
+        label: "High Pass Filter Type"
+      hpf_frequency:
+        type: integer
+        label: "High Pass Frequency (Hz)"
+        min: 20
+        max: 20000
+        unit: "Hz"
+
+      # ── RMS limiter ──
+      rms_enable:
+        type: boolean
+        label: "RMS Limiter On"
+      rms_threshold:
+        type: number
+        label: "RMS Limiter Threshold (V)"
+        min: 10.0
+        max: 140.0
+        unit: "V"
+      rms_attack:
+        type: number
+        label: "RMS Limiter Attack (ms)"
+        min: 1000.0
+        max: 10000.0
+        unit: "ms"
+      rms_release:
+        type: number
+        label: "RMS Limiter Release (ms)"
+        min: 1000.0
+        max: 10000.0
+        unit: "ms"
+      rms_gain_reduction:
+        type: number
+        label: "RMS Speaker Limiter Reduction (dB)"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+        cloud_priority: low
+      rms_total_gain_reduction:
+        type: number
+        label: "RMS Total Limiter Reduction (dB)"
+        help: "Includes the amplifier's own protection limiters"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+        cloud_priority: low
+
+      # ── Peak limiter ──
+      peak_enable:
+        type: boolean
+        label: "Peak Limiter On"
+      peak_threshold:
+        type: number
+        label: "Peak Limiter Threshold (V)"
+        min: 14.0
+        max: 198.0
+        unit: "V"
+      peak_attack:
+        type: number
+        label: "Peak Limiter Attack (ms)"
+        min: 1.0
+        max: 1000.0
+        unit: "ms"
+      peak_release:
+        type: number
+        label: "Peak Limiter Release (ms)"
+        min: 1.0
+        max: 1000.0
+        unit: "ms"
+      peak_gain_reduction:
+        type: number
+        label: "Peak Speaker Limiter Reduction (dB)"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+        cloud_priority: low
+      peak_total_gain_reduction:
+        type: number
+        label: "Peak Total Limiter Reduction (dB)"
+        help: "Includes the amplifier's own protection limiters"
+        min: -80.0
+        max: 0.0
+        unit: "dB"
+        cloud_priority: low
+
+      # ── Load monitoring ──
+      load_monitor_enable:
+        type: boolean
+        label: "Load Monitor On"
+      impedance:
+        type: number
+        label: "Measured Impedance (ohm)"
+        min: 0.0
+        max: 250.0
+        unit: "ohm"
+        cloud_priority: low
+      load_high_limit:
+        type: number
+        label: "Load High Limit (ohm)"
+        min: 8.0
+        max: 250.0
+        unit: "ohm"
+      load_low_limit:
+        type: number
+        label: "Load Low Limit (ohm)"
+        min: 1.0
+        max: 250.0
+        unit: "ohm"
+      load_status:
+        type: enum
+        values: ["Ok", "Short", "Open", "Low Signal"]
+        label: "Load Status"
+        help: "Ok = measured impedance is between the low and high limits"
+        cloud_priority: high
+
+  analog_input:
+    label: "Analog Input"
+    label_plural: "Analog Inputs"
+    id_format:
+      type: integer
+      min: 1
+      max: 8
+      pad_width: 2
+    instances:
+      # The amp has as many analog inputs as it has channels (LEA: analog inputs
+      # are "only available for the number of inputs on the amplifier"). Dante
+      # models add eight Dante inputs, which are sources rather than physical
+      # inputs and carry no per-input settings.
+      count_from: channel_count
+      label: "Analog Input {id}"
+    summary_fields: ["sensitivity"]
+    state_variables:
+      sensitivity:
+        type: enum
+        values: ["26dB", "34dB"]
+        label: "Input Sensitivity"
+        help: "26 dB for consumer/line level, 34 dB for professional line level"
+
+state_variables:
+  # ── Identity ──
+  device_name:
+    type: string
+    label: "Device Name"
+  venue_name:
+    type: string
+    label: "Venue Name"
+  model_id:
+    type: string
+    label: "Model"
+  serial_number:
+    type: string
+    label: "Serial Number"
+  asset_tag:
+    type: string
+    label: "Asset Tag"
+  installer_name:
+    type: string
+    label: "Installer Name"
+  installer_contact:
+    type: string
+    label: "Installer Contact"
+  date_of_installation:
+    type: string
+    label: "Date of Installation"
+  rack_name:
+    type: string
+    label: "Rack Name"
+  rack_position:
+    type: string
+    label: "Rack Position"
+  date_of_mfg:
+    type: string
+    label: "Date of Manufacture"
+  hardware_id:
+    type: string
+    label: "Hardware ID"
+  firmware_version:
+    type: string
+    label: "Firmware Version"
+  psu_firmware_version:
+    type: string
+    label: "Power Supply Firmware"
+  amp12_firmware_version:
+    type: string
+    label: "Amp 1/2 Firmware"
+  amp34_firmware_version:
+    type: string
+    label: "Amp 3/4 Firmware"
+  uptime:
+    type: string
+    label: "Up Time"
+  num_inputs:
+    type: integer
+    label: "Num Inputs"
+  num_outputs:
+    type: integer
+    label: "Num Outputs"
+    help: "Channel count as the amplifier reports it — if this disagrees with the Channels setting, fix the setting"
+
+  # ── Power supply ──
+  ac_line_voltage:
+    type: number
+    label: "AC Line Voltage"
+    min: 0.0
+    max: 300.0
+    unit: "V"
+    cloud_priority: low
+  ac_line_current:
+    type: number
+    label: "AC Line Current"
+    min: 0.0
+    max: 100.0
+    unit: "A"
+    cloud_priority: low
+  ac_line_watts:
+    type: number
+    label: "AC Power Draw"
+    min: 0.0
+    max: 5000.0
+    unit: "W"
+    cloud_priority: low
+  psu_fault:
+    type: boolean
+    label: "Power Supply Fault"
+    cloud_priority: high
+  psu_thermal:
+    type: boolean
+    label: "Power Supply Thermal"
+    cloud_priority: high
+  psu_power_ok:
+    type: boolean
+    label: "Power OK"
+    cloud_priority: high
+  psu_line_warning:
+    type: boolean
+    label: "AC Line Voltage OK"
+    cloud_priority: high
+
+  # ── Auto standby / signal generator ──
+  auto_standby_enable:
+    type: boolean
+    label: "Auto Standby"
+    control: true
+  auto_standby_threshold:
+    type: number
+    label: "Auto Standby Threshold (dBFS)"
+    min: -80.0
+    max: 0.0
+    unit: "dBFS"
+  auto_standby_wait:
+    type: integer
+    label: "Auto Standby Wait (min)"
+    min: 1
+    max: 240
+    unit: "min"
+  signal_gen_type:
+    type: enum
+    values: ["Pink Noise", "White Noise", "Tone"]
+    label: "Signal Generator Type"
+  signal_gen_frequency:
+    type: integer
+    label: "Signal Generator Tone (Hz)"
+    min: 20
+    max: 20000
+    unit: "Hz"
+
+  last_error:
+    type: string
+    label: "Last Error"
+    help: "Most recent error the amplifier returned (e.g. a source the model doesn't have)"
+
+device_settings:
+  # Amp-wide values the amplifier itself persists. Per-channel values (mute,
+  # gain, crossover, limiters) are child state + child_id commands instead — a
+  # device setting's state_key is flat and can't address a channel.
+  #
+  # The booleans here are declared `enum` on purpose: LEA takes a JSON boolean
+  # on the wire (true / false, lowercase), and a `type: boolean` setting can
+  # only render as {value} -> "True"/"False" or {value:d} -> "1"/"0", neither of
+  # which the amp accepts. The backing state variables stay real booleans.
+  device_name:
+    type: string
+    label: "Device Name"
+    help: "Name shown for this amplifier in LEA Cloud and its web UI"
+    default: ""
+    state_key: "device_name"
+    setup: false
+    write:
+      send: 'set /amp/deviceInfo/deviceName "{value}"\n'
+  venue_name:
+    type: string
+    label: "Venue Name"
+    default: ""
+    state_key: "venue_name"
+    setup: false
+    write:
+      send: 'set /amp/deviceInfo/venueName "{value}"\n'
+  asset_tag:
+    type: string
+    label: "Asset Tag"
+    default: ""
+    state_key: "asset_tag"
+    setup: false
+    write:
+      send: 'set /amp/deviceInfo/assetTagNumber "{value}"\n'
+  installer_name:
+    type: string
+    label: "Installer Name"
+    default: ""
+    state_key: "installer_name"
+    setup: false
+    write:
+      send: 'set /amp/deviceInfo/installerName "{value}"\n'
+  installer_contact:
+    type: string
+    label: "Installer Contact"
+    default: ""
+    state_key: "installer_contact"
+    setup: false
+    write:
+      send: 'set /amp/deviceInfo/installerContactInfo "{value}"\n'
+  rack_name:
+    type: string
+    label: "Rack Name"
+    default: ""
+    state_key: "rack_name"
+    setup: false
+    write:
+      send: 'set /amp/deviceInfo/rackName "{value}"\n'
+  rack_position:
+    type: string
+    label: "Rack Position"
+    default: ""
+    state_key: "rack_position"
+    setup: false
+    write:
+      send: 'set /amp/deviceInfo/rackPosition "{value}"\n'
+  auto_standby_enable:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: "Auto Standby"
+    help: "Put the amplifier in standby after a period with no signal"
+    default: "false"
+    state_key: "auto_standby_enable"
+    setup: false
+    write:
+      send: "set /amp/autoStandby/enable {value}\n"
+  auto_standby_threshold:
+    type: number
+    label: "Auto Standby Threshold (dBFS)"
+    help: "Signal level below which the amp counts as idle"
+    default: -60.0
+    min: -80.0
+    max: 0.0
+    state_key: "auto_standby_threshold"
+    setup: false
+    write:
+      send: "set /amp/autoStandby/threshold {value}\n"
+  auto_standby_wait:
+    type: integer
+    label: "Auto Standby Wait (min)"
+    help: "Minutes of idle signal before the amp goes to standby"
+    default: 15
+    min: 1
+    max: 240
+    state_key: "auto_standby_wait"
+    setup: false
+    write:
+      send: "set /amp/autoStandby/timeToWait {value}\n"
+  signal_gen_type:
+    type: enum
+    values: ["Pink Noise", "White Noise", "Tone"]
+    label: "Signal Generator Type"
+    default: "Pink Noise"
+    state_key: "signal_gen_type"
+    setup: false
+    write:
+      send: 'set /amp/signalGenerator/type "{value}"\n'
+  signal_gen_frequency:
+    type: integer
+    label: "Signal Generator Tone (Hz)"
+    default: 1000
+    min: 20
+    max: 20000
+    state_key: "signal_gen_frequency"
+    setup: false
+    write:
+      send: "set /amp/signalGenerator/frequency {value}\n"
+
+commands:
+
+  # ── Channel output ──
+
+  mute_on:
+    label: "Mute Channel"
+    send: "set /amp/channels/{channel}/output/mute true\n"
+    help: "Mute one amplifier channel"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+
+  mute_off:
+    label: "Unmute Channel"
+    send: "set /amp/channels/{channel}/output/mute false\n"
+    help: "Unmute one amplifier channel"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+
+  set_fader:
+    label: "Set Output Level"
+    send: "set /amp/channels/{channel}/output/fader {level}\n"
+    help: "Set a channel's output gain attenuation in dB (0 = unity, -80 = off)"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  set_channel_name:
+    label: "Set Channel Name"
+    send: 'set /amp/channels/{channel}/output/name "{name}"\n'
+    help: "Name a channel on the amplifier (e.g. Bar Speakers)"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      name:
+        type: string
+        required: true
+        label: "Name"
+
+  channel_enable:
+    label: "Enable Channel"
+    send: "set /amp/channels/{channel}/output/enable true\n"
+    help: "Arm a channel to pass audio"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+
+  channel_disable:
+    label: "Disable Channel"
+    send: "set /amp/channels/{channel}/output/enable false\n"
+    help: "Stop a channel passing audio"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+
+  set_output_mode:
+    label: "Set Output Mode"
+    send: 'set /amp/channels/{channel}/output/hiZLoZ "{mode}"\n'
+    help: "Constant-voltage (70 V / 100 V) or low-impedance output. Must match the speaker system on this channel."
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      mode:
+        type: enum
+        required: true
+        label: "Mode"
+        values:
+          - { value: "HiZ-70V", label: "Hi-Z 70 V" }
+          - { value: "HiZ-100V", label: "Hi-Z 100 V" }
+          - { value: "LoZ", label: "Low impedance" }
+
+  set_hiz_hpf:
+    label: "Set Hi-Z High Pass"
+    send: "set /amp/channels/{channel}/output/hiZHpfFrequency {frequency}\n"
+    help: "High-pass frequency applied in Hi-Z mode, protecting the distribution transformer"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      frequency:
+        type: integer
+        required: true
+        label: "Frequency (Hz)"
+        min: 35
+        max: 5000
+
+  # ── Input selection ──
+
+  set_primary_source:
+    label: "Set Primary Source"
+    send: 'set /amp/channels/{channel}/inputSelector/primary "{source}"\n'
+    help: >
+      Route an input to a channel. Analog sources beyond the amp's channel count
+      and every Dante source exist only on the models that have them; picking one
+      the amp doesn't have is refused and reported in Last Error.
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      source:
+        type: enum
+        required: true
+        label: "Source"
+        values: &sources
+          - "Analog 1"
+          - "Analog 2"
+          - "Analog 1+2"
+          - "Analog 3"
+          - "Analog 4"
+          - "Analog 3+4"
+          - "Analog 5"
+          - "Analog 6"
+          - "Analog 5+6"
+          - "Analog 7"
+          - "Analog 8"
+          - "Analog 7+8"
+          - "Dante 1"
+          - "Dante 2"
+          - "Dante 1+2"
+          - "Dante 3"
+          - "Dante 4"
+          - "Dante 3+4"
+          - "Dante 5"
+          - "Dante 6"
+          - "Dante 5+6"
+          - "Dante 7"
+          - "Dante 8"
+          - "Dante 7+8"
+
+  set_secondary_source:
+    label: "Set Secondary Source"
+    send: 'set /amp/channels/{channel}/inputSelector/secondary "{source}"\n'
+    help: "Backup / override source for a channel, or None to disable it"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      source:
+        type: enum
+        required: true
+        label: "Source"
+        values:
+          - "None"
+          - "Analog 1"
+          - "Analog 2"
+          - "Analog 1+2"
+          - "Analog 3"
+          - "Analog 4"
+          - "Analog 3+4"
+          - "Analog 5"
+          - "Analog 6"
+          - "Analog 5+6"
+          - "Analog 7"
+          - "Analog 8"
+          - "Analog 7+8"
+          - "Dante 1"
+          - "Dante 2"
+          - "Dante 1+2"
+          - "Dante 3"
+          - "Dante 4"
+          - "Dante 3+4"
+          - "Dante 5"
+          - "Dante 6"
+          - "Dante 5+6"
+          - "Dante 7"
+          - "Dante 8"
+          - "Dante 7+8"
+
+  set_primary_fader:
+    label: "Set Primary Input Level"
+    send: "set /amp/channels/{channel}/inputSelector/primaryFader {level}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  set_secondary_fader:
+    label: "Set Secondary Input Level"
+    send: "set /amp/channels/{channel}/inputSelector/secondaryFader {level}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  set_primary_threshold:
+    label: "Set Primary Override Threshold"
+    send: "set /amp/channels/{channel}/inputSelector/primaryThreshold {level}\n"
+    help: "Signal level below which the primary input counts as absent"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      level:
+        type: number
+        required: true
+        label: "Threshold (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  set_secondary_threshold:
+    label: "Set Secondary Override Threshold"
+    send: "set /amp/channels/{channel}/inputSelector/secondaryThreshold {level}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      level:
+        type: number
+        required: true
+        label: "Threshold (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  set_input_mode:
+    label: "Set Priority Mode"
+    send: 'set /amp/channels/{channel}/inputSelector/mode "{mode}"\n'
+    help: "Override = auto-override the primary input. Backup = switch on loss of signal."
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      mode:
+        type: enum
+        required: true
+        label: "Mode"
+        values:
+          - { value: "Override", label: "Auto override primary" }
+          - { value: "Backup", label: "Signal-sensing backup" }
+
+  set_input_sensitivity:
+    label: "Set Analog Input Sensitivity"
+    send: 'set /amp/inputs/analog/{input}/sensitivity "{sensitivity}"\n'
+    help: "Input gain staging: 26 dB for consumer/line level, 34 dB for professional line level"
+    params:
+      input:
+        type: child_id
+        child_type: analog_input
+        required: true
+        label: "Analog Input"
+      sensitivity:
+        type: enum
+        required: true
+        label: "Sensitivity"
+        values: ["26dB", "34dB"]
+
+  set_dante_on_ramp:
+    label: "Set Dante On Ramp"
+    send: 'set /amp/channels/{channel}/inputSelector/danteOnRamp "{tap}"\n'
+    help: "Dante models only — where this channel's Dante transmit signal is tapped from"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      tap:
+        type: enum
+        required: true
+        label: "Tap Point"
+        values: ["Analog Input", "Post Crossover"]
+
+  # ── Signal generator ──
+
+  signal_gen_on:
+    label: "Signal Generator On"
+    send: "set /amp/channels/{channel}/inputSelector/signalGeneratorEnable true\n"
+    help: "Feed the amp-wide signal generator into one channel (for commissioning)"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+
+  signal_gen_off:
+    label: "Signal Generator Off"
+    send: "set /amp/channels/{channel}/inputSelector/signalGeneratorEnable false\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+
+  set_signal_gen_fader:
+    label: "Set Signal Generator Level"
+    send: "set /amp/channels/{channel}/inputSelector/signalGeneratorFader {level}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      level:
+        type: number
+        required: true
+        label: "Level (dB)"
+        min: -80.0
+        max: 0.0
+        decimals: 1
+
+  # ── Crossover ──
+
+  set_crossover_gain:
+    label: "Set Crossover Gain"
+    send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/gain {gain}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      gain:
+        type: number
+        required: true
+        label: "Gain (dB)"
+        min: -15.0
+        max: 15.0
+        decimals: 1
+
+  set_output_delay:
+    label: "Set Output Delay"
+    send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/delay {delay}\n"
+    help: "Time-align this channel's speakers with the rest of the system"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      delay:
+        type: number
+        required: true
+        label: "Delay (ms)"
+        min: 0.0
+        max: 100.0
+        decimals: 1
+
+  set_polarity:
+    label: "Set Polarity"
+    send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/invert {invert}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      invert:
+        type: enum
+        required: true
+        label: "Polarity"
+        values:
+          - { value: "false", label: "Normal (+)" }
+          - { value: "true", label: "Inverted (-)" }
+
+  set_low_pass:
+    label: "Set Low Pass Filter"
+    send: "set /amp/channels/{channel}/crossover/lowPassFilter/enable {enable}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      enable:
+        type: enum
+        required: true
+        label: "Low Pass Filter"
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+
+  set_low_pass_type:
+    label: "Set Low Pass Type"
+    send: 'set /amp/channels/{channel}/crossover/lowPassFilter/type "{type}"\n'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      type:
+        type: enum
+        required: true
+        label: "Filter Type"
+        values: &filter_types
+          - "Butterworth 6dB/oct"
+          - "Butterworth 12dB/oct"
+          - "Butterworth 18dB/oct"
+          - "Butterworth 24dB/oct"
+          - "Butterworth 48dB/oct"
+          - "Linkwitz-Riley 24dB/oct"
+          - "Linkwitz-Riley 48dB/oct"
+          - "Bessel 6dB/oct"
+          - "Bessel 12dB/oct"
+          - "Bessel 18dB/oct"
+          - "Bessel 24dB/oct"
+          - "Bessel 48dB/oct"
+
+  set_low_pass_frequency:
+    label: "Set Low Pass Frequency"
+    send: "set /amp/channels/{channel}/crossover/lowPassFilter/frequency {frequency}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      frequency:
+        type: integer
+        required: true
+        label: "Frequency (Hz)"
+        min: 20
+        max: 20000
+
+  set_high_pass:
+    label: "Set High Pass Filter"
+    send: "set /amp/channels/{channel}/crossover/highPassFilter/enable {enable}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      enable:
+        type: enum
+        required: true
+        label: "High Pass Filter"
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+
+  set_high_pass_type:
+    label: "Set High Pass Type"
+    send: 'set /amp/channels/{channel}/crossover/highPassFilter/type "{type}"\n'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      type:
+        type: enum
+        required: true
+        label: "Filter Type"
+        values: *filter_types
+
+  set_high_pass_frequency:
+    label: "Set High Pass Frequency"
+    send: "set /amp/channels/{channel}/crossover/highPassFilter/frequency {frequency}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      frequency:
+        type: integer
+        required: true
+        label: "Frequency (Hz)"
+        min: 20
+        max: 20000
+
+  # ── Output EQ (8 bands per channel) ──
+  # The EQ is a channel-of-filters, which the child-entity model can't nest, so
+  # the filters are write-only commands rather than state. Nothing is faked: the
+  # driver reports no EQ state rather than echoing back what it last sent.
+
+  set_eq_enable:
+    label: "Set EQ Band On/Off"
+    send: "set /amp/channels/{channel}/outputEqFilters/{band}/enable {enable}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      band:
+        type: integer
+        required: true
+        label: "EQ Band"
+        min: 1
+        max: 8
+      enable:
+        type: enum
+        required: true
+        label: "Band"
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+
+  set_eq_type:
+    label: "Set EQ Band Type"
+    send: 'set /amp/channels/{channel}/outputEqFilters/{band}/type "{type}"\n'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      band:
+        type: integer
+        required: true
+        label: "EQ Band"
+        min: 1
+        max: 8
+      type:
+        type: enum
+        required: true
+        label: "Filter Type"
+        values:
+          - "Parametric"
+          - "LP Shelf 6dB/oct"
+          - "HP Shelf 6dB/oct"
+          - "LP Shelf 12dB/oct"
+          - "HP Shelf 12dB/oct"
+
+  set_eq_gain:
+    label: "Set EQ Band Gain"
+    send: "set /amp/channels/{channel}/outputEqFilters/{band}/gain {gain}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      band:
+        type: integer
+        required: true
+        label: "EQ Band"
+        min: 1
+        max: 8
+      gain:
+        type: number
+        required: true
+        label: "Gain (dB)"
+        min: -15.0
+        max: 15.0
+        decimals: 1
+
+  set_eq_frequency:
+    label: "Set EQ Band Frequency"
+    send: "set /amp/channels/{channel}/outputEqFilters/{band}/frequency {frequency}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      band:
+        type: integer
+        required: true
+        label: "EQ Band"
+        min: 1
+        max: 8
+      frequency:
+        type: integer
+        required: true
+        label: "Frequency (Hz)"
+        min: 20
+        max: 20000
+
+  set_eq_q:
+    label: "Set EQ Band Q"
+    send: "set /amp/channels/{channel}/outputEqFilters/{band}/q {q}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      band:
+        type: integer
+        required: true
+        label: "EQ Band"
+        min: 1
+        max: 8
+      q:
+        type: number
+        required: true
+        label: "Q"
+        min: 0.1
+        max: 24.0
+        decimals: 2
+
+  # ── Limiters ──
+
+  set_rms_limiter:
+    label: "Set RMS Limiter"
+    send: "set /amp/channels/{channel}/rmsLimiter/enable {enable}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      enable:
+        type: enum
+        required: true
+        label: "RMS Limiter"
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+
+  set_rms_threshold:
+    label: "Set RMS Limiter Threshold"
+    send: "set /amp/channels/{channel}/rmsLimiter/threshold {threshold}\n"
+    help: "Speaker's continuous voltage rating"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      threshold:
+        type: number
+        required: true
+        label: "Threshold (V)"
+        min: 10.0
+        max: 140.0
+        decimals: 1
+
+  set_rms_attack:
+    label: "Set RMS Limiter Attack"
+    send: "set /amp/channels/{channel}/rmsLimiter/attackTime {time}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      time:
+        type: number
+        required: true
+        label: "Attack (ms)"
+        min: 1000.0
+        max: 10000.0
+        decimals: 0
+
+  set_rms_release:
+    label: "Set RMS Limiter Release"
+    send: "set /amp/channels/{channel}/rmsLimiter/releaseTime {time}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      time:
+        type: number
+        required: true
+        label: "Release (ms)"
+        min: 1000.0
+        max: 10000.0
+        decimals: 0
+
+  set_peak_limiter:
+    label: "Set Peak Limiter"
+    send: "set /amp/channels/{channel}/peakLimiter/enable {enable}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      enable:
+        type: enum
+        required: true
+        label: "Peak Limiter"
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+
+  set_peak_threshold:
+    label: "Set Peak Limiter Threshold"
+    send: "set /amp/channels/{channel}/peakLimiter/threshold {threshold}\n"
+    help: "Speaker's peak voltage rating"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      threshold:
+        type: number
+        required: true
+        label: "Threshold (V)"
+        min: 14.0
+        max: 198.0
+        decimals: 1
+
+  set_peak_attack:
+    label: "Set Peak Limiter Attack"
+    send: "set /amp/channels/{channel}/peakLimiter/attackTime {time}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      time:
+        type: number
+        required: true
+        label: "Attack (ms)"
+        min: 1.0
+        max: 1000.0
+        decimals: 1
+
+  set_peak_release:
+    label: "Set Peak Limiter Release"
+    send: "set /amp/channels/{channel}/peakLimiter/releaseTime {time}\n"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      time:
+        type: number
+        required: true
+        label: "Release (ms)"
+        min: 1.0
+        max: 1000.0
+        decimals: 1
+
+  # ── Load monitoring ──
+
+  set_load_monitor:
+    label: "Set Load Monitor"
+    send: "set /amp/channels/{channel}/loadMonitor/enable {enable}\n"
+    help: "Watch this channel's speaker load for a short or an open circuit"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      enable:
+        type: enum
+        required: true
+        label: "Load Monitor"
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+
+  set_load_high_limit:
+    label: "Set Load High Limit"
+    send: "set /amp/channels/{channel}/loadMonitor/highLimit {limit}\n"
+    help: "Impedance above this reads as an open circuit (a disconnected speaker)"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      limit:
+        type: number
+        required: true
+        label: "High Limit (ohm)"
+        min: 8.0
+        max: 250.0
+        decimals: 1
+
+  set_load_low_limit:
+    label: "Set Load Low Limit"
+    send: "set /amp/channels/{channel}/loadMonitor/lowLimit {limit}\n"
+    help: "Impedance below this reads as a short circuit"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: "Channel"
+      limit:
+        type: number
+        required: true
+        label: "Low Limit (ohm)"
+        min: 1.0
+        max: 250.0
+        decimals: 1
+
+  # ── Amp-wide ──
+
+  set_auto_standby:
+    label: "Set Auto Standby"
+    send: "set /amp/autoStandby/enable {enable}\n"
+    params:
+      enable:
+        type: enum
+        required: true
+        label: "Auto Standby"
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+
+  set_signal_gen_type:
+    label: "Set Signal Generator Type"
+    send: 'set /amp/signalGenerator/type "{type}"\n'
+    params:
+      type:
+        type: enum
+        required: true
+        label: "Type"
+        values: ["Pink Noise", "White Noise", "Tone"]
+
+  set_signal_gen_frequency:
+    label: "Set Signal Generator Tone"
+    send: "set /amp/signalGenerator/frequency {frequency}\n"
+    params:
+      frequency:
+        type: integer
+        required: true
+        label: "Frequency (Hz)"
+        min: 20
+        max: 20000
+
+quick_actions: [mute_on, mute_off, set_fader, set_primary_source]
+
+responses:
+  # Every reply and every subscription notice has the same shape:
+  #   <element url> <value>
+  # so one rule per element routes both the initial subscribe reply and every
+  # later change. Channel rules capture the channel number into the child id.
+  # Order matters only where one pattern could shadow another; the URLs are
+  # distinct, so these read in protocol order.
+
+  # ── Channel: output ──
+  - match: '^/amp/channels/(\d+)/output/name "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { name: $2 } }
+  - match: '^/amp/channels/(\d+)/output/enable (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { enable: $2 } }
+  - match: '^/amp/channels/(\d+)/output/mute (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { mute: $2 } }
+  - match: '^/amp/channels/(\d+)/output/fader (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { fader: $2 } }
+  - match: '^/amp/channels/(\d+)/output/hiZLoZ "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { hiz_loz: $2 } }
+  - match: '^/amp/channels/(\d+)/output/hiZHpfFrequency (\d+)(?:\.\d+)?$'
+    child_set:
+      - { type: channel, id: $1, state: { hiz_hpf_frequency: $2 } }
+  - match: '^/amp/channels/(\d+)/output/fault (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { fault: $2 } }
+  - match: '^/amp/channels/(\d+)/output/thermal (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { thermal: $2 } }
+  - match: '^/amp/channels/(\d+)/output/limiting (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { limiting: $2 } }
+  - match: '^/amp/channels/(\d+)/output/clip (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { output_clip: $2 } }
+  - match: '^/amp/channels/(\d+)/output/signalDetect (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { output_signal_detect: $2 } }
+  - match: '^/amp/channels/(\d+)/output/ready (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { ready: $2 } }
+
+  # ── Channel: meters (continuous streams — throttled to bound state writes) ──
+  # throttle is per RULE, and one rule serves every channel, so the effective
+  # per-channel rate is this divided by the channel count. That's fine for a bar
+  # meter; it is why nothing that must not be missed (a fault, a mute) is here.
+  - match: '^/amp/channels/(\d+)/levels/level_db (-?[\d.]+)$'
+    throttle: 0.25
+    child_set:
+      - { type: channel, id: $1, state: { level_db: $2 } }
+  - match: '^/amp/channels/(\d+)/levels/level_volts (-?[\d.]+)$'
+    throttle: 1.0
+    child_set:
+      - { type: channel, id: $1, state: { level_volts: $2 } }
+  - match: '^/amp/channels/(\d+)/levels/level_watts (-?[\d.]+)$'
+    throttle: 1.0
+    child_set:
+      - { type: channel, id: $1, state: { level_watts: $2 } }
+
+  # ── Channel: input selector ──
+  - match: '^/amp/channels/(\d+)/inputSelector/primary "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { primary_source: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/primaryFader (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { primary_fader: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/primaryLevel (-?[\d.]+)$'
+    throttle: 0.5
+    child_set:
+      - { type: channel, id: $1, state: { primary_level: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/primarySignalDetect (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { primary_signal_detect: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/primaryClip (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { primary_clip: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/primaryThreshold (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { primary_threshold: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/secondary "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { secondary_source: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/secondaryFader (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { secondary_fader: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/secondaryLevel (-?[\d.]+)$'
+    throttle: 0.5
+    child_set:
+      - { type: channel, id: $1, state: { secondary_level: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/secondarySignalDetect (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { secondary_signal_detect: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/secondaryClip (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { secondary_clip: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/secondaryThreshold (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { secondary_threshold: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/signalDetect (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { input_signal_detect: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/clip (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { input_clip: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/mode "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { input_mode: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/signalGeneratorEnable (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { signal_gen_enable: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/signalGeneratorFader (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { signal_gen_fader: $2 } }
+  - match: '^/amp/channels/(\d+)/inputSelector/danteOnRamp "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { dante_on_ramp: $2 } }
+
+  # ── Channel: crossover ──
+  - match: '^/amp/channels/(\d+)/crossover/bandGainAndDelay/gain (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { xover_gain: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/bandGainAndDelay/delay (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { xover_delay: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/bandGainAndDelay/invert (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { xover_invert: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/lowPassFilter/enable (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { lpf_enable: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/lowPassFilter/type "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { lpf_type: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/lowPassFilter/frequency (\d+)(?:\.\d+)?$'
+    child_set:
+      - { type: channel, id: $1, state: { lpf_frequency: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/highPassFilter/enable (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { hpf_enable: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/highPassFilter/type "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { hpf_type: $2 } }
+  - match: '^/amp/channels/(\d+)/crossover/highPassFilter/frequency (\d+)(?:\.\d+)?$'
+    child_set:
+      - { type: channel, id: $1, state: { hpf_frequency: $2 } }
+
+  # ── Channel: limiters ──
+  - match: '^/amp/channels/(\d+)/rmsLimiter/enable (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { rms_enable: $2 } }
+  - match: '^/amp/channels/(\d+)/rmsLimiter/threshold (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { rms_threshold: $2 } }
+  - match: '^/amp/channels/(\d+)/rmsLimiter/attackTime (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { rms_attack: $2 } }
+  - match: '^/amp/channels/(\d+)/rmsLimiter/releaseTime (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { rms_release: $2 } }
+  - match: '^/amp/channels/(\d+)/rmsLimiter/gainReduction (-?[\d.]+)$'
+    throttle: 0.5
+    child_set:
+      - { type: channel, id: $1, state: { rms_gain_reduction: $2 } }
+  - match: '^/amp/channels/(\d+)/rmsLimiter/totalGainReduction (-?[\d.]+)$'
+    throttle: 0.5
+    child_set:
+      - { type: channel, id: $1, state: { rms_total_gain_reduction: $2 } }
+  - match: '^/amp/channels/(\d+)/peakLimiter/enable (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { peak_enable: $2 } }
+  - match: '^/amp/channels/(\d+)/peakLimiter/threshold (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { peak_threshold: $2 } }
+  - match: '^/amp/channels/(\d+)/peakLimiter/attackTime (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { peak_attack: $2 } }
+  - match: '^/amp/channels/(\d+)/peakLimiter/releaseTime (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { peak_release: $2 } }
+  - match: '^/amp/channels/(\d+)/peakLimiter/gainReduction (-?[\d.]+)$'
+    throttle: 0.5
+    child_set:
+      - { type: channel, id: $1, state: { peak_gain_reduction: $2 } }
+  - match: '^/amp/channels/(\d+)/peakLimiter/totalGainReduction (-?[\d.]+)$'
+    throttle: 0.5
+    child_set:
+      - { type: channel, id: $1, state: { peak_total_gain_reduction: $2 } }
+
+  # ── Channel: load monitor ──
+  - match: '^/amp/channels/(\d+)/loadMonitor/enable (true|false)$'
+    child_set:
+      - { type: channel, id: $1, state: { load_monitor_enable: $2 } }
+  - match: '^/amp/channels/(\d+)/loadMonitor/measuredImpedance (-?[\d.]+)$'
+    throttle: 1.0
+    child_set:
+      - { type: channel, id: $1, state: { impedance: $2 } }
+  - match: '^/amp/channels/(\d+)/loadMonitor/highLimit (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { load_high_limit: $2 } }
+  - match: '^/amp/channels/(\d+)/loadMonitor/lowLimit (-?[\d.]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { load_low_limit: $2 } }
+  - match: '^/amp/channels/(\d+)/loadMonitor/status "(.*)"$'
+    child_set:
+      - { type: channel, id: $1, state: { load_status: $2 } }
+
+  # ── Analog inputs ──
+  - match: '^/amp/inputs/analog/(\d+)/sensitivity "(.*)"$'
+    child_set:
+      - { type: analog_input, id: $1, state: { sensitivity: $2 } }
+
+  # ── Device info ──
+  - match: '^/amp/deviceInfo/deviceName "(.*)"$'
+    set: { device_name: "$1" }
+  - match: '^/amp/deviceInfo/venueName "(.*)"$'
+    set: { venue_name: "$1" }
+  - match: '^/amp/deviceInfo/modelID "(.*)"$'
+    set: { model_id: "$1" }
+  - match: '^/amp/deviceInfo/assetTagNumber "(.*)"$'
+    set: { asset_tag: "$1" }
+  - match: '^/amp/deviceInfo/installerName "(.*)"$'
+    set: { installer_name: "$1" }
+  - match: '^/amp/deviceInfo/installerContactInfo "(.*)"$'
+    set: { installer_contact: "$1" }
+  - match: '^/amp/deviceInfo/dateOfInstallation "(.*)"$'
+    set: { date_of_installation: "$1" }
+  - match: '^/amp/deviceInfo/rackName "(.*)"$'
+    set: { rack_name: "$1" }
+  - match: '^/amp/deviceInfo/rackPosition "(.*)"$'
+    set: { rack_position: "$1" }
+  - match: '^/amp/deviceInfo/serialNumber "(.*)"$'
+    set: { serial_number: "$1" }
+  - match: '^/amp/deviceInfo/dateOfMfg "(.*)"$'
+    set: { date_of_mfg: "$1" }
+  - match: '^/amp/deviceInfo/hardwareID "(.*)"$'
+    set: { hardware_id: "$1" }
+  - match: '^/amp/deviceInfo/firmwareVersion "(.*)"$'
+    set: { firmware_version: "$1" }
+  - match: '^/amp/deviceInfo/powerSupplyfirmwareVersion "(.*)"$'
+    set: { psu_firmware_version: "$1" }
+  - match: '^/amp/deviceInfo/amp12firmwareVersion "(.*)"$'
+    set: { amp12_firmware_version: "$1" }
+  - match: '^/amp/deviceInfo/amp34firmwareVersion "(.*)"$'
+    set: { amp34_firmware_version: "$1" }
+  - match: '^/amp/deviceInfo/upTime "(.*)"$'
+    set: { uptime: "$1" }
+  # numInputs / numOutputs come back as floats ("4.0"); capture the whole part
+  # so the integer coercion doesn't choke on the decimal.
+  - match: '^/amp/deviceInfo/numInputs (\d+)(?:\.\d+)?$'
+    set: { num_inputs: "$1" }
+  - match: '^/amp/deviceInfo/numOutputs (\d+)(?:\.\d+)?$'
+    set: { num_outputs: "$1" }
+
+  # ── Power supply ──
+  - match: '^/amp/powerSupply/acLineVoltage (-?[\d.]+)$'
+    throttle: 1.0
+    set: { ac_line_voltage: "$1" }
+  - match: '^/amp/powerSupply/acLineCurrent (-?[\d.]+)$'
+    throttle: 1.0
+    set: { ac_line_current: "$1" }
+  - match: '^/amp/powerSupply/acLineWatts (-?[\d.]+)$'
+    throttle: 1.0
+    set: { ac_line_watts: "$1" }
+  - match: '^/amp/powerSupply/fault (true|false)$'
+    set: { psu_fault: "$1" }
+  - match: '^/amp/powerSupply/thermal (true|false)$'
+    set: { psu_thermal: "$1" }
+  - match: '^/amp/powerSupply/powerOk (true|false)$'
+    set: { psu_power_ok: "$1" }
+  - match: '^/amp/powerSupply/lineWarning (true|false)$'
+    set: { psu_line_warning: "$1" }
+
+  # ── Auto standby / signal generator ──
+  - match: '^/amp/autoStandby/enable (true|false)$'
+    set: { auto_standby_enable: "$1" }
+  - match: '^/amp/autoStandby/threshold (-?[\d.]+)$'
+    set: { auto_standby_threshold: "$1" }
+  - match: '^/amp/autoStandby/timeToWait (\d+)(?:\.\d+)?$'
+    set: { auto_standby_wait: "$1" }
+  - match: '^/amp/signalGenerator/type "(.*)"$'
+    set: { signal_gen_type: "$1" }
+  - match: '^/amp/signalGenerator/frequency (\d+)(?:\.\d+)?$'
+    set: { signal_gen_frequency: "$1" }
+
+  # ── Errors ──
+  # e.g. error: unsupported value: Post Toasties (/amp/.../danteOnRamp)
+  - match: '^(error: .+)$'
+    set: { last_error: "$1" }
+
+on_connect:
+  # Subscribe to the whole surface. The subscribe reply carries the element's
+  # current value, so this doubles as the initial state sync — no separate
+  # "get everything" pass. The amp then reports every change on this same
+  # connection, including changes made from its own web UI.
+
+  # ── Device identity + status ──
+  - "subscribe /amp/deviceInfo/deviceName\n"
+  - "subscribe /amp/deviceInfo/venueName\n"
+  - "subscribe /amp/deviceInfo/modelID\n"
+  - "subscribe /amp/deviceInfo/assetTagNumber\n"
+  - "subscribe /amp/deviceInfo/installerName\n"
+  - "subscribe /amp/deviceInfo/installerContactInfo\n"
+  - "subscribe /amp/deviceInfo/dateOfInstallation\n"
+  - "subscribe /amp/deviceInfo/rackName\n"
+  - "subscribe /amp/deviceInfo/rackPosition\n"
+  - "subscribe /amp/deviceInfo/serialNumber\n"
+  - "subscribe /amp/deviceInfo/dateOfMfg\n"
+  - "subscribe /amp/deviceInfo/hardwareID\n"
+  - "subscribe /amp/deviceInfo/firmwareVersion\n"
+  - "subscribe /amp/deviceInfo/powerSupplyfirmwareVersion\n"
+  - "subscribe /amp/deviceInfo/amp12firmwareVersion\n"
+  - "subscribe /amp/deviceInfo/amp34firmwareVersion\n"
+  - "subscribe /amp/deviceInfo/upTime\n"
+  - "subscribe /amp/deviceInfo/numInputs\n"
+  - "subscribe /amp/deviceInfo/numOutputs\n"
+  - "subscribe /amp/powerSupply/fault\n"
+  - "subscribe /amp/powerSupply/thermal\n"
+  - "subscribe /amp/powerSupply/powerOk\n"
+  - "subscribe /amp/powerSupply/lineWarning\n"
+  - "subscribe /amp/autoStandby/enable\n"
+  - "subscribe /amp/autoStandby/threshold\n"
+  - "subscribe /amp/autoStandby/timeToWait\n"
+  - "subscribe /amp/signalGenerator/type\n"
+  - "subscribe /amp/signalGenerator/frequency\n"
+
+  # ── Per channel: output ──
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/name\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/enable\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/mute\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/fader\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/hiZLoZ\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/hiZHpfFrequency\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/fault\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/thermal\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/limiting\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/clip\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/signalDetect\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/output/ready\n" }
+
+  # ── Per channel: input selector ──
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/primary\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/primaryFader\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/primarySignalDetect\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/primaryClip\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/primaryThreshold\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/secondary\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/secondaryFader\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/secondarySignalDetect\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/secondaryClip\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/secondaryThreshold\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/signalDetect\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/clip\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/mode\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/signalGeneratorEnable\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/signalGeneratorFader\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/danteOnRamp\n" }
+
+  # ── Per channel: crossover ──
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/bandGainAndDelay/gain\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/bandGainAndDelay/delay\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/bandGainAndDelay/invert\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/lowPassFilter/enable\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/lowPassFilter/type\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/lowPassFilter/frequency\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/highPassFilter/enable\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/highPassFilter/type\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/crossover/highPassFilter/frequency\n" }
+
+  # ── Per channel: limiters + load monitor ──
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/rmsLimiter/enable\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/rmsLimiter/threshold\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/rmsLimiter/attackTime\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/rmsLimiter/releaseTime\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/enable\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/threshold\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/attackTime\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/releaseTime\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/loadMonitor/enable\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/loadMonitor/measuredImpedance\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/loadMonitor/highLimit\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/loadMonitor/lowLimit\n" }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/loadMonitor/status\n" }
+
+  # ── Per analog input ──
+  - { each_child: analog_input, send: "subscribe /amp/inputs/analog/{child_id}/sensitivity\n" }
+
+  # ── Meters: only when the integrator asked for them ──
+  # These are the elements the amp streams continuously.
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/levels/level_db\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/levels/level_volts\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/levels/level_watts\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/primaryLevel\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/inputSelector/secondaryLevel\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/rmsLimiter/gainReduction\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/rmsLimiter/totalGainReduction\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/gainReduction\n", when: enable_meters }
+  - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/totalGainReduction\n", when: enable_meters }
+  - { send: "subscribe /amp/powerSupply/acLineVoltage\n", when: enable_meters }
+  - { send: "subscribe /amp/powerSupply/acLineCurrent\n", when: enable_meters }
+  - { send: "subscribe /amp/powerSupply/acLineWatts\n", when: enable_meters }
+
+polling:
+  # Everything else arrives by subscription, so this loop exists to refresh the
+  # meter-class values when meters are OFF — a slow read of output level, volts,
+  # watts and AC draw, which is the right cadence for amp telemetry even though
+  # it is too slow for a live meter. With meters ON these reads are redundant
+  # but harmless (the subscription is already fresher).
+  queries:
+    - { each_child: channel, send: "get /amp/channels/{child_id}/levels/level_db\n" }
+    - { each_child: channel, send: "get /amp/channels/{child_id}/levels/level_volts\n" }
+    - { each_child: channel, send: "get /amp/channels/{child_id}/levels/level_watts\n" }
+    - "get /amp/powerSupply/acLineVoltage\n"
+    - "get /amp/powerSupply/acLineCurrent\n"
+    - "get /amp/powerSupply/acLineWatts\n"
+
+liveness:
+  # This driver is push-mostly: with meters off and a long poll interval, the
+  # amp can go quiet for minutes at a time, and a unit that vanishes without a
+  # FIN would otherwise sit "connected" until the OS keepalive noticed. A cheap
+  # element read proves the API is still answering.
+  send: "get /amp/deviceInfo/firmwareVersion\n"
+  expect: '/amp/deviceInfo/firmwareVersion'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+simulator:
+  # The LEA grammar is get/set/subscribe/unsubscribe over a flat element tree,
+  # which the auto-generated per-command handlers can't model (they only match
+  # exact command strings). One dispatcher handler owns the whole protocol
+  # instead: it parses the verb, validates the element against the real element
+  # map, tracks subscriptions, clamps out-of-range numbers the way the amp does,
+  # and answers a set with "OK" followed by the change notice a subscriber would
+  # get — concatenated into one respond() because a script handler only returns
+  # its first respond call.
+  command_handlers:
+    - match: '(?s:.+)'
+      handler: |
+        def _run():
+            line = match.group(0).strip()
+            if not line:
+                return
+
+            # Element map: suffix -> (kind, default). kind drives value parsing
+            # and the reply's quoting, exactly as the amp does it.
+            #   b = boolean (bare true/false), n = number, i = integer,
+            #   s = string/enum (double-quoted)
+            AMP = {
+                "/amp/deviceInfo/deviceName": ("s", "Connect 704D"),
+                "/amp/deviceInfo/venueName": ("s", "LEA Office"),
+                "/amp/deviceInfo/modelID": ("s", "Connect Series Model 704D"),
+                "/amp/deviceInfo/assetTagNumber": ("s", "BJD-704D-0001"),
+                "/amp/deviceInfo/installerName": ("s", "Acme AV"),
+                "/amp/deviceInfo/installerContactInfo": ("s", "1-800-123-4567"),
+                "/amp/deviceInfo/dateOfInstallation": ("s", "2020-02-16T20:47:00.000Z"),
+                "/amp/deviceInfo/rackName": ("s", "Rack 1"),
+                "/amp/deviceInfo/rackPosition": ("s", "RU 1"),
+                "/amp/deviceInfo/serialNumber": ("s", "31890067"),
+                "/amp/deviceInfo/dateOfMfg": ("s", "191115041907"),
+                "/amp/deviceInfo/hardwareID": ("s", "2"),
+                "/amp/deviceInfo/firmwareVersion": ("s", "2.0.1.11"),
+                "/amp/deviceInfo/powerSupplyfirmwareVersion": ("s", "1.0.3.3"),
+                "/amp/deviceInfo/amp12firmwareVersion": ("s", "1.0.3.1"),
+                "/amp/deviceInfo/amp34firmwareVersion": ("s", "1.0.3.1"),
+                "/amp/deviceInfo/upTime": ("s", "N/A"),
+                "/amp/deviceInfo/numInputs": ("f", 4.0),
+                "/amp/deviceInfo/numOutputs": ("f", 4.0),
+                "/amp/powerSupply/acLineVoltage": ("n", 118.0),
+                "/amp/powerSupply/acLineCurrent": ("n", 0.5),
+                "/amp/powerSupply/acLineWatts": ("n", 58.0),
+                "/amp/powerSupply/fault": ("b", False),
+                "/amp/powerSupply/thermal": ("b", False),
+                "/amp/powerSupply/powerOk": ("b", True),
+                "/amp/powerSupply/lineWarning": ("b", True),
+                "/amp/autoStandby/enable": ("b", False),
+                "/amp/autoStandby/threshold": ("n", -60.0),
+                "/amp/autoStandby/timeToWait": ("i", 15),
+                "/amp/signalGenerator/type": ("s", "Pink Noise"),
+                "/amp/signalGenerator/frequency": ("i", 1000),
+            }
+            # Per-channel elements (suffix after /amp/channels/<n>).
+            CH = {
+                "/output/name": ("s", "Channel"),
+                "/output/enable": ("b", True),
+                "/output/mute": ("b", False),
+                "/output/fader": ("n", 0.0),
+                "/output/hiZLoZ": ("s", "LoZ"),
+                "/output/hiZHpfFrequency": ("i", 70),
+                "/output/fault": ("b", False),
+                "/output/thermal": ("b", False),
+                "/output/limiting": ("b", False),
+                "/output/clip": ("b", False),
+                "/output/signalDetect": ("b", False),
+                "/output/ready": ("b", True),
+                "/levels/level_db": ("n", -52.78131103515625),
+                "/levels/level_volts": ("n", 24.5),
+                "/levels/level_watts": ("n", 85.5),
+                "/inputSelector/primary": ("s", "Analog 1"),
+                "/inputSelector/primaryFader": ("n", 0.0),
+                "/inputSelector/primaryLevel": ("n", -52.2),
+                "/inputSelector/primarySignalDetect": ("b", True),
+                "/inputSelector/primaryClip": ("b", False),
+                "/inputSelector/primaryThreshold": ("n", -60.0),
+                "/inputSelector/secondary": ("s", "None"),
+                "/inputSelector/secondaryFader": ("n", 0.0),
+                "/inputSelector/secondaryLevel": ("n", -80.0),
+                "/inputSelector/secondarySignalDetect": ("b", False),
+                "/inputSelector/secondaryClip": ("b", False),
+                "/inputSelector/secondaryThreshold": ("n", -55.0),
+                "/inputSelector/signalDetect": ("b", True),
+                "/inputSelector/clip": ("b", False),
+                "/inputSelector/mode": ("s", "Backup"),
+                "/inputSelector/signalGeneratorEnable": ("b", False),
+                "/inputSelector/signalGeneratorFader": ("n", -20.0),
+                "/inputSelector/danteOnRamp": ("s", "Analog Input"),
+                "/crossover/bandGainAndDelay/gain": ("n", 0.0),
+                "/crossover/bandGainAndDelay/delay": ("n", 0.0),
+                "/crossover/bandGainAndDelay/invert": ("b", False),
+                "/crossover/lowPassFilter/enable": ("b", False),
+                "/crossover/lowPassFilter/type": ("s", "Butterworth 12dB/oct"),
+                "/crossover/lowPassFilter/frequency": ("i", 20000),
+                "/crossover/highPassFilter/enable": ("b", True),
+                "/crossover/highPassFilter/type": ("s", "Butterworth 12dB/oct"),
+                "/crossover/highPassFilter/frequency": ("i", 70),
+                "/rmsLimiter/enable": ("b", True),
+                "/rmsLimiter/threshold": ("n", 70.0),
+                "/rmsLimiter/attackTime": ("n", 1000.0),
+                "/rmsLimiter/releaseTime": ("n", 10000.0),
+                "/rmsLimiter/gainReduction": ("n", 0.0),
+                "/rmsLimiter/totalGainReduction": ("n", 0.0),
+                "/peakLimiter/enable": ("b", True),
+                "/peakLimiter/threshold": ("n", 141.0),
+                "/peakLimiter/attackTime": ("n", 10.0),
+                "/peakLimiter/releaseTime": ("n", 128.0),
+                "/peakLimiter/gainReduction": ("n", 0.0),
+                "/peakLimiter/totalGainReduction": ("n", 0.0),
+                "/loadMonitor/enable": ("b", True),
+                "/loadMonitor/measuredImpedance": ("n", 8.2),
+                "/loadMonitor/highLimit": ("n", 48.0),
+                "/loadMonitor/lowLimit": ("n", 2.5),
+                "/loadMonitor/status": ("s", "Ok"),
+            }
+            EQ = {
+                "/enable": ("b", False),
+                "/type": ("s", "Parametric"),
+                "/gain": ("n", 0.0),
+                "/frequency": ("i", 1000),
+                "/q": ("n", 4.0),
+            }
+            # Ranges the amp clamps to (out-of-range is clamped, never refused).
+            LIMITS = {
+                "/output/fader": (-80.0, 0.0),
+                "/output/hiZHpfFrequency": (35, 5000),
+                "/inputSelector/primaryFader": (-80.0, 0.0),
+                "/inputSelector/secondaryFader": (-80.0, 0.0),
+                "/inputSelector/primaryThreshold": (-80.0, 0.0),
+                "/inputSelector/secondaryThreshold": (-80.0, 0.0),
+                "/inputSelector/signalGeneratorFader": (-80.0, 0.0),
+                "/crossover/bandGainAndDelay/gain": (-15.0, 15.0),
+                "/crossover/bandGainAndDelay/delay": (0.0, 100.0),
+                "/crossover/lowPassFilter/frequency": (20, 20000),
+                "/crossover/highPassFilter/frequency": (20, 20000),
+                "/rmsLimiter/threshold": (10.0, 140.0),
+                "/rmsLimiter/attackTime": (1000.0, 10000.0),
+                "/rmsLimiter/releaseTime": (1000.0, 10000.0),
+                "/peakLimiter/threshold": (14.0, 198.0),
+                "/peakLimiter/attackTime": (1.0, 1000.0),
+                "/peakLimiter/releaseTime": (1.0, 1000.0),
+                "/loadMonitor/highLimit": (8.0, 250.0),
+                "/loadMonitor/lowLimit": (1.0, 250.0),
+                "/amp/autoStandby/threshold": (-80.0, 0.0),
+                "/amp/autoStandby/timeToWait": (1, 240),
+                "/amp/signalGenerator/frequency": (20, 20000),
+            }
+            # Enum values the amp validates (an unlisted value is an error).
+            ENUMS = {
+                "/output/hiZLoZ": ["HiZ-70V", "HiZ-100V", "LoZ"],
+                "/inputSelector/mode": ["Override", "Backup"],
+                "/inputSelector/danteOnRamp": ["Analog Input", "Post Crossover"],
+                "/loadMonitor/status": ["Ok", "Short", "Open", "Low Signal"],
+                "/amp/signalGenerator/type": ["Pink Noise", "White Noise", "Tone"],
+            }
+            SOURCES = ["None"]
+            for _fam in ("Analog", "Dante"):
+                for _n in (1, 2, 3, 4, 5, 6, 7, 8):
+                    SOURCES.append(_fam + " " + str(_n))
+                for _p in ("1+2", "3+4", "5+6", "7+8"):
+                    SOURCES.append(_fam + " " + _p)
+            ENUMS["/inputSelector/primary"] = SOURCES
+            ENUMS["/inputSelector/secondary"] = SOURCES
+            FILTERS = [
+                "Butterworth 6dB/oct", "Butterworth 12dB/oct",
+                "Butterworth 18dB/oct", "Butterworth 24dB/oct",
+                "Butterworth 48dB/oct", "Linkwitz-Riley 24dB/oct",
+                "Linkwitz-Riley 48dB/oct", "Bessel 6dB/oct",
+                "Bessel 12dB/oct", "Bessel 18dB/oct",
+                "Bessel 24dB/oct", "Bessel 48dB/oct",
+            ]
+            ENUMS["/crossover/lowPassFilter/type"] = FILTERS
+            ENUMS["/crossover/highPassFilter/type"] = FILTERS
+
+            CHANNELS = 4
+            INPUTS = 4
+            EQ_BANDS = 8
+
+            def spec(url):
+                """(kind, default, limit_key) for a URL, or None if the amp has
+                no such element."""
+                if url in AMP:
+                    k, d = AMP[url]
+                    return k, d, url
+                m = re.match(r"^/amp/channels/(\d+)(/.+)$", url)
+                if m:
+                    ch = int(m.group(1))
+                    if ch < 1 or ch > CHANNELS:
+                        return None
+                    rest = m.group(2)
+                    if rest in CH:
+                        k, d = CH[rest]
+                        if rest == "/output/name":
+                            d = "Channel " + str(ch)
+                        return k, d, rest
+                    eq = re.match(r"^/outputEqFilters/(\d+)(/.+)$", rest)
+                    if eq and 1 <= int(eq.group(1)) <= EQ_BANDS and eq.group(2) in EQ:
+                        k, d = EQ[eq.group(2)]
+                        return k, d, eq.group(2)
+                    return None
+                m = re.match(r"^/amp/inputs/analog/(\d+)/sensitivity$", url)
+                if m and 1 <= int(m.group(1)) <= INPUTS:
+                    return "s", "26dB", "/sensitivity"
+                return None
+
+            def current(url, kind, default):
+                val = state.get(url)
+                return default if val is None else val
+
+            def render(url, kind, value):
+                """Format an element's value the way the amp reports it."""
+                if kind == "b":
+                    return url + " " + ("true" if value else "false")
+                if kind == "s":
+                    return url + ' "' + str(value) + '"'
+                if kind == "f":
+                    return url + " " + format(float(value), ".1f")
+                if kind == "i":
+                    return url + " " + str(int(value))
+                return url + " " + str(float(value))
+
+            parts = line.split(None, 2)
+            verb = parts[0].lower()
+            if verb not in ("get", "set", "subscribe", "unsubscribe") or len(parts) < 2:
+                respond("error: cannot parse - '" + line + "'")
+                return
+            url = parts[1]
+            found = spec(url)
+            if not found:
+                respond("error: cannot parse - '" + line + "'")
+                return
+            kind, default, lkey = found
+
+            if verb == "get":
+                respond(render(url, kind, current(url, kind, default)))
+                return
+
+            if verb == "subscribe":
+                subs = state.get("_subs") or ""
+                if url not in subs.split("|"):
+                    state["_subs"] = (subs + "|" + url) if subs else url
+                respond(render(url, kind, current(url, kind, default)))
+                return
+
+            if verb == "unsubscribe":
+                subs = [s for s in (state.get("_subs") or "").split("|") if s and s != url]
+                state["_subs"] = "|".join(subs)
+                respond("OK")
+                return
+
+            # set
+            if len(parts) < 3:
+                respond("error: cannot parse - '" + line + "'")
+                return
+            raw = parts[2].strip()
+            if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
+                raw = raw[1:-1]
+
+            if kind == "b":
+                if raw.lower() not in ("true", "false"):
+                    respond("error: unsupported value: " + raw + " (" + url + ")")
+                    return
+                value = raw.lower() == "true"
+            elif kind == "s":
+                allowed = ENUMS.get(lkey)
+                if allowed is not None and raw not in allowed:
+                    respond("error: unsupported value: " + raw + " (" + url + ")")
+                    return
+                value = raw
+            else:
+                try:
+                    num = float(raw)
+                except (TypeError, ValueError):
+                    respond("error: unsupported value: " + raw + " (" + url + ")")
+                    return
+                lim = LIMITS.get(lkey)
+                if lim:
+                    num = min(max(num, float(lim[0])), float(lim[1]))
+                value = int(num) if kind in ("i", "f") else num
+
+            state[url] = value
+            # The amp acks, then (for a subscriber) reports the new value. A
+            # script handler only returns its FIRST respond(), so both lines go
+            # in one call — the driver's line parser splits them again.
+            subs = (state.get("_subs") or "").split("|")
+            if url in subs:
+                respond("OK\n" + render(url, kind, value))
+            else:
+                respond("OK")
+
+        _run()

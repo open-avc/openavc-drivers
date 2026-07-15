@@ -1282,6 +1282,18 @@ def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
             id_fmt = type_def.get("id_format")
             id_fmt = id_fmt if isinstance(id_fmt, dict) else {}
             id_type = id_fmt.get("type", "integer")
+            cfs = instances.get("count_from_state")
+            if cfs is not None:
+                if not isinstance(cfs, str) or not cfs:
+                    errors.append(
+                        f"{where}.instances: count_from_state must name a "
+                        f"state variable"
+                    )
+                elif cfs not in (data.get("state_variables") or {}):
+                    errors.append(
+                        f"{where}.instances: count_from_state {cfs!r} is not a "
+                        f"declared state variable"
+                    )
             sources = [
                 k for k in ("count", "count_from", "ids_from", "ids")
                 if k in instances

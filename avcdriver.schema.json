@@ -671,7 +671,7 @@
     },
     "childInstances": {
       "type": "object",
-      "description": "Declarative roster — makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), ids_from (a comma-separated config field; sparse IDs), or ids (a literal fixed list; requires platform 0.23.0). Children register on connect, reconcile as a config-want-set, and back the per-device Refresh from Device button.",
+      "description": "Declarative roster — makes the child type real at runtime for YAML drivers. Exactly one of count (fixed IDs 1..N), count_from (an integer config field), ids_from (a comma-separated config field; sparse IDs), or ids (a literal fixed list; requires platform 0.23.0). An optional count_from_state names a device-reported state var (e.g. num_outputs) the roster follows once connected, with the chosen config source as the offline fallback. Children register on connect, reconcile as a want-set (also whenever count_from_state changes), and back the per-device Refresh from Device button.",
       "oneOf": [
         {
           "required": [
@@ -703,6 +703,10 @@
         "count_from": {
           "type": "string",
           "description": "Name of an integer config field (config_schema / default_config) holding the count — lets one driver cover different frame sizes."
+        },
+        "count_from_state": {
+          "type": "string",
+          "description": "Name of a device-reported integer state variable (e.g. num_outputs) the roster follows once the device reports it, auto-sizing the roster to the hardware. Optional companion to count_from, which stays the offline fallback used before the device answers (a non-positive/absent value falls back to count_from). Requires platform 0.23.0."
         },
         "ids_from": {
           "type": "string",

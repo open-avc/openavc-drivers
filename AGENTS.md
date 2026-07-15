@@ -632,6 +632,11 @@ child_entity_types:
     instances:
       count: 6                    # fixed: IDs 1..6
       # count_from: output_count  # or an integer config field (frame size varies by model)
+      # count_from_state: num_outputs  # optional: follow a device-reported integer state var —
+      #                           # the roster auto-sizes to the hardware once it reports and
+      #                           # reconciles whenever that state changes. Pair with count_from
+      #                           # (or count) as the offline fallback used before the device
+      #                           # answers; a non-positive/absent value falls back. platform >= 0.23.0
       # ids_from: zone_ids        # or a comma-separated config field ("1,2,4" — sparse IDs;
       #                           # with id_format type string, string ids: "A,B,C,D" letter
       #                           # outputs — count/count_from require integer ids)

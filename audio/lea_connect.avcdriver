@@ -11,8 +11,12 @@
 #     inputs are available on every Dante model) and the Dante On Ramp control.
 #   - Network Connect models expose only analog sources, and only as many as the
 #     amp has channels (a 354 has no Analog 5-8).
-# Selecting a source the amp doesn't have is benign: it answers
-# "error: unsupported value: ..." and changes nothing (surfaced in last_error).
+# Selecting a source the amp doesn't have is benign: current firmware silently
+# ignores it — no error, no change (verified on a Connect 352D running firmware
+# 3.1.7.0). The source picker only offers valid values, so this is reachable only
+# from a macro/script, and it fails silently rather than surfacing in last_error.
+# (The 2020 protocol doc shows an "error: unsupported value: ..." reply here; that
+# behavior is gone on current firmware — a bad enum value is now dropped silently.)
 #
 # Protocol reference: LEA Open API - TCP Protocol, Rev 2 (2020-10-02).
 # Archived: driver-roadmap/reference-docs/lea-open-api-tcp-protocol.pdf
@@ -21,16 +25,20 @@
 #   Commands and responses are newline-delimited ('\n', 0x0a). A command with
 #   no trailing newline gets NO response at all.
 #     get <url>                -> "<url> <value>"
-#     set <url> <value>        -> "OK"    (controls only)
+#     set <url> <value>        -> (no reply on success — controls only; a
+#                                 subscribed element instead emits a change notice)
 #     subscribe <url>          -> "<url> <value>", then a fresh line on
 #                                 every change, on this same connection
 #     unsubscribe <url>        -> "OK"
-#   Verbs are case-insensitive; element URLs are case-sensitive.
+#   Verbs are case-insensitive; element URLs are case-sensitive. (The 2020 doc
+#   says set answers "OK"; firmware 3.1.7.0 is silent on a successful set — the
+#   only reply is the subscription notice, so the driver never waits on an ack.)
 #   Values: strings and enums come back double-quoted ("Post Crossover");
-#   booleans as bare true/false; numbers bare and often at full float precision
-#   (-52.78131103515625). String/enum values containing spaces MUST be quoted on
-#   the way in. Out-of-range numbers are CLAMPED, not rejected (set fader -1000
-#   answers OK, then reports -80.0).
+#   booleans as bare true/false; every number is a float, even conceptual ints
+#   ("70.0", "2.0"), often at full precision (-52.78131103515625). String/enum
+#   values containing spaces MUST be quoted on the way in. Out-of-range numbers
+#   are CLAMPED, not rejected (set fader -1000 is accepted silently; a subscriber
+#   then sees -80.0).
 #
 # Push, not polling (Principle 2): every element the amp exposes is
 # subscribable, and notifications arrive on the established control connection —
@@ -38,14 +46,16 @@
 # on_connect subscribes to the full surface; the subscribe reply doubles as the
 # initial state sync, so the device is fully populated before the first poll.
 #
-# Level meters are opt-in (Enable Level Meters, default off). The amp streams
-# meter elements continuously — an 8-channel unit with every meter subscribed is
-# roughly 40 streams at ~10 Hz — which is welcome on a job that wants live
-# metering and pure noise on one that doesn't. The meter subscriptions carry
-# `when: enable_meters`; their response rules are throttled and their state vars
-# are cloud_priority: low. With meters off, output level / volts / watts still
-# refresh from the poll loop at poll_interval, which is the right cadence for
-# amp telemetry (watts, impedance) as opposed to a live meter.
+# Level meters are opt-in (Enable Level Meters, default off). The amp pushes
+# meter elements on change, not as a fixed-rate stream — measured at ~1.3 Hz per
+# meter under signal, and effectively silent at idle, on a Connect 352D (firmware
+# 3.1.7.0). An 8-channel unit with every meter subscribed is still ~40 streams,
+# so meters stay opt-in for racks of amps, but the per-meter rate is modest. The
+# meter subscriptions carry `when: enable_meters`; their response rules are
+# throttled (~2 Hz, just above the measured push rate so nothing real is dropped)
+# and their state vars are cloud_priority: low. With meters off, output level /
+# volts / watts still refresh from the poll loop at poll_interval, which is the
+# right cadence for amp telemetry (watts, impedance) as opposed to a live meter.
 #
 # Model naming decodes as <power per channel><channel count>[D]: a 704D is
 # 700 W x 4 channels with Dante; a 168 is 160 W x 8 channels, analog only. Set
@@ -136,13 +146,15 @@ help:
        or the LEA Cloud app both do this.
     2. Enter the IP here. The control port is 4321 and needs no username or
        password; the amp accepts control commands on it directly.
-    3. Set Channels to your model's channel count — it's the last digit of the
-       model number (704D = 4, 352 = 2, 168 = 8). If it's wrong you'll see it:
-       the amp reports its real channel count in the Num Outputs state value.
-    4. Leave Enable Level Meters off unless you want live metering on a panel.
-       The amplifier streams meter values continuously, which is a lot of
-       network traffic across a rack of amps. Output level, volts and watts
-       still refresh on every poll with meters off.
+    3. That's it for channels — the amp reports its own channel count, so the
+       roster fills in automatically once it connects (a 352 shows 2 channels, a
+       704 shows 4). The "Channels" setting is only a fallback for building a
+       project offline before the amp is reachable; set it to your model's count
+       (the last digit of the model number) if you're working without the amp.
+    4. Leave Enable Level Meters off unless you want live audio metering on a
+       panel. Those per-channel level meters push while enabled; with meters off
+       they refresh on the poll instead. (Power readings — AC voltage, current,
+       watts — always push live regardless of this setting.)
     5. Firmware must be 1.1.0.x or newer. Older firmware only speaks the
        WebSocket API, which this driver does not use.
 
@@ -172,10 +184,10 @@ config_schema:
     max: 65535
   channel_count:
     type: enum
-    required: true
+    required: false
     default: "4"
-    label: "Channels"
-    description: "Amplifier channel count — the last digit of the model number (704D = 4, 352 = 2, 168 = 8)"
+    label: "Channels (offline fallback)"
+    description: "Fallback channel count for building the roster before the amp connects — once connected, the amp reports its real count and the roster auto-corrects. Set to your model's channel count for offline editing (the last digit of the model number: 704D = 4, 352 = 2, 168 = 8)."
     values:
       - { value: "2", label: "2 channels (352, 702)" }
       - { value: "4", label: "4 channels (124, 164, 354, 704, 1504, 3004, 84)" }
@@ -200,16 +212,21 @@ config_schema:
 discovery:
   # Active fingerprint: the LEA Open API answers a modelID GET on 4321 with a
   # line no other protocol emits, and the value names the family outright
-  # ("Connect Series Model 704D"). NOTE: OUI is not declared — LEA's MAC prefix
-  # is not published in any LEA document, and this driver was written without an
-  # amp on the network. Add it once it is read off real hardware rather than
-  # guessing a prefix that would mis-attribute other vendors' devices.
+  # ("Connect Series Model 704D"). The tcp_probe is the primary identifier and
+  # was confirmed against real hardware (a Connect 352D answered the probe on a
+  # live scan, matching IDENTIFIED via the catalog).
   tcp_probe:
     port: 4321
     send_ascii: "get /amp/deviceInfo/modelID\n"
     expect_regex: '/amp/deviceInfo/modelID "Connect Series'
     extract_manufacturer: "LEA Professional"
     timeout_ms: 2000
+  # OUI read off real hardware (Connect 352D MAC 64:8c:bb:f2:12:f1). LEA publishes
+  # no MAC prefix, so this was not declared until an amp was on the bench. It is a
+  # corroborating signal / vendor-name source; the tcp_probe above does the
+  # identifying.
+  oui:
+    - "64:8c:bb"
   port_open:
     - 4321
   manufacturer_alias:
@@ -226,6 +243,11 @@ child_entity_types:
       max: 8
       pad_width: 2
     instances:
+      # The amp reports its own channel count as num_outputs, so the roster
+      # tracks the hardware — a 352 comes up as 2 channels, a 704 as 4, with no
+      # manual step. channel_count is only the offline fallback (before the amp
+      # has reported), so a project built without the amp still shows a roster.
+      count_from_state: num_outputs
       count_from: channel_count
       label: "Channel {id}"
     label_field: name
@@ -569,7 +591,10 @@ child_entity_types:
       # The amp has as many analog inputs as it has channels (LEA: analog inputs
       # are "only available for the number of inputs on the amplifier"). Dante
       # models add eight Dante inputs, which are sources rather than physical
-      # inputs and carry no per-input settings.
+      # inputs and carry no per-input settings. The amp reports its analog input
+      # count as num_inputs, so the roster follows that; channel_count is the
+      # offline fallback (before the amp has reported).
+      count_from_state: num_inputs
       count_from: channel_count
       label: "Analog Input {id}"
     summary_fields: ["sensitivity"]
@@ -711,7 +736,7 @@ state_variables:
   last_error:
     type: string
     label: "Last Error"
-    help: "Most recent error the amplifier returned (e.g. a source the model doesn't have)"
+    help: "Most recent error the amplifier returned (e.g. a malformed command or an unknown element)"
 
 device_settings:
   # Amp-wide values the amplifier itself persists. Per-channel values (mute,
@@ -958,7 +983,9 @@ commands:
     help: >
       Route an input to a channel. Analog sources beyond the amp's channel count
       and every Dante source exist only on the models that have them; picking one
-      the amp doesn't have is refused and reported in Last Error.
+      the amp doesn't have does nothing — current firmware silently ignores a
+      source it can't honor (no error, no change), so double-check the model's
+      real inputs.
     params:
       channel:
         type: child_id
@@ -1758,20 +1785,22 @@ responses:
     child_set:
       - { type: channel, id: $1, state: { ready: $2 } }
 
-  # ── Channel: meters (continuous streams — throttled to bound state writes) ──
-  # throttle is per RULE, and one rule serves every channel, so the effective
-  # per-channel rate is this divided by the channel count. That's fine for a bar
-  # meter; it is why nothing that must not be missed (a fault, a mute) is here.
+  # ── Channel: meters (pushed on change — throttled to bound state writes) ──
+  # throttle is scoped per routed child, so `throttle: 0.5` caps each channel at
+  # 2 writes/sec independently (not divided across channels). 0.5 sits just above
+  # the ~1.3 Hz the amp was measured to push per meter under signal, so a live
+  # meter passes through untouched while a pathological burst is still capped.
+  # Nothing that must not be missed (a fault, a mute) is a throttled meter.
   - match: '^/amp/channels/(\d+)/levels/level_db (-?[\d.]+)$'
-    throttle: 0.25
+    throttle: 0.5
     child_set:
       - { type: channel, id: $1, state: { level_db: $2 } }
   - match: '^/amp/channels/(\d+)/levels/level_volts (-?[\d.]+)$'
-    throttle: 1.0
+    throttle: 0.5
     child_set:
       - { type: channel, id: $1, state: { level_volts: $2 } }
   - match: '^/amp/channels/(\d+)/levels/level_watts (-?[\d.]+)$'
-    throttle: 1.0
+    throttle: 0.5
     child_set:
       - { type: channel, id: $1, state: { level_watts: $2 } }
 
@@ -1909,7 +1938,7 @@ responses:
     child_set:
       - { type: channel, id: $1, state: { load_monitor_enable: $2 } }
   - match: '^/amp/channels/(\d+)/loadMonitor/measuredImpedance (-?[\d.]+)$'
-    throttle: 1.0
+    throttle: 0.5
     child_set:
       - { type: channel, id: $1, state: { impedance: $2 } }
   - match: '^/amp/channels/(\d+)/loadMonitor/highLimit (-?[\d.]+)$'
@@ -1970,14 +1999,17 @@ responses:
     set: { num_outputs: "$1" }
 
   # ── Power supply ──
+  # AC readings push live (subscribed unconditionally); throttle just above the
+  # amp's measured push rate so a busy reading can't flood, without dropping the
+  # live update.
   - match: '^/amp/powerSupply/acLineVoltage (-?[\d.]+)$'
-    throttle: 1.0
+    throttle: 0.5
     set: { ac_line_voltage: "$1" }
   - match: '^/amp/powerSupply/acLineCurrent (-?[\d.]+)$'
-    throttle: 1.0
+    throttle: 0.5
     set: { ac_line_current: "$1" }
   - match: '^/amp/powerSupply/acLineWatts (-?[\d.]+)$'
-    throttle: 1.0
+    throttle: 0.5
     set: { ac_line_watts: "$1" }
   - match: '^/amp/powerSupply/fault (true|false)$'
     set: { psu_fault: "$1" }
@@ -2035,6 +2067,12 @@ on_connect:
   - "subscribe /amp/powerSupply/thermal\n"
   - "subscribe /amp/powerSupply/powerOk\n"
   - "subscribe /amp/powerSupply/lineWarning\n"
+  # AC power readings are amp-health telemetry, not an audio meter, so they push
+  # live always (not gated behind Enable Level Meters). Low-rate and always
+  # welcome — a static power number reads as a dead device.
+  - "subscribe /amp/powerSupply/acLineVoltage\n"
+  - "subscribe /amp/powerSupply/acLineCurrent\n"
+  - "subscribe /amp/powerSupply/acLineWatts\n"
   - "subscribe /amp/autoStandby/enable\n"
   - "subscribe /amp/autoStandby/threshold\n"
   - "subscribe /amp/autoStandby/timeToWait\n"
@@ -2113,23 +2151,19 @@ on_connect:
   - { each_child: channel, send: "subscribe /amp/channels/{child_id}/rmsLimiter/totalGainReduction\n", when: enable_meters }
   - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/gainReduction\n", when: enable_meters }
   - { each_child: channel, send: "subscribe /amp/channels/{child_id}/peakLimiter/totalGainReduction\n", when: enable_meters }
-  - { send: "subscribe /amp/powerSupply/acLineVoltage\n", when: enable_meters }
-  - { send: "subscribe /amp/powerSupply/acLineCurrent\n", when: enable_meters }
-  - { send: "subscribe /amp/powerSupply/acLineWatts\n", when: enable_meters }
+  # (AC line V/A/W are subscribed unconditionally above — not meter-gated.)
 
 polling:
-  # Everything else arrives by subscription, so this loop exists to refresh the
-  # meter-class values when meters are OFF — a slow read of output level, volts,
-  # watts and AC draw, which is the right cadence for amp telemetry even though
-  # it is too slow for a live meter. With meters ON these reads are redundant
-  # but harmless (the subscription is already fresher).
+  # Everything else arrives by subscription, so this loop exists only to refresh
+  # the per-channel output level/volts/watts while Enable Level Meters is OFF —
+  # a slow read that keeps output telemetry roughly current without a live meter.
+  # With meters ON these reads are redundant but harmless (the subscription is
+  # already fresher). AC power is not here — it is subscribed unconditionally, so
+  # it pushes live in both states.
   queries:
     - { each_child: channel, send: "get /amp/channels/{child_id}/levels/level_db\n" }
     - { each_child: channel, send: "get /amp/channels/{child_id}/levels/level_volts\n" }
     - { each_child: channel, send: "get /amp/channels/{child_id}/levels/level_watts\n" }
-    - "get /amp/powerSupply/acLineVoltage\n"
-    - "get /amp/powerSupply/acLineCurrent\n"
-    - "get /amp/powerSupply/acLineWatts\n"
 
 liveness:
   # This driver is push-mostly: with meters off and a long poll interval, the
@@ -2147,10 +2181,12 @@ simulator:
   # which the auto-generated per-command handlers can't model (they only match
   # exact command strings). One dispatcher handler owns the whole protocol
   # instead: it parses the verb, validates the element against the real element
-  # map, tracks subscriptions, clamps out-of-range numbers the way the amp does,
-  # and answers a set with "OK" followed by the change notice a subscriber would
-  # get — concatenated into one respond() because a script handler only returns
-  # its first respond call.
+  # map, tracks subscriptions, and clamps out-of-range numbers the way the amp
+  # does. It mirrors firmware 3.1.7.0 as verified on a Connect 352D: a successful
+  # set is SILENT (no "OK"), the only reply being the change notice pushed to a
+  # subscriber; a bad enum/bool value is dropped silently; a bad number or an
+  # unknown element gets the amp's real "error:  ..." string (two spaces); and
+  # every numeric renders as a float ("70.0"), even conceptual integers.
   command_handlers:
     - match: '(?s:.+)'
       handler: |
@@ -2353,26 +2389,33 @@ simulator:
                 return default if val is None else val
 
             def render(url, kind, value):
-                """Format an element's value the way the amp reports it."""
+                """Format an element's value the way the amp reports it. Every
+                numeric comes back as a float on real firmware — even conceptual
+                integers (numOutputs "2.0", a frequency "1000.0")."""
                 if kind == "b":
                     return url + " " + ("true" if value else "false")
                 if kind == "s":
                     return url + ' "' + str(value) + '"'
-                if kind == "f":
+                if kind in ("f", "i"):
                     return url + " " + format(float(value), ".1f")
-                if kind == "i":
-                    return url + " " + str(int(value))
                 return url + " " + str(float(value))
 
             parts = line.split(None, 2)
             verb = parts[0].lower()
+            # An unrecognized verb (or a bare word) is a parse error. Note the two
+            # spaces after 'error:' — that is what firmware 3.1.7.0 emits.
             if verb not in ("get", "set", "subscribe", "unsubscribe") or len(parts) < 2:
-                respond("error: cannot parse - '" + line + "'")
+                respond("error:  cannot parse - '" + line + "'")
                 return
             url = parts[1]
             found = spec(url)
             if not found:
-                respond("error: cannot parse - '" + line + "'")
+                # A well-formed /amp/ path that doesn't resolve is
+                # "object/element does not exist"; anything else is "cannot parse".
+                if url.startswith("/amp/"):
+                    respond("error:  object/element does not exist - '" + url + "'")
+                else:
+                    respond("error:  cannot parse - '" + line + "'")
                 return
             kind, default, lkey = found
 
@@ -2393,44 +2436,47 @@ simulator:
                 respond("OK")
                 return
 
-            # set
+            # set — a missing value is a parse error.
             if len(parts) < 3:
-                respond("error: cannot parse - '" + line + "'")
+                respond("error:  cannot parse - '" + line + "'")
                 return
             raw = parts[2].strip()
             if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
                 raw = raw[1:-1]
 
             if kind == "b":
+                # A bool takes only true/false; any other value is dropped
+                # SILENTLY (no error, no change) on current firmware.
                 if raw.lower() not in ("true", "false"):
-                    respond("error: unsupported value: " + raw + " (" + url + ")")
                     return
                 value = raw.lower() == "true"
             elif kind == "s":
+                # An enum with an unsupported value is dropped SILENTLY too; a
+                # free string (no ENUMS entry) accepts anything.
                 allowed = ENUMS.get(lkey)
                 if allowed is not None and raw not in allowed:
-                    respond("error: unsupported value: " + raw + " (" + url + ")")
                     return
                 value = raw
             else:
+                # A non-numeric value for a numeric element IS a loud parse error;
+                # an out-of-range number is clamped, not refused.
                 try:
                     num = float(raw)
                 except (TypeError, ValueError):
-                    respond("error: unsupported value: " + raw + " (" + url + ")")
+                    respond("error:  cannot parse - '" + line + "'")
                     return
                 lim = LIMITS.get(lkey)
                 if lim:
                     num = min(max(num, float(lim[0])), float(lim[1]))
                 value = int(num) if kind in ("i", "f") else num
 
+            # A successful set is SILENT on current firmware — no OK. The only
+            # reply is the change notice, and only to a subscriber, and only when
+            # the value actually changed (setting a value to itself is silent).
+            old = current(url, kind, default)
             state[url] = value
-            # The amp acks, then (for a subscriber) reports the new value. A
-            # script handler only returns its FIRST respond(), so both lines go
-            # in one call — the driver's line parser splits them again.
             subs = (state.get("_subs") or "").split("|")
-            if url in subs:
-                respond("OK\n" + render(url, kind, value))
-            else:
-                respond("OK")
+            if url in subs and value != old:
+                respond(render(url, kind, value))
 
         _run()

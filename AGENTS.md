@@ -1124,6 +1124,16 @@ on_connect:
 
 Valid on entries in `on_connect` **and** `polling.queries`, with or without `each_child` — the plain `{send, when}` mapping form exists only so a one-off query can carry a gate. The field must be declared in `config_schema` or `default_config`; a name that isn't is a load error, not a query that silently never runs (truthiness follows the platform's usual coercion, so `false` / `"false"` / `"0"` / `""` / missing are all off). Pair a gated telemetry stream with `throttle:` on the response rules it feeds and `cloud_priority: low` on its state variables.
 
+**OSC arguments.** For an `osc` driver, a bare address string registers for state pushes (`/xremote`). When the bring-up message must *set* a value rather than just subscribe, use the `{address, args}` mapping form — the same typed-arg shape as an OSC command. `when:` gates it like any other entry:
+
+```yaml
+on_connect:
+  - "/xremote"                                          # subscribe (bare address)
+  - { address: "/main/mute", args: [{ type: i, value: "0" }] }   # set a value on connect
+  - { address: "/meters/subscribe", args: [{ type: i, value: "1" }],
+      when: enable_meters }                             # gated value-setting bring-up
+```
+
 ### 2.10 polling
 
 Periodic status queries sent to the device. The poll cadence is set by

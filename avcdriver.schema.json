@@ -312,12 +312,17 @@
                 "items": {
                   "$ref": "#/$defs/oscArg"
                 }
+              },
+              "when": {
+                "type": "string",
+                "description": "Config field gating this entry: it runs only while that field is truthy. Must name a field declared in config_schema / default_config. Requires platform 0.23.0."
               }
-            }
+            },
+            "additionalProperties": false
           }
         ]
       },
-      "description": "Commands sent immediately after connect, before polling. Strings for TCP/serial/UDP; {address, args} mappings for OSC; {each_child, send} templates expand to one query per registered child. Any mapping entry may add when: <config_field> to run only while that field is on."
+      "description": "Commands sent immediately after connect, before polling. Strings for TCP/serial/UDP; {address, args} mappings for OSC (args carry typed OSC values for a value-setting bring-up message); {each_child, send} templates expand to one query per registered child. Any mapping entry may add when: <config_field> to run only while that field is on."
     },
     "polling": {
       "type": "object",

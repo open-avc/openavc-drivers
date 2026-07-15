@@ -662,7 +662,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -686,7 +686,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -710,7 +710,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -734,7 +734,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -758,7 +758,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -781,8 +781,8 @@
       "drivers": [
         {
           "id": "lea_connect",
-          "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "confidence": "full",
+          "notes": "Verified end-to-end on real hardware \u2014 a Connect 352D on firmware 3.1.7.0 (protocol, discovery, and control all confirmed). Same API as the rest of the Dante Connect Series below.\n"
         }
       ]
     },
@@ -806,7 +806,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -830,7 +830,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -854,7 +854,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -878,7 +878,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },
@@ -902,7 +902,7 @@
         {
           "id": "lea_connect",
           "confidence": "untested",
-          "notes": "Dante Connect Series. Same API; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
+          "notes": "Dante Connect Series. Same API as the verified 352D; adds the eight Dante input sources (all eight are available on every Dante model regardless of channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or later \u2014 earlier firmware supports only the WebSocket API, not this TCP one.\n"
         }
       ]
     },

@@ -84,7 +84,7 @@ description: >
 
 source_url: https://leaprofessional.com/wp-content/uploads/2020/10/LEA-Open-API-TCP-Protocol-October-2020.pdf
 tags: [amplifier, dsp, dante, power-amplifier, lea, connect-series, 70v, 100v]
-verified: false
+verified: true
 simulated: true
 protocols: [lea_open_api]
 ports: [4321]
@@ -111,6 +111,13 @@ compatible_models:
   - manufacturer: LEA Professional
     models:
       - Connect Series 352D
+    confidence: full
+    notes: >
+      Verified end-to-end on real hardware — a Connect 352D on firmware 3.1.7.0
+      (protocol, discovery, and control all confirmed). Same API as the rest of
+      the Dante Connect Series below.
+  - manufacturer: LEA Professional
+    models:
       - Connect Series 702D
       - Connect Series 124D
       - Connect Series 164D
@@ -123,10 +130,10 @@ compatible_models:
       - Connect Series 168D
     confidence: untested
     notes: >
-      Dante Connect Series. Same API; adds the eight Dante input sources (all
-      eight are available on every Dante model regardless of channel count) and
-      the Dante On Ramp control. Requires firmware 1.1.0.x or later — earlier
-      firmware supports only the WebSocket API, not this TCP one.
+      Dante Connect Series. Same API as the verified 352D; adds the eight Dante
+      input sources (all eight are available on every Dante model regardless of
+      channel count) and the Dante On Ramp control. Requires firmware 1.1.0.x or
+      later — earlier firmware supports only the WebSocket API, not this TCP one.
 
 help:
   overview: >

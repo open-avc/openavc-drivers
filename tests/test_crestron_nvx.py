@@ -63,10 +63,15 @@ class _FakeBaseDriver:
         self.state = state
         self.events = events
         self._connected = False
+        self._last_fault = None
+        self._last_transport_error = ""
         # Mirror the platform's _init_state_variables: every declared state
         # variable is seeded, so role pruning has real keys to delete.
         for prop in self.DRIVER_INFO.get("state_variables", {}):
             self.state.set(prop, "")
+
+    def _stash_fault(self, code, message=""):
+        self._last_fault = (code, message)
 
     def set_state(self, key, value):
         self.state.set(key, value)
@@ -179,7 +184,7 @@ async def _connect(driver):
 
 def test_metadata_shape():
     info = DRV.CrestronNVXDriver.DRIVER_INFO
-    assert info["version"] == "2.0.1"
+    assert info["version"] == "2.0.2"
     assert info["category"] == "switcher"
     assert info["web_ui"] is True
     assert info["transport"] == "http"
@@ -346,6 +351,77 @@ def test_decoder_surface_is_pruned_to_receiver():
 
             with pytest.raises(RuntimeError, match="set_bitrate"):
                 await d.send_command("set_bitrate", {"mbps": 500})
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+# ── Lockout protection ──────────────────────────────────────────────────────
+# The NVX blocks the controller's source IP after a few failed logins, so the
+# driver must never send a login it knows can't succeed.
+
+
+def test_no_login_post_when_password_empty():
+    """A discovery-added NVX starts with an empty password: connect must fail
+    with a typed auth fault BEFORE any POST reaches /userlogin.html, so not
+    one of the device's failed-login lockout attempts is burned."""
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})
+        posts = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                posts.append(request.url.path)
+            body = request.content.decode() if request.content else ""
+            status, resp = sim.handle_request(request.method, request.url.path,
+                                              dict(request.headers), body)
+            if isinstance(resp, dict):
+                return httpx.Response(status, json=resp)
+            return httpx.Response(status, text=str(resp))
+
+        cfg = {"host": "sim", "port": 443, "username": "admin", "password": "",
+               "poll_interval": 0}
+        d = DRV.CrestronNVXDriver("nvx", cfg, _FakeState(), _FakeEvents())
+        d._base_url = "https://sim"
+        d._client = httpx.AsyncClient(base_url="https://sim",
+                                      transport=httpx.MockTransport(handler))
+        try:
+            with pytest.raises(DRV.ConnectionFaultError) as exc:
+                await d._authenticate()
+            assert exc.value.code == "auth_failed"
+            assert posts == []  # no login attempt reached the device
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_reauth_still_401_raises_typed_fault():
+    """Credentials that stop working mid-run: after one re-auth retry the
+    driver must raise a typed auth fault (device goes offline; the platform
+    pauses reconnect) instead of silently returning None and re-attempting a
+    login on every poll cycle."""
+    async def go():
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.startswith("/Device"):
+                return httpx.Response(401, text="Unauthorized")
+            return httpx.Response(200, text="login page")
+
+        cfg = {"host": "sim", "port": 443, "username": "admin", "password": "x",
+               "poll_interval": 0}
+        d = DRV.CrestronNVXDriver("nvx", cfg, _FakeState(), _FakeEvents())
+        d._base_url = "https://sim"
+        d._client = httpx.AsyncClient(base_url="https://sim",
+                                      transport=httpx.MockTransport(handler))
+        try:
+            with pytest.raises(DRV.ConnectionFaultError) as exc:
+                await d._api_get("/Device/DeviceSpecific")
+            assert exc.value.code == "auth_failed"
+            # Stashed for the poll-watchdog path, where the raised exception
+            # itself isn't what gets classified.
+            assert d._last_fault == (
+                "auth_failed", "The NVX rejected the configured credentials.")
         finally:
             await d._client.aclose()
 

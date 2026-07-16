@@ -82,7 +82,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "author": "OpenAVC",
         "min_platform_version": "0.24.0",
         "description": (
@@ -377,6 +377,11 @@ class CrestronNVXDriver(BaseDriver):
     # ── Connection lifecycle ────────────────────────────────────────────────
 
     async def connect(self) -> None:
+        # Clean slate (qsc_qrc pattern): drop any fault stashed by a previous
+        # attempt or a mid-run auth failure so it can't color this attempt's
+        # offline-reason classification.
+        self._last_transport_error = ""
+        self._last_fault = None
         host = self.config.get("host", "")
         port = self.config.get("port", 443)
         verify_ssl = self.config.get("verify_ssl", False)
@@ -461,6 +466,18 @@ class CrestronNVXDriver(BaseDriver):
             raise ConnectionFaultError(
                 "This NVX has no admin account yet. Run the 'Set Up NVX' "
                 "action to create one, then connect.",
+                code="auth_failed",
+            )
+
+        # Never POST a login we know can't succeed: the NVX blocks the
+        # controller's source IP after a few failed attempts, and a
+        # discovery-added device starts with an empty password. (The GETs
+        # above are unauthenticated and don't count against the lockout.)
+        if not password:
+            raise ConnectionFaultError(
+                "No password configured. Enter the NVX admin credentials in "
+                "the device settings (or run 'Set Up NVX' on a factory-fresh "
+                "unit).",
                 code="auth_failed",
             )
 
@@ -772,19 +789,41 @@ class CrestronNVXDriver(BaseDriver):
 
     async def _api_get(self, path: str) -> dict | None:
         """GET + parse JSON. Transport failures raise ConnectionError (poll
-        propagates them to the watchdog); HTTP errors return None."""
+        propagates them to the watchdog); HTTP errors return None — except a
+        hard credential rejection, which raises a typed auth fault."""
         try:
             resp = await self._client.get(path)
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
-                # Session expired — re-auth once and retry.
+                # Session expired — re-auth once and retry. If the retry is
+                # STILL unauthorized, the credentials themselves went bad
+                # (changed on the device mid-run): take the device offline
+                # with a typed fault instead of re-attempting a login on
+                # every poll cycle — that would trip the NVX's per-IP
+                # brute-force lockout within a minute.
                 try:
                     await self._authenticate()
                     resp = await self._client.get(path)
                     resp.raise_for_status()
                     return resp.json()
+                except ConnectionFaultError:
+                    raise
+                except httpx.HTTPStatusError as retry_err:
+                    if retry_err.response.status_code == 401:
+                        msg = "The NVX rejected the configured credentials."
+                        # Stash the fault too: when this surfaces through the
+                        # poll watchdog the exception itself isn't classified.
+                        self._stash_fault("auth_failed", msg)
+                        raise ConnectionFaultError(msg, code="auth_failed") \
+                            from retry_err
+                    log.warning("[%s] Re-auth GET %s -> HTTP %s", self.device_id,
+                                path, retry_err.response.status_code)
+                except httpx.TransportError as te:
+                    raise ConnectionError(
+                        f"NVX at {self._base_url} not responding: {te}"
+                    ) from te
                 except Exception:
                     log.warning("[%s] Re-auth failed on GET %s", self.device_id, path)
             else:

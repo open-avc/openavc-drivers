@@ -2168,6 +2168,10 @@ raise ConnectionFaultError(
 
 The code becomes `offline_reason` verbatim; the message becomes `offline_detail` (leave it empty to get the platform's standard wording for that code). Unknown codes raise `ValueError` at construction, so a typo can't silently misclassify. Raise it from `connect()` / `_post_connect()` / `poll()`. Don't catch-and-retype transport errors that already carry their cause (a refused socket, a DNS failure) — re-raise those unchanged and let the classifier read them.
 
+**`auth_failed` also changes the retry policy.** The platform treats a credential rejection as non-transient: it makes ONE attempt per user action and then pauses auto-reconnect until the user updates the credentials (editing the device or pressing Reconnect tries again). This protects gear with brute-force lockouts — many devices block the controller's source IP after a handful of failed logins. Two obligations follow for login-based drivers:
+- Classify precisely: raise `code="auth_failed"` only for a genuine credential rejection, never for a transport failure (misclassifying stops the retry loop for a device that would have recovered).
+- Never send a login you know can't succeed. If the config has no password and the device requires one, raise the typed fault *before* contacting the device — a discovery-added device starts with empty credentials, and burning failed-login attempts on it can lock the user out (see `crestron_nvx.py` for the pattern).
+
 For a failure with no exception at all — a keep-alive / health loop that stopped hearing replies and is forcing a reconnect — stash the reason just before triggering the disconnect:
 
 ```python

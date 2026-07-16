@@ -179,6 +179,13 @@
       "type": "boolean",
       "description": "True once the driver has been validated against real hardware."
     },
+    "web_ui": {
+      "type": [
+        "boolean",
+        "string"
+      ],
+      "description": "The device exposes a browser-reachable web interface. true auto-adds an 'Open Web UI' button (opens https://{host}); a string is used as the URL template (e.g. \"http://{host}:8080\") with {host}/{port}/{config_key} substitution. Requires platform >= 0.24.0."
+    },
     "min_platform_version": {
       "type": [
         "string",
@@ -1122,9 +1129,10 @@
         "kind": {
           "type": "string",
           "enum": [
-            "command"
+            "command",
+            "link"
           ],
-          "description": "Promotes a declared command (runs online via send_command). Default and only value for .avcdriver drivers. Offline-capable 'setup' provisioning wizards require a Python driver with a run_setup_action() handler."
+          "description": "'command' promotes a declared command (runs online via send_command). 'link' opens a URL (e.g. the device's web interface) in a new tab, client-side. Offline-capable 'setup' provisioning wizards require a Python driver with a run_setup_action() handler."
         },
         "label": {
           "type": "string",
@@ -1153,6 +1161,11 @@
         "command": {
           "type": "string",
           "description": "kind:\"command\" only — the command id to send. Defaults to the action id."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "kind:\"link\" only — the URL to open. Supports {host}/{port}/{config_key} substitution from the device config. Defaults to https://{host}."
         },
         "params": {
           "type": "object",

@@ -923,7 +923,7 @@ Field reference for an `actions` entry:
 | Field | Meaning |
 |-------|---------|
 | `id` | Unique id within the driver (required). |
-| `kind` | `command` (default) promotes a declared command. `setup` is an offline-capable provisioning wizard — **Python drivers only** (it needs a `run_setup_action` handler; see 3.10). YAML drivers support `command` only. |
+| `kind` | `command` (default) promotes a declared command. `link` opens a URL (the device's web interface) in a new tab, client-side — set `url` (defaults to `https://{host}`; supports `{host}`/`{port}`/`{config_key}` substitution). `setup` is an offline-capable provisioning wizard — **Python drivers only** (it needs a `run_setup_action` handler; see 3.10). YAML drivers support `command` and `link`. |
 | `label` | Button text. Defaults to the promoted command's label, else the id. |
 | `icon` | lucide icon name, kebab-case (`power`, `search`, `radar`, `rotate-ccw`). Optional. |
 | `confirm` | `true` for a generic prompt, or a message string. Use it for anything disruptive. |

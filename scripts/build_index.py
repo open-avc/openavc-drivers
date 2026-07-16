@@ -2503,7 +2503,7 @@ def _validate_send_frame_block(file: str, data: dict[str, Any]) -> list[str]:
     return errors
 
 
-_ACTION_KINDS = ("command", "setup")
+_ACTION_KINDS = ("command", "setup", "link")
 _ACTION_AVAILABILITIES = ("online", "offline", "always")
 _VISIBLE_WHEN_OPERATORS = frozenset({
     "eq", "ne", "gt", "lt", "gte", "lte", "truthy", "falsy",
@@ -2619,6 +2619,12 @@ def _validate_actions_block(file: str, data: dict[str, Any]) -> list[str]:
             params = entry.get("params")
             if params is not None and not isinstance(params, dict):
                 errors.append(f"{where}: 'params' must be a mapping")
+            url = entry.get("url")
+            if kind == "link":
+                if url is not None and (not isinstance(url, str) or not url):
+                    errors.append(f"{where}: 'url' must be a non-empty string")
+            elif url is not None:
+                errors.append(f"{where}: 'url' is only valid on a kind:link action")
             errors.extend(_validate_visible_when(where, entry.get("visible_when")))
             if kind == "command" and isinstance(action_id, str) and action_id:
                 command_id = entry.get("command")

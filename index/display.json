@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 11,
+    "total_drivers": 10,
     "shards": null,
     "category": "display"
   },
@@ -85,59 +85,6 @@
         "manufacturer_alias": [
           "benq",
           "benq corporation"
-        ]
-      }
-    },
-    {
-      "id": "crestron_nvx",
-      "name": "Crestron DM NVX",
-      "manufacturer": "Crestron",
-      "category": "display",
-      "version": "1.4.0",
-      "author": "OpenAVC",
-      "transport": "http",
-      "description": "Controls Crestron DM NVX AV-over-IP encoders and decoders via the REST API. Supports device status, video/audio source selection, stream routing, and AV I/O monitoring.",
-      "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
-      "file": "displays/crestron_nvx.py",
-      "format": "python",
-      "ports": [
-        1688,
-        80,
-        443
-      ],
-      "protocols": [
-        "crestron_cip"
-      ],
-      "simulated": true,
-      "tags": [
-        "av-over-ip",
-        "encoder",
-        "decoder",
-        "rest-api"
-      ],
-      "compatible_models": [
-        {
-          "manufacturer": "Crestron",
-          "models": [
-            "DM NVX series (encoders and decoders)"
-          ],
-          "confidence": "untested",
-          "notes": "Any Crestron DM NVX endpoint via REST API."
-        }
-      ],
-      "discovery": {
-        "oui": [
-          "00:10:7f",
-          "00:0e:80",
-          "00:1f:5d",
-          "c4:42:68"
-        ],
-        "hostname": [
-          "^DM-NVX-"
-        ],
-        "manufacturer_alias": [
-          "crestron",
-          "crestron electronics"
         ]
       }
     },

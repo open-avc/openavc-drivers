@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_drivers": 17,
+    "total_drivers": 18,
     "shards": null,
     "category": "switcher"
   },
@@ -433,6 +433,75 @@
             }
           }
         }
+      }
+    },
+    {
+      "id": "crestron_nvx",
+      "name": "Crestron DM NVX",
+      "manufacturer": "Crestron",
+      "category": "switcher",
+      "version": "2.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext REST API. One driver adapts to the endpoint's role: transmit stream + bitrate + HDMI-in monitoring on encoders, stream routing + scaler output + video wall on decoders. Covers the E20/D20/D200, E30/D30, and combo 35x/36x lines.",
+      "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
+      "file": "switchers/crestron_nvx.py",
+      "format": "python",
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "cresnext"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.22.0",
+      "tags": [
+        "av-over-ip",
+        "encoder",
+        "decoder",
+        "rest-api",
+        "streaming"
+      ],
+      "compatible_models": [
+        {
+          "manufacturer": "Crestron",
+          "models": [
+            "DM-NVX-E20",
+            "DM-NVX-E20-2G",
+            "DM-NVX-D20",
+            "DM-NVX-D200",
+            "DM-NVX-E30",
+            "DM-NVX-D30",
+            "DM-NVX-350",
+            "DM-NVX-360",
+            "DM-NVX-384",
+            "DM NVX series (encoders and decoders)"
+          ],
+          "confidence": "full",
+          "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. The E20 is transmit-only and the D200 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET / HTTP/1.1\r\nHost: openavc\r\nConnection: close\r\n\r\n",
+          "expect_regex": "Crestron Webserver",
+          "timeout_ms": 2500
+        },
+        "oui": [
+          "c4:42:68",
+          "00:10:7f",
+          "00:0e:80",
+          "00:1f:5d"
+        ],
+        "hostname": [
+          "^DM-NVX-"
+        ],
+        "manufacturer_alias": [
+          "crestron",
+          "crestron electronics"
+        ]
       }
     },
     {

@@ -54,6 +54,24 @@ _AUDIO_SOURCES = [
     "AnalogAudio", "PrimaryStreamAudio", "SecondaryStreamAudio",
 ]
 
+# Role-specific capability sets. DRIVER_INFO declares the whole line's surface
+# (the role isn't known until the device reports DeviceMode); once it does,
+# _apply_role() narrows the instance to just its role's commands and state
+# variables. A transmitter has no StreamReceive object and a receiver no
+# StreamTransmit, so neither should offer — or show state for — the other's.
+# Both device settings (leds, front_panel_lock) apply to both roles.
+_ENCODER_ONLY_COMMANDS = frozenset({"set_transmit_multicast", "set_bitrate"})
+_DECODER_ONLY_COMMANDS = frozenset({"route_stream", "set_scaler_resolution"})
+_ENCODER_ONLY_STATES = frozenset({
+    "input_sync", "input_resolution", "input_hdcp",
+    "bitrate", "active_bitrate", "bitrate_mode",
+    "preview_url", "preview_format",
+})
+_DECODER_ONLY_STATES = frozenset({
+    "output_connected", "output_resolution", "output_hdcp",
+    "scaler_resolution", "video_wall_mode", "rx_initiator",
+})
+
 
 class CrestronNVXDriver(BaseDriver):
     """Crestron DM NVX AV-over-IP encoder/decoder (role-adaptive)."""
@@ -64,7 +82,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         "min_platform_version": "0.24.0",
         "description": (
@@ -315,6 +333,46 @@ class CrestronNVXDriver(BaseDriver):
         self._client: httpx.AsyncClient | None = None
         self._base_url: str = ""
         self._mode: str = ""  # "Transmitter" | "Receiver"
+        self._applied_role: str = ""  # role the surface was last narrowed to
+
+    # ── Role adaptation ─────────────────────────────────────────────────────
+
+    def _apply_role(self, mode: str) -> None:
+        """Narrow the instance capability surface to the endpoint's role.
+
+        Rebuilds the instance DRIVER_INFO with only this role's commands,
+        state variables, and quick actions — the IDE's Send Command list,
+        pickers, and quick-action strip all serve the instance — and deletes
+        the wrong role's state keys that were seeded at construction (the
+        role's own keys are filled by the next role-state refresh). No-op
+        until the device reports a definitive DeviceMode; re-applies only on
+        a change (combo 35x/36x units flip role across a reboot).
+        """
+        if mode == self._applied_role or mode not in ("Transmitter", "Receiver"):
+            return
+        drop_cmds, drop_states = (
+            (_DECODER_ONLY_COMMANDS, _DECODER_ONLY_STATES)
+            if mode == "Transmitter"
+            else (_ENCODER_ONLY_COMMANDS, _ENCODER_ONLY_STATES)
+        )
+        base = type(self).DRIVER_INFO
+        self.DRIVER_INFO = {
+            **base,
+            "commands": {
+                k: v for k, v in base["commands"].items() if k not in drop_cmds
+            },
+            "state_variables": {
+                k: v for k, v in base["state_variables"].items()
+                if k not in drop_states
+            },
+            "actions": [
+                a for a in base["actions"] if a.get("id") not in drop_cmds
+            ],
+        }
+        for prop in drop_states:
+            self.delete_state(prop)
+        self._applied_role = mode
+        log.info("[%s] Presenting the %s surface", self.device_id, mode)
 
     # ── Connection lifecycle ────────────────────────────────────────────────
 
@@ -424,6 +482,16 @@ class CrestronNVXDriver(BaseDriver):
         params = params or {}
         if not self._client:
             raise ConnectionError(f"[{self.device_id}] Not connected")
+
+        # A command the role pruning removed (e.g. route_stream on a
+        # transmitter, reachable from a macro or script) fails here with a
+        # clear reason instead of the device's generic rejection.
+        if (command not in self.DRIVER_INFO.get("commands", {})
+                and command in type(self).DRIVER_INFO["commands"]):
+            raise RuntimeError(
+                f"'{command}' isn't available on this NVX — it's a "
+                f"{self._mode or 'different role'}."
+            )
 
         match command:
             case "set_video_source":
@@ -600,6 +668,7 @@ class CrestronNVXDriver(BaseDriver):
         if "DeviceMode" in ds:
             updates["device_mode"] = ds["DeviceMode"]
             self._mode = ds["DeviceMode"]
+            self._apply_role(self._mode)
         if "DeviceReady" in ds:
             updates["device_ready"] = bool(ds["DeviceReady"])
         if "VideoSource" in ds:
@@ -614,7 +683,9 @@ class CrestronNVXDriver(BaseDriver):
             updates["leds_enabled"] = bool(ds["LedsEnabled"])
         if "IsFrontPanelLockoutEnabled" in ds:
             updates["front_panel_locked"] = bool(ds["IsFrontPanelLockoutEnabled"])
-        if "VideoWallMode" in ds:
+        # Video wall is a decoder feature; don't let a transmitter that still
+        # reports the field resurrect the pruned key.
+        if "VideoWallMode" in ds and self._mode != "Transmitter":
             updates["video_wall_mode"] = bool(ds["VideoWallMode"])
         if updates:
             self.set_states(updates)

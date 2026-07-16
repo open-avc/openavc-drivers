@@ -950,6 +950,15 @@ actions:
 command — the catalog validator rejects dangling references. If the same id
 appears in both, the explicit `actions` entry wins.
 
+**Open Web UI (`web_ui`) — the `kind:link` shortcut.** A device with its own
+browser UI doesn't need an explicit link action: declare `web_ui: true` at the
+top level of the definition (or DRIVER_INFO) and the platform auto-adds an
+"Open Web UI" button that opens `https://{host}`. Set a string instead to
+change the URL template: `web_ui: "http://{host}:8080/admin"` (same
+`{host}`/`{port}`/`{config_key}` substitution as a link action's `url`).
+Declaring your own `kind:link` action suppresses the auto-added button.
+Needs platform >= 0.24.0.
+
 **Setup / provisioning wizards (`kind:"setup"`)** run while the device is
 **offline**, bring their own transport, report live progress, and can rewrite
 the device's connection config and reconnect — e.g. a factory device whose
@@ -1925,6 +1934,12 @@ self.set_states({"power": True, "input": 3})
 
 # Read a state value
 value = self.get_state("power")
+
+# Remove a state key entirely (not just set to None). For drivers that
+# narrow their surface at runtime — e.g. after replacing the instance
+# DRIVER_INFO with the subset the connected hardware actually supports,
+# delete the keys the platform seeded for the dropped state variables.
+self.delete_state("bitrate")
 ```
 
 #### Child entities

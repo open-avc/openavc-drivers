@@ -45,6 +45,9 @@ class _FakeState:
     def set(self, key, value, **_):
         self.data[key] = value
 
+    def delete(self, key, **_):
+        self.data.pop(key, None)
+
 
 class _FakeEvents:
     async def emit(self, *_a, **_k):
@@ -60,9 +63,16 @@ class _FakeBaseDriver:
         self.state = state
         self.events = events
         self._connected = False
+        # Mirror the platform's _init_state_variables: every declared state
+        # variable is seeded, so role pruning has real keys to delete.
+        for prop in self.DRIVER_INFO.get("state_variables", {}):
+            self.state.set(prop, "")
 
     def set_state(self, key, value):
         self.state.set(key, value)
+
+    def delete_state(self, key):
+        self.state.delete(key)
 
     def set_states(self, updates):
         for k, v in updates.items():
@@ -169,11 +179,12 @@ async def _connect(driver):
 
 def test_metadata_shape():
     info = DRV.CrestronNVXDriver.DRIVER_INFO
-    assert info["version"] == "2.0.0"
+    assert info["version"] == "2.0.1"
     assert info["category"] == "switcher"
     assert info["web_ui"] is True
     assert info["transport"] == "http"
-    # Role-specific commands + the setup wizard are declared.
+    # The class declares the whole line's surface; instances narrow to their
+    # role once the device reports DeviceMode (see the role-pruning tests).
     for cmd in ("route_stream", "set_bitrate", "start_stream", "reboot"):
         assert cmd in info["commands"]
     assert any(a["id"] == "set_up_nvx" and a["kind"] == "setup" for a in info["actions"])
@@ -263,6 +274,78 @@ def test_wrong_role_object_is_ignored():
             # the unsupported sentinel string, which _first_stream tolerates.
             data = await d._api_get("/Device/StreamTransmit")
             assert d._first_stream(data, "StreamTransmit") is None
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+# ── Role pruning ────────────────────────────────────────────────────────────
+
+
+def test_encoder_surface_is_pruned_to_transmitter():
+    """A connected transmitter presents only the encoder surface: no decoder
+    commands in the Send Command list, no decoder state keys, and a decoder
+    command sent anyway (macro/script) is rejected with a clear reason."""
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})
+        sim.set_state("device_mode", "Transmitter")
+        sim.set_state("model", "DM-NVX-E20")
+        d = _make_driver(sim)
+        try:
+            await _connect(d)
+
+            cmds = d.DRIVER_INFO["commands"]
+            for cmd in ("set_transmit_multicast", "set_bitrate", "start_stream", "reboot"):
+                assert cmd in cmds
+            for cmd in ("route_stream", "set_scaler_resolution"):
+                assert cmd not in cmds
+
+            svars = d.DRIVER_INFO["state_variables"]
+            assert "bitrate" in svars and "preview_url" in svars
+            for var in ("scaler_resolution", "video_wall_mode", "rx_initiator",
+                        "output_connected", "output_resolution", "output_hdcp"):
+                assert var not in svars
+                assert var not in d.state.data  # seeded key deleted
+
+            # The quick-action strip loses the decoder's headline action too.
+            assert not any(a["id"] == "route_stream" for a in d.DRIVER_INFO["actions"])
+
+            with pytest.raises(RuntimeError, match="route_stream"):
+                await d.send_command("route_stream", {"encoder": "192.168.1.50"})
+
+            # The class-level declaration (catalog surface) stays complete.
+            assert "route_stream" in DRV.CrestronNVXDriver.DRIVER_INFO["commands"]
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_decoder_surface_is_pruned_to_receiver():
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})  # defaults to Receiver / D200
+        d = _make_driver(sim)
+        try:
+            await _connect(d)
+
+            cmds = d.DRIVER_INFO["commands"]
+            for cmd in ("route_stream", "set_scaler_resolution", "stop_stream"):
+                assert cmd in cmds
+            for cmd in ("set_transmit_multicast", "set_bitrate"):
+                assert cmd not in cmds
+
+            svars = d.DRIVER_INFO["state_variables"]
+            assert "scaler_resolution" in svars and "rx_initiator" in svars
+            for var in ("bitrate", "active_bitrate", "bitrate_mode", "input_sync",
+                        "input_resolution", "input_hdcp", "preview_url", "preview_format"):
+                assert var not in svars
+                assert var not in d.state.data
+
+            assert not any(a["id"] == "set_bitrate" for a in d.DRIVER_INFO["actions"])
+
+            with pytest.raises(RuntimeError, match="set_bitrate"):
+                await d.send_command("set_bitrate", {"mbps": 500})
         finally:
             await d._client.aclose()
 

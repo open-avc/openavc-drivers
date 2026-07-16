@@ -126,20 +126,27 @@ help:
 
 discovery:
   # Active fingerprint: the model-name query on TCP 8000 answers
-  # *MODELNAME=<model># — a deterministic, vendor-unique grammar. The
-  # extract skips the '?' of a command echo so the captured model is
-  # the real reply. Port 8000 is in the generic-port denylist, so no
-  # port_open hint; OUI + manufacturer alias let the projector surface
-  # from ARP/NetBIOS sweeps. BenQ models also answer PJLink on 4352 —
-  # the pjlink_class1 cross-vendor fingerprint demotes to this driver
-  # via the manufacturer alias.
+  # *MODELNAME=<model># — a deterministic, vendor-unique grammar.
+  # expect_regex must require the *reply* form (a real model value after
+  # '=', closed by '#') — NOT a bare '*modelname='. Port 8000 is a common
+  # control/echo port: an echoing line server (some AV controllers run a
+  # telnet control interface on 8000) echoes the sent "*modelname=?#" back
+  # verbatim, and a loose "\*modelname=" would match that echo and
+  # misidentify the device as a BenQ projector. Requiring [^?#] after '='
+  # rejects the query echo ("=?") and a genuine reply is still matched,
+  # including units that echo the query before answering. The extract below
+  # uses the same shape, so the match gate and the model extractor agree.
+  # Port 8000 is in the generic-port denylist, so no port_open hint; OUI +
+  # manufacturer alias let the projector surface from ARP/NetBIOS sweeps.
+  # BenQ models also answer PJLink on 4352 — the pjlink_class1 cross-vendor
+  # fingerprint demotes to this driver via the manufacturer alias.
   #   Refs:
   #     BenQ LK952 RS232 Command Control Installation Guide (LAN: TCP 8000)
   #     maclookup.app/vendors/benq-corporation (OUI 80:65:E9)
   tcp_probe:
     port: 8000
     send_ascii: "\r*modelname=?#\r"
-    expect_regex: '(?i:\*modelname=)'
+    expect_regex: '(?i:\*modelname=[^?#][^#]*#)'
     extract_manufacturer: "BenQ"
     extract:
       model:

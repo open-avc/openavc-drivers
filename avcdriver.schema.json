@@ -2244,6 +2244,11 @@
           "type": "boolean",
           "description": "Wrap the connection in TLS (no cert verification) before send/read, for an HTTPS-only device. Default false. tcp_probe only."
         },
+        "cert_subject": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Regex matched against the peer TLS certificate's subject (RFC4514 string + SAN DNS names) to identify a device by its self-signed cert's own name, e.g. 'CN=DM-NVX-'. Requires tls: true. A probe with only cert_subject (no send/expect) matches on the cert alone; `extract` rules also run against the subject. Platform >= 0.24.0."
+        },
         "timeout_ms": {
           "type": "integer",
           "minimum": 1,

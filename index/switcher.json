@@ -454,7 +454,7 @@
         "cresnext"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "encoder",
@@ -485,8 +485,13 @@
         "tcp_probe": {
           "port": 443,
           "tls": true,
-          "send_ascii": "GET / HTTP/1.1\r\nHost: openavc\r\nConnection: close\r\n\r\n",
-          "expect_regex": "Crestron Webserver",
+          "cert_subject": "CN=DM-NVX-",
+          "extract": {
+            "model": {
+              "regex": "DM-NVX-[A-Z0-9]+",
+              "group": 0
+            }
+          },
           "timeout_ms": 2500
         },
         "oui": [

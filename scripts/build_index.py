@@ -389,7 +389,7 @@ _KNOWN_DISCOVERY_KEYS: frozenset[str] = frozenset({
 _KNOWN_PROBE_KEYS: frozenset[str] = frozenset({
     "port", "send_hex", "send_ascii",
     "expect", "expect_regex", "expect_hex",
-    "cross_vendor", "timeout_ms", "tls",
+    "cross_vendor", "timeout_ms", "tls", "cert_subject",
     "extract", "extract_manufacturer",
 })
 

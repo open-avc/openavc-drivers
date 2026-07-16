@@ -138,6 +138,13 @@ discovery:
     port: 4352
     tls: false                          # optional — TLS-wrap before send/read
                                         # (HTTPS-only device). Default false.
+    cert_subject: "CN=DM-NVX-"          # optional (tls only) — regex on the peer
+                                        # cert's subject (RFC4514 + SAN). Identifies
+                                        # gear by its self-signed cert's own name,
+                                        # e.g. Crestron NVX. A probe with ONLY
+                                        # cert_subject (no send/expect) matches on
+                                        # the cert alone; `extract` runs on it too
+                                        # (pull the model from the CN). Platform >=0.24.0
     send_ascii: "%1POWR ?\r"           # exactly one of: send_ascii, send_hex,
                                         # (omit for connect-only banner read)
     expect: "%1POWR=[01]"               # exactly one of: expect (substring),

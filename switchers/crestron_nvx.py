@@ -66,7 +66,7 @@ class CrestronNVXDriver(BaseDriver):
         "category": "switcher",
         "version": "2.0.0",
         "author": "OpenAVC",
-        "min_platform_version": "0.22.0",
+        "min_platform_version": "0.24.0",
         "description": (
             "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext "
             "REST API. One driver adapts to the endpoint's role: transmit stream "
@@ -82,20 +82,18 @@ class CrestronNVXDriver(BaseDriver):
         "protocols": ["cresnext"],
         "ports": [443],
         "discovery": {
-            # NVX endpoints are identified pre-auth on 443: the TLS web server
-            # answers with `Server: Crestron Webserver` and (fresh units) a
-            # redirect to the first-boot Create-User page. That plus the
-            # Crestron OUI is a strong signal — no credentials required, and it
-            # does NOT depend on the CIP probe (NVX video endpoints don't answer
-            # UDP 41794 / TCP 1688; verified on the E20 + D200).
+            # NVX endpoints don't advertise themselves at all (no mDNS/SSDP, and
+            # they answer neither the unicast nor the broadcast CIP probe —
+            # verified on the E20 + D200). But they DO present a self-signed TLS
+            # cert on 443 whose subject IS their identity: CN=DM-NVX-<model>-<mac>.
+            # Matching that cert identifies an NVX specifically (not just "some
+            # Crestron web device") and surfaces the exact model, all pre-auth.
             "tcp_probe": {
                 "port": 443,
                 "tls": True,
-                "send_ascii": (
-                    "GET / HTTP/1.1\r\nHost: openavc\r\n"
-                    "Connection: close\r\n\r\n"
-                ),
-                "expect_regex": "Crestron Webserver",
+                "cert_subject": r"CN=DM-NVX-",
+                # Pull the model out of the CN for the scan (E20, D200, 350, ...).
+                "extract": {"model": {"regex": r"DM-NVX-[A-Z0-9]+", "group": 0}},
                 "timeout_ms": 2500,
             },
             # OUIs seen on modern NVX gear (c4:42:68 is the bench E20/D200 block).

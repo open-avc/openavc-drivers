@@ -2,23 +2,11 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 3,
+    "total_devices": 2,
     "shards": null,
     "category": "utility"
   },
   "devices": [
-    {
-      "manufacturer": "Crestron",
-      "model": "Any Crestron device that answers the CIP probe (3-Series, MC4, CP3, RMC4, DIN-AP, TSW, DM NVX)",
-      "category": "utility",
-      "drivers": [
-        {
-          "id": "crestron_cip",
-          "confidence": "untested",
-          "notes": "Discovery-only entry. For control, use the matching specific Crestron driver (e.g. crestron_nvx for AV-over-IP endpoints).\n"
-        }
-      ]
-    },
     {
       "manufacturer": "NETGEAR",
       "model": "M4250 series",

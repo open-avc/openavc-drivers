@@ -67,6 +67,7 @@ import asyncio
 from typing import Any, Optional
 
 from server.drivers.base import BaseDriver
+from server.transport.binary_helpers import checksum_xor
 from server.transport.frame_parsers import CallableFrameParser
 from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
@@ -207,10 +208,7 @@ def _build_packet(monitor_id: int, msg_type: bytes, message: bytes) -> bytes:
         + f"{len(message):02X}".encode("ascii")
     )
     body = header + message
-    bcc = 0
-    for b in body:
-        bcc ^= b
-    return bytes([SOH]) + body + bytes([bcc]) + b"\r"
+    return bytes([SOH]) + body + bytes([checksum_xor(body)]) + b"\r"
 
 
 def _hex_word(value: int) -> bytes:
@@ -378,7 +376,7 @@ class SharpNECDisplayDriver(BaseDriver):
         "name": "Sharp/NEC Display (External Control)",
         "manufacturer": "Sharp NEC",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # Static integer child entities + child-prop cloud tiers (0.13.0);
         # value-picker hints on child vars ship later but degrade gracefully.
         "min_platform_version": "0.13.0",
@@ -986,10 +984,7 @@ class SharpNECDisplayDriver(BaseDriver):
         if len(data) < 9 or data[0] != SOH:
             return None
         # Verify the BCC: XOR of everything after SOH except the BCC.
-        bcc = 0
-        for b in data[1:-1]:
-            bcc ^= b
-        if bcc != data[-1]:
+        if checksum_xor(data[1:-1]) != data[-1]:
             log.warning(f"[{self.device_id}] Bad check code in packet: {data!r}")
             return None
 

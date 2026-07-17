@@ -68,7 +68,10 @@ DRIVER_CATEGORIES = (
 # "ssh" and "mqtt" are Python-driver-only transports (the platform SSH CLI and
 # MQTT pub/sub transports). Declarative .avcdriver/YAML drivers can't drive
 # either, so the YAML schema (avcdriver.schema.json) intentionally omits them.
-DRIVER_TRANSPORTS = ("tcp", "udp", "http", "osc", "serial", "ssh", "mqtt")
+# "bridge" IS a YAML transport: a device with no address of its own that emits
+# through a live bridge instance (an IR code-set device on an emitter port) —
+# it opens no socket and routes commands via the bridge.
+DRIVER_TRANSPORTS = ("tcp", "udp", "http", "osc", "serial", "bridge", "ssh", "mqtt")
 CONFIDENCE_VALUES = ("full", "partial", "untested")
 
 DRIVER_DIRS = (
@@ -420,13 +423,16 @@ def _validate_json_schema(
 
 
 def _python_driver_schema(base_schema: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of the avcdriver schema that also allows Python-only transports.
+    """Return a copy of the avcdriver schema widened for Python-only features.
 
     avcdriver.schema.json describes the YAML (.avcdriver) format, whose
     transport enum deliberately omits ssh and mqtt: a declarative driver can't
     drive an SSH CLI session or MQTT pub/sub. Python drivers can, and the
     runtime allows it, so they are validated against the same schema with ssh
-    and mqtt added to the transport enum. Everything else stays identical, so a
+    and mqtt added to the transport enum. Likewise, kind:"setup" actions
+    (offline provisioning wizards backed by a run_setup_action handler) are
+    Python-only — the platform rejects them on YAML drivers — so "setup" is
+    added to the action kind enum here. Everything else stays identical, so a
     Python driver's metadata is checked just as strictly as a YAML driver's.
     """
     schema = copy.deepcopy(base_schema)
@@ -434,6 +440,15 @@ def _python_driver_schema(base_schema: dict[str, Any]) -> dict[str, Any]:
     enum = transport.get("enum")
     if isinstance(enum, list):
         transport["enum"] = [*enum, *(t for t in ("ssh", "mqtt") if t not in enum)]
+    kind = (
+        schema.get("$defs", {})
+        .get("actionEntry", {})
+        .get("properties", {})
+        .get("kind", {})
+    )
+    kind_enum = kind.get("enum")
+    if isinstance(kind_enum, list) and "setup" not in kind_enum:
+        kind["enum"] = [*kind_enum, "setup"]
     return schema
 
 
@@ -962,9 +977,10 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
     only), tcp_listener (port/frame_parser/register/unregister), or
     http_listener (no keys of its own — the platform assigns the callback URL
     and the registration command references {push_callback_url});
-    {config_field} templates must reference fields declared in config_schema
-    or default_config. Catching this at catalog-build time keeps a driver that
-    would fail to load out of the index.
+    {config_field} templates must reference fields declared in config_schema,
+    default_config, or config_derived (whose keys resolve into config at
+    runtime). Catching this at catalog-build time keeps a driver that would
+    fail to load out of the index.
     """
     errors: list[str] = []
     push = data.get("push")
@@ -974,8 +990,10 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
         errors.append(f"{file}: push must be a mapping")
         return errors
 
+    # config_derived names are resolved into config at runtime, so they are
+    # valid {config_field} substitution sources too (its keys are the names).
     config_fields: set[str] = set()
-    for src_key in ("config_schema", "default_config"):
+    for src_key in ("config_schema", "default_config", "config_derived"):
         src = data.get(src_key)
         if isinstance(src, dict):
             config_fields.update(src)
@@ -1018,7 +1036,8 @@ def _validate_push_block(file: str, data: dict[str, Any]) -> list[str]:
             if field not in config_fields:
                 errors.append(
                     f"{file}: push.{where} references config field '{field}' "
-                    f"not declared in config_schema or default_config"
+                    f"not declared in config_schema, default_config, or "
+                    f"config_derived"
                 )
 
     if ptype == "multicast":
@@ -1275,7 +1294,7 @@ def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
                 errors.append(f"{where}.instances must be a mapping")
                 continue
             config_fields: set[str] = set()
-            for src in ("config_schema", "default_config"):
+            for src in ("config_schema", "default_config", "config_derived"):
                 block = data.get(src)
                 if isinstance(block, dict):
                     config_fields.update(block.keys())
@@ -1356,7 +1375,8 @@ def _validate_child_entity_types(file: str, data: dict[str, Any]) -> list[str]:
                 elif field not in config_fields:
                     errors.append(
                         f"{where}.instances: {src_key} '{field}' is not a "
-                        f"declared config field (config_schema / default_config)"
+                        f"declared config field (config_schema / "
+                        f"default_config / config_derived)"
                     )
                 if src_key == "count_from" and id_type == "string":
                     errors.append(
@@ -1664,7 +1684,7 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
                     _check_ref(f"{where}: state '{prop}'", expr)
 
     query_config_fields: set[str] = set()
-    for _src in ("config_schema", "default_config"):
+    for _src in ("config_schema", "default_config", "config_derived"):
         _block = data.get(_src)
         if isinstance(_block, dict):
             query_config_fields.update(_block.keys())
@@ -1686,7 +1706,8 @@ def _validate_child_routing(file: str, data: dict[str, Any]) -> list[str]:
                 elif when not in query_config_fields:
                     errors.append(
                         f"{file}: {name}[{i}]: 'when' field '{when}' is not a "
-                        f"declared config field (config_schema / default_config)"
+                        f"declared config field (config_schema / "
+                        f"default_config / config_derived)"
                     )
             if "each_child" not in q:
                 if allow_osc_dict and "address" in q:
@@ -1742,6 +1763,41 @@ def _validate_command_framing(file: str, data: dict[str, Any]) -> list[str]:
         val = data.get(key)
         if val is not None and not isinstance(val, str):
             errors.append(f"{file}: {key} must be a string")
+    return errors
+
+
+def _validate_responses_compile(file: str, data: dict[str, Any]) -> list[str]:
+    """Check every `responses:` regex compiles, mirroring the platform loader.
+
+    The platform (driver_loader.validate_driver_definition) compiles each
+    response pattern raw and rejects the driver on re.error — a driver whose
+    pattern doesn't compile passes a catalog without this check, then gets
+    silently dropped at platform load. `{config_field}` placeholders are
+    substituted only at runtime; the platform compiles the raw pattern anyway
+    (Python's re treats `{name}` as literal text, not a quantifier), so raw
+    compilation here matches its verdict exactly. OSC entries (`address` key)
+    and json-body rules carry no regex, so they are skipped, as is anything
+    that isn't a non-empty pattern string (shape errors are reported by other
+    validators).
+    """
+    errors: list[str] = []
+    responses = data.get("responses")
+    if not isinstance(responses, list):
+        return errors
+    for i, entry in enumerate(responses):
+        if not isinstance(entry, dict):
+            continue
+        if "address" in entry or entry.get("json"):
+            continue
+        pattern = entry.get("match") or entry.get("pattern")
+        if not isinstance(pattern, str) or not pattern:
+            continue
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            errors.append(
+                f"{file}: responses[{i}]: pattern does not compile: {e}"
+            )
     return errors
 
 
@@ -2776,6 +2832,7 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(_validate_child_routing(rel, data))
         errors.extend(_validate_device_settings(rel, data))
         errors.extend(_validate_command_framing(rel, data))
+        errors.extend(_validate_responses_compile(rel, data))
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,

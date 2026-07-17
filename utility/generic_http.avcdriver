@@ -1,17 +1,12 @@
 # Generic HTTP/REST Device Driver
-# Use this as a template for any device that exposes a REST API.
 #
-# Many modern AV devices have HTTP APIs:
-#   - Panasonic PTZ cameras (CGI-based control)
-#   - Sony Bravia displays (REST API)
-#   - Crestron DM NVX endpoints
-#   - Barco ClickShare
-#   - Zoom Rooms (local REST API)
-#   - QSC Q-SYS (HTTP API)
-#   - Shure MXA microphones
-#   - Biamp Tesira (REST alongside serial)
+# Control any device with an HTTP/REST API — no driver file needed. Add the
+# device, then define its commands (method / path / body) and responses on the
+# device page (Commands & Responses). Many modern AV devices have HTTP APIs:
+# Panasonic PTZ cameras, Sony Bravia displays, Crestron DM NVX, Barco
+# ClickShare, Zoom Rooms, QSC Q-SYS, Shure MXA, Biamp Tesira (REST).
 #
-# Commands use method/path/body instead of raw protocol strings:
+# HTTP commands use method/path/body instead of raw protocol strings:
 #   method: GET, POST, PUT, DELETE (default: GET)
 #   path:   URL path (e.g., "/api/power")
 #   body:   JSON body string (optional, for POST/PUT)
@@ -21,12 +16,12 @@ id: generic_http
 name: Generic HTTP/REST Device
 manufacturer: Generic
 category: utility
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 description: >
-  Template driver for HTTP/REST-controlled devices. Supports JSON APIs
-  with configurable authentication (none, basic, bearer, API key, digest)
-  and optional HTTPS with self-signed certificate support.
+  Control any HTTP/REST device. Define commands and responses on the device
+  page — no driver file needed. Supports configurable authentication (none,
+  basic, bearer, API key, digest) and optional HTTPS with self-signed certs.
 
 source_url: https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md
 tags: [template, rest, custom]
@@ -34,26 +29,30 @@ verified: false
 
 transport: http
 
+# Enables the device-page Commands & Responses editor (commands / responses /
+# state_variables are read from the device config and merged into this driver).
+inline_protocol: true
+
 help:
   overview: >
-    Template driver for controlling any device with an HTTP or REST API.
-    Install this driver and add your own commands, state variables, and
-    polling using the Driver Builder. Many modern AV devices expose
-    REST APIs alongside traditional serial or TCP protocols.
+    Control any device with an HTTP or REST API. Add the device, then define
+    its commands, responses, and state variables right on the device page
+    (Commands & Responses) — no driver file needed. Many modern AV devices
+    expose REST APIs alongside traditional serial or TCP protocols.
   setup: >
     1. Enter the device's IP address and HTTP port.
     2. Configure authentication if the device requires it (basic, bearer,
        API key, or digest).
-    3. Enable HTTPS if the device uses TLS. Disable certificate verification
-       for self-signed certs (common on AV equipment).
-    4. Use the Driver Builder to add commands and state variables for
-       your specific device.
+    3. Enable HTTPS if the device uses TLS. Turn off certificate verification
+       only for self-signed certs (common on AV equipment).
+    4. Open Commands & Responses on the device page to add commands, status
+       polling, and state variables for your specific device.
 
 default_config:
   host: ""
   port: 80
   ssl: false
-  verify_ssl: false            # AV devices almost always use self-signed certs
+  verify_ssl: true             # secure by default; turn off for self-signed certs
   auth_type: "none"            # none, basic, digest, bearer, api_key
   username: ""
   password: ""
@@ -81,9 +80,9 @@ config_schema:
     description: "Enable HTTPS (TLS/SSL)"
   verify_ssl:
     type: boolean
-    default: false
+    default: true
     label: Verify SSL Certificate
-    description: "Set to false for self-signed certificates (common on AV devices)"
+    description: "On by default. Turn off for self-signed certificates (common on AV devices)"
   auth_type:
     type: enum
     values: ["none", "basic", "digest", "bearer", "api_key"]
@@ -121,6 +120,13 @@ config_schema:
     type: number
     default: 10.0
     label: Request Timeout (sec)
+  poll_interval:
+    type: integer
+    default: 0
+    label: Poll Interval (sec)
+    description: >
+      How often to send the commands you mark "Poll" in Commands & Responses,
+      to keep status values live. 0 disables polling.
 
 # No built-in state variables — user adds device-specific ones
 state_variables: {}

@@ -12,10 +12,10 @@
       "name": "Generic HTTP/REST Device",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "http",
-      "description": "Template driver for HTTP/REST-controlled devices. Supports JSON APIs with configurable authentication (none, basic, bearer, API key, digest) and optional HTTPS with self-signed certificate support.\n",
+      "description": "Control any HTTP/REST device. Define commands and responses on the device page \u2014 no driver file needed. Supports configurable authentication (none, basic, bearer, API key, digest) and optional HTTPS with self-signed certs.\n",
       "source_url": "https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md",
       "file": "utility/generic_http.avcdriver",
       "format": "avcdriver",
@@ -25,8 +25,8 @@
         "custom"
       ],
       "help": {
-        "overview": "Template driver for controlling any device with an HTTP or REST API. Install this driver and add your own commands, state variables, and polling using the Driver Builder. Many modern AV devices expose REST APIs alongside traditional serial or TCP protocols.\n",
-        "setup": "1. Enter the device's IP address and HTTP port. 2. Configure authentication if the device requires it (basic, bearer,\n   API key, or digest).\n3. Enable HTTPS if the device uses TLS. Disable certificate verification\n   for self-signed certs (common on AV equipment).\n4. Use the Driver Builder to add commands and state variables for\n   your specific device.\n"
+        "overview": "Control any device with an HTTP or REST API. Add the device, then define its commands, responses, and state variables right on the device page (Commands & Responses) \u2014 no driver file needed. Many modern AV devices expose REST APIs alongside traditional serial or TCP protocols.\n",
+        "setup": "1. Enter the device's IP address and HTTP port. 2. Configure authentication if the device requires it (basic, bearer,\n   API key, or digest).\n3. Enable HTTPS if the device uses TLS. Turn off certificate verification\n   only for self-signed certs (common on AV equipment).\n4. Open Commands & Responses on the device page to add commands, status\n   polling, and state variables for your specific device.\n"
       }
     },
     {

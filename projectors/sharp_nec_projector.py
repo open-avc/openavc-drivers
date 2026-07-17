@@ -38,6 +38,7 @@ import asyncio
 from typing import Any, Optional
 
 from server.drivers.base import BaseDriver
+from server.transport.binary_helpers import checksum_sum
 from server.transport.frame_parsers import CallableFrameParser, FrameParser
 from server.utils.logger import get_logger
 
@@ -198,13 +199,9 @@ GAIN_CONTRAST = 0x01
 
 # --- Protocol helpers ---
 
-def _checksum(data: bytes) -> int:
-    return sum(data) & 0xFF
-
-
 def _build_packet(header: int, cmd: int, data: bytes = b"") -> bytes:
     body = bytes([header, cmd, 0x00, 0x00, len(data)]) + data
-    return body + bytes([_checksum(body)])
+    return body + bytes([checksum_sum(body)])
 
 
 def _parse_nec_frame(buffer: bytes) -> tuple[bytes | None, bytes]:
@@ -225,7 +222,7 @@ def _parse_nec_frame(buffer: bytes) -> tuple[bytes | None, bytes]:
     if len(buffer) < total_len:
         return None, buffer
     frame = buffer[: total_len - 1]
-    expected_cs = _checksum(frame)
+    expected_cs = checksum_sum(frame)
     actual_cs = buffer[total_len - 1]
     if expected_cs != actual_cs:
         log.warning(
@@ -244,7 +241,7 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.5.0",
+        "version": "2.5.1",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "

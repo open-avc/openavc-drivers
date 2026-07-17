@@ -219,6 +219,16 @@ def _load(name: str, path: Path) -> ModuleType:
     base = ModuleType("server.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     sys.modules["server.drivers.base"] = base
+
+    def _xor(data: bytes) -> int:
+        result = 0
+        for b in data:
+            result ^= b
+        return result
+
+    binary_helpers = ModuleType("server.transport.binary_helpers")
+    binary_helpers.checksum_xor = _xor
+    sys.modules["server.transport.binary_helpers"] = binary_helpers
     tcp = ModuleType("server.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
     sys.modules["server.transport.tcp"] = tcp
@@ -278,7 +288,7 @@ def _child(driver, monitor_id):
 
 def test_version_and_platform_gate():
     info = DRV.SharpNECDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.0.0"
+    assert info["version"] == "1.0.1"
     assert info["min_platform_version"] == "0.13.0"
     assert info["ports"] == [7142]
     assert info["manufacturer"] == "Sharp NEC"

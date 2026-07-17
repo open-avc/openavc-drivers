@@ -186,6 +186,9 @@ def _load(name: str, path: Path) -> ModuleType:
     base = ModuleType("server.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     sys.modules["server.drivers.base"] = base
+    binary_helpers = ModuleType("server.transport.binary_helpers")
+    binary_helpers.checksum_sum = lambda data, mask=0xFF: sum(data) & mask
+    sys.modules["server.transport.binary_helpers"] = binary_helpers
     fp = ModuleType("server.transport.frame_parsers")
     fp.CallableFrameParser = _CallableFrameParser
     fp.FrameParser = _FrameParser
@@ -233,7 +236,7 @@ async def _make_pair(sim_state=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SharpNECProjectorDriver.DRIVER_INFO["version"] == "2.5.0"
+    assert DRV.SharpNECProjectorDriver.DRIVER_INFO["version"] == "2.5.1"
 
 
 def test_device_settings_declared():

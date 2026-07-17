@@ -369,7 +369,22 @@
       "$ref": "#/$defs/pushBlock"
     },
     "frame_parser": {
-      "$ref": "#/$defs/frameParser"
+      "allOf": [
+        {
+          "$ref": "#/$defs/frameParser"
+        },
+        {
+          "properties": {
+            "type": {
+              "enum": [
+                "length_prefix",
+                "fixed_length"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Framing for the control transport's inbound byte stream. Top level accepts length_prefix / fixed_length only; struct_frame is push-only (push.frame_parser, for tcp_listener dial-back frames)."
     },
     "send_frame": {
       "$ref": "#/$defs/sendFrame"

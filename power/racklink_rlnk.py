@@ -37,6 +37,7 @@ import asyncio
 from typing import Any
 
 from server.drivers.base import BaseDriver, ConnectionFaultError
+from server.transport.binary_helpers import checksum_sum
 from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
@@ -187,11 +188,6 @@ CHILD_ENTITY_TYPES = {
 }
 
 
-def _checksum(unescaped: bytes) -> int:
-    """Sum of every byte from header through end of data envelope, low 7 bits."""
-    return sum(unescaped) & 0x7F
-
-
 def _escape(payload: bytes) -> bytes:
     """Insert 0xFD before each protected byte and invert that byte's bits."""
     out = bytearray()
@@ -229,8 +225,9 @@ def build_frame(envelope: bytes) -> bytes:
     length = len(envelope)
     if length < 3 or length > 250:
         raise ValueError(f"Envelope length {length} outside 3..250")
+    # Checksum is the byte sum from header through end of envelope, low 7 bits.
     unescaped_for_checksum = bytes([HEADER, length]) + envelope
-    cksum = _checksum(unescaped_for_checksum)
+    cksum = checksum_sum(unescaped_for_checksum, mask=0x7F)
     body = _escape(envelope)
     cksum_bytes = _escape(bytes([cksum]))
     return bytes([HEADER, length]) + body + cksum_bytes + bytes([TAIL])
@@ -244,7 +241,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.2",
+        "version": "1.3.3",
         # Typed connection faults (ConnectionFaultError) need the 0.22.0 runtime.
         "min_platform_version": "0.22.0",
         "author": "OpenAVC",
@@ -917,7 +914,7 @@ class RackLinkRLNKDriver(BaseDriver):
             return
         envelope = body[1 : 1 + length]
         cksum = body[1 + length]
-        expected = _checksum(bytes([HEADER, length]) + envelope)
+        expected = checksum_sum(bytes([HEADER, length]) + envelope, mask=0x7F)
         if cksum != expected:
             log.warning(
                 f"[{self.device_id}] Bad checksum: got 0x{cksum:02x}, "

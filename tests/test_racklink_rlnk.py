@@ -291,6 +291,9 @@ def _load(name: str, path: Path) -> ModuleType:
     base.BaseDriver = _FakeBaseDriver
     base.ConnectionFaultError = _FakeConnectionFaultError
     sys.modules["server.drivers.base"] = base
+    binary_helpers = ModuleType("server.transport.binary_helpers")
+    binary_helpers.checksum_sum = lambda data, mask=0xFF: sum(data) & mask
+    sys.modules["server.transport.binary_helpers"] = binary_helpers
     tcp = ModuleType("server.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
     sys.modules["server.transport.tcp"] = tcp
@@ -347,7 +350,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.2"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.3"
 
 
 def test_child_entity_types_declared():

@@ -28,6 +28,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
+      # The validation rules this repo runs are generated copies of the
+      # platform's own (scripts/_vendor/). A mismatch means the platform's
+      # contract moved: regenerate with scripts/vendor_platform_contract.py
+      # and commit the result.
+      - name: Vendored platform contract is in sync
+        run: python scripts/vendor_platform_contract.py --check
+
       - name: Run driver, simulator, and build_index tests
         run: python -m pytest tests/ -v
 

@@ -2348,6 +2348,7 @@ openavc-drivers/
 ├── utility/             # Wake-on-LAN, relays, bridges
 ├── docs/                # Contributing guide, writing simulators
 ├── scripts/             # Build + validation scripts (build_index.py)
+│   └── _vendor/         # Generated copies of the platform's validation rules — never edit
 ├── index/               # Generated per-category index files
 ├── tests/               # Driver tests
 ├── index.json           # Generated driver catalog
@@ -2385,6 +2386,8 @@ openavc-drivers/
 **`index.json` and `devices.json` are generated artifacts owned by CI. Do NOT edit, regenerate, or commit them.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file, and CI rebuilds and commits them automatically when a driver merges to `main`. A pull request should contain only the driver file (and a `manufacturers.json` entry if the manufacturer is new); CI rejects pull requests that modify the generated catalog.
 
 Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. To validate locally, run `python scripts/build_index.py --check` (validates without writing).
+
+**`scripts/_vendor/` is also generated — never edit it.** It holds copies of the platform's own driver-validation rules, produced by `scripts/vendor_platform_contract.py` from the OpenAVC platform repo, so a driver that passes catalog review is exactly a driver the platform will load. CI fails when the copies drift from the platform's current files; only a maintainer regenerating after a platform contract change should ever touch that directory.
 
 ### Required fields
 

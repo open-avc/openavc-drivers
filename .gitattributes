@@ -6,3 +6,9 @@ index.json linguist-generated=true
 devices.json linguist-generated=true
 index/** linguist-generated=true
 devices/** linguist-generated=true
+
+# Generated copies of the platform's driver-contract modules (see
+# scripts/vendor_platform_contract.py; CI fails when they drift from the
+# platform repo). LF-normalized so the byte-for-byte sync check behaves
+# the same on every platform.
+scripts/_vendor/** text eol=lf linguist-generated=true

@@ -743,85 +743,108 @@ def test_devices_extra_collision_with_driver_rejected(tmp_path: Path) -> None:
     assert "Model-X" in err
 
 
-# --- frame_parser validation (mirrors the runtime loader's limits) ----------
+# --- platform validation rules (the vendored copy build_index runs) ---------
+# Rejection behavior is pinned case-by-case in test_vendored_contract.py;
+# these spot-check the wiring plus the valid shapes the rejection corpus
+# can't cover.
+
+
+def _platform_errors(overrides: dict) -> list[str]:
+    base = {"id": "acme_widget", "name": "Acme Widget", "transport": "tcp"}
+    base.update(overrides)
+    return build_index.validate_driver_definition(base)
 
 
 def test_frame_parser_valid_header_sizes() -> None:
     for size in (1, 2, 4):
         data = {"frame_parser": {"type": "length_prefix", "header_size": size}}
-        assert build_index._validate_frame_parser_block("x.avcdriver", data) == []
+        assert _platform_errors(data) == []
 
 
 def test_frame_parser_bad_header_size() -> None:
     for bad in (3, 8, 0):
         data = {"frame_parser": {"type": "length_prefix", "header_size": bad}}
-        errs = build_index._validate_frame_parser_block("x.avcdriver", data)
-        assert any("header_size" in e for e in errs), bad
+        assert any("header_size" in e for e in _platform_errors(data)), bad
 
 
 def test_frame_parser_negative_offset_ok() -> None:
     data = {"frame_parser": {"type": "length_prefix", "header_size": 2,
                              "header_offset": -2}}
-    assert build_index._validate_frame_parser_block("x.avcdriver", data) == []
+    assert _platform_errors(data) == []
 
 
 def test_frame_parser_bad_offset_type() -> None:
     data = {"frame_parser": {"type": "length_prefix", "header_offset": "two"}}
-    errs = build_index._validate_frame_parser_block("x.avcdriver", data)
-    assert any("header_offset" in e for e in errs)
+    assert any("header_offset" in e for e in _platform_errors(data))
 
 
 def test_frame_parser_fixed_length() -> None:
     ok = {"frame_parser": {"type": "fixed_length", "length": 8}}
-    assert build_index._validate_frame_parser_block("x.avcdriver", ok) == []
+    assert _platform_errors(ok) == []
     bad = {"frame_parser": {"type": "fixed_length", "length": 0}}
-    assert any("length" in e for e in build_index._validate_frame_parser_block("x.avcdriver", bad))
+    assert any("length" in e for e in _platform_errors(bad))
 
 
 def test_frame_parser_unknown_type() -> None:
     data = {"frame_parser": {"type": "crc16"}}
-    errs = build_index._validate_frame_parser_block("x.avcdriver", data)
+    errs = _platform_errors(data)
     assert any("crc16" in e or "type" in e for e in errs)
 
 
 def test_frame_parser_absent_is_ok() -> None:
-    assert build_index._validate_frame_parser_block("x.avcdriver", {}) == []
-
-
-# --- child_entity_types validation (mirrors the runtime loader's key rules) --
+    assert _platform_errors({}) == []
 
 
 def test_child_entity_types_valid() -> None:
     data = {"child_entity_types": {"encoder": {}, "decoder": {}, "zone_1": {}}}
-    assert build_index._validate_child_entity_types("x.avcdriver", data) == []
-
-
-def test_child_entity_types_absent_is_ok() -> None:
-    assert build_index._validate_child_entity_types("x.avcdriver", {}) == []
+    assert _platform_errors(data) == []
 
 
 def test_child_entity_types_must_be_mapping() -> None:
     data = {"child_entity_types": ["encoder", "decoder"]}
-    errs = build_index._validate_child_entity_types("x.avcdriver", data)
-    assert any("mapping" in e for e in errs)
+    assert any("mapping" in e for e in _platform_errors(data))
 
 
 def test_child_entity_types_rejects_dots() -> None:
     # A dot would corrupt device.<id>.<child_type>.<local_id>.<prop> keys.
     data = {"child_entity_types": {"enc.oder": {}}}
-    errs = build_index._validate_child_entity_types("x.avcdriver", data)
-    assert any("dots" in e for e in errs)
+    assert any("dots" in e for e in _platform_errors(data))
 
 
 def test_child_entity_types_rejects_glob() -> None:
     # Glob metachars break the fnmatch dispatch routing per-child state changes.
     for name in ("enc*", "dec?", "zone["):
         data = {"child_entity_types": {name: {}}}
-        errs = build_index._validate_child_entity_types("x.avcdriver", data)
-        assert any("glob" in e for e in errs), name
+        assert any("glob" in e for e in _platform_errors(data)), name
 
 
 def test_child_entity_types_rejects_empty_name() -> None:
     data = {"child_entity_types": {"": {}}}
-    errs = build_index._validate_child_entity_types("x.avcdriver", data)
-    assert any("non-empty" in e for e in errs)
+    assert any("non-empty" in e for e in _platform_errors(data))
+
+
+def test_invalid_yaml_driver_fails_check_with_platform_message(tmp_path: Path) -> None:
+    # End-to-end: a YAML driver the platform loader would reject must fail
+    # the catalog check with the same rule's message, prefixed by the file.
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"polling": {"interval": 5, "queries": ["PWR?\r"]}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc != 0
+    assert "audio/test_driver.avcdriver" in err
+    assert "polling.interval" in err
+
+
+def test_python_driver_index_fields_only_skips_platform_rules(tmp_path: Path) -> None:
+    # Python drivers contribute only index fields to the catalog; the
+    # platform validates their full DRIVER_INFO at load. A Python-only
+    # capability in DRIVER_INFO must not trip the YAML rules here.
+    _write_manufacturers(tmp_path)
+    _write_python_driver(
+        tmp_path,
+        info_overrides={"transport": "ssh"},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err

@@ -21,7 +21,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import argparse
 import ast
-import copy
 import json
 import re
 import sys
@@ -47,7 +46,16 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 from _vendor.avcdriver_semantic import validate_driver_definition  # noqa: E402
-from _vendor.spec import PYTHON_ONLY_TRANSPORTS, YAML_TRANSPORTS  # noqa: E402
+from _vendor.spec import (  # noqa: E402
+    CATEGORIES,
+    CONFIDENCE_LEVELS,
+    DRIVER_ID_PATTERN,
+    PYTHON_ONLY_TRANSPORTS,
+    SEMVER_PATTERN,
+    TAG_PATTERN,
+    URL_PATTERN,
+    YAML_TRANSPORTS,
+)
 
 try:
     from jsonschema_rs import validator_for as jsonschema_validator_for
@@ -73,26 +81,26 @@ else:
 GENERATOR_VERSION = "1.0.0"
 SCHEMA_VERSION = "1"
 
-DRIVER_CATEGORIES = (
-    "projector", "display", "switcher", "audio", "camera",
-    "video", "streaming", "lighting", "power", "utility",
-)
-# All transports a catalog driver may declare, straight from the platform's
-# contract tables: the YAML (.avcdriver) transports plus the Python-driver-only
-# ones ("ssh"/"mqtt" need driver code the declarative runtime doesn't model,
-# so the YAML schema intentionally omits them).
+# Categories, transports, and confidence levels come straight from the
+# platform's vendored contract tables, so the catalog can't drift from the
+# platform. DRIVER_TRANSPORTS is the YAML (.avcdriver) transports plus the
+# Python-driver-only ones ("ssh"/"mqtt" need driver code the declarative
+# runtime doesn't model, so the YAML schema intentionally omits them).
+DRIVER_CATEGORIES = CATEGORIES
 DRIVER_TRANSPORTS = (*YAML_TRANSPORTS, *PYTHON_ONLY_TRANSPORTS)
-CONFIDENCE_VALUES = ("full", "partial", "untested")
+CONFIDENCE_VALUES = CONFIDENCE_LEVELS
 
 DRIVER_DIRS = (
     "audio", "cameras", "displays", "lighting", "power",
     "projectors", "streaming", "switchers", "utility", "video",
 )
 
-SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[\-+][\w.\-]+)?$")
-ID_RE = re.compile(r"^[a-z0-9_]+$")
-TAG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+# Shape patterns from the vendored contract tables (URL_PATTERN encodes
+# its case-insensitivity in character classes).
+SEMVER_RE = re.compile(SEMVER_PATTERN)
+ID_RE = re.compile(DRIVER_ID_PATTERN)
+TAG_RE = re.compile(TAG_PATTERN)
+URL_RE = re.compile(URL_PATTERN)
 
 
 # --- Pydantic models ---------------------------------------------------------
@@ -432,52 +440,26 @@ def _validate_json_schema(
     return errors
 
 
-def _python_driver_schema(base_schema: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of the avcdriver schema widened for Python-only features.
-
-    avcdriver.schema.json describes the YAML (.avcdriver) format, whose
-    transport enum deliberately omits ssh and mqtt: a declarative driver can't
-    drive an SSH CLI session or MQTT pub/sub. Python drivers can, and the
-    runtime allows it, so they are validated against the same schema with ssh
-    and mqtt added to the transport enum. Likewise, kind:"setup" actions
-    (offline provisioning wizards backed by a run_setup_action handler) are
-    Python-only — the platform rejects them on YAML drivers — so "setup" is
-    added to the action kind enum here. Everything else stays identical, so a
-    Python driver's metadata is checked just as strictly as a YAML driver's.
-    """
-    schema = copy.deepcopy(base_schema)
-    transport = schema.get("properties", {}).get("transport", {})
-    enum = transport.get("enum")
-    if isinstance(enum, list):
-        transport["enum"] = [*enum, *(t for t in ("ssh", "mqtt") if t not in enum)]
-    kind = (
-        schema.get("$defs", {})
-        .get("actionEntry", {})
-        .get("properties", {})
-        .get("kind", {})
-    )
-    kind_enum = kind.get("enum")
-    if isinstance(kind_enum, list) and "setup" not in kind_enum:
-        kind["enum"] = [*kind_enum, "setup"]
-    return schema
-
-
 def _validate_all_json_schemas(
     raw: list[tuple[Path, dict[str, Any]]],
     yaml_validator: JsonSchemaValidator,
-    python_validator: JsonSchemaValidator,
+    python_validator: "JsonSchemaValidator | None",
 ) -> list[str]:
     """Validate each driver_info against the JSON Schema for its format.
 
-    .avcdriver (YAML) drivers use the schema as published; .py (Python) drivers
-    use the variant from _python_driver_schema that also allows the ssh
-    transport.
+    .avcdriver (YAML) drivers use avcdriver.schema.json as published;
+    .py (Python) drivers use pythondriver.schema.json, the platform-generated
+    variant that also allows the Python-only features (ssh/mqtt transports,
+    kind "setup" actions). Python drivers are skipped when that variant is
+    unavailable.
 
     Returns a list of errors.
     """
     errors: list[str] = []
     for filepath, driver_info in raw:
         validator = python_validator if filepath.suffix == ".py" else yaml_validator
+        if validator is None:
+            continue
         errors.extend(_validate_json_schema(filepath.as_posix(), driver_info, validator))
     return errors
 
@@ -1493,9 +1475,28 @@ def main(argv: list[str] | None = None) -> int:
     if jsonschema_validator_for is not None and json_schema_path.is_file():
         json_schema = json.loads(json_schema_path.read_text(encoding="utf-8"))
         json_validator = jsonschema_validator_for(json_schema)
-        python_json_validator = jsonschema_validator_for(
-            _python_driver_schema(json_schema)
-        )
+        # Python drivers validate against the platform-generated variant
+        # that also allows the Python-only features (ssh/mqtt transports,
+        # kind "setup" actions). Both schema files are vendored from the
+        # platform repo side by side.
+        python_schema_path = json_schema_path.with_name("pythondriver.schema.json")
+        if python_schema_path.is_file():
+            python_json_validator = jsonschema_validator_for(
+                json.loads(python_schema_path.read_text(encoding="utf-8"))
+            )
+        else:
+            if args.check_json_schema:
+                print(
+                    f"ERROR: JSON Schema file not found at {python_schema_path}",
+                    file=sys.stderr,
+                )
+                return 1
+            print(
+                f"WARNING: JSON Schema file not found at {python_schema_path}, "
+                f"skipping schema validation for Python drivers.",
+                file=sys.stderr,
+            )
+            python_json_validator = None
     else:
         if args.check_json_schema:
             # If the user explicitly requested JSON Schema validation,
@@ -1544,7 +1545,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if json_schema is not None:
         assert json_validator is not None
-        assert python_json_validator is not None
         schema_errors = _validate_all_json_schemas(
             raw, json_validator, python_json_validator
         )

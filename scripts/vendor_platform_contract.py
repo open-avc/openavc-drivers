@@ -39,21 +39,26 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 VENDOR_DIR = REPO_ROOT / "scripts" / "_vendor"
 RAW_BASE = "https://raw.githubusercontent.com/open-avc/openavc/main/"
 
-# (platform path, vendored name, import rewrites applied exactly once each)
+# (platform path, target path relative to this repo's root, import
+# rewrites applied exactly once each). Most copies land in scripts/_vendor/;
+# the published JSON Schemas land at the repo root, where editors and the
+# contributing guide have always pointed. The platform generates the
+# schemas from its driver-contract registry (python -m
+# server.drivers.contract_gen); this repo byte-copies them.
 FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "server/drivers/spec.py",
-        "spec.py",
+        "scripts/_vendor/spec.py",
         (),
     ),
     (
         "server/utils/regex_safety.py",
-        "regex_safety.py",
+        "scripts/_vendor/regex_safety.py",
         (),
     ),
     (
         "server/drivers/avcdriver_semantic.py",
-        "avcdriver_semantic.py",
+        "scripts/_vendor/avcdriver_semantic.py",
         (
             ("from server.drivers.spec import (", "from .spec import ("),
             (
@@ -64,12 +69,22 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     ),
     (
         "tests/fixtures/driver_validation_cases.json",
-        "driver_validation_cases.json",
+        "scripts/_vendor/driver_validation_cases.json",
         (),
     ),
     (
         "tests/fixtures/driver_validation_messages.json",
-        "driver_validation_messages.json",
+        "scripts/_vendor/driver_validation_messages.json",
+        (),
+    ),
+    (
+        "server/drivers/avcdriver.schema.json",
+        "avcdriver.schema.json",
+        (),
+    ),
+    (
+        "server/drivers/pythondriver.schema.json",
+        "pythondriver.schema.json",
         (),
     ),
 )
@@ -136,9 +151,9 @@ def _fetch_upstream(source_path: str) -> bytes:
 
 
 def _expected_files(read) -> dict[str, str]:
-    expected = {"__init__.py": INIT_CONTENT}
-    for source_path, vendor_name, _ in FILES:
-        expected[vendor_name] = transform(source_path, read(source_path))
+    expected = {"scripts/_vendor/__init__.py": INIT_CONTENT}
+    for source_path, target_rel, _ in FILES:
+        expected[target_rel] = transform(source_path, read(source_path))
     return expected
 
 
@@ -146,19 +161,19 @@ def sync(openavc: Path) -> int:
     expected = _expected_files(lambda p: _read_local(openavc, p))
     VENDOR_DIR.mkdir(parents=True, exist_ok=True)
     changed = 0
-    for name, content in expected.items():
-        target = VENDOR_DIR / name
+    for target_rel, content in expected.items():
+        target = REPO_ROOT / target_rel
         current = (
             target.read_bytes().decode("utf-8").replace("\r\n", "\n")
             if target.is_file()
             else None
         )
         if current == content:
-            print(f"  unchanged  {target.relative_to(REPO_ROOT)}")
+            print(f"  unchanged  {target_rel}")
             continue
         with open(target, "w", encoding="utf-8", newline="\n") as f:
             f.write(content)
-        print(f"  wrote      {target.relative_to(REPO_ROOT)}")
+        print(f"  wrote      {target_rel}")
         changed += 1
     print(f"{changed} file(s) updated from {openavc}")
     return 0
@@ -167,10 +182,10 @@ def sync(openavc: Path) -> int:
 def check() -> int:
     expected = _expected_files(_fetch_upstream)
     problems: list[str] = []
-    for name, content in expected.items():
-        target = VENDOR_DIR / name
+    for target_rel, content in expected.items():
+        target = REPO_ROOT / target_rel
         if not target.is_file():
-            problems.append(f"{target.relative_to(REPO_ROOT)}: missing")
+            problems.append(f"{target_rel}: missing")
             continue
         committed = target.read_bytes().decode("utf-8").replace("\r\n", "\n")
         if committed != content:
@@ -178,18 +193,17 @@ def check() -> int:
                 difflib.unified_diff(
                     content.splitlines(keepends=True),
                     committed.splitlines(keepends=True),
-                    fromfile=f"platform:{name}",
-                    tofile=f"vendored:{name}",
+                    fromfile=f"platform:{target_rel}",
+                    tofile=f"vendored:{target_rel}",
                 )
             )
             problems.append(
-                f"{target.relative_to(REPO_ROOT)}: differs from the "
-                f"platform copy\n{diff}"
+                f"{target_rel}: differs from the platform copy\n{diff}"
             )
     if problems:
         print(
-            "FAILED: scripts/_vendor/ is out of sync with the OpenAVC "
-            "platform repo.\n"
+            "FAILED: the vendored platform-contract files are out of sync "
+            "with the OpenAVC platform repo.\n"
             "The platform (github.com/open-avc/openavc) is the source of "
             "truth for the\ndriver contract. Regenerate the vendored "
             "copies and commit the result:\n"
@@ -199,7 +213,7 @@ def check() -> int:
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
-    print(f"scripts/_vendor/ is in sync ({len(expected)} files).")
+    print(f"vendored platform contract is in sync ({len(expected)} files).")
     return 0
 
 

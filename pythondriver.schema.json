@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json",
-  "title": "OpenAVC Driver Definition (.avcdriver)",
-  "description": "The schema for OpenAVC .avcdriver device driver definitions. Use it for live validation and autocompletion in your editor while authoring drivers. The required fields and constraints match what the OpenAVC community driver catalog enforces. Loaded on its own, the OpenAVC platform requires only id, name, and transport; the remaining metadata fields (manufacturer, category, version, author, description, source_url) are required to publish a driver to the community catalog.",
+  "$id": "https://raw.githubusercontent.com/open-avc/openavc-drivers/main/pythondriver.schema.json",
+  "title": "OpenAVC Python Driver Metadata (DRIVER_INFO)",
+  "description": "The schema for the DRIVER_INFO metadata dict of an OpenAVC Python driver. Identical to the .avcdriver schema except where Python drivers can do more: the ssh and mqtt transports (driver-managed sessions the declarative runtime doesn't model) and kind \"setup\" actions (offline provisioning wizards backed by a run_setup_action handler). The community driver catalog validates extracted DRIVER_INFO dicts against it.",
   "type": "object",
   "required": [
     "id",
@@ -62,7 +62,9 @@
         "udp",
         "http",
         "osc",
-        "bridge"
+        "bridge",
+        "ssh",
+        "mqtt"
       ],
       "description": "Transport the driver uses to reach the device. Use \"bridge\" for a device that has no address of its own and emits through a live bridge instance (an IR device on an emitter port); it opens no socket and routes commands via the bridge."
     },
@@ -1151,6 +1153,7 @@
           "type": "string",
           "enum": [
             "command",
+            "setup",
             "link"
           ],
           "description": "'command' promotes a declared command (runs online via send_command). 'link' opens a URL (e.g. the device's web interface) in a new tab, client-side. Offline-capable 'setup' provisioning wizards require a Python driver with a run_setup_action() handler."

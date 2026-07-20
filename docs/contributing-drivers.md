@@ -272,7 +272,7 @@ To catch mistakes as you type, point your editor at the JSON Schema for the `.av
 # yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
 ```
 
-The schema is checked into the repository root as [`avcdriver.schema.json`](../avcdriver.schema.json). It covers the same rules CI enforces, so a file that validates cleanly against it is well on its way to passing `--check`.
+The schema is checked into the repository root as [`avcdriver.schema.json`](../avcdriver.schema.json), generated from the OpenAVC platform's driver contract so it always matches what the platform actually loads. It covers the same rules CI enforces, so a file that validates cleanly against it is well on its way to passing `--check`.
 
 ## Using an AI Assistant
 

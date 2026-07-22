@@ -25,10 +25,10 @@
 # push-vs-poll rule). A short default poll interval keeps track metadata
 # reasonably live.
 #
-# Line terminator: the manual does not state it. This driver frames on and
-# sends "\r\n" (the near-universal convention for a device that tells you to
-# "open a serial command tool" over Telnet). This is the one detail only real
-# hardware confirms — recorded in the driver's shipped notes.
+# Line terminator: CRLF ("\r\n"), confirmed on a live bench unit (the manual
+# does not state it). The device also negotiates Telnet options (IAC) and
+# echoes each command plus a no-newline "<model>>" prompt after every reply;
+# all of that decodes to inert frames the response rules ignore (verified live).
 #
 # Deliberately out of scope: the Network Setting block (set ip mode / addr /
 # subnet / gateway / tcp-ip port / telnet port / hostname) and the Password
@@ -44,7 +44,7 @@ id: turtle_bt_wallplate
 name: Turtle AV Dante Bluetooth Wallplate
 manufacturer: TurtleAV
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -56,16 +56,25 @@ description: >
 
 source_url: https://turtleav.com/wp-content/uploads/2026/05/BT-Wallplate-US-User-Manual.pdf
 tags: [bluetooth, dante, audio, wallplate, bridge]
-verified: false
+verified: true
 simulated: true
 ports: [23]
 compatible_models:
   - manufacturer: TurtleAV
+    models: [TAV-BTWPEU-BLACK]
+    confidence: full
+    notes: >
+      EU / black variant. Verified on a live bench unit (FW WEB V1.00.12,
+      MCU V2.0.0, DEP V1.3.3.5_20260415, Bluetooth V0.4.2). "get type" answers
+      TAV-BTWPEU-BLACK. Reports a single "Connected device:" line for one
+      connected source (the family supports two devices / multipoint; the
+      driver also parses the manual's numbered device1/device2 form).
+  - manufacturer: TurtleAV
     models: [WPD20BUS]
     confidence: untested
     notes: >
-      Dante Bluetooth Wallplate, 2x2 (US). The device model is confirmed at
-      connect via "get type" (answers WPD20BUS).
+      US variant. Same control protocol per the manufacturer manual; "get type"
+      is documented to answer WPD20BUS. Not yet tested on US hardware.
 
 transport: tcp
 delimiter: "\r\n"
@@ -89,17 +98,22 @@ help:
        Dante Web GUI protect that web interface only.
 
 discovery:
-  # Hint-only. The wall plate answers "get type" -> WPD20BUS on Telnet 23, but
-  # an active probe here would blind-send to every Telnet host in a scan
-  # (port 23 is a shared, commonly-open port), so no tcp_probe is declared
-  # (same caution as other telnet:23 devices in the catalog). It is a Dante
-  # device: Dante's mDNS advertisement is generic across all Dante hardware,
-  # so claiming it would false-match unrelated Dante gear. A device found with
-  # TCP 23 open surfaces as a candidate; the manufacturer alias lets a device
-  # already identified as Turtle AV offer this driver. An active get-type
-  # probe is a future improvement once bench hardware confirms it is safe.
+  # Hint-only. The wall plate answers "get type" -> its model/type string
+  # (e.g. TAV-BTWPEU-BLACK) on Telnet 23, but an active probe here would
+  # blind-send to every Telnet host in a scan (port 23 is a shared, commonly-
+  # open port), so no tcp_probe is declared (same caution as other telnet:23
+  # devices in the catalog). It is a Dante device: Dante's mDNS advertisement
+  # is generic across all Dante hardware, so claiming it would false-match
+  # unrelated Dante gear. A device found with TCP 23 open surfaces as a
+  # candidate; the manufacturer alias lets a device already identified as
+  # Turtle AV offer this driver. The oui hint gives a vendor-name display only
+  # (18:66:96 is TurtleAV's OUI, confirmed from the bench unit's reported MAC;
+  # shared with the Chazy/Darwin controllers, so it does not by itself fire the
+  # manufacturer alias). An active get-type probe remains a future improvement.
   port_open:
     - 23
+  oui:
+    - "18:66:96"
   manufacturer_alias:
     - "turtleav"
     - "turtle av"
@@ -684,7 +698,11 @@ actions:
 
 responses:
   # ── Model + firmware ──
-  - match: '^(WPD\S+)'
+  # "get type" answers a bare model/type token on its own line (US: WPD20BUS;
+  # EU/black: TAV-BTWPEU-BLACK). Anchored end-to-end AND the capture excludes
+  # '>' ([\w-], not \S) so the no-newline prompt "TAV-BTWPEU-BLACK>" cannot
+  # leak in — whether merged onto the next echo line or flushed on its own.
+  - match: '^(WPD[\w-]+|TAV-[\w-]+)$'
     set: { model: "$1" }
   - match: '^MCU:\s*(V\S+)'
     set: { firmware_mcu: "$1" }
@@ -724,9 +742,12 @@ responses:
     set: { bt_name: "$1" }
 
   # ── Pairing window ──
-  - match: 'discoverable/pairing\s+on'
+  # Real hardware answers "Bluetooth discoverable/pairing: on|off" (colon +
+  # space) for both get and set echo; the optional colon also tolerates a
+  # colon-less form.
+  - match: 'discoverable/pairing:?\s*on'
     set: { bt_pairing: "true" }
-  - match: 'discoverable/pairing\s+off'
+  - match: 'discoverable/pairing:?\s*off'
     set: { bt_pairing: "false" }
   - match: 'window time:\s*(\d+)'
     set: { bt_window_time: "$1" }
@@ -751,22 +772,34 @@ responses:
   - match: 'audio bridging:\s*Call bridging'
     set: { bt_bridging: "1" }
 
-  # ── Connection status (must precede the device-name rules below: both
-  #    lines start "Connected deviceN:", so the status words are matched
-  #    first and a name line falls through to the name capture) ──
-  - match: 'Connected device1:\s*Connected\b'
+  # ── Connection status ──────────────────────────────────────────────
+  # Superset of two firmware output shapes, both confirmed:
+  #   * numbered "Connected device1:" / "Connected device2:" — the manual's
+  #     format (the family supports up to two BT devices / multipoint).
+  #   * singular "Connected device:" — this unit's firmware (WEB V1.00.12)
+  #     when a single device is connected; mapped to slot 1.
+  # "device:" vs "device1:" (colon-vs-digit) keeps the two shapes from cross-
+  # matching. Status rules precede the name rules (below) so the "Connected" /
+  # "Disconnected" keywords are consumed before a real name is captured.
+  - match: 'Connected device:\s*Connected\b'
     set: { bt_device1_connected: "true" }
-  - match: 'Connected device1:\s*Disconnected\b'
+  - match: 'Connected device:\s*Disconnected\b'
     set: { bt_device1_connected: "false" }
-  - match: 'Connected device2:\s*Connected\b'
+  - match: 'Connected device\s*1:\s*Connected\b'
+    set: { bt_device1_connected: "true" }
+  - match: 'Connected device\s*1:\s*Disconnected\b'
+    set: { bt_device1_connected: "false" }
+  - match: 'Connected device\s*2:\s*Connected\b'
     set: { bt_device2_connected: "true" }
-  - match: 'Connected device2:\s*Disconnected\b'
+  - match: 'Connected device\s*2:\s*Disconnected\b'
     set: { bt_device2_connected: "false" }
 
-  # ── Connected device names (from "get bt device" / status) ──
-  - match: 'Connected device1:\s*(.+?)\s*$'
+  # ── Connected device names (from "get bt device" / status; N/A when none) ──
+  - match: 'Connected device:\s*(.+?)\s*$'
     set: { bt_device1_name: "$1" }
-  - match: 'Connected device2:\s*(.+?)\s*$'
+  - match: 'Connected device\s*1:\s*(.+?)\s*$'
+    set: { bt_device1_name: "$1" }
+  - match: 'Connected device\s*2:\s*(.+?)\s*$'
     set: { bt_device2_name: "$1" }
 
   # ── Codec + now-playing ──
@@ -806,27 +839,29 @@ polling:
 # the feedback strings back into its own state vars.
 simulator:
   initial_state:
-    model: "WPD20BUS"
+    # Values match a live bench unit (EU/black, WEB V1.00.12).
+    model: "TAV-BTWPEU-BLACK"
     fw_mcu: "V2.0.0"
-    fw_web: "V1.00.01"
-    fw_dep: "V1.3.3.5_20250520"
-    fw_bt: "V0.4.0"
-    stereo: true
+    fw_web: "V1.00.12"
+    fw_dep: "V1.3.3.5_20260415"
+    fw_bt: "V0.4.2"
+    stereo: false
     gain_l: 0
     gain_r: 0
     mute_l: false
     mute_r: false
-    bt_name: "Bluetooth Adapter-EFB45F"
+    bt_name: "Bluetooth Adapter-00F1B"
     bt_pairing: false
     bt_window_time: 60
     bt_window_switch: true
     bt_vol: 50
     bt_mute: false
     bt_bridging: 2
-    dev1_conn: false
-    dev2_conn: false
-    dev1_name: "N/A"
-    dev2_name: "N/A"
+    # Single connected-device slot: this firmware reports one "Connected
+    # device:" line. dev_conn drives Connected/Disconnected; dev_name is the
+    # source name (N/A when none).
+    dev_conn: false
+    dev_name: "N/A"
     bt_format: "N/A"
     artist: "N/A"
     album: "N/A"
@@ -876,9 +911,9 @@ simulator:
     - match: 'get fw version ?'
       handler: |
         respond(
-            f'MCU:{state["fw_mcu"]}\r\n'
-            f'WEB:{state["fw_web"]}\r\n'
-            f'DEP:{state["fw_dep"]}\r\n'
+            f'WEB: {state["fw_web"]}\r\n'
+            f'MCU: {state["fw_mcu"]}\r\n'
+            f'DEP: {state["fw_dep"]}\r\n'
             f'Bluetooth: {state["fw_bt"]}\r\n'
         )
 
@@ -889,24 +924,38 @@ simulator:
             m1 = 'On' if state['mute_l'] else 'Off'
             m2 = 'On' if state['mute_r'] else 'Off'
             pr = 'On' if state['bt_pairing'] else 'Off'
+            ws = 'On' if state['bt_window_switch'] else 'Off'
             brmap = {1: 'Call bridging', 2: 'Media bridging', 3: 'Call & Media bridging'}
+            sep = '=' * 101
             lines = [
-                'Status Info 2x2 Dante Wall Plate with Bluetooth',
+                '',
+                sep,
+                'Status Info Dante Wall Plate with Bluetooth',
                 f'MCU:{state["fw_mcu"]} WEB:{state["fw_web"]} '
                 f'DEP:{state["fw_dep"]} Bluetooth:{state["fw_bt"]}',
-                'Input      Name                    Stereo   Gain(dB)   Mute',
-                f'01          Bluetooth input left    {sm}       '
-                f'{state["gain_l"]}          {m1}',
-                f'02          Bluetooth input right   {sm}       '
-                f'{state["gain_r"]}          {m2}',
+                '',
+                'Input  Name                     Stereo  Gain(dB)  Mute',
+                f'01     Bluetooth input left     {sm}     {state["gain_l"]}         {m1}',
+                f'02     Bluetooth input right    {sm}     {state["gain_r"]}         {m2}',
+                '',
                 'Bluetooth:',
-                f'Bluetooth Name: {state["bt_name"]}',
-                f'Activate Pairing: {pr}',
-                f'Bluetooth Volume: {state["bt_vol"]}',
-                f'Bluetooth Bridging: {brmap.get(state["bt_bridging"], "Media bridging")}',
-                f'Connected device1: {state["dev1_name"]}',
-                f'Connected device2: {state["dev2_name"]}',
-                f'Bluetooth Format: {state["bt_format"]}',
+                f'Bluetooth Name:        {state["bt_name"]}',
+                f'Discoverable/Pairing:  {pr}',
+                f'Window Time:           {state["bt_window_time"]}s',
+                f'Window Switch:         {ws}',
+                f'Bluetooth Volume:      {state["bt_vol"]}',
+                f'Bluetooth Bridging:    {brmap.get(state["bt_bridging"], "Media bridging")}',
+                f'Connected device:      {state["dev_name"]}',
+                f'Bluetooth Format:      {state["bt_format"]}',
+                '',
+                'TCP/IP    Telnet    MAC',
+                '8000      23        18:66:96:10:0F:1B',
+                '',
+                'DHCP      IP               Gateway          SubnetMask',
+                'On        192.168.001.049  192.168.001.001  255.255.255.000',
+                '(Static:  192.168.000.200  192.168.000.001  255.255.255.000)',
+                sep,
+                '',
             ]
             respond('\r\n'.join(lines) + '\r\n')
         _run()
@@ -1015,19 +1064,18 @@ simulator:
     # ── Pairing window ──
     - match: 'get bt discoverable/pairing ?'
       handler: |
-        respond(
-            f'Bluetooth discoverable/pairing '
-            f'{"on (" + str(state["bt_window_time"]) + "s)" if state["bt_pairing"] else "off"}\r\n'
-        )
+        respond(f'Bluetooth discoverable/pairing: {"on" if state["bt_pairing"] else "off"}\r\n')
 
     - match: 'set bt discoverable/pairing (on|off) ?'
       handler: |
         def _run():
             state['bt_pairing'] = match.group(1) == 'on'
-            if state['bt_pairing']:
-                respond(f'Bluetooth discoverable/pairing on ({state["bt_window_time"]}s)\r\n')
-            else:
-                respond('Bluetooth discoverable/pairing off\r\n')
+            out = f'Bluetooth discoverable/pairing: {match.group(1)}\r\n'
+            # Firmware refuses command-initiated pairing while a device is
+            # connected (the physical PAIR button is the multipoint path).
+            if match.group(1) == 'on' and state['dev_conn']:
+                out += '1 devices connected. Pairing disabled.\r\n'
+            respond(out)
         _run()
 
     - match: 'get bt window time ?'
@@ -1095,28 +1143,18 @@ simulator:
     # ── Connection / device names ──
     - match: 'get bt connection ?'
       handler: |
-        respond(
-            f'Connected device1: {"Connected" if state["dev1_conn"] else "Disconnected"}\r\n'
-            f'Connected device2: {"Connected" if state["dev2_conn"] else "Disconnected"}\r\n'
-        )
+        respond(f'Connected device: {"Connected" if state["dev_conn"] else "Disconnected"}\r\n')
 
     - match: 'get bt device ?'
       handler: |
-        respond(
-            f'Connected device1: {state["dev1_name"]}\r\n'
-            f'Connected device2: {state["dev2_name"]}\r\n'
-        )
+        respond(f'Connected device: {state["dev_name"]}\r\n')
 
     - match: 'set bt paired clear (\d) ?'
       handler: |
         def _run():
             t = match.group(1)
-            if t in ('0', '1'):
-                state['dev1_name'] = 'N/A'
-                state['dev1_conn'] = False
-            if t in ('0', '2'):
-                state['dev2_name'] = 'N/A'
-                state['dev2_conn'] = False
+            state['dev_name'] = 'N/A'
+            state['dev_conn'] = False
             if t == '0':
                 respond('Clear Bluetooth paired devices\r\n')
             else:
@@ -1156,21 +1194,32 @@ simulator:
     - match: 'set (\d) eq (\d) (on|off) ?'
       handler: |
         side = {'0': 'input left/right', '1': 'input left', '2': 'input right'}.get(match.group(1), 'input')
-        respond(f'Bluetooth {side} EQ: {match.group(3)}\r\n')
+        respond(f'Bluetooth {side} EQ {match.group(2)}: {match.group(3)}\r\n')
 
-    - match: 'set (\d) eq (\d) typ .*'
+    - match: 'set (\d) eq (\d) typ (\S+) frq (\S+) val (\S+) q (\S+) ?'
       handler: |
         side = {'0': 'input left/right', '1': 'input left', '2': 'input right'}.get(match.group(1), 'input')
-        respond(f'Bluetooth {side} EQ set\r\n')
+        respond(
+            f'Bluetooth {side} EQ {match.group(2)}:\r\n'
+            f'Type: {match.group(3)}, Frequency: {match.group(4)}Hz, '
+            f'Value: {match.group(5)}dB, Q: {match.group(6)}\r\n'
+        )
 
     - match: 'set (\d) eq clear ?'
       handler: |
-        side = {'0': 'input left/right', '1': 'input left', '2': 'input right'}.get(match.group(1), 'input')
-        respond(f'Clear Bluetooth {side} EQ\r\n')
+        if match.group(1) == '0':
+            respond('Clear all inputs EQ\r\n')
+        else:
+            side = {'1': 'input left', '2': 'input right'}.get(match.group(1), 'input')
+            respond(f'Clear Bluetooth {side} EQ\r\n')
 
     - match: 'set (\d) eq copy to (\d) ?'
       handler: |
-        respond('Set Bluetooth EQ copy\r\n')
+        names = {'0': 'input left/right', '1': 'input left', '2': 'input right'}
+        respond(
+            f'Set Bluetooth {names.get(match.group(1), "input")} EQ copy to '
+            f'Bluetooth {names.get(match.group(2), "input")}\r\n'
+        )
 
     - match: 'set 1 eq stereo (on|off) ?'
       handler: |

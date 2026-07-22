@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.0.0",
     "schema_version": "1",
-    "total_devices": 141,
+    "total_devices": 142,
     "shards": null,
     "category": "audio"
   },
@@ -1535,13 +1535,25 @@
     },
     {
       "manufacturer": "TurtleAV",
+      "model": "TAV-BTWPEU-BLACK",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "turtle_bt_wallplate",
+          "confidence": "full",
+          "notes": "EU / black variant. Verified on a live bench unit (FW WEB V1.00.12, MCU V2.0.0, DEP V1.3.3.5_20260415, Bluetooth V0.4.2). \"get type\" answers TAV-BTWPEU-BLACK. Reports a single \"Connected device:\" line for one connected source (the family supports two devices / multipoint; the driver also parses the manual's numbered device1/device2 form).\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "TurtleAV",
       "model": "WPD20BUS",
       "category": "audio",
       "drivers": [
         {
           "id": "turtle_bt_wallplate",
           "confidence": "untested",
-          "notes": "Dante Bluetooth Wallplate, 2x2 (US). The device model is confirmed at connect via \"get type\" (answers WPD20BUS).\n"
+          "notes": "US variant. Same control protocol per the manufacturer manual; \"get type\" is documented to answer WPD20BUS. Not yet tested on US hardware.\n"
         }
       ]
     },

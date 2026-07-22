@@ -184,7 +184,7 @@ async def _connect(driver):
 
 def test_metadata_shape():
     info = DRV.CrestronNVXDriver.DRIVER_INFO
-    assert info["version"] == "2.0.2"
+    assert info["version"] == "2.0.3"
     assert info["category"] == "switcher"
     assert info["web_ui"] is True
     assert info["transport"] == "http"
@@ -391,6 +391,44 @@ def test_no_login_post_when_password_empty():
                 await d._authenticate()
             assert exc.value.code == "auth_failed"
             assert posts == []  # no login attempt reached the device
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_factory_fresh_detected_from_redirect_header_without_following():
+    """A still-initializing unit answers the /userlogin.html 301 fast but can
+    stall for seconds serving the createUser page body. The driver must detect
+    the factory 'create admin' state from the 301 Location header WITHOUT
+    following it — otherwise the slow page turns a clean auth_failed into a read
+    timeout, which classifies as a transient fault and the reconnect loop never
+    pauses on auth."""
+    async def go():
+        followed = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            path = request.url.path
+            if path == "/userlogin.html":
+                return httpx.Response(301, headers={"Location": "/createUser.html"})
+            if path == "/createUser.html":
+                followed.append(path)  # the driver must never reach the slow page
+                return httpx.Response(200, text="create admin page")
+            return httpx.Response(404)
+
+        cfg = {"host": "sim", "port": 443, "username": "admin", "password": "x",
+               "poll_interval": 0}
+        d = DRV.CrestronNVXDriver("nvx", cfg, _FakeState(), _FakeEvents())
+        d._base_url = "https://sim"
+        # Mirror the real connect() client, which follows redirects globally; the
+        # per-call override in _authenticate is what must prevent the follow.
+        d._client = httpx.AsyncClient(base_url="https://sim", follow_redirects=True,
+                                      transport=httpx.MockTransport(handler))
+        try:
+            with pytest.raises(DRV.ConnectionFaultError) as exc:
+                await d._authenticate()
+            assert exc.value.code == "auth_failed"
+            assert followed == []  # never followed into the slow createUser page
         finally:
             await d._client.aclose()
 

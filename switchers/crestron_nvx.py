@@ -82,7 +82,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "author": "OpenAVC",
         "min_platform_version": "0.24.0",
         "description": (
@@ -460,9 +460,16 @@ class CrestronNVXDriver(BaseDriver):
         username = self.config.get("username", "admin")
         password = self.config.get("password", "")
 
-        # A factory-fresh unit redirects everything to the Create-User page.
-        r = await self._client.get("/userlogin.html")
-        if "createuser" in str(r.url).lower():
+        # A factory-fresh unit redirects /userlogin.html to the Create-User
+        # page. Detect that from the redirect itself (the Location header)
+        # WITHOUT following it: a still-initializing unit answers the redirect
+        # quickly but can stall for many seconds serving the createUser page
+        # body. Following it there would turn a clean "no admin" signal into a
+        # read timeout, which classifies as a transient connection fault — so
+        # the reconnect loop keeps spinning instead of pausing on auth. The
+        # client follows redirects by default, so override it for this probe.
+        r = await self._client.get("/userlogin.html", follow_redirects=False)
+        if "createuser" in (r.headers.get("location", "") + " " + str(r.url)).lower():
             raise ConnectionFaultError(
                 "This NVX has no admin account yet. Run the 'Set Up NVX' "
                 "action to create one, then connect.",
@@ -602,14 +609,27 @@ class CrestronNVXDriver(BaseDriver):
 
         await progress("Contacting the NVX…", 10)
         async with httpx.AsyncClient(
-            base_url=base, verify=verify_ssl, timeout=15.0,
+            base_url=base, verify=verify_ssl,
+            timeout=httpx.Timeout(15.0, connect=5.0),
             follow_redirects=True, headers={"Referer": base},
         ) as client:
-            # A factory-fresh unit redirects /userlogin.html (and /Device/*) to
-            # the Create-User page; the root '/' returns 200 either way, so probe
-            # a redirecting path.
-            landing = await client.get("/userlogin.html")
-            if "createuser" not in str(landing.url).lower():
+            # A factory-fresh unit redirects /userlogin.html to the Create-User
+            # page. Read that from the redirect's Location header WITHOUT
+            # following it: a still-booting unit answers the redirect fast but
+            # can stall serving the createUser page body, and following it there
+            # would hang the wizard. A unit that isn't answering at all gets a
+            # clear "still booting" message instead of a raw timeout.
+            try:
+                landing = await client.get("/userlogin.html", follow_redirects=False)
+            except httpx.TimeoutException as e:
+                raise RuntimeError(
+                    "The NVX isn't responding yet — it may still be booting. "
+                    "Power-cycle it, wait a minute, then run Set Up NVX again."
+                ) from e
+            is_fresh = "createuser" in (
+                landing.headers.get("location", "") + " " + str(landing.url)
+            ).lower()
+            if not is_fresh:
                 raise RuntimeError(
                     "This NVX already has an admin account — no setup needed. "
                     "Enter the existing credentials in the device settings."

@@ -1,638 +1,802 @@
 """
-LG WebOS Driver for OpenAVC
-Author : Keaton Stacks
-Version: 3.0.0
+LG webOS TV driver for OpenAVC.
 
-Protocol: SSAP over secure WebSocket (wss://<ip>:3001)
-Each request opens a fresh connection, registers with the stored client-key,
-sends the command, and returns the response payload.  No persistent socket is
-kept; this matches WebOS behaviour and avoids subscription-management overhead.
+Why Python (not YAML): webOS control is SSAP over a persistent secure
+WebSocket (wss://<ip>:3001) — a transport the declarative YAML layer does not
+speak — behind a pairing handshake, and the TV *pushes* power / volume / mute /
+input changes over that one connection via subscriptions. The driver holds a
+single connection, subscribes, and reflects only what the TV reports; it never
+fabricates state from the commands it sends. Power-on from standby uses
+Wake-on-LAN because the TV exposes no network power-on.
 
+Protocol source of truth: verified against real hardware (LG 65UN6950ZUA,
+webOS 4.x). LG publishes no standalone SSAP specification for consumer TVs, so
+every command and reply shape here was confirmed live against the device rather
+than taken from a third-party implementation.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
-from server.system_config import get_system_config
 import re
 import socket
 import ssl
-import asyncio
 from typing import Any
 
-import websockets  # FIX: was imported inside _ssap_request on every call
+import websockets
 
-from server.drivers.base import BaseDriver
+from server.drivers.base import BaseDriver, ConnectionFaultError
+from server.system_config import get_system_config
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
 
 
+# webOS pairing manifest. The permission set is broad on purpose: the TV grants
+# exactly once (the on-screen prompt), and a missing permission silently
+# disables a feature — CONTROL_MOUSE_AND_KEYBOARD, for instance, is what makes
+# getPointerInputSocket return a socket for the navigation buttons.
+_MANIFEST = {
+    "manifestVersion": 1,
+    "appVersion": "1.1",
+    "signed": {
+        "created": "20140509",
+        "appId": "com.lge.test",
+        "vendorId": "com.lge",
+        "localizedAppNames": {"": "OpenAVC"},
+        "localizedVendorNames": {"": "LG Electronics"},
+        "permissions": [
+            "TEST_SECURE", "CONTROL_INPUT_TEXT", "CONTROL_MOUSE_AND_KEYBOARD",
+            "READ_INSTALLED_APPS", "READ_LGE_SDX", "READ_NOTIFICATIONS",
+            "SEARCH", "WRITE_SETTINGS", "WRITE_NOTIFICATION_ALERT",
+            "CONTROL_POWER", "READ_CURRENT_CHANNEL", "READ_RUNNING_APPS",
+            "READ_UPDATE_INFO", "UPDATE_FROM_REMOTE_APP",
+            "READ_LGE_TV_INPUT_EVENTS", "READ_TV_CURRENT_TIME",
+        ],
+        "serial": "2f930e2d2cfe083771f68e4fe7bb07",
+    },
+    "permissions": [
+        "LAUNCH", "LAUNCH_WEBAPP", "APP_TO_APP", "CLOSE", "TEST_OPEN",
+        "TEST_PROTECTED", "CONTROL_AUDIO", "CONTROL_DISPLAY",
+        # CONTROL_MOUSE_AND_KEYBOARD + CONTROL_INPUT_TEXT must be in this
+        # effective-permissions list (not only signed.permissions), or
+        # getPointerInputSocket answers 401 and the navigation buttons fail.
+        "CONTROL_MOUSE_AND_KEYBOARD", "CONTROL_INPUT_TEXT",
+        "CONTROL_INPUT_JOYSTICK", "CONTROL_INPUT_MEDIA_RECORDING",
+        "CONTROL_INPUT_MEDIA_PLAYBACK", "CONTROL_INPUT_TV", "CONTROL_POWER",
+        "READ_APP_STATUS", "READ_CURRENT_CHANNEL", "READ_INPUT_DEVICE_LIST",
+        "READ_NETWORK_STATE", "READ_RUNNING_APPS", "READ_TV_CHANNEL_LIST",
+        "WRITE_NOTIFICATION_TOAST", "READ_POWER_STATE", "READ_COUNTRY_INFO",
+        "READ_INSTALLED_APPS",
+    ],
+}
+
+# Physical-remote buttons sent over the pointer input socket. Value is the
+# webOS button name; key is the OpenAVC command.
+_NAV_BUTTONS = {
+    "cursor_up": "UP",
+    "cursor_down": "DOWN",
+    "cursor_left": "LEFT",
+    "cursor_right": "RIGHT",
+    "enter": "ENTER",
+    "back": "BACK",
+    "home": "HOME",
+    "exit": "EXIT",
+    "menu": "MENU",
+    "info": "INFO",
+}
+
+# soundOutput code -> friendly label.
+_SOUND_OUTPUTS = {
+    "tv_speaker": "TV Speakers",
+    "tv_external_speaker": "TV + Optical",
+    "external_optical": "Optical",
+    "external_arc": "HDMI ARC",
+    "external_speaker": "Optical / Aux",
+    "bt_soundbar": "Bluetooth Soundbar",
+    "soundbar": "Soundbar",
+    "lineout": "Line Out",
+    "headphone": "Headphones",
+}
+
+_POWER_ON_STATES = {"Active"}
+# Everything the TV still answers on the network but is not fully on.
+_STANDBY_STATES = {"Active Standby", "Suspend", "Screen Off", "Power Off"}
+
+
+class SSAPError(Exception):
+    """A webOS SSAP request returned type: error."""
+
+
 class LgWebosDriver(BaseDriver):
 
-    # ------------------------------------------------------------------
-    # App / Input mapping
-    # ------------------------------------------------------------------
-
-    APP_MAP: dict[str, str] = {
-        "HDMI_1":    "com.webos.app.hdmi1",
-        "HDMI_2":    "com.webos.app.hdmi2",
-        "HDMI_3":    "com.webos.app.hdmi3",
-        "HDMI_4":    "com.webos.app.hdmi4",
-        "TV":        "com.webos.app.livetv",
-        "PEACOCK":   "com.peacock.tv",
-        "NETFLIX":   "netflix",
-        "YOUTUBE":   "youtube.leanback.v4",
-        "YOUTUBE_TV":"youtube.leanback.ytv.v1",
-        "PRIME":     "amazon",
-        "HULU":      "hulu",
-        "MAX":       "com.wbd.stream",
-        "DISNEY":    "com.disney.disneyplus-prod",
-        "PLEX":      "cdp-30",
-        "APPLE_TV":  "com.apple.appletv",
-        "PARAMOUNT": "com.cbs-all-access.webapp.prod",
-    }
-    def _display_name(cls, key: str) -> str:
-        """Convert a programmatic APP_MAP key to a human-readable display label."""
-        return cls.APP_DISPLAY_NAMES.get(key, key.replace("_", " ").title())
-        
-    APP_DISPLAY_NAMES: dict[str, str] = {
-        "HDMI_1":     "HDMI 1",
-        "HDMI_2":     "HDMI 2",
-        "HDMI_3":     "HDMI 3",
-        "HDMI_4":     "HDMI 4",
-        "TV":         "Live TV",
-        "PEACOCK":    "Peacock",
-        "NETFLIX":    "Netflix",
-        "YOUTUBE":    "YouTube",
-        "YOUTUBE_TV": "YouTube TV",
-        "PRIME":      "Prime Video",
-        "HULU":       "Hulu",
-        "MAX":        "Max",
-        "DISNEY":     "Disney+",
-        "PLEX":       "Plex",
-        "APPLE_TV":   "Apple TV",
-        "PARAMOUNT":  "Paramount+",
-    }
-    
-    REVERSE_APP_MAP: dict[str, str] = {v: k for k, v in APP_MAP.items()}
-
-    # ------------------------------------------------------------------
-    # Driver metadata
-    # ------------------------------------------------------------------
+    # Liveness watchdog: a receive-mostly WebSocket can die without a FIN, so
+    # probe the power endpoint periodically and let the platform reconnect
+    # after repeated misses (see _liveness_probe).
+    HEALTH_INTERVAL_S = 30.0
+    HEALTH_TIMEOUT_S = 6.0
+    HEALTH_MAX_FAILURES = 2
+    HEALTH_FAULT_MESSAGE = "Connected, but the TV stopped answering."
 
     DRIVER_INFO = {
-        "id":           "lg_webos",
-        "name":         "LG WebOS",
+        "id": "lg_webos",
+        "name": "LG webOS TV",
         "manufacturer": "LG",
-        "category":     "display",
-        "version":      "3.3.1",
-        "author":       "Keaton Stacks",
-        "description":  "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
-        "source_url":   "https://github.com/hobbyquaker/lgtv2",
-        "tags":         ["tv", "consumer", "webos", "ssap"],
-        "verified":     False,
-        "ports":        [3001],
-        "compatible_models": [
-            {
-                "manufacturer": "LG",
-                "models":       ["WebOS TVs (2016+)"],
-                "confidence":   "untested",
-            },
-        ],
-        "transport":    "tcp",
-
-        "discovery": {
-            # LG WebOS TVs announce via SSDP using a vendor-specific URN.
-            # The OUI / hostname / manufacturer-alias hints are shared
-            # with the lg_sicp commercial signage driver — both surface
-            # as candidates for any LG device, user picks. LG's OUI
-            # list is intentionally broad because they share OUI blocks
-            # across consumer TV, signage, appliances, and audio.
-            "ssdp": [
-                "urn:lge-com:service:webos-second-screen:1",
-            ],
-            "oui": [
-                "00:05:c9", "00:e0:91", "10:68:3f", "2c:54:cf",
-                "34:4d:f7", "38:8c:50", "58:a2:b5", "64:99:5d",
-                "a8:23:fe", "bc:f1:71",
-            ],
-            "hostname": ["^LGwebOSTV", "^\\[LG\\]"],
-            "manufacturer_alias": ["lg", "lg electronics", "lge"],
-        },
-
-        "help": {
-            "overview": (
-                "Controls LG WebOS televisions using the SSAP protocol over a secure "
-                "WebSocket connection on port 3001.  Supports power, volume, input "
-                "switching, and app launching."
-            ),
-            "setup": (
-                "Enable 'LG Connect Apps' or network control in the TV's General settings. "
-                "A pairing prompt will appear on the TV screen on first connect. "
-                "If the prompt does not appear, use the 'Force Pair' command."
-            ),
-        },
+        "category": "display",
+        "version": "4.0.0",
+        "author": "OpenAVC",
+        "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
+                       "with live power/volume/input feedback.",
+        "source_url": "https://webostv.developer.lge.com/develop/getting-started/introduction-to-webos-tv",
+        "tags": ["tv", "display", "webos", "consumer"],
+        "verified": True,
+        # Self-managed secure WebSocket. 'tcp' gives the device a host/port in
+        # the connection editor and lets the simulator redirect apply; the
+        # driver overrides connect() and never uses a platform transport.
+        "transport": "tcp",
+        "ports": [3001],
+        "min_platform_version": "0.24.0",
 
         "default_config": {
-            "mac_address":   "",
-            "host":    "",
-            "poll_interval": 5,
+            "host": "",
+            "port": 3001,
+            "ssl": True,
+            "mac_address": "",
+            "poll_interval": 0,
         },
 
         "config_schema": {
-            "host":    {"type": "string",  "required": True,  "label": "IP Address"},
-            "mac_address":   {"type": "string",  "required": True,  "label": "MAC Address"},
-            "poll_interval": {"type": "integer", "default": 5,      "label": "Poll Interval (s)"},
+            "host": {"type": "string", "required": True, "label": "IP Address"},
+            "port": {"type": "integer", "default": 3001, "label": "Port"},
+            "mac_address": {
+                "type": "string",
+                "label": "MAC Address",
+                "description": "Needed only for Wake-on-LAN power on. Discovery "
+                               "fills this in; enable 'Mobile TV On' / "
+                               "Wake-on-LAN in the TV's network settings.",
+            },
         },
 
         "state_variables": {
-            "power":          {"type": "enum",    "values": ["off", "on"], "label": "Power State"},
-            "volume":         {"type": "integer", "label": "Volume Level"},
-            "mute":           {"type": "boolean", "label": "Mute State"},
-            "sound_output":   {"type": "string",  "label": "Audio Output"},
-            "max_volume":     {"type": "integer", "label": "Max Volume Limit"},
-            "external_control":  {"type": "boolean", "label": "External CEC Control"},
-            "can_adjust_volume": {"type": "boolean", "label": "Volume Adjustable"},
-            "input":          {"type": "string",  "label": "Current Input / App"},
-            "connected":      {"type": "boolean", "label": "API Connected"},
-            "paired":         {"type": "boolean", "label": "Paired to TV"},
+            "power": {"type": "enum", "values": ["off", "standby", "on"], "label": "Power"},
+            "volume": {"type": "integer", "label": "Volume", "min": 0, "max": 100,
+                       "step": 1, "control": True},
+            "mute": {"type": "boolean", "label": "Mute", "control": True},
+            "sound_output": {"type": "string", "label": "Sound Output"},
+            "can_set_volume": {"type": "boolean", "label": "Volume Adjustable"},
+            "max_volume": {"type": "integer", "label": "Max Volume"},
+            "input": {"type": "string", "label": "Current Input / App"},
+            "app_id": {"type": "string", "label": "Foreground App ID"},
+            "model": {"type": "string", "label": "Model"},
+            "connected": {"type": "boolean", "label": "Connected"},
+            "paired": {"type": "boolean", "label": "Paired"},
+            "input_options": {"type": "string", "label": "Input Options (picker)",
+                              "help": "JSON {value,label} list backing Set Input."},
+            "app_options": {"type": "string", "label": "App Options (picker)",
+                            "help": "JSON {value,label} list backing Launch App."},
         },
 
         "commands": {
-            "power":         {"label": "Power Toggle", "params": {"value": {"type": "boolean", "required": True}}},
-            "power_on":      {"label": "Power On"},
-            "power_off":     {"label": "Power Off"},
-            "set_volume":    {"label": "Set Volume", "params": {"level": {"type": "integer", "min": 0, "max": 100}}},
-            "volume_up":     {"label": "Volume Up"},
-            "volume_down":   {"label": "Volume Down"},
-            "mute":          {"label": "Set Mute", "params": {"value": {"type": "boolean"}}},
-            "set_input":     {"label": "Set Input", "params": {"id": {"type": "string"}}},
-            "launch_app":    {"label": "Launch App", "params": {"id": {"type": "string"}}},
-            "list_apps":     {"label": "List Installed Apps"},
-            "force_pair":    {"label": "Force Pairing Prompt"},
-            "clear_pairing": {"label": "Clear Pairing Token"},
-            "cursor_up":     {"label": "Up"},
-            "cursor_down":   {"label": "Down"},
-            "cursor_left":   {"label": "Left"},
-            "cursor_right":  {"label": "Right"},
-            "enter":         {"label": "Enter / OK"},
-            "back":          {"label": "Back"},
-            "home":          {"label": "Home / Dashboard"},
-            "menu":          {"label": "Settings Menu"},
+            "power_on": {"label": "Power On", "help": "Wake the TV via Wake-on-LAN "
+                         "(requires the MAC address and Wake-on-LAN enabled)."},
+            "power_off": {"label": "Power Off"},
+            "power": {"label": "Power", "params": {
+                "value": {"type": "boolean", "required": True, "label": "On"}}},
+            "set_volume": {"label": "Set Volume", "params": {
+                "level": {"type": "integer", "required": True, "min": 0, "max": 100,
+                          "label": "Level"}}},
+            "volume_up": {"label": "Volume Up"},
+            "volume_down": {"label": "Volume Down"},
+            "mute": {"label": "Set Mute", "params": {
+                "value": {"type": "boolean", "required": True, "label": "Mute"}}},
+            "set_input": {"label": "Set Input", "params": {
+                "input": {"type": "string", "required": True, "label": "Input",
+                          "options_state": "input_options",
+                          "help": "Pick an input, or enter an app id "
+                                  "(e.g. com.webos.app.hdmi1)."}}},
+            "launch_app": {"label": "Launch App", "params": {
+                "app": {"type": "string", "required": True, "label": "App",
+                        "options_state": "app_options",
+                        "help": "Pick an installed app, or enter its id."}}},
+            "cursor_up": {"label": "Up"},
+            "cursor_down": {"label": "Down"},
+            "cursor_left": {"label": "Left"},
+            "cursor_right": {"label": "Right"},
+            "enter": {"label": "Enter / OK"},
+            "back": {"label": "Back"},
+            "home": {"label": "Home"},
+            "exit": {"label": "Exit"},
+            "menu": {"label": "Menu"},
+            "info": {"label": "Info"},
+            "clear_pairing": {"label": "Clear Pairing Key",
+                              "help": "Forget the stored key and re-prompt on next connect."},
         },
+
+        "quick_actions": ["power_on", "power_off", "mute"],
+        "actions": [
+            {"id": "power_on", "kind": "command", "icon": "power"},
+            {"id": "power_off", "kind": "command", "icon": "power-off"},
+            {"id": "mute", "kind": "command", "icon": "volume-x"},
+            # Offline-capable wake: commands are blocked while a device is
+            # offline, so a TV in deep standby (control port closed) can only be
+            # woken from a setup action.
+            {"id": "wake_tv", "kind": "setup", "label": "Wake TV (Wake-on-LAN)",
+             "icon": "power"},
+        ],
+
+        "help": {
+            "overview": "Controls LG webOS TVs (2016 and later) over the SSAP "
+                        "WebSocket protocol: power, volume, mute, input and app "
+                        "switching, and on-screen navigation, with live "
+                        "feedback pushed from the TV.",
+            "setup": "1. Connect the TV to the network.\n"
+                     "2. Add the TV here; on first connect a pairing prompt "
+                     "appears on the TV screen — accept it with the remote.\n"
+                     "3. For power-on from standby, set the MAC address and "
+                     "enable Wake-on-LAN ('Mobile TV On') in the TV's network "
+                     "settings.",
+            "connection": "On first connection, accept the pairing prompt on the "
+                          "TV screen. A TV in deep standby is unreachable until "
+                          "woken with Wake-on-LAN.",
+        },
+
+        "discovery": {
+            # Strong fingerprint: the TV's own TLS certificate on the SSAP port
+            # names LG unmistakably, so a cert-only probe identifies it even
+            # when SSDP is missed. (Platform >= 0.24.0.)
+            "tcp_probe": {
+                "port": 3001,
+                "tls": True,
+                "cert_subject": r"CN=LGE TV SSG",
+                "timeout_ms": 3000,
+            },
+            # webOS TVs advertise this vendor URN over SSDP.
+            "ssdp": ["urn:lge-com:service:webos-second-screen:1"],
+            # LG spreads TVs across many OUI blocks (incl. wireless-module
+            # vendors) — soft hints only; 60:8d:26 seen on a real webOS TV.
+            "oui": [
+                "60:8d:26", "00:05:c9", "00:e0:91", "10:68:3f", "2c:54:cf",
+                "34:4d:f7", "38:8c:50", "58:a2:b5", "64:99:5d", "a8:23:fe",
+                "bc:f1:71",
+            ],
+            "hostname": [r"^LGwebOSTV", r"^\[LG\]"],
+            "manufacturer_alias": ["lg", "lg electronics", "lge"],
+        },
+
+        "compatible_models": [
+            {
+                "manufacturer": "LG",
+                "models": ["webOS TVs (2016+)"],
+                "confidence": "full",
+                "notes": "Verified on a 65UN6950ZUA (webOS 4.x). SSAP is common "
+                         "across webOS 3.0+ consumer TVs; navigation buttons and "
+                         "app ids may vary by model/firmware.",
+            },
+        ],
     }
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
+    # ── Lifecycle ──────────────────────────────────────────────────────────
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._poll_locked_until: float = 0.0
+        self._ws: Any = None
+        self._pointer_ws: Any = None
+        self._reader_task: asyncio.Task | None = None
+        self._pending: dict[str, asyncio.Future] = {}
+        self._subs: dict[str, str] = {}          # subscription id -> handler name
+        self._send_lock = asyncio.Lock()
+        self._req_id = 0
+        self._closing = False
+        self._app_labels: dict[str, str] = {}    # appId -> friendly label
         data_dir = get_system_config().data_dir
-        self._key_path = os.path.join(data_dir, f"lg_key_{self.device_id}.txt")
-        self._volume_target: int | None = None
+        self._key_path = os.path.join(data_dir, f"lg_webos_key_{self.device_id}.txt")
 
     async def connect(self) -> None:
+        self._last_transport_error = ""
+        self._closing = False
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 3001))
+        if not host:
+            raise ConnectionFaultError(
+                "No IP address is set for the TV.", code="invalid_config")
+
+        # A TV in deep standby closes the control port — that is 'offline, wake
+        # it', not a hard fault. A plain ConnectionError stays retryable.
+        if not await self._verify_reachable(host, port, timeout=3.0):
+            raise ConnectionError(
+                f"TV at {host}:{port} is not reachable — it may be in standby "
+                f"(use Wake-on-LAN to power it on).")
+
+        scheme = "wss" if self.config.get("ssl", True) else "ws"
+        url = f"{scheme}://{host}:{port}"
+        try:
+            self._ws = await websockets.connect(
+                url,
+                ssl=self._ssl_ctx() if scheme == "wss" else None,
+                open_timeout=6.0,
+                max_size=None,
+                ping_interval=20,
+                ping_timeout=10,
+            )
+            # Pair BEFORE the reader loop starts: the register handshake has its
+            # own interim frames that the id-correlated dispatch shouldn't see.
+            await self._register()
+            self._reader_task = asyncio.create_task(self._read_loop())
+        except Exception:
+            await self._teardown_connection()
+            raise
+
         self._connected = True
-        self._poll_locked_until = 0.0
-        await self.events.emit(f"device.connected.{self.device_id}")
-        self.set_state("input", "Syncing...")
-        interval = self.config.get("poll_interval", 5)
         self.set_state("connected", True)
-        await self.start_polling(interval=interval)
-        log.info(f"[{self.device_id}] LG WebOS v{self.DRIVER_INFO['version']} Loaded")
-        await self.poll()
+        self.set_state("paired", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        log.info(f"[{self.device_id}] Connected to webOS TV at {host}:{port}")
+
+        # One-time metadata + picker lists, then subscribe for live feedback.
+        await self._load_metadata()
+        await self._subscribe_all()
+        self._start_health_loop()
 
     async def disconnect(self) -> None:
-        await self.stop_polling()
+        self._closing = True
+        self._stop_health_loop()
+        await self._teardown_connection()
         self._connected = False
         self.set_state("connected", False)
+        self.set_state("paired", False)
+        self.set_state("power", "off")
         await self.events.emit(f"device.disconnected.{self.device_id}")
+        log.info(f"[{self.device_id}] Disconnected")
 
-    # ------------------------------------------------------------------
-    # Polling
-    # ------------------------------------------------------------------
-    async def poll(self) -> None:
-        if asyncio.get_running_loop().time() < self._poll_locked_until:
-            return
-        try:
-            ip = self.config.get("host")
-            is_reachable = await self._check_ssap_raw(ip) if ip else False
-            self.set_state("connected", is_reachable)
-            # --- OFFLINE STATE FLUSH ---
-            if not ip or not await self._check_ssap_raw(ip):
-                self.set_states({
-                    "power":  "off",
-                    "input":  "Power Off",
-                    "volume": 0,
-                    "mute":   False,
-                    "paired": False,
-                })
-                return
+    def _handle_transport_disconnect(self) -> None:
+        # The WebSocket dropped (reader loop ended). Cancel in-flight requests
+        # and let BaseDriver flip state + schedule auto-reconnect.
+        self._fail_pending()
+        self._subs.clear()
+        self._ws = None
+        self._pointer_ws = None
+        super()._handle_transport_disconnect()
 
-            is_paired = os.path.exists(self._key_path)
-
-            # --- STAGE 0: Power Check (Modern WebOS Endpoint) ---
-            # Newer firmware restricts the legacy system endpoint; try tvpower first.
-            pwr_data = await self._ssap_request(
-                ip,
-                "ssap://com.webos.service.tvpower/power/getPowerState",
-                register=is_paired,
-            )
-            if not pwr_data:
-                # Fallback for older TVs
-                pwr_data = await self._ssap_request(
-                    ip,
-                    "ssap://system/getPowerState",
-                    register=is_paired,
-                )
-
-            if not pwr_data:
-                log.debug(
-                    f"[{self.device_id}] Both power endpoints returned empty; "
-                    "TV is reachable on port 3001 but not yet responding — treating as off."
-                )
-                self.set_state("power", "off")
-                return
-
-            # Handle QuickStart+ (Standby) states properly
-            new_pwr = "off" if pwr_data.get("state") in ("Standby", "Active Standby") else "on"
-            self.set_state("power", new_pwr)
-
-            if new_pwr == "on" and is_paired:
-                self.set_state("paired", True)
-
-                # --- STAGE 1: Poll Audio (Advanced Status) ---
+    async def _teardown_connection(self) -> None:
+        """Close both sockets and the reader task without touching driver state."""
+        self._fail_pending()
+        self._subs.clear()
+        task = self._reader_task
+        self._reader_task = None
+        if task:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        for attr in ("_pointer_ws", "_ws"):
+            sock = getattr(self, attr)
+            if sock is not None:
                 try:
-                    # getStatus provides better metadata (ARC vs Internal)
-                    vol_data = await self._ssap_request(ip, "ssap://audio/getStatus")
-                    if vol_data:
-                        v_status = vol_data.get("volumeStatus", vol_data)
-
-                        output_map = {
-                            "external_arc":     "HDMI ARC",
-                            "tv_speaker":       "TV Speakers",
-                            "external_speaker": "Optical / Aux",
-                            "bt_soundbar":      "Bluetooth",
-                            "headphone":        "Headphones",
-                        }
-                        raw_output   = v_status.get("soundOutput", "unknown")
-                        clean_output = output_map.get(
-                            raw_output,
-                            raw_output.replace("_", " ").title(),
-                        )
-
-                        self.set_states({
-                            "volume":          v_status.get("volume", 0),
-                            "mute":            bool(v_status.get("muteStatus", v_status.get("mute", False))),
-                            "sound_output":    clean_output,
-                            "max_volume":      v_status.get("maxVolume", 100),
-                            "external_control":   bool(v_status.get("externalDeviceControl", False)),
-                            "can_adjust_volume":  bool(v_status.get("adjustVolume", True)),
-                        })
-                except Exception as e:
-                    log.debug(f"[{self.device_id}] Audio status sync skipped: {e}")
-
-                # --- STAGE 2: Poll Input ---
-                try:
-                    app_info = await self._ssap_request(
-                        ip, "ssap://com.webos.applicationManager/getForegroundAppInfo"
-                    )
-                    if app_info and "appId" in app_info:
-                        active_id = app_info.get("appId", "")
-                        raw_key = self.REVERSE_APP_MAP.get(active_id, active_id)
-                        self.set_state("input", self._display_name(raw_key))
-                    else:
-                        if self.get_state("input") == "Syncing...":
-                            self.set_state("input", "Live TV / Dashboard")
+                    await sock.close()
                 except Exception:
                     pass
+                setattr(self, attr, None)
 
-        except Exception as e:
-            log.debug(f"[{self.device_id}] General Poll error: {e}")
+    def _fail_pending(self) -> None:
+        for fut in self._pending.values():
+            if not fut.done():
+                fut.cancel()
+        self._pending.clear()
 
-    # ------------------------------------------------------------------
-    # Command dispatch
-    # ------------------------------------------------------------------
+    # ── Pairing ────────────────────────────────────────────────────────────
+
+    async def _register(self) -> None:
+        """Run the SSAP pairing handshake on the freshly-opened socket.
+
+        Sends the stored client-key when we have one (instant, no prompt);
+        otherwise the TV shows an on-screen prompt and we wait for the user to
+        accept. Reads directly — the general reader loop is not running yet.
+        """
+        key = ""
+        if os.path.exists(self._key_path):
+            try:
+                with open(self._key_path, encoding="utf-8") as fh:
+                    key = fh.read().strip()
+            except OSError:
+                key = ""
+
+        payload: dict[str, Any] = {"pairingType": "PROMPT", "manifest": _MANIFEST}
+        if key:
+            payload["client-key"] = key
+        await self._ws.send(json.dumps(
+            {"type": "register", "id": "register_0", "payload": payload}))
+
+        # A stored key registers immediately; a fresh pairing waits on the user.
+        deadline = asyncio.get_event_loop().time() + (8.0 if key else 40.0)
+        while True:
+            remaining = deadline - asyncio.get_event_loop().time()
+            if remaining <= 0:
+                raise ConnectionError(
+                    "Pairing was not accepted — accept the prompt on the TV screen.")
+            try:
+                raw = await asyncio.wait_for(self._ws.recv(), timeout=remaining)
+            except asyncio.TimeoutError:
+                raise ConnectionError(
+                    "Pairing was not accepted — accept the prompt on the TV screen.")
+            try:
+                msg = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if msg.get("id") != "register_0":
+                continue
+            mtype = msg.get("type")
+            if mtype == "registered":
+                new_key = (msg.get("payload") or {}).get("client-key")
+                if new_key and new_key != key:
+                    self._store_key(new_key)
+                return
+            if mtype == "error":
+                # A stored key the TV no longer honors: drop it so the next
+                # attempt re-prompts instead of looping on a dead key.
+                if key:
+                    self._forget_key()
+                    raise ConnectionError(
+                        "Stored pairing key was rejected — re-pair on the next attempt.")
+                raise ConnectionFaultError(
+                    "The TV rejected pairing.", code="auth_failed")
+            # Interim {"type": "response", "pairingType": "PROMPT"} — keep waiting.
+
+    def _store_key(self, key: str) -> None:
+        try:
+            with open(self._key_path, "w", encoding="utf-8") as fh:
+                fh.write(key)
+        except OSError as exc:
+            log.warning(f"[{self.device_id}] Could not store pairing key: {exc}")
+
+    def _forget_key(self) -> None:
+        try:
+            os.remove(self._key_path)
+        except OSError:
+            pass
+
+    # ── Reader loop + request/response ─────────────────────────────────────
+
+    async def _read_loop(self) -> None:
+        ws = self._ws
+        try:
+            async for raw in ws:
+                try:
+                    msg = json.loads(raw)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                if not isinstance(msg, dict):
+                    continue
+                mid = msg.get("id")
+                if mid in self._pending:
+                    fut = self._pending.pop(mid)
+                    if not fut.done():
+                        fut.set_result(msg)
+                elif mid in self._subs:
+                    self._apply_push(self._subs[mid], msg.get("payload") or {})
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+        finally:
+            # Graceful disconnect() closes the socket itself; only an
+            # unsolicited drop should trigger the reconnect path.
+            if not self._closing:
+                self._handle_transport_disconnect()
+
+    def _next_id(self) -> str:
+        self._req_id += 1
+        return f"req_{self._req_id}"
+
+    async def _request(
+        self, uri: str, payload: dict | None = None, *,
+        typ: str = "request", timeout: float = 5.0,
+    ) -> dict:
+        """Send one SSAP request and await its id-correlated reply."""
+        ws = self._ws
+        if ws is None:
+            raise ConnectionError(f"[{self.device_id}] Not connected")
+        rid = self._next_id()
+        pkt: dict[str, Any] = {"type": typ, "id": rid, "uri": uri}
+        if payload is not None:
+            pkt["payload"] = payload
+        fut: asyncio.Future = asyncio.get_event_loop().create_future()
+        self._pending[rid] = fut
+        try:
+            async with self._send_lock:
+                await ws.send(json.dumps(pkt))
+            msg = await asyncio.wait_for(fut, timeout=timeout)
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"[{self.device_id}] SSAP {uri} timed out")
+        finally:
+            self._pending.pop(rid, None)
+        if msg.get("type") == "error":
+            raise SSAPError(str(msg.get("error", "unknown error")))
+        return msg.get("payload") or {}
+
+    # ── Subscriptions (push) ───────────────────────────────────────────────
+
+    async def _subscribe_all(self) -> None:
+        for name, uri in (
+            ("power", "ssap://com.webos.service.tvpower/power/getPowerState"),
+            ("volume", "ssap://audio/getVolume"),
+            ("foreground", "ssap://com.webos.applicationManager/getForegroundAppInfo"),
+        ):
+            sid = f"sub_{name}"
+            self._subs[sid] = name
+            try:
+                async with self._send_lock:
+                    await self._ws.send(json.dumps(
+                        {"type": "subscribe", "id": sid, "uri": uri}))
+            except Exception as exc:
+                log.debug(f"[{self.device_id}] subscribe {name} failed: {exc}")
+
+    def _apply_push(self, name: str, payload: dict) -> None:
+        if name == "power":
+            self._apply_power(payload)
+        elif name == "volume":
+            self._apply_volume(payload)
+        elif name == "foreground":
+            self._apply_foreground(payload)
+
+    def _apply_power(self, payload: dict) -> None:
+        state = payload.get("state")
+        if not state:
+            return
+        if state in _POWER_ON_STATES:
+            self.set_state("power", "on")
+        elif state in _STANDBY_STATES:
+            self.set_state("power", "standby")
+        else:
+            # Unknown but reachable — treat conservatively as on.
+            self.set_state("power", "on")
+
+    def _apply_volume(self, payload: dict) -> None:
+        vs = payload.get("volumeStatus", payload)
+        updates: dict[str, Any] = {}
+        if "volume" in vs:
+            updates["volume"] = int(vs.get("volume") or 0)
+        if "muteStatus" in vs:
+            updates["mute"] = bool(vs.get("muteStatus"))
+        elif "mute" in vs:
+            updates["mute"] = bool(vs.get("mute"))
+        if "maxVolume" in vs:
+            updates["max_volume"] = int(vs.get("maxVolume") or 100)
+        if "adjustVolume" in vs:
+            updates["can_set_volume"] = bool(vs.get("adjustVolume"))
+        raw_output = vs.get("soundOutput")
+        if raw_output:
+            updates["sound_output"] = _SOUND_OUTPUTS.get(
+                raw_output, raw_output.replace("_", " ").title())
+        if updates:
+            self.set_states(updates)
+
+    def _apply_foreground(self, payload: dict) -> None:
+        app_id = payload.get("appId")
+        if app_id is None:
+            return
+        self.set_state("app_id", app_id)
+        self.set_state("input", self._app_labels.get(app_id) or _humanize_app(app_id))
+
+    # ── One-time metadata / picker lists ───────────────────────────────────
+
+    async def _load_metadata(self) -> None:
+        try:
+            info = await self._request("ssap://system/getSystemInfo", timeout=4.0)
+            if info.get("modelName"):
+                self.set_state("model", info["modelName"])
+        except Exception as exc:
+            log.debug(f"[{self.device_id}] getSystemInfo skipped: {exc}")
+
+        # Inputs → picker; also builds the appId→label map for foreground display.
+        try:
+            data = await self._request("ssap://tv/getExternalInputList", timeout=4.0)
+            options = []
+            for dev in data.get("devices", []):
+                app_id = dev.get("appId")
+                label = dev.get("label") or app_id
+                if not app_id:
+                    continue
+                self._app_labels[app_id] = label
+                options.append({"value": app_id, "label": label})
+            if options:
+                self.set_state("input_options", json.dumps(options))
+        except Exception as exc:
+            log.debug(f"[{self.device_id}] getExternalInputList skipped: {exc}")
+
+        # Installed apps → picker.
+        try:
+            data = await self._request(
+                "ssap://com.webos.applicationManager/listLaunchPoints", timeout=5.0)
+            options = []
+            for lp in data.get("launchPoints", []):
+                app_id = lp.get("id")
+                title = lp.get("title") or app_id
+                if not app_id:
+                    continue
+                self._app_labels.setdefault(app_id, title)
+                options.append({"value": app_id, "label": title})
+            if options:
+                self.set_state("app_options", json.dumps(options))
+        except Exception as exc:
+            log.debug(f"[{self.device_id}] listLaunchPoints skipped: {exc}")
+
+    # ── Liveness ───────────────────────────────────────────────────────────
+
+    async def _liveness_probe(self) -> None:
+        # Doubles as a keep-alive and a power-state refresh; a raise here counts
+        # toward the watchdog and forces a reconnect.
+        payload = await self._request(
+            "ssap://com.webos.service.tvpower/power/getPowerState", timeout=5.0)
+        self._apply_power(payload)
+
+    # ── Commands ───────────────────────────────────────────────────────────
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
-        mac    = self.config.get("mac_address", "").strip()
-        ip     = self.config.get("host",  "").strip()
         params = params or {}
 
-        def _parse_bool(val: Any) -> bool:
-            if isinstance(val, str):
-                return val.strip().lower() in ("true", "on", "1", "yes")
-            return bool(val)
-
-        # --- Diagnostic ---
-
-        if command == "list_apps":
-            resp = await self._ssap_request(
-                ip, "ssap://com.webos.applicationManager/listLaunchPoints"
-            )
-            apps    = resp.get("launchPoints", [])
-            summary = [{"id": a.get("id"), "title": a.get("title")} for a in apps]
-            log.info(
-                f"[{self.device_id}] Installed Apps ({len(summary)}):\n"
-                + "\n".join(f"  {a['title']:30s}  {a['id']}" for a in summary)
-            )
-            return summary
-
-        # --- Pairing ---
-
-        if command == "force_pair":
-            await self._ssap_request(ip, "ssap://system/getPowerState", register=True)
-            return True
-
-        if command == "clear_pairing":
-            if os.path.exists(self._key_path):
-                os.remove(self._key_path)
-            self.set_state("paired", False)
-            log.info(f"[{self.device_id}] Pairing token explicitly cleared via UI.")
-            return True
-
-        # --- Power ---
-
-        if command == "power":
-            is_on   = _parse_bool(params.get("value", True))
-            command = "power_on" if is_on else "power_off"
-
-        if command == "power_on":
-            if await self._do_power_on(mac, ip):
-                self._poll_locked_until = asyncio.get_running_loop().time() + 5
-                self.set_state("power", "on")
-                return True
-            return False
+        # Wake-on-LAN paths need no live connection (wake_tv is an offline setup
+        # action; power_on works while the TV answers in network standby).
+        if command in ("power_on", "wake_tv"):
+            return self._wake_on_lan()
 
         if command == "power_off":
-            self._poll_locked_until = asyncio.get_running_loop().time() + 15
-            await self._ssap_request(ip, "ssap://system/turnOff")
-            self.set_state("power", "off")
+            await self._request("ssap://system/turnOff")
             return True
 
-        # --- Volume (shared guard) ---
-        if command in ("set_volume", "volume_up", "volume_down"):
-            can_adjust = self.get_state("can_adjust_volume")
-            if can_adjust is False:
-                log.warning(
-                    f"[{self.device_id}] Volume command '{command}' blocked: "
-                    "external device has volume control (can_adjust_volume=False)."
-                )
-                return False
+        if command == "power":
+            return await self.send_command(
+                "power_on" if _as_bool(params.get("value")) else "power_off")
 
         if command == "set_volume":
-            try:
-                raw_target = params.get("level") if params.get("level") is not None else params.get("value")
-                if raw_target is None:
-                    return False
-
-                target_vol = int(raw_target)
-                use_pulse = bool(self.get_state("external_control"))
-                if not use_pulse:
-                    # Direct set — instant, exact, no loop required
-                    await self._ssap_request(ip, "ssap://audio/setVolume", {"volume": target_vol})
-                    self.set_state("volume", target_vol)
-                    return True
-
-                # --- ARC/CEC pulse path ---
-                current_vol = self.get_state("volume")
-                if current_vol is None:
-                    current_vol = 0
-                diff = target_vol - current_vol
-                if diff == 0:
-                    return True
-
-                self._volume_target = target_vol  # register intent; newer calls will update this
-                log.debug(f"[{self.device_id}] ARC pulse: {current_vol} -> {target_vol}")
-                pulse_uri = "ssap://audio/volumeUp" if diff > 0 else "ssap://audio/volumeDown"
-
-                for _ in range(abs(diff)):
-                    # If a newer set_volume arrived, this loop is stale — abort cleanly
-                    if self._volume_target != target_vol:
-                        log.debug(f"[{self.device_id}] Volume superseded at {target_vol}, aborting pulse")
-                        return True
-                    await self._ssap_request(ip, pulse_uri)
-                    await asyncio.sleep(0.01)
-
-                self.set_state("volume", target_vol)
-                return True
-
-            except Exception as e:
-                log.error(f"[{self.device_id}] set_volume failure: {e}")
-                return False
+            level = int(params.get("level"))
+            await self._request("ssap://audio/setVolume", {"volume": level})
+            return True  # the subscription pushes the confirmed value
 
         if command == "volume_up":
-            if await self._ssap_request(ip, "ssap://audio/volumeUp") is not None:
-                return True
+            await self._request("ssap://audio/volumeUp")
+            return True
 
         if command == "volume_down":
-            if await self._ssap_request(ip, "ssap://audio/volumeDown") is not None:
-                return True
-
-        # --- Audio ---
+            await self._request("ssap://audio/volumeDown")
+            return True
 
         if command == "mute":
-            val = _parse_bool(params.get("value", False))
-            if await self._ssap_request(ip, "ssap://audio/setMute", {"mute": val}) is not None:
-                self.set_state("mute", val)
-                return True
-            return False
-
-        # --- Navigation & Menu Control ---
-        nav_buttons = {
-            "cursor_up":    "UP", 
-            "cursor_down":  "DOWN", 
-            "cursor_left":  "LEFT", 
-            "cursor_right": "RIGHT", 
-            "enter":        "ENTER", 
-            "back":         "BACK", 
-            "home":         "HOME", 
-            "menu":         "MENU"
-        }
-        
-        if command in nav_buttons:
-            return await self._send_pointer_button(ip, nav_buttons[command])
-                
-        # --- Input / App ---
-
-        if command == "launch_app":
-            app_id = str(params.get("id", "")).strip()
-            if await self._ssap_request(
-                ip, "ssap://system.launcher/launch", {"id": app_id}
-            ) is not None:
-                raw_key = self.REVERSE_APP_MAP.get(app_id, app_id)
-                self.set_state("input", self._display_name(raw_key))
-                return True
-            return False
+            await self._request("ssap://audio/setMute", {"mute": _as_bool(params.get("value"))})
+            return True
 
         if command == "set_input":
-            raw_id    = str(params.get("id", "HDMI_1")).strip()
-            inp       = raw_id.upper()
-            target_id = self.APP_MAP.get(inp, raw_id)
-
-            await self._ssap_request(
-                ip, "ssap://system.launcher/launch", {"id": target_id}
-            )
-            if "HDMI" in inp:
-                await asyncio.sleep(0.2)
-                await self._ssap_request(ip, "ssap://tv/switchInput", {"inputId": inp})
-            self.set_state("input", self._display_name(inp))
+            app_id = str(params.get("input", "")).strip()
+            if not app_id:
+                return False
+            await self._request("ssap://system.launcher/launch", {"id": app_id})
             return True
 
-        log.warning(f"[{self.device_id}] Unhandled command: '{command}'")
+        if command == "launch_app":
+            app_id = str(params.get("app", "")).strip()
+            if not app_id:
+                return False
+            await self._request("ssap://system.launcher/launch", {"id": app_id})
+            return True
+
+        if command in _NAV_BUTTONS:
+            return await self._send_button(_NAV_BUTTONS[command])
+
+        if command == "clear_pairing":
+            self._forget_key()
+            self.set_state("paired", False)
+            log.info(f"[{self.device_id}] Pairing key cleared")
+            return True
+
+        log.warning(f"[{self.device_id}] Unhandled command: {command}")
         return False
-    # ------------------------------------------------------------------
-    # SSAP transport
-    # ------------------------------------------------------------------
-    async def _ssap_request(
-        self,
-        ip:       str,
-        uri:      str,
-        payload:  dict | None = None,
-        register: bool        = True,
-    ) -> dict:
-        ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode    = ssl.CERT_NONE
 
-        try:
-            async with websockets.connect(
-                f"wss://{ip}:3001", ssl=ssl_ctx, open_timeout=2.0
-            ) as ws:
+    # ── Navigation over the pointer input socket ───────────────────────────
 
-                if register:
-                    client_key = ""
-                    if os.path.exists(self._key_path):
-                        with open(self._key_path, "r") as fh:
-                            client_key = fh.read().strip()
-
-                    reg_pkt: dict = {
-                        "type": "register",
-                        "id":   "reg0",
-                        "payload": {
-                            "pairingType": "PROMPT",
-                            "manifest": {
-                                "permissions": [
-                                    "CONTROL_POWER",
-                                    "CONTROL_AUDIO",
-                                    "CONTROL_INPUT_TV",
-                                    "CONTROL_DISPLAY",
-                                    "LAUNCH",
-                                    "READ_INSTALLED_APPS",
-                                    "READ_CURRENT_APP",
-                                    "READ_RUNNING_APPS",
-                                    "CONTROL_MOUSE_AND_KEYBOARD",
-                                ],
-                            },
-                        },
-                    }
-                    if client_key:
-                        reg_pkt["payload"]["client-key"] = client_key
-
-                    await ws.send(json.dumps(reg_pkt))
-
-                    loop         = asyncio.get_running_loop()
-                    deadline     = loop.time() + (30.0 if not client_key else 5.0)
-                    is_registered = False
-
-                    while loop.time() < deadline:
-                        timeout_left = deadline - loop.time()
-                        if timeout_left <= 0:
-                            break
-                        reg_resp = json.loads(
-                            await asyncio.wait_for(ws.recv(), timeout=timeout_left)
-                        )
-                        if reg_resp.get("type") == "error":
-                            return {}
-                        if reg_resp.get("type") == "registered":
-                            new_key = reg_resp.get("payload", {}).get("client-key")
-                            if new_key and new_key != client_key:
-                                with open(self._key_path, "w") as fh:
-                                    fh.write(new_key)
-                            is_registered = True
-                            break
-
-                    if not is_registered:
-                        return {}
-
-                cmd_pkt: dict = {"type": "request", "id": "req_1", "uri": uri}
-                if payload:
-                    cmd_pkt["payload"] = payload
-                await ws.send(json.dumps(cmd_pkt))
-
-                loop     = asyncio.get_running_loop()
-                deadline = loop.time() + 2.0
-                while loop.time() < deadline:
-                    timeout_left = deadline - loop.time()
-                    if timeout_left <= 0:
-                        break
-                    resp = json.loads(
-                        await asyncio.wait_for(ws.recv(), timeout=timeout_left)
-                    )
-                    if resp.get("type") == "error":
-                        return {}
-                    if resp.get("type") == "response":
-                        return resp.get("payload", {})
-
-                return {}
-
-        except Exception:
-            return {}
-
-    # ------------------------------------------------------------------
-    # Helper to open a pointer socket and send a physical remote button press.
-    # ------------------------------------------------------------------
-    async def _send_pointer_button(self, ip: str, button_name: str) -> bool:
-        """Emulates a physical remote button press via a background pointer socket."""
-        endpoint = "ssap://com.webos.service.networkinput/getPointerInputSocket"
-        res = await self._ssap_request(ip, endpoint)
-        
-        if not res or "socketPath" not in res:
-            # Keep this error as it indicates a permission/pairing issue
-            log.error(f"[{self.device_id}] Pointer access denied. Check 'Mouse & Keyboard' permissions.")
-            return False
-            
-        try:
-            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.check_hostname = False
-            ssl_ctx.verify_mode    = ssl.CERT_NONE
-            
-            # Reduced timeout to 1.0s so UI doesn't hang if TV drops the connection
-            async with websockets.connect(res["socketPath"], ssl=ssl_ctx, open_timeout=1.0) as ws:
-                await ws.send(f"type:button\nname:{button_name}\n\n")
+    async def _send_button(self, name: str) -> bool:
+        for attempt in (1, 2):
+            ws = await self._pointer_socket()
+            if ws is None:
+                return False
+            try:
+                await ws.send(f"type:button\nname:{name}\n\n")
                 return True
-        except Exception:
-            # Silent fail for network hiccups to keep logs clean
-            return False
+            except Exception:
+                # Stale pointer socket — drop it and refetch once.
+                self._pointer_ws = None
+                if attempt == 2:
+                    return False
+        return False
 
-    # ------------------------------------------------------------------
-    # Wake-on-LAN
-    # ------------------------------------------------------------------
-    async def _do_power_on(self, mac: str, ip: str) -> bool:
+    async def _pointer_socket(self) -> Any:
+        ws = self._pointer_ws
+        if ws is not None and _ws_is_open(ws):
+            return ws
         try:
-            m   = re.sub(r"[:\-.]", "", mac).upper()
-            pkt = b"\xFF" * 6 + bytes.fromhex(m) * 16
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                s.sendto(pkt, ("255.255.255.255", 9))
-                s.sendto(pkt, (ip, 9))
-            return True
-        except Exception: 
-            return False
+            res = await self._request(
+                "ssap://com.webos.service.networkinput/getPointerInputSocket", timeout=4.0)
+        except Exception as exc:
+            log.debug(f"[{self.device_id}] getPointerInputSocket failed: {exc}")
+            return None
+        path = res.get("socketPath")
+        if not path:
+            return None
+        use_tls = path.startswith("wss://")
+        try:
+            self._pointer_ws = await websockets.connect(
+                path,
+                ssl=self._ssl_ctx() if use_tls else None,
+                open_timeout=3.0,
+                max_size=None,
+            )
+        except Exception as exc:
+            log.debug(f"[{self.device_id}] pointer socket connect failed: {exc}")
+            self._pointer_ws = None
+        return self._pointer_ws
 
-    # ------------------------------------------------------------------
-    # Network probe
-    # ------------------------------------------------------------------
-    async def _check_ssap_raw(self, ip: str) -> bool:
-        try:
-            conn = asyncio.open_connection(ip, 3001)
-            _, writer = await asyncio.wait_for(conn, timeout=1.5)
-            writer.close()
-            await writer.wait_closed()
-            return True
-        except Exception: 
+    # ── Wake-on-LAN ────────────────────────────────────────────────────────
+
+    def _wake_on_lan(self) -> bool:
+        mac = str(self.config.get("mac_address", "")).strip()
+        clean = re.sub(r"[^0-9A-Fa-f]", "", mac)
+        if len(clean) != 12:
+            log.warning(f"[{self.device_id}] Wake-on-LAN needs a valid MAC address")
             return False
+        packet = b"\xff" * 6 + bytes.fromhex(clean) * 16
+        host = str(self.config.get("host", "")).strip()
+        sent = False
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                sock.sendto(packet, ("255.255.255.255", 9))
+                if host:
+                    sock.sendto(packet, (host, 9))
+            sent = True
+        except OSError as exc:
+            log.warning(f"[{self.device_id}] Wake-on-LAN send failed: {exc}")
+        return sent
+
+    # ── Helpers ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _ssl_ctx() -> ssl.SSLContext:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+
+
+def _ws_is_open(ws: Any) -> bool:
+    """True if a websockets connection is still open.
+
+    websockets 16.x ClientConnection exposes ``state`` (an enum) rather than
+    the legacy ``.closed`` flag, so consult it first and fall back for older
+    releases.
+    """
+    state = getattr(ws, "state", None)
+    if state is not None:
+        return getattr(state, "name", "") == "OPEN"
+    return not getattr(ws, "closed", False)
+
+
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "on", "1", "yes")
+    return bool(value)
+
+
+def _humanize_app(app_id: str) -> str:
+    """Best-effort friendly name for an appId with no catalog label."""
+    known = {
+        "com.webos.app.livetv": "Live TV",
+        "com.webos.app.hdmi1": "HDMI 1",
+        "com.webos.app.hdmi2": "HDMI 2",
+        "com.webos.app.hdmi3": "HDMI 3",
+        "com.webos.app.hdmi4": "HDMI 4",
+    }
+    if app_id in known:
+        return known[app_id]
+    tail = app_id.rsplit(".", 1)[-1]
+    return tail.replace("_", " ").title()

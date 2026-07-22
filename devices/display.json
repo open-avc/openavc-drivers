@@ -340,12 +340,13 @@
     },
     {
       "manufacturer": "LG",
-      "model": "WebOS TVs (2016+)",
+      "model": "webOS TVs (2016+)",
       "category": "display",
       "drivers": [
         {
           "id": "lg_webos",
-          "confidence": "untested"
+          "confidence": "full",
+          "notes": "Verified on a 65UN6950ZUA (webOS 4.x). SSAP is common across webOS 3.0+ consumer TVs; navigation buttons and app ids may vary by model/firmware."
         }
       ]
     },

@@ -3240,43 +3240,54 @@
     },
     {
       "id": "lg_webos",
-      "name": "LG WebOS",
+      "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "3.3.1",
-      "author": "Keaton Stacks",
+      "version": "4.0.0",
+      "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls LG WebOS TVs (2016+) via the SSAP WebSocket protocol.",
-      "source_url": "https://github.com/hobbyquaker/lgtv2",
+      "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",
+      "source_url": "https://webostv.developer.lge.com/develop/getting-started/introduction-to-webos-tv",
       "file": "displays/lg_webos.py",
       "format": "python",
       "ports": [
         3001
       ],
+      "verified": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "tv",
-        "consumer",
+        "display",
         "webos",
-        "ssap"
+        "consumer"
       ],
       "help": {
-        "overview": "Controls LG WebOS televisions using the SSAP protocol over a secure WebSocket connection on port 3001.  Supports power, volume, input switching, and app launching.",
-        "setup": "Enable 'LG Connect Apps' or network control in the TV's General settings. A pairing prompt will appear on the TV screen on first connect. If the prompt does not appear, use the 'Force Pair' command."
+        "overview": "Controls LG webOS TVs (2016 and later) over the SSAP WebSocket protocol: power, volume, mute, input and app switching, and on-screen navigation, with live feedback pushed from the TV.",
+        "setup": "1. Connect the TV to the network.\n2. Add the TV here; on first connect a pairing prompt appears on the TV screen \u2014 accept it with the remote.\n3. For power-on from standby, set the MAC address and enable Wake-on-LAN ('Mobile TV On') in the TV's network settings.",
+        "connection": "On first connection, accept the pairing prompt on the TV screen. A TV in deep standby is unreachable until woken with Wake-on-LAN."
       },
       "compatible_models": [
         {
           "manufacturer": "LG",
           "models": [
-            "WebOS TVs (2016+)"
+            "webOS TVs (2016+)"
           ],
-          "confidence": "untested"
+          "confidence": "full",
+          "notes": "Verified on a 65UN6950ZUA (webOS 4.x). SSAP is common across webOS 3.0+ consumer TVs; navigation buttons and app ids may vary by model/firmware."
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 3001,
+          "tls": true,
+          "cert_subject": "CN=LGE TV SSG",
+          "timeout_ms": 3000
+        },
         "ssdp": [
           "urn:lge-com:service:webos-second-screen:1"
         ],
         "oui": [
+          "60:8d:26",
           "00:05:c9",
           "00:e0:91",
           "10:68:3f",

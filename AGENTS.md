@@ -2343,6 +2343,16 @@ projectors/
 
 **Source reference:** [`simulator/base.py`](https://github.com/open-avc/openavc/blob/main/simulator/base.py), [`simulator/tcp_simulator.py`](https://github.com/open-avc/openavc/blob/main/simulator/tcp_simulator.py)
 
+Pick the base that matches the driver's transport: `TCPSimulator` (line
+protocols / JSON-RPC over TCP), `HTTPSimulator` (REST / SOAP; also serves SSE),
+`UDPSimulator`, `OSCSimulator`, `MQTTSimulator`, or `WebSocketSimulator` for a
+driver that self-manages a WebSocket (e.g. LG webOS SSAP). `WebSocketSimulator`
+serves plain `ws://` on localhost — the simulation redirect turns the device's
+`ssl` flag off the same way it does for HTTPS device simulators — and hands you
+per-client `handle_message(client, message)`; reply with `await self.send(client,
+text)` and push with `await self.broadcast(text)` (platform ≥ the release that
+introduced it; see `lg_webos_sim.py`).
+
 You can scaffold a simulator from a Python driver:
 ```bash
 python -m simulator.scaffold path/to/my_driver.py

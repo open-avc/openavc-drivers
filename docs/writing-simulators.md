@@ -491,6 +491,14 @@ The skeleton includes:
 - Example code showing the pattern
 - The correct base class (`TCPSimulator`, `HTTPSimulator`, or `OSCSimulator`) chosen by transport type
 
+A driver that self-manages a **WebSocket** connection (e.g. LG webOS SSAP) uses
+`WebSocketSimulator` instead. It serves plain `ws://` on localhost — the
+simulation redirect turns the device's `ssl` flag off, just as it does for
+HTTPS device simulators — and you implement `async handle_message(client,
+message)`, replying with `await self.send(client, text)` and pushing unsolicited
+updates with `await self.broadcast(text)`. See `lg_webos_sim.py` for a
+subscription/push example.
+
 ### Step 2: Fill In the Protocol Logic
 
 **For TCP drivers**, implement `handle_command(data: bytes) -> bytes | None`:

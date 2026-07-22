@@ -5394,7 +5394,7 @@
       "name": "Turtle AV Dante Bluetooth Wallplate",
       "manufacturer": "TurtleAV",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Turtle AV Dante Bluetooth Wallplate (WPD20BUS) over Telnet. Bridges a stereo Bluetooth source into Dante. Input gain/mute/stereo, Bluetooth pairing window, volume, mute, audio bridging mode, transport (play/pause/skip) with now-playing metadata, connection status, and per-channel parametric EQ.\n",
@@ -5437,6 +5437,18 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "send_ascii": "get type\r\n",
+          "expect_regex": "TAV-BTWP|WPD20B",
+          "timeout_ms": 2000,
+          "extract": {
+            "model": {
+              "regex": "(TAV-BTWP[\\w-]*|WPD[\\w-]+)",
+              "group": 1
+            }
+          }
+        },
         "port_open": [
           23
         ],

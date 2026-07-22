@@ -44,7 +44,7 @@ id: turtle_bt_wallplate
 name: Turtle AV Dante Bluetooth Wallplate
 manufacturer: TurtleAV
 category: audio
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -98,18 +98,28 @@ help:
        Dante Web GUI protect that web interface only.
 
 discovery:
-  # Hint-only. The wall plate answers "get type" -> its model/type string
-  # (e.g. TAV-BTWPEU-BLACK) on Telnet 23, but an active probe here would
-  # blind-send to every Telnet host in a scan (port 23 is a shared, commonly-
-  # open port), so no tcp_probe is declared (same caution as other telnet:23
-  # devices in the catalog). It is a Dante device: Dante's mDNS advertisement
-  # is generic across all Dante hardware, so claiming it would false-match
-  # unrelated Dante gear. A device found with TCP 23 open surfaces as a
-  # candidate; the manufacturer alias lets a device already identified as
-  # Turtle AV offer this driver. The oui hint gives a vendor-name display only
-  # (18:66:96 is TurtleAV's OUI, confirmed from the bench unit's reported MAC;
+  # Active identify probe. The wall plate answers "get type" on Telnet 23 with
+  # its model/type string: TAV-BTWP<region>-<color> (e.g. TAV-BTWPEU-BLACK);
+  # older / US firmware answers WPD20BUS. expect_regex matches the stable family
+  # stem TAV-BTWP (so any region/color variant identifies) and the WPD20B form.
+  # Verified live against a bench EU/black unit (2026-07-22). Port 23 is a
+  # shared, commonly-open port, so the probe get-type-sends to every open-23
+  # host in a scan (rate-limited, source-IP-bound); the reply gates the match,
+  # so non-Turtle Telnet devices never false-identify. port_open keeps the
+  # device surfaced as a candidate if the probe can't run (its single Telnet
+  # session is busy). oui = vendor-name display only (18:66:96 is TurtleAV's,
   # shared with the Chazy/Darwin controllers, so it does not by itself fire the
-  # manufacturer alias). An active get-type probe remains a future improvement.
+  # manufacturer alias). Dante mDNS is generic across all Dante hardware, so it
+  # is not claimed here.
+  tcp_probe:
+    port: 23
+    send_ascii: "get type\r\n"
+    expect_regex: "TAV-BTWP|WPD20B"
+    timeout_ms: 2000
+    extract:
+      model:
+        regex: '(TAV-BTWP[\w-]*|WPD[\w-]+)'
+        group: 1
   port_open:
     - 23
   oui:

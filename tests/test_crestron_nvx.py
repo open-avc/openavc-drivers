@@ -184,7 +184,7 @@ async def _connect(driver):
 
 def test_metadata_shape():
     info = DRV.CrestronNVXDriver.DRIVER_INFO
-    assert info["version"] == "2.0.3"
+    assert info["version"] == "2.0.4"
     assert info["category"] == "switcher"
     assert info["web_ui"] is True
     assert info["transport"] == "http"

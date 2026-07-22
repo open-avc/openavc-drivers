@@ -82,7 +82,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.0.3",
+        "version": "2.0.4",
         "author": "OpenAVC",
         "min_platform_version": "0.24.0",
         "description": (
@@ -94,7 +94,7 @@ class CrestronNVXDriver(BaseDriver):
         ),
         "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
         "tags": ["av-over-ip", "encoder", "decoder", "rest-api", "streaming"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "web_ui": True,          # exposes an HTTPS web interface (Open Web UI action)
         "protocols": ["cresnext"],
@@ -130,11 +130,15 @@ class CrestronNVXDriver(BaseDriver):
                 "confidence": "full",
                 "notes": (
                     "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), "
-                    "firmware 7.1.5259, 2026-07-15. The E20 is transmit-only and "
-                    "the D200 receive-only; combo 35x/36x units flip via "
-                    "DeviceMode and expose whichever surface is active. Current "
-                    "firmware requires an admin account (use the Set Up NVX "
-                    "wizard on a factory-fresh unit)."
+                    "firmware 7.1.5259, 2026-07-15. Re-verified on the newer "
+                    "DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 "
+                    "(decoder) pair 2026-07-22: each connects, reports its "
+                    "DeviceMode, and presents the matching role surface. The "
+                    "E20/E30 are transmit-only and the D200/D30 receive-only; "
+                    "combo 35x/36x units flip via DeviceMode and expose "
+                    "whichever surface is active. Current firmware requires an "
+                    "admin account (use the Set Up NVX wizard on a factory-fresh "
+                    "unit)."
                 ),
             },
         ],

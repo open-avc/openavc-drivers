@@ -816,7 +816,7 @@
       "name": "Onkyo / Integra / Pioneer AV Receiver (eISCP)",
       "manufacturer": "Onkyo",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Onkyo, Integra, and Pioneer A/V receivers over the network using eISCP (the Integra Serial Control Protocol over Ethernet, TCP 60128). Power, mute, master volume, input selection, and listening-mode (DSP) selection, with polled power / mute / input / listening mode / volume status. The \"!1\" ISCP header, the CR terminator, and the 16-byte eISCP packet header with its computed data length are declared once and wrap every command.",
@@ -827,7 +827,7 @@
         60128
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "receiver",
         "avr",
@@ -902,7 +902,7 @@
       "name": "Onkyo / Integra AV Receiver (ISCP Serial)",
       "manufacturer": "Onkyo",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "serial",
       "description": "Controls Onkyo and Integra A/V receivers over RS-232 using the Integra Serial Control Protocol (ISCP). Power, mute, master volume, input selection, and listening-mode (DSP) selection, with polled power / mute / input / listening mode / volume status. A constant \"!1\" packet header and CR terminator are declared once and wrap every command.",
@@ -910,7 +910,7 @@
       "file": "audio/onkyo_integra_iscp.avcdriver",
       "format": "avcdriver",
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "receiver",
         "avr",

@@ -50,9 +50,9 @@ id: onkyo_integra_eiscp
 name: Onkyo / Integra / Pioneer AV Receiver (eISCP)
 manufacturer: Onkyo
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
-min_platform_version: "0.23.0"
+min_platform_version: "0.24.0"
 description: >-
   Controls Onkyo, Integra, and Pioneer A/V receivers over the network using
   eISCP (the Integra Serial Control Protocol over Ethernet, TCP 60128). Power,
@@ -264,6 +264,9 @@ commands:
   set_volume:
     label: Set Volume
     send: "MVL{level:02X}"
+    # The param is the friendly 0-100 number; the state var is the hex
+    # code the receiver reports. Declared so the simulator connects them.
+    sets: { master_volume: "{level}" }
     help: >-
       Set the master volume level (0-100). Sent as the 2-digit hex the receiver
       expects (the {level:02X} format spec does the decimal-to-hex conversion).
@@ -339,6 +342,7 @@ commands:
   set_listening_mode:
     label: Set Listening Mode
     send: "LMD{mode}"
+    sets: { listening_mode: "{mode}" }
     help: Select the receiver's listening / DSP mode.
     params:
       mode:

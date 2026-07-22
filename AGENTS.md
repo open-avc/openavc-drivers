@@ -888,6 +888,26 @@ params:
 
 These are still authoring aids backed by the runtime gate — never the only check. A dynamic `$var/$state` value (macro steps) skips the IDE check and is validated only once resolved at runtime.
 
+**Declared state effects — `sets` / `query_for` (platform ≥ 0.24.0).** The auto-generated simulator infers a command's state effect from its name (`power_on` → `power: true`, `set_volume` + a param named like a state var → that var). When the names don't line up — a `level` param feeding a `master_volume` var, a status query whose text says nothing about what it returns — declare the pairing on the command:
+
+```yaml
+set_volume:
+  send: "MVL{level:02X}"
+  params:
+    level: { type: integer, required: true, min: 0, max: 100 }
+  sets: { master_volume: "{level}" }   # param value → state var
+
+blank_screen:
+  send: "OSDBLK1"
+  sets: { video_mute: true }           # literal
+
+get_status:
+  send: "STA?"
+  query_for: power                     # the reply reports this variable
+```
+
+`sets` maps state variable → value: a `"{param}"` string takes that parameter's value (a non-decimal format spec like `{level:02X}` decodes back for numeric vars; string vars keep the wire form — hex-code protocols declare the code itself as state), anything else is a literal. `query_for` names the state variable the reply reports, so the simulator answers with its current value. Both are validated: every name must be a declared state variable (or parameter), so a typo is a load error. Declared semantics beat name inference; conventionally-named commands need neither.
+
 ### 2.6.1 actions and quick_actions (Quick Action strip)
 
 By default every command sits in one flat "Send Command" list in the device
@@ -1181,7 +1201,13 @@ polling:
 ```
 
 A query entry may also carry `when: <config_field>` to run only while that field
-is on — see the `when:` note under §2.9 `on_connect`.
+is on — see the `when:` note under §2.9 `on_connect`. A mapping entry may also
+declare `query_for: <state_var>` (platform ≥ 0.24.0) naming the state variable
+the reply reports — `{ send: "V\r", query_for: volume }` — so the auto-generated
+simulator answers the query with that variable's current value instead of
+guessing from command names. `query_for` must name a declared state variable and
+only fits the plain `{send}` form (not `each_child` / `{address, args}` entries);
+the same form works in `on_connect` for an initial-status query.
 
 **Command names resolve for HTTP/UDP only.** A query that names a declared
 command runs as that command (so its response is matched) **only on HTTP and

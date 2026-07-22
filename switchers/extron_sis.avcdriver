@@ -44,9 +44,9 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.5.0
+version: 1.6.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.24.0"
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
   Covers crosspoint matrix switchers (DXP, CrossPoint), presentation
@@ -524,9 +524,11 @@ polling:
   queries:
     # Single-output dialect (matrices answer these with info strings or
     # errors, which is benign — their state rides the per-output queries).
-    - "I"
-    - "V"
-    - "Z"
+    # query_for names the state variable each terse query reports; the
+    # letters say nothing about what comes back, so the pairing is declared.
+    - { send: "I", query_for: input }
+    - { send: "V", query_for: volume }
+    - { send: "Z", query_for: mute }
     # Matrix dialect — only sent for configured children (counts > 0).
     # Bare {n}% / {n}$ / {n}B / {n}Z are VIEWS on matrices; verbose mode 3
     # (set on connect) makes the responses carry the output number.

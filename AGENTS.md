@@ -908,23 +908,15 @@ get_status:
 
 `sets` maps state variable → value: a `"{param}"` string takes that parameter's value (a non-decimal format spec like `{level:02X}` decodes back for numeric vars; string vars keep the wire form — hex-code protocols declare the code itself as state), anything else is a literal. `query_for` names the state variable the reply reports, so the simulator answers with its current value. Both are validated: every name must be a declared state variable (or parameter), so a typo is a load error. Declared semantics beat name inference; conventionally-named commands need neither.
 
-### 2.6.1 actions and quick_actions (Quick Action strip)
+### 2.6.1 actions (Quick Action strip)
 
 By default every command sits in one flat "Send Command" list in the device
 view. For a controller-class driver that's dozens of entries, so the few an
 integrator actually reaches for get buried. Promote them to one-click buttons
-at the top of the device view with `quick_actions` (sugar) or `actions` (full
-form). The Send Command list still shows everything — the strip is additive.
+at the top of the device view with `actions`. The Send Command list still
+shows everything — the strip is additive.
 
-**`quick_actions` — the simple case.** A flat list of command ids to promote.
-Each becomes a button labelled by the command's `label`, firing that command on
-click (commands with params open an input dialog).
-
-```yaml
-quick_actions: [power_on, power_off, recall_preset_1]
-```
-
-**`actions` — the full form.** A list of entries with per-button control over
+**`actions`.** A list of entries with per-button control over
 label, icon, confirmation, and visibility.
 
 ```yaml
@@ -966,9 +958,14 @@ actions:
     visible_when: { key: "device.$id.alarm", operator: truthy }
 ```
 
-`quick_actions` ids and `actions` `kind:command` entries must name a declared
-command — the catalog validator rejects dangling references. If the same id
-appears in both, the explicit `actions` entry wins.
+`actions` `kind:command` entries must name a declared command — the catalog
+validator rejects dangling references.
+
+**Legacy form.** Older drivers may declare `quick_actions`, a flat list of
+command ids (`quick_actions: [power_on, power_off]`) — each becomes a button
+labelled by the command's `label`. Still accepted and validated (ids must name
+declared commands), but write `actions` in new drivers. If the same id appears
+in both, the explicit `actions` entry wins.
 
 **Open Web UI (`web_ui`) — the `kind:link` shortcut.** A device with its own
 browser UI doesn't need an explicit link action: declare `web_ui: true` at the
@@ -1755,8 +1752,8 @@ class MyDriver(BaseDriver):
         },
         # Quick Action strip — same shape as YAML (see 2.6.1). Promote the
         # commands integrators reach for to buttons at the top of the device view.
-        "quick_actions": ["power_on"],
         "actions": [
+            {"id": "power_on", "kind": "command", "icon": "power"},
             {"id": "set_input", "kind": "command", "icon": "tv"},
         ],
         "protocols": ["acme_binary"],
@@ -2963,7 +2960,7 @@ These are common errors that produce drivers that fail validation or don't work 
 |---------|-----|
 | Missing `label` on state variables | Every state variable requires a `label` field. |
 | Using `send` in HTTP commands | HTTP commands use `method` + `path` + `body`, not `send`. |
-| Using `method`/`path` in TCP commands | TCP/serial commands use `send` (or `string`), not HTTP fields. |
+| Using `method`/`path` in TCP commands | TCP/serial commands use `send`, not HTTP fields. |
 | Nested objects in state values | State values must be flat primitives: str, int, float, bool, None. |
 | Invalid regex in response patterns | Test your regex. Avoid nested quantifiers like `(a+)+` which cause catastrophic backtracking. |
 | Wrong delimiter for protocol | Check the device's protocol manual. Most AV devices use `\r`, not `\n` or `\r\n`. |

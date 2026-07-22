@@ -44,7 +44,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.6.0
+version: 1.7.0
 author: OpenAVC
 min_platform_version: "0.24.0"
 description: >
@@ -532,15 +532,21 @@ polling:
     # Matrix dialect — only sent for configured children (counts > 0).
     # Bare {n}% / {n}$ / {n}B / {n}Z are VIEWS on matrices; verbose mode 3
     # (set on connect) makes the responses carry the output number.
-    - { each_child: output, send: "{child_id}%" }
-    - { each_child: output, send: "{child_id}$" }
-    - { each_child: output, send: "{child_id}B" }
-    - { each_child: output, send: "{child_id}Z" }
-    - { each_child: input, send: "\x1bI{child_id}HDCP\r" }
+    # query_for names the child variable each view reports, so the
+    # simulator answers every output/input from its own modeled state.
+    - { each_child: output, send: "{child_id}%", query_for: input }
+    - { each_child: output, send: "{child_id}$", query_for: audio_input }
+    - { each_child: output, send: "{child_id}B", query_for: video_mute }
+    - { each_child: output, send: "{child_id}Z", query_for: audio_mute }
+    - { each_child: input, send: "\x1bI{child_id}HDCP\r", query_for: hdcp }
 
 # ── SIMULATOR DEFINITION ──
 # Models an 8x4 DXP-style matrix in verbose mode 3 (tagged responses), with
 # the single-output dialect's volume kept so the flat commands round-trip.
+# Per-output/per-input state uses the child model's dotted keys — seeding
+# them here also rosters the 4 outputs and 8 inputs, so the per-child view
+# queries (declared with query_for above) answer from each child's own
+# state without any handler code.
 simulator:
   push_state: true
   initial_state:
@@ -550,30 +556,38 @@ simulator:
     video_mute: false
     firmware: "1.04"
     signal_active: true
-    route_1: 1
-    route_2: 1
-    route_3: 1
-    route_4: 1
-    audio_route_1: 1
-    audio_route_2: 1
-    audio_route_3: 1
-    audio_route_4: 1
-    vmute_1: 0
-    vmute_2: 0
-    vmute_3: 0
-    vmute_4: 0
-    amute_1: 0
-    amute_2: 0
-    amute_3: 0
-    amute_4: 0
-    insig_1: 1
-    insig_2: 1
-    insig_3: 2
-    insig_4: 0
-    insig_5: 0
-    insig_6: 0
-    insig_7: 0
-    insig_8: 0
+    output.1.input: 1
+    output.2.input: 1
+    output.3.input: 1
+    output.4.input: 1
+    output.1.audio_input: 1
+    output.2.audio_input: 1
+    output.3.audio_input: 1
+    output.4.audio_input: 1
+    output.1.video_mute: false
+    output.2.video_mute: false
+    output.3.video_mute: false
+    output.4.video_mute: false
+    output.1.audio_mute: false
+    output.2.audio_mute: false
+    output.3.audio_mute: false
+    output.4.audio_mute: false
+    input.1.signal: true
+    input.1.hdcp: hdcp
+    input.2.signal: true
+    input.2.hdcp: hdcp
+    input.3.signal: true
+    input.3.hdcp: non_hdcp
+    input.4.signal: false
+    input.4.hdcp: none
+    input.5.signal: false
+    input.5.hdcp: none
+    input.6.signal: false
+    input.6.hdcp: none
+    input.7.signal: false
+    input.7.hdcp: none
+    input.8.signal: false
+    input.8.hdcp: none
 
   delays:
     command_response: 0.02   # 20ms — realistic for Extron SIS over TCP
@@ -583,7 +597,7 @@ simulator:
       label: Video Routing
       inputs: 8
       outputs: 4
-      state_pattern: "route_{output}"
+      state_pattern: "output.{output}.input"
     - type: slider
       key: volume
       label: Volume
@@ -622,9 +636,9 @@ simulator:
       handler: |
         inp = int(match.group(1))
         out = int(match.group(2))
-        if f"route_{out}" in state:
-            state[f"route_{out}"] = inp
-            state[f"audio_route_{out}"] = inp
+        if f"output.{out}.input" in state:
+            state[f"output.{out}.input"] = inp
+            state[f"output.{out}.audio_input"] = inp
             respond(f"Out{out} In{inp} All\r\n")
         else:
             respond("E01\r\n")
@@ -634,8 +648,8 @@ simulator:
       handler: |
         inp = int(match.group(1))
         out = int(match.group(2))
-        if f"route_{out}" in state:
-            state[f"route_{out}"] = inp
+        if f"output.{out}.input" in state:
+            state[f"output.{out}.input"] = inp
             respond(f"Out{out} In{inp} Vid\r\n")
         else:
             respond("E01\r\n")
@@ -645,8 +659,8 @@ simulator:
       handler: |
         inp = int(match.group(1))
         out = int(match.group(2))
-        if f"audio_route_{out}" in state:
-            state[f"audio_route_{out}"] = inp
+        if f"output.{out}.audio_input" in state:
+            state[f"output.{out}.audio_input"] = inp
             respond(f"Out{out} In{inp} Aud\r\n")
         else:
             respond("E01\r\n")
@@ -657,8 +671,8 @@ simulator:
         inp = int(match.group(1))
         state["input"] = inp
         for i in range(1, 5):
-            state[f"route_{i}"] = inp
-            state[f"audio_route_{i}"] = inp
+            state[f"output.{i}.input"] = inp
+            state[f"output.{i}.audio_input"] = inp
         respond(f"In{inp} All\r\n")
 
     # Per-output video mute set: {output}*{0|1}B  ->  "Vmt{o}*{s}"
@@ -666,75 +680,37 @@ simulator:
       handler: |
         out = int(match.group(1))
         val = int(match.group(2))
-        if f"vmute_{out}" in state:
-            state[f"vmute_{out}"] = val
+        if f"output.{out}.video_mute" in state:
+            state[f"output.{out}.video_mute"] = val == 1
             respond(f"Vmt{out}*{val}\r\n")
         else:
             respond("E01\r\n")
 
     # Per-output audio mute set: {output}*{0-7}Z  ->  "Amt{o}*{s}"
+    # (values 1-7 are model-specific path combinations; any non-zero
+    # state reads as muted, and the ack echoes the exact value)
     - match: '(\d+)\*([0-7])Z'
       handler: |
         out = int(match.group(1))
         val = int(match.group(2))
-        if f"amute_{out}" in state:
-            state[f"amute_{out}"] = val
+        if f"output.{out}.audio_mute" in state:
+            state[f"output.{out}.audio_mute"] = val != 0
             respond(f"Amt{out}*{val}\r\n")
         else:
             respond("E01\r\n")
 
-    # View video tie: {output}% (verbose 3 -> tagged response)
-    - match: '(\d+)[%&]'
-      handler: |
-        out = int(match.group(1))
-        if f"route_{out}" in state:
-            respond(f"Out{out} In{state[f'route_{out}']} Vid\r\n")
-        else:
-            respond("E01\r\n")
-
-    # View audio tie: {output}$
-    - match: '(\d+)\$'
-      handler: |
-        out = int(match.group(1))
-        if f"audio_route_{out}" in state:
-            respond(f"Out{out} In{state[f'audio_route_{out}']} Aud\r\n")
-        else:
-            respond("E01\r\n")
+    # The per-output/per-input VIEWS ({o}%, {o}$, {o}B, {o}Z, Esc I{n}HDCP)
+    # need no handlers: the polling entries declare query_for, so the
+    # simulator answers each one from that child's own modeled state.
 
     # View AV tie — on DXP-class units a bare "{output}!" is a view,
-    # NOT input-to-all (that form is "{input}*!").
+    # NOT input-to-all (that form is "{input}*!"). Not polled, so it
+    # keeps an explicit handler.
     - match: '(\d+)!'
       handler: |
         out = int(match.group(1))
-        if f"route_{out}" in state:
-            respond(f"Out{out} In{state[f'route_{out}']} All\r\n")
-        else:
-            respond("E01\r\n")
-
-    # View per-output video mute: {output}B
-    - match: '(\d+)B'
-      handler: |
-        out = int(match.group(1))
-        if f"vmute_{out}" in state:
-            respond(f"Vmt{out}*{state[f'vmute_{out}']}\r\n")
-        else:
-            respond("E01\r\n")
-
-    # View per-output audio mute: {output}Z
-    - match: '(\d+)Z'
-      handler: |
-        out = int(match.group(1))
-        if f"amute_{out}" in state:
-            respond(f"Amt{out}*{state[f'amute_{out}']}\r\n")
-        else:
-            respond("E01\r\n")
-
-    # Input HDCP/source status: Esc I{n}HDCP<CR>  ->  "HdcpI{n}*{0|1|2}"
-    - match: '\x1bI(\d+)HDCP.*'
-      handler: |
-        inp = int(match.group(1))
-        if f"insig_{inp}" in state:
-            respond(f"HdcpI{inp}*{state[f'insig_{inp}']}\r\n")
+        if f"output.{out}.input" in state:
+            respond(f"Out{out} In{state[f'output.{out}.input']} All\r\n")
         else:
             respond("E01\r\n")
 

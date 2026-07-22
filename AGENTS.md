@@ -697,17 +697,17 @@ responses:
 
 Note the auto-simulator builds OSC query/set handlers only from `mappings:`-bearing rules — a `child_set`-only rule needs explicit `simulator: command_handlers` script handlers (`address:` + `handler:`) owning those addresses (per-unit state lives in flat sim state keys; the sim mimics the device, not the driver).
 
-**`each_child:`** entries in `polling.queries` (and `on_connect`) — one query per registered child, `{child_id}` substituting the unpadded local ID. Format specs work (platform ≥ 0.23.0): `{child_id:02d}` zero-pads for padded-address protocols:
+**`each_child:`** entries in `polling.queries` (and `on_connect`) — one query per registered child, `{child_id}` substituting the unpadded local ID. Format specs work (platform ≥ 0.23.0): `{child_id:02d}` zero-pads for padded-address protocols. `query_for:` (platform ≥ 0.24.0) names which of the **child type's** state variables each reply reports — declare it and the auto-generated simulator models every child independently and answers each expanded query from that child's own state (reply text derived from your `child_set:` rules):
 
 ```yaml
 polling:
   queries:
     - "PWR?\r"
-    - { each_child: output, send: "?VOUT{child_id}\r" }
+    - { each_child: output, send: "?VOUT{child_id}\r", query_for: input }
     - { each_child: channel, send: "/ch/{child_id:02d}/mix/fader" }   # OSC, zero-padded
 ```
 
-Per-child **writes** need nothing new: declare a command with a `child_id` param (§2.6). Per-child persisted values (zone volume, output mute) are child state variables + a `child_id` command, **not** `device_settings` (a setting's flat `state_key` can't address a child). The catalog validator enforces all three shapes (roster source rules, declared types/props, capture-ref bounds, `{child_id}` presence).
+Per-child **writes** need nothing new: declare a command with a `child_id` param (§2.6). On a command with exactly one `child_id` param, `sets:` / `query_for:` may name the child type's state variables — the simulator routes the effect to the addressed child (platform ≥ 0.24.0). Per-child persisted values (zone volume, output mute) are child state variables + a `child_id` command, **not** `device_settings` (a setting's flat `state_key` can't address a child). The catalog validator enforces all three shapes (roster source rules, declared types/props, capture-ref bounds, `{child_id}` presence, `query_for` naming a child variable).
 
 ### 2.5.2 Previewable video streams (preview convention)
 

@@ -72,7 +72,13 @@ The auto-generated simulator will:
 
 The command-to-state link normally comes from naming conventions (`power_on` sets `power`; a param named like a state variable feeds it). When the names don't line up, declare the link on the command instead of writing a simulator handler (requires platform 0.24.0): `sets: { master_volume: "{level}" }` says the command sets that variable to the parameter's value (a literal like `sets: { power: true }` works too), and `query_for: power` marks a command as a status query the simulator answers with that variable's current value. A polling entry can carry the same pairing in mapping form — `{ send: "V\r", query_for: volume }` — for terse queries whose text says nothing about what comes back. Declared semantics always beat name inference. If the driver declares an `auth: telnet_login` block, the simulator also mirrors the login handshake — it presents the prompts, honors the declared `line_ending`, and skips authentication when the driver would (`skip_if_empty` with a blank username). It accepts any credentials except the designated bad credential: a username or password of `invalid` makes it reject the login (emitting `failure_pattern` when declared, otherwise re-prompting for the username) so you can test the driver's auth-failure path.
 
-**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, non-Telnet authentication schemes, custom push message formats, commands whose state effect is neither declared (`sets` / `query_for`) nor inferable from naming conventions, and per-child-entity state (a `child_id` command parameter is matched but the auto-generator has no per-child state model to update — write a Python `_sim.py` and read `self.child_entities` to model each child if you need routing feedback reflected in state). For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
+**Child entities** are modeled too (requires platform 0.24.0). A driver that declares `child_entity_types` gets an independent state map per child, kept under dotted keys like `output.2.input` and shown per child in the Simulator UI:
+
+- The simulated roster comes from the type's `instances:` rule resolved against the device config, from any dotted keys you seed in `simulator: initial_state`, and from the project's configured children.
+- A per-child poll entry that declares its pairing — `{ each_child: output, send: "{child_id}%", query_for: input }` — is answered from each child's own state, with the reply text derived from your `child_set:` response rules.
+- A command with exactly one `child_id` parameter applies its `sets:` / `query_for` (naming the child type's state variables) to the addressed child, and answers from that child's state. A command addressing a child outside the roster goes unanswered, like real hardware ignoring a port it doesn't have.
+
+**What auto-gen does NOT handle:** Realistic delays, power warmup/cooldown, error modes, non-Telnet authentication schemes, custom push message formats, and commands whose state effect is neither declared (`sets` / `query_for`) nor inferable from naming conventions. For these, add a `simulator:` section (Level 1). Note that basic state change push (TCP, UDP, OSC) works automatically without any configuration.
 
 ---
 
@@ -173,7 +179,7 @@ The handler code has access to:
 
 The same set is available to both TCP/serial and OSC handlers. (For OSC handlers the match-related variable is `address` plus an `args` list, and `respond(address, args)` sends an OSC message.)
 
-State changes made via `state["key"] = value` are reflected in the Simulator UI in real time.
+State changes made via `state["key"] = value` are reflected in the Simulator UI in real time. Child-entity state uses the dotted key form — `state["output.2.input"] = 5` moves output 2's routed input, and the auto-generated per-child query for that child answers with the new value.
 
 **When to use script vs template handlers:** Use template handlers (`receive:` + `respond:`) for simple command/response patterns. Use script handlers (`match:` + `handler:`) when you need conditionals, math, config access, or complex state logic.
 

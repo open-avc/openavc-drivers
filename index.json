@@ -1936,7 +1936,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.6.0",
+      "version": "1.7.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",

@@ -595,7 +595,7 @@ class SonyVISCASimulator(UDPSimulator):
                 # PTZ TRACE: 7E 04 20 [00 0p 02]=record_start, [00 00 03]=record_stop,
                 #            [01 0p 01]=play_prepare, [01 00 02]=play_start,
                 #            [02 0p 00]=delete
-                sub, slot, action = rest[0], rest[1], rest[2]
+                sub, _slot, action = rest[0], rest[1], rest[2]
                 if sub == 0x00 and action == 0x02:
                     self.set_state("ptz_trace_status", "recording")
                 elif sub == 0x00 and action == 0x03:

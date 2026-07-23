@@ -86,6 +86,10 @@ class _FakeBaseDriver:
         )
         self._connected = True
         self.set_state("connected", True)
+        await self._initial_sync()
+
+    async def _initial_sync(self) -> None:
+        pass
 
     async def disconnect(self) -> None:
         if self.transport:
@@ -389,8 +393,8 @@ def test_parse_frame_multiple():
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.5.0"
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.13.0"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.5.1"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
 
 
 def test_child_entity_type_declared():

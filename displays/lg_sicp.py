@@ -281,10 +281,10 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "author": "OpenAVC",
-        # Child entities + child-prop cloud_priority tiers landed in 0.13.0.
-        "min_platform_version": "0.13.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "description": (
             "Controls LG commercial displays via SICP over TCP (port 9761). "
             "Each Set ID on an RS-232 daisy chain is a display child entity "
@@ -739,9 +739,8 @@ class LGSICPDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        """Connect, register the display roster, and read initial state."""
-        await super().connect()
+    async def _initial_sync(self) -> None:
+        """Register the display roster and read initial state."""
         self._pending.clear()
         self._reconcile_displays()
         self._publish_options()

@@ -109,8 +109,10 @@ class PTZOpticsDriver(BaseDriver):
         "name": "PTZOptics Camera",
         "manufacturer": "PTZOptics",
         "category": "camera",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "author": "OpenAVC",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "description": (
             "Controls PTZOptics PTZ cameras over the VISCA-over-IP "
             "protocol on TCP port 5678. Pan, tilt, zoom, focus, "
@@ -738,8 +740,7 @@ class PTZOpticsDriver(BaseDriver):
         # Every VISCA packet ends with 0xFF — frame on it.
         return b"\xff"
 
-    async def connect(self) -> None:
-        await super().connect()
+    async def _initial_sync(self) -> None:
         self._inquiry_lock = asyncio.Lock()
         # Initial poll so state populates before the first poll cycle.
         try:
@@ -747,12 +748,11 @@ class PTZOpticsDriver(BaseDriver):
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-    async def disconnect(self) -> None:
+    async def _close_session(self) -> None:
         # Drop any pending inquiry future so callers don't hang.
         if self._inquiry_future and not self._inquiry_future.done():
             self._inquiry_future.cancel()
         self._inquiry_future = None
-        await super().disconnect()
 
     # ── Receive ──
 

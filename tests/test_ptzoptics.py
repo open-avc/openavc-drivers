@@ -122,12 +122,14 @@ class _FakeBaseDriver:
         self._connected = True
         self.set_state("connected", True)
         await self.events.emit(f"device.connected.{self.device_id}")
+        await self._initial_sync()
 
     async def disconnect(self) -> None:
         await self.stop_polling()
         if self.transport:
             await self.transport.close()
             self.transport = None
+        await self._close_session()
         self._connected = False
         self.set_state("connected", False)
         await self.events.emit(f"device.disconnected.{self.device_id}")
@@ -150,6 +152,12 @@ class _FakeBaseDriver:
         pass
 
     async def stop_polling(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
         pass
 
 
@@ -228,7 +236,7 @@ async def _make_pair(sim_state=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PTZOpticsDriver.DRIVER_INFO["version"] == "1.3.0"
+    assert DRV.PTZOpticsDriver.DRIVER_INFO["version"] == "1.3.1"
 
 
 def test_device_settings_declared():

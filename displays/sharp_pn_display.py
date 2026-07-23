@@ -207,7 +207,7 @@ class SharpPnDisplayDriver(BaseDriver):
         "name": "Sharp PN Display (AQUOS BOARD)",
         "manufacturer": "Sharp",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls pre-merger Sharp PN-series commercial displays and "
@@ -225,7 +225,8 @@ class SharpPnDisplayDriver(BaseDriver):
         "verified": False,
         "simulated": True,
         "ports": [10008],
-        "min_platform_version": "0.23.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "transport": "tcp",
         "transports": ["tcp", "serial"],
         "delimiter": "\r\n",
@@ -690,18 +691,17 @@ class SharpPnDisplayDriver(BaseDriver):
     def _transport_type(self) -> str:
         return self.config.get("transport") or self.DRIVER_INFO.get("transport", "tcp")
 
-    async def connect(self) -> None:
+    async def _pre_connect(self) -> None:
         # Arm the auth capture BEFORE the transport exists so the Login:
         # banner can't slip past (it arrives immediately on connect).
         if self._transport_type() == "tcp":
             self._auth_mode = True
             self._auth_buffer = bytearray()
             self._auth_event = asyncio.Event()
-        try:
-            await super().connect()
-        except Exception:
-            self._auth_mode = False
-            raise
+
+    async def _close_session(self) -> None:
+        # A failed or torn-down attempt must not leave the auth capture armed.
+        self._auth_mode = False
 
     async def _post_connect(self) -> None:
         if self._auth_mode and self.transport is not None:

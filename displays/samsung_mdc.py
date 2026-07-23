@@ -250,10 +250,10 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "author": "OpenAVC",
-        # Child entities + child-prop cloud_priority tiers landed in 0.13.0.
-        "min_platform_version": "0.13.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
             "Display Control) binary protocol over TCP. Each Set ID on the "
@@ -619,9 +619,8 @@ class SamsungMDCDriver(BaseDriver):
         """MDC uses binary framing, not delimiters."""
         return None
 
-    async def connect(self) -> None:
-        """Connect, register the display roster, and query status."""
-        await super().connect()
+    async def _initial_sync(self) -> None:
+        """Register the display roster and query status."""
         self._reconcile_displays()
         await self.poll()
 

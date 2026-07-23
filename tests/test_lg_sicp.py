@@ -89,6 +89,10 @@ class _FakeBaseDriver:
         )
         self._connected = True
         self.set_state("connected", True)
+        await self._initial_sync()
+
+    async def _initial_sync(self) -> None:
+        pass
 
     async def disconnect(self) -> None:
         if self.transport:
@@ -350,9 +354,9 @@ def test_parse_frame_multiple_and_garbage():
 
 def test_version_and_platform_floor():
     info = DRV.LGSICPDriver.DRIVER_INFO
-    assert info["version"] == "2.0.1"
+    assert info["version"] == "2.0.2"
     # Child entities + child-prop cloud tiers are the hard runtime need.
-    assert info["min_platform_version"] == "0.13.0"
+    assert info["min_platform_version"] == "0.24.0"
 
 
 def test_child_entity_type_declared():

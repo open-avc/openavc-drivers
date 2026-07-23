@@ -207,8 +207,8 @@ def pair():
 
 def test_metadata_shape():
     info = DRV.SharpPnDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.0.0"
-    assert info["min_platform_version"] == "0.23.0"
+    assert info["version"] == "1.0.1"
+    assert info["min_platform_version"] == "0.24.0"
     assert info["ports"] == [10008]
     assert info["transports"] == ["tcp", "serial"]
     for key, setting in info["device_settings"].items():

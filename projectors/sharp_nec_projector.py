@@ -241,8 +241,10 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.5.1",
+        "version": "2.5.2",
         "author": "OpenAVC",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
             "protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, "
@@ -804,8 +806,7 @@ class SharpNECProjectorDriver(BaseDriver):
 
     # --- Connection lifecycle ---
 
-    async def connect(self) -> None:
-        await super().connect()
+    async def _initial_sync(self) -> None:
         self._pending_gain.clear()
         try:
             # Basic status first — power, input, mutes, freeze (305-3)
@@ -829,16 +830,15 @@ class SharpNECProjectorDriver(BaseDriver):
         except ConnectionError:
             log.warning(f"[{self.device_id}] Initial status queries failed")
 
-    async def disconnect(self) -> None:
+    async def _close_session(self) -> None:
         if self._transition_task and not self._transition_task.done():
             self._transition_task.cancel()
             try:
                 await self._transition_task
             except asyncio.CancelledError:
                 pass
-            self._transition_task = None
+        self._transition_task = None
         self._pending_gain.clear()
-        await super().disconnect()
 
     # --- Command interface ---
 

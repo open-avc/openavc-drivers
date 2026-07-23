@@ -1813,23 +1813,55 @@ async def send_command(self, command: str, params: dict | None = None) -> Any:
 
 #### Connection Lifecycle
 
+`BaseDriver.connect()` runs the full lifecycle in a fixed order: clean-slate
+fault reset -> transport creation -> handshake -> connected declared (state
+key + `device.connected.<id>` event) -> push subscription -> initial sync ->
+polling + liveness watchdog. `disconnect()` (and the transport-drop cleanup)
+mirror it: stop the watchdog, push, and polling, close the transport and any
+driver-owned session, emit `device.disconnected.<id>`.
+
+**Do not override `connect()` (platform >= 0.24.0).** A copy must reproduce
+every stage by hand, and the ones that quietly go missing (the fault reset,
+the watchdog restart, the canonical event topic) surface as misclassified
+offline reasons and devices that never notice a dead link. Override the hook
+for the stage you need:
+
 ```python
-async def connect(self) -> None:
-    """Establish connection. Default implementation:
-    1. Creates transport from DRIVER_INFO["transport"] and self.config
-    2. Sets self._connected = True
-    3. Starts polling if poll_interval > 0
+async def _pre_connect(self) -> None:
+    """After the clean-slate reset, before the transport exists.
+    Arm buffers for banners/prompts that arrive the instant the
+    socket opens; seed protocol parameters from config."""
 
-    Override for: authentication handshakes, greeting parsing,
-    custom transport setup.
-    """
+def _transport_kwargs(self, transport_type, kwargs):
+    """Adjust the platform transport's constructor arguments —
+    kwargs["delimiter"] = None for a raw byte stream, a longer
+    timeout, a custom frame parser. Return kwargs."""
 
-async def disconnect(self) -> None:
-    """Close connection. Default implementation:
-    1. Stops polling
-    2. Closes transport
-    3. Sets self._connected = False
-    """
+async def _create_transport(self, transport_type) -> None:
+    """Builds self.transport. Override wholesale ONLY when the driver
+    owns its session (httpx client, websocket): open the session here,
+    leave self.transport as None, and pair with _link_alive() +
+    _close_session()."""
+
+async def _post_connect(self) -> None:
+    """Transport up, device NOT yet marked connected. Logins, greeting
+    parsing, protocol negotiation, session verification. Raise to fail
+    the connect attempt cleanly (no online/offline flap)."""
+
+async def _initial_sync(self) -> None:
+    """Marked connected, before polling starts. Identity reads,
+    child-roster registration, an initial poll(), starting
+    driver-specific keep-alive loops. Raise to tear back down."""
+
+async def _close_session(self) -> None:
+    """Close driver-owned connections living outside self.transport
+    (httpx client, secondary status socket). Called on EVERY teardown
+    path — must tolerate nothing being open, must null its refs."""
+
+def _link_alive(self) -> bool:
+    """Is the link up? Default reads self.transport. A driver-owned
+    session MUST override this (e.g. `return self._client is not None`)
+    or `connected` stays False and the watchdog never runs."""
 ```
 
 #### Data Handling
@@ -1867,23 +1899,37 @@ async def poll(self) -> None:
     """
 ```
 
-#### Reachability check for custom-transport drivers
+#### Driver-owned sessions (httpx / websockets)
 
-If your driver creates its own HTTP / websocket client instead of using
-a platform transport class, call `_verify_reachable(host, port, timeout)`
-in `connect()` before setting `connected=True`. Without this, loading the
-project against an unreachable device reports `connected=True` for one
-or more poll cycles before the watchdog catches up.
+REST devices with real session semantics (cookies, tokens, digest auth)
+should own an `httpx.AsyncClient` directly — this is the standard pattern
+for Python HTTP drivers (`HTTPClientTransport` remains the YAML engine).
+Open the session in `_create_transport()`, verify reachability first so an
+unreachable device fails fast instead of reporting a phantom
+`connected=True`, authenticate in `_post_connect()`, and give the platform
+`_link_alive()` + `_close_session()`:
 
 ```python
-async def connect(self) -> None:
-    host = self.config.get("host", "")
-    port = self.config.get("port", 1400)
-    if not await self._verify_reachable(host, port, timeout=3.0):
-        raise ConnectionError(f"Device at {host}:{port} not responding")
-    # ... rest of setup
-    self._connected = True
-    self.set_state("connected", True)
+class RestDeviceDriver(BaseDriver):
+    _client = None  # _close_session runs before the first connect
+
+    async def _create_transport(self, transport_type) -> None:
+        host = self.config.get("host", "")
+        port = self.config.get("port", 1400)
+        if not await self._verify_reachable(host, port, timeout=3.0):
+            raise ConnectionError(f"Device at {host}:{port} not responding")
+        self._client = httpx.AsyncClient(base_url=f"https://{host}:{port}")
+
+    async def _post_connect(self) -> None:
+        await self._login()          # raise -> attempt fails cleanly
+
+    def _link_alive(self) -> bool:
+        return self._client is not None
+
+    async def _close_session(self) -> None:
+        client, self._client = self._client, None
+        if client is not None:
+            await client.aclose()
 ```
 
 #### Liveness probe (dead-link watchdog)
@@ -1912,9 +1958,11 @@ get the same watchdog declaratively via the `liveness:` block (section
 
 Lifecycle: `BaseDriver.connect()` starts the loop automatically when it runs
 to completion, and both `disconnect()` and the transport-drop cleanup stop
-it. A driver that overrides `connect()` without calling `super().connect()`
-must call `self._start_health_loop()` itself; a custom `disconnect()` that
-skips `super().disconnect()` should call `self._stop_health_loop()`.
+it. The loop keeps running while `_link_alive()` is true, so a driver-owned
+session gets the watchdog too once it overrides that predicate. (A legacy
+driver that still overrides `connect()` without `super().connect()` must
+call `self._start_health_loop()` itself — one more reason to use the hooks
+instead.)
 
 #### Device Settings
 

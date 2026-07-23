@@ -202,7 +202,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.0.1",
+      "version": "4.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",

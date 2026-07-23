@@ -967,6 +967,21 @@ labelled by the command's `label`. Still accepted and validated (ids must name
 declared commands), but write `actions` in new drivers. If the same id appears
 in both, the explicit `actions` entry wins.
 
+**Offline-capable commands (`available_offline`).** The platform blocks
+commands to a disconnected device — a live connection is the point of most
+commands. The exception is a command whose handler needs no connection at all:
+the canonical case is a Wake-on-LAN `power_on` that sends a magic packet
+instead of talking to the device over its (dead) control link. Set
+`available_offline: true` on the **command** (a `commands` field) and the
+platform lets it run while the device is offline, so a macro, panel button, or
+schedule can wake a device that has gone fully off the network. A button that
+promotes an `available_offline` command then stays visible and enabled whatever
+the connection state (it resolves to `availability: always`) unless the action
+pins its own `availability`. Param validation still runs, and the handler must
+not assume a live transport — so this is realistically a Python driver, since a
+YAML command's `send` string has no transport to ride while offline. Needs
+platform >= 0.24.0.
+
 **Open Web UI (`web_ui`).** Most networked devices have their own browser UI,
 so this is automatic — leave `web_ui` unset and the platform auto-detects a
 reachable web page (an HTTP driver from its own config, others from a port

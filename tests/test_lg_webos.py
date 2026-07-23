@@ -288,44 +288,27 @@ def test_wol_rejects_bad_mac():
     assert d._wake_on_lan() is False
 
 
-# ── Offline Power On setup action ───────────────────────────────────────────
+# ── Offline Power On (available_offline command) ─────────────────────────────
 
-async def _noop_progress(*a, **k):
-    return None
-
-
-def test_power_on_is_an_offline_setup_action():
-    # The only reliable power-on path is a kind:setup action marked offline,
-    # because commands are blocked while the device is offline.
-    actions = LgWebosDriver.DRIVER_INFO["actions"]
-    wake = next(a for a in actions if a["id"] == "wake_tv")
-    assert wake["kind"] == "setup"
-    assert wake["availability"] == "offline"
-    # power_on must NOT be a promoted quick action (it can't run while offline).
-    assert "power_on" not in LgWebosDriver.DRIVER_INFO["quick_actions"]
+def test_power_on_is_available_offline_quick_action():
+    # power_on wakes the TV over Wake-on-LAN, so it's declared available_offline:
+    # the platform lets it run (and keeps its button live) while the TV is off,
+    # invocable from a macro, panel button, or schedule.
+    cmd = LgWebosDriver.DRIVER_INFO["commands"]["power_on"]
+    assert cmd.get("available_offline") is True
+    assert "power_on" in LgWebosDriver.DRIVER_INFO["quick_actions"]
+    # The kind:setup stopgap is gone — replaced by the offline-capable command.
+    action_ids = {a["id"] for a in LgWebosDriver.DRIVER_INFO["actions"]}
+    assert "wake_tv" not in action_ids
+    assert "run_setup_action" not in vars(LgWebosDriver)
 
 
-def test_run_setup_action_fires_wol():
+def test_power_on_command_fires_wol():
     d = _driver()
     fired = {}
     d._wake_on_lan = lambda: fired.setdefault("wol", True) or True
-    result = asyncio.run(d.run_setup_action("wake_tv", {}, _noop_progress))
+    assert asyncio.run(d.send_command("power_on")) is True
     assert fired.get("wol") is True
-    assert result["success"] is True
-
-
-def test_run_setup_action_requires_mac():
-    d = _driver(mac_address="")
-    import pytest
-    with pytest.raises(ValueError):
-        asyncio.run(d.run_setup_action("wake_tv", {}, _noop_progress))
-
-
-def test_run_setup_action_rejects_unknown():
-    d = _driver()
-    import pytest
-    with pytest.raises(ValueError):
-        asyncio.run(d.run_setup_action("bogus", {}, _noop_progress))
 
 
 # ── Metadata -> picker lists ────────────────────────────────────────────────

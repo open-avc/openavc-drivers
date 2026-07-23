@@ -125,7 +125,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.0.1",
+        "version": "4.1.0",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -179,8 +179,10 @@ class LgWebosDriver(BaseDriver):
         },
 
         "commands": {
-            "power_on": {"label": "Power On", "help": "Wake the TV via Wake-on-LAN "
-                         "(requires the MAC address and Wake-on-LAN enabled)."},
+            "power_on": {"label": "Power On", "available_offline": True,
+                         "help": "Wake the TV via Wake-on-LAN (requires the MAC "
+                         "address and Wake-on-LAN enabled). Runs while the TV is "
+                         "off, so a macro, panel button, or schedule can power it on."},
             "power_off": {"label": "Power Off"},
             "power": {"label": "Power", "params": {
                 "value": {"type": "boolean", "required": True, "label": "On"}}},
@@ -214,15 +216,16 @@ class LgWebosDriver(BaseDriver):
                               "help": "Forget the stored key and re-prompt on next connect."},
         },
 
-        "quick_actions": ["power_off", "mute"],
+        "quick_actions": ["power_on", "power_off", "mute"],
         "actions": [
-            # Power on: a TV in standby closes its control port and goes fully
-            # offline, and the platform blocks commands to an offline device, so
-            # the only way to turn it on is an offline-capable setup action that
-            # sends Wake-on-LAN (handled in run_setup_action, not send_command).
-            # It shows only while the TV is offline; Power Off is the online half.
-            {"id": "wake_tv", "kind": "setup", "availability": "offline",
-             "label": "Power On", "icon": "power"},
+            # Power On wakes the TV over Wake-on-LAN. A TV in standby closes its
+            # control port and drops off the network, so power_on is declared
+            # available_offline (see commands): the platform lets it run — and
+            # keeps its button live — even while the TV is offline, and the
+            # auto-reconnect brings the device back once it wakes. This works
+            # from a macro, panel button, or schedule, unlike the offline setup
+            # action it replaces.
+            {"id": "power_on", "kind": "command", "icon": "power"},
             {"id": "power_off", "kind": "command", "icon": "power-off"},
             {"id": "mute", "kind": "command", "icon": "volume-x"},
         ],
@@ -638,11 +641,11 @@ class LgWebosDriver(BaseDriver):
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
 
-        # power_on (a command) only reaches here while the device is online —
-        # i.e. the TV answers in network standby — where a WoL nudge wakes the
-        # screen. Turning on a fully-off TV goes through the offline "Power On"
-        # setup action (run_setup_action) instead, since commands are blocked
-        # while offline.
+        # power_on sends Wake-on-LAN and needs no live connection, which is why
+        # the command is declared available_offline: the platform lets it run
+        # whether the TV answers in network standby (a WoL nudge wakes the
+        # screen) or is fully off (WoL wakes it from cold). The auto-reconnect
+        # brings the device back once the TV reopens its control port.
         if command == "power_on":
             return self._wake_on_lan()
 
@@ -739,29 +742,6 @@ class LgWebosDriver(BaseDriver):
             log.debug(f"[{self.device_id}] pointer socket connect failed: {exc}")
             self._pointer_ws = None
         return self._pointer_ws
-
-    # ── Setup action: offline Power On (Wake-on-LAN) ───────────────────────
-
-    async def run_setup_action(self, action_id, params, progress):
-        """Offline-capable 'Power On': fire Wake-on-LAN even though the TV is
-        asleep and the control connection is down. The platform auto-reconnect
-        brings the device back online once the TV wakes and reopens its port.
-        """
-        if action_id != "wake_tv":
-            raise ValueError(f"Unknown setup action: {action_id}")
-        mac = str(self.config.get("mac_address", "")).strip()
-        if len(re.sub(r"[^0-9A-Fa-f]", "", mac)) != 12:
-            raise ValueError(
-                "No valid MAC address is set. Add the TV's MAC address (discovery "
-                "fills it in) and enable Wake-on-LAN / 'Mobile TV On' on the TV.")
-        await progress(f"Sending Wake-on-LAN to {mac}", pct=30)
-        sent = await asyncio.get_event_loop().run_in_executor(None, self._wake_on_lan)
-        if not sent:
-            raise RuntimeError("Wake-on-LAN packet could not be sent.")
-        await progress(
-            "Magic packet sent. The TV takes a few seconds to wake and reconnect.",
-            pct=100)
-        return {"success": True, "message": "Wake-on-LAN sent."}
 
     # ── Wake-on-LAN ────────────────────────────────────────────────────────
 

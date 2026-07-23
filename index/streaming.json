@@ -78,7 +78,7 @@
       "name": "Mersive Solstice Pod",
       "manufacturer": "Mersive",
       "category": "streaming",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
@@ -90,6 +90,7 @@
         443
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "wireless-presentation",
         "byod",

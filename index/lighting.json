@@ -441,7 +441,7 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Philips Hue lights, rooms, zones, and scenes via the CLIP v2 API on a Hue Bridge (HTTPS). Live push state from the bridge's event stream; every light and group is a child entity; pair with the bridge's link button straight from the device page. Requires the square v2 bridge (BSB002).",
@@ -456,7 +456,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "hue",
         "philips",

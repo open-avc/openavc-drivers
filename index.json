@@ -541,7 +541,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
@@ -552,7 +552,7 @@
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.19.4",
+      "min_platform_version": "0.24.0",
       "tags": [
         "dante",
         "audio-routing",
@@ -769,7 +769,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -785,6 +785,7 @@
         "aver-cgi"
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "ptz",
         "camera",
@@ -1382,7 +1383,7 @@
       "name": "BirdDog NDI Encoder/Decoder",
       "manufacturer": "BirdDog",
       "category": "video",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
@@ -1393,6 +1394,7 @@
         8080
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "ndi",
         "encoder",
@@ -1439,7 +1441,7 @@
       "name": "BirdDog PTZ Camera",
       "manufacturer": "BirdDog",
       "category": "camera",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
@@ -1454,6 +1456,7 @@
         "visca"
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "ptz",
         "ndi",
@@ -1733,7 +1736,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "switcher",
-      "version": "2.0.4",
+      "version": "2.0.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext REST API. One driver adapts to the endpoint's role: transmit stream + bitrate + HDMI-in monitoring on encoders, stream routing + scaler output + video wall on decoders. Covers the E20/D20/D200, E30/D30, and combo 35x/36x lines.",
@@ -3447,7 +3450,7 @@
       "name": "Mersive Solstice Pod",
       "manufacturer": "Mersive",
       "category": "streaming",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
@@ -3459,6 +3462,7 @@
         443
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "wireless-presentation",
         "byod",
@@ -4179,7 +4183,7 @@
       "name": "Poly Studio (VideoOS)",
       "manufacturer": "Poly",
       "category": "video",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
@@ -4193,6 +4197,7 @@
         "poly_videoos"
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "poly",
         "hp",
@@ -4924,7 +4929,7 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Philips Hue lights, rooms, zones, and scenes via the CLIP v2 API on a Hue Bridge (HTTPS). Live push state from the bridge's event stream; every light and group is a child entity; pair with the bridge's link button straight from the device page. Requires the square v2 bridge (BSB002).",
@@ -4939,7 +4944,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "hue",
         "philips",
@@ -4993,7 +4998,7 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, bass/treble, track info, and transport control. The speaker pushes state changes as they happen (UPnP eventing).",
@@ -5005,7 +5010,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "speaker",
         "wireless-audio",

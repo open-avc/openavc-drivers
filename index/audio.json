@@ -323,7 +323,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
@@ -334,7 +334,7 @@
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.19.4",
+      "min_platform_version": "0.24.0",
       "tags": [
         "dante",
         "audio-routing",
@@ -1114,7 +1114,7 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, bass/treble, track info, and transport control. The speaker pushes state changes as they happen (UPnP eventing).",
@@ -1126,7 +1126,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "speaker",
         "wireless-audio",

@@ -967,12 +967,14 @@ labelled by the command's `label`. Still accepted and validated (ids must name
 declared commands), but write `actions` in new drivers. If the same id appears
 in both, the explicit `actions` entry wins.
 
-**Open Web UI (`web_ui`) — the `kind:link` shortcut.** A device with its own
-browser UI doesn't need an explicit link action: declare `web_ui: true` at the
-top level of the definition (or DRIVER_INFO) and the platform auto-adds an
-"Open Web UI" button that opens `https://{host}`. Set a string instead to
-change the URL template: `web_ui: "http://{host}:8080/admin"` (same
-`{host}`/`{port}`/`{config_key}` substitution as a link action's `url`).
+**Open Web UI (`web_ui`).** Most networked devices have their own browser UI,
+so this is automatic — leave `web_ui` unset and the platform auto-detects a
+reachable web page (an HTTP driver from its own config, others from a port
+probe of 80/443/8080 or a discovery scan) and adds the "Open Web UI" button on
+its own. Override only when needed: `web_ui: true` forces the button on
+(`https://{host}`); a string forces it on with a URL template
+(`web_ui: "http://{host}:8080/admin"`, same `{host}`/`{port}`/`{config_key}`
+substitution as a link action's `url`); `web_ui: false` forces it off.
 Declaring your own `kind:link` action suppresses the auto-added button.
 Needs platform >= 0.24.0.
 

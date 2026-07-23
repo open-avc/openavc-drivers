@@ -174,7 +174,8 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BirdDogCodecDriver.DRIVER_INFO["version"] == "1.5.0"
+    assert DRV.BirdDogCodecDriver.DRIVER_INFO["version"] == "1.5.1"
+    assert DRV.BirdDogCodecDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
 
 
 def test_ndi_name_setting_reads_back_its_own_state_key():

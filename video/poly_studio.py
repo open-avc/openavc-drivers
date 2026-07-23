@@ -86,7 +86,9 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.3.0",
+        "version": "1.3.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "
@@ -415,79 +417,59 @@ class PolyStudioDriver(BaseDriver):
         self._authed = False
         super().__init__(device_id, config, state, events)
 
-    # ── Lifecycle ──
+    # ── Connection lifecycle hooks ──
 
-    async def connect(self) -> None:
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
         host = self.config.get("host", "")
         port = int(self.config.get("port", 443))
-        verify_ssl = bool(self.config.get("verify_ssl", False))
         # Newer firmware accepts http on the same port for some lab
         # configs, but the documented protocol is HTTPS — stick with it.
         scheme = "https" if port in (443, 8443) else "http"
-        base_url = f"{scheme}://{host}:{port}"
+        kwargs["base_url"] = f"{scheme}://{host}:{port}"
+        # Session-cookie auth, not a static header: the transport stores the
+        # httpx.AsyncClient, and httpx's default cookie jar is on, so the
+        # session cookie returned by /rest/session is reused for every
+        # subsequent request without any extra wiring on our side.
+        kwargs["auth_type"] = "none"
+        kwargs["credentials"] = {}
+        kwargs["verify_ssl"] = bool(self.config.get("verify_ssl", False))
+        kwargs["timeout"] = 8.0
+        return kwargs
 
-        self._http = HTTPClientTransport(
-            base_url=base_url,
-            auth_type="none",
-            verify_ssl=verify_ssl,
-            timeout=8.0,
-            name=self.device_id,
-        )
-        # The transport stores the httpx.AsyncClient; httpx's default
-        # cookie jar is on, so the session cookie returned by
-        # /rest/session is reused for every subsequent request without
-        # any extra wiring on our side.
-        await self._http.open()
-
-        # Treat the transport as our connection surrogate so the base
-        # driver's poll loop and disconnect handling work.
-        self.transport = self._http
-
-        try:
-            await self._login()
-        except Exception:
-            await self._http.close()
-            self._http = None
-            self.transport = None
-            raise
-
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
+    async def _post_connect(self) -> None:
+        # The platform-built HTTP transport is the session client.
+        self._http = self.transport
+        await self._login()
         log.info(
             f"[{self.device_id}] Connected to Poly Studio at "
-            f"{host}:{port}"
+            f"{self.config.get('host', '')}:{int(self.config.get('port', 443))}"
         )
 
+    async def _initial_sync(self) -> None:
         # Initial status sweep.
         try:
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        poll_interval = int(self.config.get("poll_interval", 10))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
     async def disconnect(self) -> None:
-        await self.stop_polling()
-        # Politely close the session — Poly's /rest/session DELETE
-        # ends it server-side too. Failure here is benign on a torn-
-        # down link, so swallow.
+        # Politely end the session — Poly's /rest/session DELETE ends it
+        # server-side too. Must happen while the link is still open; failure
+        # here is benign on a torn-down link, so swallow.
         if self._authed and self._http:
             try:
                 await self._http.delete("/rest/session")
             except Exception:  # noqa: BLE001
                 pass
-        if self._http:
-            await self._http.close()
-            self._http = None
-        self.transport = None
-        self._connected = False
+        await super().disconnect()
+
+    async def _close_session(self) -> None:
+        # The transport itself is closed by the platform; drop the alias and
+        # the session flag.
+        self._http = None
         self._authed = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     async def _login(self) -> None:
         if self._http is None:

@@ -49,7 +49,9 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.5.0",
+        "version": "1.5.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog NDI encoders and decoders via REST API. "
@@ -266,18 +268,26 @@ class BirdDogCodecDriver(BaseDriver):
         # Cached NDI source list: [source_name, ...]
         self._sources: list[str] = []
 
-    async def connect(self) -> None:
-        """Connect to the BirdDog encoder/decoder."""
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: REST over HTTP on the web UI port.
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the client instead.
+        """
         host = self.config.get("host", "")
         port = self.config.get("port", 8080)
         self._base_url = f"http://{host}:{port}"
-
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=5.0,
         )
 
-        # Verify connection
+    async def _post_connect(self) -> None:
+        # Verify the device answers before `connected` is declared; the
+        # /about read also fills the identity states.
+        host = self.config.get("host", "")
+        port = self.config.get("port", 8080)
         try:
             about = await self._api_get("about")
             if not about:
@@ -296,41 +306,25 @@ class BirdDogCodecDriver(BaseDriver):
                 f"{about.get('Format', '')} at {host}:{port} ({hostname})"
             )
         except ConnectionError:
-            if self._client:
-                await self._client.aclose()
-                self._client = None
             raise
         except Exception as e:
-            if self._client:
-                await self._client.aclose()
-                self._client = None
             raise ConnectionError(
                 f"Failed to connect to BirdDog at {host}:{port}: {e}"
             )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-
+    async def _initial_sync(self) -> None:
         # Query operation mode, source list, and current source
         await self._refresh_state()
 
-        # Start polling
-        poll_interval = self.config.get("poll_interval", 5)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    def _link_alive(self) -> bool:
+        return self._client is not None
 
-    async def disconnect(self) -> None:
-        """Disconnect from the device."""
-        await self.stop_polling()
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+    async def _close_session(self) -> None:
+        client = self._client
+        self._client = None
+        if client is not None:
+            await client.aclose()
         self._sources.clear()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None

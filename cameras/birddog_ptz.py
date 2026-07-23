@@ -111,7 +111,9 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.5.0",
+        "version": "1.5.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls BirdDog PTZ cameras via REST API and VISCA. "
@@ -486,18 +488,27 @@ class BirdDogPTZDriver(BaseDriver):
         self._visca_transport: asyncio.DatagramTransport | None = None
         self._visca_counter: int = 0
 
-    async def connect(self) -> None:
-        """Connect to the BirdDog camera."""
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: REST over HTTP plus a VISCA UDP socket.
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the session instead.
+        """
         host = self.config.get("host", "")
         port = self.config.get("port", 8080)
         self._base_url = f"http://{host}:{port}"
-
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=5.0,
         )
 
-        # Verify connection
+    async def _post_connect(self) -> None:
+        host = self.config.get("host", "")
+        port = self.config.get("port", 8080)
+
+        # Verify the camera answers before `connected` is declared; the
+        # /about read also fills the identity states.
         try:
             about = await self._api_get("about")
             if not about or "HostName" not in about:
@@ -512,14 +523,12 @@ class BirdDogPTZDriver(BaseDriver):
                 f"({about.get('HostName', '')})"
             )
         except Exception as e:
-            if self._client:
-                await self._client.aclose()
-                self._client = None
             raise ConnectionError(
                 f"Failed to connect to BirdDog at {host}:{port}: {e}"
             )
 
-        # Open VISCA UDP socket
+        # Open the VISCA UDP socket — the second half of the session. PTZ
+        # degrades gracefully without it (warn, don't fail).
         try:
             loop = asyncio.get_running_loop()
             transport, _ = await loop.create_datagram_endpoint(
@@ -531,31 +540,20 @@ class BirdDogPTZDriver(BaseDriver):
         except Exception as e:
             log.warning(f"[{self.device_id}] VISCA UDP failed: {e} — PTZ commands unavailable")
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-
-        # Initial poll
+    async def _initial_sync(self) -> None:
         await self.poll()
 
-        # Start polling
-        poll_interval = self.config.get("poll_interval", 5)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    def _link_alive(self) -> bool:
+        return self._client is not None
 
-    async def disconnect(self) -> None:
-        """Disconnect from the camera."""
-        await self.stop_polling()
+    async def _close_session(self) -> None:
         if self._visca_transport:
             self._visca_transport.close()
             self._visca_transport = None
-        if self._client:
-            await self._client.aclose()
-            self._client = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        client = self._client
+        self._client = None
+        if client is not None:
+            await client.aclose()
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None

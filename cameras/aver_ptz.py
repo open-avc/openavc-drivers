@@ -169,7 +169,9 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.0",
+        "version": "1.3.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP "
@@ -916,18 +918,29 @@ class AVerPTZDriver(BaseDriver):
         self._inquiry_future: asyncio.Future[bytes] | None = None
         self._control_reply_future: asyncio.Future[None] | None = None
 
-    # ── Connect / disconnect ──
+    # ── Connection lifecycle hooks ──
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        if not host:
+    async def _pre_connect(self) -> None:
+        # Config check + per-attempt protocol state, armed before any part of
+        # the session opens.
+        if not self.config.get("host", ""):
             raise ConnectionError(f"[{self.device_id}] host is required")
+        self._inquiry_lock = asyncio.Lock()
+        self._sequence = 0
+
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: HTTP CGI (basic auth) plus a VISCA UDP
+        socket.
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the session instead.
+        """
+        host = self.config.get("host", "")
         port = int(self.config.get("port", 80))
         visca_port = int(self.config.get("visca_port", _PT_VISCA_PORT))
 
         self._base_url = f"http://{host}:{port}"
-        self._inquiry_lock = asyncio.Lock()
-        self._sequence = 0
 
         username = self.config.get("username", "") or ""
         password = self.config.get("password", "") or ""
@@ -939,7 +952,8 @@ class AVerPTZDriver(BaseDriver):
             auth=auth,
         )
 
-        # VISCA UDP socket
+        # VISCA UDP socket — the second half of the session. PTZ degrades
+        # gracefully without it (warn, don't fail).
         try:
             loop = asyncio.get_running_loop()
             self._visca_protocol = _ViscaUDPProtocol(self._on_visca_data)
@@ -953,6 +967,7 @@ class AVerPTZDriver(BaseDriver):
                 f"[{self.device_id}] VISCA UDP open failed: {e}"
             )
 
+    async def _post_connect(self) -> None:
         # Sync VISCA sequence — Control RESET. Some firmware doesn't reply;
         # don't fail connect if it times out.
         try:
@@ -961,29 +976,24 @@ class AVerPTZDriver(BaseDriver):
             log.debug(f"[{self.device_id}] VISCA RESET not ack'd; continuing")
 
         # HTTP probe via get_sys_stat — confirms HTTP reachability and
-        # populates identity state.
+        # populates identity state. A raise aborts the attempt (the platform
+        # retires the session via _close_session).
         ok = await self._http_get_sys_stat()
         if not ok:
-            await self.disconnect()
             raise ConnectionError(
                 f"[{self.device_id}] HTTP CGI probe failed at {self._base_url}"
             )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-
+    async def _initial_sync(self) -> None:
         try:
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        poll_interval = int(self.config.get("poll_interval", 5))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    def _link_alive(self) -> bool:
+        return self._http is not None
 
-    async def disconnect(self) -> None:
-        await self.stop_polling()
+    async def _close_session(self) -> None:
         if self._inquiry_future and not self._inquiry_future.done():
             self._inquiry_future.cancel()
         self._inquiry_future = None
@@ -994,12 +1004,10 @@ class AVerPTZDriver(BaseDriver):
             self._visca_transport.close()
             self._visca_transport = None
         self._visca_protocol = None
-        if self._http:
-            await self._http.aclose()
-            self._http = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
+        http = self._http
+        self._http = None
+        if http is not None:
+            await http.aclose()
 
     # ── VISCA UDP datagram callback ──
 

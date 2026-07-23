@@ -97,6 +97,98 @@ class _FakeBaseDriver:
     async def request_reconnect(self) -> None:
         self.reconnects += 1
 
+    # Hook defaults + the hook-driven connect lifecycle the platform runs
+    # (the driver has no connect() of its own anymore).
+    async def _pre_connect(self):
+        return None
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    async def _create_transport(self, transport_type):
+        # Mirrors the platform's http branch: assemble kwargs, pass them
+        # through _transport_kwargs(), build the transport. References the
+        # module-level fake transport directly (a deferred import at test-run
+        # time would miss the stubs).
+        kwargs = dict(
+            base_url="",
+            auth_type="none",
+            credentials={},
+            verify_ssl=True,
+            timeout=10.0,
+            name=self.device_id,
+        )
+        self.transport = _FakeHTTPClientTransport(
+            **self._transport_kwargs(transport_type, kwargs)
+        )
+        await self.transport.open()
+
+    async def _post_connect(self):
+        return None
+
+    async def _initial_sync(self):
+        return None
+
+    async def _close_session(self):
+        return None
+
+    def _link_alive(self):
+        return self.transport is not None
+
+    async def _start_push(self):
+        return None
+
+    async def _stop_push(self):
+        return None
+
+    async def connect(self):
+        # Mirrors BaseDriver.connect()'s stages.
+        await self._stop_push()
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._pre_connect()
+        transport_type = self.config.get("transport") or self.DRIVER_INFO.get(
+            "transport", "tcp"
+        )
+        await self._create_transport(transport_type)
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+        except Exception:
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        await self._start_push()
+        try:
+            await self._initial_sync()
+        except Exception:
+            await self._stop_push()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        poll_interval = self.config.get("poll_interval", 0)
+        if poll_interval > 0:
+            await self.start_polling(poll_interval)
+
+    async def disconnect(self):
+        await self._stop_push()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+
 
 # ── Faithful HTTPClientTransport stub (real httpx via MockTransport) ─────────
 
@@ -110,7 +202,14 @@ class _FakeHTTPClientTransport:
     device: "_PolyDevice | None" = None
 
     def __init__(
-        self, base_url, auth_type="none", verify_ssl=True, timeout=8.0, name=""
+        self,
+        base_url,
+        auth_type="none",
+        credentials=None,
+        verify_ssl=True,
+        timeout=8.0,
+        name="",
+        **_ignored,
     ) -> None:
         self.base_url = base_url
         self.name = name
@@ -330,7 +429,8 @@ def _make_driver(device: _PolyDevice, **cfg):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.3.0"
+    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.3.1"
+    assert DRV.PolyStudioDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
 
 
 def test_actions_reference_real_commands():

@@ -82,8 +82,9 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.0.4",
+        "version": "2.0.5",
         "author": "OpenAVC",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.24.0",
         "description": (
             "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext "
@@ -378,22 +379,25 @@ class CrestronNVXDriver(BaseDriver):
         self._applied_role = mode
         log.info("[%s] Presenting the %s surface", self.device_id, mode)
 
-    # ── Connection lifecycle ────────────────────────────────────────────────
+    # ── Connection lifecycle hooks ──────────────────────────────────────────
 
-    async def connect(self) -> None:
-        # Clean slate (qsc_qrc pattern): drop any fault stashed by a previous
-        # attempt or a mid-run auth failure so it can't color this attempt's
-        # offline-reason classification.
-        self._last_transport_error = ""
-        self._last_fault = None
+    async def _pre_connect(self) -> None:
+        # Fail fast before any session is built: a quick TCP probe beats
+        # httpx's slower connect timeout on a dark unit.
         host = self.config.get("host", "")
         port = self.config.get("port", 443)
-        verify_ssl = self.config.get("verify_ssl", False)
         self._base_url = f"https://{host}:{port}"
-
         if not await self._verify_reachable(host, port, timeout=4.0):
             raise ConnectionError(f"NVX at {host}:{port} not responding")
 
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: the CresNext REST client (cookie login).
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the client instead.
+        """
+        verify_ssl = self.config.get("verify_ssl", False)
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             verify=verify_ssl,
@@ -402,6 +406,9 @@ class CrestronNVXDriver(BaseDriver):
             headers={"Referer": self._base_url},
         )
 
+    async def _post_connect(self) -> None:
+        host = self.config.get("host", "")
+        port = self.config.get("port", 443)
         try:
             await self._authenticate()
 
@@ -417,42 +424,36 @@ class CrestronNVXDriver(BaseDriver):
             if spec:
                 self._parse_device_specific(spec)
             self._mode = self.get_state("device_mode") or "Receiver"
-
-            self._connected = True
-            self.set_state("connected", True)
-            await self.events.emit(f"device.connected.{self.device_id}")
             log.info(
                 "[%s] Connected to NVX %s at %s:%s (%s)",
                 self.device_id, self.get_state("model"), host, port, self._mode,
             )
-
-            # Prime the role-specific state before the first poll interval.
-            await self._refresh_role_state()
-
-            poll_interval = self.config.get("poll_interval", 10)
-            if poll_interval > 0:
-                await self.start_polling(poll_interval)
         except ConnectionFaultError:
-            await self._close_client()
             raise
         except (httpx.RequestError, ConnectionError) as e:
-            await self._close_client()
             raise ConnectionError(f"Failed to connect: {e}") from e
 
+    async def _initial_sync(self) -> None:
+        # Prime the role-specific state before the first poll interval.
+        try:
+            await self._refresh_role_state()
+        except (httpx.RequestError, ConnectionError) as e:
+            raise ConnectionError(f"Failed to connect: {e}") from e
+
+    def _link_alive(self) -> bool:
+        return self._client is not None
+
     async def disconnect(self) -> None:
-        await self.stop_polling()
+        # Politely end the cookie session server-side while the client is
+        # still open; benign if the unit is already gone.
         if self._client:
             try:
                 await self._client.get("/logout")
             except Exception:
                 pass
-        await self._close_client()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info("[%s] Disconnected", self.device_id)
+        await super().disconnect()
 
-    async def _close_client(self) -> None:
+    async def _close_session(self) -> None:
         if self._client:
             try:
                 await self._client.aclose()

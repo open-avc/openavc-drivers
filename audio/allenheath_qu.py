@@ -54,7 +54,6 @@ import asyncio
 from typing import Any
 
 from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -645,9 +644,9 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.1",
-        # Runtime-registered child entities + typed connection faults.
-        "min_platform_version": "0.22.0",
+        "version": "1.1.2",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, "
@@ -876,65 +875,33 @@ class AllenHeathQuDriver(BaseDriver):
 
     # ── Lifecycle ───────────────────────────────────────────────────────────
 
-    async def connect(self) -> None:
-        host = str(self.config.get("host", "")).strip()
-        port = int(self.config.get("port", DEFAULT_PORT))
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
             raise ValueError("host is required")
-
-        # Clean slate for fault classification.
-        self._last_transport_error = ""
-        self._last_fault = None
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:  # noqa: BLE001
-                pass
-            self.transport = None
-
         # Seed the MIDI channel from a config override (auto-learned otherwise).
         override = self._configured_channel
         if override is not None:
             self._midi_n = override
 
-        self.transport = await TCPTransport.create(
-            host=host, port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._on_disconnect,
-            delimiter=None,                    # raw MIDI byte stream
-            name=self.device_id,
-        )
-        self._connected = True
-        self._last_rx = self._now()
-        self.set_state("connected", True)
-        await self.events.emit(f"device.{self.device_id}.connected", {})
-        log.info("[%s] connected to %s:%d", self.device_id, host, port)
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        kwargs["host"] = str(kwargs["host"]).strip()
+        kwargs["delimiter"] = None      # raw MIDI byte stream
+        return kwargs
 
+    async def _initial_sync(self) -> None:
         # Start the active-sense keep-alive + liveness watchdog immediately —
         # the Qu drops a silent client after 12 s.
+        self._last_rx = self._now()
         await self._send(bytes([ACTIVE_SENSE]))
         self._start_sense_loop()
 
         # Identify + full-state sync.
         await self._identify_and_sync()
 
-    async def disconnect(self) -> None:
+    async def _close_session(self) -> None:
         self._stop_sense_loop()
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:  # noqa: BLE001
-                pass
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-
-    def _on_disconnect(self) -> None:
-        self._stop_sense_loop()
-        self._connected = False
-        self.set_state("connected", False)
-        # Reuse BaseDriver's disconnect bookkeeping / reconnect scheduling.
-        super()._handle_transport_disconnect()
 
     # ── Active-sense keep-alive + liveness watchdog ─────────────────────────
 

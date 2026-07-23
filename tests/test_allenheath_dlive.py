@@ -103,6 +103,58 @@ class _FakeBaseDriver:
     async def stop_polling(self) -> None:
         pass
 
+    # -- connection lifecycle (mirrors the platform's hook-driven connect) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=int(self.config.get("port", 0) or 0),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=b"\n",
+            name=self.device_id,
+        )
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        await self._close_session()
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        await self._initial_sync()
+        if self.config.get("poll_interval", 0):
+            await self.start_polling(self.config["poll_interval"])
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+
     # -- child registry (mirrors the platform's string-id validation) --
 
     def _eff_schema(self, child_type, local_id):
@@ -166,6 +218,8 @@ class _FakeBaseDriver:
     # -- disconnect bookkeeping + liveness watchdog (mirrors the platform) --
 
     def _handle_transport_disconnect(self) -> None:
+        self._connected = False
+        self.set_state("connected", False)
         self.disconnect_calls += 1
         self._stop_health_loop()
         if self.transport is not None:
@@ -348,8 +402,8 @@ async def _make_pair(config=None, sim_config=None):
 
 def test_metadata_shape():
     info = dl.AllenHeathDLiveDriver.DRIVER_INFO
-    assert info["version"] == "2.0.1"
-    assert info["min_platform_version"] == "0.22.0"
+    assert info["version"] == "2.0.2"
+    assert info["min_platform_version"] == "0.24.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:
         assert qa in info["commands"]

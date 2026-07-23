@@ -87,7 +87,6 @@ import asyncio
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -714,7 +713,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "
@@ -759,8 +758,8 @@ class AllenHeathAvantisDriver(BaseDriver):
                 "allen-heath", "audiotonix",
             ],
         },
-        # Child entities + cloud_priority tiers + the liveness watchdog hook.
-        "min_platform_version": "0.22.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "compatible_models": [
             {
                 "manufacturer": "Allen & Heath",
@@ -892,56 +891,22 @@ class AllenHeathAvantisDriver(BaseDriver):
         n = int(self.config.get("base_midi_channel", 12))
         return max(0, min(11, n - 1))
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 51325))
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not self.config.get("host"):
             raise ValueError("host is required")
-
         self._probe_fut = None
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._on_disconnect,
-            delimiter=None,                 # raw MIDI byte stream, not line-framed
-            name=self.device_id,
-        )
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.{self.device_id}.connected", {})
-        log.info("[%s] connected to %s:%d", self.device_id, host, port)
 
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        kwargs["delimiter"] = None      # raw MIDI byte stream, not line-framed
+        return kwargs
+
+    async def _initial_sync(self) -> None:
         # Register the (static) child roster, then sweep names + colours.
         self._register_topology()
         await asyncio.sleep(0.1)
         await self._refresh_all()
-
-        # This connect() doesn't run BaseDriver.connect(), so start the
-        # polling backstop and the liveness watchdog ourselves.
-        poll_interval = float(self.config.get("poll_interval", 60) or 0)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-        self._start_health_loop()
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:  # noqa: BLE001
-                pass
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-
-    def _on_disconnect(self) -> None:
-        self._connected = False
-        self.set_state("connected", False)
-        # BaseDriver's bookkeeping stops the health loop / polling and
-        # schedules the reconnect.
-        super()._handle_transport_disconnect()
 
     # ── Topology registration ───────────────────────────────────────────
 

@@ -288,6 +288,46 @@ def test_wol_rejects_bad_mac():
     assert d._wake_on_lan() is False
 
 
+# ── Offline Power On setup action ───────────────────────────────────────────
+
+async def _noop_progress(*a, **k):
+    return None
+
+
+def test_power_on_is_an_offline_setup_action():
+    # The only reliable power-on path is a kind:setup action marked offline,
+    # because commands are blocked while the device is offline.
+    actions = LgWebosDriver.DRIVER_INFO["actions"]
+    wake = next(a for a in actions if a["id"] == "wake_tv")
+    assert wake["kind"] == "setup"
+    assert wake["availability"] == "offline"
+    # power_on must NOT be a promoted quick action (it can't run while offline).
+    assert "power_on" not in LgWebosDriver.DRIVER_INFO["quick_actions"]
+
+
+def test_run_setup_action_fires_wol():
+    d = _driver()
+    fired = {}
+    d._wake_on_lan = lambda: fired.setdefault("wol", True) or True
+    result = asyncio.run(d.run_setup_action("wake_tv", {}, _noop_progress))
+    assert fired.get("wol") is True
+    assert result["success"] is True
+
+
+def test_run_setup_action_requires_mac():
+    d = _driver(mac_address="")
+    import pytest
+    with pytest.raises(ValueError):
+        asyncio.run(d.run_setup_action("wake_tv", {}, _noop_progress))
+
+
+def test_run_setup_action_rejects_unknown():
+    d = _driver()
+    import pytest
+    with pytest.raises(ValueError):
+        asyncio.run(d.run_setup_action("bogus", {}, _noop_progress))
+
+
 # ── Metadata -> picker lists ────────────────────────────────────────────────
 
 def test_load_metadata_builds_pickers():

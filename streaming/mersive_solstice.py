@@ -63,7 +63,9 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.4.0",
+        "version": "1.4.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "
@@ -483,10 +485,15 @@ class SolsticeDriver(BaseDriver):
         self._base_url: str = ""
         self._admin_password: str = ""
 
-    # ── Lifecycle ──
+    # ── Connection lifecycle hooks ──
 
-    async def connect(self) -> None:
-        """Open an HTTP session and verify the Pod is reachable."""
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: the OpenControl REST client.
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the client instead.
+        """
         host = (self.config.get("host") or "").strip()
         port = int(self.config.get("port") or 80)
         use_https = bool(self.config.get("use_https", False))
@@ -502,6 +509,12 @@ class SolsticeDriver(BaseDriver):
             verify=False,
         )
 
+    async def _post_connect(self) -> None:
+        # Verify the Pod is reachable (and the password accepted) before
+        # `connected` is declared. A raise aborts the attempt (the platform
+        # retires the client via _close_session).
+        host = (self.config.get("host") or "").strip()
+        port = int(self.config.get("port") or 80)
         try:
             stats = await self._api_get("/api/stats")
         except httpx.HTTPStatusError as exc:
@@ -511,8 +524,6 @@ class SolsticeDriver(BaseDriver):
             # documents the password mechanism but not the exact status; 401
             # and 403 are the standard auth rejections, handled here robustly.)
             status = exc.response.status_code
-            await self._client.aclose()
-            self._client = None
             if status in (401, 403):
                 raise ConnectionError(
                     f"[{self.device_id}] Solstice authentication failed - "
@@ -522,15 +533,11 @@ class SolsticeDriver(BaseDriver):
                 f"Solstice at {host}:{port} returned HTTP {status}"
             ) from exc
         except Exception as exc:
-            await self._client.aclose()
-            self._client = None
             raise ConnectionError(
                 f"Failed to reach Solstice at {host}:{port}: {exc}"
             ) from exc
 
         if not isinstance(stats, dict) or "m_displayId" not in stats:
-            await self._client.aclose()
-            self._client = None
             raise ConnectionError(
                 f"Unexpected response from Solstice at {host}:{port} "
                 "(missing m_displayId — check the host runs Solstice "
@@ -546,26 +553,17 @@ class SolsticeDriver(BaseDriver):
             stats.get("m_displayName", "") or "unnamed",
         )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-
+    async def _initial_sync(self) -> None:
         await self._refresh_state()
 
-        poll_interval = int(self.config.get("poll_interval") or 30)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    def _link_alive(self) -> bool:
+        return self._client is not None
 
-    async def disconnect(self) -> None:
-        """Close the HTTP session and stop polling."""
-        await self.stop_polling()
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info("[%s] Disconnected", self.device_id)
+    async def _close_session(self) -> None:
+        client = self._client
+        self._client = None
+        if client is not None:
+            await client.aclose()
 
     # ── Driver API ──
 

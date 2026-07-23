@@ -185,6 +185,69 @@ class _FakeBaseDriver:
     async def request_reconnect(self) -> None:
         self.reconnects += 1
 
+    # Hook defaults + the hook-driven connect lifecycle the platform runs
+    # (the driver has no connect() of its own anymore).
+    async def _pre_connect(self):
+        return None
+
+    async def _create_transport(self, transport_type):
+        return None
+
+    async def _post_connect(self):
+        return None
+
+    async def _initial_sync(self):
+        return None
+
+    async def _close_session(self):
+        return None
+
+    def _link_alive(self):
+        return False
+
+    async def _start_push(self):
+        return None
+
+    async def _stop_push(self):
+        return None
+
+    async def connect(self):
+        # Mirrors BaseDriver.connect()'s stages for a driver-owned session.
+        await self._stop_push()
+        await self._close_session()
+        await self._pre_connect()
+        transport_type = self.config.get("transport") or self.DRIVER_INFO.get(
+            "transport", "tcp"
+        )
+        await self._create_transport(transport_type)
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+        except Exception:
+            await self._close_session()
+            self._connected = False
+            raise
+        await self._start_push()
+        try:
+            await self._initial_sync()
+        except Exception:
+            await self._stop_push()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            raise
+        poll_interval = self.config.get("poll_interval", 0)
+        if poll_interval > 0:
+            await self.start_polling(poll_interval)
+
+    async def disconnect(self):
+        await self._stop_push()
+        await self.stop_polling()
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+
 
 class _FakeHTTPSimulator:
     SIMULATOR_INFO: dict = {}
@@ -353,8 +416,8 @@ async def _wait_for(predicate, timeout: float = 3.0) -> None:
 
 def test_version_and_min_platform():
     info = DRV.PhilipsHueDriver.DRIVER_INFO
-    assert info["version"] == "3.0.0"
-    assert info["min_platform_version"] == "0.23.0"
+    assert info["version"] == "3.0.1"
+    assert info["min_platform_version"] == "0.24.0"
     assert info["transport"] == "http"
     assert info["ports"] == [443]
 

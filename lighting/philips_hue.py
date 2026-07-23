@@ -177,10 +177,11 @@ class PhilipsHueDriver(BaseDriver):
         "name": "Philips Hue Bridge",
         "manufacturer": "Signify",
         "category": "lighting",
-        "version": "3.0.0",
-        # HTTPS-only device: simulation needs the 0.23.0 redirect (ssl flip);
-        # the SSE push generation ships in the same platform release.
-        "min_platform_version": "0.23.0",
+        "version": "3.0.1",
+        # The connection lifecycle hooks this driver overrides landed in
+        # 0.24.0 (which also covers the 0.23.0 needs: the HTTPS simulation
+        # redirect and the SSE push generation).
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Philips Hue lights, rooms, zones, and scenes via the "
@@ -656,12 +657,18 @@ class PhilipsHueDriver(BaseDriver):
             return f"{scheme}://{host}"
         return f"{scheme}://{host}:{port}"
 
-    async def connect(self) -> None:
-        host = str(self.config.get("host", "")).strip()
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
             raise ConnectionError("Bridge IP address is required")
         self._app_key = str(self.config.get("app_key", "")).strip()
 
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: the CLIP v2 REST client.
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the client instead.
+        """
         # The bridge rejects >3 concurrent requests with 429 — keep the
         # pool at 3 (shared by polling, commands, and the event stream).
         self._client = httpx.AsyncClient(
@@ -672,6 +679,10 @@ class PhilipsHueDriver(BaseDriver):
             limits=httpx.Limits(max_connections=3),
         )
 
+    async def _post_connect(self) -> None:
+        # Verify the bridge answers (and the app key is good) before
+        # `connected` is declared; the bulk fetch also seeds the rosters.
+        host = str(self.config.get("host", "")).strip()
         try:
             if not self._app_key:
                 raise ConnectionFaultError(
@@ -682,36 +693,23 @@ class PhilipsHueDriver(BaseDriver):
             resources = await self._get_resources()
             self._reconcile(resources)
         except httpx.TransportError as exc:
-            await self._close_client()
             raise ConnectionError(
                 f"Could not reach the Hue Bridge at {host}: {exc}"
             ) from exc
-        except Exception:
-            await self._close_client()
-            raise
-
-        self._connected = True
-        self.set_state("connected", True)
         self.set_state("last_error", None)
-        await self.events.emit(f"device.connected.{self.device_id}")
         log.info(f"[{self.device_id}] Connected to Hue Bridge at {host}")
 
+    async def _initial_sync(self) -> None:
         # Live updates: one SSE stream carries every resource change.
         self._event_task = asyncio.create_task(self._event_loop())
 
-        poll_interval = int(self.config.get("poll_interval", 30))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    def _link_alive(self) -> bool:
+        return self._client is not None
 
-    async def disconnect(self) -> None:
+    async def _close_session(self) -> None:
         await self._stop_task("_event_task")
         await self._stop_task("_roster_refresh_task")
-        await self.stop_polling()
         await self._close_client()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected from Hue Bridge")
 
     async def _stop_task(self, attr: str) -> None:
         task: asyncio.Task | None = getattr(self, attr)

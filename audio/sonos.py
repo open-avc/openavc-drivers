@@ -286,7 +286,7 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers via the local UPnP API. Play/pause, "
@@ -298,7 +298,8 @@ class SonosDriver(BaseDriver):
         "verified": True,
         "simulated": True,
         "ports": [1400],
-        "min_platform_version": "0.23.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "compatible_models": [
             {
                 "manufacturer": "Sonos",
@@ -619,61 +620,50 @@ class SonosDriver(BaseDriver):
         self._gena: dict[str, dict[str, Any]] = {}
         self._renew_task: asyncio.Task | None = None
 
-    async def connect(self) -> None:
-        """Connect to the Sonos speaker."""
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: SOAP over plain HTTP on port 1400.
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the client instead.
+        """
         host = self.config.get("host", "")
         port = self.config.get("port", 1400)
         self._base_url = f"http://{host}:{port}"
-
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=5.0,
         )
 
-        # Verify connection by querying device properties
+    async def _post_connect(self) -> None:
+        # Verify the speaker actually answers before `connected` is declared:
+        # one DeviceProperties read, which also names the device card.
+        host = self.config.get("host", "")
+        port = self.config.get("port", 1400)
         try:
             name = await self._get_speaker_name()
-            if name:
-                self.set_state("speaker_name", name)
-                log.info(f"[{self.device_id}] Speaker name: {name}")
         except Exception as e:
-            if self._client:
-                await self._client.aclose()
-                self._client = None
             raise ConnectionError(
                 f"Failed to connect to Sonos at {host}:{port}: {e}"
             )
+        if name:
+            self.set_state("speaker_name", name)
+            log.info(f"[{self.device_id}] Speaker name: {name}")
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Sonos at {host}:{port}")
-
-        # Subscribe to the speaker's events before the first poll: accepting a
-        # subscription delivers an initial event with the full evented state,
-        # so panels are live immediately instead of one poll later.
-        await self._start_push()
-
-        # Initial status poll (also reads track position, which Sonos does not
-        # push)
+    async def _initial_sync(self) -> None:
+        # Push is already subscribed (accepting a GENA subscription delivers
+        # an initial event with the full evented state); this first poll fills
+        # in track position, which Sonos does not push.
         await self.poll()
 
-        # Start polling
-        poll_interval = self.config.get("poll_interval", 5)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    def _link_alive(self) -> bool:
+        return self._client is not None
 
-    async def disconnect(self) -> None:
-        """Disconnect from the Sonos speaker."""
-        await self._stop_push()
-        await self.stop_polling()
-        if self._client:
-            await self._client.aclose()
-            self._client = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+    async def _close_session(self) -> None:
+        client = self._client
+        self._client = None
+        if client is not None:
+            await client.aclose()
 
     # --- Push: UPnP GENA subscriptions ---
 

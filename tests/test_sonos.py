@@ -29,7 +29,7 @@ import importlib.util
 import logging
 import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 
 import httpx
 import pytest
@@ -58,7 +58,9 @@ class _FakeEvents:
 
 
 class _FakeBaseDriver:
-    """Minimal BaseDriver: device-scoped state + the push handle contract."""
+    """Minimal BaseDriver: device-scoped state, the push handle contract, and
+    the hook-driven connect lifecycle the platform runs (the driver has no
+    connect() of its own anymore — it participates through the hooks)."""
 
     DRIVER_INFO: dict = {}
 
@@ -67,6 +69,7 @@ class _FakeBaseDriver:
         self.config = config
         self.state = state
         self.events = events
+        self.transport = None
         self._connected = False
         self._push_subscription = None
         self._push_callback_url = ""
@@ -91,6 +94,70 @@ class _FakeBaseDriver:
             return
         for handle in sub if isinstance(sub, list) else [sub]:
             await handle.close()
+
+    # Hook defaults (overridden by the driver under test where it needs to).
+    async def _pre_connect(self):
+        return None
+
+    async def _create_transport(self, transport_type):
+        return None
+
+    async def _post_connect(self):
+        return None
+
+    async def _initial_sync(self):
+        return None
+
+    async def _close_session(self):
+        return None
+
+    def _link_alive(self):
+        return False
+
+    async def _start_push(self):
+        return None
+
+    async def connect(self):
+        # Mirrors BaseDriver.connect()'s stages for a driver-owned session:
+        # clean slate, establish, handshake, declare, push, initial sync,
+        # polling.
+        await self._stop_push()
+        await self._close_session()
+        await self._pre_connect()
+        transport_type = self.config.get("transport") or self.DRIVER_INFO.get(
+            "transport", "tcp"
+        )
+        await self._create_transport(transport_type)
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+        except Exception:
+            await self._close_session()
+            self._connected = False
+            raise
+        await self._start_push()
+        try:
+            await self._initial_sync()
+        except Exception:
+            await self._stop_push()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        poll_interval = self.config.get("poll_interval", 0)
+        if poll_interval > 0:
+            await self.start_polling(poll_interval)
+
+    async def disconnect(self):
+        await self._stop_push()
+        await self.stop_polling()
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 # In-memory stand-in for server.transport.http_listener: records each
@@ -244,24 +311,20 @@ async def _make_pair(driver_overrides=None):
     cfg = {"host": "10.0.0.5", "port": 1400, "poll_interval": 0}
     cfg.update(driver_overrides or {})
     driver = DRV.SonosDriver("spk1", cfg, _FakeState(), _FakeEvents())
-    driver._client = httpx.AsyncClient(
-        base_url="http://10.0.0.5:1400",
-        transport=httpx.MockTransport(handler),
-    )
-    driver._base_url = "http://10.0.0.5:1400"
-    return driver, sim
+    return driver, sim, handler
 
 
 async def _connected_pair(driver_overrides=None):
-    driver, sim = await _make_pair(driver_overrides)
-    # connect() rebuilds the client; keep the mock one.
-    mock_client = driver._client
+    driver, sim, handler = await _make_pair(driver_overrides)
+    # connect() builds the client in _create_transport(); route it at the
+    # simulator by giving every constructed client the MockTransport.
     original = httpx.AsyncClient
 
-    def _keep(*_a, **_kw):
-        return mock_client
+    def _mocked(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return original(*args, **kwargs)
 
-    httpx.AsyncClient = _keep  # type: ignore[assignment]
+    httpx.AsyncClient = _mocked  # type: ignore[assignment]
     try:
         await driver.connect()
     finally:
@@ -276,7 +339,7 @@ async def _connected_pair(driver_overrides=None):
 
 def test_driver_declares_http_listener_push():
     assert DRV.SonosDriver.DRIVER_INFO["push"] == {"type": "http_listener"}
-    assert DRV.SonosDriver.DRIVER_INFO["min_platform_version"] == "0.23.0"
+    assert DRV.SonosDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
 
 
 def test_device_settings_ranges_match_the_speaker_scpd():

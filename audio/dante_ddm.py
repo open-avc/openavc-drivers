@@ -105,10 +105,9 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.7.0",
-        # Requires runtime-discovered child entities with string local IDs and
-        # per-child dynamic schemas (added after 0.19.3), same as qsc_qrc.
-        "min_platform_version": "0.19.4",
+        "version": "1.7.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Dante audio routing via the Audinate Managed API. "
@@ -356,21 +355,29 @@ class DanteDDMDriver(BaseDriver):
         self._device_sid_to_name: dict[str, str] = {}
         self._device_schemas: dict[str, dict[str, Any]] = {}
 
-    async def connect(self) -> None:
-        """Connect to the DDM/Director GraphQL API."""
+    async def _pre_connect(self) -> None:
+        # Validate config before any session is built — a missing field is a
+        # configuration problem, not a connection failure.
+        if not self.config.get("host", "").rstrip("/"):
+            raise ConnectionError("DDM/Director URL is required")
+        if not self.config.get("api_key", ""):
+            raise ConnectionError("API key is required")
+        if not self.config.get("domain_name", ""):
+            raise ConnectionError("Domain name is required")
+
+    async def _create_transport(self, transport_type: str) -> None:
+        """Driver-owned session: GraphQL over HTTPS.
+
+        No platform transport — the httpx client is the connection, so
+        ``self.transport`` stays None and _link_alive()/_close_session()
+        report and retire the client instead.
+        """
         host = self.config.get("host", "").rstrip("/")
         port = self.config.get("port", 443)
         use_ssl = self.config.get("ssl", True)
         verify_ssl = self.config.get("verify_ssl", True)
         self._api_key = self.config.get("api_key", "")
         self._domain_name = self.config.get("domain_name", "")
-
-        if not host:
-            raise ConnectionError("DDM/Director URL is required")
-        if not self._api_key:
-            raise ConnectionError("API key is required")
-        if not self._domain_name:
-            raise ConnectionError("Domain name is required")
 
         scheme = "https" if use_ssl else "http"
         # If the host already includes a scheme, use it as-is
@@ -389,7 +396,11 @@ class DanteDDMDriver(BaseDriver):
             },
         )
 
-        # Verify connection by querying domains and resolve name to ID
+    async def _post_connect(self) -> None:
+        # Verify the DDM answers and resolve the domain name to its ID before
+        # `connected` is declared. A raise aborts the attempt (the platform
+        # retires the client via _close_session).
+        host = self.config.get("host", "").rstrip("/")
         try:
             result = await self._graphql(_QUERY_DOMAINS)
             domains = result.get("data", {}).get("domains", [])
@@ -415,43 +426,28 @@ class DanteDDMDriver(BaseDriver):
                 f"domain: {self._domain_name}"
             )
         except ConnectionError:
-            if self._client:
-                await self._client.aclose()
-                self._client = None
             raise
         except Exception as e:
-            if self._client:
-                await self._client.aclose()
-                self._client = None
             raise ConnectionError(
                 f"Failed to connect to DDM/Director at {host}: {e}"
             )
-
-        self._connected = True
-        self.set_state("connected", True)
         self.set_state("domain_name", self._domain_name)
         self.set_state("last_error", None)
-        await self.events.emit(f"device.connected.{self.device_id}")
 
-        # Initial device discovery
+    async def _initial_sync(self) -> None:
+        # Initial device discovery seeds the child roster before the first
+        # poll cycle runs.
         await self._refresh_devices()
 
-        # Start polling
-        poll_interval = self.config.get("poll_interval", 30)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    def _link_alive(self) -> bool:
+        return self._client is not None
 
-    async def disconnect(self) -> None:
-        """Disconnect from the DDM/Director."""
-        await self.stop_polling()
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+    async def _close_session(self) -> None:
+        client = self._client
+        self._client = None
+        if client is not None:
+            await client.aclose()
         self._devices.clear()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected from DDM/Director")
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None

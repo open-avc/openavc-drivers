@@ -47,7 +47,6 @@ import re
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -98,10 +97,10 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.3.1",
+        "version": "1.3.2",
         "author": "OpenAVC",
-        # The BaseDriver liveness watchdog hook landed in 0.22.0.
-        "min_platform_version": "0.22.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "description": (
             "Controls Blackmagic Design Videohub routers over the Videohub "
             "Ethernet Protocol (TCP 9990). Video and monitoring outputs, "
@@ -414,56 +413,23 @@ class BlackmagicVideohubDriver(BaseDriver):
         self._ping_waiter: asyncio.Future | None = None
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = self.config.get("port", 9990)
-
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
         # Raw transport (no delimiter framing) — we need to keep blank lines,
         # which the delimiter parser would silently drop.
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            timeout=5.0,
-            name=self.device_id,
-        )
+        kwargs["delimiter"] = None
+        return kwargs
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(
-            f"[{self.device_id}] Connected to Videohub at {host}:{port}"
-        )
-
+    async def _initial_sync(self) -> None:
         # The server dumps full state on connect; a nudge poll covers the rare
         # case it does not, and (re)primes the child roster after a reconnect.
         await self.poll()
 
-        # Liveness watchdog: push protocol with no polling, so a silently
-        # dropped unit (no FIN) is only detectable by an awaited probe.
-        # Started explicitly because this custom connect() never runs
-        # BaseDriver.connect()'s auto-start.
-        self._start_health_loop()
-
-        poll_interval = self.config.get("poll_interval", 0)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
+    async def _close_session(self) -> None:
         self._line_buffer = b""
         self._current_block = None
         self._block_lines = []
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Sending ──
 

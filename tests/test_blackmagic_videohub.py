@@ -153,6 +153,8 @@ class _FakeBaseDriver:
         return self.state.data.get(key, default)
 
     def _handle_transport_disconnect(self) -> None:
+        self._connected = False
+        self.set_state("connected", False)
         self.disconnect_calls += 1
         if self.transport is not None:
             self.transport.connected = False
@@ -215,6 +217,56 @@ class _FakeBaseDriver:
 
     async def stop_polling(self) -> None:
         pass
+
+    # -- connection lifecycle (mirrors the platform's hook-driven connect) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 9990),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=b"\n",
+            timeout=5.0,
+            name=self.device_id,
+        )
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        await self._close_session()
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        await self._initial_sync()
+        if self.config.get("poll_interval", 0):
+            await self.start_polling(self.config["poll_interval"])
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
 
 
 class _FakeSimState:
@@ -339,7 +391,7 @@ async def _make_pair(sim_config=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.1"
+    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.2"
 
 
 def test_child_entity_types_declared():
@@ -385,7 +437,7 @@ def test_discovery_probe_and_actions_present():
     action_ids = {a["id"] for a in info["actions"]}
     assert "refresh" in action_ids and "test_connection" in action_ids
     # The BaseDriver liveness watchdog hook is a 0.22.0 platform API.
-    assert info["min_platform_version"] == "0.22.0"
+    assert info["min_platform_version"] == "0.24.0"
 
 
 # ── CE: children sized to the frame (the truncation fix) ─────────────────────

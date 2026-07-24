@@ -57,7 +57,6 @@ import re
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -231,10 +230,9 @@ class TvoneCoriomasterDriver(BaseDriver):
         "name": "tvONE CORIOmaster",
         "manufacturer": "tvONE",
         "category": "video",
-        "version": "1.0.0",
-        # String/integer-id children registered from device-enumerated
-        # rosters with per-child dynamic schemas (media inputs).
-        "min_platform_version": "0.19.4",
+        "version": "1.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and "
@@ -1023,53 +1021,30 @@ class TvoneCoriomasterDriver(BaseDriver):
         self._presets_dirty = False
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 10001))
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # CLI replies are LF-terminated lines, not the platform's bare-CR
+        # default.
+        kwargs["delimiter"] = b"\n"
+        return kwargs
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=b"\n",
-            timeout=5.0,
-            name=self.device_id,
-        )
+    async def _post_connect(self) -> None:
+        await self._login()
+        await self._read_unit_info()
+        await self._enumerate_all()
+        await self._arm_events()
 
-        try:
-            await self._login()
-            await self._read_unit_info()
-            await self._enumerate_all()
-            await self._arm_events()
-        except Exception:
-            await self._teardown_transport()
-            raise
-
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to CORIOmaster at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
+        # First full read; steady-state polling (started by the platform
+        # after this hook) doubles as the session keep-alive.
         self._poll_cycle = 0
         self._poll_misses = 0
         await self.poll()
-        poll_interval = int(self.config.get("poll_interval", 15))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
 
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        await self._teardown_transport()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
-
-    async def _teardown_transport(self) -> None:
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: abort any in-flight CLI request so
+        # its awaiter doesn't hang on a dead link.
         self._fail_terminal_waiter()
 
     # ── Login / session setup ──

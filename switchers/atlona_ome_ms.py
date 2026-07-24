@@ -60,7 +60,6 @@ import re
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -133,10 +132,9 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.3.0",
-        # 0.22.0 ships the BaseDriver awaited-probe watchdog; on older
-        # platforms the liveness hook would never run.
-        "min_platform_version": "0.22.0",
+        "version": "1.3.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls the Atlona AT-OME-MS family of 4K/UHD matrix "
@@ -564,22 +562,18 @@ class AtlonaOmeMsDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Raw transport — we control the line read / auth handshake.
+        kwargs["delimiter"] = None
+        return kwargs
+
+    async def _post_connect(self) -> None:
         host = self.config.get("host", "")
         port = int(self.config.get("port", 23))
         username = self.config.get("username", "") or ""
         password = self.config.get("password", "") or ""
-
-        # Raw transport — we control the line read / auth handshake.
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            timeout=5.0,
-            name=self.device_id,
-        )
 
         try:
             # Brief pause so the device flushes any login banner.
@@ -598,47 +592,24 @@ class AtlonaOmeMsDriver(BaseDriver):
             await self.transport.send(b"OutputMode j\r")
             await asyncio.sleep(0.2)
         except (ConnectionError, OSError) as e:
-            await self.transport.close()
-            self.transport = None
             raise ConnectionError(
                 f"AT-OME-MS auth handshake failed for {host}:{port}: {e}"
             ) from e
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to AT-OME-MS at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
         try:
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        poll_interval = int(self.config.get("poll_interval", 30))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-        # This connect() doesn't run BaseDriver.connect(), so arm the
-        # liveness watchdog explicitly. Sends here are fire-and-forget on
-        # raw TCP — without an awaited probe, a matrix that drops without
-        # a FIN (power cut, network partition) would stay "online" forever.
-        self._start_health_loop()
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: cancel the awaited liveness probe
+        # and reset the auth/line state for the next attempt.
         if self._probe_future is not None and not self._probe_future.done():
             self._probe_future.cancel()
         self._probe_future = None
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
         self._authenticated = False
         self._line_buffer = b""
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Sending (with 500 ms inter-command delay) ──
 

@@ -52,7 +52,8 @@ class _FakeEvents:
 
 class _FakeBaseDriver:
     """Functional stand-in for the platform BaseDriver surface this driver
-    uses, including the liveness watchdog loop (mirrors base.py)."""
+    uses: the hook-driven connect()/disconnect() lifecycle and the liveness
+    watchdog loop (mirrors base.py)."""
 
     DRIVER_INFO: dict = {}
 
@@ -70,10 +71,13 @@ class _FakeBaseDriver:
         self.events = events
         self.transport = None
         self._connected = False
+        self._last_transport_error = ""
+        self._last_fault = None
         self.disconnect_calls = 0
         self.stashed_fault: tuple[str, str] | None = None
         self._health_task = None
         self._health_failures = 0
+        self._bg_tasks: set = set()
 
     def set_state(self, key, value) -> None:
         self.state.set(f"device.{self.device_id}.{key}", value)
@@ -82,15 +86,39 @@ class _FakeBaseDriver:
         return self.state.data.get(f"device.{self.device_id}.{key}", default)
 
     def _handle_transport_disconnect(self) -> None:
+        # Mirrors the platform: flip the flags synchronously, then schedule
+        # the async teardown (stop loops, close transport, _close_session,
+        # disconnect event).
+        self._connected = False
+        self.set_state("connected", False)
         self.disconnect_calls += 1
         if self.transport is not None:
             self.transport.connected = False
+        task = asyncio.ensure_future(self._on_disconnect_cleanup())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
+    async def _on_disconnect_cleanup(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        transport = self.transport
+        self.transport = None
+        if transport is not None:
+            await transport.close()
+        await self._close_session()
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
     def _stash_fault(self, code, message="") -> None:
         self.stashed_fault = (code, message)
 
+    def _stash_transport_error(self) -> None:
+        pass
+
     async def _liveness_probe(self) -> None:
         raise NotImplementedError
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
 
     def _start_health_loop(self) -> None:
         if self._health_task is None or self._health_task.done():
@@ -138,6 +166,100 @@ class _FakeBaseDriver:
     async def stop_polling(self) -> None:
         pass
 
+    # -- connection lifecycle (mirrors the platform's hook-driven connect) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    def _create_frame_parser(self):
+        return None
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 23),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=b"\r",
+            frame_parser=self._create_frame_parser(),
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
+            timeout=self.config.get("timeout", 5.0),
+            name=self.device_id,
+        )
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        # 1. Clean slate: reset fault classification, drop a previous
+        #    attempt's driver session and stale transport.
+        self._last_transport_error = ""
+        self._last_fault = None
+        self.stashed_fault = None
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        # 2-3. Establish: pre-connect hook, then the transport.
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        # 4. Handshake: a raise here aborts the connection.
+        try:
+            await self._post_connect()
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        # 5. Declare connected.
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        # 6. Initial sync: a raise here tears the connection back down.
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                await transport.close()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        # 7. Polling + liveness watchdog.
+        if self.config.get("poll_interval", 0):
+            await self.start_polling(self.config["poll_interval"])
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
+
 
 class _FakeTCPSimulator:
     """Stand-in for simulator.tcp_simulator.TCPSimulator."""
@@ -166,7 +288,8 @@ class _FakeTCPTransport:
 
     @classmethod
     async def create(cls, *, host, port, on_data, on_disconnect,
-                     delimiter=None, timeout=5.0, name=""):
+                     delimiter=None, frame_parser=None,
+                     inter_command_delay=0.0, timeout=5.0, name=""):
         return cls(on_data, on_disconnect)
 
     async def send(self, data) -> None:
@@ -248,9 +371,9 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.AtlonaOmeMsDriver.DRIVER_INFO
-    assert info["version"] == "1.3.0"
-    # The BaseDriver awaited-probe watchdog ships in 0.22.0.
-    assert info["min_platform_version"] == "0.22.0"
+    assert info["version"] == "1.3.1"
+    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
+    assert info["min_platform_version"] == "0.24.0"
 
 
 def test_device_settings_declared():
@@ -387,12 +510,14 @@ def test_health_loop_forces_reconnect_on_silent_device():
     async def go():
         global _SWALLOW
         driver, sim = await _make_pair()
-        await driver.connect()
         driver.HEALTH_INTERVAL_S = 0.01
         driver.HEALTH_TIMEOUT_S = 0.05
+        await driver.connect()
         try:
+            # The platform starts the watchdog itself because the driver
+            # overrides _liveness_probe.
+            assert driver._health_task is not None
             _SWALLOW = True  # matrix stops replying
-            driver._start_health_loop()
             await asyncio.sleep(0.3)
             assert driver.disconnect_calls >= 1
             # Typed no_response fault stashed for the classifier.
@@ -400,6 +525,7 @@ def test_health_loop_forces_reconnect_on_silent_device():
             assert driver.stashed_fault[0] == "no_response"
         finally:
             _SWALLOW = False
+            await _settle()
             driver._stop_health_loop()
 
     asyncio.run(go())

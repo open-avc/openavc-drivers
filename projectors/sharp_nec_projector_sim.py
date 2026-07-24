@@ -652,7 +652,8 @@ class SharpNecProjectorSimulator(TCPSimulator):
         elif cmd == CMD_ADJUST:
             if len(payload) >= 5:
                 target = payload[0]
-                mode = payload[2]  # 0x00=absolute, 0x01=relative
+                # payload[2] carries the adjust mode (0x00=absolute,
+                # 0x01=relative); the sim only models absolute writes.
                 value = payload[3] | (payload[4] << 8)
 
                 if target == 0x05:

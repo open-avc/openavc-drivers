@@ -37,7 +37,6 @@ from typing import Any, Optional
 
 from server.drivers.base import BaseDriver
 from server.transport.frame_parsers import CallableFrameParser, FrameParser
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -95,7 +94,9 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "1.4.0",
+        "version": "1.4.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
@@ -839,43 +840,29 @@ class VMixDriver(BaseDriver):
         """vMix uses custom framing, not delimiter-based."""
         return None
 
-    async def connect(self) -> None:
-        """Connect to vMix TCP API."""
-        host = self.config.get("host", "")
-        port = self.config.get("port", 8099)
-        frame_parser = self._create_frame_parser()
-
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            frame_parser=frame_parser,
-            name=self.device_id,
-        )
-
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to vMix at {host}:{port}")
-
-        # Subscribe to tally if configured
+    async def _initial_sync(self) -> None:
+        """Arm the configured push subscriptions once the session is up."""
         if self.config.get("subscribe_tally", True):
             await self._subscribe_tally()
-
-        # Subscribe to activators if configured
         if self.config.get("subscribe_acts", False):
             await self._subscribe_acts()
 
-        # Start polling for full XML state
-        poll_interval = self.config.get("poll_interval", 30)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: forget this session's subscriptions
+        # and drop any queued command responses, so a stale reply can never
+        # answer the next session's first command.
+        self._tally_subscribed = False
+        self._acts_subscribed = False
+        while not self._cmd_response.empty():
+            try:
+                self._cmd_response.get_nowait()
+            except asyncio.QueueEmpty:
+                break
 
     async def disconnect(self) -> None:
         """Disconnect from vMix."""
-        await self.stop_polling()
+        # Politely drop the subscriptions while the link is still open.
+        # Best-effort: the software may already be gone.
         if self.transport:
             try:
                 if self._tally_subscribed:
@@ -884,14 +871,7 @@ class VMixDriver(BaseDriver):
                     await self.transport.send(b"UNSUBSCRIBE ACTS\r\n")
             except Exception:
                 pass
-            await self.transport.close()
-            self.transport = None
-        self._tally_subscribed = False
-        self._acts_subscribed = False
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        await super().disconnect()
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None

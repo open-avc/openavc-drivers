@@ -69,7 +69,6 @@ from typing import Any, Optional
 from server.drivers.base import BaseDriver
 from server.transport.binary_helpers import checksum_xor
 from server.transport.frame_parsers import CallableFrameParser
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -376,10 +375,9 @@ class SharpNECDisplayDriver(BaseDriver):
         "name": "Sharp/NEC Display (External Control)",
         "manufacturer": "Sharp NEC",
         "category": "display",
-        "version": "1.0.1",
-        # Static integer child entities + child-prop cloud tiers (0.13.0);
-        # value-picker hints on child vars ship later but degrade gracefully.
-        "min_platform_version": "0.13.0",
+        "version": "1.0.2",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp/NEC professional large-format displays over "
@@ -798,46 +796,32 @@ class SharpNECDisplayDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        host = str(self.config.get("host", "")).strip()
-        port = int(self.config.get("port", DEFAULT_PORT))
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
             raise ConnectionError(f"[{self.device_id}] No host configured")
-
-        self._last_transport_error = ""
-        self._last_fault = None
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:
-                pass
-            self.transport = None
+        # Every attempt starts fresh: forget which opcodes a previous
+        # session reported unsupported, clear any armed cooldown window,
+        # and restart the diagnostics rotation.
         self._unsupported = set()
         self._quiet_until = 0.0
         self._poll_cycle = 0
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            frame_parser=CallableFrameParser(_extract_nec_frame),
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Raw byte stream — packets are length-framed by the parser below
+        # (a reply's check-code byte can itself equal CR, so delimiter
+        # framing would corrupt packets).
+        kwargs["delimiter"] = None
+        return kwargs
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(
-            f"[{self.device_id}] Connected to Sharp/NEC display at "
-            f"{host}:{port}"
-        )
+    def _create_frame_parser(self):
+        return CallableFrameParser(_extract_nec_frame)
 
+    async def _initial_sync(self) -> None:
         self._reconcile_displays()
-
-        # Identity + temperature-sensor arm, then a first full poll.
+        # Identity + temperature-sensor arm, then a first full read so the
+        # display cards aren't blank until the first poll cycle.
         for monitor_id in self.list_children("display"):
             await self._read_identity(monitor_id)
         try:
@@ -845,31 +829,12 @@ class SharpNECDisplayDriver(BaseDriver):
         except (ConnectionError, TimeoutError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        poll_interval = int(self.config.get("poll_interval", 20))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: abort the in-flight request so its
+        # awaiter doesn't hang on a dead link.
         if self._reply_future and not self._reply_future.done():
             self._reply_future.cancel()
         self._reply_future = None
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:
-                pass
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
-
-    def _handle_transport_disconnect(self) -> None:
-        if self._reply_future and not self._reply_future.done():
-            self._reply_future.cancel()
-        self._reply_future = None
-        super()._handle_transport_disconnect()
 
     async def refresh_children(self) -> dict[str, Any]:
         """Re-sync the roster from config and re-read every display —

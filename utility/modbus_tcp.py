@@ -40,7 +40,6 @@ import struct
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -264,14 +263,13 @@ class ModbusTCPDriver(BaseDriver):
         "name": "Modbus TCP Device",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": "Read and write any Modbus TCP device by declaring its register map.",
         "source_url": "https://www.modbus.org/modbus-specifications",
         "simulated": True,
-        # The register_map table editor is a 0.23.0 platform feature; on older
-        # builds the map can't be authored.
-        "min_platform_version": "0.23.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "transport": "tcp",
         "protocols": ["modbus_tcp"],
         "default_config": {
@@ -391,64 +389,38 @@ class ModbusTCPDriver(BaseDriver):
 
     # ── Connection lifecycle ──
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = self._safe_int(self.config.get("port"), DEFAULT_PORT)
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # MBAP frames are length-prefixed binary — no line delimiter.
+        kwargs["delimiter"] = None
+        return kwargs
+
+    async def _create_transport(self, transport_type: str) -> None:
+        # Keep the connect-failure wording stable so anyone matching on it
+        # (alerts, logs) sees the same message either way it fails.
         try:
-            self.transport = await TCPTransport.create(
-                host=host,
-                port=port,
-                on_data=self.on_data_received,
-                on_disconnect=self._handle_transport_disconnect,
-                delimiter=None,
-                timeout=5.0,
-                name=self.device_id,
-            )
+            await super()._create_transport(transport_type)
         except (ConnectionError, OSError) as e:
+            host = self.config.get("host", "")
+            port = self._safe_int(self.config.get("port"), DEFAULT_PORT)
             raise ConnectionError(f"Modbus connect to {host}:{port} failed: {e}") from e
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info("[%s] Connected to Modbus TCP %s:%s (%d registers)",
-                 self.device_id, host, port, len(self._registers))
-
+    async def _initial_sync(self) -> None:
         # Prime state with one read so the card isn't blank until the first poll.
         try:
             await self.poll()
         except (ConnectionError, OSError, asyncio.TimeoutError):
             log.warning("[%s] Initial Modbus poll failed", self.device_id)
 
-        # Custom connect() skips BaseDriver.connect()'s auto-start, so start the
-        # liveness watchdog and polling explicitly.
-        self._start_health_loop()
-        poll_interval = self._safe_int(self.config.get("poll_interval"), 10)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: abort in-flight transactions so their
+        # awaiters don't hang on a dead link, and drop any half-received frame.
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
         self._buffer.clear()
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info("[%s] Disconnected", self.device_id)
-
-    async def _handle_transport_disconnect(self) -> None:
-        self._connected = False
-        for fut in self._pending.values():
-            if not fut.done():
-                fut.cancel()
-        self._pending.clear()
-        self.set_state("connected", False)
 
     # ── MBAP framing + request/response correlation ──
 

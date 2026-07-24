@@ -18,7 +18,9 @@ Covers the protocol essentials:
   - 2's-complement temperature decode, self-diagnosis fault mapping,
     serial/model hex-pair decode;
   - a display missing from the chain times out, and a dead transport
-    makes poll raise (never-offline guard).
+    makes poll raise (never-offline guard);
+  - teardown (graceful disconnect and transport drop) aborts the
+    in-flight request, and a reconnect starts with a clean slate.
 
 Loads the driver + simulator with the ``server.*`` / ``simulator.*``
 imports stubbed so the community CI stays self-contained (conftest.py
@@ -57,8 +59,9 @@ class _FakeEvents:
 
 
 class _FakeBaseDriver:
-    """Stand-in for the platform BaseDriver surface this driver uses,
-    including the child-entity registry."""
+    """Functional stand-in for the platform BaseDriver surface this driver
+    uses: the hook-driven connect()/disconnect() lifecycle plus the
+    child-entity registry (mirrors base.py semantics used by the driver)."""
 
     DRIVER_INFO: dict = {}
 
@@ -73,6 +76,9 @@ class _FakeBaseDriver:
         self._last_fault = None
         self.children: dict[str, dict[int, dict]] = {}
         self.disconnect_calls = 0
+        self.stashed_fault: tuple[str, str] | None = None
+        self._health_task = None
+        self._bg_tasks: set = set()
 
     def set_state(self, key, value) -> None:
         self.state.set(f"device.{self.device_id}.{key}", value)
@@ -99,18 +105,150 @@ class _FakeBaseDriver:
         self.children[ctype][cid].update(updates)
 
     def _handle_transport_disconnect(self) -> None:
+        # Mirrors the platform: flip the flags synchronously, then schedule
+        # the async teardown (stop loops, close transport, _close_session,
+        # disconnect event).
+        self._connected = False
+        self.set_state("connected", False)
         self.disconnect_calls += 1
         if self.transport is not None:
             self.transport.connected = False
+        task = asyncio.ensure_future(self._on_disconnect_cleanup())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
+    async def _on_disconnect_cleanup(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        transport = self.transport
+        self.transport = None
+        if transport is not None:
+            await transport.close()
+        await self._close_session()
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
     def _stash_fault(self, code, message="") -> None:
+        self.stashed_fault = (code, message)
+
+    def _stash_transport_error(self) -> None:
         pass
+
+    # -- liveness watchdog: this driver supplies no probe (steady polling is
+    # the keep-alive), so connect() never starts the loop. The raise flags a
+    # future probe addition so the loop gets modeled here then. --
+
+    async def _liveness_probe(self) -> None:
+        raise NotImplementedError
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
+
+    def _start_health_loop(self) -> None:
+        raise NotImplementedError(
+            "driver grew a liveness probe - model the health loop here")
+
+    def _stop_health_loop(self) -> None:
+        self._health_task = None
 
     async def start_polling(self, interval) -> None:
         pass
 
     async def stop_polling(self) -> None:
         pass
+
+    # -- connection lifecycle (mirrors the platform's hook-driven connect) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    def _create_frame_parser(self):
+        return None
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 7142),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=b"\r",
+            frame_parser=self._create_frame_parser(),
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
+            timeout=self.config.get("timeout", 5.0),
+            name=self.device_id,
+        )
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        # 1. Clean slate: reset fault classification, drop a previous
+        #    attempt's driver session and stale transport.
+        self._last_transport_error = ""
+        self._last_fault = None
+        self.stashed_fault = None
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        # 2-3. Establish: pre-connect hook, then the transport.
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        # 4. Handshake: a raise here aborts the connection.
+        try:
+            await self._post_connect()
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        # 5. Declare connected.
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        # 6. Initial sync: a raise here tears the connection back down.
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                await transport.close()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        # 7. Polling + liveness watchdog.
+        if self.config.get("poll_interval", 0):
+            await self.start_polling(self.config["poll_interval"])
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 # Set by the pairing harness so the stubbed transport reaches the live sim.
@@ -120,17 +258,18 @@ _SWALLOW = False
 
 
 class _FakeTCPTransport:
-    def __init__(self, on_data, frame_parser) -> None:
+    def __init__(self, on_data, on_disconnect, frame_parser) -> None:
         self.on_data = on_data
+        self.on_disconnect = on_disconnect
         self.parser = frame_parser
         self.connected = True
         self._sim = _CURRENT_SIM
 
     @classmethod
     async def create(cls, *, host, port, on_data, on_disconnect,
-                     delimiter=None, frame_parser=None, timeout=5.0,
-                     name=""):
-        return cls(on_data, frame_parser)
+                     delimiter=None, frame_parser=None,
+                     inter_command_delay=0.0, timeout=5.0, name=""):
+        return cls(on_data, on_disconnect, frame_parser)
 
     async def send(self, data) -> None:
         if not self.connected:
@@ -229,9 +368,6 @@ def _load(name: str, path: Path) -> ModuleType:
     binary_helpers = ModuleType("server.transport.binary_helpers")
     binary_helpers.checksum_xor = _xor
     sys.modules["server.transport.binary_helpers"] = binary_helpers
-    tcp = ModuleType("server.transport.tcp")
-    tcp.TCPTransport = _FakeTCPTransport
-    sys.modules["server.transport.tcp"] = tcp
     parsers = ModuleType("server.transport.frame_parsers")
     parsers.CallableFrameParser = _StubCallableFrameParser
     sys.modules["server.transport.frame_parsers"] = parsers
@@ -288,8 +424,9 @@ def _child(driver, monitor_id):
 
 def test_version_and_platform_gate():
     info = DRV.SharpNECDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
-    assert info["min_platform_version"] == "0.13.0"
+    assert info["version"] == "1.0.2"
+    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
+    assert info["min_platform_version"] == "0.24.0"
     assert info["ports"] == [7142]
     assert info["manufacturer"] == "Sharp NEC"
 
@@ -719,6 +856,61 @@ def test_roster_reconcile_add_and_drop():
             driver.config["display_ids"] = "2"
             await driver.refresh_children()
             assert driver.list_children("display") == [2]
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+# ── Teardown paths ──────────────────────────────────────────────────────────
+
+def test_teardown_paths_abort_inflight_reply():
+    """Both teardown paths (graceful disconnect and the transport-drop
+    cleanup) run _close_session, so a request awaiting its reply is
+    aborted rather than left hanging on a dead link."""
+    async def go():
+        # Graceful disconnect.
+        driver, sim = await _make_pair()
+        await driver.connect()
+        fut = asyncio.get_event_loop().create_future()
+        driver._reply_future = fut
+        await driver.disconnect()
+        assert fut.cancelled()
+        assert driver._reply_future is None
+        assert driver.transport is None
+        assert driver.get_state("connected") is False
+
+        # Transport drop.
+        driver, sim = await _make_pair()
+        await driver.connect()
+        fut = asyncio.get_event_loop().create_future()
+        driver._reply_future = fut
+        driver._handle_transport_disconnect()
+        for _ in range(4):
+            await asyncio.sleep(0)
+        assert fut.cancelled()
+        assert driver._reply_future is None
+        assert driver.disconnect_calls == 1
+
+    asyncio.run(go())
+
+
+def test_reconnect_starts_with_clean_slate():
+    """A reconnect must not inherit the previous session's unsupported-
+    opcode memory, armed cooldown window, or diagnostics rotation."""
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        driver._unsupported.add((1, 0x00, 0x8C))
+        driver._quiet_until = 10_000_000.0
+        driver._poll_cycle = 7
+        await driver.disconnect()
+        await driver.connect()
+        try:
+            assert driver._unsupported == set()
+            assert driver._quiet_until == 0.0
+            # The initial full read ran once (identity + first poll).
+            assert driver._poll_cycle == 1
         finally:
             await driver.disconnect()
 

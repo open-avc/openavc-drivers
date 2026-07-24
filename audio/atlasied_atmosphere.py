@@ -44,7 +44,6 @@ import json
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -264,8 +263,9 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "2.0.0",
-        "min_platform_version": "0.22.0",
+        "version": "2.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing "
@@ -680,32 +680,22 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         }
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 5321))
-
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not self.config.get("host", ""):
             raise ConnectionError(
                 f"[{self.device_id}] Atmosphere host is required"
             )
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # The device streams newline-delimited JSON; on_data_received does
+        # its own line buffering, so take the raw byte stream.
+        kwargs["delimiter"] = None
+        return kwargs
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to AtlasIED Atmosphere at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
         self._register_topology()
-
         # Subscribe to all configured params. Out-of-range subscribes
         # are silently ignored by the device, so over-sizing is harmless.
         try:
@@ -715,22 +705,14 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial subscribe failed")
 
-        # The probe doubles as the protocol-required keep-alive (the device
-        # closes a connection silent for 5 minutes) and, awaited, catches a
-        # link that died without a FIN — the old fire-and-forget keepalive
-        # never noticed the device had stopped answering.
-        self._start_health_loop()
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: drop any half-received line and
+        # unblock a keep-alive probe still waiting on a dead link.
         self._line_buffer = b""
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        fut = self._probe_fut
+        if fut is not None and not fut.done():
+            fut.set_exception(ConnectionError("connection closed"))
+        self._probe_fut = None
 
     # ── Topology ──
 

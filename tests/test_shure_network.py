@@ -15,6 +15,12 @@ Covers the v2.0.0 first-class child-entity conversion (was YAML v1.6.0):
   - the v1.6.0 liveness probe (< GET DEVICE_ID >) is preserved — a channel
     push does not satisfy it, and a silent link forces a typed no_response.
 
+The platform stand-in mirrors the hook-driven connect()/disconnect()
+lifecycle (clean slate per attempt, _post_connect abort, _initial_sync
+failure teardown, _close_session on every teardown path, watchdog
+auto-start), so the hooks this driver overrides run exactly as they do on
+the real platform.
+
 Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected).
@@ -50,8 +56,10 @@ class _FakeEvents:
 
 
 class _FakeBaseDriver:
-    """Stand-in mirroring the platform BaseDriver liveness watchdog and
-    child-entity registry (integer-id validation included)."""
+    """Functional stand-in for the platform BaseDriver surface this driver
+    uses: the hook-driven connect()/disconnect() lifecycle, the liveness
+    watchdog, and the child-entity registry (integer-id validation
+    included)."""
 
     DRIVER_INFO: dict = {}
 
@@ -71,6 +79,7 @@ class _FakeBaseDriver:
         self.stashed_fault: tuple[str, str] | None = None
         self._health_task = None
         self._health_failures = 0
+        self._bg_tasks: set = set()
         self._children: dict = {}
         self._order: dict = {}
         self._project_child_entities: dict = {}
@@ -145,15 +154,39 @@ class _FakeBaseDriver:
     # -- disconnect bookkeeping + liveness watchdog (mirrors the platform) --
 
     def _handle_transport_disconnect(self) -> None:
+        # Mirrors the platform: flip the flags synchronously, then schedule
+        # the async teardown (stop loops, close transport, _close_session,
+        # disconnect event).
+        self._connected = False
+        self.set_state("connected", False)
         self.disconnect_calls += 1
         if self.transport is not None:
             self.transport.connected = False
+        task = asyncio.ensure_future(self._on_disconnect_cleanup())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
+    async def _on_disconnect_cleanup(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        transport = self.transport
+        self.transport = None
+        if transport is not None:
+            await transport.close()
+        await self._close_session()
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
     def _stash_fault(self, code, message="") -> None:
         self.stashed_fault = (code, message)
 
+    def _stash_transport_error(self) -> None:
+        pass
+
     async def _liveness_probe(self) -> None:
         raise NotImplementedError
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
 
     def _start_health_loop(self) -> None:
         if self._health_task is None or self._health_task.done():
@@ -200,6 +233,98 @@ class _FakeBaseDriver:
 
     async def stop_polling(self) -> None:
         pass
+
+    # -- connection lifecycle (mirrors the platform's hook-driven connect) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    def _create_frame_parser(self):
+        return None
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 2202),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=b"\r",
+            frame_parser=self._create_frame_parser(),
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
+            timeout=self.config.get("timeout", 5.0),
+            name=self.device_id,
+        )
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        # 1. Clean slate: reset fault classification, drop a previous
+        #    attempt's driver session and stale transport.
+        self.stashed_fault = None
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        # 2-3. Establish: pre-connect hook, then the transport.
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        # 4. Handshake: a raise here aborts the connection.
+        try:
+            await self._post_connect()
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        # 5. Declare connected.
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        # 6. Initial sync: a raise here tears the connection back down.
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                await transport.close()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        # 7. Polling + liveness watchdog.
+        if self.config.get("poll_interval", 0):
+            await self.start_polling(self.config["poll_interval"])
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 class _FakeSimState:
@@ -325,8 +450,9 @@ def _run(coro):
 
 def test_metadata_and_actions_shape():
     info = DRV.ShureNetworkDriver.DRIVER_INFO
-    assert info["version"] == "2.0.0"
-    assert info["min_platform_version"] == "0.22.0"
+    assert info["version"] == "2.0.1"
+    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
+    assert info["min_platform_version"] == "0.24.0"
     for cid in info["quick_actions"]:
         assert cid in info["commands"], cid
     assert {a["id"] for a in info["actions"]} == set(info["quick_actions"])
@@ -407,6 +533,44 @@ def test_project_label_not_overridden_by_placeholder():
 
 
 # ── Connect round trip / push into children ─────────────────────────────────
+
+def test_missing_host_raises_before_transport():
+    async def scenario():
+        driver, _sim = await _make_pair({"host": ""})
+        try:
+            await driver.connect()
+        except ConnectionError as exc:
+            assert "host" in str(exc).lower()
+            assert driver.transport is None
+            assert not driver._connected
+            return
+        raise AssertionError("connect succeeded without a host")
+    _run(scenario())
+
+
+def test_disconnect_unblocks_inflight_probe():
+    """Teardown must fail a probe still awaiting its DEVICE_ID reply so the
+    health loop never hangs on a dead link."""
+    async def scenario():
+        global _SWALLOW
+        driver, _sim = await _make_pair()
+        await driver.connect()
+        _SWALLOW = True
+        try:
+            probe = asyncio.ensure_future(driver._liveness_probe())
+            await asyncio.sleep(0.05)
+            assert not probe.done()
+            await driver.disconnect()
+            assert driver._probe_fut is None
+            try:
+                await asyncio.wait_for(probe, 1.0)
+            except ConnectionError:
+                return
+            raise AssertionError("probe survived disconnect")
+        finally:
+            _SWALLOW = False
+    _run(scenario())
+
 
 def test_connect_populates_device_and_channels():
     async def scenario():

@@ -51,7 +51,6 @@ import re
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -179,8 +178,9 @@ class ShureNetworkDriver(BaseDriver):
         "name": "Shure Networked Devices",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "2.0.0",
-        "min_platform_version": "0.22.0",
+        "version": "2.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Shure networked audio devices over the Device Control "
@@ -539,47 +539,32 @@ class ShureNetworkDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 2202))
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not self.config.get("host", ""):
             raise ConnectionError(f"[{self.device_id}] Shure host is required")
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=b">",
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Every DCS reply ends at its closing ">" — frame on that instead
+        # of the platform's CR default.
+        kwargs["delimiter"] = b">"
+        return kwargs
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Shure device at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
+        # Seed the roster and every device / channel value; channels stay
+        # fresh via push from here on (polling only refreshes device-level
+        # state).
         self._register_topology()
         await self._sync_all()
 
-        # Poll device-level state; channels stay fresh via push.
-        poll_interval = float(self.config.get("poll_interval", 10) or 0)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-        # Heartbeat probe (doubles as a dead-link detector on this push link).
-        self._start_health_loop()
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: unblock a heartbeat probe still
+        # waiting on a dead link.
+        fut = self._probe_fut
+        if fut is not None and not fut.done():
+            fut.set_exception(ConnectionError("connection closed"))
+        self._probe_fut = None
 
     # ── Topology ──
 

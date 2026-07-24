@@ -80,8 +80,9 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.3.2",
-        "min_platform_version": "0.22.0",
+        "version": "1.3.3",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, "
@@ -382,27 +383,15 @@ class SymetrixComposerDriver(BaseDriver):
         )
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
-        # Use BaseDriver auto-transport. Symetrix delimiter is \r per
-        # the protocol manual.
-        from server.transport.tcp import TCPTransport
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Composer Control lines terminate with a bare CR per the protocol
+        # manual — pin it so nothing else can change the framing.
+        kwargs["delimiter"] = b"\r"
+        return kwargs
 
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 48631))
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=b"\r",
-            timeout=5.0,
-            name=self.device_id,
-        )
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Symetrix at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
         # Enable push globally and refresh — every push-enabled
         # controller's current value comes back as #N=V lines.
         try:
@@ -414,31 +403,24 @@ class SymetrixComposerDriver(BaseDriver):
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial setup failed")
 
-        poll_interval = int(self.config.get("poll_interval", 0))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-        # Push-only session: a silently dead link would otherwise never
-        # flip the device offline (see the docstring's liveness note).
-        self._start_health_loop()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: drop any half-received bytes and
+        # unblock a version probe still waiting on a dead link.
+        self._line_buffer.clear()
+        fut = self._probe_fut
+        if fut is not None and not fut.done():
+            fut.set_exception(ConnectionError("connection closed"))
+        self._probe_fut = None
 
     async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
+        # Polite quit so the device frees the TCP slot immediately rather
+        # than aging it out. Best-effort — the link may already be gone.
         if self.transport:
             try:
-                # Polite quit so the device frees the TCP slot
-                # immediately rather than aging it out.
                 await self._send("Q!")
             except (ConnectionError, OSError):
                 pass
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self._line_buffer.clear()
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        await super().disconnect()
 
     # ── Sending ──
 

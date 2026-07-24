@@ -9,12 +9,19 @@ driver's poll parses the result, both sides asserted. The API shapes
 set/getLEDIndicatorStatus on /sony/system, 403 on a wrong PSK) were confirmed
 against the pybravia library and the Bravia REST API reference.
 
-Covers the v1.5.0 adoption + fix:
+Covers:
+  - the connection lifecycle: the driver supplies its PSK auth and transport
+    shape through _transport_kwargs() and classifies a rejected key in
+    _post_connect(); the fake BaseDriver below mirrors the platform's
+    hook-driven connect (kwargs assembly, the reachability verify for HTTP
+    transports, _post_connect with its failure teardown, the canonical
+    connected declare, _initial_sync with its failure teardown, and
+    _close_session on every teardown path);
   - device settings: LED indicator + picture mode / brightness / contrast /
     color / sharpness write and read back through the poll;
-  - connection-fault: a wrong Pre-Shared Key now raises an auth-worded
-    ConnectionError on connect (classifier -> auth_failed) instead of silently
-    connecting and then failing every poll;
+  - a wrong Pre-Shared Key raises an auth-worded ConnectionError on connect
+    (classifier -> auth_failed) instead of silently connecting and then
+    failing every poll;
   - the Test Pre-Shared Key setup wizard accepts / rejects a key out-of-band.
 
 Loads the driver + sim with ``server.*`` / ``simulator.*`` imports stubbed so
@@ -58,6 +65,14 @@ class _FakeEvents:
 
 
 class _FakeBaseDriver:
+    """Mirrors BaseDriver's hook-driven connection lifecycle: clean-slate
+    reset, _pre_connect, _create_transport (constructor kwargs pass through
+    _transport_kwargs), the reachability verify for connectionless
+    transports, _post_connect with its failure teardown (error stash +
+    transport close + _close_session), the canonical connected declare,
+    _initial_sync with its full teardown on failure, and _close_session on
+    every teardown path."""
+
     DRIVER_INFO: dict = {}
 
     def __init__(self, device_id, config, state, events) -> None:
@@ -67,6 +82,9 @@ class _FakeBaseDriver:
         self.events = events
         self.transport = None
         self._connected = False
+        self._last_transport_error = ""
+        self.close_session_calls = 0
+        self.polling_started_with = None
         self.config_updates: list[dict] = []
         self.reconnects = 0
 
@@ -84,7 +102,7 @@ class _FakeBaseDriver:
         self._connected = False
 
     async def start_polling(self, interval) -> None:
-        pass
+        self.polling_started_with = interval
 
     async def stop_polling(self) -> None:
         pass
@@ -95,6 +113,144 @@ class _FakeBaseDriver:
 
     async def request_reconnect(self) -> None:
         self.reconnects += 1
+
+    def _stash_transport_error(self) -> None:
+        transport = self.transport
+        if transport is not None:
+            err = getattr(transport, "last_error", "") or ""
+            if err:
+                self._last_transport_error = err
+
+    # Hook defaults (the driver overrides the ones it needs).
+    async def _pre_connect(self):
+        return None
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    async def _create_transport(self, transport_type):
+        # Mirrors the platform's http branch: base_url from host/port/ssl
+        # config, credentials from auth_type config, everything through
+        # _transport_kwargs() just before construction. References the
+        # module-level fake transport directly (a deferred import at
+        # test-run time would miss the stubs).
+        host = self.config.get("host", "")
+        port = self.config.get("port")
+        use_ssl = self.config.get("ssl", False)
+        scheme = "https" if use_ssl else "http"
+        if port is None:
+            port = 443 if use_ssl else 80
+        auth_type = self.config.get("auth_type", "none")
+        credentials = {}
+        if auth_type in ("basic", "digest"):
+            credentials["username"] = self.config.get("username", "")
+            credentials["password"] = self.config.get("password", "")
+        elif auth_type == "bearer":
+            credentials["token"] = self.config.get("token", "")
+        elif auth_type == "api_key":
+            credentials["header"] = self.config.get("api_key_header", "X-API-Key")
+            credentials["key"] = self.config.get("api_key", "")
+        kwargs = dict(
+            base_url=f"{scheme}://{host}:{port}",
+            auth_type=auth_type,
+            credentials=credentials,
+            verify_ssl=self.config.get("verify_ssl", True),
+            default_headers=self.config.get("default_headers", {}),
+            timeout=self.config.get("timeout", 10.0),
+            name=self.device_id,
+        )
+        self.transport = _FakeHTTPClientTransport(
+            **self._transport_kwargs(transport_type, kwargs)
+        )
+        await self.transport.open()
+
+    async def _post_connect(self):
+        return None
+
+    async def _initial_sync(self):
+        return None
+
+    async def _close_session(self):
+        self.close_session_calls += 1
+
+    def _link_alive(self):
+        return self.transport is not None
+
+    async def _start_push(self):
+        return None
+
+    async def _stop_push(self):
+        return None
+
+    async def connect(self):
+        # Mirrors BaseDriver.connect()'s stages.
+        self._last_transport_error = ""
+        await self._stop_push()
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        transport_type = self.config.get("transport") or self.DRIVER_INFO.get(
+            "transport", "tcp"
+        )
+        await self._pre_connect()
+        await self._create_transport(transport_type)
+        verify_timeout = self.config.get("verify_timeout", 3.0)
+        if verify_timeout > 0 and hasattr(self.transport, "verify"):
+            if not await self.transport.verify(timeout=verify_timeout):
+                self._stash_transport_error()
+                if self.transport:
+                    await self.transport.close()
+                    self.transport = None
+                raise ConnectionError(
+                    f"Device at {self.config.get('host', '?')}:"
+                    f"{self.config.get('port', '?')} is not responding"
+                )
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        await self._start_push()
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            await self._stop_push()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                try:
+                    await transport.close()
+                except Exception:  # noqa: BLE001
+                    pass
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        poll_interval = self.config.get("poll_interval", 0)
+        if poll_interval > 0:
+            await self.start_polling(poll_interval)
+
+    async def disconnect(self):
+        await self._stop_push()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 class _FakeHTTPSimulator:
@@ -120,7 +276,9 @@ class _FakeHTTPSimulator:
 class _FakeHTTPClientTransport:
     """Mirrors server.transport.http_client.HTTPClientTransport: api_key auth
     puts a header on every request, get/post/request return ok/status_code/
-    text/json_data, and a ConnectError surfaces as a ConnectionError."""
+    text/json_data, verify() HEADs "/" and reports False on any exception,
+    and a ConnectError surfaces as a ConnectionError. Records its constructor
+    kwargs so tests can assert what the driver asked the platform to build."""
 
     device = None  # the simulator every request routes to (set per test)
 
@@ -130,11 +288,17 @@ class _FakeHTTPClientTransport:
         auth_type="none",
         credentials=None,
         verify_ssl=True,
-        timeout=8.0,
+        timeout=10.0,
         name="",
+        **_ignored,
     ) -> None:
         self.base_url = base_url
+        self.auth_type = auth_type
+        self.credentials = credentials or {}
+        self.verify_ssl = verify_ssl
+        self.timeout = timeout
         self.name = name
+        self.verify_calls = 0
         self._last_error = ""
         headers = {}
         if auth_type == "api_key" and credentials:
@@ -154,6 +318,7 @@ class _FakeHTTPClientTransport:
 
     async def close(self) -> None:
         await self._client.aclose()
+        self._client = None
 
     @property
     def connected(self) -> bool:
@@ -164,7 +329,13 @@ class _FakeHTTPClientTransport:
         return self._last_error
 
     async def verify(self, timeout=5.0) -> bool:
-        return True
+        self.verify_calls += 1
+        try:
+            await self._client.head("/", timeout=timeout)
+            return True
+        except Exception as e:  # noqa: BLE001
+            self._last_error = str(e) or type(e).__name__
+            return False
 
     async def get(self, path, params=None):
         return await self.request("GET", path)
@@ -262,7 +433,6 @@ def _make_driver(sim, psk="secret"):
         "port": 80,
         "psk": psk,
         "poll_interval": 0,
-        "verify_timeout": 0,
     }
     return DRV.SonyBraviaDriver("tv1", config, _FakeState(), _FakeEvents())
 
@@ -270,7 +440,8 @@ def _make_driver(sim, psk="secret"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.0"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.1"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
 
 
 def test_device_settings_declared_and_backed():
@@ -302,16 +473,32 @@ def test_actions_reference_real_commands():
 
 # ── Connect + poll (LED unconditional, picture when on) ─────────────────────
 
-def test_connect_caches_model():
+def test_connect_builds_psk_transport_and_caches_model():
     async def go():
         sim = _make_sim()
         driver = _make_driver(sim)
         await driver.connect()
         try:
+            # Transport shape: plain HTTP, PSK in the X-Auth-PSK header.
+            assert driver.transport.base_url == "http://test:80"
+            assert driver.transport.auth_type == "api_key"
+            assert driver.transport.credentials == {
+                "header": "X-Auth-PSK",
+                "key": "secret",
+            }
+            assert driver.transport.verify_ssl is False
+            # The reachability verify ran before the device went connected.
+            assert driver.transport.verify_calls == 1
+            # The PSK probe cached the model before the connected declare.
             assert driver.get_state("model") == "XBR-65X950G-SIM"
             assert driver._connected is True
+            assert driver.get_state("connected") is True
+            assert "device.connected.tv1" in driver.events.emitted
         finally:
-            await driver.transport.close()
+            await driver.disconnect()
+        assert driver.transport is None
+        assert driver.get_state("connected") is False
+        assert "device.disconnected.tv1" in driver.events.emitted
 
     asyncio.run(go())
 
@@ -337,7 +524,7 @@ def test_poll_reads_led_and_picture():
             assert driver.get_state("sharpness") == 12
             assert driver.get_state("picture_mode") == "Cinema"
         finally:
-            await driver.transport.close()
+            await driver.disconnect()
 
     asyncio.run(go())
 
@@ -356,7 +543,7 @@ def test_poll_reads_led_when_off_but_skips_picture():
             # Picture settings are not read when the panel is off.
             assert driver.get_state("brightness") is None
         finally:
-            await driver.transport.close()
+            await driver.disconnect()
 
     asyncio.run(go())
 
@@ -386,7 +573,7 @@ def test_device_setting_round_trip(key, value, expected):
             # The value actually reached the simulated device.
             assert sim.get_state(key) == expected
         finally:
-            await driver.transport.close()
+            await driver.disconnect()
 
     asyncio.run(go())
 
@@ -400,7 +587,7 @@ def test_unknown_device_setting_raises():
             with pytest.raises(ValueError):
                 await driver.set_device_setting("no_such_setting", 1)
         finally:
-            await driver.transport.close()
+            await driver.disconnect()
 
     asyncio.run(go())
 
@@ -414,6 +601,13 @@ def test_wrong_psk_raises_auth_worded_error():
         with pytest.raises(ConnectionError) as exc:
             await driver.connect()
         assert "authentication failed" in str(exc.value).lower()
+        # The failed handshake tore the transport down before the device was
+        # ever declared connected.
+        assert driver.transport is None
+        assert driver._connected is False
+        assert driver.get_state("connected") is not True
+        # _close_session ran for the clean-slate reset AND the teardown.
+        assert driver.close_session_calls == 2
 
     asyncio.run(go())
 
@@ -426,7 +620,7 @@ def test_correct_psk_connects():
         try:
             assert driver._connected is True
         finally:
-            await driver.transport.close()
+            await driver.disconnect()
 
     asyncio.run(go())
 

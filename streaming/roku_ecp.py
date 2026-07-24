@@ -37,7 +37,6 @@ from typing import Any
 from urllib.parse import quote
 
 from server.drivers.base import BaseDriver
-from server.transport.http_client import HTTPClientTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -228,7 +227,9 @@ class RokuECPDriver(BaseDriver):
         "name": "Roku (ECP)",
         "manufacturer": "Roku",
         "category": "streaming",
-        "version": "1.0.2",
+        "version": "1.0.3",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Roku streaming players and Roku TVs over the local "
@@ -520,46 +521,26 @@ class RokuECPDriver(BaseDriver):
         },
     }
 
-    async def connect(self) -> None:
-        """Open the HTTP transport, verify reachability, and start polling."""
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # ECP is plain HTTP on port 8060 with no authentication — pin the
+        # URL scheme and auth so stray config values can't reroute or
+        # credential the client.
         host = self.config.get("host", "")
         port = self.config.get("port", 8060)
-        base_url = f"http://{host}:{port}"
+        kwargs["base_url"] = f"http://{host}:{port}"
+        kwargs["auth_type"] = "none"
+        kwargs["credentials"] = {}
+        kwargs["verify_ssl"] = False
+        return kwargs
 
-        self.transport = HTTPClientTransport(
-            base_url=base_url,
-            auth_type="none",
-            verify_ssl=False,
-            timeout=self.config.get("timeout", 10.0),
-            name=self.device_id,
-        )
-        await self.transport.open()
-
-        # Verify the Roku is actually answering before declaring connected,
-        # so loading a project against an off/absent Roku fails fast instead
-        # of sitting at connected=True until the missed-poll watchdog fires.
-        verify_timeout = self.config.get("verify_timeout", 3.0)
-        if verify_timeout > 0 and not await self.transport.verify(
-            timeout=verify_timeout
-        ):
-            await self.transport.close()
-            self.transport = None
-            raise ConnectionError(f"Roku at {base_url} is not responding")
-
-        self._connected = True
-        self.set_state("connected", True)
+    async def _initial_sync(self) -> None:
         # Optimistic until a key press proves otherwise (the default Roku
         # setting permits same-network control).
         self.set_state("control_enabled", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Roku at {base_url}")
-
-        # Seed device info, then poll for ongoing state.
+        # Seed device info; polling keeps it fresh from here.
         await self._refresh_device_info()
-
-        poll_interval = self.config.get("poll_interval", 5)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None

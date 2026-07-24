@@ -169,7 +169,9 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.0",
+        "version": "1.5.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony Bravia TVs and professional displays via the "
@@ -590,61 +592,35 @@ class SonyBraviaDriver(BaseDriver):
         "sharpness": ("set_sharpness", "value"),
     }
 
-    async def connect(self) -> None:
-        """Set up HTTP transport with PSK authentication."""
-        host = self.config.get("host", "")
-        port = self.config.get("port", 80)
-        psk = str(self.config.get("psk", ""))
-        base_url = f"http://{host}:{port}"
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Bravia authenticates every /sony/* request with a Pre-Shared Key
+        # in the X-Auth-PSK header; the key lives in the driver's `psk`
+        # config field. The API is plain HTTP, so there is no certificate
+        # to check.
+        kwargs["auth_type"] = "api_key"
+        kwargs["credentials"] = {
+            "header": "X-Auth-PSK",
+            "key": str(self.config.get("psk", "")),
+        }
+        kwargs["verify_ssl"] = False
+        return kwargs
 
-        self.transport = HTTPClientTransport(
-            base_url=base_url,
-            auth_type="api_key",
-            credentials={"header": "X-Auth-PSK", "key": psk},
-            verify_ssl=False,
-            timeout=self.config.get("timeout", 10.0),
-            name=self.device_id,
-        )
-        await self.transport.open()
-
-        # Verify reachability before declaring connected. Without this,
-        # loading the project against an unreachable TV reports
-        # connected=True for ~45s until the missed-poll watchdog catches
-        # up, which is what users see when their laptop isn't on the
-        # same network as the TV.
-        verify_timeout = self.config.get("verify_timeout", 3.0)
-        if verify_timeout > 0 and not await self.transport.verify(
-            timeout=verify_timeout
-        ):
-            await self.transport.close()
-            self.transport = None
-            raise ConnectionError(
-                f"Sony Bravia at {base_url} is not responding"
-            )
-
-        # Authenticated probe: getSystemInformation returns HTTP 403 when the
-        # Pre-Shared Key is wrong. verify() above only HEADs "/", which isn't
-        # PSK-gated, so a bad key used to connect and then fail every poll with
-        # no reason (the fault surfaced as "not responding"). Classify it as
-        # auth here. Also caches the model name on success.
+    async def _post_connect(self) -> None:
+        # Authenticated probe before the device is declared connected:
+        # getSystemInformation returns HTTP 403 when the Pre-Shared Key is
+        # wrong. The reachability check only HEADs "/", which isn't
+        # PSK-gated, so a bad key would otherwise connect and then fail
+        # every poll with no reason (the fault surfaced as "not
+        # responding"). Classify it as auth here. Also caches the model
+        # name on success.
         probe = await self._fetch_system_info()
         if probe is not None and probe.status_code in (401, 403):
-            await self.transport.close()
-            self.transport = None
             raise ConnectionError(
                 "Sony Bravia authentication failed - check the "
                 "Pre-Shared Key (PSK)"
             )
-
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Sony Bravia at {base_url}")
-
-        # Start polling
-        poll_interval = self.config.get("poll_interval", 15)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
 
     # --- JSON-RPC helper ---
 
@@ -740,7 +716,8 @@ class SonyBraviaDriver(BaseDriver):
     async def _fetch_system_info(self):
         """POST getSystemInformation, cache the model, and return the raw
         HTTPResponse. Doubles as the connect-time PSK check — a wrong key
-        returns HTTP 403 — so connect() can classify auth failures."""
+        returns HTTP 403 — so the connection handshake can classify auth
+        failures."""
         if not self.transport or not self.transport.connected:
             return None
         self._request_id += 1

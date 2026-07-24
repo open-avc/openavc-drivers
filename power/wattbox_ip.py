@@ -33,7 +33,6 @@ import re
 from typing import Any
 
 from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -117,9 +116,9 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.2",
-        # Typed connection faults (ConnectionFaultError) need the 0.22.0 runtime.
-        "min_platform_version": "0.22.0",
+        "version": "1.3.3",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls SnapAV WattBox IP-controlled power distribution units "
@@ -478,30 +477,28 @@ class WattBoxIPDriver(BaseDriver):
         self._pending: dict[str, asyncio.Future[str]] = {}
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 23))
+    async def _pre_connect(self) -> None:
         self._auth_user = self.config.get("username", "wattbox") or ""
         self._auth_pass = self.config.get("password", "wattbox") or ""
-
-        # Reset the auth state machine for this (re)connection.
+        # Reset the auth state machine for this (re)connection. The login
+        # future must exist before the transport does — the banner arrives
+        # immediately and _drive_auth resolves the future from on_data.
         self._authenticated = False
         self._auth_stage = "user"
         self._line_buffer = b""
         self._login_future = asyncio.get_running_loop().create_future()
 
-        # Open a raw TCP connection — we parse the login banner / username /
-        # password prompts ourselves and drive the handshake reactively.
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Raw TCP — we parse the login banner / username / password prompts
+        # ourselves and drive the handshake reactively.
+        kwargs["delimiter"] = None
+        return kwargs
 
+    async def _post_connect(self) -> None:
+        host = self.config.get("host", "")
+        port = int(self.config.get("port", 23))
         # AWAIT the login result. The banner / prompts arrive through the
         # normal data path; _drive_auth sends the credentials in order and
         # resolves _login_future True (saw "Successfully Logged In") or
@@ -512,7 +509,6 @@ class WattBoxIPDriver(BaseDriver):
         try:
             ok = await asyncio.wait_for(self._login_future, LOGIN_TIMEOUT_S)
         except asyncio.TimeoutError as e:
-            await self._safe_close()
             raise ConnectionFaultError(
                 f"WattBox at {host}:{port} accepted the connection but "
                 f"didn't complete the login handshake within "
@@ -520,13 +516,11 @@ class WattBoxIPDriver(BaseDriver):
                 code="no_response",
             ) from e
         except (ConnectionError, OSError) as e:
-            await self._safe_close()
             raise ConnectionError(
                 f"WattBox login send failed for {host}:{port}: {e}"
             ) from e
 
         if not ok:
-            await self._safe_close()
             raise ConnectionFaultError(
                 f"WattBox authentication failed for {host}:{port} — check "
                 f"the username and password.",
@@ -534,11 +528,7 @@ class WattBoxIPDriver(BaseDriver):
             )
         self._authenticated = True
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to WattBox at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
         # Two-pass initial status sweep: the first pass learns
         # outlet_count, the second pass uses that count to query
         # per-outlet metering. Polling after that is single-pass.
@@ -549,19 +539,10 @@ class WattBoxIPDriver(BaseDriver):
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        # Liveness watchdog: no push / keepalive in the protocol, so an
-        # awaited probe is the only way to notice a silently-dropped unit.
-        # Started explicitly because this custom connect() never runs
-        # BaseDriver.connect()'s auto-start.
-        self._start_health_loop()
-
-        poll_interval = int(self.config.get("poll_interval", 30))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: cancel awaited replies and disarm
+        # the login state machine so the next attempt starts from a clean
+        # prompt exchange.
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
@@ -569,16 +550,9 @@ class WattBoxIPDriver(BaseDriver):
         if self._login_future is not None and not self._login_future.done():
             self._login_future.cancel()
         self._login_future = None
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
         self._authenticated = False
         self._auth_stage = "user"
         self._line_buffer = b""
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Request/response correlation + liveness watchdog ──
 
@@ -619,14 +593,6 @@ class WattBoxIPDriver(BaseDriver):
         fut = self._prime_response("Firmware")
         await self._send("?Firmware")
         await self._await_response(fut, "Firmware", KEEPALIVE_TIMEOUT_S)
-
-    async def _safe_close(self) -> None:
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:  # noqa: BLE001
-                pass
-            self.transport = None
 
     # ── Sending ──
 

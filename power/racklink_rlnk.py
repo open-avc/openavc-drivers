@@ -38,7 +38,6 @@ from typing import Any
 
 from server.drivers.base import BaseDriver, ConnectionFaultError
 from server.transport.binary_helpers import checksum_sum
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -241,9 +240,9 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.3",
-        # Typed connection faults (ConnectionFaultError) need the 0.22.0 runtime.
-        "min_platform_version": "0.22.0",
+        "version": "1.3.4",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Middle Atlantic / Legrand RackLink RLNK power "
@@ -574,21 +573,19 @@ class RackLinkRLNKDriver(BaseDriver):
         self._pending: dict[int, asyncio.Future[bytes]] = {}
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Raw byte stream — the binary protocol is framed by its own
+        # header/length fields, not a line delimiter.
+        kwargs["delimiter"] = None
+        return kwargs
+
+    async def _post_connect(self) -> None:
         host = self.config.get("host", "")
         port = int(self.config.get("port", 60000))
         username = self.config.get("username", "user") or "user"
         password = self.config.get("password", "") or ""
-
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            timeout=5.0,
-            name=self.device_id,
-        )
 
         # Authenticate and AWAIT the result. The login reply comes back
         # through the normal data path; resolving it here lets a bad
@@ -601,7 +598,6 @@ class RackLinkRLNKDriver(BaseDriver):
             await self._send_login(username, password)
             login_data = await self._await_response(fut, CMD_LOGIN, LOGIN_TIMEOUT_S)
         except asyncio.TimeoutError as e:
-            await self._safe_close()
             raise ConnectionFaultError(
                 f"RackLink at {host}:{port} accepted the connection but "
                 f"didn't answer the login request within "
@@ -609,13 +605,11 @@ class RackLinkRLNKDriver(BaseDriver):
                 code="no_response",
             ) from e
         except (ConnectionError, OSError) as e:
-            await self._safe_close()
             raise ConnectionError(
                 f"RackLink login send failed for {host}:{port}: {e}"
             ) from e
 
         if not (login_data and login_data[:1] == bytes([0x01])):
-            await self._safe_close()
             raise ConnectionFaultError(
                 f"RackLink authentication failed for {host}:{port} — check "
                 f"the username and password (control protocol account).",
@@ -623,11 +617,7 @@ class RackLinkRLNKDriver(BaseDriver):
             )
         self._authenticated = True
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to RackLink at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
         # Subscribe to pushes (Premium) and do an initial sweep. If push
         # subscription fails (Select-only gear), polling keeps state fresh.
         try:
@@ -636,33 +626,16 @@ class RackLinkRLNKDriver(BaseDriver):
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        # Liveness watchdog: this is a push + poll-backstop driver on raw
-        # TCP, so a silently-dropped Premium unit (no FIN between pushes)
-        # needs an awaited probe to be detected. Started explicitly because
-        # this custom connect() never runs BaseDriver.connect()'s auto-start.
-        self._start_health_loop()
-
-        poll_interval = int(self.config.get("poll_interval", 60))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: cancel awaited replies and reset the
+        # auth/push/framing state so the next attempt logs in from scratch.
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
         self._authenticated = False
         self._push_subscribed = False
         self._buffer.clear()
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Request/response correlation + liveness watchdog ──
 
@@ -698,14 +671,6 @@ class RackLinkRLNKDriver(BaseDriver):
         fut = self._prime_response(CMD_PART_NUMBER)
         await self._send_get(CMD_PART_NUMBER)
         await self._await_response(fut, CMD_PART_NUMBER, KEEPALIVE_TIMEOUT_S)
-
-    async def _safe_close(self) -> None:
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:  # noqa: BLE001
-                pass
-            self.transport = None
 
     # ── Sending ──
 

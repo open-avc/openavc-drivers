@@ -85,6 +85,7 @@ class _FakeBaseDriver:
         self.stashed_fault: tuple[str, str] | None = None
         self._health_task = None
         self._health_failures = 0
+        self._bg_tasks: set = set()
 
     def _eff_schema(self, ctype: str) -> dict:
         schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
@@ -155,9 +156,35 @@ class _FakeBaseDriver:
         return self.state.data.get(key, default)
 
     def _handle_transport_disconnect(self) -> None:
+        # Mirrors the platform: flip the flags synchronously, then schedule
+        # the async teardown (stop loops, close+null transport, close the
+        # driver session, emit the canonical disconnect event).
+        self._connected = False
+        self.set_state("connected", False)
         self.disconnect_calls += 1
         if self.transport is not None:
             self.transport.connected = False
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        task = loop.create_task(self._on_disconnect_cleanup())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
+    async def _on_disconnect_cleanup(self) -> None:
+        self._stop_health_loop()
+        await self._stop_push()
+        await self.stop_polling()
+        transport = self.transport
+        self.transport = None
+        if transport is not None:
+            try:
+                await transport.close()
+            except Exception:
+                pass
+        await self._close_session()
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
     def _stash_fault(self, code, message="") -> None:
         self.stashed_fault = (code, message)
@@ -218,6 +245,116 @@ class _FakeBaseDriver:
     async def stop_polling(self) -> None:
         pass
 
+    # -- connection lifecycle (mirrors BaseDriver.connect/disconnect stage
+    # order; the hook defaults are no-ops the driver under test overrides) --
+
+    async def _stop_push(self) -> None:
+        pass
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    def _resolve_delimiter(self):
+        return b"\r"
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 0),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=self._resolve_delimiter(),
+            frame_parser=None,
+            timeout=self.config.get("timeout", 5.0),
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
+            name=self.device_id,
+            local_addr=None,
+        )
+        # The module-level fake is referenced directly — a deferred
+        # `from server.transport...` import at test-run time would miss the
+        # collection-time stubs.
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        # 1. Clean slate — a retry must not inherit a stale session/transport.
+        await self._stop_push()
+        await self._close_session()
+        if self.transport:
+            try:
+                await self.transport.close()
+            except Exception:
+                pass
+            self.transport = None
+        # 2-3. Establish.
+        await self._pre_connect()
+        transport_type = self.config.get("transport") or self.DRIVER_INFO.get(
+            "transport", "tcp")
+        await self._create_transport(transport_type)
+        # 4. Handshake before `connected` is declared; a raise tears down.
+        try:
+            await self._post_connect()
+        except Exception:
+            if self.transport:
+                try:
+                    await self.transport.close()
+                except Exception:
+                    pass
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        # 5. Declare.
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        # 6. Initial sync; a raise here tears the connection back down.
+        try:
+            await self._initial_sync()
+        except Exception:
+            await self._stop_push()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                try:
+                    await transport.close()
+                except Exception:
+                    pass
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        # 7. Polling + liveness watchdog.
+        if self.config.get("poll_interval", 0) > 0:
+            await self.start_polling(self.config["poll_interval"])
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self) -> None:
+        self._stop_health_loop()
+        await self._stop_push()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
+
 
 class _FakeSimState:
     def __init__(self, initial) -> None:
@@ -259,7 +396,8 @@ class _FakeTCPTransport:
 
     @classmethod
     async def create(cls, *, host, port, on_data, on_disconnect,
-                     delimiter=None, timeout=5.0, name=""):
+                     delimiter=None, frame_parser=None, timeout=5.0,
+                     inter_command_delay=0.0, name="", local_addr=None, **kw):
         t = cls(on_data, on_disconnect)
 
         async def _push(client_id, data):
@@ -350,7 +488,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.3"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.4"
 
 
 def test_child_entity_types_declared():
@@ -508,6 +646,12 @@ def test_rejected_login_raises_auth_error():
         # The typed fault code maps straight to offline_reason=auth_failed.
         assert ei.value.fault_code == "auth_failed"
         assert "authentication failed" in str(ei.value).lower()
+        # The failed handshake tore the attempt down: transport closed and
+        # nulled, session reset, and the device never reported connected.
+        assert driver.transport is None
+        assert driver._connected is False
+        assert driver._authenticated is False
+        assert driver.events.emitted == []
 
     asyncio.run(go())
 
@@ -526,6 +670,9 @@ def test_login_timeout_raises_no_response_fault():
             with pytest.raises(ConnectionError) as ei:
                 await driver.connect()
             assert ei.value.fault_code == "no_response"
+            # Teardown cancelled the primed login future and cleared it.
+            assert driver.transport is None
+            assert driver._pending == {}
         finally:
             _SWALLOW = False
             DRV.LOGIN_TIMEOUT_S = old_timeout
@@ -552,8 +699,10 @@ def test_health_loop_forces_reconnect_on_silent_device():
         global _SWALLOW
         driver, sim = await _make_pair()
         await driver.connect()
-        # Speed the watchdog up (instance attrs; the loop reads self.HEALTH_*)
-        # and make the device go silent.
+        # connect() auto-armed the watchdog at production cadence (the driver
+        # overrides _liveness_probe); restart it at test speed, then make the
+        # device go silent.
+        driver._stop_health_loop()
         driver.HEALTH_INTERVAL_S = 0.01
         driver.HEALTH_TIMEOUT_S = 0.05
         try:

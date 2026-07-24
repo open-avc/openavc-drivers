@@ -123,8 +123,9 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.4.0",
-        "min_platform_version": "0.10.3",
+        "version": "1.4.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Sends DMX512 lighting data over Art-Net (UDP 6454) to "
@@ -539,7 +540,11 @@ class ArtNetDMXDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
+    async def _create_transport(self, transport_type: str) -> None:
+        # Built here rather than by the platform ladder: the target may be
+        # a subnet broadcast address, so the socket must open with
+        # allow_broadcast — and Art-Net is send-only from our side, so
+        # there is no inbound data callback to wire up.
         host = self.config.get("host", "")
         port = int(self.config.get("port", ARTNET_PORT))
         self._universe = int(self.config.get("universe", 0))
@@ -551,36 +556,32 @@ class ArtNetDMXDriver(BaseDriver):
             name=self.device_id,
         )
         await self.transport.open(allow_broadcast=True)
-
-        self._connected = True
-        self.set_state("connected", True)
-        self.set_state("target_universe", self._universe)
-        self.set_state("packets_sent", 0)
-        self.set_state("blackout", True)  # buffer starts all-zero
-        await self.events.emit(f"device.connected.{self.device_id}")
         log.info(
             f"[{self.device_id}] Art-Net controller bound for "
             f"{host}:{port} (universe {self._universe})"
         )
 
+    async def _initial_sync(self) -> None:
+        self.set_state("target_universe", self._universe)
+        self.set_state("packets_sent", 0)
+        self.set_state("blackout", True)  # buffer starts all-zero
         if self.config.get("keepalive", True):
             self._keepalive_task = asyncio.create_task(self._keepalive())
 
-    async def disconnect(self) -> None:
-        if self._keepalive_task and not self._keepalive_task.done():
-            self._keepalive_task.cancel()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path — stop the keep-alive re-broadcast.
+        # Tolerates being called when the task was never started.
+        await self._stop_keepalive()
+
+    async def _stop_keepalive(self) -> None:
+        task = self._keepalive_task
+        self._keepalive_task = None
+        if task and not task.done():
+            task.cancel()
             try:
-                await self._keepalive_task
+                await task
             except asyncio.CancelledError:
                 pass
-            self._keepalive_task = None
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Sending ──
 
@@ -709,10 +710,3 @@ class ArtNetDMXDriver(BaseDriver):
             log.exception(
                 f"[{self.device_id}] Art-Net keep-alive task crashed"
             )
-
-    # ── Disconnect ──
-
-    def _handle_transport_disconnect(self) -> None:
-        self._connected = False
-        self.set_state("connected", False)
-        log.warning(f"[{self.device_id}] UDP socket closed")

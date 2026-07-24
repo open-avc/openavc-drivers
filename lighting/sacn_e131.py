@@ -237,8 +237,9 @@ class SacnE131Driver(BaseDriver):
         "name": "sACN / E1.31 DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.0.0",
-        "min_platform_version": "0.10.3",
+        "version": "1.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Streams DMX512 lighting data over sACN (Streaming ACN, "
@@ -688,7 +689,9 @@ class SacnE131Driver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
+    async def _pre_connect(self) -> None:
+        # Read the sending parameters up front so a bad combination is
+        # caught before the socket opens.
         self._mode = str(self.config.get("mode", "multicast")).lower()
         self._host = str(self.config.get("host", "")).strip()
         self._port = int(self.config.get("port", ACN_SDT_MULTICAST_PORT))
@@ -706,52 +709,56 @@ class SacnE131Driver(BaseDriver):
                 "sACN unicast mode requires a Target Host"
             )
 
-        # Ad-hoc UDP socket: the destination is computed per send
-        # (multicast group derived from the universe, or the unicast
-        # host), so there is no fixed default target.
+    async def _create_transport(self, transport_type: str) -> None:
+        # Built here rather than by the platform ladder: the destination
+        # is computed per send (multicast group derived from the universe,
+        # or the unicast host), so the socket has no fixed default target
+        # and must open with broadcast sending allowed.
         self.transport = UDPTransport(
             on_disconnect=self._handle_transport_disconnect,
             name=self.device_id,
         )
         await self.transport.open(allow_broadcast=True)
-
-        self._connected = True
-        self.set_state("connected", True)
-        self.set_state("target_universe", self._universe)
-        self.set_state("priority", self._priority)
-        self.set_state("destination", self._destination_str())
-        self.set_state("packets_sent", 0)
-        self.set_state("blackout", True)  # buffer starts all-zero
-        await self.events.emit(f"device.connected.{self.device_id}")
         log.info(
             f"[{self.device_id}] sACN source bound "
             f"(universe {self._universe}, {self._destination_str()}, "
             f"priority {self._priority})"
         )
 
+    async def _initial_sync(self) -> None:
+        self.set_state("target_universe", self._universe)
+        self.set_state("priority", self._priority)
+        self.set_state("destination", self._destination_str())
+        self.set_state("packets_sent", 0)
+        self.set_state("blackout", True)  # buffer starts all-zero
         if self.config.get("keepalive", True):
             self._keepalive_task = asyncio.create_task(self._keepalive())
 
-    async def disconnect(self) -> None:
-        if self._keepalive_task and not self._keepalive_task.done():
-            self._keepalive_task.cancel()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path — stop the keep-alive re-send.
+        # Tolerates being called when the task was never started.
+        await self._stop_keepalive()
+
+    async def _stop_keepalive(self) -> None:
+        task = self._keepalive_task
+        self._keepalive_task = None
+        if task and not task.done():
+            task.cancel()
             try:
-                await self._keepalive_task
+                await task
             except asyncio.CancelledError:
                 pass
-            self._keepalive_task = None
-        # Graceful stream termination (E1.31 6.2.6 / 12.2): three
-        # Stream_Terminated packets so receivers release the universe
-        # now instead of waiting out the 2.5 s data-loss timeout.
+
+    async def disconnect(self) -> None:
+        # Stop the keep-alive first so a routine re-send can't follow the
+        # goodbye, then send the graceful stream termination while the
+        # socket is still open (E1.31 6.2.6 / 12.2): three
+        # Stream_Terminated packets so receivers release the universe now
+        # instead of waiting out the 2.5 s data-loss timeout.
+        await self._stop_keepalive()
         if self._connected and self.transport:
             await self._send_termination()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        await super().disconnect()
 
     # ── Sending ──
 
@@ -929,10 +936,3 @@ class SacnE131Driver(BaseDriver):
     def _destination_str(self) -> str:
         host, port = self._destination()
         return f"{host}:{port}"
-
-    # ── Disconnect ──
-
-    def _handle_transport_disconnect(self) -> None:
-        self._connected = False
-        self.set_state("connected", False)
-        log.warning(f"[{self.device_id}] UDP socket closed")

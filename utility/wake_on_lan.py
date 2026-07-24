@@ -55,7 +55,9 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.1",
+        "version": "1.3.2",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Send Wake-on-LAN magic packets to wake devices on the network. "
@@ -112,19 +114,17 @@ class WakeOnLANDriver(BaseDriver):
         },
     }
 
-    async def connect(self) -> None:
-        """WoL doesn't need a persistent connection — just mark as ready."""
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Wake-on-LAN driver ready")
+    async def _create_transport(self, transport_type: str) -> None:
+        # Fire-and-forget protocol: each wake opens its own throwaway
+        # socket (see send_command), so there is no persistent transport
+        # to build. self.transport stays None.
+        self.transport = None
 
-    async def disconnect(self) -> None:
-        """Mark as disconnected."""
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Wake-on-LAN driver stopped")
+    def _link_alive(self) -> bool:
+        # No persistent link to test — a magic packet is one outbound
+        # datagram and the target never answers, so the driver is ready
+        # whenever it's active.
+        return True
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None
@@ -152,7 +152,7 @@ class WakeOnLANDriver(BaseDriver):
         udp = UDPTransport(name=self.device_id)
         try:
             await udp.open(allow_broadcast=True)
-            await udp.send(packet, broadcast, port)
+            await udp.send_to(packet, broadcast, port)
             log.info(f"[{self.device_id}] Sent WoL magic packet to {mac}")
 
             import time
@@ -160,6 +160,6 @@ class WakeOnLANDriver(BaseDriver):
         except Exception as e:
             log.error(f"[{self.device_id}] Failed to send WoL packet: {e}")
         finally:
-            udp.close()
+            await udp.close()
 
         return True

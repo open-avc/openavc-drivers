@@ -53,7 +53,15 @@ class _FakeEvents:
 
 
 class _FakeBaseDriver:
-    """Stand-in for server.drivers.base.BaseDriver."""
+    """Functional stand-in for the platform BaseDriver: the driver supplies
+    lifecycle hooks (_pre_connect / _create_transport / _initial_sync /
+    _close_session) and connect()/disconnect() here run them in the
+    platform's order — clean slate, _pre_connect, wholesale transport
+    build, _post_connect (with failure teardown), declare, _initial_sync
+    (with full teardown on failure), then polling. _close_session runs on
+    every teardown path, mirroring base.py."""
+
+    DRIVER_INFO: dict = {}
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -62,12 +70,128 @@ class _FakeBaseDriver:
         self.events = events
         self.transport = None
         self._connected = False
+        self._last_transport_error = ""
+        self._last_fault = None
+        self._bg_tasks: set = set()
 
     def set_state(self, key, value) -> None:
         self.state.set(f"device.{self.device_id}.{key}", value)
 
     def get_state(self, key):
         return self.state.get(f"device.{self.device_id}.{key}")
+
+    async def start_polling(self, interval) -> None:
+        pass
+
+    async def stop_polling(self) -> None:
+        pass
+
+    def _stash_transport_error(self) -> None:
+        pass
+
+    # -- lifecycle hooks (drivers override; defaults are no-ops) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        # The platform ladder isn't modeled — the driver under test
+        # overrides this wholesale (per-send destinations, broadcast open).
+        raise NotImplementedError
+
+    def _link_alive(self) -> bool:
+        if self.transport is None:
+            return False
+        return bool(getattr(self.transport, "connected", False))
+
+    @property
+    def connected(self) -> bool:
+        return self._connected and self._link_alive()
+
+    def _handle_transport_disconnect(self) -> None:
+        # Mirrors the platform: flip the flags synchronously, then schedule
+        # the async teardown (close transport, _close_session, event).
+        self._connected = False
+        self.set_state("connected", False)
+        task = asyncio.ensure_future(self._on_disconnect_cleanup())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
+    async def _on_disconnect_cleanup(self) -> None:
+        await self.stop_polling()
+        transport = self.transport
+        self.transport = None
+        if transport is not None:
+            await transport.close()
+        await self._close_session()
+        await self.events.emit(f"device.disconnected.{self.device_id}")
+
+    # -- connection lifecycle (mirrors BaseDriver.connect/disconnect) --
+
+    async def connect(self) -> None:
+        # 1. Clean slate: reset fault classification, drop a previous
+        #    attempt's driver session and stale transport.
+        self._last_transport_error = ""
+        self._last_fault = None
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        # 2-3. Establish: pre-connect hook, then the transport.
+        await self._pre_connect()
+        await self._create_transport(self.DRIVER_INFO.get("transport", "tcp"))
+        # Transport verify stage skipped: the fake UDP transport, like the
+        # real one, has no verify().
+        # 4. Handshake: a raise here aborts the connection.
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        # 5. Initial sync: a raise here tears the connection back down.
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                await transport.close()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        # 6. Polling (this driver never configures an interval).
+        if self.config.get("poll_interval", 0) > 0:
+            await self.start_polling(self.config["poll_interval"])
+
+    async def disconnect(self) -> None:
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 # Set by the pairing harness so the stubbed transport reaches the live sim.
@@ -85,9 +209,10 @@ class _FakeUDPTransport:
         self._sim = _CURRENT_SIM
         self.sent: list = []
         self.closed = False
+        self.connected = False
 
     async def open(self, allow_broadcast=True, local_addr=None) -> None:
-        pass
+        self.connected = True
 
     async def send_to(self, data, host, port) -> None:
         self.sent.append((bytes(data), host, port))
@@ -96,6 +221,7 @@ class _FakeUDPTransport:
 
     async def close(self) -> None:
         self.closed = True
+        self.connected = False
 
 
 class _FakeSimState:

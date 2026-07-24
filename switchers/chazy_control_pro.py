@@ -58,10 +58,13 @@ import asyncio
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+# How long to wait for the controller's connect banner before giving up on
+# the session.
+BANNER_TIMEOUT_S = 8.0
 
 # End-of-response marker the controller prints after every reply (and after
 # the connect banner). No trailing newline.
@@ -207,9 +210,10 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.9",
+        "version": "1.4.10",
         "author": "OpenAVC",
-        "min_platform_version": "0.13.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "description": (
             "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix "
             "controller and every sub-unit it manages: video encoders (TX) "
@@ -507,44 +511,43 @@ class ChazyControlProDriver(BaseDriver):
 
     # ── Connection lifecycle ──
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 23))
-
-        # Raw transport: we do our own Telnet IAC stripping and prompt-based
-        # framing, and need to see blank lines that a delimiter parser drops.
+    async def _pre_connect(self) -> None:
+        # The controller speaks first — Telnet negotiation and the welcome
+        # banner arrive the instant the socket opens — so the receive
+        # machinery must be ready before the transport exists: empty byte
+        # buffer, IAC filter at rest, no leftover responses from an earlier
+        # session.
         self._rx_buffer = b""
         self._iac_state = "normal"
         while not self._responses.empty():
             self._responses.get_nowait()
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Raw transport: we do our own Telnet IAC stripping and prompt-based
+        # framing, and need to see blank lines that a delimiter parser drops.
+        kwargs["delimiter"] = None
+        return kwargs
 
-        # Consume the connect banner (ends at the first prompt).
+    async def _post_connect(self) -> None:
+        # Consume the connect banner (ends at the first prompt) before the
+        # device reports connected.
+        host = self.config.get("host", "")
+        port = int(self.config.get("port", 23))
         try:
-            await asyncio.wait_for(self._responses.get(), timeout=8.0)
+            await asyncio.wait_for(self._responses.get(), timeout=BANNER_TIMEOUT_S)
         except asyncio.TimeoutError:
-            await self.transport.close()
-            self.transport = None
             raise ConnectionError(
                 f"[{self.device_id}] No banner/prompt from controller at "
                 f"{host}:{port}"
             )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Chazy Control Pro at {host}:{port}")
-
-        # Prime full state + child roster before steady-state polling.
+    async def _initial_sync(self) -> None:
+        # Prime full state + child roster before steady-state polling. Each
+        # step is best-effort: a controller that answers the banner but
+        # stumbles on a status read still comes up, and the next poll cycle
+        # retries.
         try:
             await self._poll_status()
         except Exception:
@@ -557,21 +560,14 @@ class ChazyControlProDriver(BaseDriver):
         except Exception:
             log.exception(f"[{self.device_id}] Initial detail poll failed")
 
-        poll_interval = self.config.get("poll_interval", 10)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: drop partial receive bytes, settle the
+        # IAC filter, and discard unclaimed responses so the next session
+        # starts clean.
         self._rx_buffer = b""
         self._iac_state = "normal"
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        while not self._responses.empty():
+            self._responses.get_nowait()
 
     # ── Telnet framing ──
 

@@ -51,7 +51,6 @@ import re
 from typing import Any, Callable
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -140,9 +139,9 @@ class WyrestormNetworkHDDriver(BaseDriver):
         "name": "WyreStorm NetworkHD",
         "manufacturer": "WyreStorm",
         "category": "switcher",
-        "version": "1.0.0",
-        # Dynamic string-id children + per-child cloud priority tiers.
-        "min_platform_version": "0.19.4",
+        "version": "1.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls a WyreStorm NetworkHD AV-over-IP system through its "
@@ -958,80 +957,57 @@ class WyrestormNetworkHDDriver(BaseDriver):
         self._roster_misses = 0
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
+    def _transport_kwargs(self, transport_type: str, kwargs: dict) -> dict:
+        # The Telnet API answers LF-terminated lines, not the platform's
+        # bare-CR default.
+        kwargs["delimiter"] = b"\n"
+        return kwargs
+
+    async def _post_connect(self) -> None:
+        # Session setup runs before the device is reported connected: a
+        # controller that never answers these aborts the attempt.
         host = self.config.get("host", "")
         port = int(self.config.get("port", 23))
+        # Alias mode is per-session (reset on every new Telnet session),
+        # so forcing it on never mutates persisted controller config. It
+        # guarantees responses and notifications reference endpoints the
+        # same way the roster does.
+        await self._request("config set session alias on",
+                            done=_mirror("config set session alias"))
+        ok, _ = await self._request("config get version",
+                                    done=lambda ln: _RE_SYS_VERSION.match(ln) is not None)
+        if ok is None:
+            raise ConnectionError(
+                f"[{self.device_id}] No response from the NetworkHD API "
+                f"on {host}:{port} — check this is the NHD-CTL "
+                f"controller's address and its Telnet API is enabled"
+            )
+        ok, _ = await self._request("config get devicejsonstring",
+                                    done_block="devicejson")
+        if ok is None:
+            raise ConnectionError(
+                f"[{self.device_id}] The controller did not answer the "
+                f"endpoint roster query (config get devicejsonstring)"
+            )
+        self._roster_misses = 0
 
-        # A reconnect starts a fresh session — reset the stream parser.
+    async def _initial_sync(self) -> None:
+        # First full read; steady-state polling starts right after this.
+        await self.poll()
+
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: fail any in-flight request so its
+        # awaiter doesn't hang on a dead link, and reset the stream parser
+        # so the next session starts clean.
+        pending = self._pending
+        if pending is not None and not pending.future.done():
+            pending.future.set_exception(ConnectionError("connection closed"))
+        self._pending = None
         self._json_mode = None
         self._json_in_string = False
         self._list_mode = None
         self._serial_gather = None
         self._poll_cycle = 0
-
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=b"\n",
-            timeout=5.0,
-            name=self.device_id,
-        )
-
-        try:
-            # Alias mode is per-session (reset on every new Telnet session),
-            # so forcing it on never mutates persisted controller config. It
-            # guarantees responses and notifications reference endpoints the
-            # same way the roster does.
-            await self._request("config set session alias on",
-                                done=_mirror("config set session alias"))
-            ok, _ = await self._request("config get version",
-                                        done=lambda ln: _RE_SYS_VERSION.match(ln) is not None)
-            if ok is None:
-                raise ConnectionError(
-                    f"[{self.device_id}] No response from the NetworkHD API "
-                    f"on {host}:{port} — check this is the NHD-CTL "
-                    f"controller's address and its Telnet API is enabled"
-                )
-            ok, _ = await self._request("config get devicejsonstring",
-                                        done_block="devicejson")
-            if ok is None:
-                raise ConnectionError(
-                    f"[{self.device_id}] The controller did not answer the "
-                    f"endpoint roster query (config get devicejsonstring)"
-                )
-        except Exception:
-            await self._teardown_transport()
-            raise
-
-        self._connected = True
-        self._roster_misses = 0
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to NHD-CTL at {host}:{port}")
-
-        await self.poll()
-        poll_interval = int(self.config.get("poll_interval", 10))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        await self._teardown_transport()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
-
-    async def _teardown_transport(self) -> None:
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        pending = self._pending
-        if pending is not None and not pending.future.done():
-            pending.future.set_exception(ConnectionError("connection closed"))
-        self._pending = None
 
     # ── Serialized request/response ──
 

@@ -1,16 +1,23 @@
 """Unit tests for the chazy_control_pro driver.
 
 Loads ``switchers/chazy_control_pro.py`` directly, stubbing the ``server.*``
-imports it needs (BaseDriver, TCPTransport, get_logger) so the community repo's
-test suite stays self-contained — mirrors test_crestron_cip_discovery.py.
+imports it needs (BaseDriver, get_logger) so the community repo's test suite
+stays self-contained — mirrors test_crestron_cip_discovery.py.
 
 The banner parsers are exercised against byte-exact captures from real
 hardware (FW 1.10.11) in fixtures/chazy_control_pro_banners.py, in both the
 offline (just-added) and online (linked) device states.
+
+Also covers the connection lifecycle against a functional fake BaseDriver
+mirroring the platform's hook-driven connect()/disconnect(): the
+controller-speaks-first banner consumption, the banner-timeout teardown, the
+best-effort initial sync (including the system-clock read), and the
+receive-state clears on every teardown path.
 """
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import logging
 import string
@@ -28,38 +35,316 @@ CHILD_FIXTURES_PATH = (
 )
 
 
-def _install_server_stubs() -> None:
-    if "server.drivers.base" in sys.modules:
-        return
-    server = ModuleType("server")
-    server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server", server)
+# ── Platform stand-ins ──────────────────────────────────────────────────────
 
-    drivers = ModuleType("server.drivers")
-    drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+class _FakeState:
+    def __init__(self) -> None:
+        self.data: dict = {}
 
-    class _BaseDriver:  # minimal stand-in; we only test module-level code
-        DRIVER_INFO: dict = {}
+    def set(self, key, value, **_):
+        self.data[key] = value
 
-    base.BaseDriver = _BaseDriver
-    sys.modules["server.drivers.base"] = base
 
-    transport = ModuleType("server.transport")
-    transport.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.transport", transport)
-    tcp = ModuleType("server.transport.tcp")
+class _FakeEvents:
+    def __init__(self) -> None:
+        self.emitted: list[str] = []
 
-    class _TCPTransport:
+    async def emit(self, name, *args, **kwargs):
+        self.emitted.append(name)
+
+
+# Controller-side scripting for the fake transport: the greeting played the
+# moment the socket opens (Telnet negotiation + welcome banner + first
+# prompt), a switch that keeps the controller silent (banner-timeout path),
+# and one that fails every command send (link died right after the banner).
+_GREETING = (
+    bytes([0xFF, 0xFB, 0x01, 0xFF, 0xFB, 0x03])  # IAC WILL ECHO, IAC WILL SGA
+    + b"Welcome to TAV-CHAZY-CLTPRO\r\nFW Version: 1.10.11\r\n\r\nCONTROLLER> "
+)
+_SILENT = False
+_FAIL_SENDS = False
+
+
+class _FakeTransport:
+    """In-memory stand-in for the platform TCP transport: records what the
+    driver sends and answers each line the way the controller CLI does
+    (echo, an ack line, the prompt)."""
+
+    created_kwargs: dict = {}
+    sent_lines: list[str] = []
+    last: "_FakeTransport | None" = None
+
+    def __init__(self, on_data) -> None:
+        self.on_data = on_data
+        self.connected = True
+
+    @classmethod
+    async def create(cls, **kwargs):
+        cls.created_kwargs = dict(kwargs)
+        transport = cls(kwargs["on_data"])
+        cls.last = transport
+        # The controller talks first: negotiation and the banner land before
+        # the driver has sent a byte.
+        if not _SILENT:
+            await transport.on_data(_GREETING)
+        return transport
+
+    async def send(self, data: bytes) -> None:
+        if _FAIL_SENDS or not self.connected:
+            raise ConnectionError("transport closed")
+        line = bytes(data).decode("ascii", errors="replace").strip()
+        _FakeTransport.sent_lines.append(line)
+        if not _SILENT:
+            await self.on_data(
+                (line + "\r\n[SUCCESS].\r\nCONTROLLER> ").encode("ascii")
+            )
+
+    async def close(self) -> None:
+        self.connected = False
+
+
+class _FakeBaseDriver:
+    """Functional stand-in for the platform BaseDriver surface this driver
+    uses: the hook-driven connect()/disconnect() lifecycle (including the
+    _post_connect / _initial_sync failure teardowns and _close_session on
+    every teardown path) plus the child-entity registry."""
+
+    DRIVER_INFO: dict = {}
+
+    def __init__(self, device_id, config, state, events) -> None:
+        self.device_id = device_id
+        self.config = config
+        self.state = state
+        self.events = events
+        self.transport = None
+        self._connected = False
+        self._last_transport_error = ""
+        self._last_fault = None
+        self._health_task = None
+        self._bg_tasks: set = set()
+        self._children: dict[str, dict[int, dict]] = {}
+        self.polling: float | None = None
+
+    # -- state --
+
+    def set_state(self, key, value) -> None:
+        self.state.set(f"device.{self.device_id}.{key}", value)
+
+    def set_states(self, mapping) -> None:
+        for key, value in mapping.items():
+            self.set_state(key, value)
+
+    def get_state(self, key, default=None):
+        return self.state.data.get(f"device.{self.device_id}.{key}", default)
+
+    # -- child registry (dict-backed, mirrors the platform semantics the
+    # driver relies on: idempotent register, unregistered writes dropped) --
+
+    def _eff_schema(self, ctype: str) -> dict:
+        schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
+        schema.setdefault("online", {"type": "boolean"})
+        schema.setdefault("label", {"type": "string"})
+        return schema
+
+    def get_child_entity_types(self) -> dict:
+        out = {}
+        for ct, d in self.DRIVER_INFO.get("child_entity_types", {}).items():
+            md = dict(d)
+            md["state_variables"] = self._eff_schema(ct)
+            out[ct] = md
+        return out
+
+    def register_child(self, ctype, lid, initial_state=None) -> None:
+        bucket = self._children.setdefault(ctype, {})
+        if lid in bucket:
+            return
+        st = {prop: None for prop in self._eff_schema(ctype)}
+        st["online"] = True
+        st["label"] = ""
+        st.update(initial_state or {})
+        bucket[lid] = st
+
+    def deregister_child(self, ctype, lid) -> None:
+        self._children.get(ctype, {}).pop(lid, None)
+
+    def is_child_registered(self, ctype, lid) -> bool:
+        return lid in self._children.get(ctype, {})
+
+    def list_children(self, ctype) -> list:
+        return list(self._children.get(ctype, {}).keys())
+
+    def get_child_state(self, ctype, lid) -> dict:
+        return dict(self._children.get(ctype, {}).get(lid, {}))
+
+    def set_child_state_batch(self, ctype, lid, updates) -> None:
+        if not self.is_child_registered(ctype, lid):
+            return
+        self._children[ctype][lid].update(updates)
+
+    async def poll_children(self, child_type, fetch, batch_size=50,
+                            inter_batch_delay=0.1) -> None:
+        ids = self.list_children(child_type)
+        if not ids:
+            return
+        results = await fetch(ids)
+        for lid, props in results.items():
+            self.set_child_state_batch(child_type, lid, props)
+
+    # -- polling --
+
+    async def start_polling(self, interval) -> None:
+        self.polling = interval
+
+    async def stop_polling(self) -> None:
+        self.polling = None
+
+    # -- liveness watchdog: this driver supplies no probe (steady polling is
+    # the keep-alive), so connect() never starts the loop. The raise flags a
+    # future probe addition so the loop gets modeled here then. --
+
+    async def _liveness_probe(self) -> None:
+        raise NotImplementedError
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
+
+    def _start_health_loop(self) -> None:
+        raise NotImplementedError(
+            "driver grew a liveness probe - model the health loop here")
+
+    def _stop_health_loop(self) -> None:
+        self._health_task = None
+
+    def _stash_transport_error(self) -> None:
         pass
 
-    tcp.TCPTransport = _TCPTransport
-    sys.modules["server.transport.tcp"] = tcp
+    def _handle_transport_disconnect(self) -> None:
+        # Mirrors the platform: flip the flags synchronously, then schedule
+        # the async teardown (stop loops, close transport, _close_session,
+        # disconnect event).
+        self._connected = False
+        self.set_state("connected", False)
+        if self.transport is not None:
+            self.transport.connected = False
+        task = asyncio.ensure_future(self._on_disconnect_cleanup())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
 
-    utils = ModuleType("server.utils")
-    utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.utils", utils)
+    async def _on_disconnect_cleanup(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        transport = self.transport
+        self.transport = None
+        if transport is not None:
+            await transport.close()
+        await self._close_session()
+        await self.events.emit(f"device.disconnected.{self.device_id}")
+
+    # -- connection lifecycle (mirrors the platform's hook-driven connect) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    def _create_frame_parser(self):
+        return None
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 23),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=b"\r",
+            frame_parser=self._create_frame_parser(),
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
+            timeout=self.config.get("timeout", 5.0),
+            name=self.device_id,
+        )
+        self.transport = await _FakeTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        # 1. Clean slate: reset fault classification, drop a previous
+        #    attempt's driver session and stale transport.
+        self._last_transport_error = ""
+        self._last_fault = None
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        # 2-3. Establish: pre-connect hook, then the transport.
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        # 4. Handshake: a raise here aborts the connection.
+        try:
+            await self._post_connect()
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        # 5. Declare connected.
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        # 6. Initial sync: a raise here tears the connection back down.
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                await transport.close()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        # 7. Polling + liveness watchdog.
+        if self.config.get("poll_interval", 0):
+            await self.start_polling(self.config["poll_interval"])
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self) -> None:
+        self._stop_health_loop()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
+
+
+def _install_server_stubs() -> None:
+    server = ModuleType("server")
+    server.__path__ = []  # type: ignore[attr-defined]
+    sys.modules["server"] = server
+    for sub in ("drivers", "utils"):
+        m = ModuleType(f"server.{sub}")
+        m.__path__ = []  # type: ignore[attr-defined]
+        sys.modules[f"server.{sub}"] = m
+    base = ModuleType("server.drivers.base")
+    base.BaseDriver = _FakeBaseDriver
+    sys.modules["server.drivers.base"] = base
     logger = ModuleType("server.utils.logger")
     logger.get_logger = lambda name="chazy": logging.getLogger(name)
     sys.modules["server.utils.logger"] = logger
@@ -391,3 +676,133 @@ def test_encoder_declares_stream_urls():
     # Generic preview convention surfaced to the Video Panel plugin.
     assert "preview_url" in enc_vars and "preview_format" in enc_vars
     assert enc_vars["preview_format"]["values"] == ["mjpeg", "rtsp"]
+
+
+# ── Identity ────────────────────────────────────────────────────────────────
+
+def test_driver_identity():
+    assert INFO["id"] == "chazy_control_pro"
+    assert INFO["transport"] == "tcp"
+    assert INFO["version"] == "1.4.10"
+    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
+    assert INFO["min_platform_version"] == "0.24.0"
+
+
+# ── Connection lifecycle ────────────────────────────────────────────────────
+#
+# The controller speaks first (Telnet negotiation + banner), the driver
+# consumes the banner before the platform declares connected, primes state
+# best-effort, and clears its receive machinery on every teardown path.
+
+def _make_driver(**config_overrides):
+    global _SILENT, _FAIL_SENDS
+    _SILENT = False
+    _FAIL_SENDS = False
+    _FakeTransport.sent_lines = []
+    _FakeTransport.created_kwargs = {}
+    _FakeTransport.last = None
+    cfg = {"host": "192.168.4.188", "port": 23, "poll_interval": 10}
+    cfg.update(config_overrides)
+    return drv.ChazyControlProDriver("ctl1", cfg, _FakeState(), _FakeEvents())
+
+
+@pytest.mark.asyncio
+async def test_connect_consumes_banner_then_syncs():
+    d = _make_driver()
+    await d.connect()
+    assert d._connected is True
+    assert d.state.data["device.ctl1.connected"] is True
+    assert "device.connected.ctl1" in d.events.emitted
+    # The transport was opened raw — prompt framing is the driver's job.
+    assert _FakeTransport.created_kwargs["delimiter"] is None
+    # The greeting (IAC bytes included) was consumed, and the initial status
+    # sync — including the system-clock read — went out on the wire.
+    assert d._responses.empty()
+    assert "GET STATUS" in _FakeTransport.sent_lines
+    assert "GET DATE" in _FakeTransport.sent_lines
+    assert "GET NTP SERVER" in _FakeTransport.sent_lines
+    # Polling was started by the platform lifecycle from config.
+    assert d.polling == 10
+
+
+@pytest.mark.asyncio
+async def test_connect_banner_timeout_is_a_clean_teardown(monkeypatch):
+    global _SILENT
+    monkeypatch.setattr(drv, "BANNER_TIMEOUT_S", 0.05)
+    d = _make_driver()
+    _SILENT = True
+    closes = []
+    orig_close = d._close_session
+
+    async def spying_close_session():
+        closes.append(True)
+        await orig_close()
+
+    d._close_session = spying_close_session
+    with pytest.raises(ConnectionError, match="No banner/prompt from controller"):
+        await d.connect()
+    assert d._connected is False
+    assert d.transport is None
+    assert _FakeTransport.last.connected is False  # closed, not leaked
+    # _close_session ran twice: the pre-attempt clean slate, then the
+    # handshake-failure teardown.
+    assert len(closes) == 2
+    assert "device.connected.ctl1" not in d.events.emitted
+
+
+@pytest.mark.asyncio
+async def test_connect_survives_failed_initial_sync():
+    global _FAIL_SENDS
+    d = _make_driver()
+    _FAIL_SENDS = True  # banner arrives, then every command send fails
+    await d.connect()
+    # The status/roster priming is best-effort: the device still comes up
+    # and steady-state polling retries on the next cycle.
+    assert d._connected is True
+    assert "device.disconnected.ctl1" not in d.events.emitted
+    assert d.polling == 10
+
+
+@pytest.mark.asyncio
+async def test_reconnect_starts_from_a_clean_slate():
+    d = _make_driver()
+    d._rx_buffer = b"half a banner from a dead session"
+    d._iac_state = "sb"
+    d._responses.put_nowait("stale response from a dead session")
+    await d.connect()
+    # The stale response was drained and the IAC filter reset before the
+    # socket opened, so the real greeting parsed and was consumed.
+    assert d._connected is True
+    assert d._responses.empty()
+
+
+@pytest.mark.asyncio
+async def test_disconnect_clears_receive_state():
+    d = _make_driver()
+    await d.connect()
+    d._rx_buffer = b"partial line"
+    d._iac_state = "iac"
+    d._responses.put_nowait("unclaimed")
+    await d.disconnect()
+    assert d._connected is False
+    assert d.transport is None
+    assert d._rx_buffer == b""
+    assert d._iac_state == "normal"
+    assert d._responses.empty()
+    assert "device.disconnected.ctl1" in d.events.emitted
+
+
+@pytest.mark.asyncio
+async def test_transport_drop_also_clears_receive_state():
+    d = _make_driver()
+    await d.connect()
+    d._rx_buffer = b"partial line"
+    transport = d.transport
+    d._handle_transport_disconnect()
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert d._connected is False
+    assert d.transport is None
+    assert transport.connected is False
+    assert d._rx_buffer == b""
+    assert "device.disconnected.ctl1" in d.events.emitted

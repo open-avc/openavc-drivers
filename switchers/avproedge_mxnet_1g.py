@@ -57,7 +57,6 @@ from typing import Any
 
 from server.drivers.base import BaseDriver
 from server.transport.frame_parsers import CallableFrameParser
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -191,8 +190,9 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.0.0",
-        "min_platform_version": "0.19.4",
+        "version": "1.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet "
@@ -1322,54 +1322,53 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         self._poll_misses = 0
         super().__init__(device_id, config, state, events)
 
-    # ── Transport ────────────────────────────────────────────────────
+    # ── Lifecycle ────────────────────────────────────────────────────
+
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
+            raise ValueError("No IP address configured")
+
+    def _transport_kwargs(self, transport_type: str, kwargs: dict) -> dict:
+        # Replies are brace-balanced JSON objects framed by _json_frame, not
+        # delimited lines — no line terminator is documented in the API.
+        kwargs["delimiter"] = None
+        return kwargs
 
     def _create_frame_parser(self) -> CallableFrameParser:
         return CallableFrameParser(_json_frame)
 
-    async def connect(self) -> None:
+    async def _post_connect(self) -> None:
+        # Confirm this really is the MXNet API before reporting connected,
+        # then learn the endpoint roster and put every endpoint on the
+        # serial encapsulation we decode. A failure here aborts the attempt.
         host = str(self.config.get("host", "")).strip()
         port = int(self.config.get("port", 24))
-        if not host:
-            raise ValueError("No IP address configured")
+        doc = await self._request("config get name")
+        if doc is None:
+            raise ConnectionError(
+                f"[{self.device_id}] No answer from the MXNet API on {host}:{port} — "
+                f"check that this is the CBOX's MENTOR/LAN port"
+            )
+        self.set_state("model", _txt(doc.get("info")))
+        await self._enumerate_roster()
+        await self._normalize_serial_feedback()
 
+    async def _initial_sync(self) -> None:
+        # First full read; steady-state polling starts right after this.
+        await self.poll()
+
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: abort any in-flight request so its
+        # awaiter doesn't hang on a dead link, and zero the poll bookkeeping
+        # so the next session starts fresh.
+        pending = self._pending
+        if pending is not None and not pending.done():
+            pending.cancel()
+        self._pending = None
         self._poll_cycle = 0
         self._poll_misses = 0
-        self._pending = None
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            frame_parser=self._create_frame_parser(),
-            timeout=5.0,
-            name=self.device_id,
-        )
-
-        try:
-            doc = await self._request("config get name")
-            if doc is None:
-                raise ConnectionError(
-                    f"[{self.device_id}] No answer from the MXNet API on {host}:{port} — "
-                    f"check that this is the CBOX's MENTOR/LAN port"
-                )
-            self.set_state("model", _txt(doc.get("info")))
-            await self._enumerate_roster()
-            await self._normalize_serial_feedback()
-        except Exception:
-            await self._teardown_transport()
-            raise
-
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to MXNet CBOX at {host}:{port}")
-
-        await self.poll()
-        poll_interval = int(self.config.get("poll_interval", 10))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    # ── Serialized request/response ──────────────────────────────────
 
     async def _request(self, line: str, timeout: float | None = None) -> dict[str, Any] | None:
         """Send one API line and await its JSON reply.

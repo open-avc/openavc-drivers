@@ -266,7 +266,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Models sources, zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs, and bell schedules as child entities labelled with the names from the Atmosphere configuration. Covers gain and mute per source / zone / mix / group, zone and group source select, group combine, message / routine / scene / GPO-preset triggers, GPO pin state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -280,7 +280,7 @@
         "atlasied-atmosphere-thirdparty"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "atmosphere",
         "azm4",
@@ -885,7 +885,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -899,7 +899,7 @@
         "mxnet_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.19.4",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "mxnet",
@@ -2119,7 +2119,7 @@
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
@@ -2133,7 +2133,7 @@
         "artnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.24.0",
       "tags": [
         "artnet",
         "dmx",
@@ -2393,7 +2393,7 @@
       "name": "Modbus TCP Device",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Read and write any Modbus TCP device by declaring its register map.",
@@ -2404,7 +2404,7 @@
         "modbus_tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "help": {
         "overview": "Controls any Modbus TCP device (PLCs, HVAC controllers, power meters, industrial gear). You declare the device's register map on the device page; the driver turns read registers into live status values, write registers into commands, and read/write registers into device settings.",
         "setup": "Enter the IP address and Unit ID (usually 1), then add the registers from the device's Modbus register map. Addresses are 0-based: a register listed as 40001 in the manual is holding address 0."
@@ -2603,7 +2603,7 @@
       "name": "sACN / E1.31 DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Streams DMX512 lighting data over sACN (Streaming ACN, ANSI E1.31) to any sACN-compatible node, gateway, fixture, or controller. Uses per-universe multicast (239.255.x.x, UDP 5568) by default, or unicast to a specific node. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; per-source priority tunes multi-source merging; a keep-alive re-send holds static looks alive and a graceful stream-termination releases the universe on disconnect.",
@@ -2618,7 +2618,7 @@
         "e131"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.24.0",
       "tags": [
         "sacn",
         "e131",
@@ -2742,13 +2742,14 @@
       "name": "Wake-on-LAN",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
       "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
       "file": "utility/wake_on_lan.py",
       "format": "python",
+      "min_platform_version": "0.24.0",
       "tags": [
         "wol",
         "magic-packet",
@@ -4399,7 +4400,7 @@
       "name": "Roku (ECP)",
       "manufacturer": "Roku",
       "category": "streaming",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Roku streaming players and Roku TVs over the local network using the External Control Protocol (ECP). Full remote surface, text entry, app launch/install, and TV power, volume, input, and tuner control on supported models.",
@@ -4413,6 +4414,7 @@
         "roku_ecp"
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "roku",
         "streaming",
@@ -4781,7 +4783,7 @@
       "name": "Sharp/NEC Display (External Control)",
       "manufacturer": "Sharp NEC",
       "category": "display",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp/NEC professional large-format displays over the NEC External Control protocol on TCP 7142. Each Monitor ID on the daisy chain is a display child entity with power, input, volume, mutes, picture settings, panel temperature, and self-diagnosis status. Includes a raw opcode escape hatch for the full protocol surface.",
@@ -4795,7 +4797,7 @@
         "nec_external_control"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "display",
         "signage",
@@ -4851,7 +4853,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
@@ -4865,7 +4867,7 @@
         "shure_dcs"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "ceiling-mic",
         "microphone",
@@ -5062,7 +5064,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -5077,6 +5079,7 @@
       ],
       "simulated": true,
       "verified": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "tv",
         "display",
@@ -5252,7 +5255,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
@@ -5263,6 +5266,7 @@
         8099
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "video-production",
         "streaming",
@@ -5298,7 +5302,7 @@
       "name": "Symetrix Composer DSP",
       "manufacturer": "Symetrix",
       "category": "audio",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, Prism, Solus NX, and xControl DSPs via the Composer Control Protocol on TCP port 48631. Generic controller model: assign controller numbers (1\u201310000) in Composer to faders, mutes, selectors, and meters; this driver reads / writes those numbers and subscribes to push-enabled value changes.",
@@ -5312,7 +5316,7 @@
         "symetrix-composer"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "dsp",
         "symetrix",
@@ -5491,7 +5495,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.9",
+      "version": "1.2.10",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -5505,7 +5509,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -5563,7 +5567,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.9",
+      "version": "1.4.10",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -5577,7 +5581,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -5635,7 +5639,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.7",
+      "version": "1.1.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -5649,7 +5653,7 @@
         "darwin_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -6088,7 +6092,7 @@
       "name": "WyreStorm NetworkHD",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a WyreStorm NetworkHD AV-over-IP system through its NHD-000-CTL or NHD-CTL-PRO controller. Every encoder (TX) and decoder (RX) the controller knows about appears as a child entity with live online, routing, and signal state. Covers matrix switching with per-stream breakaway (video, audio, USB, IR, RS-232), video wall scenes and windows, multiview layouts, display power proxy commands, and CEC / IR / RS-232 command injection to connected devices.",
@@ -6102,7 +6106,7 @@
         "networkhd_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.19.4",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "networkhd",

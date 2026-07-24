@@ -267,7 +267,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Models sources, zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs, and bell schedules as child entities labelled with the names from the Atmosphere configuration. Covers gain and mute per source / zone / mix / group, zone and group source select, group combine, message / routine / scene / GPO-preset triggers, GPO pin state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -281,7 +281,7 @@
         "atlasied-atmosphere-thirdparty"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "atmosphere",
         "azm4",
@@ -1032,7 +1032,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
@@ -1046,7 +1046,7 @@
         "shure_dcs"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "ceiling-mic",
         "microphone",
@@ -1174,7 +1174,7 @@
       "name": "Symetrix Composer DSP",
       "manufacturer": "Symetrix",
       "category": "audio",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, Prism, Solus NX, and xControl DSPs via the Composer Control Protocol on TCP port 48631. Generic controller model: assign controller numbers (1\u201310000) in Composer to faders, mutes, selectors, and meters; this driver reads / writes those numbers and subscribes to push-enabled value changes.",
@@ -1188,7 +1188,7 @@
         "symetrix-composer"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "dsp",
         "symetrix",

@@ -292,7 +292,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -306,7 +306,7 @@
         "mxnet_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.19.4",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "mxnet",
@@ -776,7 +776,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.9",
+      "version": "1.2.10",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -790,7 +790,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -848,7 +848,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.9",
+      "version": "1.4.10",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -862,7 +862,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -920,7 +920,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.7",
+      "version": "1.1.8",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -934,7 +934,7 @@
         "darwin_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -1106,7 +1106,7 @@
       "name": "WyreStorm NetworkHD",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a WyreStorm NetworkHD AV-over-IP system through its NHD-000-CTL or NHD-CTL-PRO controller. Every encoder (TX) and decoder (RX) the controller knows about appears as a child entity with live online, routing, and signal state. Covers matrix switching with per-stream breakaway (video, audio, USB, IR, RS-232), video wall scenes and windows, multiview layouts, display power proxy commands, and CEC / IR / RS-232 command injection to connected devices.",
@@ -1120,7 +1120,7 @@
         "networkhd_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.19.4",
+      "min_platform_version": "0.24.0",
       "tags": [
         "av-over-ip",
         "networkhd",

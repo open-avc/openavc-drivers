@@ -34,7 +34,7 @@
       "name": "Modbus TCP Device",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Read and write any Modbus TCP device by declaring its register map.",
@@ -45,7 +45,7 @@
         "modbus_tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "help": {
         "overview": "Controls any Modbus TCP device (PLCs, HVAC controllers, power meters, industrial gear). You declare the device's register map on the device page; the driver turns read registers into live status values, write registers into commands, and read/write registers into device settings.",
         "setup": "Enter the IP address and Unit ID (usually 1), then add the registers from the device's Modbus register map. Addresses are 0-based: a register listed as 40001 in the manual is holding address 0."
@@ -56,13 +56,14 @@
       "name": "Wake-on-LAN",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
       "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
       "file": "utility/wake_on_lan.py",
       "format": "python",
+      "min_platform_version": "0.24.0",
       "tags": [
         "wol",
         "magic-packet",

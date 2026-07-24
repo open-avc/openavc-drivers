@@ -467,7 +467,7 @@
       "name": "Sharp/NEC Display (External Control)",
       "manufacturer": "Sharp NEC",
       "category": "display",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp/NEC professional large-format displays over the NEC External Control protocol on TCP 7142. Each Monitor ID on the daisy chain is a display child entity with power, input, volume, mutes, picture settings, panel temperature, and self-diagnosis status. Includes a raw opcode escape hatch for the full protocol surface.",
@@ -481,7 +481,7 @@
         "nec_external_control"
       ],
       "simulated": true,
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "display",
         "signage",
@@ -537,7 +537,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -552,6 +552,7 @@
       ],
       "simulated": true,
       "verified": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "tv",
         "display",

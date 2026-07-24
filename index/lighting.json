@@ -80,7 +80,7 @@
       "name": "Art-Net DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Sends DMX512 lighting data over Art-Net (UDP 6454) to any Art-Net-compatible node, gateway, fixture, or controller. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; a periodic keep-alive re-broadcast keeps long-running shows alive on receivers that time out idle universes.",
@@ -94,7 +94,7 @@
         "artnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.24.0",
       "tags": [
         "artnet",
         "dmx",
@@ -243,7 +243,7 @@
       "name": "sACN / E1.31 DMX (Generic)",
       "manufacturer": "Generic",
       "category": "lighting",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Streams DMX512 lighting data over sACN (Streaming ACN, ANSI E1.31) to any sACN-compatible node, gateway, fixture, or controller. Uses per-universe multicast (239.255.x.x, UDP 5568) by default, or unicast to a specific node. Maintains a 512-byte channel buffer per universe in memory; commands set channels, blackout, or full-on; per-source priority tunes multi-source merging; a keep-alive re-send holds static looks alive and a graceful stream-termination releases the universe on disconnect.",
@@ -258,7 +258,7 @@
         "e131"
       ],
       "simulated": true,
-      "min_platform_version": "0.10.3",
+      "min_platform_version": "0.24.0",
       "tags": [
         "sacn",
         "e131",

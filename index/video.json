@@ -316,7 +316,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
@@ -327,6 +327,7 @@
         8099
       ],
       "simulated": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "video-production",
         "streaming",

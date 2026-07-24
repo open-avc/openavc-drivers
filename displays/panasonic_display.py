@@ -231,7 +231,9 @@ class PanasonicDisplayDriver(BaseDriver):
         "name": "Panasonic Professional Display",
         "manufacturer": "Panasonic",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Panasonic TH-series professional displays (SQ / "
@@ -719,10 +721,18 @@ class PanasonicDisplayDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        host = str(self.config.get("host", "")).strip()
-        port = int(self.config.get("port", 1024))
+    async def _create_transport(self, transport_type: str) -> None:
+        # Session-per-request protocol: every command opens its own TCP
+        # connection (greeting + per-session MD5 hash), so there is no
+        # persistent platform transport to build. self.transport stays None.
+        self.transport = None
 
+    def _link_alive(self) -> bool:
+        # No persistent link to test — reachability is proven by every
+        # request round-trip, and a dead display fails the next poll.
+        return True
+
+    async def _post_connect(self) -> None:
         # One probe round-trip validates reachability, the greeting,
         # and (in protected mode) the credentials — the display
         # answers ERRA to the first command on a bad hash.
@@ -735,29 +745,11 @@ class PanasonicDisplayDriver(BaseDriver):
             ) from None
         self._apply_results(results)
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(
-            f"[{self.device_id}] Connected to Panasonic display at "
-            f"{host}:{port}"
-        )
-
+    async def _initial_sync(self) -> None:
         try:
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
-
-        poll_interval = int(self.config.get("poll_interval", 15))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Session handling ──
 

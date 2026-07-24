@@ -7,7 +7,10 @@ test suite stays self-contained — mirrors test_qsc_qrc.py.
 The credential generator is checked against the worked example documented in the
 reverse-engineered protocol analysis (a real test vector), so the trickiest
 piece is verified without a TV. Topic construction, command payloads, and state
-parsing are exercised against a fake transport.
+parsing are exercised against a fake transport; the connection lifecycle
+(_pre_connect host check + store load, the _create_transport credential ladder,
+_initial_sync subscribe/announce/refresh) runs through a stub BaseDriver that
+mirrors the platform's hook-driven connect()/disconnect() order.
 """
 
 from __future__ import annotations
@@ -27,6 +30,181 @@ DRIVER_PATH = REPO_ROOT / "displays" / "hisense_vidaa.py"
 
 # ── Stub server.* so the driver imports without an openavc install ──
 
+class _BaseDriver:
+    """Functional stand-in for the platform BaseDriver: the driver supplies
+    lifecycle hooks (_pre_connect / _create_transport / _initial_sync /
+    _close_session) and connect()/disconnect() here run them in the platform's
+    order — clean slate, _pre_connect, transport build, _post_connect (with
+    failure teardown), declare, _initial_sync (with full teardown on failure),
+    then polling. ``connected`` is the platform's _link_alive-backed property.
+    (hisense_vidaa supplies no _liveness_probe, so the watchdog stage is
+    omitted here.)"""
+
+    DRIVER_INFO: dict = {}
+
+    def __init__(self, device_id, config, state=None, events=None):
+        self.device_id = device_id
+        self.config = config
+        self.state = state
+        self.events = events or _Events()
+        self.transport = None
+        self._connected = False
+        self._state: dict = {}
+
+    def set_state(self, key, value):
+        self._state[key] = value
+
+    def get_state(self, key):
+        return self._state.get(key)
+
+    async def start_polling(self, interval):
+        pass
+
+    async def stop_polling(self):
+        pass
+
+    def _stash_transport_error(self):
+        pass
+
+    def _handle_transport_disconnect(self):
+        self._connected = False
+        self.set_state("connected", False)
+
+    # -- lifecycle hooks (drivers override; defaults are no-ops) --
+
+    async def _pre_connect(self):
+        pass
+
+    async def _post_connect(self):
+        pass
+
+    async def _initial_sync(self):
+        pass
+
+    async def _close_session(self):
+        pass
+
+    async def _stop_push(self):
+        pass
+
+    async def _create_transport(self, transport_type):
+        # The platform ladder isn't modeled — the driver under test
+        # overrides this wholesale (its credential-candidate retry loop).
+        raise NotImplementedError
+
+    def _link_alive(self):
+        if self.transport is None:
+            return False
+        return bool(getattr(self.transport, "connected", False))
+
+    @property
+    def connected(self):
+        return self._connected and self._link_alive()
+
+    # -- connect/disconnect (mirror BaseDriver's stage order) --
+
+    async def connect(self):
+        # Clean slate: drop a previous attempt's push subscription, driver
+        # session, and stale transport before the hooks run.
+        await self._stop_push()
+        await self._close_session()
+        if self.transport:
+            try:
+                await self.transport.close()
+            except Exception:
+                pass
+            self.transport = None
+
+        await self._pre_connect()
+        await self._create_transport(
+            self.config.get("transport")
+            or self.DRIVER_INFO.get("transport", "tcp")
+        )
+        # Transport verify stage skipped: hasattr(transport, "verify") is
+        # False for the MQTT stub, same as the real MQTTTransport.
+
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            await self._stop_push()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                try:
+                    await transport.close()
+                except Exception:
+                    pass
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+
+        if self.config.get("poll_interval", 0) > 0:
+            await self.start_polling(self.config["poll_interval"])
+
+    async def disconnect(self):
+        await self._stop_push()
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
+
+
+class FakeMQTTTransport:
+    """Stand-in for server.transport.mqtt.MQTTTransport. The driver imports it
+    with a deferred ``from server.transport.mqtt import MQTTTransport`` INSIDE
+    _create_transport at test-run time, so the stub module must already be in
+    sys.modules (installed by _install_server_stubs) — a module-level class
+    referenced there directly, per the repo's stub convention."""
+
+    created: list[dict] = []  # kwargs of every create() attempt
+    reject = None  # callable(kwargs) -> True to refuse that candidate
+
+    def __init__(self, kwargs):
+        self.kwargs = kwargs
+        self.connected = True
+        self.published: list[tuple] = []
+        self.subscribed: list[str] = []
+        self.last_error = ""
+
+    @classmethod
+    async def create(cls, host, port, **kwargs):
+        kwargs = dict(kwargs, host=host, port=port)
+        cls.created.append(kwargs)
+        if cls.reject is not None and cls.reject(kwargs):
+            raise ConnectionError("Connection Refused: not authorized")
+        return cls(kwargs)
+
+    async def publish(self, topic, payload, qos=0, retain=False):
+        self.published.append((topic, payload))
+
+    async def subscribe(self, topic, qos=0):
+        self.subscribed.append(topic)
+
+    async def close(self):
+        self.connected = False
+
+
 def _install_server_stubs(tmp_dir: str) -> None:
     server = ModuleType("server")
     server.__path__ = []  # type: ignore[attr-defined]
@@ -37,39 +215,15 @@ def _install_server_stubs(tmp_dir: str) -> None:
     sys.modules["server.drivers"] = drivers
 
     base = ModuleType("server.drivers.base")
-
-    class _BaseDriver:
-        DRIVER_INFO: dict = {}
-
-        def __init__(self, device_id, config, state=None, events=None):
-            self.device_id = device_id
-            self.config = config
-            self.state = state
-            self.events = events or _Events()
-            self.transport = None
-            self._connected = False
-            self._state: dict = {}
-
-        def set_state(self, key, value):
-            self._state[key] = value
-
-        def get_state(self, key):
-            return self._state.get(key)
-
-        async def start_polling(self, interval):
-            pass
-
-        async def stop_polling(self):
-            pass
-
-        def _stash_transport_error(self):
-            pass
-
-        def _handle_transport_disconnect(self):
-            pass
-
     base.BaseDriver = _BaseDriver
     sys.modules["server.drivers.base"] = base
+
+    transport_pkg = ModuleType("server.transport")
+    transport_pkg.__path__ = []  # type: ignore[attr-defined]
+    sys.modules["server.transport"] = transport_pkg
+    mqtt = ModuleType("server.transport.mqtt")
+    mqtt.MQTTTransport = FakeMQTTTransport
+    sys.modules["server.transport.mqtt"] = mqtt
 
     sysconfig = ModuleType("server.system_config")
     sysconfig.get_system_config = lambda: _SysConfig(tmp_dir)
@@ -84,8 +238,11 @@ def _install_server_stubs(tmp_dir: str) -> None:
 
 
 class _Events:
-    async def emit(self, *a, **k):
-        pass
+    def __init__(self):
+        self.emitted: list[str] = []
+
+    async def emit(self, name, *a, **k):
+        self.emitted.append(name)
 
 
 class _SysConfig:
@@ -140,13 +297,100 @@ def mod(tmp_path_factory):
         sys.modules[name] = m
 
 
+@pytest.fixture(autouse=True)
+def _reset_mqtt_stub():
+    FakeMQTTTransport.created = []
+    FakeMQTTTransport.reject = None
+    yield
+    FakeMQTTTransport.created = []
+    FakeMQTTTransport.reject = None
+
+
 def _make_driver(mod, **config):
+    """Driver with a pre-injected fake transport, for command/parse tests
+    that skip connect(). Lifecycle tests must NOT use this — connect()'s
+    clean-slate stage would destroy the injected transport."""
     cfg = {"host": "10.0.0.5"}
     cfg.update(config)
     drv = mod.HisenseVidaaDriver("tv1", cfg, None, _Events())
     drv._client_id = "AA:BB:CC:DD:EE:FF$his$256DBF_vidaacommon_001"
     drv.transport = FakeTransport()
     return drv
+
+
+# ── Connection lifecycle (hook-driven connect/disconnect) ──
+
+def test_connect_runs_hook_lifecycle(mod):
+    drv = mod.HisenseVidaaDriver("tv1", {"host": "10.0.0.5"}, None, _Events())
+    asyncio.run(drv.connect())
+    # _create_transport: first credential candidate accepted, TLS on 36669.
+    assert isinstance(drv.transport, FakeMQTTTransport)
+    assert len(FakeMQTTTransport.created) == 1
+    assert FakeMQTTTransport.created[0]["port"] == 36669
+    assert FakeMQTTTransport.created[0]["use_tls"] is True
+    assert drv.get_state("auth_mode_active") == "dynamic"
+    # _pre_connect: store loaded — a uuid was minted, feeding the client id.
+    assert drv._uuid
+    assert drv._client_id.startswith(f"{drv._uuid}$his$")
+    assert drv._client_id.endswith("_vidaacommon_001")
+    # Declared connected: flag/property, state key, canonical event.
+    assert drv.connected is True
+    assert drv.get_state("connected") is True
+    assert "device.connected.tv1" in drv.events.emitted
+    # _initial_sync: subscriptions, the pairing announce, the state refresh.
+    assert drv._resp_topic("ui_service", "state") in drv.transport.subscribed
+    topics = [t for t, _ in drv.transport.published]
+    assert drv._cmd_topic("ui_service", "vidaa_app_connect") in topics
+    assert drv._cmd_topic("ui_service", "gettvstate") in topics
+    assert drv._cmd_topic("platform_service", "getvolume") in topics
+    assert drv._cmd_topic("ui_service", "sourcelist") in topics
+
+
+def test_connect_without_host_raises(mod):
+    drv = mod.HisenseVidaaDriver("tv1", {"host": "   "}, None, _Events())
+    with pytest.raises(ConnectionError):
+        asyncio.run(drv.connect())
+    # _pre_connect failed before any transport attempt.
+    assert FakeMQTTTransport.created == []
+    assert drv.transport is None
+    assert drv.connected is False
+    assert "device.connected.tv1" not in drv.events.emitted
+
+
+def test_connect_falls_back_through_credential_candidates(mod):
+    # Refuse everything except the static scheme: dynamic is tried first
+    # and rejected, static (candidate #2) gets in.
+    FakeMQTTTransport.reject = lambda kw: kw["username"] != "hisenseservice"
+    drv = mod.HisenseVidaaDriver("tv1", {"host": "10.0.0.5"}, None, _Events())
+    asyncio.run(drv.connect())
+    assert len(FakeMQTTTransport.created) == 2
+    assert FakeMQTTTransport.created[-1]["username"] == "hisenseservice"
+    assert drv.get_state("auth_mode_active") == "static"
+    assert drv.connected is True
+
+
+def test_connect_all_candidates_refused_raises(mod):
+    FakeMQTTTransport.reject = lambda kw: True
+    drv = mod.HisenseVidaaDriver("tv1", {"host": "10.0.0.5"}, None, _Events())
+    with pytest.raises(ConnectionError):
+        asyncio.run(drv.connect())
+    assert len(FakeMQTTTransport.created) == 3  # dynamic, static, legacy
+    assert drv.transport is None
+    assert drv.connected is False
+    assert drv.get_state("connected") is not True
+    assert "device.connected.tv1" not in drv.events.emitted
+
+
+def test_disconnect_closes_transport_and_emits(mod):
+    drv = mod.HisenseVidaaDriver("tv1", {"host": "10.0.0.5"}, None, _Events())
+    asyncio.run(drv.connect())
+    transport = drv.transport
+    asyncio.run(drv.disconnect())
+    assert transport.connected is False
+    assert drv.transport is None
+    assert drv.connected is False
+    assert drv.get_state("connected") is False
+    assert drv.events.emitted[-1] == "device.disconnected.tv1"
 
 
 # ── Credential generator: documented test vector ──

@@ -121,8 +121,9 @@ class HisenseVidaaDriver(BaseDriver):
         "name": "Hisense VIDAA TV",
         "manufacturer": "Hisense",
         "category": "display",
-        "version": "1.0.0",
-        "min_platform_version": "0.21.0",
+        "version": "1.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Hisense VIDAA OS TVs over the TV's embedded MQTT broker "
@@ -333,16 +334,20 @@ class HisenseVidaaDriver(BaseDriver):
             return ["dynamic", "static", "dynamic_legacy"]
         return [mode]
 
-    async def connect(self) -> None:
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
+            raise ConnectionError(f"[{self.device_id}] No host configured")
+        self._load_store()
+        self._write_client_cert()
+
+    async def _create_transport(self, transport_type: str) -> None:
+        # Wholesale override of the platform ladder: the TV's broker accepts
+        # one of several credential schemes and we must retry transport
+        # creation per candidate, which per-kwarg adjustment can't express.
         from server.transport.mqtt import MQTTTransport
 
         host = str(self.config.get("host", "")).strip()
-        if not host:
-            raise ConnectionError(f"[{self.device_id}] No host configured")
         port = int(self.config.get("port", DEFAULT_PORT) or DEFAULT_PORT)
-
-        self._load_store()
-        self._write_client_cert()
 
         last_exc: Exception | None = None
         for mode in self._auth_candidates():
@@ -366,28 +371,20 @@ class HisenseVidaaDriver(BaseDriver):
                 self._auth_mode = mode
                 self.set_state("auth_mode_active", mode)
                 log.info(f"[{self.device_id}] VIDAA connected (auth={mode})")
-                break
+                return
             except ConnectionError as e:
                 last_exc = e
                 self._stash_transport_error()
                 continue
-        else:
-            raise last_exc or ConnectionError(
-                f"[{self.device_id}] Could not authenticate to the TV"
-            )
+        raise last_exc or ConnectionError(
+            f"[{self.device_id}] Could not authenticate to the TV"
+        )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-
+    async def _initial_sync(self) -> None:
         await self._subscribe_topics()
         # Already-paired devices skip the PIN; ask the TV to confirm and refresh.
         await self._publish_action("ui_service", "vidaa_app_connect", _APP_CONNECT)
         await self._refresh_state()
-
-        poll_interval = int(self.config.get("poll_interval", 0) or 0)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
 
     def _build_auth(self, mode: str) -> tuple[str, str, str]:
         if mode == "static":
@@ -395,15 +392,6 @@ class HisenseVidaaDriver(BaseDriver):
             client_id, _, _ = generate_credentials(self._uuid, modern=True)
             return client_id, _STATIC_USERNAME, _STATIC_PASSWORD
         return generate_credentials(self._uuid, modern=(mode != "dynamic_legacy"))
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
 
     # --- Topics ---------------------------------------------------------
 

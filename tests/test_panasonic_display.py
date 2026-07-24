@@ -48,11 +48,23 @@ class _FakeState:
 
 
 class _FakeEvents:
+    def __init__(self) -> None:
+        self.emitted: list[str] = []
+
     async def emit(self, name, *args, **kwargs):
-        pass
+        self.emitted.append(name)
 
 
 class _FakeBaseDriver:
+    """Functional stand-in for the platform BaseDriver: the driver supplies
+    lifecycle hooks (_pre_connect / _create_transport / _post_connect /
+    _initial_sync / _close_session / _link_alive) and connect()/disconnect()
+    here run them in the platform's order — clean slate, _pre_connect,
+    transport build, _post_connect (with failure teardown), declare,
+    _initial_sync (with full teardown on failure), then polling.
+    ``connected`` is the platform's _link_alive-backed property (the driver
+    overrides _link_alive to True for its session-per-request protocol)."""
+
     DRIVER_INFO: dict = {}
 
     def __init__(self, device_id, config, state, events) -> None:
@@ -83,6 +95,94 @@ class _FakeBaseDriver:
 
     async def request_reconnect(self) -> None:
         self.reconnects += 1
+
+    # -- lifecycle hooks (drivers override; defaults are no-ops) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        # The platform ladder isn't modeled — the driver under test
+        # overrides this wholesale (session-per-request, transport None).
+        raise NotImplementedError
+
+    def _link_alive(self) -> bool:
+        if self.transport is None:
+            return False
+        return bool(getattr(self.transport, "connected", False))
+
+    @property
+    def connected(self) -> bool:
+        return self._connected and self._link_alive()
+
+    # -- connection lifecycle (mirrors BaseDriver.connect/disconnect) --
+
+    async def connect(self) -> None:
+        # Clean slate: drop any stale session/transport from a previous
+        # attempt before the hooks run.
+        await self._close_session()
+        if self.transport:
+            try:
+                await self.transport.close()
+            except Exception:
+                pass
+            self.transport = None
+
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        # Transport verify stage skipped: hasattr(None, "verify") is False
+        # for this driver's always-None transport.
+
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+        except Exception:
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+
+        try:
+            await self._initial_sync()
+        except Exception:
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                try:
+                    await transport.close()
+                except Exception:
+                    pass
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+
+        if self.config.get("poll_interval", 0) > 0:
+            await self.start_polling(self.config["poll_interval"])
+
+    async def disconnect(self) -> None:
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 class _FakeTCPSimulator:
@@ -224,7 +324,7 @@ def test_metadata_shape():
     info = DRV.PanasonicDisplayDriver.DRIVER_INFO
     assert info["id"] == "panasonic_display"
     assert info["category"] == "display"
-    assert info["version"] == "1.0.0"
+    assert info["version"] == "1.0.1"
 
     ds = info["device_settings"]
     assert set(ds) == {
@@ -285,8 +385,14 @@ def test_connect_populates_state(lan_protocol):
             "backlight": 66, "contrast": 44, "black_level": 55,
             "color": 33, "tint": 22, "sharpness": 11,
         })
+        assert driver.connected is False
         await driver.connect()
         try:
+            # _link_alive is overridden to True (no persistent transport),
+            # so the connected property reports True while connected.
+            assert driver.connected is True
+            assert driver.get_state("connected") is True
+            assert "device.connected.disp1" in driver.events.emitted
             expected_proto = (
                 "protocol1" if lan_protocol == "1" else "protocol2"
             )
@@ -308,6 +414,9 @@ def test_connect_populates_state(lan_protocol):
         finally:
             await driver.disconnect()
             await server.stop()
+        assert driver.connected is False
+        assert driver.get_state("connected") is False
+        assert driver.events.emitted[-1] == "device.disconnected.disp1"
 
     asyncio.run(go())
 
@@ -345,6 +454,11 @@ def test_connect_wrong_password_raises_auth_worded(lan_protocol):
             with pytest.raises(ConnectionError) as exc:
                 await driver.connect()
             assert "authentication failed" in str(exc.value).lower()
+            # _post_connect failed before the declare stage: never
+            # connected, no connect event.
+            assert driver.connected is False
+            assert driver.get_state("connected") is not True
+            assert "device.connected.disp1" not in driver.events.emitted
         finally:
             await server.stop()
 

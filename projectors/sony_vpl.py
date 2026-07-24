@@ -53,7 +53,6 @@ import hashlib
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -164,7 +163,9 @@ class SonyVPLDriver(BaseDriver):
         "name": "Sony VPL Projector (ADCP)",
         "manufacturer": "Sony",
         "category": "projector",
-        "version": "1.4.0",
+        "version": "1.4.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony VPL professional installation projectors "
@@ -594,76 +595,55 @@ class SonyVPLDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 53595))
-        delay = float(self.config.get("inter_command_delay", 0.05))
-
+    async def _pre_connect(self) -> None:
+        # Arm the greeting/auth capture before the transport exists — the
+        # projector speaks first (random challenge or NOKEY) and
+        # _handle_auth_line resolves _auth_done from on_data.
         self._auth_done.clear()
         self._auth_ok = None
         self._challenge = None
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=b"\r\n",
-            inter_command_delay=delay,
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # ADCP lines end in CR+LF, not the platform's bare-CR default.
+        kwargs["delimiter"] = b"\r\n"
+        return kwargs
+
+    async def _post_connect(self) -> None:
+        host = self.config.get("host", "")
+        port = int(self.config.get("port", 53595))
 
         # Wait for the projector's greeting (random challenge or NOKEY),
         # send the auth response if needed, and wait for the auth verdict.
         try:
             await asyncio.wait_for(self._auth_done.wait(), timeout=8.0)
         except asyncio.TimeoutError:
-            await self.transport.close()
-            self.transport = None
             raise ConnectionError(
                 f"[{self.device_id}] No ADCP greeting received from "
                 f"{host}:{port} within 8s"
             )
 
         if self._auth_ok is False:
-            await self.transport.close()
-            self.transport = None
             raise ConnectionError(
                 f"[{self.device_id}] ADCP authentication failed — "
                 "check the password in the projector's web UI"
             )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(
-            f"[{self.device_id}] Connected to Sony VPL (ADCP) at {host}:{port}"
-        )
-
+    async def _initial_sync(self) -> None:
         # Initial status sweep so the UI populates immediately.
         try:
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        poll_interval = int(self.config.get("poll_interval", 15))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: disarm the greeting/auth state so a
+        # reconnect waits for a fresh challenge.
         self._auth_done.clear()
         self._auth_ok = None
         self._challenge = None
         self._pending_queries.clear()
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Sending ──
 
@@ -925,21 +905,6 @@ class SonyVPLDriver(BaseDriver):
                 return
         self.set_state("error_status", stripped)
 
-    def _handle_transport_disconnect(self) -> None:
-        self._connected = False
-        self._auth_done.clear()
-        self._auth_ok = None
-        self._challenge = None
-        self._pending_queries.clear()
-        self.set_state("connected", False)
-        log.warning(f"[{self.device_id}] Connection lost")
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(
-                self.events.emit(f"device.disconnected.{self.device_id}")
-            )
-        except RuntimeError:
-            pass
 
     # ── Setup wizard: test (and optionally save) the ADCP password ──
 

@@ -59,21 +59,25 @@ _CURRENT_SIM: object | None = None
 
 class _FakeTCPTransport:
     """Stand-in for TCPTransport that speaks NTCONTROL to the live sim: the
-    driver builds it in connect(), so create() registers a client on the sim,
-    delivers the server-first greeting, and pipes each reply line back."""
+    base's _create_transport builds it during connect(), so create() registers
+    a client on the sim, delivers the server-first greeting (BEFORE
+    _post_connect awaits the auth verdict, same as the real transport), and
+    pipes each reply line back."""
 
     def __init__(self) -> None:
         self.on_data = None
         self.connected = False
+        self.delimiter = b"\r"
         self._sim = None
 
     @classmethod
     async def create(cls, *, host, port, on_data, on_disconnect,
-                     delimiter=b"\r", inter_command_delay=0.0, timeout=5.0,
-                     name=""):
+                     delimiter=b"\r", frame_parser=None,
+                     inter_command_delay=0.0, timeout=5.0, name=""):
         t = cls()
         t.on_data = on_data
         t.connected = True
+        t.delimiter = delimiter
         t._sim = _CURRENT_SIM
         _CURRENT_SIM._clients["c1"] = object()
         greeting = await _CURRENT_SIM.on_client_connected("c1")
@@ -93,6 +97,13 @@ class _FakeTCPTransport:
 
 
 class _FakeBaseDriver:
+    """Functional stand-in for the platform BaseDriver: the driver supplies
+    lifecycle hooks (_pre_connect / _post_connect / _initial_sync /
+    _close_session / _transport_kwargs) and connect()/disconnect() here run
+    them in the platform's order — clean slate, _pre_connect, transport
+    build, _post_connect (with failure teardown), declare, _initial_sync
+    (with full teardown on failure), then polling."""
+
     DRIVER_INFO: dict = {}
 
     def __init__(self, device_id, config, state, events) -> None:
@@ -103,6 +114,7 @@ class _FakeBaseDriver:
         self.transport = None
         self._connected = False
         self._setup_context = None
+        self._bg_tasks: set = set()
         self.config_updates: list[dict] = []
         self.reconnects = 0
 
@@ -128,6 +140,124 @@ class _FakeBaseDriver:
 
     async def request_reconnect(self) -> None:
         self.reconnects += 1
+
+    # -- lifecycle hooks (drivers override; defaults are no-ops) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    def _create_frame_parser(self):
+        return None
+
+    def _resolve_delimiter(self):
+        return b"\r"  # platform default
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 1024),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=self._resolve_delimiter(),
+            frame_parser=self._create_frame_parser(),
+            timeout=self.config.get("timeout", 5.0),
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
+            name=self.device_id,
+        )
+        # Reference the module-level fake directly — a deferred
+        # server.transport import at test-run time would miss the stubs
+        # (conftest rolls them back after collection).
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    # -- connection lifecycle (mirrors BaseDriver.connect/disconnect) --
+
+    async def connect(self) -> None:
+        # Clean slate: drop any stale session/transport from a previous
+        # attempt before the hooks run.
+        await self._close_session()
+        if self.transport:
+            try:
+                await self.transport.close()
+            except Exception:
+                pass
+            self.transport = None
+
+        await self._pre_connect()
+        await self._create_transport("tcp")
+
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+        except Exception:
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+
+        try:
+            await self._initial_sync()
+        except Exception:
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                try:
+                    await transport.close()
+                except Exception:
+                    pass
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+
+        if self.config.get("poll_interval", 0) > 0:
+            await self.start_polling(self.config["poll_interval"])
+
+    async def disconnect(self) -> None:
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
+
+    def _handle_transport_disconnect(self) -> None:
+        # Platform behavior: flip the flags synchronously, then schedule the
+        # async teardown (which also runs _close_session).
+        self._connected = False
+        self.set_state("connected", False)
+        task = asyncio.get_running_loop().create_task(
+            self._on_disconnect_cleanup())
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
+
+    async def _on_disconnect_cleanup(self) -> None:
+        await self.stop_polling()
+        transport = self.transport
+        self.transport = None
+        if transport is not None:
+            await transport.close()
+        await self._close_session()
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 class _FakeTCPSimulator:
@@ -200,7 +330,8 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.0"
+    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.1"
+    assert DRV.PanasonicPTDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
 
 
 def test_device_settings_declared():
@@ -258,8 +389,11 @@ def test_connect_populates_state():
             assert driver.get_state("input") == "hdmi2"  # code -> friendly
             assert driver.get_state("brightness") == 40
             assert driver.get_state("contrast") == 55
+            # The base declares connected via the canonical event topic.
+            assert "device.connected.proj1" in driver.events.emitted
         finally:
             await driver.disconnect()
+        assert "device.disconnected.proj1" in driver.events.emitted
 
     asyncio.run(go())
 

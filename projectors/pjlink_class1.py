@@ -27,7 +27,6 @@ import json
 from typing import Any
 
 from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -41,7 +40,9 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.5.0",
+        "version": "2.5.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": "Controls any PJLink Class 1 compatible projector.",
         "source_url": "https://pjlink.jbmia.or.jp/english/",
@@ -507,26 +508,17 @@ class PJLinkDriver(BaseDriver):
         self._transition_task: asyncio.Task | None = None
         super().__init__(device_id, config, state, events)
 
-    async def connect(self) -> None:
-        """Connect to the projector, handle auth, query device info."""
-        host = self.config.get("host", "")
-        port = self.config.get("port", 4352)
+    async def _pre_connect(self) -> None:
+        # Arm the greeting capture before the transport exists — the
+        # projector speaks first (PJLINK 0 / PJLINK 1 <random>) and
+        # _handle_greeting_line resolves the event from on_data.
         self._greeting_event.clear()
         self._auth_verdict.clear()
         self._auth_prefix = ""
         self._auth_required = False
         self._auth_failed = False
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_disconnect,
-            delimiter=b"\r",
-            timeout=5.0,
-            name=self.device_id,
-        )
-
+    async def _post_connect(self) -> None:
         # Wait for PJLink greeting (with timeout)
         try:
             await asyncio.wait_for(self._greeting_event.wait(), timeout=5.0)
@@ -552,46 +544,28 @@ class PJLinkDriver(BaseDriver):
             except ConnectionError:
                 pass
             if self._auth_failed:
-                if self.transport:
-                    await self.transport.close()
-                    self.transport = None
                 raise ConnectionError(
                     f"[{self.device_id}] PJLink authentication failed — check "
                     "the password"
                 )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(
-            f"[{self.device_id}] Connected to PJLink projector at {host}:{port}"
-        )
-
+    async def _initial_sync(self) -> None:
         # Query device info (name, manufacturer, product, class, available inputs)
         await self._query_device_info()
 
-        # Start polling
-        poll_interval = self.config.get("poll_interval", 15)
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        """Disconnect from the projector."""
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: stop the power-transition monitor and
+        # disarm the auth state so a reconnect waits for a fresh greeting.
         if self._transition_task and not self._transition_task.done():
             self._transition_task.cancel()
             try:
                 await self._transition_task
             except asyncio.CancelledError:
                 pass
-            self._transition_task = None
-        await self.stop_polling()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        self._transition_task = None
+        self._auth_prefix = ""
+        self._auth_required = False
+        self._auth_failed = False
 
     # --- Internal helpers ---
 
@@ -921,17 +895,3 @@ class PJLinkDriver(BaseDriver):
 
     # --- Disconnect handler ---
 
-    def _handle_disconnect(self) -> None:
-        """Called by the transport when the connection is lost."""
-        if self._transition_task and not self._transition_task.done():
-            self._transition_task.cancel()
-        self._connected = False
-        self.set_state("connected", False)
-        log.warning(f"[{self.device_id}] Connection lost")
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(
-                self.events.emit(f"device.disconnected.{self.device_id}")
-            )
-        except RuntimeError:
-            pass

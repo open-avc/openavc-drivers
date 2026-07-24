@@ -137,8 +137,10 @@ class _FakeTCPTransport:
 
 
 class _FakeBaseDriver:
-    """Functional stand-in for BaseDriver. epson_escvp overrides connect() and
-    builds its own transport, so this only supplies the state/polling helpers."""
+    """Functional stand-in for BaseDriver with the platform's hook-driven
+    connection lifecycle (epson_escvp arms its handshake state machine in
+    _pre_connect, runs the ESC/VP.net handshake in _post_connect, and
+    disarms in _close_session on every teardown)."""
 
     DRIVER_INFO: dict = {}
 
@@ -165,6 +167,103 @@ class _FakeBaseDriver:
 
     async def stop_polling(self) -> None:
         pass
+
+    def _handle_transport_disconnect(self) -> None:
+        self._connected = False
+        self.set_state("connected", False)
+        if self.transport is not None:
+            self.transport.connected = False
+
+    def _stash_transport_error(self) -> None:
+        pass
+
+    # -- connection lifecycle (mirrors the platform's hook-driven connect) --
+
+    async def _pre_connect(self) -> None:
+        pass
+
+    def _transport_kwargs(self, transport_type, kwargs):
+        return kwargs
+
+    def _create_frame_parser(self):
+        return None
+
+    async def _post_connect(self) -> None:
+        pass
+
+    async def _initial_sync(self) -> None:
+        pass
+
+    async def _close_session(self) -> None:
+        pass
+
+    async def _create_transport(self, transport_type) -> None:
+        kwargs = dict(
+            host=self.config.get("host", ""),
+            port=self.config.get("port", 3629),
+            on_data=self.on_data_received,
+            on_disconnect=self._handle_transport_disconnect,
+            delimiter=b"\r",
+            frame_parser=self._create_frame_parser(),
+            inter_command_delay=self.config.get("inter_command_delay", 0.0),
+            timeout=self.config.get("timeout", 5.0),
+            name=self.device_id,
+        )
+        self.transport = await _FakeTCPTransport.create(
+            **self._transport_kwargs(transport_type, kwargs))
+
+    async def connect(self) -> None:
+        # 1. Clean slate: drop a previous attempt's driver session and
+        #    stale transport.
+        await self._close_session()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        # 2-3. Establish: pre-connect hook, then the transport.
+        await self._pre_connect()
+        await self._create_transport("tcp")
+        # 4. Handshake: a raise here aborts the connection.
+        try:
+            await self._post_connect()
+        except Exception:
+            self._stash_transport_error()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        # 5. Declare connected.
+        self._connected = True
+        self.set_state("connected", True)
+        await self.events.emit(f"device.connected.{self.device_id}")
+        # 6. Initial sync: a raise here tears the connection back down.
+        try:
+            await self._initial_sync()
+        except Exception:
+            self._stash_transport_error()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                await transport.close()
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        # 7. Polling (epson supplies no liveness probe, so no watchdog).
+        if self.config.get("poll_interval", 0):
+            await self.start_polling(self.config["poll_interval"])
+
+    async def disconnect(self) -> None:
+        await self.stop_polling()
+        if self.transport:
+            await self.transport.close()
+            self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
 class _FakeTCPSimulator:
@@ -241,7 +340,7 @@ async def _make_pair(driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.4.0"
+    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.4.1"
 
 
 def test_device_settings_declared():

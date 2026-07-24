@@ -79,7 +79,6 @@ from typing import Any
 
 from server.drivers.base import BaseDriver, ConnectionFaultError
 from server.transport.frame_parsers import FrameParser
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -254,10 +253,9 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.0.0",
-        # Typed connection faults + the awaited-probe liveness watchdog
-        # (BaseDriver._liveness_probe) ship in platform 0.22.0.
-        "min_platform_version": "0.22.0",
+        "version": "1.0.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Barco Pulse-platform laser projectors (F70 / F80 "
@@ -962,92 +960,42 @@ class BarcoPulseDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        host = str(self.config.get("host", "")).strip()
-        port = int(self.config.get("port", DEFAULT_PORT))
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
             raise ConnectionError(f"[{self.device_id}] No host configured")
 
-        # Clean slate: close any half-open transport from a previous
-        # attempt and drop stale fault causes.
-        self._last_transport_error = ""
-        self._last_fault = None
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:
-                pass
-            self.transport = None
-        self._available = set()
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Raw byte stream — the JSON-RPC frames are split by the stream
+        # parser, not a line delimiter.
+        kwargs["delimiter"] = None
+        return kwargs
 
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            frame_parser=_JsonStreamParser(),
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _create_frame_parser(self):
+        return _JsonStreamParser()
 
-        try:
-            auth_code = str(self.config.get("auth_code", "")).strip()
-            if auth_code:
-                await self._authenticate(auth_code)
-            await self._read_identification()
-        except Exception:
-            self._stash_transport_error()
-            if self.transport:
-                try:
-                    await self.transport.close()
-                except Exception:
-                    pass
-                self.transport = None
-            self._connected = False
-            raise
+    async def _post_connect(self) -> None:
+        auth_code = str(self.config.get("auth_code", "")).strip()
+        if auth_code:
+            await self._authenticate(auth_code)
+        await self._read_identification()
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(
-            f"[{self.device_id}] Connected to Barco Pulse at {host}:{port}"
-        )
-
+    async def _initial_sync(self) -> None:
         await self._prime_state()
         await self._refresh_source_list()
         await self._subscribe_available()
         await self._poll_environment()
 
-        poll_interval = int(self.config.get("poll_interval", 30))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-        self._start_health_loop()
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        self._stop_health_loop()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: abort in-flight JSON-RPC requests and
+        # forget which properties this unit answered, so a reconnect primes
+        # from scratch.
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:
-                pass
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
-
-    def _handle_transport_disconnect(self) -> None:
-        for fut in self._pending.values():
-            if not fut.done():
-                fut.cancel()
-        self._pending.clear()
-        super()._handle_transport_disconnect()
+        self._available = set()
 
     # ── JSON-RPC plumbing ──
 

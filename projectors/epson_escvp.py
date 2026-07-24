@@ -56,7 +56,6 @@ from typing import Any
 
 from server.drivers.base import BaseDriver
 from server.transport.frame_parsers import CallableFrameParser
-from server.transport.tcp import TCPTransport
 from server.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -174,7 +173,9 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.4.0",
+        "version": "1.4.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Epson business and installation projectors over "
@@ -497,36 +498,35 @@ class EpsonEscVpDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        host = self.config.get("host", "")
-        port = int(self.config.get("port", 3629))
-        delay = float(self.config.get("inter_command_delay", 0.1))
-
+    async def _pre_connect(self) -> None:
+        # Arm the handshake state before the transport exists — the framing
+        # function starts in 16-byte handshake mode and flips to
+        # colon-delimited ESC/VP21 mode once the reply lands.
         self._handshake_complete = False
         self._handshake_event.clear()
         self._handshake_ok = None
         self._pending_queries.clear()
 
-        parser = CallableFrameParser(self._parse_frame)
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            frame_parser=parser,
-            inter_command_delay=delay,
-            timeout=5.0,
-            name=self.device_id,
-        )
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Raw byte stream — framing is handled by the handshake-aware
+        # callable parser, not a line delimiter.
+        kwargs["delimiter"] = None
+        return kwargs
+
+    def _create_frame_parser(self):
+        return CallableFrameParser(self._parse_frame)
+
+    async def _post_connect(self) -> None:
+        host = self.config.get("host", "")
+        port = int(self.config.get("port", 3629))
 
         # Send the handshake immediately and wait for the reply.
         await self.transport.send(HANDSHAKE_REQUEST)
         try:
             await asyncio.wait_for(self._handshake_event.wait(), timeout=5.0)
         except asyncio.TimeoutError:
-            await self.transport.close()
-            self.transport = None
             # Socket opened but the projector never answered the handshake ->
             # no_response (wording matched by core/connection_fault.py).
             raise ConnectionError(
@@ -535,8 +535,6 @@ class EpsonEscVpDriver(BaseDriver):
             )
 
         if not self._handshake_ok:
-            await self.transport.close()
-            self.transport = None
             # A non-ok handshake status (offset 14 != 0x20) means the projector
             # has an ESC/VP.net password set or runs an unsupported protocol
             # version -> auth_failed (wording matched by connection_fault.py).
@@ -547,13 +545,7 @@ class EpsonEscVpDriver(BaseDriver):
                 f"ESC/VP.net password in the projector's web setup."
             )
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(
-            f"[{self.device_id}] Connected to Epson projector at {host}:{port}"
-        )
-
+    async def _initial_sync(self) -> None:
         # Initial sweep so the UI populates. Issue PWR? first and let
         # the response settle before the rest of the poll fans out —
         # the conditional sub-queries in poll() depend on power_state.
@@ -564,23 +556,13 @@ class EpsonEscVpDriver(BaseDriver):
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
-        poll_interval = int(self.config.get("poll_interval", 30))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        if self.transport:
-            await self.transport.close()
-            self.transport = None
-        self._connected = False
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: disarm the handshake state machine and
+        # drop queued queries so a reconnect starts a fresh handshake.
         self._handshake_complete = False
         self._handshake_event.clear()
         self._handshake_ok = None
         self._pending_queries.clear()
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     # ── Frame parsing ──
 
@@ -820,18 +802,3 @@ class EpsonEscVpDriver(BaseDriver):
                 f"(pending={pending!r})"
             )
 
-    def _handle_transport_disconnect(self) -> None:
-        self._connected = False
-        self._handshake_complete = False
-        self._handshake_event.clear()
-        self._handshake_ok = None
-        self._pending_queries.clear()
-        self.set_state("connected", False)
-        log.warning(f"[{self.device_id}] Connection lost")
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(
-                self.events.emit(f"device.disconnected.{self.device_id}")
-            )
-        except RuntimeError:
-            pass

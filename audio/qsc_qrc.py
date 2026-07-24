@@ -333,11 +333,10 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.3.0",
-        # Requires the `type: table` config-field editor (Named Controls;
-        # 0.23.0), which supersedes the typed-connection-faults (0.22.0) and
-        # runtime-discovered child-entity (0.19.4) requirements.
-        "min_platform_version": "0.23.0",
+        "version": "4.3.1",
+        # The connection lifecycle hooks this driver overrides landed in
+        # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) — "
@@ -692,42 +691,18 @@ class QSCQRCDriver(BaseDriver):
 
     # ── Lifecycle ──
 
-    async def connect(self) -> None:
-        from server.transport.tcp import TCPTransport
-        from server.system_config import get_system_config
-
-        host = str(self.config.get("host", "")).strip()
-        port = int(self.config.get("port", DEFAULT_PORT))
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
             raise ConnectionError(f"[{self.device_id}] No host configured")
 
-        delay = float(self.config.get(
-            "inter_command_delay", DEFAULT_INTER_COMMAND_DELAY))
-        control_ip = get_system_config().get("network", "control_interface")
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # QRC frames are NUL-terminated JSON, not CR-delimited lines.
+        kwargs["delimiter"] = FRAME_TERMINATOR
+        return kwargs
 
-        # Clean slate: a custom connect() must do what BaseDriver.connect()
-        # does — close any half-open transport from a previous attempt and
-        # drop stale fault causes so they can't color this attempt's
-        # offline-reason classification.
-        self._last_transport_error = ""
-        self._last_fault = None
-        if self.transport:
-            try:
-                await self.transport.close()
-            except Exception:
-                pass
-            self.transport = None
-
-        self.transport = await TCPTransport.create(
-            host=host, port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=FRAME_TERMINATOR,
-            inter_command_delay=delay,
-            name=self.device_id,
-            local_addr=(control_ip, 0) if control_ip else None,
-        )
-
+    async def _post_connect(self) -> None:
         # Optional Logon BEFORE reporting connected. Q-SYS uses sticky
         # session auth — once Logon succeeds every command on this socket is
         # authenticated. A rejected logon must fail the attempt outright
@@ -736,49 +711,29 @@ class QSCQRCDriver(BaseDriver):
         # reconnect backoff and leaked one socket per attempt.
         username = str(self.config.get("username", "")).strip()
         password = str(self.config.get("password", ""))
-        try:
-            if username:
-                await self._do_logon(username, password)
-            else:
-                self.set_state("logon_ok", True)
-        except Exception:
-            self._stash_transport_error()
-            if self.transport:
-                try:
-                    await self.transport.close()
-                except Exception:
-                    pass
-                self.transport = None
-            self._connected = False
-            raise
+        if username:
+            await self._do_logon(username, password)
+        else:
+            self.set_state("logon_ok", True)
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Q-SYS Core at {host}:{port}")
-
+    async def _initial_sync(self) -> None:
         await self._do_status_get()
         await self._discover_topology()
 
-        poll_interval = int(self.config.get("poll_interval", 0))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-        # Client-side NoOp keep-alive + liveness probe runs for the life of
-        # the connection (see HEALTH_INTERVAL_S): AutoPoll is core->client
-        # only, so without it the Core closes the socket every 60 s (flap)
-        # and a vanished Core is never noticed. Started explicitly because
-        # this custom connect() never runs BaseDriver.connect()'s auto-start.
-        self._start_health_loop()
-
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        self._stop_health_loop()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: abort in-flight id-correlated
+        # requests and forget the discovered topology so a reconnect
+        # rediscovers it.
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
+        self.set_state("topology_loaded", False)
 
+    async def disconnect(self) -> None:
+        # Politely destroy our change groups while the socket is still open
+        # — the Core keeps orphaned groups alive otherwise. Failure is
+        # benign on a torn-down link.
         if self.transport:
             try:
                 for gid in (MAIN_CHANGE_GROUP, NAMED_CHANGE_GROUP,
@@ -791,26 +746,7 @@ class QSCQRCDriver(BaseDriver):
                         break
             except (ConnectionError, OSError):
                 pass
-            try:
-                await self.transport.close()
-            except Exception:
-                pass
-            self.transport = None
-
-        self._connected = False
-        self.set_state("connected", False)
-        self.set_state("topology_loaded", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
-
-    def _handle_transport_disconnect(self) -> None:
-        # BaseDriver's disconnect cleanup stops the health loop; this
-        # override only cancels the id-correlated response futures.
-        for fut in self._pending.values():
-            if not fut.done():
-                fut.cancel()
-        self._pending.clear()
-        super()._handle_transport_disconnect()
+        await super().disconnect()
 
     # ── JSON-RPC plumbing ──
 

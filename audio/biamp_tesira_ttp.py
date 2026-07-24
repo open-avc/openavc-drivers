@@ -866,9 +866,10 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.1.0",
-        # The `type: table` block-list editor is a 0.23.0 platform feature.
-        "min_platform_version": "0.23.0",
+        "version": "3.1.1",
+        # The connection lifecycle hooks this driver overrides landed in
+        # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
+        "min_platform_version": "0.24.0",
         "author": "OpenAVC",
         "description": (
             "Controls Biamp Tesira and TesiraFORTÉ DSPs over the Tesira "
@@ -1205,48 +1206,26 @@ class BiampTesiraTTPDriver(BaseDriver):
         self._auth_event = asyncio.Event()
         self._auth_mode = False
 
-    async def connect(self) -> None:
-        """Open the TCP connection, run the IAC handshake, subscribe."""
-        from server.transport.tcp import TCPTransport
-        from server.system_config import get_system_config
-
-        host = str(self.config.get("host", "")).strip()
-        port = int(self.config.get("port", 23))
-        if not host:
+    async def _pre_connect(self) -> None:
+        if not str(self.config.get("host", "")).strip():
             raise ConnectionError(f"[{self.device_id}] No host configured")
-
-        delay = float(self.config.get("inter_command_delay", DEFAULT_INTER_COMMAND_DELAY))
-        control_ip = get_system_config().get("network", "control_interface")
-
+        # Arm the banner capture BEFORE the transport exists — IAC bytes and
+        # the welcome banner arrive immediately on connect.
         self._auth_buffer = bytearray()
         self._auth_event = asyncio.Event()
         self._auth_mode = True
 
+    def _transport_kwargs(
+        self, transport_type: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
         # Open in raw mode (delimiter=None) — IAC bytes arrive in arbitrary
         # frames and we need to see them byte-for-byte.
-        self.transport = await TCPTransport.create(
-            host=host,
-            port=port,
-            on_data=self.on_data_received,
-            on_disconnect=self._handle_transport_disconnect,
-            delimiter=None,
-            inter_command_delay=delay,
-            name=self.device_id,
-            local_addr=(control_ip, 0) if control_ip else None,
-        )
+        kwargs["delimiter"] = None
+        return kwargs
 
+    async def _post_connect(self) -> None:
         # Run the IAC + welcome-banner handshake.
-        try:
-            await self._run_iac_handshake(timeout=10.0)
-        except Exception:
-            self._auth_mode = False
-            if self.transport:
-                try:
-                    await self.transport.close()
-                except Exception:
-                    pass
-                self.transport = None
-            raise
+        await self._run_iac_handshake(timeout=10.0)
 
         # Swap the transport's frame parser to \r\n delimiter mode for
         # normal command/response framing. Mirrors the parser-swap pattern
@@ -1265,18 +1244,7 @@ class BiampTesiraTTPDriver(BaseDriver):
             for msg in new_parser.feed(leftover):
                 await self.on_data_received(msg)
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to Tesira at {host}:{port}")
-
-        # A session that died with unanswered GETs leaves stale entries at
-        # the head of the FIFO — they'd eat this session's first replies
-        # and mis-route values. Reconnect starts from a clean queue.
-        self._pending_gets.clear()
-        self._probe_entry = None
-        self._probe_fut = None
-
+    async def _initial_sync(self) -> None:
         # Settle the session: turn off verbose so we don't get echoes,
         # then probe for serial / firmware (best-effort, ignore errors).
         try:
@@ -1301,34 +1269,27 @@ class BiampTesiraTTPDriver(BaseDriver):
         # current values immediately.
         await self._initial_get_all()
 
-        poll_interval = int(self.config.get("poll_interval", 0))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
-
-        # Tesira never closes an idle session and pushes are DSP->client
-        # only, so a link that dies without a FIN (cable pull, power loss)
-        # looks identical to a healthy idle one. The watchdog probes
-        # `DEVICE get version` and reconnects after consecutive misses.
-        self._start_health_loop()
+    async def _close_session(self) -> None:
+        # Runs on every teardown path: disarm the banner capture and start
+        # the next session from a clean GET queue — a session that died with
+        # unanswered GETs leaves stale entries at the head of the FIFO that
+        # would eat the next session's first replies and mis-route values.
+        self._auth_mode = False
+        self._auth_buffer = bytearray()
+        self._pending_gets.clear()
+        self._probe_entry = None
+        if self._probe_fut is not None and not self._probe_fut.done():
+            self._probe_fut.cancel()
+        self._probe_fut = None
 
     async def disconnect(self) -> None:
-        self._stop_health_loop()
-        await self.stop_polling()
         if self.transport:
             try:
                 # Polite quit so the device frees its session slot promptly.
                 await self._send_line("SESSION quit")
             except (ConnectionError, OSError):
                 pass
-            try:
-                await self.transport.close()
-            except Exception:
-                pass
-            self.transport = None
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
+        await super().disconnect()
 
     # ── IAC handshake ──
 

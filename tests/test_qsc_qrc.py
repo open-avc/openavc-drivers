@@ -30,6 +30,42 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "qsc_qrc_qrc.json"
 
 # ── Stub server.* with an in-memory BaseDriver that mimics child semantics ──
 
+class _FakeEvents:
+    """Records the canonical device.connected/disconnected emissions."""
+
+    def __init__(self) -> None:
+        self.emitted: list[str] = []
+
+    async def emit(self, name, *args, **kwargs):
+        self.emitted.append(name)
+
+
+class _FakeQRCTransport:
+    """Minimal transport for the connect/disconnect lifecycle tests.
+
+    Records constructor kwargs (so tests can assert _transport_kwargs applied
+    the NUL delimiter) and raw writes; protocol logic in these tests runs
+    through a monkeypatched _send_jsonrpc, so no wire behavior is needed.
+    """
+
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.connected = True
+        self.sent: list[bytes] = []
+
+    @classmethod
+    async def create(cls, **kwargs):
+        return cls(**kwargs)
+
+    async def send(self, data) -> None:
+        if not self.connected:
+            raise ConnectionError("transport closed")
+        self.sent.append(bytes(data))
+
+    async def close(self) -> None:
+        self.connected = False
+
+
 def _install_server_stubs() -> None:
     if "server.drivers.base" in sys.modules:
         return
@@ -69,6 +105,7 @@ def _install_server_stubs() -> None:
             self.stashed_fault: tuple | None = None
             self._health_task = None
             self._health_failures = 0
+            self._bg_tasks: set = set()
             self._children: dict = {}          # (type, id) -> dict(state)
             self._schemas: dict = {}           # (type, id) -> schema
             self._order: dict = {}             # type -> [ids in order]
@@ -194,9 +231,154 @@ def _install_server_stubs() -> None:
             self._handle_transport_disconnect()
 
         def _handle_transport_disconnect(self):
+            # Mirrors the platform: flip the flags synchronously, then
+            # schedule the async teardown (stop loops, close+null transport,
+            # close the driver session, emit the disconnect event).
             self._connected = False
+            self.set_state("connected", False)
             if self.transport is not None:
                 self.transport.connected = False
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                return
+            task = loop.create_task(self._on_disconnect_cleanup())
+            self._bg_tasks.add(task)
+            task.add_done_callback(self._bg_tasks.discard)
+
+        async def _on_disconnect_cleanup(self):
+            self._stop_health_loop()
+            await self._stop_push()
+            await self.stop_polling()
+            transport = self.transport
+            self.transport = None
+            if transport is not None:
+                try:
+                    await transport.close()
+                except Exception:
+                    pass
+            await self._close_session()
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+
+        # -- connection lifecycle (mirrors BaseDriver.connect/disconnect
+        # stage order; the hook defaults are no-ops the driver overrides) --
+
+        async def start_polling(self, interval):
+            pass
+
+        async def stop_polling(self):
+            pass
+
+        async def _stop_push(self):
+            pass
+
+        async def _pre_connect(self):
+            pass
+
+        def _transport_kwargs(self, transport_type, kwargs):
+            return kwargs
+
+        async def _post_connect(self):
+            pass
+
+        async def _initial_sync(self):
+            pass
+
+        async def _close_session(self):
+            pass
+
+        def _resolve_delimiter(self):
+            return b"\r"
+
+        async def _create_transport(self, transport_type):
+            kwargs = dict(
+                host=self.config.get("host", ""),
+                port=self.config.get("port", 1710),
+                on_data=self.on_data_received,
+                on_disconnect=self._handle_transport_disconnect,
+                delimiter=self._resolve_delimiter(),
+                frame_parser=None,
+                timeout=self.config.get("timeout", 5.0),
+                inter_command_delay=self.config.get(
+                    "inter_command_delay", 0.0),
+                name=self.device_id,
+                local_addr=None,
+            )
+            # The module-level fake is referenced directly — a deferred
+            # `from server.transport...` import at test-run time would miss
+            # the collection-time stubs.
+            self.transport = await _FakeQRCTransport.create(
+                **self._transport_kwargs(transport_type, kwargs))
+
+        async def connect(self):
+            # 1. Clean slate — a retry must not inherit a stale
+            # session/transport.
+            await self._stop_push()
+            await self._close_session()
+            if self.transport:
+                try:
+                    await self.transport.close()
+                except Exception:
+                    pass
+                self.transport = None
+            # 2-3. Establish.
+            await self._pre_connect()
+            transport_type = self.config.get(
+                "transport") or self.DRIVER_INFO.get("transport", "tcp")
+            await self._create_transport(transport_type)
+            # 4. Handshake before `connected` is declared; a raise tears
+            # the attempt down.
+            try:
+                await self._post_connect()
+            except Exception:
+                if self.transport:
+                    try:
+                        await self.transport.close()
+                    except Exception:
+                        pass
+                    self.transport = None
+                await self._close_session()
+                self._connected = False
+                raise
+            # 5. Declare.
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+            # 6. Initial sync; a raise tears the connection back down.
+            try:
+                await self._initial_sync()
+            except Exception:
+                await self._stop_push()
+                transport = self.transport
+                self.transport = None
+                if transport is not None:
+                    try:
+                        await transport.close()
+                    except Exception:
+                        pass
+                await self._close_session()
+                self._connected = False
+                self.set_state("connected", False)
+                await self.events.emit(
+                    f"device.disconnected.{self.device_id}")
+                raise
+            # 7. Polling + liveness watchdog.
+            if self.config.get("poll_interval", 0) > 0:
+                await self.start_polling(self.config["poll_interval"])
+            if self._health_enabled():
+                self._start_health_loop()
+
+        async def disconnect(self):
+            self._stop_health_loop()
+            await self._stop_push()
+            await self.stop_polling()
+            if self.transport:
+                await self.transport.close()
+                self.transport = None
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
 
         def set_children_state_batch(self, updates):
             for ctype, lid, ups in updates:
@@ -254,7 +436,7 @@ def _make_driver(config=None):
     cfg = {"host": "10.0.0.5", "port": 1710}
     if config:
         cfg.update(config)
-    return qsc.QSCQRCDriver("qsys", cfg, object(), object())
+    return qsc.QSCQRCDriver("qsys", cfg, object(), _FakeEvents())
 
 
 # ── Pure helpers ──
@@ -646,6 +828,113 @@ def test_force_disconnect_nulls_task_and_fires_handler():
     # disconnect has no exception to carry the cause.
     assert drv.stashed_fault is not None
     assert drv.stashed_fault[0] == "no_response"
+
+
+# ── Connection lifecycle (platform hook adoption) ──
+# The driver no longer overrides connect(); it participates through the
+# BaseDriver hooks (_pre_connect / _transport_kwargs / _post_connect /
+# _initial_sync / _close_session) plus a thin disconnect() that destroys its
+# change groups while the socket is still open.
+
+def _wire_fake_send(drv, sent):
+    """Route _send_jsonrpc through a recorder that answers from the fixture.
+
+    Each entry is (method, params, socket_open_at_send_time) so disconnect
+    ordering — goodbye writes BEFORE teardown — is assertable.
+    """
+    async def fake_send(method, params=None, expect_response=True, timeout=5.0):
+        sent.append((method, params,
+                     drv.transport is not None and drv.transport.connected))
+        if method == "StatusGet":
+            return FX["status_get_result"]
+        if method == "Component.GetComponents":
+            return FX["get_components_result"]
+        if method == "Component.GetControls":
+            return FX["get_controls"][params["Name"]]
+        return {}
+    drv._send_jsonrpc = fake_send  # type: ignore[assignment]
+
+
+def test_connect_runs_hooks_and_disconnect_says_goodbye_first():
+    drv = _make_driver()
+    sent: list = []
+    _wire_fake_send(drv, sent)
+
+    async def scenario():
+        await drv.connect()
+        # _transport_kwargs swapped the default \r delimiter for QRC's NUL.
+        assert drv.transport.kwargs["delimiter"] == qsc.FRAME_TERMINATOR
+        # Canonical declare: flag, state key, device.connected event.
+        assert drv._connected is True
+        assert drv.get_state("connected") is True
+        assert drv.events.emitted == [f"device.connected.{drv.device_id}"]
+        # No username -> _post_connect declares logon ok without a Logon call.
+        assert drv.get_state("logon_ok") is True
+        methods = [m for m, _p, _o in sent]
+        assert "Logon" not in methods
+        # _initial_sync ran: StatusGet + topology import + change group.
+        assert "StatusGet" in methods
+        assert "Component.GetComponents" in methods
+        assert drv.get_state("topology_loaded") is True
+        assert drv.get_state("core_platform") == "Core 24f"
+        assert drv.get_state("component_count") == 5
+        # The liveness watchdog auto-armed (the driver overrides
+        # _liveness_probe).
+        assert drv._health_task is not None and not drv._health_task.done()
+
+        # A pending id-correlated request must be aborted by teardown.
+        fut = asyncio.get_event_loop().create_future()
+        drv._pending[99] = fut
+
+        sent.clear()
+        await drv.disconnect()
+        # The goodbye ChangeGroup.Destroy writes went out while the socket
+        # was still open...
+        destroys = [(p, open_) for m, p, open_ in sent
+                    if m == "ChangeGroup.Destroy"]
+        assert {p["Id"] for p, _ in destroys} == {
+            qsc.MAIN_CHANGE_GROUP, qsc.NAMED_CHANGE_GROUP}
+        assert all(open_ for _p, open_ in destroys)
+        # ...then the platform teardown ran: transport closed and nulled,
+        # session closed (futures cancelled, topology flag reset), canonical
+        # disconnect event, watchdog stopped.
+        assert drv.transport is None
+        assert drv._connected is False
+        assert drv.get_state("connected") is False
+        assert drv.get_state("topology_loaded") is False
+        assert fut.cancelled()
+        assert drv._pending == {}
+        assert drv.events.emitted[-1] == f"device.disconnected.{drv.device_id}"
+        assert drv._health_task is None
+
+    asyncio.run(scenario())
+
+
+def test_failed_logon_aborts_connect_with_auth_fault():
+    drv = _make_driver({"username": "admin", "password": "wrong"})
+    sent: list = []
+
+    async def fake_send(method, params=None, expect_response=True, timeout=5.0):
+        sent.append(method)
+        if method == "Logon":
+            raise qsc.QRCError({"code": 10, "message": "Logon required"})
+        return {}
+    drv._send_jsonrpc = fake_send  # type: ignore[assignment]
+
+    async def scenario():
+        with pytest.raises(ConnectionError) as ei:
+            await drv.connect()
+        # Typed fault: maps straight to offline_reason=auth_failed.
+        assert ei.value.fault_code == "auth_failed"
+        assert drv.get_state("logon_ok") is False
+        # The failed handshake tore the attempt down: transport closed and
+        # nulled, never reported connected, and _initial_sync never ran.
+        assert drv.transport is None
+        assert drv._connected is False
+        assert drv.events.emitted == []
+        assert "StatusGet" not in sent
+
+    asyncio.run(scenario())
 
 
 # ── Param pickers (platform §69 Phase 2 adoption) ──

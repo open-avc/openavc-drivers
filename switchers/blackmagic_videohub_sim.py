@@ -89,7 +89,13 @@ class BlackmagicVideohubSimulator(TCPSimulator):
 
     # ── Read each line, blank lines included ──
 
-    async def _read_messages(self, reader: asyncio.StreamReader):
+    async def _read_messages(
+        self, reader: asyncio.StreamReader,
+        buffer: bytearray | None = None,
+    ):
+        # readline() keeps its own partial-line buffer across reads, so the
+        # base's cross-read `buffer` isn't needed here — accept it to match
+        # the base signature (the base always passes it in).
         try:
             raw = await asyncio.wait_for(reader.readline(), timeout=30.0)
         except asyncio.TimeoutError:

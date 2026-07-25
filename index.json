@@ -2944,7 +2944,7 @@
       "name": "SoundCoreHero Audio System",
       "manufacturer": "Hero AV",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "Wiktor Myszolow (Hero AV)",
       "transport": "tcp",
       "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
@@ -2954,7 +2954,7 @@
       "protocols": [
         "soundcorehero"
       ],
-      "min_platform_version": "0.13.0",
+      "min_platform_version": "0.24.0",
       "help": {
         "overview": "SoundCoreHero is a professional multi-zone audio distribution and management system. This driver exposes its zones, players, speakers and inputs as child entities, controls volume/mute/transport, and plays announcements.",
         "setup": "1. Note the device IP. By default only HTTPS (port 443) is enabled.\n2. Create or pick a user account in Settings -> Users. The driver logs in with that account's email and password to obtain a session (required by the control WebSocket).\n3. Enter IP, email and password. Leave 'Verify SSL' off if the device uses its default self-signed certificate."
@@ -3249,7 +3249,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.1.0",
+      "version": "4.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",

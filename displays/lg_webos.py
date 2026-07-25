@@ -125,7 +125,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.1.0",
+        "version": "4.1.1",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -297,62 +297,68 @@ class LgWebosDriver(BaseDriver):
         data_dir = get_system_config().data_dir
         self._key_path = os.path.join(data_dir, f"lg_webos_key_{self.device_id}.txt")
 
-    async def connect(self) -> None:
-        self._last_transport_error = ""
+    # The connection lifecycle runs through the platform's connect() hooks (the
+    # driver owns a self-managed WebSocket, so it leaves self.transport None and
+    # reports its own socket via _link_alive / _close_session).
+    async def _pre_connect(self) -> None:
+        # Fresh attempt: clear the graceful-close flag and confirm the TV is
+        # actually reachable before we open the control socket. A TV in deep
+        # standby closes the port — that is 'offline, wake it', not a hard fault,
+        # so a plain ConnectionError stays retryable.
         self._closing = False
         host = str(self.config.get("host", "")).strip()
         port = int(self.config.get("port", 3001))
         if not host:
             raise ConnectionFaultError(
                 "No IP address is set for the TV.", code="invalid_config")
-
-        # A TV in deep standby closes the control port — that is 'offline, wake
-        # it', not a hard fault. A plain ConnectionError stays retryable.
         if not await self._verify_reachable(host, port, timeout=3.0):
             raise ConnectionError(
                 f"TV at {host}:{port} is not reachable — it may be in standby "
                 f"(use Wake-on-LAN to power it on).")
 
+    async def _create_transport(self, transport_type: str) -> None:
+        host = str(self.config.get("host", "")).strip()
+        port = int(self.config.get("port", 3001))
         scheme = "wss" if self.config.get("ssl", True) else "ws"
         url = f"{scheme}://{host}:{port}"
-        try:
-            self._ws = await websockets.connect(
-                url,
-                ssl=self._ssl_ctx() if scheme == "wss" else None,
-                open_timeout=6.0,
-                max_size=None,
-                ping_interval=20,
-                ping_timeout=10,
-            )
-            # Pair BEFORE the reader loop starts: the register handshake has its
-            # own interim frames that the id-correlated dispatch shouldn't see.
-            await self._register()
-            self._reader_task = asyncio.create_task(self._read_loop())
-        except Exception:
-            await self._teardown_connection()
-            raise
+        self._ws = await websockets.connect(
+            url,
+            ssl=self._ssl_ctx() if scheme == "wss" else None,
+            open_timeout=6.0,
+            max_size=None,
+            ping_interval=20,
+            ping_timeout=10,
+        )
 
-        self._connected = True
-        self.set_state("connected", True)
+    async def _post_connect(self) -> None:
+        # Pair BEFORE the reader loop starts: the register handshake has its own
+        # interim frames that the id-correlated dispatch shouldn't see. A raise
+        # aborts the connect (the platform closes the socket via _close_session).
+        await self._register()
+        self._reader_task = asyncio.create_task(self._read_loop())
         self.set_state("paired", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
-        log.info(f"[{self.device_id}] Connected to webOS TV at {host}:{port}")
 
+    async def _initial_sync(self) -> None:
         # One-time metadata + picker lists, then subscribe for live feedback.
+        # Runs after `connected` is declared but before polling; the liveness
+        # watchdog auto-starts afterward (we override _liveness_probe).
         await self._load_metadata()
         await self._subscribe_all()
-        self._start_health_loop()
+
+    def _link_alive(self) -> bool:
+        # Backs both `connected` and the liveness watchdog's while-loop, so a
+        # torn-down socket (self._ws is None) must read as not-alive — _ws_is_open
+        # treats a bare None as open via its legacy fallback.
+        return self._ws is not None and _ws_is_open(self._ws)
 
     async def disconnect(self) -> None:
+        # Mark graceful so the reader loop's drop handler doesn't fire a
+        # reconnect, then run the platform's standard teardown.
         self._closing = True
-        self._stop_health_loop()
-        await self._teardown_connection()
-        self._connected = False
-        self.set_state("connected", False)
+        await super().disconnect()
+        # Pairing and power state only mean anything while connected.
         self.set_state("paired", False)
         self.set_state("power", "off")
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-        log.info(f"[{self.device_id}] Disconnected")
 
     def _handle_transport_disconnect(self) -> None:
         # The WebSocket dropped (reader loop ended). Cancel in-flight requests
@@ -363,8 +369,13 @@ class LgWebosDriver(BaseDriver):
         self._pointer_ws = None
         super()._handle_transport_disconnect()
 
-    async def _teardown_connection(self) -> None:
-        """Close both sockets and the reader task without touching driver state."""
+    async def _close_session(self) -> None:
+        """Close both sockets and the reader task without touching driver state.
+
+        Called on every platform teardown path (fresh connect, failed
+        handshake, graceful disconnect, transport-drop cleanup); tolerant of
+        nothing being open.
+        """
         self._fail_pending()
         self._subs.clear()
         task = self._reader_task

@@ -57,6 +57,11 @@ class _FakeFault(Exception):
 
 
 class _FakeBaseDriver:
+    """Functional stand-in for the platform BaseDriver, mirroring the
+    connect() lifecycle the migrated driver relies on (it has no connect() of
+    its own anymore — the platform runs the hooks it overrides).
+    """
+
     DRIVER_INFO: dict = {}
 
     def __init__(self, device_id, config, state, events) -> None:
@@ -67,7 +72,10 @@ class _FakeBaseDriver:
         self.transport = None
         self._connected = False
         self._last_transport_error = ""
+        self.health_starts = 0
+        self.polling_starts = 0
 
+    # State helpers -------------------------------------------------------
     def set_state(self, key, value):
         self.state.set(f"device.{self.device_id}.{key}", value)
 
@@ -78,14 +86,102 @@ class _FakeBaseDriver:
     def get_state(self, key, default=None):
         return self.state.data.get(f"device.{self.device_id}.{key}", default)
 
+    @property
+    def connected(self) -> bool:
+        return bool(self._connected) and self._link_alive()
+
     async def _verify_reachable(self, *a, **k):
         return True
 
+    # Lifecycle hook defaults (the driver overrides the ones it needs) ----
+    async def _pre_connect(self):
+        return None
+
+    async def _create_transport(self, transport_type):
+        return None
+
+    async def _post_connect(self):
+        return None
+
+    async def _initial_sync(self):
+        return None
+
+    async def _close_session(self):
+        return None
+
+    def _link_alive(self):
+        return self.transport is not None
+
+    async def _start_push(self):
+        return None
+
+    async def _stop_push(self):
+        return None
+
+    async def start_polling(self, interval):
+        self.polling_starts += 1
+
+    async def stop_polling(self):
+        return None
+
+    async def _liveness_probe(self):
+        raise NotImplementedError
+
+    def _health_enabled(self) -> bool:
+        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
+
     def _start_health_loop(self):
-        pass
+        self.health_starts += 1
 
     def _stop_health_loop(self):
         pass
+
+    # The hook-driven connect / disconnect the platform runs --------------
+    async def connect(self):
+        self._last_transport_error = ""
+        await self._stop_push()
+        await self._close_session()
+        self.transport = None
+        await self._pre_connect()
+        transport_type = self.config.get("transport") or self.DRIVER_INFO.get(
+            "transport", "tcp")
+        await self._create_transport(transport_type)
+        try:
+            await self._post_connect()
+            self._connected = True
+            self.set_state("connected", True)
+            await self.events.emit(f"device.connected.{self.device_id}")
+        except Exception:
+            self.transport = None
+            await self._close_session()
+            self._connected = False
+            raise
+        await self._start_push()
+        try:
+            await self._initial_sync()
+        except Exception:
+            await self._stop_push()
+            self.transport = None
+            await self._close_session()
+            self._connected = False
+            self.set_state("connected", False)
+            await self.events.emit(f"device.disconnected.{self.device_id}")
+            raise
+        poll_interval = self.config.get("poll_interval", 0)
+        if poll_interval > 0:
+            await self.start_polling(poll_interval)
+        if self._health_enabled():
+            self._start_health_loop()
+
+    async def disconnect(self):
+        self._stop_health_loop()
+        await self._stop_push()
+        await self.stop_polling()
+        self.transport = None
+        await self._close_session()
+        self._connected = False
+        self.set_state("connected", False)
+        await self.events.emit(f"device.disconnected.{self.device_id}")
 
     def _handle_transport_disconnect(self):
         self._connected = False
@@ -374,3 +470,89 @@ def test_discovery_block_declares_cert_probe():
     assert disc["tcp_probe"]["tls"] is True
     assert disc["tcp_probe"]["cert_subject"] == r"CN=LGE TV SSG"
     assert "urn:lge-com:service:webos-second-screen:1" in disc["ssdp"]
+
+
+# ── Connection lifecycle (hook wiring) ──────────────────────────────────────
+#
+# The driver no longer owns a connect() — the platform runs its lifecycle
+# hooks. These drive the fake platform connect()/disconnect() (the real socket
+# / sim round trip is exercised against hardware and the simulator, not here)
+# and prove the hooks wire up: pair -> reader armed -> connected declared ->
+# metadata/subscribe, watchdog started, and a clean teardown.
+
+class _FakeWs:
+    """Minimal stand-in for a websockets client connection."""
+
+    def __init__(self) -> None:
+        self.state = SimpleNamespace(name="OPEN")
+        self.closed = False
+
+    async def close(self) -> None:
+        self.closed = True
+        self.state = SimpleNamespace(name="CLOSED")
+
+
+def test_connect_runs_lifecycle_hooks(monkeypatch):
+    d = _driver()
+    fake_ws = _FakeWs()
+
+    async def fake_connect(*a, **k):
+        return fake_ws
+
+    async def noop(*a, **k):
+        return None
+
+    monkeypatch.setattr(_MOD.websockets, "connect", fake_connect)
+    monkeypatch.setattr(d, "_register", noop)      # pairing handshake
+    monkeypatch.setattr(d, "_read_loop", noop)     # reader body not exercised
+    monkeypatch.setattr(d, "_load_metadata", noop)
+    monkeypatch.setattr(d, "_subscribe_all", noop)
+
+    async def go():
+        await d.connect()
+        assert d.get_state("connected") is True
+        assert d.get_state("paired") is True
+        assert d._ws is fake_ws
+        assert d._link_alive() is True
+        assert d.connected is True
+        assert d._reader_task is not None
+        # Liveness watchdog auto-starts (the driver overrides _liveness_probe).
+        assert d.health_starts == 1
+
+        await d.disconnect()
+        assert d._closing is True
+        assert d.get_state("connected") is False
+        assert d.get_state("paired") is False
+        assert d.get_state("power") == "off"
+        assert fake_ws.closed is True
+        assert d._link_alive() is False
+
+    asyncio.run(go())
+
+
+def test_connect_pairing_failure_tears_down(monkeypatch):
+    d = _driver()
+    fake_ws = _FakeWs()
+
+    async def fake_connect(*a, **k):
+        return fake_ws
+
+    async def boom(*a, **k):
+        raise ConnectionError("pairing rejected")
+
+    monkeypatch.setattr(_MOD.websockets, "connect", fake_connect)
+    monkeypatch.setattr(d, "_register", boom)
+
+    async def go():
+        try:
+            await d.connect()
+        except ConnectionError:
+            pass
+        else:
+            raise AssertionError("connect should have raised")
+        # Aborted mid-handshake: never declared connected, socket closed.
+        assert d.get_state("connected") in (None, False)
+        assert fake_ws.closed is True
+        assert d._ws is None
+
+    asyncio.run(go())

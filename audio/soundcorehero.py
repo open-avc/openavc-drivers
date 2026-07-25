@@ -147,15 +147,16 @@ class SoundCoreHeroDriver(BaseDriver):
         "name": "SoundCoreHero Audio System",
         "manufacturer": "Hero AV",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "Wiktor Myszolow (Hero AV)",
         "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
         "source_url": "https://soundcorehero.com",
-        # Child entities (register_child / child_entity_types) require the
-        # platform's child-entity runtime, which shipped in 0.13.0. The tls:
-        # discovery probe needs 0.15.0 but degrades gracefully on older
-        # instances (they skip the hint), so it does NOT raise this floor.
-        "min_platform_version": "0.13.0",
+        # The connection lifecycle runs through the platform's connect() hooks
+        # (_create_transport / _post_connect / _close_session / _link_alive),
+        # which the platform only invokes from 0.24.0 on — an earlier build
+        # would never open the session. (Child entities need 0.13.0 and the
+        # tls: discovery probe 0.15.0; both are subsumed by this floor.)
+        "min_platform_version": "0.24.0",
         "transport": "tcp",  # nominal; real I/O is custom httpx + websockets
         "help": {
             "overview": (
@@ -1627,7 +1628,8 @@ class SoundCoreHeroDriver(BaseDriver):
     # ------------------------------------------------------------------ #
     # Lifecycle
     # ------------------------------------------------------------------ #
-    async def connect(self) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self._session_id: Optional[str] = None
         self._receiver_id = str(uuidlib.uuid4())
         self._ws_task: Optional[asyncio.Task] = None
@@ -1646,49 +1648,58 @@ class SoundCoreHeroDriver(BaseDriver):
         # dsoUpdate JSON-Patch arrays are applied on top.
         self._dso_cache: dict[str, Any] = {}
 
+    # ------------------------------------------------------------------ #
+    # Connection lifecycle (platform hooks)
+    #
+    # The driver owns its I/O — an httpx client for REST commands and a control
+    # WebSocket that streams the resource graph — so it builds those in the
+    # hooks and leaves self.transport None (reporting the client via
+    # _link_alive and tearing everything down in _close_session).
+    # ------------------------------------------------------------------ #
+    async def _create_transport(self, transport_type: str) -> None:
         host = self.config.get("host", "")
         port = int(self.config.get("port", 443))
         verify = self._as_bool(self.config.get("verify_ssl", False))
         base_url = f"https://{host}:{port}"
-
+        self._receiver_id = str(uuidlib.uuid4())
         self._client = httpx.AsyncClient(base_url=base_url, verify=verify, timeout=10.0)
 
+    async def _post_connect(self) -> None:
         # 1. Log in to obtain a session (required by the control WebSocket).
         await self._login()
 
         # 2. Start the WebSocket receiver. It performs the auth hand-shake and
         #    consumes the initial snapshot + incremental updates.
+        host = self.config.get("host", "")
+        port = int(self.config.get("port", 443))
+        verify = self._as_bool(self.config.get("verify_ssl", False))
         log.info(f"[{self.device_id}] Opening control WebSocket")
         self._ws_task = asyncio.create_task(self._ws_loop(host, port, verify))
 
-        # 3. Wait until the first snapshot has been applied before declaring
-        #    the device connected.
+        # 3. Wait until the first snapshot has been applied before the platform
+        #    declares the device connected. A raise here aborts the connect and
+        #    the session is torn down via _close_session.
         try:
             await asyncio.wait_for(self._ws_ready.wait(), timeout=15.0)
         except asyncio.TimeoutError:
-            await self._teardown()
             raise ConnectionError(
                 f"[{self.device_id}] No snapshot within 15s "
                 f"(WS opened but no resource collection arrived)"
             )
         log.info(f"[{self.device_id}] Snapshot applied, device ready")
 
-        self._connected = True
-        self.set_state("connected", True)
-        await self.events.emit(f"device.connected.{self.device_id}")
+    def _link_alive(self) -> bool:
+        # Session owner: liveness is the httpx client, not a platform transport.
+        return self._client is not None
 
-        poll_interval = int(self.config.get("poll_interval", 20))
-        if poll_interval > 0:
-            await self.start_polling(poll_interval)
+    async def _close_session(self) -> None:
+        """Tear down the WebSocket receiver and the HTTP client.
 
-    async def disconnect(self) -> None:
-        await self.stop_polling()
-        await self._teardown()
-        self._connected = False
-        self.set_state("connected", False)
-        await self.events.emit(f"device.disconnected.{self.device_id}")
-
-    async def _teardown(self) -> None:
+        Called on every platform teardown path (fresh connect, failed
+        handshake, graceful disconnect); tolerant of nothing being open. Logs
+        out best-effort while the client is still open, closes the client, then
+        clears the cached resource graph so the next connect starts clean.
+        """
         if self._ws_task:
             self._ws_task.cancel()
             try:
@@ -1711,6 +1722,11 @@ class SoundCoreHeroDriver(BaseDriver):
             self._client = None
         self._session_id = None
         self._ws_ready.clear()
+        self._order_to_uuid = {c: {} for c in _SNAPSHOT_KEYS.values()}
+        self._obj_cache = {c: {} for c in _SNAPSHOT_KEYS.values()}
+        self._synthetic_ids = {c: {} for c in _SNAPSHOT_KEYS.values()}
+        self._synthetic_next = {c: 0 for c in _SNAPSHOT_KEYS.values()}
+        self._dso_cache = {}
 
     # ------------------------------------------------------------------ #
     # Auth / HTTP

@@ -84,17 +84,23 @@ _CONFIG: dict[str, dict] = {
         "verify_ssl": False,
         "domain_name": "OpenAVC Domain",  # the domain the simulator publishes
     },
+    # These two default to a transport their own simulator doesn't speak — the
+    # NETGEAR switch to ssh, the TOA mixer to serial — while both simulators are
+    # TCP servers. The platform's `transport` config override exists for exactly
+    # this (see BaseDriver.connect), so the smoke uses it. That means it covers
+    # each driver's lifecycle and protocol over the wire, NOT its ssh/serial
+    # transport, which is what this harness is for.
+    "netgear_m4250_m4350": {"transport": "tcp"},
+    "toa_9000m2": {"transport": "tcp"},
 }
 
 
 # --- Drivers whose smoke is not green yet — skipped LOUDLY with the reason. ---
 #
-# Tracked, never silently dropped. Each is a real follow-up, not a capability
-# the driver lacks.
-_KNOWN_GAPS: dict[str, str] = {
-    "toa_9000m2": "simulator raises on connect (non-migrated driver) — driver-owned debt",
-    "netgear_m4250_m4350": "connect() times out against its simulator (pre-existing) — driver-owned debt",
-}
+# Empty, and worth keeping that way: every Python driver that ships a simulator
+# is covered. Anything added here must carry a reason that prints in the skip
+# output, so a gap is tracked rather than silently dropped.
+_KNOWN_GAPS: dict[str, str] = {}
 
 
 # Budget for a single connect(). Matched to what the platform itself allows a

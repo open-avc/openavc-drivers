@@ -92,12 +92,18 @@ _CONFIG: dict[str, dict] = {
 # Tracked, never silently dropped. Each is a real follow-up, not a capability
 # the driver lacks.
 _KNOWN_GAPS: dict[str, str] = {
-    "atlona_ome_ms": "connect() times out against its simulator — handshake mismatch to investigate",
-    "aver_ptz": "connect() times out against its simulator — HTTP CGI handshake to investigate",
-    "sharp_nec_projector": "connect() times out against its simulator — handshake to investigate",
-    "toa_9000m2": "simulator raises on connect (non-migrated driver) — out of this batch",
-    "netgear_m4250_m4350": "connect() times out against its simulator (pre-existing) — out of this batch",
+    "toa_9000m2": "simulator raises on connect (non-migrated driver) — driver-owned debt",
+    "netgear_m4250_m4350": "connect() times out against its simulator (pre-existing) — driver-owned debt",
 }
+
+
+# Budget for a single connect(). Matched to what the platform itself allows a
+# driver (DeviceManager waits 30 s), because a device whose protocol mandates
+# pacing between commands legitimately spends seconds in its handshake and
+# initial sync — the Atlona MS-series requires 500 ms per command, so its
+# identity read alone is ~9 s. A tighter budget here reports healthy drivers as
+# broken rather than measuring anything the product cares about.
+_CONNECT_TIMEOUT = 30
 
 
 def _discover() -> list[tuple[str, str, int]]:
@@ -191,7 +197,7 @@ async def _run_smoke(driver_id: str, driver_rel: str, port: int) -> None:
     driver = driver_cls(device_id="smoke", config=config, state=state, events=events)
 
     try:
-        await asyncio.wait_for(driver.connect(), timeout=8)
+        await asyncio.wait_for(driver.connect(), timeout=_CONNECT_TIMEOUT)
         await asyncio.sleep(0.25)  # let any on-connect sync / first push settle
 
         assert "device.connected.smoke" in seen, f"{driver_id}: no device.connected event"

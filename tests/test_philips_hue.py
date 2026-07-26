@@ -43,6 +43,8 @@ from types import ModuleType
 import httpx
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "lighting" / "philips_hue.py"
 SIM_PATH = REPO_ROOT / "lighting" / "philips_hue_sim.py"
@@ -90,7 +92,7 @@ class _FakeConnectionFaultError(ConnectionError):
         self.code = code
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver child-entity API."""
 
     DRIVER_INFO: dict = {}
@@ -171,12 +173,6 @@ class _FakeBaseDriver:
 
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
 
     async def request_config_update(self, delta: dict) -> None:
         self.config_updates.append(dict(delta))

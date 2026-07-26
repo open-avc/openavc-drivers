@@ -31,6 +31,8 @@ from types import ModuleType
 import httpx
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "dante_ddm.py"
 SIM_PATH = REPO_ROOT / "audio" / "dante_ddm_sim.py"
@@ -70,7 +72,7 @@ def _default_for(var_def: dict):
     return ""
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver dynamic child-entity API."""
 
     DRIVER_INFO: dict = {}
@@ -145,12 +147,6 @@ class _FakeBaseDriver:
         return self.state.data.get(key, default)
 
     def _handle_transport_disconnect(self) -> None:
-        pass
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
         pass
 
     # Hook defaults + the hook-driven connect lifecycle the platform runs

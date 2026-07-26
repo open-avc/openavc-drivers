@@ -31,6 +31,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "projectors" / "panasonic_pt.py"
 SIM_PATH = REPO_ROOT / "projectors" / "panasonic_pt_sim.py"
@@ -96,7 +98,7 @@ class _FakeTCPTransport:
         self.connected = False
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver: the driver supplies
     lifecycle hooks (_pre_connect / _post_connect / _initial_sync /
     _close_session / _transport_kwargs) and connect()/disconnect() here run
@@ -128,12 +130,6 @@ class _FakeBaseDriver:
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
 
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
-
     async def request_config_update(self, delta) -> None:
         self.config_updates.append(delta)
         self.config.update(delta)
@@ -154,12 +150,6 @@ class _FakeBaseDriver:
 
     async def _close_session(self) -> None:
         pass
-
-    def _transport_kwargs(self, transport_type, kwargs):
-        return kwargs
-
-    def _create_frame_parser(self):
-        return None
 
     def _resolve_delimiter(self):
         return b"\r"  # platform default

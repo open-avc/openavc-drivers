@@ -34,6 +34,8 @@ from types import ModuleType
 import httpx
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "video" / "birddog_codec.py"
 SIM_PATH = REPO_ROOT / "video" / "birddog_codec_sim.py"
@@ -57,7 +59,7 @@ class _FakeEvents:
         self.emitted.append(name)
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     DRIVER_INFO: dict = {}
 
     def __init__(self, device_id, config, state, events) -> None:
@@ -79,12 +81,6 @@ class _FakeBaseDriver:
         return self.state.data.get(key, default)
 
     def _handle_transport_disconnect(self) -> None:
-        pass
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
         pass
 
 

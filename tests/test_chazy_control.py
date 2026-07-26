@@ -30,6 +30,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "switchers" / "chazy_control.py"
 
@@ -133,7 +135,7 @@ class _FakeTransport:
         self.connected = False
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver surface this driver
     uses: the hook-driven connect()/disconnect() lifecycle (including the
     _post_connect / _initial_sync failure teardowns and _close_session on
@@ -232,21 +234,12 @@ class _FakeBaseDriver:
     # the keep-alive), so connect() never starts the loop. The raise flags a
     # future probe addition so the loop gets modeled here then. --
 
-    async def _liveness_probe(self) -> None:
-        raise NotImplementedError
-
-    def _health_enabled(self) -> bool:
-        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
-
     def _start_health_loop(self) -> None:
         raise NotImplementedError(
             "driver grew a liveness probe - model the health loop here")
 
     def _stop_health_loop(self) -> None:
         self._health_task = None
-
-    def _stash_transport_error(self) -> None:
-        pass
 
     def _handle_transport_disconnect(self) -> None:
         # Mirrors the platform: flip the flags synchronously, then schedule
@@ -274,12 +267,6 @@ class _FakeBaseDriver:
 
     async def _pre_connect(self) -> None:
         pass
-
-    def _transport_kwargs(self, transport_type, kwargs):
-        return kwargs
-
-    def _create_frame_parser(self):
-        return None
 
     async def _post_connect(self) -> None:
         pass

@@ -32,6 +32,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "projectors" / "pjlink_class1.py"
 SIM_PATH = REPO_ROOT / "projectors" / "pjlink_class1_sim.py"
@@ -96,7 +98,7 @@ class _FakeTCPTransport:
         self.connected = False
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver: the driver supplies
     lifecycle hooks (_pre_connect / _post_connect / _initial_sync /
     _close_session) and connect()/disconnect() here run them in the
@@ -126,12 +128,6 @@ class _FakeBaseDriver:
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
 
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
-
     # -- lifecycle hooks (drivers override; defaults are no-ops) --
 
     async def _pre_connect(self) -> None:
@@ -145,12 +141,6 @@ class _FakeBaseDriver:
 
     async def _close_session(self) -> None:
         pass
-
-    def _transport_kwargs(self, transport_type, kwargs):
-        return kwargs
-
-    def _create_frame_parser(self):
-        return None
 
     def _resolve_delimiter(self):
         return b"\r"  # platform default

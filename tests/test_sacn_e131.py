@@ -28,6 +28,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -52,7 +54,7 @@ class _FakeEvents:
         self.emitted.append(event)
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver: the driver supplies
     lifecycle hooks (_pre_connect / _create_transport / _initial_sync /
     _close_session) and connect()/disconnect() here run them in the
@@ -79,15 +81,6 @@ class _FakeBaseDriver:
 
     def get_state(self, key):
         return self.state.get(f"device.{self.device_id}.{key}")
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
-
-    def _stash_transport_error(self) -> None:
-        pass
 
     # -- lifecycle hooks (drivers override; defaults are no-ops) --
 

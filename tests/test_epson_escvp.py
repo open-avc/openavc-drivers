@@ -32,6 +32,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "projectors" / "epson_escvp.py"
 SIM_PATH = REPO_ROOT / "projectors" / "epson_escvp_sim.py"
@@ -136,7 +138,7 @@ class _FakeTCPTransport:
         self.connected = False
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for BaseDriver with the platform's hook-driven
     connection lifecycle (epson_escvp arms its handshake state machine in
     _pre_connect, runs the ESC/VP.net handshake in _post_connect, and
@@ -162,31 +164,16 @@ class _FakeBaseDriver:
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
 
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
-
     def _handle_transport_disconnect(self) -> None:
         self._connected = False
         self.set_state("connected", False)
         if self.transport is not None:
             self.transport.connected = False
 
-    def _stash_transport_error(self) -> None:
-        pass
-
     # -- connection lifecycle (mirrors the platform's hook-driven connect) --
 
     async def _pre_connect(self) -> None:
         pass
-
-    def _transport_kwargs(self, transport_type, kwargs):
-        return kwargs
-
-    def _create_frame_parser(self):
-        return None
 
     async def _post_connect(self) -> None:
         pass

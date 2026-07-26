@@ -42,6 +42,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "atlasied_atmosphere.py"
 SIM_PATH = REPO_ROOT / "audio" / "atlasied_atmosphere_sim.py"
@@ -62,20 +64,13 @@ class _FakeEvents:
         pass
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver surface this driver
     uses: the hook-driven connect()/disconnect() lifecycle, the liveness
     watchdog, and the child-entity registry (integer-id validation
     included)."""
 
     DRIVER_INFO: dict = {}
-
-    HEALTH_INTERVAL_S = 30.0
-    HEALTH_TIMEOUT_S = 5.0
-    HEALTH_MAX_FAILURES = 2
-    HEALTH_FAULT_MESSAGE = (
-        "Connected, but the device stopped answering keep-alive probes."
-    )
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -190,74 +185,10 @@ class _FakeBaseDriver:
         await self._close_session()
         await self.events.emit(f"device.disconnected.{self.device_id}")
 
-    def _stash_fault(self, code, message="") -> None:
-        self.stashed_fault = (code, message)
-
-    def _stash_transport_error(self) -> None:
-        pass
-
-    async def _liveness_probe(self) -> None:
-        raise NotImplementedError
-
-    def _health_enabled(self) -> bool:
-        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
-
-    def _start_health_loop(self) -> None:
-        if self._health_task is None or self._health_task.done():
-            self._health_failures = 0
-            self._health_task = asyncio.ensure_future(self._health_loop())
-
-    def _stop_health_loop(self) -> None:
-        if self._health_task and not self._health_task.done():
-            self._health_task.cancel()
-        self._health_task = None
-
-    async def _health_loop(self) -> None:
-        interval = float(self.HEALTH_INTERVAL_S)
-        timeout = float(self.HEALTH_TIMEOUT_S)
-        max_failures = max(int(self.HEALTH_MAX_FAILURES), 1)
-        try:
-            while self.transport is not None and getattr(
-                    self.transport, "connected", False):
-                await asyncio.sleep(interval)
-                if not (self.transport is not None and getattr(
-                        self.transport, "connected", False)):
-                    return
-                try:
-                    await asyncio.wait_for(self._liveness_probe(), timeout)
-                    self._health_failures = 0
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    self._health_failures += 1
-                    if self._health_failures >= max_failures:
-                        self._force_disconnect(
-                            "no_response", self.HEALTH_FAULT_MESSAGE)
-                        return
-        except asyncio.CancelledError:
-            return
-
-    def _force_disconnect(self, code="no_response", message="") -> None:
-        self._health_task = None
-        self._stash_fault(code, message)
-        self._handle_transport_disconnect()
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
-
     # -- connection lifecycle (mirrors the platform's hook-driven connect) --
 
     async def _pre_connect(self) -> None:
         pass
-
-    def _transport_kwargs(self, transport_type, kwargs):
-        return kwargs
-
-    def _create_frame_parser(self):
-        return None
 
     async def _post_connect(self) -> None:
         pass

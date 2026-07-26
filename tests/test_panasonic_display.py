@@ -32,6 +32,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "displays" / "panasonic_display.py"
 SIM_PATH = REPO_ROOT / "displays" / "panasonic_display_sim.py"
@@ -55,7 +57,7 @@ class _FakeEvents:
         self.emitted.append(name)
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver: the driver supplies
     lifecycle hooks (_pre_connect / _create_transport / _post_connect /
     _initial_sync / _close_session / _link_alive) and connect()/disconnect()
@@ -82,12 +84,6 @@ class _FakeBaseDriver:
 
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
 
     async def request_config_update(self, delta) -> None:
         self.config_updates.append(delta)

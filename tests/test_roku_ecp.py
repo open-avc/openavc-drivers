@@ -31,6 +31,8 @@ from types import ModuleType, SimpleNamespace
 import httpx
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "streaming" / "roku_ecp.py"
 
@@ -53,7 +55,7 @@ class _FakeEvents:
         self.emitted.append(name)
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Mirrors BaseDriver's hook-driven connection lifecycle: clean-slate
     reset, _pre_connect, _create_transport (constructor kwargs pass through
     _transport_kwargs), the reachability verify for connectionless
@@ -93,9 +95,6 @@ class _FakeBaseDriver:
     async def start_polling(self, interval) -> None:
         self.polling_started_with = interval
 
-    async def stop_polling(self) -> None:
-        pass
-
     async def request_config_update(self, delta) -> None:
         self.config_updates.append(delta)
         self.config.update(delta)
@@ -113,9 +112,6 @@ class _FakeBaseDriver:
     # Hook defaults (the driver overrides the ones it needs).
     async def _pre_connect(self):
         return None
-
-    def _transport_kwargs(self, transport_type, kwargs):
-        return kwargs
 
     async def _create_transport(self, transport_type):
         # Mirrors the platform's http branch: base_url from host/port/ssl

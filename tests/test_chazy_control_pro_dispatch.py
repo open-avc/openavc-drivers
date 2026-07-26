@@ -20,6 +20,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "switchers" / "chazy_control_pro.py"
 
@@ -32,7 +34,7 @@ class _FakeState:
         self.data[key] = value
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Minimal functional stand-in for the platform BaseDriver child API."""
 
     DRIVER_INFO: dict = {}
@@ -109,12 +111,6 @@ class _FakeBaseDriver:
 
     def get_state(self, key, default=None):
         return self.state.data.get(key, default)
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
 
 
 def _load_driver() -> ModuleType:

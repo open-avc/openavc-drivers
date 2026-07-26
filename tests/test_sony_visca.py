@@ -30,6 +30,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "cameras" / "sony_visca.py"
 SIM_PATH = REPO_ROOT / "cameras" / "sony_visca_sim.py"
@@ -84,7 +86,7 @@ class _FakeUDPTransport:
         self.connected = False
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Mirrors BaseDriver.connect() for a UDP driver, including the
     teardown-on-raise the never-offline fix relies on."""
 
@@ -143,12 +145,6 @@ class _FakeBaseDriver:
     def _handle_transport_disconnect(self) -> None:
         if self.transport is not None:
             self.transport.connected = False
-
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
 
 
 class _FakeUDPSimulator:

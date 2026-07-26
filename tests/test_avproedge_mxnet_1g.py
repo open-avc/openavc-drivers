@@ -39,6 +39,8 @@ from types import ModuleType
 
 import pytest
 
+from _lifecycle_fake import LifecycleFake
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "switchers" / "avproedge_mxnet_1g.py"
 SIM_PATH = REPO_ROOT / "switchers" / "avproedge_mxnet_1g_sim.py"
@@ -89,7 +91,7 @@ class _FakeCallableFrameParser:
         return messages
 
 
-class _FakeBaseDriver:
+class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver surface this driver
     uses: the hook-driven connect()/disconnect() lifecycle plus the
     child-entity registry (mirrors base.py semantics: writes to an
@@ -145,21 +147,9 @@ class _FakeBaseDriver:
         await self._close_session()
         await self.events.emit(f"device.disconnected.{self.device_id}")
 
-    def _stash_fault(self, code, message="") -> None:
-        self.stashed_fault = (code, message)
-
-    def _stash_transport_error(self) -> None:
-        pass
-
     # -- liveness watchdog: this driver supplies no probe (steady polling is
     # the keep-alive), so connect() never starts the loop. The raise flags a
     # future probe addition so the loop gets modeled here then. --
-
-    async def _liveness_probe(self) -> None:
-        raise NotImplementedError
-
-    def _health_enabled(self) -> bool:
-        return type(self)._liveness_probe is not _FakeBaseDriver._liveness_probe
 
     def _start_health_loop(self) -> None:
         raise NotImplementedError(
@@ -204,22 +194,10 @@ class _FakeBaseDriver:
         for child_type, local_id, updates in entries:
             self.set_child_state_batch(child_type, local_id, updates)
 
-    async def start_polling(self, interval) -> None:
-        pass
-
-    async def stop_polling(self) -> None:
-        pass
-
     # -- connection lifecycle (mirrors the platform's hook-driven connect) --
 
     async def _pre_connect(self) -> None:
         pass
-
-    def _transport_kwargs(self, transport_type, kwargs):
-        return kwargs
-
-    def _create_frame_parser(self):
-        return None
 
     async def _post_connect(self) -> None:
         pass

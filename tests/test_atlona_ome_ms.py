@@ -25,6 +25,7 @@ import asyncio
 import importlib.util
 import logging
 import sys
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -302,7 +303,7 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.AtlonaOmeMsDriver.DRIVER_INFO
-    assert info["version"] == "1.3.1"
+    assert info["version"] == "1.3.2"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     assert info["min_platform_version"] == "0.24.0"
 
@@ -458,5 +459,50 @@ def test_health_loop_forces_reconnect_on_silent_device():
             _SWALLOW = False
             await _settle()
             driver._stop_health_loop()
+
+    asyncio.run(go())
+
+
+# ── Command pacing ──────────────────────────────────────────────────────────
+
+def test_pacing_waits_only_the_remaining_gap_and_never_trails():
+    """Atlona's 500 ms rule is a gap BETWEEN commands, so it is paid before a
+    write, never after one.
+
+    Two things must hold: back-to-back sends stay at least the full delay
+    apart (the device's requirement), and a send after an idle stretch goes
+    out with no wait at all (the caller isn't charged for etiquette it already
+    satisfied). Sleeping after each write got the first right and the second
+    wrong — every command returned 500 ms late, and a poll cycle paid one
+    extra gap on its way out.
+    """
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            driver._inter_cmd_delay = 0.05
+            sent_at: list[float] = []
+
+            async def _record(data: bytes) -> None:
+                sent_at.append(time.monotonic())
+
+            driver.transport.send = _record
+
+            # Back-to-back: the second waits out the gap.
+            driver._last_send = time.monotonic()
+            await driver._send("Misc:Model:Get")
+            await driver._send("Misc:Model:Get")
+            assert sent_at[1] - sent_at[0] >= 0.05
+
+            # Idle longer than the gap: the next send does not wait.
+            driver._last_send = time.monotonic() - 1.0
+            before = time.monotonic()
+            await driver._send("Misc:Model:Get")
+            assert time.monotonic() - before < 0.02
+
+            # And nothing trails the write — the call returned immediately
+            # after it, which is what the assertion above measures.
+        finally:
+            await _settle()
 
     asyncio.run(go())

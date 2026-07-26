@@ -12,7 +12,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",

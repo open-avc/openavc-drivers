@@ -29,8 +29,11 @@ Auth:
 Wire format:
     Outgoing commands are CR-terminated (0x0d).
     Incoming feedback is CRLF-terminated (0x0d 0x0a).
-    Atlona requires a 500 ms minimum delay between commands; the driver
-    enforces this with an asyncio lock + sleep.
+    Atlona requires a 500 ms minimum delay between commands. Sends
+    serialize behind a lock, and each waits out only what is left of that
+    gap since the previous write — so an idle device answers a button
+    press immediately, while back-to-back commands still stay 500 ms
+    apart.
 
 Device settings:
     Volume, both mutes, external audio source, USB routing mode, and
@@ -57,6 +60,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from typing import Any
 
 from server.drivers.base import BaseDriver
@@ -132,7 +136,7 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.3.1",
+        "version": "1.3.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.24.0",
         "author": "OpenAVC",
@@ -551,10 +555,14 @@ class AtlonaOmeMsDriver(BaseDriver):
     def __init__(self, device_id, config, state, events):
         self._line_buffer = b""
         self._authenticated = False
-        # Atlona requires 500 ms minimum between commands. Serialize sends
-        # behind a lock + sleep so back-to-back commands don't collide.
+        # Atlona requires 500 ms minimum BETWEEN commands. Sends serialize
+        # behind a lock, and each one waits only for whatever is left of that
+        # gap since the previous send — so a command issued after an idle
+        # moment goes out immediately, and no send is followed by a wait that
+        # buys nothing.
         self._send_lock = asyncio.Lock()
         self._inter_cmd_delay = 0.5
+        self._last_send = 0.0  # time.monotonic() of the previous write
         # Liveness probe correlation: the watchdog awaits the next parsed
         # Misc:Model:Get reply through this future.
         self._probe_future: asyncio.Future[None] | None = None
@@ -590,6 +598,9 @@ class AtlonaOmeMsDriver(BaseDriver):
             # session. Without this, default is multi-line "pretty" JSON
             # which the line parser can't handle cleanly.
             await self.transport.send(b"OutputMode j\r")
+            # Stamp the pacing clock so the first poll query respects the
+            # 500 ms gap from this write rather than firing 200 ms after it.
+            self._last_send = time.monotonic()
             await asyncio.sleep(0.2)
         except (ConnectionError, OSError) as e:
             raise ConnectionError(
@@ -610,6 +621,8 @@ class AtlonaOmeMsDriver(BaseDriver):
         self._probe_future = None
         self._authenticated = False
         self._line_buffer = b""
+        # A fresh session owes the device no gap from the previous one.
+        self._last_send = 0.0
 
     # ── Sending (with 500 ms inter-command delay) ──
 
@@ -617,8 +630,21 @@ class AtlonaOmeMsDriver(BaseDriver):
         if not self.transport or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
         async with self._send_lock:
+            await self._pace()
             await self.transport.send((line + "\r").encode("utf-8"))
-            await asyncio.sleep(self._inter_cmd_delay)
+            self._last_send = time.monotonic()
+
+    async def _pace(self) -> None:
+        """Wait out the remainder of the device's minimum inter-command gap.
+
+        Call with the send lock held, immediately before a write. Sleeping
+        after a write instead would enforce the same spacing but charge the
+        delay to the caller — every command would return 500 ms late, and a
+        poll cycle would pay one extra gap it never needed.
+        """
+        remaining = self._inter_cmd_delay - (time.monotonic() - self._last_send)
+        if remaining > 0:
+            await asyncio.sleep(remaining)
 
     async def send_command(self, command: str, params: dict | None = None) -> Any:
         params = params or {}

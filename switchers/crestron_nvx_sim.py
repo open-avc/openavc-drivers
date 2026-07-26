@@ -10,6 +10,11 @@ to simulate an encoder.
 
 Driver: crestron_nvx
 Transport: http (HTTPS on 443)
+
+The NVX REST API is HTTPS-only and the unit ships a self-signed certificate, so
+the driver has an https:// base URL and leaves verification off. The simulator
+serves TLS to match (``"tls": True``), which lets the driver connect here the
+same way it connects to hardware.
 """
 
 import json
@@ -25,6 +30,8 @@ class CrestronNvxSimulator(HTTPSimulator):
         "category": "switcher",
         "transport": "http",
         "default_port": 443,
+        # HTTPS-only device: serve TLS with an ephemeral self-signed cert.
+        "tls": True,
         "initial_state": {
             "device_mode": "Receiver",     # "Transmitter" | "Receiver"
             "model": "DM-NVX-D200",

@@ -4,6 +4,10 @@ Dante DDM / Director — Simulator
 Simulates a Dante Domain Manager GraphQL API on port 443. Returns fake
 Dante devices with Tx/Rx channels and handles routing mutations.
 
+DDM / Director serves its API over HTTPS with a self-signed certificate, so the
+simulator serves TLS too (``"tls": True``) and the driver connects here exactly
+as it does to a real Director — https, verification off.
+
 Driver: dante_ddm
 Transport: http
 """
@@ -85,6 +89,8 @@ class DanteDdmSimulator(HTTPSimulator):
         "category": "audio",
         "transport": "http",
         "default_port": 443,
+        # HTTPS-only API: serve TLS with an ephemeral self-signed cert.
+        "tls": True,
         "initial_state": {
             "device_count": 3,
             "subscription_count": 2,

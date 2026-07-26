@@ -68,13 +68,22 @@ except ModuleNotFoundError:
 # --- Per-driver config the simulator expects (nothing here = generic path) ---
 #
 # host/port are always injected. These add what a driver needs to complete its
-# handshake against its own simulator: credentials the sim checks, or a switch
-# to the plain-text scheme the sim serves (the sims do not terminate TLS).
+# handshake against its own simulator: credentials the sim checks, the identifier
+# it answers under, or a switch to the plain-text scheme a sim serves. A driver
+# whose device is HTTPS-only keeps its own scheme — its simulator terminates TLS
+# with a self-signed cert instead (``"tls": True`` in SIMULATOR_INFO), so the
+# driver only needs verification turned off, exactly as against real hardware.
 _CONFIG: dict[str, dict] = {
     "philips_hue": {"app_key": "smoke", "ssl": False},
     "lg_webos": {"ssl": False},
     "tvone_coriomatrix": {"password": "adminpw"},
     "tvone_coriomaster": {"password": "adminpw"},
+    "crestron_nvx": {"password": "smokepw"},
+    "dante_ddm": {
+        "api_key": "smoke",
+        "verify_ssl": False,
+        "domain_name": "OpenAVC Domain",  # the domain the simulator publishes
+    },
 }
 
 
@@ -83,14 +92,6 @@ _CONFIG: dict[str, dict] = {
 # Tracked, never silently dropped. Each is a real follow-up, not a capability
 # the driver lacks.
 _KNOWN_GAPS: dict[str, str] = {
-    "crestron_nvx": (
-        "driver connects over HTTPS (hardcoded base URL); the HTTP simulator "
-        "does not serve TLS — needs a TLS-capable sim or an http scheme option"
-    ),
-    "dante_ddm": (
-        "driver connects over HTTPS to the DDM/Director API; the HTTP simulator "
-        "does not serve TLS — needs a TLS-capable sim or an http scheme option"
-    ),
     "atlona_ome_ms": "connect() times out against its simulator — handshake mismatch to investigate",
     "aver_ptz": "connect() times out against its simulator — HTTP CGI handshake to investigate",
     "sharp_nec_projector": "connect() times out against its simulator — handshake to investigate",

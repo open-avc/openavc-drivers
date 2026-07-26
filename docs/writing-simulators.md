@@ -689,6 +689,19 @@ SIMULATOR_INFO = {
 
 Without a delimiter, the simulator reads raw byte chunks (binary mode).
 
+### TLS (HTTPS-Only and Secure-Broker Devices)
+
+Some devices only speak TLS: a Crestron DM NVX's REST API, a Dante Director, a Hisense TV's MQTT broker. Their drivers are written to match, with an `https://` base URL or `use_tls=True`, and because the device ships a self-signed certificate the driver does not verify it. Don't add a plain-HTTP mode to the driver just so it can reach your simulator: that makes it exercise a path it never takes against real hardware. Have the simulator serve TLS instead:
+
+```python
+SIMULATOR_INFO = {
+    ...
+    "tls": True,      # serve https / TLS with an ephemeral self-signed cert
+}
+```
+
+The simulator mints a throwaway certificate at startup, serves the same scheme the real device serves, and deletes the certificate when it stops. It accepts but never requires a client certificate, so a driver that presents one connects cleanly. Supported by `HTTPSimulator` and `MQTTSimulator`. Set the driver's verification option off (`verify_ssl: false`) exactly as an installer would for the real device.
+
 ### Custom Push Messages
 
 TCP, UDP, and OSC simulators with `push_state: true` in their `SIMULATOR_INFO` push state changes to connected drivers when `set_state()` is called. For protocols that need additional unsolicited messages beyond state changes (subscription-based updates, tally notifications, etc.), use `push()`:

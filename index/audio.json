@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 22,
     "shards": null,
@@ -19,6 +19,10 @@
       "source_url": "https://support.allen-heath.com/hc/en-gb/articles/45146889174801-Avantis-MIDI-TCP-IP-Protocol",
       "file": "audio/allenheath_avantis.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_avantis.py": "a20eaac5fab2355a38f08c63de0413bf15a9a797b3ab2b04a5d65292ee58ae2f",
+        "audio/allenheath_avantis_sim.py": "22cdc1e4ddcaa147e1b52672dd8dbf2bbd01013773bf1f129e0b654f585c5998"
+      },
       "ports": [
         51325
       ],
@@ -78,6 +82,10 @@
       "source_url": "https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf",
       "file": "audio/allenheath_dlive.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_dlive.py": "96ea1f59d0affc7d0abce742a373421a25af5636a1558ec8c6604bf04e43952b",
+        "audio/allenheath_dlive_sim.py": "8c26473908c7562a5ebfe7c2a763c2ca378ff2e8e36db7aa261432f5a14f7b8f"
+      },
       "ports": [
         51325
       ],
@@ -145,6 +153,10 @@
       "source_url": "https://www.allen-heath.com/content/uploads/2023/06/Qu_MIDI_Protocol_V1.9.pdf",
       "file": "audio/allenheath_qu.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_qu.py": "729361d6d42b388814babd2ceb4a0169e875dfba377055b6c1338502146f30e6",
+        "audio/allenheath_qu_sim.py": "0b4d20c8ef03a4b8685bef320020199cbe12624a7ac7dc3b305e42753d8c71e0"
+      },
       "ports": [
         51325
       ],
@@ -215,6 +227,10 @@
       "source_url": "https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf",
       "file": "audio/allenheath_sq.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_sq.py": "8616752b3efaa48daaa74abdf608257aaa21303bf35ab841dacfe199926056a3",
+        "audio/allenheath_sq_sim.py": "300ff60f4711efc426848e9e921de94d69e9885f6ca9cd4ebf496b095aad03d4"
+      },
       "ports": [
         51325
       ],
@@ -274,6 +290,10 @@
       "source_url": "https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf",
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
+      "files": {
+        "audio/atlasied_atmosphere.py": "01d956004d1a4bd929b5352a8d0cd17d2d7bed08269e88c205e93912fde8c837",
+        "audio/atlasied_atmosphere_sim.py": "88fabeacaf9ccc498f2924896e240a4d2f8b6dbbaa1d865a78dadf1d7efe5169"
+      },
       "ports": [
         5321
       ],
@@ -330,6 +350,10 @@
       "source_url": "https://www.getdante.com/products/network-management/dante-managed-api/",
       "file": "audio/dante_ddm.py",
       "format": "python",
+      "files": {
+        "audio/dante_ddm.py": "c2b1e61ef366a3679c8b00cea25cd25855f5ad429e042545534817af49819be2",
+        "audio/dante_ddm_sim.py": "a5231ab8bec5490c662fd8ac8a5f41f9b4122bab0f242c169923c053e6f3a1dd"
+      },
       "ports": [
         443
       ],
@@ -373,6 +397,9 @@
       "source_url": "https://docs.audio-technica.com/us/atdm_0604_ip_control_protcol_specification_ver1_1_2_web_190626.pdf",
       "file": "audio/at_atdm_0604.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/at_atdm_0604.avcdriver": "bf522917eb324e46909af0218b7c1415440ad4380f89898e11d1709e34b89a0a"
+      },
       "ports": [
         17300
       ],
@@ -430,6 +457,9 @@
       "source_url": "https://docs.audio-technica.com/all/ATDM-0604a_IP_Control_Protocol_Specifications_EN_Ver1.0_web_221209.pdf",
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/at_atdm_0604a.avcdriver": "296bd064aef9a6589f0c74ebf4c0472073731663ef9957e6d0174d6240e40042"
+      },
       "ports": [
         17300
       ],
@@ -489,6 +519,9 @@
       "source_url": "https://docs.audio-technica.com/all/IP_Control_Protocol_Specification_-_ATDM-1012_ATDM-1012DAN.pdf",
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/at_atdm_1012.avcdriver": "90e82af3d91645fe197f9cb199c3a7d2da7d6bebb9446d39a580152507b2e9c8"
+      },
       "ports": [
         17300
       ],
@@ -558,6 +591,9 @@
       "source_url": "https://sites.google.com/site/patrickmaillot/x32",
       "file": "audio/behringer_x32.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/behringer_x32.avcdriver": "a79281281e56fe4f7064033bd5b68cb1bad575a2e8502df65d55a9883596fae0"
+      },
       "ports": [
         10023
       ],
@@ -623,6 +659,11 @@
       "source_url": "https://support.biamp.com/Tesira/Control/Tesira_Text_Protocol",
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
+      "files": {
+        "audio/biamp_tesira_ttp.py": "1510cce3d6200123fe6fd8f7855722ceddbb9cfd513ab0500e273035879b05b7",
+        "audio/biamp_tesira_ttp_discovery.py": "08efc26d29dc97a0b410edf82b3f280dc953ca5a5e1bec42d1d34044e543be8d",
+        "audio/biamp_tesira_ttp_sim.py": "aefb6d76646d687ae387fa1fd31d48be36f696848eecfee2f755cadfefb70ef0"
+      },
       "ports": [
         23
       ],
@@ -687,6 +728,9 @@
       "source_url": "https://soundcorehero.com",
       "file": "audio/soundcorehero.py",
       "format": "python",
+      "files": {
+        "audio/soundcorehero.py": "601809f4bf82bf285e0e5a65126afdbcbdc384171696f5e29ea325d92a621bdd"
+      },
       "protocols": [
         "soundcorehero"
       ],
@@ -723,6 +767,9 @@
       "source_url": "https://leaprofessional.com/wp-content/uploads/2020/10/LEA-Open-API-TCP-Protocol-October-2020.pdf",
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/lea_connect.avcdriver": "02ee043afea5d19db6b248b96c04a694a003f8c8bc722e829d29f3905417c25d"
+      },
       "ports": [
         4321
       ],
@@ -823,6 +870,9 @@
       "source_url": "https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp/core.py",
       "file": "audio/onkyo_integra_eiscp.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/onkyo_integra_eiscp.avcdriver": "d250e65632cdb68f58c97fb9659336140c7e2af9b1ef39978f3a1919f6f17f32"
+      },
       "ports": [
         60128
       ],
@@ -909,6 +959,9 @@
       "source_url": "https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp-commands.yaml",
       "file": "audio/onkyo_integra_iscp.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/onkyo_integra_iscp.avcdriver": "fb7c16efe2fca7ba396c7b7271bfb82915ba74dcb080b2a573a309978050d02f"
+      },
       "simulated": true,
       "min_platform_version": "0.24.0",
       "tags": [
@@ -962,6 +1015,10 @@
       "source_url": "https://q-syshelp.qsc.com/Content/External_Control_APIs/QRC/QRC_Commands.htm",
       "file": "audio/qsc_qrc.py",
       "format": "python",
+      "files": {
+        "audio/qsc_qrc.py": "e6fe462c1f22f1464f9252d21d5daf8a7cb6e39baca61a65d744d9b3a7bc18ce",
+        "audio/qsc_qrc_sim.py": "f19287039fafb8bff683618309e46e48c32f16e6b93acd0b6f035a9bb3866b67"
+      },
       "ports": [
         1710
       ],
@@ -1039,6 +1096,10 @@
       "source_url": "https://pubs.shure.com/command-strings/",
       "file": "audio/shure_network.py",
       "format": "python",
+      "files": {
+        "audio/shure_network.py": "5c33cd97dcf16355a6b142034f3980d0b318188b44cf0bbb518cf3925108a499",
+        "audio/shure_network_sim.py": "3003d53fe021ce42a3fe7ce2768f40e1ddd15c126f7f74e1238c78f54ade2c5f"
+      },
       "ports": [
         2202
       ],
@@ -1121,6 +1182,10 @@
       "source_url": "https://sonos.svrooij.io/services/",
       "file": "audio/sonos.py",
       "format": "python",
+      "files": {
+        "audio/sonos.py": "a3bff4fca6f6ad1441980be5b9c291a925997bc009866ec41547f4b698a39e5d",
+        "audio/sonos_sim.py": "fbfcd0239a39889f37fdce2b91cf68bdba74a4ce74d6c2e5db74735074a7623f"
+      },
       "ports": [
         1400
       ],
@@ -1181,6 +1246,10 @@
       "source_url": "https://audiobrains.com/data/symetrix/others/Composer-Control-Protocol-v7.0-080918.pdf",
       "file": "audio/symetrix_composer.py",
       "format": "python",
+      "files": {
+        "audio/symetrix_composer.py": "555babfaf9b9aad3f273721efcd17b45df553442c7b7eda61fa09fad5d2cfd95",
+        "audio/symetrix_composer_sim.py": "9cc0d65bf7e548ce80c7d983a688889d352fa7a56ec4fab982cc92dd13b1e6da"
+      },
       "ports": [
         48631
       ],
@@ -1248,6 +1317,10 @@
       "source_url": "https://www.toaelectronics.com/toa-assets/9000M2_PROTOCOL_MANUAL_EN.pdf",
       "file": "audio/toa_9000m2.py",
       "format": "python",
+      "files": {
+        "audio/toa_9000m2.py": "03ba9a193523a7c5a2686683aea11e2ee376c83f33b064f66cbb8eeb8c16bd57",
+        "audio/toa_9000m2_sim.py": "575a51bc57bc07f79d0f43cdb2c1ad3be05ed4631ffe53eb91e48917202351a7"
+      },
       "protocols": [
         "toa_9000m2"
       ],
@@ -1301,6 +1374,9 @@
       "source_url": "https://turtleav.com/wp-content/uploads/2026/05/BT-Wallplate-US-User-Manual.pdf",
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/turtle_bt_wallplate.avcdriver": "1630b962b3e44f8ee273125fcd8a804f92251671f933cede87e948b2b1f780de"
+      },
       "ports": [
         23
       ],
@@ -1374,6 +1450,9 @@
       "source_url": "https://usa.yamaha.com/files/download/other_assets/5/1343735/200330_mtx_mrx_xmv_ex_rcps_v400_rev14_en.pdf",
       "file": "audio/yamaha_mtx_mrx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/yamaha_mtx_mrx.avcdriver": "9ce55d201b0c11dffd9ea06636ca86832005f8da0481ce6500109639644f5ad7"
+      },
       "ports": [
         49280
       ],

@@ -266,6 +266,8 @@ This is what CI runs on every pull request. `index.json`, `devices.json`, and th
 
 Running the full `python scripts/build_index.py` locally is fine if you want to preview the catalog output, but leave the regenerated files out of your commits.
 
+The generated catalog records a SHA-256 for your driver file and for any companion that installs alongside it. OpenAVC checks those hashes against what it downloads and refuses a driver whose bytes don't match, so the catalog has to be rebuilt whenever the files change. CI does that for you on merge — including when you only touched a companion.
+
 To catch mistakes as you type, point your editor at the JSON Schema for the `.avcdriver` format. Add this line to the top of your driver file and any editor with YAML Language Server support (VS Code, Neovim, JetBrains, and others) will validate it live:
 
 ```yaml

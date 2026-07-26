@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 10,
     "shards": null,
@@ -19,6 +19,10 @@
       "source_url": "https://esupportdownload.benq.com/esupport/PUBLIC%20DISPLAY%20PRODUCT/Control%20Protocols/RM6503/RS232%20&%20LAN%20Command%20List_2_Others.pdf",
       "file": "displays/benq_display.py",
       "format": "python",
+      "files": {
+        "displays/benq_display.py": "9f3be4aba328f9e45fa4d014cedbb8fa3713fe161008becf5010614dd8bc83bf",
+        "displays/benq_display_sim.py": "880cbd0641a2e8f40d6ec3d3dbc23431386e1041a700e0a6c2272b7d0f62ca1b"
+      },
       "ports": [
         4660
       ],
@@ -100,6 +104,10 @@
       "source_url": "https://github.com/tombabolewski/vidaa-control",
       "file": "displays/hisense_vidaa.py",
       "format": "python",
+      "files": {
+        "displays/hisense_vidaa.py": "56bd049d0fa96340bfa2f1c603a7e0aefc64fdf326542899aafe41edb930c79b",
+        "displays/hisense_vidaa_sim.py": "0a7b9cc96495660a0f325f189c73306c58092603ae55f5aa3da3340be02810d2"
+      },
       "ports": [
         36669
       ],
@@ -140,6 +148,10 @@
       "source_url": "https://aca.im/driver_docs/LG/SM_models.pdf",
       "file": "displays/lg_sicp.py",
       "format": "python",
+      "files": {
+        "displays/lg_sicp.py": "e6a7b42ba295952de9f0e3d63b32713e29049399f1050100e9fd227a2ea1e3f0",
+        "displays/lg_sicp_sim.py": "32aba09f21b560f97aaf6983d82b6f858ae18e78f5c1651310f1ee7938cffbfb"
+      },
       "ports": [
         9761
       ],
@@ -209,6 +221,10 @@
       "source_url": "https://webostv.developer.lge.com/develop/getting-started/introduction-to-webos-tv",
       "file": "displays/lg_webos.py",
       "format": "python",
+      "files": {
+        "displays/lg_webos.py": "310ce2077b56fb0e37253f4f29ee3c4c7ff97cad40d5489606d288f1055fc102",
+        "displays/lg_webos_sim.py": "624cc9c18fb2cca2aed3dd8fae872394f5a47de6fdc7424f93cff9cb308cb2e5"
+      },
       "ports": [
         3001
       ],
@@ -281,6 +297,10 @@
       "source_url": "https://docs.connect.panasonic.com/prodisplays/support/download/pdf/LAN_Protocol_exp.pdf",
       "file": "displays/panasonic_display.py",
       "format": "python",
+      "files": {
+        "displays/panasonic_display.py": "695ce915f69a09fd15df02a410b3a8c25b78a6e0ff24fea6dffecb093a491d0c",
+        "displays/panasonic_display_sim.py": "8b5c32076dcf608ac5c445a9ecb58bab2a08ce672f2190b90b72fae098d93919"
+      },
       "ports": [
         1024
       ],
@@ -352,6 +372,10 @@
       "source_url": "https://github.com/vgavro/samsung-mdc",
       "file": "displays/samsung_mdc.py",
       "format": "python",
+      "files": {
+        "displays/samsung_mdc.py": "5666b9d313b72e4f1ade1db4806f203cfee4fe8cae96f6ed85a0018d25a64bf0",
+        "displays/samsung_mdc_sim.py": "1808fa9c8df92475c9e2e45b9bee4fc787bbe6bdd2532c5a353c27bc1f712f14"
+      },
       "ports": [
         1515
       ],
@@ -413,6 +437,10 @@
       "source_url": "https://business.sharpusa.com/portals/0/downloads/Manuals/PN_L603B_L703B_Operation_Manual.pdf",
       "file": "displays/sharp_pn_display.py",
       "format": "python",
+      "files": {
+        "displays/sharp_pn_display.py": "d8841ff499aaf5ecdaeb2e4681f48c343f384121ca863db46612fc6351872c4b",
+        "displays/sharp_pn_display_sim.py": "8d715e773971e9a654d2fc662f06d0dc3797f71bdf197eddde21c18ebc274190"
+      },
       "ports": [
         10008
       ],
@@ -474,6 +502,10 @@
       "source_url": "https://www.sharpdisplays.eu/p/download/cp/Products/LargeFormatDisplays/Products/CurrentProducts/Shared/Command_Lists/PDF-ExternalControlManual-LCDMonitor-(english).pdf",
       "file": "displays/sharp_nec_display.py",
       "format": "python",
+      "files": {
+        "displays/sharp_nec_display.py": "16c5f9c996c766b9eb086d5c2975a36af8a1dce86357f510319a9532ebbbb66f",
+        "displays/sharp_nec_display_sim.py": "943a62aec5137be4ee0c7c4ac1d880434fb72874faf234f881b0b737683f06f8"
+      },
       "ports": [
         7142
       ],
@@ -544,6 +576,10 @@
       "source_url": "https://pro-bravia.sony.net/develop/integrate/rest-api/spec/",
       "file": "displays/sony_bravia.py",
       "format": "python",
+      "files": {
+        "displays/sony_bravia.py": "671d2f194b17661e069939483648c2797650abbdc407f8a86542fd5ab629fcf3",
+        "displays/sony_bravia_sim.py": "fde5d2efbdffe52c7a38d8337dffd035b399adcb0419169d677bcedb98a916db"
+      },
       "ports": [
         80
       ],
@@ -606,6 +642,10 @@
       "source_url": "https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol",
       "file": "displays/viewsonic_cde.py",
       "format": "python",
+      "files": {
+        "displays/viewsonic_cde.py": "b712e5866c1194be652b7527888250c8ee0289730fcb729abfaca6263ff99f05",
+        "displays/viewsonic_cde_sim.py": "c525ab176a1b2e2436311f55d430ce5aa4a12230cb679d817992e1d9a4955037"
+      },
       "ports": [
         5000
       ],

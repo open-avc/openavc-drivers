@@ -848,3 +848,163 @@ def test_python_driver_index_fields_only_skips_platform_rules(tmp_path: Path) ->
     )
     rc, _, err = _run(tmp_path)
     assert rc == 0, err
+
+
+# --- Artifact hashes (`files`) ----------------------------------------------
+#
+# The platform hashes every file it downloads during an install and compares it
+# against this map before writing anything to driver_repo/. So the map has to
+# describe exactly the set the installer fetches: a hash that is wrong, missing,
+# or for a file the installer never asks for all break that check.
+
+
+def _sha256_of(path: Path) -> str:
+    import hashlib
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _entry_by_id(root: Path, driver_id: str) -> dict:
+    index = json.loads((root / "index.json").read_text(encoding="utf-8"))
+    return next(d for d in index["drivers"] if d["id"] == driver_id)
+
+
+def test_files_map_hashes_the_driver_file(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    yaml_path = _write_yaml_driver(tmp_path)
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    entry = _entry_by_id(tmp_path, "test_driver")
+    assert entry["files"] == {"audio/test_driver.avcdriver": _sha256_of(yaml_path)}
+    # The map is keyed by the same repo-relative path the entry advertises,
+    # so the installer can look up what it just downloaded.
+    assert entry["file"] in entry["files"]
+
+
+def test_files_map_tracks_edits_to_the_driver(tmp_path: Path) -> None:
+    # A real hash of real bytes, not a placeholder: editing the driver must
+    # move the hash, which is what makes a stale catalog detectable.
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    rc, _, _ = _run(tmp_path)
+    assert rc == 0
+    before = _entry_by_id(tmp_path, "test_driver")["files"]
+
+    _write_yaml_driver(tmp_path, overrides={"description": "Edited description."})
+    rc, _, _ = _run(tmp_path)
+    assert rc == 0
+    after = _entry_by_id(tmp_path, "test_driver")["files"]
+
+    assert before != after
+
+
+def test_files_map_includes_declared_yaml_companion(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    companion = tmp_path / "audio" / "test_driver_discovery.py"
+    companion.parent.mkdir(parents=True, exist_ok=True)
+    companion.write_text("def probe(ctx):\n    return None\n", encoding="utf-8")
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"discovery": {"python": "./test_driver_discovery.py"}},
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    files = _entry_by_id(tmp_path, "test_driver")["files"]
+    assert files["audio/test_driver_discovery.py"] == _sha256_of(companion)
+
+
+def test_files_map_includes_declared_companion_in_mapping_form(tmp_path: Path) -> None:
+    # `discovery.python` accepts a bare path or a {file, cross_vendor} mapping.
+    # Both declare the same companion, so both must be hashed.
+    _write_manufacturers(tmp_path)
+    companion = tmp_path / "audio" / "test_driver_discovery.py"
+    companion.parent.mkdir(parents=True, exist_ok=True)
+    companion.write_text("def probe(ctx):\n    return None\n", encoding="utf-8")
+    _write_yaml_driver(
+        tmp_path,
+        overrides={
+            "discovery": {
+                "python": {"file": "./test_driver_discovery.py", "cross_vendor": True}
+            }
+        },
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    files = _entry_by_id(tmp_path, "test_driver")["files"]
+    assert files["audio/test_driver_discovery.py"] == _sha256_of(companion)
+
+
+def test_files_map_includes_python_convention_companions(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    main = _write_python_driver(tmp_path)
+    sim = tmp_path / "projectors" / "test_driver_sim.py"
+    disco = tmp_path / "projectors" / "test_driver_discovery.py"
+    sim.write_text("SIM = True\n", encoding="utf-8")
+    disco.write_text("def probe(ctx):\n    return None\n", encoding="utf-8")
+
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    files = _entry_by_id(tmp_path, "test_py_driver")["files"]
+    assert files == {
+        "projectors/test_driver.py": _sha256_of(main),
+        "projectors/test_driver_discovery.py": _sha256_of(disco),
+        "projectors/test_driver_sim.py": _sha256_of(sim),
+    }
+
+
+def test_files_map_omits_python_companions_that_do_not_exist(tmp_path: Path) -> None:
+    # The platform fetches these by naming convention and treats a 404 as
+    # "ships without one". Listing an absent file would make every install of
+    # this driver look truncated.
+    _write_manufacturers(tmp_path)
+    main = _write_python_driver(tmp_path)
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    files = _entry_by_id(tmp_path, "test_py_driver")["files"]
+    assert files == {"projectors/test_driver.py": _sha256_of(main)}
+
+
+def test_files_map_omits_yaml_sim_companion(tmp_path: Path) -> None:
+    # A YAML driver simulates from its inline `simulator:` block, so the
+    # install path never fetches a sibling _sim.py even when the repo ships
+    # one. Listing it would be a hash the installer can never satisfy.
+    _write_manufacturers(tmp_path)
+    yaml_path = _write_yaml_driver(tmp_path)
+    (tmp_path / "audio" / "test_driver_sim.py").write_text("SIM = True\n", encoding="utf-8")
+
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    files = _entry_by_id(tmp_path, "test_driver")["files"]
+    assert files == {"audio/test_driver.avcdriver": _sha256_of(yaml_path)}
+
+
+def test_files_map_cannot_be_declared_by_the_driver(tmp_path: Path) -> None:
+    # `files` is computed from bytes on disk. A driver that declares its own
+    # must not be able to pin a hash of its choosing into the catalog.
+    _write_manufacturers(tmp_path)
+    yaml_path = _write_yaml_driver(
+        tmp_path,
+        extra_yaml='files: {"audio/test_driver.avcdriver": "deadbeef"}\n',
+    )
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    files = _entry_by_id(tmp_path, "test_driver")["files"]
+    assert files == {"audio/test_driver.avcdriver": _sha256_of(yaml_path)}
+    assert "deadbeef" not in json.dumps(files)
+
+
+def test_shard_entries_carry_the_same_hashes(tmp_path: Path) -> None:
+    # Installs can be driven from a category shard as well as the monolith.
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    rc, _, err = _run(tmp_path)
+    assert rc == 0, err
+
+    shard = json.loads((tmp_path / "index" / "audio.json").read_text(encoding="utf-8"))
+    assert shard["drivers"][0]["files"] == _entry_by_id(tmp_path, "test_driver")["files"]

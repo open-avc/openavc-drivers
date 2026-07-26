@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 10,
     "shards": null,
@@ -19,6 +19,10 @@
       "source_url": "https://www.audiogeneral.com/barco/UDX%20Series/JSON_ReferenceGuide.pdf",
       "file": "projectors/barco_pulse.py",
       "format": "python",
+      "files": {
+        "projectors/barco_pulse.py": "81d795187a306f30707e683ad787e75527c8249751c24fc7e07dd69a8d2fd562",
+        "projectors/barco_pulse_sim.py": "3f8f250102c5367c195b0c82401de2b8ee078061316b7032ed7c4755c2b416a9"
+      },
       "ports": [
         9090
       ],
@@ -97,6 +101,9 @@
       "source_url": "https://esupportdownload.benq.com/esupport/PROJECTOR/Control%20Protocols/LK952/LK952_RS232%20Control%20Guide_0_Windows10_Windows7_Windows8.pdf",
       "file": "projectors/benq_projector.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "projectors/benq_projector.avcdriver": "b466179c42ec54088ac5d19b902dc96953c3024f43d141efe0f1641fc8509616"
+      },
       "ports": [
         8000
       ],
@@ -173,6 +180,9 @@
       "source_url": "https://www.christiedigital.com/globalassets/resources/public/020-100224-11-christie-lit-tech-ref-m-series-serial-commands.pdf",
       "file": "projectors/christie_serial.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "projectors/christie_serial.avcdriver": "7e4f272f571a5e3b76d73f0c58a0ace77875e06926740a597143e33a6e76de70"
+      },
       "ports": [
         3002
       ],
@@ -242,6 +252,10 @@
       "source_url": "https://files.support.epson.com/pdf/pl600p/pl600pcm.pdf",
       "file": "projectors/epson_escvp.py",
       "format": "python",
+      "files": {
+        "projectors/epson_escvp.py": "c11b94af491a50dc7cf8caac48ecb9192732928412f66478d0f6508cc0b27fe3",
+        "projectors/epson_escvp_sim.py": "b8650164f1ae825346ac213056219c1dfc1e74e42c11b7540db87ef98041bc46"
+      },
       "ports": [
         3629
       ],
@@ -304,6 +318,11 @@
       "source_url": "https://pjlink.jbmia.or.jp/english/",
       "file": "projectors/pjlink_class1.py",
       "format": "python",
+      "files": {
+        "projectors/pjlink_class1.py": "01da0007b4f1dd1047ad9368cf1831c34c497ba0c35fbd00624a405035454739",
+        "projectors/pjlink_class1_discovery.py": "bcb01eaf63196a1b4b28651db910c517f37b71ee80ced4d10bf3af8f50cb0658",
+        "projectors/pjlink_class1_sim.py": "31e796450ed4b5b70a19de7f98f7d48aeeb73a604c8f9d59937376bddfa151bd"
+      },
       "ports": [
         4352
       ],
@@ -492,6 +511,10 @@
       "source_url": "https://www.optomaeurope.com/ContentStorage/Documents/869372d2-6854-4dd6-b26e-2f246a5f6ea8.pdf",
       "file": "projectors/optoma_projector.py",
       "format": "python",
+      "files": {
+        "projectors/optoma_projector.py": "c96e25d4997e2b23eb5ea3b3ad000e0fb8eb7b9370ee5199bf2149d70986ccf3",
+        "projectors/optoma_projector_sim.py": "4d0df45cf58ce5e3feeaddd2102df7c09d71b3044afc725acb0edd91431fe66a"
+      },
       "ports": [
         23
       ],
@@ -555,6 +578,10 @@
       "source_url": "https://docs.connect.panasonic.com/prodisplays/support/download/pdf/LAN_Protocol_exp.pdf",
       "file": "projectors/panasonic_pt.py",
       "format": "python",
+      "files": {
+        "projectors/panasonic_pt.py": "0f0da505980c1fca0bdc9935dd21ca004e5be878f462b5a1780c05a01e9b6e89",
+        "projectors/panasonic_pt_sim.py": "7b257364dd1ee7b3a2ad1f01e58eac04065d72836a8ee2cd1cfe188449f9ed2c"
+      },
       "ports": [
         1024
       ],
@@ -641,6 +668,9 @@
       "source_url": "https://www.eiki.com/rs232-commands/",
       "file": "projectors/sanyo_serial_projector.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "projectors/sanyo_serial_projector.avcdriver": "c127dcf9bbbac89afc5a733dda87f1b74d7b95d80b9388662aaa2744ea14eb17"
+      },
       "simulated": true,
       "verified": true,
       "tags": [
@@ -721,6 +751,10 @@
       "source_url": "https://assets.sharpnecdisplays.us/documents/miscellaneous/pj-control-command-codes.pdf",
       "file": "projectors/sharp_nec_projector.py",
       "format": "python",
+      "files": {
+        "projectors/sharp_nec_projector.py": "f6053dadef44e9feae0162f195ace5d6150e861277027e4e5a74d9222250fbd5",
+        "projectors/sharp_nec_projector_sim.py": "f1e9ae48582df53f3cb78021d1dd3c2b9b11364f22ce7b16cf32ee682749769d"
+      },
       "ports": [
         7142
       ],
@@ -796,6 +830,10 @@
       "source_url": "https://pro.sony/s3/2018/07/03140912/Sony_Protocol-Manual_1st-Edition-Revised-2.pdf",
       "file": "projectors/sony_vpl.py",
       "format": "python",
+      "files": {
+        "projectors/sony_vpl.py": "e8101f93306013557a5664a77959968b8e732aacb559db5d20c0bdb1295da375",
+        "projectors/sony_vpl_sim.py": "65e8a8b1916d8b62b7fced840dac9661f17c43385ff838df472a7128b8258c80"
+      },
       "ports": [
         53595
       ],

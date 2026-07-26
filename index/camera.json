@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 8,
     "shards": null,
@@ -19,6 +19,10 @@
       "source_url": "https://www.averusa.com/pro-av/downloads/control-codes/PTZ310330_CGI_Commands.pdf",
       "file": "cameras/aver_ptz.py",
       "format": "python",
+      "files": {
+        "cameras/aver_ptz.py": "3ad98a51888d736bacf54aa232fbb2c1f9690761c8adc42956e16369f41e7f10",
+        "cameras/aver_ptz_sim.py": "7705f5ea96255637991fa207c2839bfde3b309de0df04604c96d6d1c85571803"
+      },
       "ports": [
         80,
         52381
@@ -74,6 +78,10 @@
       "source_url": "https://birddog.tv/AV/API/index.html",
       "file": "cameras/birddog_ptz.py",
       "format": "python",
+      "files": {
+        "cameras/birddog_ptz.py": "9d3b9f161d2df03ec780191a093e79ccf32c50956122a5cd74dac5c4c067bad8",
+        "cameras/birddog_ptz_sim.py": "e189714584f736bcc4aca22ba74897fff9caab276725a2c8ea0486f237fe2dfb"
+      },
       "ports": [
         8080,
         52381
@@ -140,6 +148,11 @@
       "source_url": "https://shop.ccisolutions.com/StoreFront/jsp/pdf/SON-SRGX400_visca_commandList.pdf",
       "file": "cameras/visca_ip.py",
       "format": "python",
+      "files": {
+        "cameras/visca_ip.py": "15ecd26af3422605cc91700d9aff279c456c428e2fb8eefe2ebd7418682e2cd9",
+        "cameras/visca_ip_discovery.py": "a57320d4e6b4dcae81cc416fd342b96b6552605530b4cbce70aa607130302274",
+        "cameras/visca_ip_sim.py": "aaa5326a89b5fe41e848ea437e25e43950765442a198ba035142b201e5e01ba3"
+      },
       "ports": [
         52381
       ],
@@ -229,6 +242,10 @@
       "source_url": "https://github.com/open-avc/openavc-drivers",
       "file": "cameras/onvif_camera.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "cameras/onvif_camera.avcdriver": "f544de932524685a8d381851b3f8c7c5f28c5dc666d43a6fb0cc85c18cbd8892",
+        "cameras/onvif_camera_discovery.py": "38ce006e7ebee4ff1e10af6d0abc880e5e77a3458137f35651750a8385b08bde"
+      },
       "protocols": [
         "onvif"
       ],
@@ -270,6 +287,9 @@
       "source_url": "https://eww.pass.panasonic.co.jp/pro-av/support/content/guide/DEF/HE50_120_IP/HDIntegratedCamera_InterfaceSpecifications-E.pdf",
       "file": "cameras/panasonic_awhe.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "cameras/panasonic_awhe.avcdriver": "b2fd007da7110b37e82e87829fea2fdc73d5f7fd952ce56e3424ad7484a1b49e"
+      },
       "ports": [
         80
       ],
@@ -354,6 +374,10 @@
       "source_url": "https://ptzoptics.com/wp-content/uploads/2020/11/PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf",
       "file": "cameras/ptzoptics.py",
       "format": "python",
+      "files": {
+        "cameras/ptzoptics.py": "10c7bdc4482c46db03eb059e9c3ff269832fcf9570ba57429966882b6524431a",
+        "cameras/ptzoptics_sim.py": "2d713a89bd29dd8f0b03b9e22eca0afd145aa85a251ca5279e456c599d685e52"
+      },
       "ports": [
         5678
       ],
@@ -423,6 +447,10 @@
       "source_url": "https://shop.ccisolutions.com/StoreFront/jsp/pdf/SON-SRGX400_visca_commandList.pdf",
       "file": "cameras/sony_visca.py",
       "format": "python",
+      "files": {
+        "cameras/sony_visca.py": "dc5e54571f0b343af701250ed18b28556768e8137e506084ee6110be137bf568",
+        "cameras/sony_visca_sim.py": "8afd950a246cf3813763bd4a2122d4e61f76d9d333bcb4f24e4b846efdb596a9"
+      },
       "ports": [
         52381
       ],
@@ -477,6 +505,9 @@
       "source_url": "https://res.cloudinary.com/iwh/image/upload/q_auto,g_center/assets/1/26/vaddio_RoboSHOT_12_Integrators_Complete_Guide.pdf",
       "file": "cameras/vaddio_roboshot.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "cameras/vaddio_roboshot.avcdriver": "ba21ebc39af2a97fdb0b994d6b7478766d0c5051c86096ee29d71bc06529e4e8"
+      },
       "ports": [
         23
       ],

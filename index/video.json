@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 7,
     "shards": null,
@@ -19,6 +19,10 @@
       "source_url": "https://birddog.tv/AV/API/index.html",
       "file": "video/birddog_codec.py",
       "format": "python",
+      "files": {
+        "video/birddog_codec.py": "7e4295da31072e1b9dd4d12d4302b513b6801e9e9c9bb7c74beeca25e933bd00",
+        "video/birddog_codec_sim.py": "20a4bf1aba58f4d26dd8d24d02b97ade3d3689b69aeee139771bde7fdeb698d7"
+      },
       "ports": [
         8080
       ],
@@ -77,6 +81,9 @@
       "source_url": "https://roomos.cisco.com/print/TechDocs/HttpApi",
       "file": "video/cisco_roomos_xapi.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "video/cisco_roomos_xapi.avcdriver": "73ae2a9943c8548d0beae7321afe0b73b07995b8f7661aa953396376928e4c0a"
+      },
       "ports": [
         443
       ],
@@ -157,6 +164,9 @@
       "source_url": "https://qlab.app/docs/v5/scripting/osc-dictionary-v5/",
       "file": "video/qlab.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "video/qlab.avcdriver": "6c770bb77a13f5189390b2ce64af5f0d8d1c7b34f8d93d8d393e49696efb106c"
+      },
       "ports": [
         53000
       ],
@@ -207,6 +217,9 @@
       "source_url": "https://oss.novastar.tech/uploads/2023/02/H-Series-Video-Wall-Splicers-User-Manual-V1.8.0.pdf",
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "video/novastar_h_series.avcdriver": "018f11cc1e007111eb7dbba1cc5ec7cb79d67f4ac3dccbf9d8742672977bedb5"
+      },
       "ports": [
         6000
       ],
@@ -257,6 +270,10 @@
       "source_url": "https://kaas.hpcloud.hp.com/pdf-public/pdf_9122216_en-US-1.pdf",
       "file": "video/poly_studio.py",
       "format": "python",
+      "files": {
+        "video/poly_studio.py": "8ba95cae54c1575dc2e1faf0c67694b524f05767c7197496b4e227867bc4d447",
+        "video/poly_studio_sim.py": "5661432a4f4299e02ecf8d5f8a2c45d901bfce32d38bff4eab0d46574fe1696f"
+      },
       "ports": [
         443
       ],
@@ -323,6 +340,10 @@
       "source_url": "https://www.vmix.com/help29/TCPAPI.html",
       "file": "video/vmix.py",
       "format": "python",
+      "files": {
+        "video/vmix.py": "19845e1b05ffc045eabf62ff4344d8d25676be5df9212c138a30e3f12c2d3199",
+        "video/vmix_sim.py": "be61c809f23e2a569e3c661b2a1da56c1b0b80b47c9c070a85b66c0bdfbf3ec4"
+      },
       "ports": [
         8099
       ],
@@ -370,6 +391,10 @@
       "source_url": "https://api.tvone.com/products/c3-series/c3-5xx/tvONE%20CORIOmaster%20Commands_current.pdf",
       "file": "video/tvone_coriomaster.py",
       "format": "python",
+      "files": {
+        "video/tvone_coriomaster.py": "f7ff3c77c4e9c58e5d38ddeeff485ddd42527ab15e11f9d37c69948f0efdf1a4",
+        "video/tvone_coriomaster_sim.py": "ecf666becbe5fc50f2857167c4ccab38aad41ca15860e43b18ebd8bc065ba39a"
+      },
       "ports": [
         10001
       ],

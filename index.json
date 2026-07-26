@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 92,
     "shards": null
@@ -18,6 +18,10 @@
       "source_url": "https://support.allen-heath.com/hc/en-gb/articles/45146889174801-Avantis-MIDI-TCP-IP-Protocol",
       "file": "audio/allenheath_avantis.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_avantis.py": "a20eaac5fab2355a38f08c63de0413bf15a9a797b3ab2b04a5d65292ee58ae2f",
+        "audio/allenheath_avantis_sim.py": "22cdc1e4ddcaa147e1b52672dd8dbf2bbd01013773bf1f129e0b654f585c5998"
+      },
       "ports": [
         51325
       ],
@@ -77,6 +81,10 @@
       "source_url": "https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf",
       "file": "audio/allenheath_dlive.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_dlive.py": "96ea1f59d0affc7d0abce742a373421a25af5636a1558ec8c6604bf04e43952b",
+        "audio/allenheath_dlive_sim.py": "8c26473908c7562a5ebfe7c2a763c2ca378ff2e8e36db7aa261432f5a14f7b8f"
+      },
       "ports": [
         51325
       ],
@@ -144,6 +152,10 @@
       "source_url": "https://www.allen-heath.com/content/uploads/2023/06/Qu_MIDI_Protocol_V1.9.pdf",
       "file": "audio/allenheath_qu.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_qu.py": "729361d6d42b388814babd2ceb4a0169e875dfba377055b6c1338502146f30e6",
+        "audio/allenheath_qu_sim.py": "0b4d20c8ef03a4b8685bef320020199cbe12624a7ac7dc3b305e42753d8c71e0"
+      },
       "ports": [
         51325
       ],
@@ -214,6 +226,10 @@
       "source_url": "https://www.allen-heath.com/content/uploads/2023/11/SQ-MIDI-Protocol-Issue5.pdf",
       "file": "audio/allenheath_sq.py",
       "format": "python",
+      "files": {
+        "audio/allenheath_sq.py": "8616752b3efaa48daaa74abdf608257aaa21303bf35ab841dacfe199926056a3",
+        "audio/allenheath_sq_sim.py": "300ff60f4711efc426848e9e921de94d69e9885f6ca9cd4ebf496b095aad03d4"
+      },
       "ports": [
         51325
       ],
@@ -273,6 +289,10 @@
       "source_url": "https://www.atlasied.com/ATS006993-B-AZM4-AZM8-3rd-Party-Control.pdf",
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
+      "files": {
+        "audio/atlasied_atmosphere.py": "01d956004d1a4bd929b5352a8d0cd17d2d7bed08269e88c205e93912fde8c837",
+        "audio/atlasied_atmosphere_sim.py": "88fabeacaf9ccc498f2924896e240a4d2f8b6dbbaa1d865a78dadf1d7efe5169"
+      },
       "ports": [
         5321
       ],
@@ -329,6 +349,10 @@
       "source_url": "https://atlona.com/pdf/AT-OME-MS52W_API.pdf",
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
+      "files": {
+        "switchers/atlona_ome_ms.py": "ae426a9690e96154234d0de8d5fda329690efafa027cabc8a6f1440892bfa870",
+        "switchers/atlona_ome_ms_sim.py": "6e910e3cc478517d32a0917207c678654aaee49ab687c2664e38cb07e79e67a3"
+      },
       "ports": [
         23
       ],
@@ -384,6 +408,9 @@
       "source_url": "https://atlona.com/pdf/AT-OME-PS62_API.pdf",
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/atlona_ome_ps62.avcdriver": "9461e5146ae2aea9880f4832d5048d9be6bb909886e8d6fecced47a21edb5fca"
+      },
       "ports": [
         23
       ],
@@ -436,6 +463,9 @@
       "source_url": "https://atlona.com/pdf/AT-UHD-PRO3-88M_API.pdf",
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/atlona_uhd_pro3.avcdriver": "3be2dd0ac88050291f1364ffb1f4346617ed87a1494738e49c830d33b62f17e7"
+      },
       "ports": [
         23
       ],
@@ -489,6 +519,9 @@
       "source_url": "https://atlona.com/pdf/OmniStream_CLI-JSON_API.pdf",
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/atlona_omnistream.avcdriver": "40ccac699a2e2fb8e16b37f05a7fd685e9c97b47199ca5451626704dcd31de4f"
+      },
       "ports": [
         23,
         2323,
@@ -548,6 +581,10 @@
       "source_url": "https://www.getdante.com/products/network-management/dante-managed-api/",
       "file": "audio/dante_ddm.py",
       "format": "python",
+      "files": {
+        "audio/dante_ddm.py": "c2b1e61ef366a3679c8b00cea25cd25855f5ad429e042545534817af49819be2",
+        "audio/dante_ddm_sim.py": "a5231ab8bec5490c662fd8ac8a5f41f9b4122bab0f242c169923c053e6f3a1dd"
+      },
       "ports": [
         443
       ],
@@ -591,6 +628,9 @@
       "source_url": "https://docs.audio-technica.com/us/atdm_0604_ip_control_protcol_specification_ver1_1_2_web_190626.pdf",
       "file": "audio/at_atdm_0604.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/at_atdm_0604.avcdriver": "bf522917eb324e46909af0218b7c1415440ad4380f89898e11d1709e34b89a0a"
+      },
       "ports": [
         17300
       ],
@@ -648,6 +688,9 @@
       "source_url": "https://docs.audio-technica.com/all/ATDM-0604a_IP_Control_Protocol_Specifications_EN_Ver1.0_web_221209.pdf",
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/at_atdm_0604a.avcdriver": "296bd064aef9a6589f0c74ebf4c0472073731663ef9957e6d0174d6240e40042"
+      },
       "ports": [
         17300
       ],
@@ -707,6 +750,9 @@
       "source_url": "https://docs.audio-technica.com/all/IP_Control_Protocol_Specification_-_ATDM-1012_ATDM-1012DAN.pdf",
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/at_atdm_1012.avcdriver": "90e82af3d91645fe197f9cb199c3a7d2da7d6bebb9446d39a580152507b2e9c8"
+      },
       "ports": [
         17300
       ],
@@ -776,6 +822,10 @@
       "source_url": "https://www.averusa.com/pro-av/downloads/control-codes/PTZ310330_CGI_Commands.pdf",
       "file": "cameras/aver_ptz.py",
       "format": "python",
+      "files": {
+        "cameras/aver_ptz.py": "3ad98a51888d736bacf54aa232fbb2c1f9690761c8adc42956e16369f41e7f10",
+        "cameras/aver_ptz_sim.py": "7705f5ea96255637991fa207c2839bfde3b309de0df04604c96d6d1c85571803"
+      },
       "ports": [
         80,
         52381
@@ -831,6 +881,9 @@
       "source_url": "https://p11.secure.hostingprod.com/@site.hdtvsupply.com/ssl/brand/avpro-edge/avpro-edge-ac-mx1616-auhd-hdbt-chassis-um.pdf",
       "file": "switchers/avproedge_acmx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/avproedge_acmx.avcdriver": "02e29efadee9b4f4e70fb49fd5baffedda01b434bd72424e4b7f1b9aea4df9dc"
+      },
       "ports": [
         23
       ],
@@ -892,6 +945,10 @@
       "source_url": "https://support.avproglobal.com/portal/en/kb/articles/mxnet-api",
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
+      "files": {
+        "switchers/avproedge_mxnet_1g.py": "bc3447a8582e78a8f43cdbaabee8255064eb32f9196fd6806b0abbd09d3c10f5",
+        "switchers/avproedge_mxnet_1g_sim.py": "f243af97587f3a0eefdf2f8239d6a36802eb5891d1a0ef8a692fdf38fed7cc96"
+      },
       "ports": [
         24
       ],
@@ -960,6 +1017,9 @@
       "source_url": "https://www.barco.com/services/website/en/TdeFiles/Download?FileNumber=R5915531&TdeType=3&MajorVersion=12",
       "file": "streaming/barco_clickshare_cx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "streaming/barco_clickshare_cx.avcdriver": "bcca4a9d43f149c868d095cbd9a19204c5b604b9ef982c31d4a31f1177ea8fb8"
+      },
       "ports": [
         4003
       ],
@@ -1026,6 +1086,10 @@
       "source_url": "https://www.audiogeneral.com/barco/UDX%20Series/JSON_ReferenceGuide.pdf",
       "file": "projectors/barco_pulse.py",
       "format": "python",
+      "files": {
+        "projectors/barco_pulse.py": "81d795187a306f30707e683ad787e75527c8249751c24fc7e07dd69a8d2fd562",
+        "projectors/barco_pulse_sim.py": "3f8f250102c5367c195b0c82401de2b8ee078061316b7032ed7c4755c2b416a9"
+      },
       "ports": [
         9090
       ],
@@ -1104,6 +1168,9 @@
       "source_url": "https://sites.google.com/site/patrickmaillot/x32",
       "file": "audio/behringer_x32.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/behringer_x32.avcdriver": "a79281281e56fe4f7064033bd5b68cb1bad575a2e8502df65d55a9883596fae0"
+      },
       "ports": [
         10023
       ],
@@ -1169,6 +1236,10 @@
       "source_url": "https://esupportdownload.benq.com/esupport/PUBLIC%20DISPLAY%20PRODUCT/Control%20Protocols/RM6503/RS232%20&%20LAN%20Command%20List_2_Others.pdf",
       "file": "displays/benq_display.py",
       "format": "python",
+      "files": {
+        "displays/benq_display.py": "9f3be4aba328f9e45fa4d014cedbb8fa3713fe161008becf5010614dd8bc83bf",
+        "displays/benq_display_sim.py": "880cbd0641a2e8f40d6ec3d3dbc23431386e1041a700e0a6c2272b7d0f62ca1b"
+      },
       "ports": [
         4660
       ],
@@ -1250,6 +1321,9 @@
       "source_url": "https://esupportdownload.benq.com/esupport/PROJECTOR/Control%20Protocols/LK952/LK952_RS232%20Control%20Guide_0_Windows10_Windows7_Windows8.pdf",
       "file": "projectors/benq_projector.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "projectors/benq_projector.avcdriver": "b466179c42ec54088ac5d19b902dc96953c3024f43d141efe0f1641fc8509616"
+      },
       "ports": [
         8000
       ],
@@ -1326,6 +1400,11 @@
       "source_url": "https://support.biamp.com/Tesira/Control/Tesira_Text_Protocol",
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
+      "files": {
+        "audio/biamp_tesira_ttp.py": "1510cce3d6200123fe6fd8f7855722ceddbb9cfd513ab0500e273035879b05b7",
+        "audio/biamp_tesira_ttp_discovery.py": "08efc26d29dc97a0b410edf82b3f280dc953ca5a5e1bec42d1d34044e543be8d",
+        "audio/biamp_tesira_ttp_sim.py": "aefb6d76646d687ae387fa1fd31d48be36f696848eecfee2f755cadfefb70ef0"
+      },
       "ports": [
         23
       ],
@@ -1390,6 +1469,10 @@
       "source_url": "https://birddog.tv/AV/API/index.html",
       "file": "video/birddog_codec.py",
       "format": "python",
+      "files": {
+        "video/birddog_codec.py": "7e4295da31072e1b9dd4d12d4302b513b6801e9e9c9bb7c74beeca25e933bd00",
+        "video/birddog_codec_sim.py": "20a4bf1aba58f4d26dd8d24d02b97ade3d3689b69aeee139771bde7fdeb698d7"
+      },
       "ports": [
         8080
       ],
@@ -1448,6 +1531,10 @@
       "source_url": "https://birddog.tv/AV/API/index.html",
       "file": "cameras/birddog_ptz.py",
       "format": "python",
+      "files": {
+        "cameras/birddog_ptz.py": "9d3b9f161d2df03ec780191a093e79ccf32c50956122a5cd74dac5c4c067bad8",
+        "cameras/birddog_ptz_sim.py": "e189714584f736bcc4aca22ba74897fff9caab276725a2c8ea0486f237fe2dfb"
+      },
       "ports": [
         8080,
         52381
@@ -1514,6 +1601,10 @@
       "source_url": "https://documents.blackmagicdesign.com/DeveloperManuals/VideohubEthernetProtocol.pdf",
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
+      "files": {
+        "switchers/blackmagic_videohub.py": "e7a32c9245cfe1127c729c71c22fbbee8c5b0461a4afe93b6c71d50af7ade55f",
+        "switchers/blackmagic_videohub_sim.py": "20656f8d96bf152b09fb82449c5d528f295387321ae5ce63200e60b819f430cf"
+      },
       "ports": [
         9990
       ],
@@ -1594,6 +1685,9 @@
       "source_url": "https://www.christiedigital.com/globalassets/resources/public/020-100224-11-christie-lit-tech-ref-m-series-serial-commands.pdf",
       "file": "projectors/christie_serial.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "projectors/christie_serial.avcdriver": "7e4f272f571a5e3b76d73f0c58a0ace77875e06926740a597143e33a6e76de70"
+      },
       "ports": [
         3002
       ],
@@ -1663,6 +1757,9 @@
       "source_url": "https://roomos.cisco.com/print/TechDocs/HttpApi",
       "file": "video/cisco_roomos_xapi.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "video/cisco_roomos_xapi.avcdriver": "73ae2a9943c8548d0beae7321afe0b73b07995b8f7661aa953396376928e4c0a"
+      },
       "ports": [
         443
       ],
@@ -1743,6 +1840,10 @@
       "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
       "file": "switchers/crestron_nvx.py",
       "format": "python",
+      "files": {
+        "switchers/crestron_nvx.py": "406ba27ac7d53afbb8024cb4de383a858ae0c7e2bba85213c64f4cc4635b74b4",
+        "switchers/crestron_nvx_sim.py": "891bb41c68b47485480a07b58a0d2086f1344bd17b82ec8d0601c28bf15867c5"
+      },
       "ports": [
         443
       ],
@@ -1818,6 +1919,10 @@
       "source_url": "https://files.support.epson.com/pdf/pl600p/pl600pcm.pdf",
       "file": "projectors/epson_escvp.py",
       "format": "python",
+      "files": {
+        "projectors/epson_escvp.py": "c11b94af491a50dc7cf8caac48ecb9192732928412f66478d0f6508cc0b27fe3",
+        "projectors/epson_escvp_sim.py": "b8650164f1ae825346ac213056219c1dfc1e74e42c11b7540db87ef98041bc46"
+      },
       "ports": [
         3629
       ],
@@ -1880,6 +1985,9 @@
       "source_url": "https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/23_Show_Control/08_OSC/Using_OSC_with_Eos/OSC_Eos_Control.htm",
       "file": "lighting/etc_eos.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "lighting/etc_eos.avcdriver": "c03f5db401457787814df052a99a10859be1e6724ccb0344f102db90e2e81ffb"
+      },
       "ports": [
         8000,
         8001
@@ -1948,6 +2056,9 @@
       "source_url": "https://www.extron.com/article/sisseries",
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/extron_sis.avcdriver": "ff029715e2d5cbf7e89e8acb4e23c952b078d8fee057ca9c68b91a03270a2349"
+      },
       "ports": [
         23
       ],
@@ -2016,6 +2127,9 @@
       "source_url": "https://qlab.app/docs/v5/scripting/osc-dictionary-v5/",
       "file": "video/qlab.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "video/qlab.avcdriver": "6c770bb77a13f5189390b2ce64af5f0d8d1c7b34f8d93d8d393e49696efb106c"
+      },
       "ports": [
         53000
       ],
@@ -2066,6 +2180,9 @@
       "source_url": "https://www.markertek.com/Attachments/Manuals/Gefen/EXT-UHD600A-44-Manual.pdf",
       "file": "switchers/gefen_uhd600a.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/gefen_uhd600a.avcdriver": "b4be6163bbf4fceea40fbb5475c477703b29e4e96125681cc7ae0d44a2ea75b6"
+      },
       "ports": [
         23
       ],
@@ -2126,6 +2243,10 @@
       "source_url": "https://art-net.org.uk/downloads/art-net.pdf",
       "file": "lighting/artnet_dmx.py",
       "format": "python",
+      "files": {
+        "lighting/artnet_dmx.py": "cd8989d661d0b2f01f057e0288f6e8dec70ef39f2fcd8bd3c5619b07d7fe4cdd",
+        "lighting/artnet_dmx_sim.py": "dcff5946da1595fb1acf72fed8b0af9aac6189ea2fd33337e6b570e8b8700a62"
+      },
       "ports": [
         6454
       ],
@@ -2289,6 +2410,9 @@
       "source_url": "https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md",
       "file": "utility/generic_http.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "utility/generic_http.avcdriver": "43bd1439cbdbb99bf203aea25c4ef63f8776586c956645525352e7a0a1656737"
+      },
       "tags": [
         "template",
         "rest",
@@ -2311,6 +2435,11 @@
       "source_url": "https://shop.ccisolutions.com/StoreFront/jsp/pdf/SON-SRGX400_visca_commandList.pdf",
       "file": "cameras/visca_ip.py",
       "format": "python",
+      "files": {
+        "cameras/visca_ip.py": "15ecd26af3422605cc91700d9aff279c456c428e2fb8eefe2ebd7418682e2cd9",
+        "cameras/visca_ip_discovery.py": "a57320d4e6b4dcae81cc416fd342b96b6552605530b4cbce70aa607130302274",
+        "cameras/visca_ip_sim.py": "aaa5326a89b5fe41e848ea437e25e43950765442a198ba035142b201e5e01ba3"
+      },
       "ports": [
         52381
       ],
@@ -2400,6 +2529,10 @@
       "source_url": "https://www.modbus.org/modbus-specifications",
       "file": "utility/modbus_tcp.py",
       "format": "python",
+      "files": {
+        "utility/modbus_tcp.py": "1dc9e9fe2ee58289d6b84a47ac347e21570437fb5e058c49f7b6337f9ba95720",
+        "utility/modbus_tcp_sim.py": "cb1c2820891f73d5b590fc1e20949bc3c73a2a7c1845068a5627f3b03a1bcca7"
+      },
       "protocols": [
         "modbus_tcp"
       ],
@@ -2422,6 +2555,11 @@
       "source_url": "https://pjlink.jbmia.or.jp/english/",
       "file": "projectors/pjlink_class1.py",
       "format": "python",
+      "files": {
+        "projectors/pjlink_class1.py": "01da0007b4f1dd1047ad9368cf1831c34c497ba0c35fbd00624a405035454739",
+        "projectors/pjlink_class1_discovery.py": "bcb01eaf63196a1b4b28651db910c517f37b71ee80ced4d10bf3af8f50cb0658",
+        "projectors/pjlink_class1_sim.py": "31e796450ed4b5b70a19de7f98f7d48aeeb73a604c8f9d59937376bddfa151bd"
+      },
       "ports": [
         4352
       ],
@@ -2610,6 +2748,10 @@
       "source_url": "https://tsp.esta.org/tsp/documents/docs/E1-31-2018.pdf",
       "file": "lighting/sacn_e131.py",
       "format": "python",
+      "files": {
+        "lighting/sacn_e131.py": "747e16609132dd7b412a2e72d245e6ec26b7c390fdb674d00662beda98999d7f",
+        "lighting/sacn_e131_sim.py": "f69e0ea2fe429840b976b433b1ecf43211782411599983682e5f613da1b7827a"
+      },
       "ports": [
         5568
       ],
@@ -2749,6 +2891,9 @@
       "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
       "file": "utility/wake_on_lan.py",
       "format": "python",
+      "files": {
+        "utility/wake_on_lan.py": "b69b0099b0c2861bc78818feec2c466c109329d7a15620d8a2743b7f14316f50"
+      },
       "min_platform_version": "0.24.0",
       "tags": [
         "wol",
@@ -2773,6 +2918,10 @@
       "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
       "file": "utility/globalcache_itach_ip2cc.py",
       "format": "python",
+      "files": {
+        "utility/globalcache_itach_ip2cc.py": "ce8a51288921016af0248aabff7e9944110860c1e842bdf5e10ceaf0963cdae8",
+        "utility/globalcache_itach_ip2cc_sim.py": "3645c62a80e1b33051717f490fe0dbc1e9c5fc991ed34d8f993c3787daf5d3ae"
+      },
       "ports": [
         4998
       ],
@@ -2833,6 +2982,10 @@
       "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
       "file": "utility/globalcache_itach_ip2ir.py",
       "format": "python",
+      "files": {
+        "utility/globalcache_itach_ip2ir.py": "d0d22241729a39ceb4fe8e49ee67be79ce4dd89aeae763dba627f619d600c336",
+        "utility/globalcache_itach_ip2ir_sim.py": "42c0b68dfdfa10437240030ed254d05ea59c5f4e84da06cb8ccaabb744323f09"
+      },
       "ports": [
         4998
       ],
@@ -2892,6 +3045,9 @@
       "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
       "file": "utility/globalcache_itach_ip2sl.py",
       "format": "python",
+      "files": {
+        "utility/globalcache_itach_ip2sl.py": "dacf4f0ec44148fae2cda15426d386541570a3c0d454b12308d1f91224136eda"
+      },
       "ports": [
         4998,
         4999
@@ -2951,6 +3107,9 @@
       "source_url": "https://soundcorehero.com",
       "file": "audio/soundcorehero.py",
       "format": "python",
+      "files": {
+        "audio/soundcorehero.py": "601809f4bf82bf285e0e5a65126afdbcbdc384171696f5e29ea325d92a621bdd"
+      },
       "protocols": [
         "soundcorehero"
       ],
@@ -2987,6 +3146,10 @@
       "source_url": "https://github.com/tombabolewski/vidaa-control",
       "file": "displays/hisense_vidaa.py",
       "format": "python",
+      "files": {
+        "displays/hisense_vidaa.py": "56bd049d0fa96340bfa2f1c603a7e0aefc64fdf326542899aafe41edb930c79b",
+        "displays/hisense_vidaa_sim.py": "0a7b9cc96495660a0f325f189c73306c58092603ae55f5aa3da3340be02810d2"
+      },
       "ports": [
         36669
       ],
@@ -3027,6 +3190,9 @@
       "source_url": "https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf",
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/kramer_p3000.avcdriver": "afae4a805fa09e1dac8ecb56dbd23034b2f589ab4b61091c79f27155490b4c0c"
+      },
       "ports": [
         5000,
         23
@@ -3087,6 +3253,9 @@
       "source_url": "https://leaprofessional.com/wp-content/uploads/2020/10/LEA-Open-API-TCP-Protocol-October-2020.pdf",
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/lea_connect.avcdriver": "02ee043afea5d19db6b248b96c04a694a003f8c8bc722e829d29f3905417c25d"
+      },
       "ports": [
         4321
       ],
@@ -3187,6 +3356,10 @@
       "source_url": "https://aca.im/driver_docs/LG/SM_models.pdf",
       "file": "displays/lg_sicp.py",
       "format": "python",
+      "files": {
+        "displays/lg_sicp.py": "e6a7b42ba295952de9f0e3d63b32713e29049399f1050100e9fd227a2ea1e3f0",
+        "displays/lg_sicp_sim.py": "32aba09f21b560f97aaf6983d82b6f858ae18e78f5c1651310f1ee7938cffbfb"
+      },
       "ports": [
         9761
       ],
@@ -3256,6 +3429,10 @@
       "source_url": "https://webostv.developer.lge.com/develop/getting-started/introduction-to-webos-tv",
       "file": "displays/lg_webos.py",
       "format": "python",
+      "files": {
+        "displays/lg_webos.py": "310ce2077b56fb0e37253f4f29ee3c4c7ff97cad40d5489606d288f1055fc102",
+        "displays/lg_webos_sim.py": "624cc9c18fb2cca2aed3dd8fae872394f5a47de6fdc7424f93cff9cb308cb2e5"
+      },
       "ports": [
         3001
       ],
@@ -3328,6 +3505,9 @@
       "source_url": "https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf",
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/lightware_lw3.avcdriver": "7c57a64987cc69108c94a2ea0d9d9d826002eb56c0c5625224770dde0c0cc229"
+      },
       "ports": [
         6107
       ],
@@ -3401,6 +3581,9 @@
       "source_url": "https://assets.lutron.com/a/documents/040249.pdf",
       "file": "lighting/lutron_homeworks_qs.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "lighting/lutron_homeworks_qs.avcdriver": "8d2d49e72a34a99a04a4d60d7f061c8b4685f8a016fc5f105e1bc69bd1c1375a"
+      },
       "ports": [
         23
       ],
@@ -3460,6 +3643,10 @@
       "source_url": "https://documentation.mersive.com/content/pdf/opencontrolapiguide.pdf",
       "file": "streaming/mersive_solstice.py",
       "format": "python",
+      "files": {
+        "streaming/mersive_solstice.py": "1e1b4dfed1f8f1b89f3e6583bfc9f43f58830e819d9ddc7946e088b626bd0c60",
+        "streaming/mersive_solstice_sim.py": "1daadb772040d96fdca37710bdd2793ca8fc8a802effd38814f3622ca42a2fc6"
+      },
       "ports": [
         80,
         443
@@ -3520,6 +3707,10 @@
       "source_url": "https://shop.exertis.no/sv-SE/Product/112284/Link/66906/RLNK-Series-Protocol.pdf",
       "file": "power/racklink_rlnk.py",
       "format": "python",
+      "files": {
+        "power/racklink_rlnk.py": "56321b344ca593233f6f4c5d68ca6a13ed0b5caf6f106a73b2deb4ba5e851ffe",
+        "power/racklink_rlnk_sim.py": "f36b66ef05fd757b4025dbfb05ace0fd59b0cc27480bab347c1f8f3562760db7"
+      },
       "ports": [
         60000
       ],
@@ -3589,6 +3780,10 @@
       "source_url": "https://www.netgear.com/business/wired/switches/fully-managed/m4250/avline/",
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
+      "files": {
+        "utility/netgear_m4250_m4350.py": "7aa80da42e969b5c9211c12cf1ed20f4cf23b6a017eef3677f080118a46f8716",
+        "utility/netgear_m4250_m4350_sim.py": "cb1cb4a26ae97084c565c10a59e1a92c519cbb97d85053ec49de927c1728bdf4"
+      },
       "ports": [
         22,
         23
@@ -3661,6 +3856,9 @@
       "source_url": "https://oss.novastar.tech/uploads/2023/02/H-Series-Video-Wall-Splicers-User-Manual-V1.8.0.pdf",
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "video/novastar_h_series.avcdriver": "018f11cc1e007111eb7dbba1cc5ec7cb79d67f4ac3dccbf9d8742672977bedb5"
+      },
       "ports": [
         6000
       ],
@@ -3711,6 +3909,9 @@
       "source_url": "https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp/core.py",
       "file": "audio/onkyo_integra_eiscp.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/onkyo_integra_eiscp.avcdriver": "d250e65632cdb68f58c97fb9659336140c7e2af9b1ef39978f3a1919f6f17f32"
+      },
       "ports": [
         60128
       ],
@@ -3797,6 +3998,9 @@
       "source_url": "https://github.com/miracle2k/onkyo-eiscp/blob/master/eiscp-commands.yaml",
       "file": "audio/onkyo_integra_iscp.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/onkyo_integra_iscp.avcdriver": "fb7c16efe2fca7ba396c7b7271bfb82915ba74dcb080b2a573a309978050d02f"
+      },
       "simulated": true,
       "min_platform_version": "0.24.0",
       "tags": [
@@ -3850,6 +4054,10 @@
       "source_url": "https://github.com/open-avc/openavc-drivers",
       "file": "cameras/onvif_camera.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "cameras/onvif_camera.avcdriver": "f544de932524685a8d381851b3f8c7c5f28c5dc666d43a6fb0cc85c18cbd8892",
+        "cameras/onvif_camera_discovery.py": "38ce006e7ebee4ff1e10af6d0abc880e5e77a3458137f35651750a8385b08bde"
+      },
       "protocols": [
         "onvif"
       ],
@@ -3891,6 +4099,10 @@
       "source_url": "https://www.optomaeurope.com/ContentStorage/Documents/869372d2-6854-4dd6-b26e-2f246a5f6ea8.pdf",
       "file": "projectors/optoma_projector.py",
       "format": "python",
+      "files": {
+        "projectors/optoma_projector.py": "c96e25d4997e2b23eb5ea3b3ad000e0fb8eb7b9370ee5199bf2149d70986ccf3",
+        "projectors/optoma_projector_sim.py": "4d0df45cf58ce5e3feeaddd2102df7c09d71b3044afc725acb0edd91431fe66a"
+      },
       "ports": [
         23
       ],
@@ -3954,6 +4166,9 @@
       "source_url": "https://eww.pass.panasonic.co.jp/pro-av/support/content/guide/DEF/HE50_120_IP/HDIntegratedCamera_InterfaceSpecifications-E.pdf",
       "file": "cameras/panasonic_awhe.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "cameras/panasonic_awhe.avcdriver": "b2fd007da7110b37e82e87829fea2fdc73d5f7fd952ce56e3424ad7484a1b49e"
+      },
       "ports": [
         80
       ],
@@ -4038,6 +4253,10 @@
       "source_url": "https://docs.connect.panasonic.com/prodisplays/support/download/pdf/LAN_Protocol_exp.pdf",
       "file": "displays/panasonic_display.py",
       "format": "python",
+      "files": {
+        "displays/panasonic_display.py": "695ce915f69a09fd15df02a410b3a8c25b78a6e0ff24fea6dffecb093a491d0c",
+        "displays/panasonic_display_sim.py": "8b5c32076dcf608ac5c445a9ecb58bab2a08ce672f2190b90b72fae098d93919"
+      },
       "ports": [
         1024
       ],
@@ -4109,6 +4328,10 @@
       "source_url": "https://docs.connect.panasonic.com/prodisplays/support/download/pdf/LAN_Protocol_exp.pdf",
       "file": "projectors/panasonic_pt.py",
       "format": "python",
+      "files": {
+        "projectors/panasonic_pt.py": "0f0da505980c1fca0bdc9935dd21ca004e5be878f462b5a1780c05a01e9b6e89",
+        "projectors/panasonic_pt_sim.py": "7b257364dd1ee7b3a2ad1f01e58eac04065d72836a8ee2cd1cfe188449f9ed2c"
+      },
       "ports": [
         1024
       ],
@@ -4195,6 +4418,10 @@
       "source_url": "https://kaas.hpcloud.hp.com/pdf-public/pdf_9122216_en-US-1.pdf",
       "file": "video/poly_studio.py",
       "format": "python",
+      "files": {
+        "video/poly_studio.py": "8ba95cae54c1575dc2e1faf0c67694b524f05767c7197496b4e227867bc4d447",
+        "video/poly_studio_sim.py": "5661432a4f4299e02ecf8d5f8a2c45d901bfce32d38bff4eab0d46574fe1696f"
+      },
       "ports": [
         443
       ],
@@ -4261,6 +4488,10 @@
       "source_url": "https://ptzoptics.com/wp-content/uploads/2020/11/PTZOptics-VISCA-over-IP-Rev-1_2-8-20.pdf",
       "file": "cameras/ptzoptics.py",
       "format": "python",
+      "files": {
+        "cameras/ptzoptics.py": "10c7bdc4482c46db03eb059e9c3ff269832fcf9570ba57429966882b6524431a",
+        "cameras/ptzoptics_sim.py": "2d713a89bd29dd8f0b03b9e22eca0afd145aa85a251ca5279e456c599d685e52"
+      },
       "ports": [
         5678
       ],
@@ -4330,6 +4561,10 @@
       "source_url": "https://q-syshelp.qsc.com/Content/External_Control_APIs/QRC/QRC_Commands.htm",
       "file": "audio/qsc_qrc.py",
       "format": "python",
+      "files": {
+        "audio/qsc_qrc.py": "e6fe462c1f22f1464f9252d21d5daf8a7cb6e39baca61a65d744d9b3a7bc18ce",
+        "audio/qsc_qrc_sim.py": "f19287039fafb8bff683618309e46e48c32f16e6b93acd0b6f035a9bb3866b67"
+      },
       "ports": [
         1710
       ],
@@ -4407,6 +4642,10 @@
       "source_url": "https://developer.roku.com/docs/developer-program/dev-tools/external-control-api.md",
       "file": "streaming/roku_ecp.py",
       "format": "python",
+      "files": {
+        "streaming/roku_ecp.py": "f2eafc56b55ce5f520dd3a27b8b6f8187d7fcc862ed95a0e18da9e926d831003",
+        "streaming/roku_ecp_sim.py": "02aec1330bde202c92a8ae0f0095dadee92a4bc00781b3f83eb5b9344b7af1ab"
+      },
       "ports": [
         8060
       ],
@@ -4513,6 +4752,10 @@
       "source_url": "https://github.com/vgavro/samsung-mdc",
       "file": "displays/samsung_mdc.py",
       "format": "python",
+      "files": {
+        "displays/samsung_mdc.py": "5666b9d313b72e4f1ade1db4806f203cfee4fe8cae96f6ed85a0018d25a64bf0",
+        "displays/samsung_mdc_sim.py": "1808fa9c8df92475c9e2e45b9bee4fc787bbe6bdd2532c5a353c27bc1f712f14"
+      },
       "ports": [
         1515
       ],
@@ -4574,6 +4817,9 @@
       "source_url": "https://www.eiki.com/rs232-commands/",
       "file": "projectors/sanyo_serial_projector.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "projectors/sanyo_serial_projector.avcdriver": "c127dcf9bbbac89afc5a733dda87f1b74d7b95d80b9388662aaa2744ea14eb17"
+      },
       "simulated": true,
       "verified": true,
       "tags": [
@@ -4654,6 +4900,10 @@
       "source_url": "https://business.sharpusa.com/portals/0/downloads/Manuals/PN_L603B_L703B_Operation_Manual.pdf",
       "file": "displays/sharp_pn_display.py",
       "format": "python",
+      "files": {
+        "displays/sharp_pn_display.py": "d8841ff499aaf5ecdaeb2e4681f48c343f384121ca863db46612fc6351872c4b",
+        "displays/sharp_pn_display_sim.py": "8d715e773971e9a654d2fc662f06d0dc3797f71bdf197eddde21c18ebc274190"
+      },
       "ports": [
         10008
       ],
@@ -4715,6 +4965,10 @@
       "source_url": "https://assets.sharpnecdisplays.us/documents/miscellaneous/pj-control-command-codes.pdf",
       "file": "projectors/sharp_nec_projector.py",
       "format": "python",
+      "files": {
+        "projectors/sharp_nec_projector.py": "f6053dadef44e9feae0162f195ace5d6150e861277027e4e5a74d9222250fbd5",
+        "projectors/sharp_nec_projector_sim.py": "f1e9ae48582df53f3cb78021d1dd3c2b9b11364f22ce7b16cf32ee682749769d"
+      },
       "ports": [
         7142
       ],
@@ -4790,6 +5044,10 @@
       "source_url": "https://www.sharpdisplays.eu/p/download/cp/Products/LargeFormatDisplays/Products/CurrentProducts/Shared/Command_Lists/PDF-ExternalControlManual-LCDMonitor-(english).pdf",
       "file": "displays/sharp_nec_display.py",
       "format": "python",
+      "files": {
+        "displays/sharp_nec_display.py": "16c5f9c996c766b9eb086d5c2975a36af8a1dce86357f510319a9532ebbbb66f",
+        "displays/sharp_nec_display_sim.py": "943a62aec5137be4ee0c7c4ac1d880434fb72874faf234f881b0b737683f06f8"
+      },
       "ports": [
         7142
       ],
@@ -4860,6 +5118,10 @@
       "source_url": "https://pubs.shure.com/command-strings/",
       "file": "audio/shure_network.py",
       "format": "python",
+      "files": {
+        "audio/shure_network.py": "5c33cd97dcf16355a6b142034f3980d0b318188b44cf0bbb518cf3925108a499",
+        "audio/shure_network_sim.py": "3003d53fe021ce42a3fe7ce2768f40e1ddd15c126f7f74e1238c78f54ade2c5f"
+      },
       "ports": [
         2202
       ],
@@ -4942,6 +5204,10 @@
       "source_url": "https://github.com/home-assistant-libs/aiohue/tree/main/aiohue/v2",
       "file": "lighting/philips_hue.py",
       "format": "python",
+      "files": {
+        "lighting/philips_hue.py": "faee39dd0ea4ef98ceecd9e53657888935e5d2fcdc650cfbf751924d6a0e2afe",
+        "lighting/philips_hue_sim.py": "86ccb925dfc7e93b050a85729da783e0c6595d4ccfd47dfd82850a0f468cd0ce"
+      },
       "ports": [
         443
       ],
@@ -5011,6 +5277,10 @@
       "source_url": "https://sonos.svrooij.io/services/",
       "file": "audio/sonos.py",
       "format": "python",
+      "files": {
+        "audio/sonos.py": "a3bff4fca6f6ad1441980be5b9c291a925997bc009866ec41547f4b698a39e5d",
+        "audio/sonos_sim.py": "fbfcd0239a39889f37fdce2b91cf68bdba74a4ce74d6c2e5db74735074a7623f"
+      },
       "ports": [
         1400
       ],
@@ -5071,6 +5341,10 @@
       "source_url": "https://pro-bravia.sony.net/develop/integrate/rest-api/spec/",
       "file": "displays/sony_bravia.py",
       "format": "python",
+      "files": {
+        "displays/sony_bravia.py": "671d2f194b17661e069939483648c2797650abbdc407f8a86542fd5ab629fcf3",
+        "displays/sony_bravia_sim.py": "fde5d2efbdffe52c7a38d8337dffd035b399adcb0419169d677bcedb98a916db"
+      },
       "ports": [
         80
       ],
@@ -5133,6 +5407,10 @@
       "source_url": "https://shop.ccisolutions.com/StoreFront/jsp/pdf/SON-SRGX400_visca_commandList.pdf",
       "file": "cameras/sony_visca.py",
       "format": "python",
+      "files": {
+        "cameras/sony_visca.py": "dc5e54571f0b343af701250ed18b28556768e8137e506084ee6110be137bf568",
+        "cameras/sony_visca_sim.py": "8afd950a246cf3813763bd4a2122d4e61f76d9d333bcb4f24e4b846efdb596a9"
+      },
       "ports": [
         52381
       ],
@@ -5187,6 +5465,10 @@
       "source_url": "https://pro.sony/s3/2018/07/03140912/Sony_Protocol-Manual_1st-Edition-Revised-2.pdf",
       "file": "projectors/sony_vpl.py",
       "format": "python",
+      "files": {
+        "projectors/sony_vpl.py": "e8101f93306013557a5664a77959968b8e732aacb559db5d20c0bdb1295da375",
+        "projectors/sony_vpl_sim.py": "65e8a8b1916d8b62b7fced840dac9661f17c43385ff838df472a7128b8258c80"
+      },
       "ports": [
         53595
       ],
@@ -5262,6 +5544,10 @@
       "source_url": "https://www.vmix.com/help29/TCPAPI.html",
       "file": "video/vmix.py",
       "format": "python",
+      "files": {
+        "video/vmix.py": "19845e1b05ffc045eabf62ff4344d8d25676be5df9212c138a30e3f12c2d3199",
+        "video/vmix_sim.py": "be61c809f23e2a569e3c661b2a1da56c1b0b80b47c9c070a85b66c0bdfbf3ec4"
+      },
       "ports": [
         8099
       ],
@@ -5309,6 +5595,10 @@
       "source_url": "https://audiobrains.com/data/symetrix/others/Composer-Control-Protocol-v7.0-080918.pdf",
       "file": "audio/symetrix_composer.py",
       "format": "python",
+      "files": {
+        "audio/symetrix_composer.py": "555babfaf9b9aad3f273721efcd17b45df553442c7b7eda61fa09fad5d2cfd95",
+        "audio/symetrix_composer_sim.py": "9cc0d65bf7e548ce80c7d983a688889d352fa7a56ec4fab982cc92dd13b1e6da"
+      },
       "ports": [
         48631
       ],
@@ -5376,6 +5666,10 @@
       "source_url": "https://www.toaelectronics.com/toa-assets/9000M2_PROTOCOL_MANUAL_EN.pdf",
       "file": "audio/toa_9000m2.py",
       "format": "python",
+      "files": {
+        "audio/toa_9000m2.py": "03ba9a193523a7c5a2686683aea11e2ee376c83f33b064f66cbb8eeb8c16bd57",
+        "audio/toa_9000m2_sim.py": "575a51bc57bc07f79d0f43cdb2c1ad3be05ed4631ffe53eb91e48917202351a7"
+      },
       "protocols": [
         "toa_9000m2"
       ],
@@ -5429,6 +5723,9 @@
       "source_url": "https://turtleav.com/wp-content/uploads/2026/05/BT-Wallplate-US-User-Manual.pdf",
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/turtle_bt_wallplate.avcdriver": "1630b962b3e44f8ee273125fcd8a804f92251671f933cede87e948b2b1f780de"
+      },
       "ports": [
         23
       ],
@@ -5502,6 +5799,11 @@
       "source_url": "https://turtleav.com/portfolio/chazy-4k/",
       "file": "switchers/chazy_control.py",
       "format": "python",
+      "files": {
+        "switchers/chazy_control.py": "be86e466c59d1d80065edc26c5e9ce2e558a75768bd2310af411625c1a4b8ae8",
+        "switchers/chazy_control_discovery.py": "0cb4bace1fc64828e8c4d6474abdb888aee180859f211070d71774d4f1afc9d4",
+        "switchers/chazy_control_sim.py": "fa4162d1abc73c6b1c3cd33d0de7f75d2e1b16186d1ca70d41fdb76cf012d8e2"
+      },
       "ports": [
         23
       ],
@@ -5574,6 +5876,11 @@
       "source_url": "https://turtleav.com/portfolio/chazy-4k/",
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
+      "files": {
+        "switchers/chazy_control_pro.py": "464404fbbb0207f2384e0fd87468b8fa23e23a620fb9b8db4cf760a1c9b37380",
+        "switchers/chazy_control_pro_discovery.py": "2dd323275d8f562c543bf188feccb7cd0c23f8dcdf9bbbe1fc483ee3a74564df",
+        "switchers/chazy_control_pro_sim.py": "3bb7910740960457f417a346c620b02fa9b6c62e30d8835b5b83d2233789e50b"
+      },
       "ports": [
         23
       ],
@@ -5646,6 +5953,11 @@
       "source_url": "https://turtleav.com/",
       "file": "switchers/darwin_control.py",
       "format": "python",
+      "files": {
+        "switchers/darwin_control.py": "a48962fdf47d5157a4eca7284a5b6d797dbb3c5137c4547e7046c67c9d5c57d9",
+        "switchers/darwin_control_discovery.py": "0319a009e44c712fbabe0e77b1386a9e7377f2569b39af5ce57377d3271a37dd",
+        "switchers/darwin_control_sim.py": "74bf6b2f04930dfc4a426fcc8acb4a095b12d86140dc7ae8cba0261aa3eb8600"
+      },
       "ports": [
         23
       ],
@@ -5718,6 +6030,10 @@
       "source_url": "https://api.tvone.com/products/c3-series/c3-5xx/tvONE%20CORIOmaster%20Commands_current.pdf",
       "file": "video/tvone_coriomaster.py",
       "format": "python",
+      "files": {
+        "video/tvone_coriomaster.py": "f7ff3c77c4e9c58e5d38ddeeff485ddd42527ab15e11f9d37c69948f0efdf1a4",
+        "video/tvone_coriomaster_sim.py": "ecf666becbe5fc50f2857167c4ccab38aad41ca15860e43b18ebd8bc065ba39a"
+      },
       "ports": [
         10001
       ],
@@ -5773,6 +6089,10 @@
       "source_url": "https://tvone.com/filestore/Manuals-CORIO-Products/tvONE%20CORIOmatrix%20Commands-v2.0.8.pdf",
       "file": "switchers/tvone_coriomatrix.py",
       "format": "python",
+      "files": {
+        "switchers/tvone_coriomatrix.py": "bdfcc14badc18e568ef13af060a7484980bacd10bddd03f64c56d8700a531f7f",
+        "switchers/tvone_coriomatrix_sim.py": "4e5ef41a3813e7d6af598673df988301418fde62ca148d9961577400b2135684"
+      },
       "ports": [
         10001
       ],
@@ -5825,6 +6145,9 @@
       "source_url": "https://res.cloudinary.com/iwh/image/upload/q_auto,g_center/assets/1/26/vaddio_RoboSHOT_12_Integrators_Complete_Guide.pdf",
       "file": "cameras/vaddio_roboshot.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "cameras/vaddio_roboshot.avcdriver": "ba21ebc39af2a97fdb0b994d6b7478766d0c5051c86096ee29d71bc06529e4e8"
+      },
       "ports": [
         23
       ],
@@ -5902,6 +6225,10 @@
       "source_url": "https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol",
       "file": "displays/viewsonic_cde.py",
       "format": "python",
+      "files": {
+        "displays/viewsonic_cde.py": "b712e5866c1194be652b7527888250c8ee0289730fcb729abfaca6263ff99f05",
+        "displays/viewsonic_cde_sim.py": "c525ab176a1b2e2436311f55d430ce5aa4a12230cb679d817992e1d9a4955037"
+      },
       "ports": [
         5000
       ],
@@ -5973,6 +6300,10 @@
       "source_url": "https://www.snapav.com/wcsstore/ExtendedSitesCatalogAssetStore/attachments/documents/PowerManagement/SupportDocuments/SnapAV_Wattbox_API_V1.7.pdf",
       "file": "power/wattbox_ip.py",
       "format": "python",
+      "files": {
+        "power/wattbox_ip.py": "f05a40210696d5c95bf91dadca207c86f2b09a2ddc16344946f1a7855e586fe5",
+        "power/wattbox_ip_sim.py": "d450e9d719afb9eb93b6e20117a84347b2c7450be7d610e3fa369be597a30d02"
+      },
       "ports": [
         23
       ],
@@ -6037,6 +6368,9 @@
       "source_url": "https://uisupplies.com/Portals/1/Downloads/MXV_MX-KIT_MK2%20Series_API_28042020.pdf",
       "file": "switchers/wyrestorm_mx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/wyrestorm_mx.avcdriver": "1f5428af41ea87199357d7864c554d382d25fbd060494a82f9b579c130a7ad73"
+      },
       "ports": [
         23
       ],
@@ -6099,6 +6433,10 @@
       "source_url": "https://wyrestorm.com/download/networkhd-api/",
       "file": "switchers/wyrestorm_networkhd.py",
       "format": "python",
+      "files": {
+        "switchers/wyrestorm_networkhd.py": "e6deddcbaa9acab1755bb54f00861f7fb56acc6e6ddd62f93a72b5ba8798c01d",
+        "switchers/wyrestorm_networkhd_sim.py": "eb7ef1cb89e55ee470ea9ea9bee3b4077533b1150a18f8425f2feb49fedc4733"
+      },
       "ports": [
         23
       ],
@@ -6152,6 +6490,9 @@
       "source_url": "https://usa.yamaha.com/files/download/other_assets/5/1343735/200330_mtx_mrx_xmv_ex_rcps_v400_rev14_en.pdf",
       "file": "audio/yamaha_mtx_mrx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "audio/yamaha_mtx_mrx.avcdriver": "9ce55d201b0c11dffd9ea06636ca86832005f8da0481ce6500109639644f5ad7"
+      },
       "ports": [
         49280
       ],

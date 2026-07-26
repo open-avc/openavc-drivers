@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 3,
     "shards": null,
@@ -19,6 +19,9 @@
       "source_url": "https://www.barco.com/services/website/en/TdeFiles/Download?FileNumber=R5915531&TdeType=3&MajorVersion=12",
       "file": "streaming/barco_clickshare_cx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "streaming/barco_clickshare_cx.avcdriver": "bcca4a9d43f149c868d095cbd9a19204c5b604b9ef982c31d4a31f1177ea8fb8"
+      },
       "ports": [
         4003
       ],
@@ -85,6 +88,10 @@
       "source_url": "https://documentation.mersive.com/content/pdf/opencontrolapiguide.pdf",
       "file": "streaming/mersive_solstice.py",
       "format": "python",
+      "files": {
+        "streaming/mersive_solstice.py": "1e1b4dfed1f8f1b89f3e6583bfc9f43f58830e819d9ddc7946e088b626bd0c60",
+        "streaming/mersive_solstice_sim.py": "1daadb772040d96fdca37710bdd2793ca8fc8a802effd38814f3622ca42a2fc6"
+      },
       "ports": [
         80,
         443
@@ -145,6 +152,10 @@
       "source_url": "https://developer.roku.com/docs/developer-program/dev-tools/external-control-api.md",
       "file": "streaming/roku_ecp.py",
       "format": "python",
+      "files": {
+        "streaming/roku_ecp.py": "f2eafc56b55ce5f520dd3a27b8b6f8187d7fcc862ed95a0e18da9e926d831003",
+        "streaming/roku_ecp_sim.py": "02aec1330bde202c92a8ae0f0095dadee92a4bc00781b3f83eb5b9344b7af1ab"
+      },
       "ports": [
         8060
       ],

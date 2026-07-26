@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 7,
     "shards": null,
@@ -19,6 +19,9 @@
       "source_url": "https://github.com/open-avc/openavc/blob/main/docs/creating-drivers.md",
       "file": "utility/generic_http.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "utility/generic_http.avcdriver": "43bd1439cbdbb99bf203aea25c4ef63f8776586c956645525352e7a0a1656737"
+      },
       "tags": [
         "template",
         "rest",
@@ -41,6 +44,10 @@
       "source_url": "https://www.modbus.org/modbus-specifications",
       "file": "utility/modbus_tcp.py",
       "format": "python",
+      "files": {
+        "utility/modbus_tcp.py": "1dc9e9fe2ee58289d6b84a47ac347e21570437fb5e058c49f7b6337f9ba95720",
+        "utility/modbus_tcp_sim.py": "cb1c2820891f73d5b590fc1e20949bc3c73a2a7c1845068a5627f3b03a1bcca7"
+      },
       "protocols": [
         "modbus_tcp"
       ],
@@ -63,6 +70,9 @@
       "source_url": "https://en.wikipedia.org/wiki/Wake-on-LAN",
       "file": "utility/wake_on_lan.py",
       "format": "python",
+      "files": {
+        "utility/wake_on_lan.py": "b69b0099b0c2861bc78818feec2c466c109329d7a15620d8a2743b7f14316f50"
+      },
       "min_platform_version": "0.24.0",
       "tags": [
         "wol",
@@ -87,6 +97,10 @@
       "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
       "file": "utility/globalcache_itach_ip2cc.py",
       "format": "python",
+      "files": {
+        "utility/globalcache_itach_ip2cc.py": "ce8a51288921016af0248aabff7e9944110860c1e842bdf5e10ceaf0963cdae8",
+        "utility/globalcache_itach_ip2cc_sim.py": "3645c62a80e1b33051717f490fe0dbc1e9c5fc991ed34d8f993c3787daf5d3ae"
+      },
       "ports": [
         4998
       ],
@@ -147,6 +161,10 @@
       "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
       "file": "utility/globalcache_itach_ip2ir.py",
       "format": "python",
+      "files": {
+        "utility/globalcache_itach_ip2ir.py": "d0d22241729a39ceb4fe8e49ee67be79ce4dd89aeae763dba627f619d600c336",
+        "utility/globalcache_itach_ip2ir_sim.py": "42c0b68dfdfa10437240030ed254d05ea59c5f4e84da06cb8ccaabb744323f09"
+      },
       "ports": [
         4998
       ],
@@ -206,6 +224,9 @@
       "source_url": "https://www.globalcache.com/products/itach/ip2-family/",
       "file": "utility/globalcache_itach_ip2sl.py",
       "format": "python",
+      "files": {
+        "utility/globalcache_itach_ip2sl.py": "dacf4f0ec44148fae2cda15426d386541570a3c0d454b12308d1f91224136eda"
+      },
       "ports": [
         4998,
         4999
@@ -265,6 +286,10 @@
       "source_url": "https://www.netgear.com/business/wired/switches/fully-managed/m4250/avline/",
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
+      "files": {
+        "utility/netgear_m4250_m4350.py": "7aa80da42e969b5c9211c12cf1ed20f4cf23b6a017eef3677f080118a46f8716",
+        "utility/netgear_m4250_m4350_sim.py": "cb1cb4a26ae97084c565c10a59e1a92c519cbb97d85053ec49de927c1728bdf4"
+      },
       "ports": [
         22,
         23

@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import argparse
 import ast
+import hashlib
 import json
 import re
 import sys
@@ -78,7 +79,7 @@ else:
 
 # --- Constants ---------------------------------------------------------------
 
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.1.0"   # 1.1.0 adds the per-entry `files` hash map
 SCHEMA_VERSION = "1"
 
 # Categories, transports, and confidence levels come straight from the
@@ -158,6 +159,11 @@ class DriverEntry(BaseModel):
     # Identity (set by collector, derived from filesystem)
     file: str
     format: str  # "avcdriver" | "python"
+    # Repo-relative path -> SHA-256 of every file installing this driver
+    # fetches (the driver plus any companion). The platform hashes what it
+    # downloads and compares before writing anything to driver_repo/, so a
+    # file that changed without the catalog being rebuilt is refused.
+    files: dict[str, str] = Field(default_factory=dict)
 
     # Optional
     ports: list[int] = Field(default_factory=list)
@@ -1206,6 +1212,59 @@ def _with_discovery_requires(discovery: dict[str, Any]) -> dict[str, Any]:
     }}
 
 
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _installed_file_set(filepath: Path, raw: dict[str, Any]) -> list[Path]:
+    """Every file the platform's install path fetches for this driver.
+
+    Deliberately the *installed* set, not "every file related to the driver":
+    the platform verifies each file it downloads against this map, so listing
+    something it never fetches would look like a truncated install. That means:
+
+    - the driver file itself, always;
+    - a YAML driver's declared ``discovery.python.file`` companion (required —
+      install hard-fails without it);
+    - a Python driver's convention-named ``_discovery.py`` / ``_sim.py``
+      siblings, which the platform fetches best-effort by name, and only when
+      they actually exist here.
+
+    A YAML driver's ``_sim.py`` is intentionally absent: the platform never
+    installs one (YAML drivers simulate from their inline ``simulator:``
+    block), so it has no bytes to check it against.
+    """
+    files = [filepath]
+    if filepath.suffix == ".avcdriver":
+        discovery = raw.get("discovery")
+        block = discovery.get("python") if isinstance(discovery, dict) else None
+        relpath = block if isinstance(block, str) else (
+            block.get("file") if isinstance(block, dict) else None
+        )
+        if isinstance(relpath, str) and relpath:
+            companion = (filepath.parent / relpath).resolve()
+            if companion.is_file():
+                files.append(companion)
+    else:
+        for suffix in ("_discovery.py", "_sim.py"):
+            companion = filepath.parent / f"{filepath.stem}{suffix}"
+            if companion.is_file():
+                files.append(companion)
+    return files
+
+
+def _artifact_hashes(
+    filepath: Path, raw: dict[str, Any], repo_root: Path
+) -> dict[str, str]:
+    """Repo-relative path -> SHA-256 for every file an install of this driver
+    fetches. Consumed by the platform installer to check the bytes it got are
+    the bytes this catalog was built from."""
+    return {
+        f.relative_to(repo_root).as_posix(): _sha256_file(f)
+        for f in _installed_file_set(filepath, raw)
+    }
+
+
 def build_entry(filepath: Path, raw: dict[str, Any], repo_root: Path) -> DriverEntry:
     subset = {k: v for k, v in raw.items() if k in INDEX_FIELDS}
     discovery = subset.get("discovery")
@@ -1213,6 +1272,7 @@ def build_entry(filepath: Path, raw: dict[str, Any], repo_root: Path) -> DriverE
         subset["discovery"] = _with_discovery_requires(discovery)
     subset["file"] = filepath.relative_to(repo_root).as_posix()
     subset["format"] = "avcdriver" if filepath.suffix == ".avcdriver" else "python"
+    subset["files"] = _artifact_hashes(filepath, raw, repo_root)
     return DriverEntry(**subset)
 
 

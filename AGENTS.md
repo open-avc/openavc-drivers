@@ -2485,6 +2485,8 @@ openavc-drivers/
 
 Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. To validate locally, run `python scripts/build_index.py --check` (validates without writing).
 
+Each generated entry also carries a `files` map — repo-relative path to SHA-256 — covering the driver file and any companion an install fetches with it. OpenAVC hashes what it downloads and compares before writing it to disk, so a driver whose bytes don't match the catalog is refused rather than installed. Two consequences worth knowing: the hashes are computed from the files, never read from them (declaring your own `files` key does nothing), and editing only a companion still changes the catalog, so CI's post-merge rebuild is what keeps the hashes true.
+
 **`scripts/_vendor/` is also generated — never edit it.** It holds copies of the platform's own driver-validation rules, produced by `scripts/vendor_platform_contract.py` from the OpenAVC platform repo, so a driver that passes catalog review is exactly a driver the platform will load. CI fails when the copies drift from the platform's current files; only a maintainer regenerating after a platform contract change should ever touch that directory.
 
 **The JSON Schemas at the repository root are generated too — never edit them.** `avcdriver.schema.json` (YAML drivers) and `pythondriver.schema.json` (the `DRIVER_INFO` dict of Python drivers, which additionally allows the `ssh`/`mqtt` transports and `kind: "setup"` actions) are rendered by the platform repo from its driver-contract definition and byte-copied here by the same `scripts/vendor_platform_contract.py`. A field change starts on the platform side; the vendor script brings it here.

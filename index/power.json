@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 2,
     "shards": null,
@@ -19,6 +19,10 @@
       "source_url": "https://shop.exertis.no/sv-SE/Product/112284/Link/66906/RLNK-Series-Protocol.pdf",
       "file": "power/racklink_rlnk.py",
       "format": "python",
+      "files": {
+        "power/racklink_rlnk.py": "56321b344ca593233f6f4c5d68ca6a13ed0b5caf6f106a73b2deb4ba5e851ffe",
+        "power/racklink_rlnk_sim.py": "f36b66ef05fd757b4025dbfb05ace0fd59b0cc27480bab347c1f8f3562760db7"
+      },
       "ports": [
         60000
       ],
@@ -88,6 +92,10 @@
       "source_url": "https://www.snapav.com/wcsstore/ExtendedSitesCatalogAssetStore/attachments/documents/PowerManagement/SupportDocuments/SnapAV_Wattbox_API_V1.7.pdf",
       "file": "power/wattbox_ip.py",
       "format": "python",
+      "files": {
+        "power/wattbox_ip.py": "f05a40210696d5c95bf91dadca207c86f2b09a2ddc16344946f1a7855e586fe5",
+        "power/wattbox_ip_sim.py": "d450e9d719afb9eb93b6e20117a84347b2c7450be7d610e3fa369be597a30d02"
+      },
       "ports": [
         23
       ],

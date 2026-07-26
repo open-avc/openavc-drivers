@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 5,
     "shards": null,
@@ -19,6 +19,9 @@
       "source_url": "https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/23_Show_Control/08_OSC/Using_OSC_with_Eos/OSC_Eos_Control.htm",
       "file": "lighting/etc_eos.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "lighting/etc_eos.avcdriver": "c03f5db401457787814df052a99a10859be1e6724ccb0344f102db90e2e81ffb"
+      },
       "ports": [
         8000,
         8001
@@ -87,6 +90,10 @@
       "source_url": "https://art-net.org.uk/downloads/art-net.pdf",
       "file": "lighting/artnet_dmx.py",
       "format": "python",
+      "files": {
+        "lighting/artnet_dmx.py": "cd8989d661d0b2f01f057e0288f6e8dec70ef39f2fcd8bd3c5619b07d7fe4cdd",
+        "lighting/artnet_dmx_sim.py": "dcff5946da1595fb1acf72fed8b0af9aac6189ea2fd33337e6b570e8b8700a62"
+      },
       "ports": [
         6454
       ],
@@ -250,6 +257,10 @@
       "source_url": "https://tsp.esta.org/tsp/documents/docs/E1-31-2018.pdf",
       "file": "lighting/sacn_e131.py",
       "format": "python",
+      "files": {
+        "lighting/sacn_e131.py": "747e16609132dd7b412a2e72d245e6ec26b7c390fdb674d00662beda98999d7f",
+        "lighting/sacn_e131_sim.py": "f69e0ea2fe429840b976b433b1ecf43211782411599983682e5f613da1b7827a"
+      },
       "ports": [
         5568
       ],
@@ -389,6 +400,9 @@
       "source_url": "https://assets.lutron.com/a/documents/040249.pdf",
       "file": "lighting/lutron_homeworks_qs.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "lighting/lutron_homeworks_qs.avcdriver": "8d2d49e72a34a99a04a4d60d7f061c8b4685f8a016fc5f105e1bc69bd1c1375a"
+      },
       "ports": [
         23
       ],
@@ -448,6 +462,10 @@
       "source_url": "https://github.com/home-assistant-libs/aiohue/tree/main/aiohue/v2",
       "file": "lighting/philips_hue.py",
       "format": "python",
+      "files": {
+        "lighting/philips_hue.py": "faee39dd0ea4ef98ceecd9e53657888935e5d2fcdc650cfbf751924d6a0e2afe",
+        "lighting/philips_hue_sim.py": "86ccb925dfc7e93b050a85729da783e0c6595d4ccfd47dfd82850a0f468cd0ce"
+      },
       "ports": [
         443
       ],

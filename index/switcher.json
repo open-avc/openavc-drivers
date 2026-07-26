@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generator_version": "1.0.0",
+    "generator_version": "1.1.0",
     "schema_version": "1",
     "total_drivers": 18,
     "shards": null,
@@ -19,6 +19,10 @@
       "source_url": "https://atlona.com/pdf/AT-OME-MS52W_API.pdf",
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
+      "files": {
+        "switchers/atlona_ome_ms.py": "ae426a9690e96154234d0de8d5fda329690efafa027cabc8a6f1440892bfa870",
+        "switchers/atlona_ome_ms_sim.py": "6e910e3cc478517d32a0917207c678654aaee49ab687c2664e38cb07e79e67a3"
+      },
       "ports": [
         23
       ],
@@ -74,6 +78,9 @@
       "source_url": "https://atlona.com/pdf/AT-OME-PS62_API.pdf",
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/atlona_ome_ps62.avcdriver": "9461e5146ae2aea9880f4832d5048d9be6bb909886e8d6fecced47a21edb5fca"
+      },
       "ports": [
         23
       ],
@@ -126,6 +133,9 @@
       "source_url": "https://atlona.com/pdf/AT-UHD-PRO3-88M_API.pdf",
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/atlona_uhd_pro3.avcdriver": "3be2dd0ac88050291f1364ffb1f4346617ed87a1494738e49c830d33b62f17e7"
+      },
       "ports": [
         23
       ],
@@ -179,6 +189,9 @@
       "source_url": "https://atlona.com/pdf/OmniStream_CLI-JSON_API.pdf",
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/atlona_omnistream.avcdriver": "40ccac699a2e2fb8e16b37f05a7fd685e9c97b47199ca5451626704dcd31de4f"
+      },
       "ports": [
         23,
         2323,
@@ -238,6 +251,9 @@
       "source_url": "https://p11.secure.hostingprod.com/@site.hdtvsupply.com/ssl/brand/avpro-edge/avpro-edge-ac-mx1616-auhd-hdbt-chassis-um.pdf",
       "file": "switchers/avproedge_acmx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/avproedge_acmx.avcdriver": "02e29efadee9b4f4e70fb49fd5baffedda01b434bd72424e4b7f1b9aea4df9dc"
+      },
       "ports": [
         23
       ],
@@ -299,6 +315,10 @@
       "source_url": "https://support.avproglobal.com/portal/en/kb/articles/mxnet-api",
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
+      "files": {
+        "switchers/avproedge_mxnet_1g.py": "bc3447a8582e78a8f43cdbaabee8255064eb32f9196fd6806b0abbd09d3c10f5",
+        "switchers/avproedge_mxnet_1g_sim.py": "f243af97587f3a0eefdf2f8239d6a36802eb5891d1a0ef8a692fdf38fed7cc96"
+      },
       "ports": [
         24
       ],
@@ -367,6 +387,10 @@
       "source_url": "https://documents.blackmagicdesign.com/DeveloperManuals/VideohubEthernetProtocol.pdf",
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
+      "files": {
+        "switchers/blackmagic_videohub.py": "e7a32c9245cfe1127c729c71c22fbbee8c5b0461a4afe93b6c71d50af7ade55f",
+        "switchers/blackmagic_videohub_sim.py": "20656f8d96bf152b09fb82449c5d528f295387321ae5ce63200e60b819f430cf"
+      },
       "ports": [
         9990
       ],
@@ -447,6 +471,10 @@
       "source_url": "https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/",
       "file": "switchers/crestron_nvx.py",
       "format": "python",
+      "files": {
+        "switchers/crestron_nvx.py": "406ba27ac7d53afbb8024cb4de383a858ae0c7e2bba85213c64f4cc4635b74b4",
+        "switchers/crestron_nvx_sim.py": "891bb41c68b47485480a07b58a0d2086f1344bd17b82ec8d0601c28bf15867c5"
+      },
       "ports": [
         443
       ],
@@ -522,6 +550,9 @@
       "source_url": "https://www.extron.com/article/sisseries",
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/extron_sis.avcdriver": "ff029715e2d5cbf7e89e8acb4e23c952b078d8fee057ca9c68b91a03270a2349"
+      },
       "ports": [
         23
       ],
@@ -590,6 +621,9 @@
       "source_url": "https://www.markertek.com/Attachments/Manuals/Gefen/EXT-UHD600A-44-Manual.pdf",
       "file": "switchers/gefen_uhd600a.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/gefen_uhd600a.avcdriver": "b4be6163bbf4fceea40fbb5475c477703b29e4e96125681cc7ae0d44a2ea75b6"
+      },
       "ports": [
         23
       ],
@@ -650,6 +684,9 @@
       "source_url": "https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf",
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/kramer_p3000.avcdriver": "afae4a805fa09e1dac8ecb56dbd23034b2f589ab4b61091c79f27155490b4c0c"
+      },
       "ports": [
         5000,
         23
@@ -710,6 +747,9 @@
       "source_url": "https://assets.prod.pim.lightware.com/assets/File-Downloads/Guides-and-Manuals/User-Manual/MMX2_series_UserManual.pdf",
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/lightware_lw3.avcdriver": "7c57a64987cc69108c94a2ea0d9d9d826002eb56c0c5625224770dde0c0cc229"
+      },
       "ports": [
         6107
       ],
@@ -783,6 +823,11 @@
       "source_url": "https://turtleav.com/portfolio/chazy-4k/",
       "file": "switchers/chazy_control.py",
       "format": "python",
+      "files": {
+        "switchers/chazy_control.py": "be86e466c59d1d80065edc26c5e9ce2e558a75768bd2310af411625c1a4b8ae8",
+        "switchers/chazy_control_discovery.py": "0cb4bace1fc64828e8c4d6474abdb888aee180859f211070d71774d4f1afc9d4",
+        "switchers/chazy_control_sim.py": "fa4162d1abc73c6b1c3cd33d0de7f75d2e1b16186d1ca70d41fdb76cf012d8e2"
+      },
       "ports": [
         23
       ],
@@ -855,6 +900,11 @@
       "source_url": "https://turtleav.com/portfolio/chazy-4k/",
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
+      "files": {
+        "switchers/chazy_control_pro.py": "464404fbbb0207f2384e0fd87468b8fa23e23a620fb9b8db4cf760a1c9b37380",
+        "switchers/chazy_control_pro_discovery.py": "2dd323275d8f562c543bf188feccb7cd0c23f8dcdf9bbbe1fc483ee3a74564df",
+        "switchers/chazy_control_pro_sim.py": "3bb7910740960457f417a346c620b02fa9b6c62e30d8835b5b83d2233789e50b"
+      },
       "ports": [
         23
       ],
@@ -927,6 +977,11 @@
       "source_url": "https://turtleav.com/",
       "file": "switchers/darwin_control.py",
       "format": "python",
+      "files": {
+        "switchers/darwin_control.py": "a48962fdf47d5157a4eca7284a5b6d797dbb3c5137c4547e7046c67c9d5c57d9",
+        "switchers/darwin_control_discovery.py": "0319a009e44c712fbabe0e77b1386a9e7377f2569b39af5ce57377d3271a37dd",
+        "switchers/darwin_control_sim.py": "74bf6b2f04930dfc4a426fcc8acb4a095b12d86140dc7ae8cba0261aa3eb8600"
+      },
       "ports": [
         23
       ],
@@ -999,6 +1054,10 @@
       "source_url": "https://tvone.com/filestore/Manuals-CORIO-Products/tvONE%20CORIOmatrix%20Commands-v2.0.8.pdf",
       "file": "switchers/tvone_coriomatrix.py",
       "format": "python",
+      "files": {
+        "switchers/tvone_coriomatrix.py": "bdfcc14badc18e568ef13af060a7484980bacd10bddd03f64c56d8700a531f7f",
+        "switchers/tvone_coriomatrix_sim.py": "4e5ef41a3813e7d6af598673df988301418fde62ca148d9961577400b2135684"
+      },
       "ports": [
         10001
       ],
@@ -1051,6 +1110,9 @@
       "source_url": "https://uisupplies.com/Portals/1/Downloads/MXV_MX-KIT_MK2%20Series_API_28042020.pdf",
       "file": "switchers/wyrestorm_mx.avcdriver",
       "format": "avcdriver",
+      "files": {
+        "switchers/wyrestorm_mx.avcdriver": "1f5428af41ea87199357d7864c554d382d25fbd060494a82f9b579c130a7ad73"
+      },
       "ports": [
         23
       ],
@@ -1113,6 +1175,10 @@
       "source_url": "https://wyrestorm.com/download/networkhd-api/",
       "file": "switchers/wyrestorm_networkhd.py",
       "format": "python",
+      "files": {
+        "switchers/wyrestorm_networkhd.py": "e6deddcbaa9acab1755bb54f00861f7fb56acc6e6ddd62f93a72b5ba8798c01d",
+        "switchers/wyrestorm_networkhd_sim.py": "eb7ef1cb89e55ee470ea9ea9bee3b4077533b1150a18f8425f2feb49fedc4733"
+      },
       "ports": [
         23
       ],

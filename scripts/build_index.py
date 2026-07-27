@@ -1070,8 +1070,8 @@ def _validate_no_signal_collisions(
 
 # Pre-existing shared-hostname drivers that predate this check and can't be
 # given a declarative disambiguator without hardware we don't have. Grandfathered
-# so the rule is a hard error for NEW occurrences while these stay tracked for
-# cleanup (openavc-backlog.md). birddog_ptz / birddog_codec both default to the
+# so the rule is a hard error for NEW occurrences while these stay listed here
+# for cleanup. birddog_ptz / birddog_codec both default to the
 # "^birddog-" hostname with only soft signals (oui + NDI, deliberately not an
 # mdns claim since _ndi._tcp is cross-vendor); telling a PTZ from a codec
 # pre-install needs a probe of the BirdDog HTTP /about API, which needs a

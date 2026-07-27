@@ -348,9 +348,9 @@ commands:
         min: 1
         label: Output
       state:
-        type: string
+        type: enum
         required: true
-        choices: ["true", "false"]
+        values: ["true", "false"]
         label: Mute State
 
   set_video_lock:
@@ -365,9 +365,9 @@ commands:
         min: 1
         label: Output
       state:
-        type: string
+        type: enum
         required: true
-        choices: ["true", "false"]
+        values: ["true", "false"]
         label: Lock State
 
   set_output_5v:
@@ -382,9 +382,9 @@ commands:
         min: 1
         label: Output
       state:
-        type: string
+        type: enum
         required: true
-        choices: [On, Auto, Off]
+        values: [On, Auto, Off]
         label: 5V Mode
 
   set_input_hdcp:
@@ -399,9 +399,9 @@ commands:
         min: 1
         label: Input
       version:
-        type: string
+        type: enum
         required: true
-        choices: ["HDCP 1.4", "HDCP 2.2", "Off"]
+        values: ["HDCP 1.4", "HDCP 2.2", "Off"]
         label: HDCP Version
 
   set_output_hdcp_mode:
@@ -416,9 +416,9 @@ commands:
         min: 1
         label: Output
       mode:
-        type: string
+        type: enum
         required: true
-        choices: [Auto, Always]
+        values: [Auto, Always]
         label: HDCP Mode
 
   set_output_signal_type:
@@ -433,9 +433,9 @@ commands:
         min: 1
         label: Output
       signal_type:
-        type: string
+        type: enum
         required: true
-        choices: [Auto, DVI]
+        values: [Auto, DVI]
         label: Signal Type
 
   set_embedded_audio_mute:
@@ -450,9 +450,9 @@ commands:
         min: 1
         label: Output
       state:
-        type: string
+        type: enum
         required: true
-        choices: ["true", "false"]
+        values: ["true", "false"]
         label: Mute State
 
   # ── Audio routing & analog output ──
@@ -499,9 +499,9 @@ commands:
         label: Port
         description: "Examples: I1, I2, I3, I4, O4."
       state:
-        type: string
+        type: enum
         required: true
-        choices: ["true", "false"]
+        values: ["true", "false"]
         label: Mute State
 
   set_analog_volume_percent:
@@ -604,9 +604,9 @@ commands:
         min: 1
         label: Output
       state:
-        type: string
+        type: enum
         required: true
-        choices: ["true", "false"]
+        values: ["true", "false"]
         label: Mute State
 
   # ── EDID ──

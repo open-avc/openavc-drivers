@@ -646,7 +646,6 @@ device_settings:
     type: number
     min: -12
     max: 12
-    step: 0.1
     label: Input Gain L (dB)
     help: "Bluetooth input left gain calibration, -12 to +12 dB."
     state_key: gain_left
@@ -658,7 +657,6 @@ device_settings:
     type: number
     min: -12
     max: 12
-    step: 0.1
     label: Input Gain R (dB)
     help: "Bluetooth input right gain calibration, -12 to +12 dB."
     state_key: gain_right

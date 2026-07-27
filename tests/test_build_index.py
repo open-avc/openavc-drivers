@@ -985,18 +985,18 @@ def test_files_map_omits_yaml_sim_companion(tmp_path: Path) -> None:
 
 def test_files_map_cannot_be_declared_by_the_driver(tmp_path: Path) -> None:
     # `files` is computed from bytes on disk. A driver that declares its own
-    # must not be able to pin a hash of its choosing into the catalog.
+    # must not be able to pin a hash of its choosing into the catalog — and it
+    # is now refused outright rather than quietly ignored, because `files` is
+    # not a key the driver format has. (The computed map is asserted by the
+    # two tests above; this one is about an author who tries to supply it.)
     _write_manufacturers(tmp_path)
-    yaml_path = _write_yaml_driver(
+    _write_yaml_driver(
         tmp_path,
         extra_yaml='files: {"audio/test_driver.avcdriver": "deadbeef"}\n',
     )
     rc, _, err = _run(tmp_path)
-    assert rc == 0, err
-
-    files = _entry_by_id(tmp_path, "test_driver")["files"]
-    assert files == {"audio/test_driver.avcdriver": _sha256_of(yaml_path)}
-    assert "deadbeef" not in json.dumps(files)
+    assert rc != 0
+    assert "unknown key 'files'" in err, err
 
 
 def test_shard_entries_carry_the_same_hashes(tmp_path: Path) -> None:

@@ -475,10 +475,10 @@ commands:
         default: "1D"
         label: Preset Speed (00..1D hex = 1..30)
       table:
-        type: string
+        type: enum
         required: true
         default: "2"
-        choices: ["0", "1", "2"]
+        values: ["0", "1", "2"]
         label: Speed Table (0 = SLOW, 1 = MID, 2 = FAST)
 
   pan_tilt_home:

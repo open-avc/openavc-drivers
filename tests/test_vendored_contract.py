@@ -8,6 +8,13 @@ synthetic invalid definition per validation rule, with the exact error
 messages the platform records for each — replays against the vendored
 validator and must reproduce those messages exactly.
 
+The corpus is what an *authoring* gate refuses, so the replay validates
+with ``strict=True`` — the same bar this repo's build_index.py holds a
+submitted driver to. Strict adds one rule: keys the contract does not
+declare. The platform's runtime loader softens that one to a warning, so a
+driver written for a newer platform still runs; publishing does not get
+that latitude, because a misspelled key silently does nothing.
+
 One carve-out: the platform loader also validates the ``discovery:`` block
 through its discovery engine, which is not vendored here (the catalog runs
 its own deep discovery checks in scripts/build_index.py). Those loader-side
@@ -49,7 +56,7 @@ def test_replay_matches_platform_messages() -> None:
         "(python scripts/vendor_platform_contract.py)"
     )
     for name in sorted(cases):
-        actual = validate_driver_definition(cases[name])
+        actual = validate_driver_definition(cases[name], strict=True)
         stray = [m for m in actual if m.startswith(_DISCOVERY_PREFIX)]
         assert stray == [], (
             f"'{name}': the shared rules emitted discovery-engine messages; "
@@ -71,7 +78,7 @@ def test_every_case_is_rejected() -> None:
     dead = [
         name
         for name in sorted(cases)
-        if not validate_driver_definition(cases[name]) and not expected[name]
+        if not validate_driver_definition(cases[name], strict=True) and not expected[name]
     ]
     assert dead == [], f"cases no rule rejects anywhere: {dead}"
 

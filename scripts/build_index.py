@@ -1636,8 +1636,13 @@ def main(argv: list[str] | None = None) -> int:
         # the platform validates the full DRIVER_INFO when it loads the
         # driver. The discovery block is checked separately below.
         if filepath.suffix == ".avcdriver":
+            # strict: publishing is an authoring gate. A key the contract
+            # doesn't declare is a typo, and a typo'd section silently does
+            # nothing once the driver is installed — catch it here, before it
+            # ships to anyone.
             errors.extend(
-                f"{rel}: {err}" for err in validate_driver_definition(data)
+                f"{rel}: {err}"
+                for err in validate_driver_definition(data, strict=True)
             )
 
         disc_errors, normalized = _validate_discovery_block(

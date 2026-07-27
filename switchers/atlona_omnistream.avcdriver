@@ -313,9 +313,9 @@ commands:
         max: 6
         label: Session
       state:
-        type: string
+        type: enum
         required: true
-        choices: [on, off]
+        values: [on, off]
         label: State
 
   # ── Audio (Pro-only, no-op on R-Type) ──
@@ -333,9 +333,9 @@ commands:
         max: 2
         label: HDMI Output
       state:
-        type: string
+        type: enum
         required: true
-        choices: [on, off]
+        values: [on, off]
         label: Mute State
 
   set_audio_volume:
@@ -406,9 +406,9 @@ commands:
         max: 6
         label: Session
       state:
-        type: string
+        type: enum
         required: true
-        choices: [on, off]
+        values: [on, off]
         label: State
 
   audio_to_backup:
@@ -480,9 +480,9 @@ commands:
         max: 2
         label: HDMI Output
       state:
-        type: string
+        type: enum
         required: true
-        choices: [on, off]
+        values: [on, off]
         label: Power
 
   set_hdcp:
@@ -497,9 +497,9 @@ commands:
         label: HDMI Port
         description: "HDMI1, HDMI2, etc."
       version:
-        type: string
+        type: enum
         required: true
-        choices: ["1.4", "2.2", "none", "off"]
+        values: ["1.4", "2.2", "none", "off"]
         label: HDCP Version
 
   press_display_button:
@@ -515,9 +515,9 @@ commands:
         max: 2
         label: HDMI Input
       action:
-        type: string
+        type: enum
         required: true
-        choices: [on, off, toggle]
+        values: [on, off, toggle]
         label: Action
 
   press_input_button:
@@ -526,10 +526,10 @@ commands:
     help: "Emulate the front-panel INPUT button. Pro units only."
     params:
       action:
-        type: string
+        type: enum
         required: true
         default: tog
-        choices: ["1", "2", "tog"]
+        values: ["1", "2", "tog"]
         label: Action
 
   press_volume_button:
@@ -538,9 +538,9 @@ commands:
     help: "Send a volume up or down step (±1). Pro units only."
     params:
       direction:
-        type: string
+        type: enum
         required: true
-        choices: [up, down]
+        values: [up, down]
         label: Direction
 
   trigger_cec:
@@ -556,9 +556,9 @@ commands:
         max: 2
         label: HDMI Output
       command:
-        type: string
+        type: enum
         required: true
-        choices: [on, off, "vol+", "vol-"]
+        values: [on, off, "vol+", "vol-"]
         label: CEC Command
 
   trigger_rs232:
@@ -574,9 +574,9 @@ commands:
         max: 2
         label: RS-232 Port
       command:
-        type: string
+        type: enum
         required: true
-        choices: [on, off, "vol+", "vol-"]
+        values: [on, off, "vol+", "vol-"]
         label: RS-232 Command
 
 # Quick actions — promote the high-use decoder controls (route a source,

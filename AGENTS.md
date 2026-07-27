@@ -57,6 +57,8 @@ A machine-readable JSON Schema for this format lives at the repository root: [`a
 
 The sections below remain the authoritative field-by-field reference; the schema mirrors them and the catalog rules enforced by `scripts/build_index.py`.
 
+**Every block is closed — an unrecognized key is a hard error, not an ignored one.** This is deliberate: a misspelled section is the quietest possible failure. `state_varibles` used to load a driver with zero state variables and no warning anywhere, so the device connected and simply had nothing to show. `build_index.py` now rejects any key the contract doesn't declare (usually naming the spelling you meant), the schema above flags it live in your editor, and the platform's Driver Builder and import paths refuse it too. Don't invent fields: if a value has nowhere to go in the contract, it does nothing, and now it says so. The one place that stays lenient is the platform's *runtime loader*, which downgrades this to a log warning so a driver written for a newer platform still runs rather than dropping offline over a field that release doesn't know yet.
+
 ### 2.1 Top-Level Fields
 
 #### Required

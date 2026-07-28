@@ -30,14 +30,19 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import json
+import os
 import sys
 import urllib.error
 import urllib.request
+from functools import lru_cache
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VENDOR_DIR = REPO_ROOT / "scripts" / "_vendor"
-RAW_BASE = "https://raw.githubusercontent.com/open-avc/openavc/main/"
+UPSTREAM_BRANCH = "main"
+RAW_BASE = "https://raw.githubusercontent.com/open-avc/openavc/"
+API_BASE = "https://api.github.com/repos/open-avc/openavc"
 
 # (platform path, target path relative to this repo's root, import
 # rewrites applied exactly once each). Most copies land in scripts/_vendor/;
@@ -141,8 +146,38 @@ def _read_local(openavc: Path, source_path: str) -> bytes:
     return path.read_bytes()
 
 
+@lru_cache(maxsize=1)
+def _upstream_ref() -> str:
+    """Resolve the platform's default branch to a commit SHA, once.
+
+    Fetching every file from the mutable ``main`` URL looked fine and was
+    quietly wrong: raw.githubusercontent.com serves through a CDN that caches
+    for minutes, so a run starting shortly after the platform half of a paired
+    change landed compared the new vendored copies against the *old* platform
+    bytes and reported drift that did not exist. Paired changes always land
+    minutes apart, so that window is the normal case, not a rare one.
+
+    A commit SHA is immutable, so its URL cannot go stale. If the ref can't be
+    resolved (offline, API rate limit) fall back to the branch name — the old
+    behavior, which is right far more often than not.
+    """
+    url = f"{API_BASE}/git/ref/heads/{UPSTREAM_BRANCH}"
+    request = urllib.request.Request(
+        url, headers={"Accept": "application/vnd.github+json"}
+    )
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as resp:
+            sha = json.load(resp)["object"]["sha"]
+    except (urllib.error.URLError, KeyError, ValueError, TimeoutError):
+        return UPSTREAM_BRANCH
+    return sha
+
+
 def _fetch_upstream(source_path: str) -> bytes:
-    url = RAW_BASE + source_path
+    url = f"{RAW_BASE}{_upstream_ref()}/{source_path}"
     try:
         with urllib.request.urlopen(url, timeout=30) as resp:
             return resp.read()

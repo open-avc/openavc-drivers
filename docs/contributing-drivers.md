@@ -27,17 +27,18 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 6. **Add metadata fields to your driver file** (NOT `index.json` — see below)
 
-7. **Validate your driver.** You do *not* commit `index.json` / `devices.json` — CI rebuilds them:
+7. **Rebuild the catalog and validate.** The catalog is generated from the driver files, and it belongs in the same commit as the driver:
    ```bash
    pip install -r requirements-dev.txt
-   python scripts/build_index.py --check
+   python scripts/build_index.py          # regenerate index.json, devices.json, shards
+   python scripts/build_index.py --check  # what CI runs
    ```
 
-8. **Submit a pull request** with just your driver file (plus a `manufacturers.json` entry if your manufacturer is new). CI validates it, and the catalog is rebuilt automatically when it merges.
+8. **Submit a pull request** with your driver file, the regenerated catalog files, and a `manufacturers.json` entry if your manufacturer is new.
 
 ## Driver Metadata
 
-`index.json` and `devices.json` are **generated artifacts**. Do not edit, regenerate, or commit them. The driver file is the single source of truth — add metadata there, and CI regenerates the catalog from it on merge.
+`index.json` and `devices.json` are **generated artifacts** — never hand-edit them. The driver file is the single source of truth: add metadata there, then regenerate with `python scripts/build_index.py` and commit the result with your driver.
 
 For YAML drivers, metadata sits at the top level alongside `transport` and `commands`. For Python drivers, it goes inside the `DRIVER_INFO` class attribute.
 
@@ -238,7 +239,7 @@ Many drivers ship at `verified: false`, or with `compatible_models` entries mark
 
 - Update `compatible_models`. It is an array of groups, so different models can carry different confidence. A model whose whole command surface worked goes to `confidence: full`; one with quirks gets its own entry at `confidence: partial` with a `notes:` line describing the deviation.
 - Fix any commands or response patterns that did not match, and bump the driver `version`.
-- Validate with `python scripts/build_index.py --check`. Don't commit `index.json` / `devices.json`; CI regenerates them on merge.
+- Rebuild the catalog (`python scripts/build_index.py`) and validate (`--check`), committing the regenerated files with the driver.
 
 Link the test-report issue from the pull request so the evidence and the change stay connected.
 
@@ -259,14 +260,13 @@ All contributed drivers must be released under the **MIT License**. By submittin
 Validate your driver before submitting:
 
 ```bash
-python scripts/build_index.py --check    # Validate only — does not write outputs
+python scripts/build_index.py            # Rebuild the catalog from the driver files
+python scripts/build_index.py --check    # Validate — this is what CI runs
 ```
 
-This is what CI runs on every pull request. `index.json`, `devices.json`, and the per-category shards under `index/` and `devices/` are **generated artifacts owned by CI** — it rebuilds and commits them automatically when your driver merges to `main`. A pull request should contain only your driver file (plus a `manufacturers.json` entry if your manufacturer is new); don't run the full build or commit those files. CI rejects pull requests that modify the generated catalog.
+`index.json`, `devices.json`, and the per-category shards under `index/` and `devices/` are generated from the driver files, and they belong in the same commit as the driver that changed them. `--check` fails when they don't match, naming the files and the command that fixes it, so a pull request cannot land a driver whose catalog entry is out of date.
 
-Running the full `python scripts/build_index.py` locally is fine if you want to preview the catalog output, but leave the regenerated files out of your commits.
-
-The generated catalog records a SHA-256 for your driver file and for any companion that installs alongside it. OpenAVC checks those hashes against what it downloads and refuses a driver whose bytes don't match, so the catalog has to be rebuilt whenever the files change. CI does that for you on merge — including when you only touched a companion.
+That matters more than tidiness. The catalog records a SHA-256 for your driver file and for any companion that installs alongside it, and OpenAVC refuses a driver whose downloaded bytes don't match the checksum it was given. A stale catalog entry therefore doesn't merely look out of date — it makes that driver impossible to install. Rebuild whenever the files change, including when you only touched a companion.
 
 To catch mistakes as you type, point your editor at the JSON Schema for the `.avcdriver` format. Add this line to the top of your driver file and any editor with YAML Language Server support (VS Code, Neovim, JetBrains, and others) will validate it live:
 

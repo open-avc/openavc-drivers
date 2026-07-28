@@ -2483,9 +2483,9 @@ openavc-drivers/
 
 ## 7. Driver Metadata (powers index.json and devices.json)
 
-**`index.json` and `devices.json` are generated artifacts owned by CI. Do NOT edit, regenerate, or commit them.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file, and CI rebuilds and commits them automatically when a driver merges to `main`. A pull request should contain only the driver file (and a `manufacturers.json` entry if the manufacturer is new); CI rejects pull requests that modify the generated catalog.
+**`index.json` and `devices.json` are generated artifacts — never hand-edit them.** They are produced by `scripts/build_index.py` from the metadata declared in each driver file, and they belong in the same commit as the driver that changed them. `--check` fails when they are out of date, and a stale entry is not cosmetic: the catalog carries a SHA-256 per driver file, and OpenAVC refuses a download whose bytes don't match, so a driver with a stale entry cannot be installed at all.
 
-Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. To validate locally, run `python scripts/build_index.py --check` (validates without writing).
+Add metadata to the driver file itself: top-level YAML keys for `.avcdriver`, or inside the `DRIVER_INFO` class attribute for `.py` drivers. Then run `python scripts/build_index.py` to regenerate, and `python scripts/build_index.py --check` to validate.
 
 Each generated entry also carries a `files` map — repo-relative path to SHA-256 — covering the driver file and any companion an install fetches with it. OpenAVC hashes what it downloads and compares before writing it to disk, so a driver whose bytes don't match the catalog is refused rather than installed. Two consequences worth knowing: the hashes are computed from the files, never read from them (declaring your own `files` key does nothing), and editing only a companion still changes the catalog, so CI's post-merge rebuild is what keeps the hashes true.
 
@@ -2551,10 +2551,11 @@ The build script reverse-indexes every `compatible_models` entry into `devices.j
 Validate the driver before submitting:
 
 ```bash
-python scripts/build_index.py --check    # Validate only — does not write outputs
+python scripts/build_index.py            # Rebuild the catalog from the driver files
+python scripts/build_index.py --check    # Validate — this is what CI runs
 ```
 
-This is what CI runs on every pull request. Don't commit `index.json`, `devices.json`, or the shards under `index/` and `devices/` — they are generated artifacts that CI rebuilds and commits on merge to `main`, and CI rejects pull requests that modify them.
+Commit `index.json`, `devices.json`, and the shards under `index/` and `devices/` alongside the driver change that produced them. They are generated, so never hand-edit them — regenerate instead. `--check` fails when what is committed no longer matches the driver files, and names the command that fixes it.
 
 The validator checks:
 - Required fields present

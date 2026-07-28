@@ -6,7 +6,8 @@ on:
   pull_request:
     branches: [main]
 
-# Read-only by default; the publish-catalog job opts into write where it needs it.
+# Nothing here writes to the repository: the catalog is committed by whoever
+# changes a driver, and CI's job is to refuse the change when it wasn't.
 permissions:
   contents: read
 
@@ -16,9 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Full history so the pull-request guard can diff against the base.
-          fetch-depth: 0
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -38,58 +36,9 @@ jobs:
       - name: Run driver, simulator, and build_index tests
         run: python -m pytest tests/ -v
 
-      - name: Validate driver metadata
+      # Also fails when the committed catalog no longer matches the driver
+      # files. The catalog is what the platform installs from and it carries a
+      # checksum per driver file, so a stale entry makes that driver refuse to
+      # install — this is the step that stops one landing.
+      - name: Validate drivers and the catalog they generate
         run: python scripts/build_index.py --check
-
-      - name: Catalog is CI-owned — pull requests must not commit it
-        if: github.event_name == 'pull_request'
-        run: |
-          base="${{ github.event.pull_request.base.sha }}"
-          changed=$(git diff --name-only "$base"...HEAD -- index.json devices.json index devices)
-          if [ -n "$changed" ]; then
-            echo "::error::This pull request modifies generated catalog files:"
-            echo "$changed" | sed 's/^/  - /'
-            echo ""
-            echo "index.json, devices.json, and the index/ and devices/ shards are build"
-            echo "artifacts that CI rebuilds and commits automatically when your driver"
-            echo "merges to main. Drop those files from your commits and keep only your"
-            echo "driver change. To validate your driver locally, run:"
-            echo "    python scripts/build_index.py --check"
-            exit 1
-          fi
-
-  publish-catalog:
-    name: Rebuild and commit catalog
-    # Only on merge/push to main, after validation passes. PRs never reach this.
-    if: github.event_name == 'push'
-    needs: validate
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-
-      - name: Rebuild catalog from driver files
-        run: python scripts/build_index.py
-
-      - name: Commit catalog if it changed
-        run: |
-          if [ -z "$(git status --porcelain index.json devices.json index devices)" ]; then
-            echo "Catalog already up to date — nothing to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.json devices.json index devices
-          git commit -m "Rebuild driver catalog"
-          # A push authenticated with GITHUB_TOKEN does not trigger another
-          # workflow run, so this can't loop.
-          git push

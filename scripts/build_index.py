@@ -25,6 +25,7 @@ import hashlib
 import json
 import re
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -1475,6 +1476,51 @@ def write_outputs(
         )
 
 
+# --- Freshness -------------------------------------------------------------
+#
+# The catalog is generated from the driver files, and the platform installs
+# from it: index.json carries a SHA-256 for every file an install fetches, and
+# a mismatch is refused rather than warned about. So a driver edit that lands
+# without a regenerated catalog does not merely look out of date — it makes
+# that driver uninstallable, silently, until somebody notices.
+#
+# That is not hypothetical: four drivers shipped that way for a day. Nothing
+# caught it, because validation checked the *drivers* and never asked whether
+# the committed catalog still matched them.
+#
+# So --check rebuilds into a temporary directory and compares. Regenerating is
+# one command, and the failure names it.
+
+
+def _catalog_snapshot(root: Path) -> dict[str, str]:
+    """Every generated catalog file under ``root``, keyed by relative path."""
+    paths = [root / "index.json", root / "devices.json"]
+    for cat in DRIVER_CATEGORIES:
+        paths.append(root / "index" / f"{cat}.json")
+        paths.append(root / "devices" / f"{cat}.json")
+    return {
+        path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
+        for path in paths
+        if path.is_file()
+    }
+
+
+def stale_catalog_files(
+    repo_root: Path,
+    entries: list[DriverEntry],
+    devices: list[dict[str, Any]],
+) -> list[str]:
+    """Committed catalog files a fresh build would not reproduce.
+
+    Empty when the catalog still matches the driver files it comes from.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        write_outputs(Path(tmp), entries, devices)
+        fresh = _catalog_snapshot(Path(tmp))
+    committed = _catalog_snapshot(repo_root)
+    return sorted(name for name in fresh if committed.get(name) != fresh[name])
+
+
 # --- Main ------------------------------------------------------------------
 
 
@@ -1679,7 +1725,36 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Validated {len(entries)} driver(s), {len(devices)} device(s).")
 
-    if args.check or args.check_json_schema:
+    # --check-json-schema is the narrower flag: validate the driver files
+    # against the schema and stop. Only --check speaks for the whole repo, so
+    # only it asks whether the committed catalog still matches the drivers.
+    if args.check_json_schema and not args.check:
+        return 0
+
+    if args.check:
+        stale = stale_catalog_files(repo_root, entries, devices)
+        if stale:
+            # stderr is unbuffered and stdout is not, so without this the
+            # failure prints above the validation line that precedes it.
+            sys.stdout.flush()
+            print(
+                f"\nFAILED: the catalog is out of date — {len(stale)} generated "
+                f"file(s) no longer match the drivers they come from:\n",
+                file=sys.stderr,
+            )
+            for name in stale:
+                print(f"  - {name}", file=sys.stderr)
+            print(
+                "\nThe catalog is what the platform installs from, and it carries "
+                "a checksum\nfor every driver file. A checksum that no longer "
+                "matches is refused, not\nwarned about, so a driver whose entry is "
+                "stale cannot be installed at all.\n\nRegenerate and commit the "
+                "result alongside your driver change:\n\n    python "
+                "scripts/build_index.py\n",
+                file=sys.stderr,
+            )
+            return 1
+        print("Catalog is up to date with the driver files.")
         return 0
 
     write_outputs(repo_root, entries, devices)

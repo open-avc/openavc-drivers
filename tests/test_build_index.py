@@ -216,12 +216,52 @@ def test_shards_emitted_per_category(tmp_path: Path) -> None:
 
 
 def test_check_mode_does_not_write(tmp_path: Path) -> None:
+    """--check reports, it never produces the catalog itself."""
     _write_manufacturers(tmp_path)
     _write_yaml_driver(tmp_path)
-    rc, _, _ = _run(tmp_path, "--check")
-    assert rc == 0
+    rc, _, err = _run(tmp_path, "--check")
+    # No catalog has been built, so there is nothing matching the drivers —
+    # which is exactly the state --check exists to refuse.
+    assert rc == 1
+    assert "out of date" in err
     assert not (tmp_path / "index.json").exists()
     assert not (tmp_path / "devices.json").exists()
+
+
+# --- Catalog freshness -----------------------------------------------------
+#
+# The catalog carries a SHA-256 per driver file and the platform refuses a
+# download whose bytes don't match, so a driver edited without regenerating
+# the catalog cannot be installed at all. These pin the check that stops one
+# landing — it is the only thing standing between "forgot to regenerate" and
+# a driver that silently will not install.
+
+
+def test_check_passes_when_the_catalog_matches_the_drivers(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+    assert _run(tmp_path)[0] == 0  # build it
+    rc, out, _ = _run(tmp_path, "--check")
+    assert rc == 0
+    assert "up to date" in out
+
+
+def test_check_fails_when_a_driver_changed_without_a_rebuild(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    driver = _write_yaml_driver(tmp_path)
+    assert _run(tmp_path)[0] == 0  # build it
+
+    # The mistake, exactly as it happens: edit the driver, forget the rebuild.
+    driver.write_text(
+        driver.read_text(encoding="utf-8") + "\n# a later edit\n", encoding="utf-8"
+    )
+
+    rc, _, err = _run(tmp_path, "--check")
+    assert rc == 1
+    assert "out of date" in err
+    assert "index.json" in err
+    # The message has to carry the fix, not just the verdict.
+    assert "scripts/build_index.py" in err
 
 
 # --- Field-level validation ------------------------------------------------

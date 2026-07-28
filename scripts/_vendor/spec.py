@@ -1752,7 +1752,12 @@ DEFS = {
             },
             'secret': {
                 'type': 'boolean',
-                'doc': 'Render as a masked password field.',
+                'doc': (
+                    'Render as a masked password field. A default may still be '
+                    'given and is stored in plain text in the driver file, so '
+                    'use it only for a factory default the manufacturer '
+                    'publishes -- never a real site password.'
+                ),
             },
             'min': {
                 'type': 'number',

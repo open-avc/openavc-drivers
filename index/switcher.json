@@ -190,7 +190,7 @@
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_omnistream.avcdriver": "40ccac699a2e2fb8e16b37f05a7fd685e9c97b47199ca5451626704dcd31de4f"
+        "switchers/atlona_omnistream.avcdriver": "9cebacbacfd57f672c8a061e978ccf3ff2f2cdd70e163e4815ff42b5b39ff0eb"
       },
       "ports": [
         23,
@@ -748,7 +748,7 @@
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "7c57a64987cc69108c94a2ea0d9d9d826002eb56c0c5625224770dde0c0cc229"
+        "switchers/lightware_lw3.avcdriver": "ff4e20a8aa3bb95c9b004731be604e33c37ecad8576bdc4456c952074fe75fae"
       },
       "ports": [
         6107

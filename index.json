@@ -520,7 +520,7 @@
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_omnistream.avcdriver": "40ccac699a2e2fb8e16b37f05a7fd685e9c97b47199ca5451626704dcd31de4f"
+        "switchers/atlona_omnistream.avcdriver": "9cebacbacfd57f672c8a061e978ccf3ff2f2cdd70e163e4815ff42b5b39ff0eb"
       },
       "ports": [
         23,
@@ -3506,7 +3506,7 @@
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "7c57a64987cc69108c94a2ea0d9d9d826002eb56c0c5625224770dde0c0cc229"
+        "switchers/lightware_lw3.avcdriver": "ff4e20a8aa3bb95c9b004731be604e33c37ecad8576bdc4456c952074fe75fae"
       },
       "ports": [
         6107
@@ -4167,7 +4167,7 @@
       "file": "cameras/panasonic_awhe.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/panasonic_awhe.avcdriver": "b2fd007da7110b37e82e87829fea2fdc73d5f7fd952ce56e3424ad7484a1b49e"
+        "cameras/panasonic_awhe.avcdriver": "f1073d13da724ea98a3ede0aac7992c031bab8090641415ebc3476c471527470"
       },
       "ports": [
         80
@@ -5724,7 +5724,7 @@
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/turtle_bt_wallplate.avcdriver": "1630b962b3e44f8ee273125fcd8a804f92251671f933cede87e948b2b1f780de"
+        "audio/turtle_bt_wallplate.avcdriver": "07b41195f509a7874c14c0d874f30d042b42101b18d3a1baddb0271e035370a3"
       },
       "ports": [
         23

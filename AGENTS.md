@@ -864,7 +864,6 @@ commands:
 ```
 
 - **`options_state: <key>`** — a **device-relative** state key. The IDE reads `device.<id>.<key>` and offers it as a dropdown. The driver publishes the enumerable set as a state variable whose value is a JSON-encoded list — either plain strings (`["Scene A","Scene B"]`) or `{value,label}` objects (`[{"value":"a","label":"Bank A"}]`). Use this for snapshot banks, named controls, router I/O — anything the driver can enumerate at runtime.
-- **`options_source: <key>`** — the same idea but an **absolute** state key, read verbatim (the primitive plugins already use). Prefer `options_state` for per-device lists.
 - **`options_from: { param: <sibling>, source: child_schema }`** — **cascade**. The options come from the child picked in a sibling `child_id` param. With `source: child_schema`, the picker offers that child's controls (its per-instance schema from `register_child(schema=...)`). Selecting the sibling repopulates this param. Use it so a "control name" follows the chosen component instead of being free-typed. (`child_schema` needs `dynamic: true` children — Python drivers; see §3.5.)
 - **`type_from: { param: <sibling> }`** — make a param's input *type* follow the control chosen in a sibling cascade. The named sibling is itself an `options_from: { source: child_schema }` param; once a control is picked there, this param renders as that control's type (a number spinner with its `min`/`max`, a Yes/No for a boolean, etc.) instead of plain text. The `control: true` schema vars carry the `type`/`min`/`max` that drive this. Classic use: a `value` param that follows the picked `control`. Forgiving — stays a text box until a control is chosen, and the runtime still coerces the submitted value.
 
@@ -2398,6 +2397,25 @@ simulator:
                                   # (omit `behavior` to only apply this mode's `set_state`)
 ```
 
+**Devices that take time to change state** need a `state_machines:` block, or the simulator answers instantly and your driver is never tested against the waiting and refusing a real unit does. Each machine declares its `states`, the `initial` one, and the `transitions` between them:
+
+```yaml
+  state_machines:
+    power_state:
+      states: [off, warming, on, cooling]
+      initial: off
+      transitions:
+        - { from: off,     trigger: power_on,  to: warming }
+        - { from: warming, after_seconds: 30,  to: on }       # timer, no command
+        - { from: on,      trigger: power_off, to: cooling }
+        - { from: cooling, after_seconds: 90,  to: off }
+        - { from: cooling, trigger: "*", reject: true }       # ignore everything while cooling
+```
+
+A `trigger` names one of the driver's `commands`; `after_seconds` fires on a timer instead, which is how warm-up and cooldown advance with nothing on the wire. `reject: true` makes the simulator swallow the command and answer nothing, the way a projector ignores an input change mid-cooldown — the case a driver most often gets wrong, because it assumes every command gets a reply. The machine publishes its current state under its own name (`power_state` here), so `responses:` and `controls:` read it like any other state key. A transition naming a trigger exactly always beats a `"*"` catch-all, so list order does not change behavior.
+
+**Unsolicited updates** need `push_state: true` in the same section. With it, a state change made from the Simulator UI is sent to the connected driver in the driver's own response format, so a device with verbose mode or subscriptions behaves like one. Leave it off for a poll-only device — turning it on for a device that does not really push means your driver gets tested against traffic it will never see. `notifications:` overrides the format per state variable when unsolicited messages differ from polled replies (value-specific strings like `Amt1`/`Amt0` instead of `Amt{value}`); use `'*'` as the key to match any value.
+
 ### 5.2 Python Drivers: Separate `_sim.py` File
 
 Python drivers need a companion simulator file. Place it alongside the driver with a `_sim.py` suffix.
@@ -2668,7 +2686,6 @@ responses:
           "OFF": false
 
 polling:
-  interval: 15
   queries:
     - "STA\r\n"
 
@@ -2803,7 +2820,6 @@ responses:
     set: { brightness: "$1" }
 
 polling:
-  interval: 10
   queries:
     - "get_status"
 ```
@@ -2883,7 +2899,6 @@ responses:
           "false": false
 
 polling:
-  interval: 5
   queries:
     - '{level_tag} get level 1\r\n'
     - '{mute_tag} get mute 1\r\n'

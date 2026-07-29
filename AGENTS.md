@@ -874,6 +874,13 @@ commands:
 - **`decimals`** (on `number` params) — round the value to this many decimal places on the wire (`decimals: 0` sends a whole number). An `integer` param always coerces to a whole number, so a value of `26.0` from a slider goes out as `26`, never `26.0`. For fixed-width or hex output, use a format spec on the placeholder instead (`{level:03d}`, `{addr:02X}`).
 - **Whitespace is trimmed** off string values before they're sent, so a stray leading/trailing space never reaches the device. Set **`trim: false`** on a string param to opt out and pass the value through verbatim — for raw payloads where edge whitespace is meaningful (text typed character-by-character into an on-screen keyboard, title text rendered as-is, relay bodies whose trailing `\r\n` terminator is part of the protocol). Requires platform 0.22.0.
 
+**Presentation-only params.** Neither key changes the value the device receives:
+
+- **`unit`** — a unit shown beside the input when the command is run (`%`, `ms`, `dB`). Set it wherever the number alone is ambiguous. The same key means the same thing on a state variable and on a device setting; it is **not** appended to the wire value.
+- **`secret: true`** — mask the input, for a param carrying a password, PIN, or key. The value still goes to the device as typed and nothing is stored; it only keeps a credential off the screen. The same key does the same job on a `config_schema` field. This is the declared key — don't invent a `password` flag of your own.
+
+To label the choices in a dropdown, use `values` with `{value, label}` pairs (below). There is no parallel array of display labels — a second list alongside `values` is not a contract key and does nothing.
+
 ```yaml
 params:
   host:

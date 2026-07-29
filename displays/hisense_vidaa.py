@@ -121,7 +121,7 @@ class HisenseVidaaDriver(BaseDriver):
         "name": "Hisense VIDAA TV",
         "manufacturer": "Hisense",
         "category": "display",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.24.0",
         "author": "OpenAVC",
@@ -183,21 +183,20 @@ class HisenseVidaaDriver(BaseDriver):
             "host": {"type": "string", "required": True, "label": "IP Address"},
             "port": {"type": "integer", "default": DEFAULT_PORT, "label": "Port"},
             "auth_mode": {
-                "type": "string", "default": "auto", "label": "Authentication",
-                "options": ["auto", "dynamic", "dynamic_legacy", "static"],
+                "type": "enum", "default": "auto", "label": "Authentication",
+                "values": ["auto", "dynamic", "dynamic_legacy", "static"],
                 "help": "Leave on 'auto' (tries the modern scheme, then the "
                         "legacy/static ones). Pick a specific scheme only if a "
                         "model needs it.",
             },
             "client_cert": {
-                "type": "string", "default": "", "label": "Client Certificate (PEM)",
-                "multiline": True,
+                "type": "text", "default": "", "label": "Client Certificate (PEM)",
                 "help": "Optional. Only needed for models that require a client "
                         "certificate. Paste the PEM certificate text here.",
             },
             "client_key": {
-                "type": "string", "default": "", "label": "Client Key (PEM)",
-                "multiline": True, "secret": True,
+                "type": "text", "default": "", "label": "Client Key (PEM)",
+                "secret": True,
                 "help": "Optional. The private key matching the client "
                         "certificate above.",
             },
@@ -243,8 +242,8 @@ class HisenseVidaaDriver(BaseDriver):
             "send_key": {
                 "label": "Send Remote Key",
                 "params": {"key": {
-                    "type": "string", "required": True, "label": "Key",
-                    "options": sorted(KEY_MAP.keys()),
+                    "type": "enum", "required": True, "label": "Key",
+                    "values": sorted(KEY_MAP.keys()),
                     "help": "Remote button to send."}},
             },
             "request_pairing": {"label": "Request Pairing (show PIN)", "params": {}},

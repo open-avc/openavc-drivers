@@ -47,7 +47,10 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from _vendor.avcdriver_semantic import validate_driver_definition  # noqa: E402
+from _vendor.avcdriver_semantic import (  # noqa: E402
+    unknown_key_errors,
+    validate_driver_definition,
+)
 from _vendor.spec import (  # noqa: E402
     CATEGORIES,
     CONFIDENCE_LEVELS,
@@ -301,6 +304,123 @@ def ast_to_python(node: Any, *, file: Path) -> Any:
         f"(no calls, comprehensions, or f-strings). "
         f"Offending node: {type(node).__name__}"
     )
+
+
+class _Unevaluated:
+    """Stands in for a DRIVER_INFO value this script cannot evaluate.
+
+    A Python driver may build a value from a module constant, a call or a
+    comprehension. Substituting a marker (rather than giving up on the file)
+    keeps every key AROUND the unevaluated value checkable — the alternative
+    turns "we couldn't read this one value" into "we checked none of these
+    keys", which is the hole this check exists to close.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return "<unevaluated>"
+
+
+UNEVALUATED = _Unevaluated()
+
+# Key placeholder for `**expr` where expr's own keys can't be read.
+UNEVALUATED_KEY = "<unevaluated>"
+
+
+def _lenient_ast_value(node: Any, path: str, opaque: list[str]) -> Any:
+    """AST -> value, substituting UNEVALUATED where it can't be evaluated.
+
+    Unlike ``ast_to_python`` (which rejects a non-literal outright, because an
+    index field must be static), this keeps walking so the KEYS of a driver's
+    runtime blocks can be checked even when their values are computed. Every
+    substitution is recorded in ``opaque`` so the coverage gap is reported
+    rather than passing silently.
+    """
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Dict):
+        result: dict[Any, Any] = {}
+        for k, v in zip(node.keys, node.values):
+            if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                key = k.value
+                result[key] = _lenient_ast_value(v, f"{path}.{key}", opaque)
+            elif k is None:
+                # `**expr` — merge a literal mapping; for a comprehension,
+                # keep its value template (its keys are the entry's keys).
+                if isinstance(v, ast.Dict):
+                    merged = _lenient_ast_value(v, path, opaque)
+                    if isinstance(merged, dict):
+                        result.update(merged)
+                elif isinstance(v, ast.DictComp):
+                    result[UNEVALUATED_KEY] = _lenient_ast_value(
+                        v.value, f"{path}.*", opaque
+                    )
+                else:
+                    opaque.append(f"{path}.**" if path else "**")
+                    result[UNEVALUATED_KEY] = UNEVALUATED
+            else:
+                opaque.append(f"{path}.<computed key>".lstrip("."))
+                result[UNEVALUATED_KEY] = _lenient_ast_value(v, f"{path}.*", opaque)
+        return result
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return [
+            _lenient_ast_value(item, f"{path}[]", opaque) for item in node.elts
+        ]
+    if isinstance(node, ast.DictComp):
+        # A whole block built by comprehension: its entries all share the
+        # value template, so check that.
+        return {UNEVALUATED_KEY: _lenient_ast_value(node.value, f"{path}.*", opaque)}
+    if (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, ast.USub)
+        and isinstance(node.operand, ast.Constant)
+        and isinstance(node.operand.value, (int, float))
+    ):
+        return -node.operand.value
+    opaque.append(path.lstrip(".") or "<root>")
+    return UNEVALUATED
+
+
+def _driver_info_ast(filepath: Path) -> ast.Dict:
+    """Return the `DRIVER_INFO = {...}` dict node from a Python driver."""
+    source = filepath.read_text(encoding="utf-8")
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as e:
+        raise ExtractError(f"{filepath.name}: syntax error — {e}")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for item in node.body:
+                if (
+                    isinstance(item, ast.Assign)
+                    and len(item.targets) == 1
+                    and isinstance(item.targets[0], ast.Name)
+                    and item.targets[0].id == "DRIVER_INFO"
+                    and isinstance(item.value, ast.Dict)
+                ):
+                    return item.value
+    raise ExtractError(
+        f"{filepath.name}: no DRIVER_INFO class attribute found. "
+        "Python drivers must define `DRIVER_INFO = {...}` inside a class body."
+    )
+
+
+def extract_python_driver_info_full(
+    filepath: Path,
+) -> tuple[dict[str, Any], list[str]]:
+    """Extract a Python driver's WHOLE DRIVER_INFO, plus unevaluated spots.
+
+    The index extraction keeps 20 metadata keys and drops the rest, so a
+    driver's behavioral blocks (commands, state_variables, config_schema,
+    child_entity_types, ...) never met the contract. This reads all of it so
+    unknown-key checking can.
+    """
+    opaque: list[str] = []
+    value = _lenient_ast_value(_driver_info_ast(filepath), "", opaque)
+    if not isinstance(value, dict):  # pragma: no cover - node is an ast.Dict
+        raise ExtractError(f"{filepath.name}: DRIVER_INFO is not a mapping")
+    return value, sorted(set(opaque))
 
 
 def extract_python_driver_info(filepath: Path) -> dict[str, Any]:
@@ -1664,6 +1784,10 @@ def main(argv: list[str] | None = None) -> int:
 
     entries: list[DriverEntry] = []
     errors: list[str] = []
+    # Places a Python driver's DRIVER_INFO could not be read (a value built
+    # from a constant, a call or a comprehension). Reported, never silent:
+    # these are exactly the spots the unknown-key check could not cover.
+    unevaluated: list[str] = []
     discovery_per_driver: list[tuple[str, str, dict[str, Any]]] = []
     for filepath, data in raw:
         rel = filepath.relative_to(repo_root).as_posix()
@@ -1676,11 +1800,8 @@ def main(argv: list[str] | None = None) -> int:
 
         # YAML definitions run the platform's own validation rules (the
         # vendored copy under scripts/_vendor/), so the catalog's verdict on
-        # a driver file is exactly the platform loader's verdict. Python
-        # drivers are exempt: only index fields are extracted from their
-        # DRIVER_INFO (runtime fields may hold non-literal expressions), and
-        # the platform validates the full DRIVER_INFO when it loads the
-        # driver. The discovery block is checked separately below.
+        # a driver file is exactly the platform loader's verdict. The
+        # discovery block is checked separately below.
         if filepath.suffix == ".avcdriver":
             # strict: publishing is an authoring gate. A key the contract
             # doesn't declare is a typo, and a typo'd section silently does
@@ -1690,6 +1811,29 @@ def main(argv: list[str] | None = None) -> int:
                 f"{rel}: {err}"
                 for err in validate_driver_definition(data, strict=True)
             )
+        else:
+            # A Python driver only ever had its 20 index fields checked: the
+            # rest of DRIVER_INFO is dropped before validation, and the
+            # platform's load path warns rather than rejects. So a misspelled
+            # or invented key in commands/config_schema/child_entity_types
+            # shipped inert — the setting simply never did anything. Check
+            # the WHOLE dict for keys the contract doesn't declare.
+            #
+            # Unknown keys ONLY. The cross-reference rules that
+            # validate_driver_definition also runs false-positive here, because
+            # a Python driver may populate commands and state at runtime (the
+            # Q-SYS pattern) — but whether the contract declares a key is
+            # decidable without knowing what exists at runtime.
+            try:
+                full_info, opaque_spots = extract_python_driver_info_full(filepath)
+            except ExtractError as e:
+                errors.append(str(e))
+            else:
+                errors.extend(
+                    f"{rel}: {err}" for err in unknown_key_errors(full_info)
+                )
+                for spot in opaque_spots:
+                    unevaluated.append(f"{rel}: {spot}")
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,
@@ -1702,6 +1846,18 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(cross_validate(entries, manufacturers))
     errors.extend(_validate_no_signal_collisions(discovery_per_driver))
     errors.extend(_validate_locator_disambiguation(discovery_per_driver))
+
+    if unevaluated:
+        # Not a failure — a driver is allowed to compute a value. Printed
+        # (before any error exit) so the unknown-key check's coverage is
+        # visible instead of implied: keys nested under one of these spots
+        # were not read, and so were never checked against the contract.
+        by_file = len({spot.split(":", 1)[0] for spot in unevaluated})
+        print(
+            f"Note: {len(unevaluated)} computed value(s) in {by_file} Python "
+            f"driver(s) could not be read; keys nested under them are "
+            f"unchecked."
+        )
 
     if errors:
         print(f"\nFAILED: {len(errors)} validation error(s):\n", file=sys.stderr)

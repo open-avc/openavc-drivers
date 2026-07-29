@@ -139,7 +139,7 @@ class WyrestormNetworkHDDriver(BaseDriver):
         "name": "WyreStorm NetworkHD",
         "manufacturer": "WyreStorm",
         "category": "switcher",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.24.0",
         "author": "OpenAVC",
@@ -622,8 +622,11 @@ class WyrestormNetworkHDDriver(BaseDriver):
                     "rx": {"type": "child_id", "child_type": "rx",
                            "required": True, "label": "Display (RX)"},
                     "power": {"type": "enum", "required": True, "label": "Power",
-                              "values": ["onetouchplay", "standby"],
-                              "labels": ["On (One Touch Play)", "Off (Standby)"]},
+                              "values": [
+                                  {"value": "onetouchplay",
+                                   "label": "On (One Touch Play)"},
+                                  {"value": "standby", "label": "Off (Standby)"},
+                              ]},
                 },
                 "help": "Send the decoder's CEC power command to the attached display — always available, unlike the sink_power proxy.",
             },

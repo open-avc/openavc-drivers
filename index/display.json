@@ -97,7 +97,7 @@
       "name": "Hisense VIDAA TV",
       "manufacturer": "Hisense",
       "category": "display",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "mqtt",
       "description": "Controls Hisense VIDAA OS TVs over the TV's embedded MQTT broker (the path the RemoteNOW/VIDAA app uses). Power, volume, input, key passthrough, and PIN pairing.",
@@ -105,7 +105,7 @@
       "file": "displays/hisense_vidaa.py",
       "format": "python",
       "files": {
-        "displays/hisense_vidaa.py": "56bd049d0fa96340bfa2f1c603a7e0aefc64fdf326542899aafe41edb930c79b",
+        "displays/hisense_vidaa.py": "8bbdbb677bfcbf923eb3fdeb5af42b970a71ce0f549a769ca0922c0c35c66657",
         "displays/hisense_vidaa_sim.py": "0a7b9cc96495660a0f325f189c73306c58092603ae55f5aa3da3340be02810d2"
       },
       "ports": [

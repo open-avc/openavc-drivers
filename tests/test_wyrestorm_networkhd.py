@@ -380,7 +380,7 @@ def _dev(driver, key):
 
 def test_metadata_and_platform_gate():
     info = DRV.WyrestormNetworkHDDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
+    assert info["version"] == "1.0.2"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     assert info["min_platform_version"] == "0.24.0"
     assert info["simulated"] is True

@@ -439,7 +439,7 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.0.1"
+    assert info["version"] == "1.0.2"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     assert info["min_platform_version"] == "0.24.0"
     assert info["source_url"].startswith("https://support.avproglobal.com")

@@ -1048,3 +1048,71 @@ def test_shard_entries_carry_the_same_hashes(tmp_path: Path) -> None:
 
     shard = json.loads((tmp_path / "index" / "audio.json").read_text(encoding="utf-8"))
     assert shard["drivers"][0]["files"] == _entry_by_id(tmp_path, "test_driver")["files"]
+
+
+# --- Unknown keys in a Python driver's runtime blocks ------------------------
+#
+# Only the ~20 index fields used to be extracted from a Python DRIVER_INFO, so
+# a misspelled or invented key anywhere else shipped inert: the setting simply
+# never did anything. These cover the whole dict being checked instead.
+
+
+def _python_driver_with(root: Path, extra_info: str) -> Path:
+    """Stage a Python driver whose DRIVER_INFO carries a raw extra block."""
+    base = {
+        "id": "test_py_driver",
+        "name": "Test Python Driver",
+        "manufacturer": "Acme",
+        "category": "projector",
+        "version": "1.0.0",
+        "author": "Tester",
+        "transport": "tcp",
+        "description": "Python fixture.",
+        "source_url": "https://example.com/test-protocol",
+    }
+    inner = ", ".join(f"{k!r}: {v!r}" for k, v in base.items())
+    return _write_python_driver(
+        root,
+        raw_class_body=f"    DRIVER_INFO = {{{inner}, {extra_info}}}\n",
+    )
+
+
+def test_unknown_key_in_a_python_runtime_block_is_rejected(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _python_driver_with(
+        tmp_path,
+        "'commands': {'set_level': {'label': 'Set Level', 'send': 'L {v}',"
+        " 'params': {'v': {'type': 'integer', 'untis': '%'}}}}",
+    )
+
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    assert "untis" in err, err
+
+
+def test_a_computed_value_does_not_silence_the_keys_around_it(tmp_path: Path) -> None:
+    """A value the extractor cannot evaluate must not skip its siblings.
+
+    Giving up on the whole block would turn "one value is computed" into
+    "none of these keys were checked" — the hole this check exists to close.
+    """
+    _write_manufacturers(tmp_path)
+    _python_driver_with(
+        tmp_path,
+        "'commands': {'set_level': {'label': 'Set Level', 'send': 'L {v}',"
+        " 'params': {'v': {'type': 'integer', 'values': sorted({'a': 1}),"
+        " 'untis': '%'}}}}",
+    )
+
+    rc, _, err = _run(tmp_path)
+    assert rc == 1
+    assert "untis" in err, err
+
+
+def test_a_computed_block_is_reported_not_silently_skipped(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _python_driver_with(tmp_path, "'commands': dict(_BUILT)")
+
+    rc, out, err = _run(tmp_path)
+    assert rc == 0, err
+    assert "could not be read" in out, out

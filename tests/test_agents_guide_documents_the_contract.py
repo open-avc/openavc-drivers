@@ -307,3 +307,43 @@ def test_the_sweeps_still_reach_the_document():
     # Fences it cannot root are fine and expected (fragments, project files);
     # this only pins that rooting has not silently become the rare case.
     assert skipped < rooted, f"{skipped} fences skipped vs {rooted} rooted"
+
+
+def test_the_code_fences_are_balanced() -> None:
+    """An odd number of ``` markers inverts every fence after the break.
+
+    Found by an outside audit: the http_listener push example had lost its
+    opening fence, so the back half of AGENTS.md was inside-out — YAML examples
+    reading as prose and prose reading as YAML. That matters twice over. An
+    agent or contributor reads a mangled page, and ``_example_sweep`` above
+    walks exactly these fences, so its coverage silently moved to the wrong
+    half of the document while every assertion in this file still passed.
+
+    Checked for every author-facing guide in this repo, not just AGENTS.md:
+    both broken files had the same defect in the same example, which is what a
+    single-document check would have missed.
+
+    Counting is the whole check. It cannot say a fence opens in a sensible
+    place, only that they pair up — the failure that actually happened.
+    """
+    docs = [
+        REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "docs" / "writing-simulators.md",
+        REPO_ROOT / "docs" / "contributing-drivers.md",
+    ]
+    broken = {}
+    for path in docs:
+        assert path.exists(), f"{path.name} moved — update this list"
+        fences = [
+            n
+            for n, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            )
+            if line.startswith("```")
+        ]
+        if len(fences) % 2:
+            broken[path.name] = (len(fences), fences[-6:])
+    assert not broken, (
+        "odd code-fence count — one block is unterminated and every fence "
+        f"after it is inverted: {broken}"
+    )

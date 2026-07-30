@@ -191,14 +191,18 @@ For devices with stateful transitions (projectors warming up, displays going thr
 simulator:
   state_machines:
     power:
-      states: [off, warming, on, cooling]
-      initial: off
+      # Quote "off" and "on". YAML reads them bare as booleans, so an
+      # unquoted list becomes [false, "warming", true, "cooling"] and the
+      # machine publishes True/False where your driver's response patterns
+      # expect the words — see the warning below this block.
+      states: ["off", warming, "on", cooling]
+      initial: "off"
       transitions:
         # trigger matches command names from your commands: section
-        - { from: off, trigger: power_on, to: warming }
-        - { from: warming, after_seconds: 3.0, to: on }       # auto-transition after delay
-        - { from: on, trigger: power_off, to: cooling }
-        - { from: cooling, after_seconds: 2.0, to: off }
+        - { from: "off", trigger: power_on, to: warming }
+        - { from: warming, after_seconds: 3.0, to: "on" }      # auto-transition after delay
+        - { from: "on", trigger: power_off, to: cooling }
+        - { from: cooling, after_seconds: 2.0, to: "off" }
         - { from: warming, trigger: power_off, to: cooling }   # can interrupt warmup
         - { from: cooling, trigger: "*", reject: true }        # reject commands during cooldown
 ```
@@ -212,6 +216,17 @@ simulator:
 | `to` | State to transition to |
 | `after_seconds` | Auto-transition after this delay (no trigger needed) |
 | `reject` | If true, commands matching this trigger are rejected (no response) |
+
+**Quote every state named `off`, `on`, `yes`, `no`, `true` or `false`.** YAML
+reads those bare words as booleans, not strings. Written unquoted, a machine
+declared as `states: [off, warming, on, cooling]` with `initial: off` loads as
+`states: [false, "warming", true, "cooling"]` with `initial: false` — which is
+internally consistent, so nothing rejects it. What breaks is downstream: the
+simulator then publishes `True` where your driver's response pattern expects
+`on`, the reply it builds reads `PWR=True` instead of `PWR=1`, the pattern
+never matches, and that one state variable stops updating for good while every
+other value stays correct and the device still shows connected. Quote them and
+none of this happens.
 
 **How transitions are resolved:** a transition that names the command exactly always beats a `"*"` wildcard, no matter which is listed first — so `reject: true` with `trigger: "*"` means "reject everything this state doesn't explicitly handle" and can safely sit above or below the specific transitions for that state. If two transitions name the same `from` and `trigger`, the first listed wins (the validator warns that the second is unreachable). Rejects follow the same rules: a specific transition is never vetoed by a `"*"` reject in the same state.
 
@@ -622,7 +637,7 @@ Inside `handle_command` or `handle_request`, you have access to:
 | `self.active_errors` | Set of currently active error mode names |
 | `self.has_error_behavior(name)` | Check if any active error uses the given behavior |
 | `self.config` | Device-specific config passed at startup |
-| `self.child_entities` | Project child entities, `{child_type: {padded_id: {label, config}}}` (empty if none). Use this to model per-child state and answer child-addressed queries — the auto-generator doesn't model child state, so a controller-of-children device needs a Python `_sim.py` here. |
+| `self.child_entities` | Project child entities, `{child_type: {padded_id: {label, config}}}` (empty if none). Use this to model per-child state and answer child-addressed queries. This is the **Python** path — a YAML driver's children are simulated for you (see Level 0); reach for this when a Python driver's controller needs per-child behavior the declarations can't express. |
 
 ### Custom Controls in Python
 
@@ -832,7 +847,7 @@ python -m simulator.validate ../openavc-drivers/ --summary
 | **Explicit handlers** | `set_state:` targets that aren't state keys, `{N}` capture references beyond what the `receive:` pattern captures, `{state.X}` references to unknown keys, invalid `receive:` regexes |
 | **Notifications** | `notifications:` keys that aren't state keys, boolean value keys that never match (must be quoted lowercase `'true'`/`'false'`), `{value}` templates on boolean variables (emit `True` not `true`), and templates whose output no driver response pattern parses |
 | **Controls** | `controls:` entries with unknown types, missing per-type required fields (`min`/`max`, `options`, `state_pattern`, …), or keys that don't exist in state |
-| **Child entities** | A heads-up for drivers with `child_entity_types`: per-child state is not auto-generated, so simulator handlers must cover child-addressed commands and polls |
+| **Child entities** | A heads-up for drivers with `child_entity_types`: per-child state IS modelled for a YAML driver (platform 0.24.0+), but only where the pairing is declared — check that each `child_id` command carries `sets:` / `query_for:` and each `each_child` poll carries `query_for:`, or write handlers for the ones that don't |
 
 **For Python drivers (`.py` + `_sim.py`):**
 

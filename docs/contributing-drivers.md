@@ -162,7 +162,9 @@ Example for a `.avcdriver` file:
 ```yaml
 help:
   overview: Controls Extron SIS-compatible switchers over TCP or RS-232.
-  setup: >
+  # Use `|` (literal), not `>` (folded), for numbered steps — folded style
+  # joins the lines and the Add Device dialog shows one run-on paragraph.
+  setup: |
     1. Connect the device to the network.
     2. Default port is 23 (Extron telnet).
 

@@ -1231,15 +1231,23 @@ guessing from command names. `query_for` must name a declared state variable and
 only fits the plain `{send}` form (not `each_child` / `{address, args}` entries);
 the same form works in `on_connect` for an initial-status query.
 
-**Command names resolve for HTTP/UDP only.** A query that names a declared
-command runs as that command (so its response is matched) **only on HTTP and
-UDP**. On **TCP/serial the query is sent as a raw string** — so listing a command
-name like `get_status` in a TCP driver's `queries` transmits the literal text
-"get_status" to the device, which can't parse it, and the poll reads nothing back
-(the device's state silently goes stale while it still shows connected). For
-TCP/serial, always write the actual protocol strings (with their line
-terminator), e.g. `"I\r"` above, not the command name. The same rule applies to
-`on_connect`.
+**A command name resolves on every transport.** A query that matches a declared
+command's name runs as that command, on TCP and serial as much as on HTTP and
+UDP — so its reply goes through response matching and any
+`command_prefix` / `command_suffix` framing is applied. A query that matches no
+command name is sent as a raw protocol string (and on HTTP, treated as a path).
+The same applies to `on_connect`.
+
+Prefer the **name** for a command that carries framing: re-typing its framed
+wire string by hand duplicates the frame and drifts from the command the moment
+either changes. Write the raw string when there is no command for it — a bare
+status query the driver never exposes as a command, like `"I\r"` above.
+
+*(An earlier revision of this guide claimed name resolution was HTTP/UDP-only
+and that a TCP driver would transmit the literal text `get_status`. That was
+wrong. It is recorded here because the claim was specific enough to be believed
+and it pushed authors into hand-copying framed strings — exactly what the
+`command_prefix` / `command_suffix` fields exist to avoid.)*
 
 ### 2.10.1 liveness (dead-link watchdog)
 
@@ -1356,6 +1364,8 @@ push:
     trailer_reserve: 24
 ```
 
+```yaml
+push:
   type: http_listener          # the device POSTs to a URL OpenAVC assigns
                                # (no other keys — the platform builds the URL)
 ```
@@ -1405,6 +1415,12 @@ Behavior contract:
   command, `on_connect` entry, or poll query (it resolves a port-0
   ephemeral bind to the real port). Don't declare a config field named
   `listener_port`; it would be overwritten.
+- **Response dispatch applies only the FIRST matching rule per body.** With
+  push, that bites where it didn't before: a device that pushes a small
+  leaf-shaped body per change, but is polled with one broad query returning
+  many values, will parse the push fine and drop all but one value on every
+  poll. Poll at the same granularity the device pushes (one query per value)
+  — `cisco_roomos_xapi` does exactly this.
 - A failed group join, unreachable stream, or un-bindable listener port is
   non-fatal (logged); polling still covers the device, and a dropped SSE
   stream reconnects on its own with exponential backoff. Keep the
@@ -1412,27 +1428,6 @@ Behavior contract:
   (IGMP snooping without a querier, cross-VLAN) silently eat those frames,
   idle event streams can be killed by middleboxes, and a host firewall can
   block a dial-back port.
-  (first match wins, same as any reply). A multicast datagram carrying
-  several frames is split on the driver's `delimiter` first; an SSE event's
-  data block and an http_listener request body dispatch whole, exactly like
-  an HTTP response body — pair JSON payloads with `json: true` rules (2.7).
-- Multicast frames and http_listener requests are accepted **only from the
-  device's own host address**, so two identical devices pushing the same way
-  each update their own device instance. SSE needs no source filtering —
-  each stream rides the driver's own HTTP session, with its auth and TLS
-  settings.
-- **Response dispatch applies only the FIRST matching rule per body.** With
-  push, that bites where it didn't before: a device that pushes a small
-  leaf-shaped body per change, but is polled with one broad query returning
-  many values, will parse the push fine and drop all but one value on every
-  poll. Poll at the same granularity the device pushes (one query per value)
-  — `cisco_roomos_xapi` does exactly this.
-- A failed group join or unreachable stream is non-fatal (logged); polling
-  still covers the device, and a dropped SSE stream reconnects on its own
-  with exponential backoff. Keep the `polling:` block as the baseline
-  resync — networks that filter multicast (IGMP snooping without a querier,
-  cross-VLAN) silently eat those frames, and idle event streams can be
-  killed by middleboxes.
 
 Conventions:
 
@@ -2409,13 +2404,17 @@ simulator:
 ```yaml
   state_machines:
     power_state:
-      states: [off, warming, on, cooling]
-      initial: off
+      # Quote "off" and "on". YAML reads them bare as booleans, so an
+      # unquoted list becomes [false, "warming", true, "cooling"] and the
+      # machine publishes True/False where the driver's response patterns
+      # expect the words — a state variable that silently never updates.
+      states: ["off", warming, "on", cooling]
+      initial: "off"
       transitions:
-        - { from: off,     trigger: power_on,  to: warming }
-        - { from: warming, after_seconds: 30,  to: on }       # timer, no command
-        - { from: on,      trigger: power_off, to: cooling }
-        - { from: cooling, after_seconds: 90,  to: off }
+        - { from: "off",   trigger: power_on,  to: warming }
+        - { from: warming, after_seconds: 30,  to: "on" }     # timer, no command
+        - { from: "on",    trigger: power_off, to: cooling }
+        - { from: cooling, after_seconds: 90,  to: "off" }
         - { from: cooling, trigger: "*", reject: true }       # ignore everything while cooling
 ```
 

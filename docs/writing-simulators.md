@@ -506,6 +506,24 @@ The skeleton includes:
 - Example code showing the pattern
 - The correct base class (`TCPSimulator`, `HTTPSimulator`, or `OSCSimulator`) chosen by transport type
 
+**It is a skeleton, not a first draft — check these three before you go further.**
+It saves the typing, and it cannot know what the device actually does:
+
+1. **The delimiter.** The scaffold does not carry your driver's declared
+   `delimiter` into `SIMULATOR_INFO`, and without one the simulator reads raw
+   byte chunks instead of lines (see [Custom Delimiter](#custom-delimiter)). If
+   your protocol is line-framed, add it — otherwise `handle_command` gets
+   whatever happened to arrive in one read, and a command split across two TCP
+   segments will not match anything.
+2. **The initial state.** Every value is seeded with its type's zero — `0`,
+   `False`, `""`. That is the opposite of Best Practice #4 below: a projector
+   with `lamp_hours: 0` and `power: ""` is not a device anybody would recognize
+   on a panel. Replace them with values a real unit would report.
+3. **Child entities.** If your driver declares `child_entity_types`, the
+   scaffold says nothing about them — see [Children in a Python
+   simulator](#children-in-a-python-simulator) for what your simulator owes
+   them.
+
 A driver that self-manages a **WebSocket** connection (e.g. LG webOS SSAP) uses
 `WebSocketSimulator` instead. It serves plain `ws://` on localhost — the
 simulation redirect turns the device's `ssl` flag off, just as it does for
@@ -515,6 +533,36 @@ updates with `await self.broadcast(text)`. See `lg_webos_sim.py` for a
 subscription/push example.
 
 ### Step 2: Fill In the Protocol Logic
+
+#### What `handle_command` is handed, and what you have to do yourself
+
+Answer this before you write a byte of protocol logic, because it decides
+whether you need a buffer:
+
+- **The constructor is `__init__(self, device_id: str, config: dict | None = None)`,
+  and you usually don't write one.** If you do — to set up a lookup table, or
+  the `self._transition_task = None` the timer pattern below needs — call
+  `super().__init__(device_id, config)` first. `SIMULATOR_INFO` is a class
+  attribute, so it is already in place; `self.config` holds whatever the launch
+  passed.
+- **Framing comes from `SIMULATOR_INFO["delimiter"]`, and only from there.**
+  The simulator does not read your driver's framing — it cannot; a Python
+  driver's delimiter is often decided in code. Whatever you declare here is
+  what you get.
+- **With a line-ending delimiter (`\r\n`, `\r`, `\n`) you get one complete
+  command per call**, already terminated, with partial reads buffered for you
+  across TCP segment boundaries. A driver that sends `\r` while your responses
+  use `\r\n` still works — line mode accepts any of the three terminators.
+- **With any other delimiter** the read is a strict "read until this sequence",
+  so again one complete message per call.
+- **With no delimiter at all you get raw chunks and nothing is buffered.**
+  `handle_command` is called once per socket read with whatever arrived, which
+  is *usually* one frame on a quiet loopback link and is not guaranteed to be.
+  This is the binary-protocol case, and it is the one that bites: accumulate
+  into a `bytearray` of your own, pull off complete frames by their length
+  header or sentinel, and leave the remainder for the next call. A simulator
+  that assumes one chunk equals one frame works on your bench and fails the
+  moment two commands arrive together.
 
 **For TCP drivers**, implement `handle_command(data: bytes) -> bytes | None`:
 
@@ -637,7 +685,76 @@ Inside `handle_command` or `handle_request`, you have access to:
 | `self.active_errors` | Set of currently active error mode names |
 | `self.has_error_behavior(name)` | Check if any active error uses the given behavior |
 | `self.config` | Device-specific config passed at startup |
-| `self.child_entities` | Project child entities, `{child_type: {padded_id: {label, config}}}` (empty if none). Use this to model per-child state and answer child-addressed queries. This is the **Python** path — a YAML driver's children are simulated for you (see Level 0); reach for this when a Python driver's controller needs per-child behavior the declarations can't express. |
+| `self.child_entities` | The **project's** child entities, `{child_type: {padded_id: {label, config}}}` — see below. Empty for most simulators, including every controller's. |
+
+### Children in a Python simulator
+
+If your driver declares `child_entity_types`, start here — the obvious move is
+the wrong one for the commonest case.
+
+**`self.child_entities` is the project's roster, not the device's.** It is
+handed to the simulator at launch from the device's entry in the project file,
+so it holds the children the *project* persists — their user-set labels and
+per-child config. That is useful when you want the simulator to report the same
+names the user sees.
+
+**A controller's is empty, and that is correct.** A controller discovers its
+sub-units from the hardware and registers them at runtime with
+`register_child`, which never touches the project file. So there is nothing in
+`self.child_entities` to read, and waiting for something to appear there is a
+simulator that never works.
+
+**What a controller's simulator actually owes the driver is the enumeration
+reply.** The driver's job on connect is to ask "list everything" and register
+what comes back; the simulator's job is to have something to answer with. Model
+the roster in your own state and answer the roster query from it:
+
+```python
+class AcmeMatrixSimulator(TCPSimulator):
+
+    SIMULATOR_INFO = {
+        "driver_id": "acme_matrix",
+        "transport": "tcp",
+        "delimiter": "\r\n",
+        "initial_state": {"encoder_count": 3},
+    }
+
+    def __init__(self, device_id: str, config: dict | None = None):
+        super().__init__(device_id, config)
+        # The roster the device would report. Realistic values, per Best
+        # Practice #4 — these become the child rows the user sees.
+        self._encoders = {
+            1: {"name": "Stage Left",  "ip": "10.0.0.11", "signal": True},
+            2: {"name": "Stage Right", "ip": "10.0.0.12", "signal": True},
+            3: {"name": "Lectern",     "ip": "10.0.0.13", "signal": False},
+        }
+
+    def handle_command(self, data: bytes) -> bytes | None:
+        text = data.decode().strip()
+
+        if text == "GET STATUS":                     # the driver's roster query
+            rows = "".join(
+                f"ENC {n} {e['name']} {e['ip']} {int(e['signal'])}\r\n"
+                for n, e in sorted(self._encoders.items())
+            )
+            return rows.encode()
+
+        if text.startswith("SET ENC "):              # a child-addressed command
+            _, _, num, field, value = text.split(" ", 4)
+            enc = self._encoders.get(int(num))
+            if enc is None:
+                return b"ERR no such encoder\r\n"    # exercise the driver's error path
+            enc[field] = value
+            return b"OK\r\n"
+
+        return None
+```
+
+Two things this buys that a flat simulator does not: the driver's `register_child`
+/ `deregister_child` reconcile loop is genuinely exercised (drop an encoder from
+`self._encoders` at runtime and the child should disappear from the device
+page), and a command addressed to a child that does not exist gets a real
+refusal instead of a cheerful `OK`, which is the case driver bugs hide in.
 
 ### Custom Controls in Python
 
@@ -729,22 +846,84 @@ await self.push(b"TALLY 12001\r\n")
 await self.push_to(client_id, b"UPDATE power=on\r\n")
 ```
 
-### State Machines in Python
+### Timed Transitions in Python
 
-Trigger state machine transitions manually:
+A device that takes three seconds to warm up needs the simulator to change
+state *later*, and `handle_command` is synchronous — it returns the reply bytes
+immediately. So you cannot `await` a delay inside it. There are two ways to get
+the delayed change, and the declarative one is almost always the right first
+answer.
+
+**First choice: declare the transition.** If the delay is a plain "this state
+becomes that state after N seconds", put it in `SIMULATOR_INFO`'s
+`state_machines` block with `after_seconds` and just trigger it. The framework
+owns the timer, cancels it when the state changes again, and cancels every
+pending one when the simulator stops — none of which you have to write:
+
+```python
+SIMULATOR_INFO = {
+    "state_machines": {
+        "power": {
+            "states": ["off", "warming", "on", "cooling"],
+            "initial": "off",
+            "transitions": [
+                {"from": "off", "trigger": "power_on", "to": "warming"},
+                {"from": "warming", "after_seconds": 3.0, "to": "on"},
+            ],
+        },
+    },
+}
+
+def handle_command(self, data: bytes) -> bytes | None:
+    if data.decode().strip() == "POWER ON":
+        self.transition("power", "power_on")     # warming now, on in 3s
+        return b"OK\r"
+    return None
+```
+
+**Second choice: schedule it yourself**, when the timing depends on something a
+declaration cannot express (a configured lamp time, a value the client just
+sent). Schedule from a **synchronous** helper — `handle_command` cannot await,
+so a helper it calls must not need awaiting either:
 
 ```python
 def handle_command(self, data: bytes) -> bytes | None:
-    text = data.decode().strip()
-    if text == "POWER ON":
+    if data.decode().strip() == "POWER ON":
         self.set_state("power", "warming")
-        self._schedule_warmup()
+        self._schedule_transition("on", self._warmup_time)   # sync: starts the timer
         return b"OK\r"
+    return None
 
-async def _schedule_warmup(self):
-    await asyncio.sleep(3.0)
-    self.set_state("power", "on")
+def _schedule_transition(self, target: str, delay: float) -> None:
+    # Hold the task: without a reference it can be garbage-collected
+    # mid-sleep. Cancel any pending one so POWER OFF during warm-up
+    # doesn't leave an old timer to fire afterwards.
+    if self._transition_task and not self._transition_task.done():
+        self._transition_task.cancel()
+    self._transition_task = asyncio.ensure_future(self._do_transition(target, delay))
+
+async def _do_transition(self, target: str, delay: float) -> None:
+    await asyncio.sleep(delay)
+    self.set_state("power", target)
 ```
+
+Two mistakes to avoid, in order of how often they happen:
+
+1. **Calling the `async def` directly** — `self._do_transition("on", 3.0)` with
+   no `await` and no `ensure_future`. It is not a syntax error and nothing is
+   logged; the coroutine is created, dropped, and the transition simply never
+   happens. The split above exists to make this hard: the method
+   `handle_command` calls is synchronous, so there is nothing to forget.
+2. **Not holding the task.** A bare `asyncio.ensure_future(...)` whose result
+   nobody stores can be collected before it fires. Store it, as above.
+
+> **AGENTS.md §11 lists `asyncio.create_task()` under mistakes — does that apply
+> here?** No. That row is about **drivers**, where the platform runs the
+> lifecycle and owns the polling loop, so a driver spawning its own tasks is
+> usually reaching around `start_polling`. A simulator has no equivalent
+> framework loop to reach around: `pjlink_class1_sim.py`, the Level 3 reference
+> implementation named below, schedules exactly as shown here, and the
+> platform's own `state_machines` timers do the same thing internally.
 
 ### Reference Implementation
 
@@ -794,19 +973,40 @@ telnet 127.0.0.1 19000
 
 ---
 
-## Updating index.json
+## Rebuilding the catalog
 
-When your simulator is working, add `"simulated": true` to your driver's entry in `index.json`:
+When your simulator is working, the driver's catalog entry needs to say so —
+`simulated` is what puts the simulation badge in the Browse Drivers view.
+**Declare it in the driver file, not in `index.json`:**
 
-```json
-{
+```python
+DRIVER_INFO = {
     "id": "your_driver_id",
-    ...
-    "simulated": true
+    # ...
+    "simulated": True,          # in a .avcdriver, `simulated: true`
 }
 ```
 
-This adds a badge in the Browse Drivers view so users know your driver supports simulation.
+Then regenerate the catalog from the repo root, which copies the flag across
+along with everything else:
+
+```bash
+python scripts/build_index.py
+```
+
+Then commit the regenerated `index.json`, `devices.json` and the `index/` +
+`devices/` shards along with your simulator, in the same commit.
+
+This is not tidiness. Every catalog entry also carries a `files` map of
+SHA-256 hashes covering the driver and its companions, and OpenAVC hashes what
+it downloads and refuses a mismatch **before writing anything**. So a driver
+whose entry is stale cannot be installed at all — not "installs without the
+badge", but fails outright, silently, for everyone. Four drivers shipped that
+way for a day in July 2026 for exactly this reason.
+
+CI gates it: `python scripts/build_index.py --check` fails when the catalog has
+drifted from the files and names the command that fixes it. Run it before you
+open the pull request.
 
 ---
 

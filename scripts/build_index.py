@@ -1417,11 +1417,12 @@ def _entry_dict(entry: DriverEntry) -> dict[str, Any]:
 
 
 # No `generated_at` timestamp: the catalog is a deterministic function of the
-# driver files, so re-running the build produces byte-identical output. CI
-# rebuilds and commits the catalog on merge to main (contributors never commit
-# it), and a wall-clock timestamp would make every run a spurious diff — the
-# exact churn that turned unrelated category shards into merge conflicts. Don't
-# reintroduce it. `generator_version` / `schema_version` carry the provenance.
+# driver files, so re-running the build produces byte-identical output. Whoever
+# changes a driver rebuilds and commits the catalog in the same change, and
+# `--check` is the CI gate on that; a wall-clock timestamp would make every run
+# a spurious diff — the exact churn that turned unrelated category shards into
+# merge conflicts. Don't reintroduce it. `generator_version` / `schema_version`
+# carry the provenance.
 def _meta_block(total_key: str, total: int, **extra: Any) -> dict[str, Any]:
     block = {
         "generator_version": GENERATOR_VERSION,

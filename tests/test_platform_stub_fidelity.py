@@ -53,102 +53,58 @@ other way.
 from __future__ import annotations
 
 import inspect
-import os
-import pathlib
-import sys
-import tempfile
 from pathlib import Path
 
 import pytest
 
 import _platform_stubs as stubs
+from _platform_probe import (
+    PLATFORM_ROOT_ENV,
+    REQUIRE_PLATFORM_ENV,
+    platform_on_path,
+    platform_required as _platform_required,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ── Locating the platform ───────────────────────────────────────────────────
-
-REQUIRE_PLATFORM_ENV = "OPENAVC_REQUIRE_PLATFORM"
-PLATFORM_ROOT_ENV = "OPENAVC_PLATFORM_ROOT"
-
-_TRUE = {"1", "true", "yes", "on"}
-
-
-def _platform_required() -> bool:
-    return os.environ.get(REQUIRE_PLATFORM_ENV, "").strip().lower() in _TRUE
-
-
-def _candidate_roots() -> list[Path]:
-    """Where the openavc checkout might be, most explicit first."""
-    roots: list[Path] = []
-    configured = os.environ.get(PLATFORM_ROOT_ENV, "").strip()
-    if configured:
-        roots.append(Path(configured))
-    # Beside this repo in the workspace, including a task worktree that shares
-    # this one's suffix (openavc-drivers-wt-foo -> openavc-wt-foo).
-    workspace = REPO_ROOT.parent
-    name = REPO_ROOT.name
-    sibling = name.replace("openavc-drivers", "openavc", 1)
-    roots.append(workspace / sibling)
-    roots.append(workspace / "openavc")
-    return roots
+#
+# The search itself, the sys.path restore and the stub-leak cleanup live in
+# ``_platform_probe`` -- ``test_doc_python_examples.py`` needs exactly the same
+# resolution, and two copies of "where is the platform" is how the two would
+# come to disagree about whether a run counts as pinned.
 
 
 def _import_platform() -> tuple[dict, str]:
     """Import the real platform, or return the reason it could not be.
 
-    ``sys.path`` is restored afterwards. Leaving the openavc checkout on it
-    would change what *other* test modules do -- ``test_vmix_driver.py`` and
-    friends skip when the platform is not importable, and an entry left here
-    would silently un-skip them depending on collection order. The classes
-    imported below stay live through this module's own references; conftest
-    drops the ``server`` / ``simulator`` entries from ``sys.modules`` once this
-    module is collected, exactly as it does for every other module's stubs.
+    The classes imported below stay live through this module's own references;
+    conftest drops the ``server`` / ``simulator`` entries from ``sys.modules``
+    once this module is collected, exactly as it does for every other module's
+    stubs.
     """
-    path_before = list(sys.path)
-    for root in _candidate_roots():
-        if (root / "server" / "drivers" / "base.py").exists():
-            if str(root) not in sys.path:
-                sys.path.insert(0, str(root))
-            break
-
-    # Never against the stubs: another test module may have leaked a partial
-    # `server` package into sys.modules ahead of conftest's rollback.
-    leaked = [n for n in sys.modules
-              if n.split(".", 1)[0] in ("server", "simulator")
-              and getattr(sys.modules[n], "__file__", None) is None]
-    for name in leaked:
-        del sys.modules[name]
-
-    # Importing the platform resolves its data directory and opens a log there.
-    # Point it at a temp dir: the default would drop an untracked folder into a
-    # contributor's checkout just for running the suite.
-    os.environ.setdefault(
-        "OPENAVC_DATA_DIR",
-        str(pathlib.Path(tempfile.gettempdir()) / "openavc-stub-fidelity"),
-    )
-    try:
-        from server.core.connection_fault import (        # noqa: PLC0415
-            _DRIVER_FAULT_CODES, ConnectionFaultError,
-        )
-        from server.core.event_bus import EventBus        # noqa: PLC0415
-        from server.core.state_store import StateStore    # noqa: PLC0415
-        from server.discovery.companion import ProbeContext  # noqa: PLC0415
-        from server.drivers.base import (                 # noqa: PLC0415
-            BaseDriver, CommandParamError, DeviceSettingValueError,
-            UndeclaredStateError,
-        )
-        from server.transport.frame_parsers import (      # noqa: PLC0415
-            DEFAULT_MAX_BUFFER, CallableFrameParser, DelimiterFrameParser,
-            FrameParser,
-        )
-        from simulator.base import BaseSimulator          # noqa: PLC0415
-        from simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
-        from simulator.tcp_simulator import TCPSimulator  # noqa: PLC0415
-        from simulator.udp_simulator import UDPSimulator  # noqa: PLC0415
-    except Exception as exc:                              # noqa: BLE001
-        return {}, f"the openavc platform is not importable ({exc})"
-    finally:
-        sys.path[:] = path_before
+    with platform_on_path():
+        try:
+            from server.core.connection_fault import (    # noqa: PLC0415
+                _DRIVER_FAULT_CODES, ConnectionFaultError,
+            )
+            from server.core.event_bus import EventBus    # noqa: PLC0415
+            from server.core.state_store import StateStore  # noqa: PLC0415
+            from server.discovery.companion import ProbeContext  # noqa: PLC0415
+            from server.drivers.base import (             # noqa: PLC0415
+                BaseDriver, CommandParamError, DeviceSettingValueError,
+                UndeclaredStateError,
+            )
+            from server.transport.frame_parsers import (  # noqa: PLC0415
+                DEFAULT_MAX_BUFFER, CallableFrameParser, DelimiterFrameParser,
+                FrameParser,
+            )
+            from simulator.base import BaseSimulator      # noqa: PLC0415
+            from simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
+            from simulator.tcp_simulator import TCPSimulator  # noqa: PLC0415
+            from simulator.udp_simulator import UDPSimulator  # noqa: PLC0415
+        except Exception as exc:                          # noqa: BLE001
+            return {}, f"the openavc platform is not importable ({exc})"
 
     return {
         "BaseDriver": BaseDriver,

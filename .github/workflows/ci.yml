@@ -58,8 +58,14 @@ jobs:
   # a failure — a job that meant to provide it and did not would otherwise pass
   # while testing nothing. This mirrors the openavc repo, whose CI clones this
   # library and sets OPENAVC_REQUIRE_DRIVER_CORPUS=1 for the sweeps that need
-  # it. Only the fidelity test runs here: the rest of the suite is written for
-  # the stubbed environment.
+  # it. Only the two tests that ask the platform something run here: the rest
+  # of the suite is written for the stubbed environment.
+  #
+  # The guides are the second of those. AGENTS.md and writing-simulators.md
+  # both name platform functions and methods in their examples, and resolving
+  # those names needs the real modules — the same reason, and the same gate.
+  # (Their parse / dropped-coroutine checks are stdlib-only and run in the job
+  # above, where a contributor will actually see them.)
   stub-fidelity:
     name: Platform stubs match the platform
     runs-on: ubuntu-latest
@@ -83,7 +89,7 @@ jobs:
       - name: Install the platform's runtime dependencies
         run: pip install -e "$RUNNER_TEMP/openavc"
 
-      - name: Pin the platform stubs against the platform
+      - name: Pin the platform stubs and the guides against the platform
         env:
           # The editable install exposes `server` but not the in-tree
           # `simulator` package, which the simulator stand-ins are compared
@@ -92,4 +98,7 @@ jobs:
           OPENAVC_PLATFORM_ROOT: ${{ runner.temp }}/openavc
           OPENAVC_REQUIRE_PLATFORM: "1"
           OPENAVC_DATA_DIR: ${{ runner.temp }}/openavc-data
-        run: python -m pytest tests/test_platform_stub_fidelity.py -v
+        run: |
+          python -m pytest \
+            tests/test_platform_stub_fidelity.py \
+            tests/test_doc_python_examples.py -v

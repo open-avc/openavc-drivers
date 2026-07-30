@@ -1826,6 +1826,7 @@ class MyDriver(BaseDriver):
 
 ```python
 def __init__(self, device_id: str, config: dict, state: StateStore, events: EventBus):
+    ...
 ```
 
 The base class constructor sets:
@@ -2142,7 +2143,7 @@ Override `async def refresh_children(self)` to support the IDE's "Refresh from D
 A controller that manages many children follows one shape every time (worked example: `switchers/chazy_control_pro.py`):
 
 1. **Declare** the child types in `DRIVER_INFO["child_entity_types"]` (§2.5.1).
-2. **On connect, enumerate the roster.** Override `connect()`; after the transport is up, run one cheap "list everything" command, parse it, and `register_child(type, id, initial_state=...)` per unit. `register_child` is idempotent, so the same call is safe to repeat every poll.
+2. **On connect, enumerate the roster** — in `_initial_sync()`, the hook for exactly this (3.4). Run one cheap "list everything" command, parse it, and `register_child(type, id, initial_state=...)` per unit. `register_child` is idempotent, so the same call is safe to repeat every poll. **Do not override `connect()` to do this**: `super().connect()` has already declared the device connected and started polling by the time the next line runs, so the roster registration races the first poll.
 3. **Fill in detail** with `await self.poll_children(type, fetch=...)` — it batches the registered IDs (50/batch) instead of one request per unit.
 4. **On poll, reconcile.** Re-read the roster, `register_child` newly-seen units (idempotent → updates existing), `deregister_child` ones the controller no longer reports. Run the cheap roster query at the normal poll interval and the expensive per-unit detail refresh on a **slower** cadence (e.g. a `detail_poll_interval` config knob) so large controllers don't flood the wire every cycle.
 5. **Pick the right `online` model per type.** Link-style children (encoders/decoders/endpoints that physically come and go) derive `online` from the unit's link/net flag and stay registered while offline (`online=False`, do **not** deregister). Config-style children (groups, video walls, presets — virtual objects) are forced `online=True` whenever the controller lists them and deregistered only when actually deleted on the device.
@@ -2158,7 +2159,20 @@ await self.stop_polling()                 # Cancel polling task
 
 ### 3.7 Transport Usage
 
-The default `connect()` creates the transport automatically. If you override `connect()`, create the transport yourself:
+**`connect()` builds the transport for you — you almost never write any of the
+code in this section.** `self.transport` is live from `_post_connect()` onward,
+so a normal driver just calls `send` / `send_and_wait` on it. To change *how*
+the platform builds it — a different delimiter, a longer timeout, a custom
+frame parser — return adjusted kwargs from `_transport_kwargs()` (3.4). Only a
+driver that owns a session the platform has no transport class for (an httpx
+client, a websocket) builds one itself, in `_create_transport()`.
+
+That distinction is not stylistic. Since platform 0.24.0 `BaseDriver.connect()`
+owns transport construction, so a driver that overrides `connect()` and rebuilds
+the transport from this block is one that **fails at connect** rather than one
+that merely skips a stage — measured: it dies on the callbacks, because
+`on_data` / `on_disconnect` are hooks the base class owns and there is nothing
+for a hand-rolled name to resolve to. Pass the real ones:
 
 ```python
 # TCP
@@ -2167,8 +2181,9 @@ from server.transport.tcp import TCPTransport
 self.transport = await TCPTransport.create(
     host=self.config["host"],
     port=self.config["port"],
-    on_data=self._handle_data,       # async callback for complete messages
-    on_disconnect=self._handle_disconnect,
+    on_data=self.on_data_received,             # the BaseDriver hook you override
+    on_disconnect=self._handle_transport_disconnect,   # the platform's, not yours
+    name=self.device_id,                       # log attribution + secret masking
     delimiter=b"\r",
     timeout=5.0,
     ssl=False,
@@ -2186,8 +2201,9 @@ from server.transport.serial_transport import SerialTransport
 self.transport = await SerialTransport.create(
     port=self.config.get("port", "COM3"),
     baudrate=self.config.get("baudrate", 9600),
-    on_data=self._handle_data,
-    on_disconnect=self._handle_disconnect,
+    on_data=self.on_data_received,
+    on_disconnect=self._handle_transport_disconnect,
+    name=self.device_id,
     delimiter=b"\r",
     bytesize=8, parity="N", stopbits=1,
 )
@@ -2234,8 +2250,9 @@ Every TX and RX is logged, and that log is served by `GET /api/logs/recent` and 
 The one case the platform cannot know about is a secret the **device** issues at runtime — a session token from a login. Register it as soon as you have it:
 
 ```python
-async def connect(self) -> None:
-    await super().connect()
+async def _post_connect(self) -> None:
+    # The login hook (3.4): transport up, device not yet marked connected,
+    # so raising here fails the attempt cleanly instead of flapping.
     reply = await self.transport.send_and_wait(b"LOGIN\r\n")
     token = reply.decode().split()[-1]
 
@@ -2284,8 +2301,22 @@ parser = CallableFrameParser(my_parser)
 ### 3.9 Binary Helpers
 
 ```python
-from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16_ccitt, hex_dump
+from server.transport.binary_helpers import (
+    checksum_xor,             # XOR every byte together
+    checksum_sum,             # sum every byte, masked to 0xFF
+    crc16_ccitt,              # CRC-16/CCITT-FALSE
+    hex_dump,                 # bytes -> a readable hex dump, for logging
+    pack_length_prefix,       # length header: N bytes, big or little endian
+    escape_bytes,             # escape reserved bytes in a payload
+    unescape_bytes,           # and back
+    encode_escape_sequences,  # a config string's \r \n \t \xHH -> real bytes
+)
 ```
+
+`encode_escape_sequences` is the one worth knowing about: when a delimiter or
+command suffix comes from a config field, the user types `\r` and means one
+carriage return. Everything that is not a recognised escape goes out as UTF-8,
+and an unknown backslash sequence passes through literally rather than raising.
 
 ### 3.10 Setup Actions (Provisioning Wizards)
 
@@ -2343,14 +2374,38 @@ The code becomes `offline_reason` verbatim; the message becomes `offline_detail`
 - Classify precisely: raise `code="auth_failed"` only for a genuine credential rejection, never for a transport failure (misclassifying stops the retry loop for a device that would have recovered).
 - Never send a login you know can't succeed. If the config has no password and the device requires one, raise the typed fault *before* contacting the device — a discovery-added device starts with empty credentials, and burning failed-login attempts on it can lock the user out (see `crestron_nvx.py` for the pattern).
 
-For a failure with no exception at all — a keep-alive / health loop that stopped hearing replies and is forcing a reconnect — stash the reason just before triggering the disconnect:
+For a failure with no exception at all — a keep-alive / health loop that stopped hearing replies and is forcing a reconnect — there is nothing for the classifier to read, so hand it the reason and tear the link down in one call:
 
 ```python
-self._stash_fault("no_response", "Connected, but the device stopped answering probes.")
-self._handle_transport_disconnect()
+self._force_disconnect("no_response", "Connected, but the device stopped answering probes.")
 ```
 
-The stash is cleared at the start of every `connect()` attempt. On older platforms the classifier falls back to substring-matching the error message; that still works, but typed faults are the supported pattern for new drivers.
+(That is `_stash_fault(...)` followed by `_handle_transport_disconnect()`; call the pair directly only if you need something between them.)
+
+**Type the fault in *both* paths, or the good reason survives one window and no more.** A driver notices a dead device two ways, and the second is the one that gets forgotten:
+
+```python
+async def poll(self) -> None:
+    try:
+        reply = await self.transport.send_and_wait(b"STATUS?\r", timeout=3.0)
+    except asyncio.TimeoutError:
+        # (1) The reply never came. Forgotten more often, because nothing
+        #     threw until the timeout — and it is the common real failure.
+        self._force_disconnect("no_response", "The device stopped answering status queries.")
+        return
+
+    if not reply.startswith(b"STATUS="):
+        # (2) Something answered, but not this protocol. The path most
+        #     drivers do type, because there is an obvious place to put it.
+        raise ConnectionFaultError(
+            "Connected, but the reply was not in the expected format.",
+            code="no_response",
+        )
+```
+
+The stash is cleared at the start of every `connect()` attempt — deliberately, so one attempt's failure can't be blamed on the previous one. So `no_response` is accurate for exactly as long as it takes auto-reconnect to try again; if that retry fails without a typed fault of its own, the platform classifies the raw transport error instead and the card changes to the generic `transport_disconnected` ("The connection to the device dropped. OpenAVC is retrying automatically."), when the truth is the device is up and has gone silent. Raise the typed fault from your handshake (`_post_connect`) too, and the accurate reason survives every retry.
+
+On older platforms the classifier falls back to substring-matching the error message; that still works, but typed faults are the supported pattern for new drivers.
 
 ---
 

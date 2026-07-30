@@ -98,10 +98,14 @@ ADDR_MAP = _build_addr_map()
 
 class AllenHeathDLiveSimulator(TCPSimulator):
     SIMULATOR_INFO = {
-        "id": "allenheath_dlive",
+        "driver_id": "allenheath_dlive",
         "name": "Allen & Heath dLive Mixer (sim)",
-        "type": "tcp",
+        "transport": "tcp",
         "default_port": 51325,
+        "initial_state": {
+            "current_scene": 0,
+            "current_cue": 0,
+        },
     }
 
     def __init__(self, device_id: str, config: dict | None = None):

@@ -89,10 +89,13 @@ ADDR_MAP = _build_addr_map()
 
 class AllenHeathAvantisSimulator(TCPSimulator):
     SIMULATOR_INFO = {
-        "id": "allenheath_avantis",
+        "driver_id": "allenheath_avantis",
         "name": "Allen & Heath Avantis Mixer (sim)",
-        "type": "tcp",
+        "transport": "tcp",
         "default_port": 51325,
+        "initial_state": {
+            "current_scene": 0,
+        },
     }
 
     def __init__(self, device_id: str, config: dict | None = None):

@@ -18,14 +18,24 @@ Protocol overview:
 Mixed framing: normal messages are CRLF-delimited text. XML responses
 use a length-prefixed binary body after the "XML <length>" header line.
 
-Inputs are surfaced as a live dropdown (the XML poll publishes an
-``input_list`` JSON state var that every ``input`` command param reads via
-``options_state``), not as child entities: a vMix input list is session
-content the operator edits during the show — inputs come and go and their
-numbers reshuffle — so a persisted child roster would churn constantly and
-go stale mid-production. The rebuilt-per-poll picker plus per-input state
-keys (``input.<n>.*``, pruned when an input is removed) carry the same
-information without persisting any of it.
+Inputs are modelled as child entities, reconciled on every XML poll. This
+driver used to write per-input keys with plain ``set_state`` on the reasoning
+that a vMix input list is session content the operator edits during the show,
+so "a persisted child roster would churn constantly". That premise was wrong
+about the mechanism: ``register_child`` / ``deregister_child`` are runtime-only
+and explicitly designed to be called from a poll loop (a repeat registration
+is a no-op), and nothing about a roster is written back to the project file.
+What the old approach actually produced was per-input state that no
+``state_variables`` entry declared — live values with no type, absent from
+every binding picker and trigger target.
+
+The child type is declared with no id padding, so the keys are unchanged:
+``device.<id>.input.<n>.title`` and friends still address the same input. The
+one key that moved is tally, from ``device.<id>.tally.<n>`` to
+``device.<id>.input.<n>.tally``, where it belongs — it is per-input state.
+
+The ``input_list`` JSON state var is unchanged and still feeds every ``input``
+command param via ``options_state``; the picker is rebuilt per poll as before.
 """
 
 from __future__ import annotations
@@ -94,7 +104,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "1.4.1",
+        "version": "1.5.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.24.0",
         "author": "OpenAVC",
@@ -198,6 +208,63 @@ class VMixDriver(BaseDriver):
                 ),
             },
             "version": {"type": "string", "label": "vMix Version"},
+            # Overlay channels. vMix has exactly four, so these are declared
+            # flat rather than modelled as children — the value is the input
+            # number showing on that channel, 0 when the overlay is off.
+            "overlay.1": {"type": "integer", "label": "Overlay 1 Input"},
+            "overlay.2": {"type": "integer", "label": "Overlay 2 Input"},
+            "overlay.3": {"type": "integer", "label": "Overlay 3 Input"},
+            "overlay.4": {"type": "integer", "label": "Overlay 4 Input"},
+            # Transition buttons 1-4, same reasoning: a fixed set, not a
+            # roster discovered at runtime.
+            "transition.1.effect": {"type": "string", "label": "Transition 1 Effect"},
+            "transition.1.duration": {
+                "type": "integer", "label": "Transition 1 Duration", "unit": "ms",
+            },
+            "transition.2.effect": {"type": "string", "label": "Transition 2 Effect"},
+            "transition.2.duration": {
+                "type": "integer", "label": "Transition 2 Duration", "unit": "ms",
+            },
+            "transition.3.effect": {"type": "string", "label": "Transition 3 Effect"},
+            "transition.3.duration": {
+                "type": "integer", "label": "Transition 3 Duration", "unit": "ms",
+            },
+            "transition.4.effect": {"type": "string", "label": "Transition 4 Effect"},
+            "transition.4.duration": {
+                "type": "integer", "label": "Transition 4 Duration", "unit": "ms",
+            },
+        },
+        # A production's inputs are discovered at runtime and change while the
+        # show is live, which is what child entities are for: the roster is
+        # registered from the XML state (and from the tally string, which can
+        # arrive first), and an input removed in vMix is deregistered so its
+        # state doesn't linger. Declared with no id padding, so every key keeps
+        # the shape it has always had: device.<id>.input.<number>.<prop>.
+        "child_entity_types": {
+            "input": {
+                "label": "Input",
+                "label_plural": "Inputs",
+                "id_format": {"type": "integer", "min": 1, "max": 1000},
+                "state_variables": {
+                    "title": {"type": "string", "label": "Title"},
+                    "type": {"type": "string", "label": "Type"},
+                    "state": {"type": "string", "label": "State"},
+                    "muted": {"type": "boolean", "label": "Muted"},
+                    "loop": {"type": "boolean", "label": "Loop"},
+                    "position": {"type": "integer", "label": "Position", "unit": "ms"},
+                    "duration": {"type": "integer", "label": "Duration", "unit": "ms"},
+                    "tally": {
+                        "type": "integer",
+                        "label": "Tally",
+                        "min": 0,
+                        "max": 2,
+                        "cloud_priority": "high",
+                        "help": "0 = safe, 1 = program, 2 = preview.",
+                    },
+                },
+                "summary_fields": ["title", "type", "tally"],
+                "label_field": "title",
+            },
         },
         # Quick Action strip: the daily production surface. The record /
         # stream pairs swap on live state so the button always shows the
@@ -829,8 +896,30 @@ class VMixDriver(BaseDriver):
         self._tally_subscribed = False
         self._acts_subscribed = False
         # Input numbers seen in the last XML state — lets the next parse
-        # clear per-input keys for inputs removed from the production.
+        # deregister inputs removed from the production.
         self._known_inputs: set[str] = set()
+
+    def _ensure_input(self, num: str) -> bool:
+        """Register input ``num`` as a child if it isn't already.
+
+        Both the tally string and the XML state name inputs, and either can
+        arrive first, so both call this before writing child state. Returns
+        False for a number outside the declared id range (a production with
+        more than 1000 inputs, or a malformed reply) — the caller skips it
+        rather than letting a bad number abort the whole parse.
+        """
+        try:
+            local_id = int(num)
+        except (TypeError, ValueError):
+            return False
+        if self.is_child_registered("input", local_id):
+            return True
+        try:
+            self.register_child("input", local_id)
+        except ValueError as exc:
+            log.warning(f"[{self.device_id}] Skipping input {num}: {exc}")
+            return False
+        return True
 
     def _create_frame_parser(self) -> Optional[FrameParser]:
         """Use callable parser for vMix mixed-mode framing."""
@@ -1034,7 +1123,11 @@ class VMixDriver(BaseDriver):
             except ValueError:
                 continue
 
-            self.set_state(f"tally.{input_num}", tally_val)
+            # The tally subscription fires before the first XML poll, so this
+            # is often where an input is first seen. register_child is a no-op
+            # for one already registered, and the XML parse fills in the rest.
+            self._ensure_input(str(input_num))
+            self.set_child_state("input", input_num, "tally", tally_val)
 
             if tally_val == 1 and active is None:
                 active = input_num
@@ -1118,19 +1211,24 @@ class VMixDriver(BaseDriver):
                     {"value": num, "label": f"{num}: {title}" if title else num}
                 )
 
-                self.set_state(f"input.{num}.title", title)
-                self.set_state(f"input.{num}.type", inp_type)
-                self.set_state(f"input.{num}.state", state)
-                self.set_state(f"input.{num}.muted", muted == "True")
-                self.set_state(f"input.{num}.loop", loop_val == "True")
+                if not self._ensure_input(num):
+                    continue
+                updates: dict[str, Any] = {
+                    "title": title,
+                    "type": inp_type,
+                    "state": state,
+                    "muted": muted == "True",
+                    "loop": loop_val == "True",
+                }
                 try:
-                    self.set_state(f"input.{num}.position", int(position))
+                    updates["position"] = int(position)
                 except ValueError:
                     pass
                 try:
-                    self.set_state(f"input.{num}.duration", int(duration))
+                    updates["duration"] = int(duration)
                 except ValueError:
                     pass
+                self.set_child_state_batch("input", int(num), updates)
 
             self.set_state("input_count", input_count)
             # The command dropdowns read this JSON list (options_state).
@@ -1138,21 +1236,14 @@ class VMixDriver(BaseDriver):
             # drop out of the picker immediately.
             self.set_state("input_list", json.dumps(input_options))
 
-            # Inputs are a live editing surface — clear per-input keys for
-            # inputs that left the production so their state doesn't linger.
+            # Inputs are a live editing surface — drop the ones that left the
+            # production so their state doesn't linger. deregister_child
+            # deletes every key under the child, including tally.
             for gone in self._known_inputs - seen:
-                for prop in (
-                    "title", "type", "state", "muted", "loop",
-                    "position", "duration",
-                ):
-                    self.state.delete(
-                        f"device.{self.device_id}.input.{gone}.{prop}",
-                        source=f"device.{self.device_id}",
-                    )
-                self.state.delete(
-                    f"device.{self.device_id}.tally.{gone}",
-                    source=f"device.{self.device_id}",
-                )
+                try:
+                    self.deregister_child("input", int(gone))
+                except ValueError:
+                    pass
             self._known_inputs = seen
 
         # Overlays

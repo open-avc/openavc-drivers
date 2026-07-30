@@ -35,10 +35,16 @@ VALUE_MAX = 0x3FFF
 
 class AllenHeathSQSimulator(TCPSimulator):
     SIMULATOR_INFO = {
-        "id": "allenheath_sq",
+        "driver_id": "allenheath_sq",
         "name": "Allen & Heath SQ Mixer (sim)",
-        "type": "tcp",
+        "transport": "tcp",
         "default_port": 51325,
+        "initial_state": {
+            "current_scene": 0,
+            "lr_mute": False,
+            "lr_fader": 0.0,
+            "lr_balance": 0.0,
+        },
     }
 
     def __init__(self, device_id: str, config: dict | None = None):

@@ -278,6 +278,26 @@ To catch mistakes as you type, point your editor at the JSON Schema for the `.av
 
 The schema is checked into the repository root as [`avcdriver.schema.json`](../avcdriver.schema.json), generated from the OpenAVC platform's driver contract so it always matches what the platform actually loads. It covers the same rules CI enforces, so a file that validates cleanly against it is well on its way to passing `--check`.
 
+### Python drivers: run your tests in strict mode
+
+Everything above checks what a driver **declares**. A Python driver is also
+code, and the usual way that code goes wrong is writing a state variable it
+never declared — often one whose name is built in a loop. The value lands and
+looks right, but it has no type and no binding picker offers it, so nobody can
+build a panel against it.
+
+Run your driver's tests with strict mode on and that becomes a failure instead
+of a warning nobody reads:
+
+```bash
+OPENAVC_STRICT_DRIVER_STATE=1 python -m pytest tests/ -v
+```
+
+On a running instance the same condition is logged once per key, naming the
+driver and the variable. It stays a warning there on purpose: the device is
+working, and taking a room offline over a missing declaration would punish the
+user rather than the author.
+
 ## Using an AI Assistant
 
 If you use an AI coding assistant, point it to [`AGENTS.md`](../AGENTS.md) in the root of this repository. It contains the complete YAML schema, Python driver API, naming conventions, and examples in a format optimized for LLM agents. Have your assistant run `python scripts/build_index.py --check` on its output to catch errors before you submit.

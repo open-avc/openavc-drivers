@@ -40,7 +40,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.5.1",
+        "version": "2.6.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.24.0",
         "author": "OpenAVC",
@@ -333,6 +333,19 @@ class PJLinkDriver(BaseDriver):
             "mute_audio": {"type": "boolean", "label": "Audio Mute"},
             "lamp_hours": {"type": "integer", "label": "Lamp Hours"},
             "lamp_count": {"type": "integer", "label": "Number of Lamps"},
+            # Per-lamp hours. PJLink's LAMP reply carries up to 8 lamp/hour
+            # pairs, and the parser writes one key per pair, so all eight are
+            # declared even though most projectors report one. lamp_hours
+            # above stays the first lamp's hours, which is what it has always
+            # been. A single-lamp projector leaves lamp2..8 at 0.
+            "lamp1_hours": {"type": "integer", "label": "Lamp 1 Hours"},
+            "lamp2_hours": {"type": "integer", "label": "Lamp 2 Hours"},
+            "lamp3_hours": {"type": "integer", "label": "Lamp 3 Hours"},
+            "lamp4_hours": {"type": "integer", "label": "Lamp 4 Hours"},
+            "lamp5_hours": {"type": "integer", "label": "Lamp 5 Hours"},
+            "lamp6_hours": {"type": "integer", "label": "Lamp 6 Hours"},
+            "lamp7_hours": {"type": "integer", "label": "Lamp 7 Hours"},
+            "lamp8_hours": {"type": "integer", "label": "Lamp 8 Hours"},
             "error_status": {
                 "type": "string",
                 "label": "Error Status",
@@ -736,7 +749,11 @@ class PJLinkDriver(BaseDriver):
                     self.set_state("lamp_hours", int(parts[0]))
                     lamp_count = len(parts) // 2
                     self.set_state("lamp_count", lamp_count)
-                    for i in range(lamp_count):
+                    # Bounded by the eight lamp{n}_hours variables declared in
+                    # DRIVER_INFO — PJLink itself caps the reply at 8 pairs, and
+                    # a longer one from a non-conforming projector must not
+                    # write a state key nothing declares.
+                    for i in range(min(lamp_count, 8)):
                         hours = int(parts[i * 2])
                         self.set_state(f"lamp{i + 1}_hours", hours)
                 except (ValueError, IndexError):

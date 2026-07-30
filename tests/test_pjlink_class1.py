@@ -308,7 +308,7 @@ async def _make_pair(driver_overrides=None, sim_password=""):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.5.1"
+    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.0"
     assert DRV.PJLinkDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
 
 
@@ -330,6 +330,57 @@ def test_set_input_has_options_picker():
     param = info["commands"]["set_input"]["params"]["input"]
     assert param["options_state"] == "input_options"
     assert "input_options" in info["state_variables"]
+
+
+# ── Every state key the parser writes is a declared one ─────────────────────
+#
+# The LAMP reply carries one hours/on pair per lamp, and the parser builds the
+# key name from the index. Those keys used to be undeclared for every lamp:
+# live values with no type, offered by no binding picker and watchable by no
+# trigger. These pin the whole set the parser can produce against DRIVER_INFO.
+
+def _keys_written_for(reply: str) -> set[str]:
+    """State variable names the driver writes for one PJLink reply.
+
+    The prefix strip is defensive: the stand-in above stores the bare name the
+    driver passed to set_state, while the platform namespaces it under
+    device.<id>. Either form answers the same question.
+    """
+    async def go():
+        driver, _ = await _make_pair()
+        driver.state.data.clear()
+        await driver.on_data_received(reply.encode("ascii"))
+        return {
+            k.split(".proj1.", 1)[-1] for k in driver.state.data
+        }
+    return asyncio.run(go())
+
+
+def test_multi_lamp_reply_only_writes_declared_keys():
+    declared = set(DRV.PJLinkDriver.DRIVER_INFO["state_variables"])
+    # Eight lamps: the most PJLink allows, and the widest the parser can go.
+    written = _keys_written_for(
+        "%1LAMP=100 1 200 1 300 0 400 1 500 1 600 0 700 1 800 1"
+    )
+    assert "lamp8_hours" in written, written
+    assert written <= declared, sorted(written - declared)
+
+
+def test_over_length_lamp_reply_writes_nothing_undeclared():
+    """A non-conforming projector reporting more than eight lamps must not
+    invent a state key — the parser is bounded by what DRIVER_INFO declares."""
+    declared = set(DRV.PJLinkDriver.DRIVER_INFO["state_variables"])
+    written = _keys_written_for(
+        "%1LAMP=" + " ".join(f"{n}00 1" for n in range(1, 13))
+    )
+    assert written <= declared, sorted(written - declared)
+    assert "lamp9_hours" not in written
+
+
+def test_single_lamp_reply_is_the_common_case():
+    written = _keys_written_for("%1LAMP=1234 1")
+    assert "lamp1_hours" in written
+    assert "lamp2_hours" not in written
 
 
 # ── Round-trip: connect populates state + the input picker (PP) ─────────────

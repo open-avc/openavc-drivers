@@ -2033,6 +2033,32 @@ value = self.get_state("power")
 self.delete_state("bitrate")
 ```
 
+**Every name you write must be declared in `DRIVER_INFO["state_variables"]`.**
+`set_state()` accepts any name, but an undeclared one produces a state key with
+no type and no entry in any binding picker, Live State row or trigger target —
+correct value, unusable by the project. The trap is the computed name:
+
+```python
+# WRONG — writes lamp1_hours..lampN_hours, declares none of them
+for i, hours in enumerate(lamp_hours, start=1):
+    self.set_state(f"lamp{i}_hours", hours)
+```
+
+Declare every name the loop can produce, or model the sub-units as a
+`child_entity_types` entry when the count is genuinely open-ended.
+
+The platform reports it two ways:
+
+- **Server log**, once per key on the first write: `driver 'x' wrote state
+  'lamp2_hours', which it does not declare in DRIVER_INFO["state_variables"]`.
+  It stays a warning at runtime deliberately — the device is working, and
+  taking it offline over a missing declaration punishes the end user.
+- **`OPENAVC_STRICT_DRIVER_STATE=1`** turns the same condition into a raise.
+  Set it when running your driver's tests (§8); the platform's own suite runs
+  with it on, so what fails here fails there.
+
+`connected` is platform-managed and never needs declaring.
+
 #### Child entities
 
 When the device declares `child_entity_types` (see §2.5.1), register and update its sub-units through these helpers. The platform owns the key formatting — never assemble `device.<id>.<type>.<id>.<prop>` strings yourself. All writes validate the property against the declared schema and raise on unknown props.
@@ -2600,6 +2626,16 @@ The validator checks:
 - Delimiter is valid
 - index.json entry matches driver fields
 - File exists at declared path
+
+Those are all checks of what the driver **declares**. For a Python driver, run
+its tests with strict mode on so what its code **does** is checked too:
+
+```bash
+OPENAVC_STRICT_DRIVER_STATE=1 python -m pytest tests/ -v
+```
+
+That turns a write to an undeclared state variable (§3.5) from a runtime
+warning into a failure, which is the only place it is cheap to fix.
 
 ---
 

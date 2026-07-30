@@ -47,10 +47,22 @@ ACTIVE_SENSE_INTERVAL = 2.0
 
 class AllenHeathQuSimulator(TCPSimulator):
     SIMULATOR_INFO = {
-        "id": "allenheath_qu",
+        "driver_id": "allenheath_qu",
         "name": "Allen & Heath Qu Mixer (sim)",
-        "type": "tcp",
+        "transport": "tcp",
         "default_port": 51325,
+        "initial_state": {
+            "model": "Qu-32",
+            "firmware": "1.90",
+            "midi_channel": 1,
+            "identified": False,
+            "current_scene": 0,
+            "channel_count": 32,
+            "lr_mute": False,
+            "lr_fader": 0.75,
+            "lr_fader_db": 0.0,
+            "lr_pan": 0.0,
+        },
     }
 
     def __init__(self, device_id: str, config: dict | None = None):

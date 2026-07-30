@@ -233,7 +233,7 @@ def test_tally_subscription():
         await d.send_command("cut_direct", {"input": "3"})
         await asyncio.sleep(0.15)
         assert state.get("device.vmix_test.active") == 3
-        assert state.get("device.vmix_test.tally.3") == 1
+        assert state.get("device.vmix_test.input.3.tally") == 1
     _scenario(s)
 
 
@@ -390,12 +390,13 @@ def test_input_removed_prunes_state():
         options = json.loads(state.get("device.vmix_test.input_list"))
         assert [o["value"] for o in options] == ["1", "2", "3"]
         assert state.get("device.vmix_test.input_count") == 3
-        # Every per-input key for the removed input is gone from the store
+        # Deregistering the child clears every key under it, including the
+        # platform-managed online/label pair.
         for prop in ("title", "type", "state", "muted", "loop",
-                     "position", "duration"):
+                     "position", "duration", "tally", "online", "label"):
             key = f"device.vmix_test.input.4.{prop}"
             assert state.get(key) is None
-        assert state.get("device.vmix_test.tally.4") is None
+        assert 4 not in d.list_children("input")
     _scenario(s)
 
 

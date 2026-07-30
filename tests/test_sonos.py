@@ -33,28 +33,16 @@ from types import ModuleType
 
 import httpx
 import pytest
+from _platform_stubs import (
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 DRIVER_PATH = Path(__file__).parent.parent / "audio" / "sonos.py"
 SIM_PATH = Path(__file__).parent.parent / "audio" / "sonos_sim.py"
 
 
 # ── Platform stubs ──────────────────────────────────────────────────────────
-
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.values: dict[str, object] = {}
-
-    def set(self, key: str, value: object) -> None:
-        self.values[key] = value
-
-    def get(self, key: str, default: object = None) -> object:
-        return self.values.get(key, default)
-
-
-class _FakeEvents:
-    async def emit(self, *_a, **_kw) -> None:
-        return None
 
 
 class _FakeBaseDriver:

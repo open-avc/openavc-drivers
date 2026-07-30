@@ -40,6 +40,11 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    CallableFrameParser as _FakeCallableFrameParser,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "switchers" / "avproedge_mxnet_1g.py"
@@ -47,54 +52,6 @@ SIM_PATH = REPO_ROOT / "switchers" / "avproedge_mxnet_1g_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-    def set_batch(self, updates, **_):
-        self.data.update(updates)
-
-    def delete(self, key, **_):
-        self.data.pop(key, None)
-
-
-class _FakeEvents:
-    async def emit(self, name, *args, **kwargs):
-        pass
-
-
-class _FakeCallableFrameParser:
-    """Mirrors server.transport.frame_parsers.CallableFrameParser: the buffer
-    the parse_fn returns is persisted whether or not it returned a message, so
-    a (None, trimmed) return really does drop the trimmed bytes."""
-
-    def __init__(self, parse_fn, max_buffer=1 << 20) -> None:
-        self._parse_fn = parse_fn
-        self._buffer = b""
-
-    def feed(self, data: bytes) -> list[bytes]:
-        self._buffer += data
-        messages: list[bytes] = []
-        while True:
-            before = len(self._buffer)
-            msg, remaining = self._parse_fn(self._buffer)
-            # The returned buffer is authoritative on BOTH branches: a parse
-            # function drops garbage or resyncs past a corrupt frame by
-            # returning less buffer with no message.
-            self._buffer = remaining
-            if msg is None:
-                if len(remaining) >= before:
-                    break          # nothing parsed, nothing consumed
-                continue           # bytes dropped: try again on the remainder
-            messages.append(msg)
-            if len(remaining) >= before:
-                break              # no forward progress guard
-        return messages
-
 
 class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver surface this driver

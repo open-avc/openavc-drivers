@@ -42,3 +42,54 @@ jobs:
       # install — this is the step that stops one landing.
       - name: Validate drivers and the catalog they generate
         run: python scripts/build_index.py --check
+
+  # Every test in the job above runs against tests/_platform_stubs.py, because
+  # that job installs requirements-dev.txt and nothing else — which is the
+  # point: it proves the suite really is self-contained. But a stand-in cannot
+  # disagree with whoever wrote it, so a suite that is green against the stubs
+  # has confirmed the stubs, not the platform. This job is what gives the
+  # platform a vote: it brings in the real one and pins every stubbed method
+  # against it.
+  #
+  # It is deliberately a separate job. The suite above must keep running with
+  # no platform installed, and this one must not be able to relax that.
+  #
+  # OPENAVC_REQUIRE_PLATFORM=1 turns "the platform is missing" from a skip into
+  # a failure — a job that meant to provide it and did not would otherwise pass
+  # while testing nothing. This mirrors the openavc repo, whose CI clones this
+  # library and sets OPENAVC_REQUIRE_DRIVER_CORPUS=1 for the sweeps that need
+  # it. Only the fidelity test runs here: the rest of the suite is written for
+  # the stubbed environment.
+  stub-fidelity:
+    name: Platform stubs match the platform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      # Track main rather than a pin: a genuine disagreement between the
+      # platform and the stand-ins these tests run against should go red here,
+      # on the day it appears.
+      - name: Clone the OpenAVC platform
+        run: git clone --depth 1 https://github.com/open-avc/openavc.git "$RUNNER_TEMP/openavc"
+
+      - name: Install the platform's runtime dependencies
+        run: pip install -e "$RUNNER_TEMP/openavc"
+
+      - name: Pin the platform stubs against the platform
+        env:
+          # The editable install exposes `server` but not the in-tree
+          # `simulator` package, which the simulator stand-ins are compared
+          # against; PYTHONPATH resolves both from the same checkout.
+          PYTHONPATH: ${{ runner.temp }}/openavc
+          OPENAVC_PLATFORM_ROOT: ${{ runner.temp }}/openavc
+          OPENAVC_REQUIRE_PLATFORM: "1"
+          OPENAVC_DATA_DIR: ${{ runner.temp }}/openavc-data
+        run: python -m pytest tests/test_platform_stub_fidelity.py -v

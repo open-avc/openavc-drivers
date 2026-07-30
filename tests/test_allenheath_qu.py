@@ -17,6 +17,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
+from _platform_stubs import ConnectionFaultError as _ConnectionFaultError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "allenheath_qu.py"
@@ -133,11 +134,6 @@ def _install_server_stubs() -> None:
 
         def _handle_transport_disconnect(self):
             self._connected = False
-
-    class _ConnectionFaultError(ConnectionError):
-        def __init__(self, message="", *, code):
-            super().__init__(message)
-            self.fault_code = code
 
     base.BaseDriver = _BaseDriver
     base.ConnectionFaultError = _ConnectionFaultError

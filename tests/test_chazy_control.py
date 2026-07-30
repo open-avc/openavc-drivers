@@ -31,6 +31,10 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "switchers" / "chazy_control.py"
@@ -68,22 +72,6 @@ PRO_ONLY_COMMANDS = {
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    def __init__(self) -> None:
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *args, **kwargs):
-        self.emitted.append(name)
-
 
 # Controller-side scripting for the fake transport: the greeting played the
 # moment the socket opens (Telnet negotiation + welcome banner + first

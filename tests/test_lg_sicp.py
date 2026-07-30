@@ -34,6 +34,12 @@ import logging
 import sys
 from pathlib import Path
 from types import ModuleType
+from _platform_stubs import (
+    CallableFrameParser,
+    FrameParser,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "displays" / "lg_sicp.py"
@@ -41,25 +47,6 @@ SIM_PATH = REPO_ROOT / "displays" / "lg_sicp_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-    def set_batch(self, updates, **_):
-        self.data.update(updates)
-
-
-class _FakeEvents:
-    def __init__(self) -> None:
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *args, **kwargs):
-        self.emitted.append(name)
-
 
 class _FakeBaseDriver:
     """Functional stand-in for the platform BaseDriver child-entity API + the
@@ -254,13 +241,6 @@ def _load(name: str, path: Path) -> ModuleType:
     sys.modules["server.drivers.base"] = base
 
     frame_parsers = ModuleType("server.transport.frame_parsers")
-
-    class CallableFrameParser:  # referenced in the class body, never called here
-        def __init__(self, *a, **k):
-            pass
-
-    class FrameParser:
-        pass
 
     frame_parsers.CallableFrameParser = CallableFrameParser
     frame_parsers.FrameParser = FrameParser

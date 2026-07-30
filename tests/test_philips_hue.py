@@ -44,6 +44,11 @@ import httpx
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    ConnectionFaultError as _FakeConnectionFaultError,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "lighting" / "philips_hue.py"
@@ -53,22 +58,6 @@ _REAL_ASYNC_CLIENT = httpx.AsyncClient
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    def __init__(self) -> None:
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *args, **kwargs):
-        self.emitted.append(name)
-
 
 def _default_for(var_def: dict):
     vt = var_def.get("type", "string")
@@ -82,14 +71,6 @@ def _default_for(var_def: dict):
         vals = var_def.get("values", [])
         return vals[0] if vals else ""
     return ""
-
-
-class _FakeConnectionFaultError(ConnectionError):
-    """Mirror of the platform's typed fault (code -> offline_reason)."""
-
-    def __init__(self, message: str = "", *, code: str):
-        super().__init__(message)
-        self.code = code
 
 
 class _FakeBaseDriver(LifecycleFake):
@@ -799,7 +780,7 @@ async def test_connect_without_app_key_is_auth_fault(monkeypatch):
     )
     with pytest.raises(_FakeConnectionFaultError) as excinfo:
         await d.connect()
-    assert excinfo.value.code == "auth_failed"
+    assert excinfo.value.fault_code == "auth_failed"
     assert d._client is None
 
 
@@ -812,7 +793,7 @@ async def test_connect_with_rejected_key_is_auth_fault(monkeypatch):
     )
     with pytest.raises(_FakeConnectionFaultError) as excinfo:
         await d.connect()
-    assert excinfo.value.code == "auth_failed"
+    assert excinfo.value.fault_code == "auth_failed"
 
 
 @pytest.mark.asyncio
@@ -823,7 +804,7 @@ async def test_mid_session_revocation_surfaces_via_poll(monkeypatch):
         link.sim.active_errors.add("unauthorized")
         with pytest.raises(_FakeConnectionFaultError) as excinfo:
             await d.poll()
-        assert excinfo.value.code == "auth_failed"
+        assert excinfo.value.fault_code == "auth_failed"
     finally:
         await _close(d)
 

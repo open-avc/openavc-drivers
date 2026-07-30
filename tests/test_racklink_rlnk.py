@@ -31,6 +31,11 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    ConnectionFaultError as _FakeConnectionFaultError,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "power" / "racklink_rlnk.py"
@@ -38,30 +43,6 @@ SIM_PATH = REPO_ROOT / "power" / "racklink_rlnk_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    def __init__(self) -> None:
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *args, **kwargs):
-        self.emitted.append(name)
-
-
-class _FakeConnectionFaultError(ConnectionError):
-    """Stand-in for the platform's typed connection fault (0.22.0+)."""
-
-    def __init__(self, message: str = "", *, code: str) -> None:
-        super().__init__(message)
-        self.fault_code = code
-
 
 class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver child API."""

@@ -23,6 +23,9 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from _platform_stubs import (
+    StubEvents as _Events,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "displays" / "hisense_vidaa.py"
@@ -235,14 +238,6 @@ def _install_server_stubs(tmp_dir: str) -> None:
     logger = ModuleType("server.utils.logger")
     logger.get_logger = lambda name: _Logger()
     sys.modules["server.utils.logger"] = logger
-
-
-class _Events:
-    def __init__(self):
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *a, **k):
-        self.emitted.append(name)
 
 
 class _SysConfig:

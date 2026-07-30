@@ -18,6 +18,7 @@ import json
 import sys
 from pathlib import Path
 from types import ModuleType
+from _platform_stubs import ConnectionFaultError as _ConnectionFaultError
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -149,11 +150,6 @@ def _install_server_stubs() -> None:
                     self._val(t, i, p)
             for t, i, ups in updates:
                 self._children[(t, i)].update(ups)
-
-    class _ConnectionFaultError(ConnectionError):
-        def __init__(self, message="", *, code):
-            super().__init__(message)
-            self.fault_code = code
 
     base.BaseDriver = _BaseDriver
     base.ConnectionFaultError = _ConnectionFaultError

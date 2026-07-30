@@ -24,6 +24,11 @@ from types import ModuleType
 
 import httpx
 import pytest
+from _platform_stubs import (
+    ConnectionFaultError as _ConnectionFaultError,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "switchers" / "crestron_nvx.py"
@@ -31,28 +36,6 @@ SIM_PATH = REPO_ROOT / "switchers" / "crestron_nvx_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _ConnectionFaultError(Exception):
-    def __init__(self, message="", code=None):
-        super().__init__(message)
-        self.code = code
-
-
-class _FakeState:
-    def __init__(self):
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-    def delete(self, key, **_):
-        self.data.pop(key, None)
-
-
-class _FakeEvents:
-    async def emit(self, *_a, **_k):
-        pass
-
 
 class _FakeBaseDriver:
     DRIVER_INFO: dict = {}
@@ -390,7 +373,7 @@ def test_no_login_post_when_password_empty():
         try:
             with pytest.raises(DRV.ConnectionFaultError) as exc:
                 await d._authenticate()
-            assert exc.value.code == "auth_failed"
+            assert exc.value.fault_code == "auth_failed"
             assert posts == []  # no login attempt reached the device
         finally:
             await d._client.aclose()
@@ -428,7 +411,7 @@ def test_factory_fresh_detected_from_redirect_header_without_following():
         try:
             with pytest.raises(DRV.ConnectionFaultError) as exc:
                 await d._authenticate()
-            assert exc.value.code == "auth_failed"
+            assert exc.value.fault_code == "auth_failed"
             assert followed == []  # never followed into the slow createUser page
         finally:
             await d._client.aclose()
@@ -456,7 +439,7 @@ def test_reauth_still_401_raises_typed_fault():
         try:
             with pytest.raises(DRV.ConnectionFaultError) as exc:
                 await d._api_get("/Device/DeviceSpecific")
-            assert exc.value.code == "auth_failed"
+            assert exc.value.fault_code == "auth_failed"
             # Stashed for the poll-watchdog path, where the raised exception
             # itself isn't what gets classified.
             assert d._last_fault == (
@@ -490,7 +473,7 @@ def test_connect_auth_failure_raises_typed_fault():
                 info = await d._api_get("/Device/DeviceInfo")
                 if "DeviceInfo" not in info.get("Device", {}):
                     raise DRV.ConnectionFaultError("Login rejected", code="auth_failed")
-            assert exc.value.code == "auth_failed"
+            assert exc.value.fault_code == "auth_failed"
         finally:
             await d._client.aclose()
 

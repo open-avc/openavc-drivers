@@ -23,15 +23,20 @@ back after this module is collected).
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-import logging
-import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    StubBaseDriver,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+    StubTCPSimulator as _FakeTCPSimulator,
+    install_stubs,
+    load_module,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "projectors" / "sharp_nec_projector.py"
@@ -39,56 +44,10 @@ SIM_PATH = REPO_ROOT / "projectors" / "sharp_nec_projector_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    def __init__(self) -> None:
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *args, **kwargs):
-        self.emitted.append(name)
-
-
-class _CallableFrameParser:
-    """Replica of server.transport.frame_parsers.CallableFrameParser.feed."""
-
-    def __init__(self, parse_fn, max_buffer=65536):
-        self._parse_fn = parse_fn
-        self._buffer = b""
-
-    def feed(self, data: bytes) -> list[bytes]:
-        self._buffer += data
-        out: list[bytes] = []
-        while True:
-            before = len(self._buffer)
-            msg, remaining = self._parse_fn(self._buffer)
-            # The returned buffer is authoritative on BOTH branches: a parse
-            # function drops garbage or resyncs past a corrupt frame by
-            # returning less buffer with no message.
-            self._buffer = remaining
-            if msg is None:
-                if len(remaining) >= before:
-                    break          # nothing parsed, nothing consumed
-                continue           # bytes dropped: try again on the remainder
-            out.append(msg)
-            if len(remaining) >= before:
-                break              # no forward progress guard
-        return out
-
-    def reset(self) -> None:
-        self._buffer = b""
-
-
-class _FrameParser:  # marker base, like server.transport.frame_parsers.FrameParser
-    pass
-
+#
+# The state store, event bus, frame parsers and simulator base come from
+# _platform_stubs, which test_platform_stub_fidelity.py pins against the real
+# platform. Only what is specific to this driver is written here.
 
 _CURRENT_SIM: object | None = None
 
@@ -117,19 +76,15 @@ class _FakeTransport:
         self.connected = False
 
 
-class _FakeBaseDriver(LifecycleFake):
+class _FakeBaseDriver(StubBaseDriver, LifecycleFake):
     """Functional stand-in mirroring BaseDriver.connect() for a binary TCP
-    driver: builds the transport using the driver's own frame-parser hook."""
+    driver: builds the transport using the driver's own frame-parser hook.
+
+    State handling (the ``device.<id>.`` namespace and the undeclared-state
+    check) comes from StubBaseDriver; only the connect ceremony is here.
+    """
 
     DRIVER_INFO: dict = {}
-
-    def __init__(self, device_id, config, state, events) -> None:
-        self.device_id = device_id
-        self.config = config
-        self.state = state
-        self.events = events
-        self.transport = None
-        self._connected = False
 
     async def connect(self) -> None:
         parser = self._create_frame_parser()
@@ -156,68 +111,17 @@ class _FakeBaseDriver(LifecycleFake):
         self.set_state("connected", False)
         await self.events.emit(f"device.disconnected.{self.device_id}")
 
-    def set_state(self, key, value) -> None:
-        self.state.set(key, value)
-
-    def set_states(self, updates) -> None:
-        for k, v in updates.items():
-            self.state.set(k, v)
-
-    def get_state(self, key, default=None):
-        return self.state.data.get(key, default)
-
-
-class _FakeTCPSimulator:
-    """Stand-in for simulator.tcp_simulator.TCPSimulator."""
-
-    SIMULATOR_INFO: dict = {}
-
-    def __init__(self, device_id, config=None) -> None:
-        self.device_id = device_id
-        self.config = config or {}
-        self.state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
-
-    def set_state(self, key, value) -> None:
-        self.state[key] = value
-
-    def get_state(self, key, default=None):
-        return self.state.get(key, default)
-
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
-    server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
-    for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
-        m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
-    base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    binary_helpers = ModuleType("server.transport.binary_helpers")
-    binary_helpers.checksum_sum = lambda data, mask=0xFF: sum(data) & mask
-    sys.modules["server.transport.binary_helpers"] = binary_helpers
-    fp = ModuleType("server.transport.frame_parsers")
-    fp.CallableFrameParser = _CallableFrameParser
-    fp.FrameParser = _FrameParser
-    sys.modules["server.transport.frame_parsers"] = fp
-    logger = ModuleType("server.utils.logger")
-    logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
-
-    sim_pkg = ModuleType("simulator")
-    sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
-    sim_tcp.TCPSimulator = _FakeTCPSimulator
-    sys.modules["simulator.tcp_simulator"] = sim_tcp
-
-    spec = importlib.util.spec_from_file_location(name, path)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+    install_stubs(
+        {
+            "server.transport.binary_helpers": {
+                "checksum_sum": lambda data, mask=0xFF: sum(data) & mask,
+            },
+        },
+        base_driver=_FakeBaseDriver,
+    )
+    return load_module(name, path)
 
 
 DRV = _load("sharp_nec_under_test", DRIVER_PATH)
@@ -232,8 +136,10 @@ async def _make_pair(sim_state=None):
     global _CURRENT_SIM
     sim = SIM.SharpNecProjectorSimulator("sim1", {})
     sim.set_state("power", "on")  # so the projector answers picture queries
-    if sim_state:
-        sim.state.update(sim_state)
+    # set_state, not sim.state.update(...): the real BaseSimulator exposes
+    # `state` as a read-only copy, so updating it sets nothing.
+    for key, value in (sim_state or {}).items():
+        sim.set_state(key, value)
     _CURRENT_SIM = sim
     driver = DRV.SharpNECProjectorDriver(
         "proj1", {"host": "10.0.0.9", "port": 7142, "poll_interval": 0},

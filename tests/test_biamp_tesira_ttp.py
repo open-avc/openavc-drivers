@@ -35,6 +35,11 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    DelimiterFrameParser as _DelimiterFrameParser,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "biamp_tesira_ttp.py"
@@ -48,19 +53,6 @@ PgmSrc source_select
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    async def emit(self, name, *args, **kwargs):
-        pass
-
 
 class _FakeBaseDriver(LifecycleFake):
     """Stand-in mirroring the platform BaseDriver liveness watchdog."""
@@ -287,25 +279,6 @@ class _FakeBaseDriver(LifecycleFake):
         self._connected = False
         self.set_state("connected", False)
         await self.events.emit(f"device.disconnected.{self.device_id}")
-
-
-class _DelimiterFrameParser:
-    """Functional stand-in for server.transport.frame_parsers."""
-
-    def __init__(self, delimiter=b"\r\n") -> None:
-        self.delimiter = delimiter
-        self._buf = bytearray()
-
-    def feed(self, data):
-        self._buf.extend(data)
-        frames = []
-        while True:
-            idx = self._buf.find(self.delimiter)
-            if idx < 0:
-                break
-            frames.append(bytes(self._buf[:idx]))
-            del self._buf[: idx + len(self.delimiter)]
-        return frames
 
 
 class _FakeSimState:

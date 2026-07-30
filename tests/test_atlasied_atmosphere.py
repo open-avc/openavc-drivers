@@ -43,6 +43,10 @@ from pathlib import Path
 from types import ModuleType
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "atlasied_atmosphere.py"
@@ -50,19 +54,6 @@ SIM_PATH = REPO_ROOT / "audio" / "atlasied_atmosphere_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    async def emit(self, name, *args, **kwargs):
-        pass
-
 
 class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver surface this driver

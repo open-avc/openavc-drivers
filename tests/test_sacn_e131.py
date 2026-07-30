@@ -29,30 +29,15 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 # ── Platform stubs ───────────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, source="system") -> None:
-        self.data[key] = value
-
-    def get(self, key, default=None):
-        return self.data.get(key, default)
-
-
-class _FakeEvents:
-    def __init__(self) -> None:
-        self.emitted: list = []
-
-    async def emit(self, event, payload=None) -> None:
-        self.emitted.append(event)
-
 
 class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver: the driver supplies

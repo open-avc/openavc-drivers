@@ -2627,15 +2627,98 @@ The validator checks:
 - index.json entry matches driver fields
 - File exists at declared path
 
-Those are all checks of what the driver **declares**. For a Python driver, run
-its tests with strict mode on so what its code **does** is checked too:
+Those are all checks of what the driver **declares**. Nothing above reads a
+Python driver's code. That half is covered by the test you ship with it.
 
-```bash
-OPENAVC_STRICT_DRIVER_STATE=1 python -m pytest tests/ -v
+### 8.1 Writing the test
+
+`tests/` is a pytest suite and CI runs it (`python -m pytest tests/ -v`). Ship
+a test with every Python driver. A YAML driver has no code of its own to
+unit-test — the platform that interprets it is tested in the OpenAVC repo — so
+it normally needs none.
+
+**CI installs `requirements-dev.txt` and nothing else, so there is no `openavc`
+package in this repo.** A driver's `from server.drivers.base import BaseDriver`
+has nothing to resolve against, and every test here puts stand-ins into
+`sys.modules` before loading the driver.
+
+**Do not write those stand-ins.** Import them from `tests/_platform_stubs.py`:
+
+```python
+from pathlib import Path
+
+from _platform_stubs import (
+    StubBaseDriver, StubEvents, StubState, install_stubs, load_module,
+)
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+class _FakeBaseDriver(StubBaseDriver):
+    """Only this driver's connect() ceremony. State handling — the
+    device.<id>. namespace, the undeclared-state check, the whole
+    child-entity registry — comes from StubBaseDriver."""
+
+    async def connect(self):
+        self.transport = _FakeTransport(self)
+        self.set_state("connected", True)
+
+
+install_stubs(base_driver=_FakeBaseDriver)
+DRV = load_module("acme_under_test", REPO_ROOT / "devices" / "acme_widget.py")
 ```
 
-That turns a write to an undeclared state variable (§3.5) from a runtime
-warning into a failure, which is the only place it is cheap to fix.
+What the module exports: `StubBaseDriver`, `StubState`, `StubEvents`,
+`ConnectionFaultError`, `CommandParamError`, `UndeclaredStateError`,
+`FrameParser`, `CallableFrameParser`, `DelimiterFrameParser`,
+`StubBaseSimulator`, `StubTCPSimulator`, `StubHTTPSimulator`,
+`StubUDPSimulator`, `StubProbeContext`, plus `install_stubs()`,
+`stub_modules()` and `load_module()`.
+
+`install_stubs()` takes per-module overrides for anything else the driver
+imports. `stub_modules()` returns the same tree without installing it, for a
+driver that resolves a transport lazily at call time and so needs the stubs
+re-installed per test:
+
+```python
+install_stubs(
+    {"server.transport.ir_codec": {"IRCode": _FakeIRCode}},
+    base_driver=_FakeBaseDriver,
+)
+```
+
+`tests/_lifecycle_fake.py` carries the connect/disconnect/liveness half that
+several fakes share; inherit from both when a driver uses the platform's
+lifecycle hooks.
+
+### 8.2 Why the stand-ins are shared
+
+A stand-in cannot disagree with whoever wrote it — it *is* their belief about
+the platform, so a test passing against it confirms the belief, not the
+platform. Drivers shipped that way: a resync path tested against a frame parser
+that in reality wedged after one corrupt frame, and connection-fault tests
+asserting an attribute the platform does not have.
+
+`tests/test_platform_stub_fidelity.py` is what stops that. It signature-compares
+every stubbed method against the real class and replays behaviour side by side,
+whenever the OpenAVC checkout is present:
+
+```bash
+OPENAVC_PLATFORM_ROOT=../openavc OPENAVC_REQUIRE_PLATFORM=1 \
+    python -m pytest tests/test_platform_stub_fidelity.py -v
+```
+
+It skips when the platform is absent, so a run with only this repo cloned stays
+green, and fails loudly when `OPENAVC_REQUIRE_PLATFORM=1` promised it. If you
+need a stand-in the shared module lacks, add it there **and** to that test's
+`PAIRS` list. Never write a private one.
+
+### 8.3 Strict driver state is on
+
+`tests/conftest.py` sets `OPENAVC_STRICT_DRIVER_STATE=1`, so a write to a state
+variable the driver never declared (§3.5) is a test failure, not a runtime
+warning. It applies to any fake that inherits `StubBaseDriver`. Declare the
+variable or stop writing it — a key built in a loop is the usual culprit.
 
 ---
 

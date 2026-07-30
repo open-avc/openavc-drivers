@@ -33,6 +33,11 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    CallableFrameParser as _CallableFrameParser,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "projectors" / "epson_escvp.py"
@@ -42,52 +47,6 @@ _ORIG_WAIT_FOR = asyncio.wait_for
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    def __init__(self) -> None:
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *args, **kwargs):
-        self.emitted.append(name)
-
-
-class _CallableFrameParser:
-    """Replica of server.transport.frame_parsers.CallableFrameParser.feed."""
-
-    def __init__(self, parse_fn, max_buffer=65536):
-        self._parse_fn = parse_fn
-        self._buffer = b""
-
-    def feed(self, data: bytes) -> list[bytes]:
-        self._buffer += data
-        out: list[bytes] = []
-        while True:
-            before = len(self._buffer)
-            msg, remaining = self._parse_fn(self._buffer)
-            # The returned buffer is authoritative on BOTH branches: a parse
-            # function drops garbage or resyncs past a corrupt frame by
-            # returning less buffer with no message.
-            self._buffer = remaining
-            if msg is None:
-                if len(remaining) >= before:
-                    break          # nothing parsed, nothing consumed
-                continue           # bytes dropped: try again on the remainder
-            out.append(msg)
-            if len(remaining) >= before:
-                break              # no forward progress guard
-        return out
-
-    def reset(self) -> None:
-        self._buffer = b""
-
 
 # Harness knobs set per test.
 _CURRENT_SIM: object | None = None

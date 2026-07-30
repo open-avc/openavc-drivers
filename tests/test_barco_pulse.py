@@ -41,6 +41,12 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    ConnectionFaultError as _FakeConnectionFaultError,
+    FrameParser as _FrameParserBase,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "projectors" / "barco_pulse.py"
@@ -48,25 +54,6 @@ SIM_PATH = REPO_ROOT / "projectors" / "barco_pulse_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    async def emit(self, name, *args, **kwargs):
-        pass
-
-
-class _FakeConnectionFaultError(ConnectionError):
-    def __init__(self, message="", code=""):
-        super().__init__(message)
-        self.code = code
-
 
 class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver surface this driver
@@ -214,16 +201,6 @@ class _FakeBaseDriver(LifecycleFake):
 
     async def request_reconnect(self) -> None:
         self.reconnect_requests += 1
-
-
-class _FrameParserBase:
-    """Stand-in for server.transport.frame_parsers.FrameParser."""
-
-    def feed(self, data):
-        raise NotImplementedError
-
-    def reset(self):
-        raise NotImplementedError
 
 
 # Set by the pairing harness so the stubbed transport reaches the live sim.
@@ -787,7 +764,7 @@ def test_auth_code_rejected_raises_typed_fault():
         )
         with pytest.raises(_FakeConnectionFaultError) as excinfo:
             await driver.connect()
-        assert excinfo.value.code == "auth_failed"
+        assert excinfo.value.fault_code == "auth_failed"
         assert "pass code" in str(excinfo.value)
         assert driver._connected is False
         assert driver.transport is None

@@ -25,6 +25,10 @@ import sys
 import tempfile
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from _platform_stubs import (
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "displays" / "lg_webos.py"
@@ -33,22 +37,6 @@ _TMP = tempfile.mkdtemp(prefix="lg_webos_test_")
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-    def set_batch(self, updates, **_):
-        self.data.update(updates)
-
-
-class _FakeEvents:
-    async def emit(self, *args, **kwargs):
-        return None
-
 
 class _FakeFault(Exception):
     def __init__(self, message="", code=""):

@@ -22,6 +22,10 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
+from _platform_stubs import (
+    ConnectionFaultError as _ConnectionFaultError,
+    StubEvents as _FakeEvents,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "qsc_qrc.py"
@@ -29,16 +33,6 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "qsc_qrc_qrc.json"
 
 
 # ── Stub server.* with an in-memory BaseDriver that mimics child semantics ──
-
-class _FakeEvents:
-    """Records the canonical device.connected/disconnected emissions."""
-
-    def __init__(self) -> None:
-        self.emitted: list[str] = []
-
-    async def emit(self, name, *args, **kwargs):
-        self.emitted.append(name)
-
 
 class _FakeQRCTransport:
     """Minimal transport for the connect/disconnect lifecycle tests.
@@ -386,11 +380,6 @@ def _install_server_stubs() -> None:
                     self._validate(ctype, lid, prop)
             for ctype, lid, ups in updates:
                 self._children[(ctype, lid)].update(ups)
-
-    class _ConnectionFaultError(ConnectionError):
-        def __init__(self, message="", *, code):
-            super().__init__(message)
-            self.fault_code = code
 
     base.BaseDriver = _BaseDriver
     base.ConnectionFaultError = _ConnectionFaultError

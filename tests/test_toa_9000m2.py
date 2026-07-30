@@ -15,9 +15,10 @@ import asyncio
 import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType
 
 import pytest
+
+from _platform_stubs import StubEvents, StubState, install_stubs
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "toa_9000m2.py"
@@ -28,110 +29,7 @@ SIM_PATH = REPO_ROOT / "audio" / "toa_9000m2_sim.py"
 
 def _install_stubs() -> None:
     if "server.drivers.base" not in sys.modules:
-        server = ModuleType("server")
-        server.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server", server)
-
-        drivers = ModuleType("server.drivers")
-        drivers.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server.drivers", drivers)
-
-        base = ModuleType("server.drivers.base")
-
-        class CommandParamError(ValueError):
-            pass
-
-        class _BaseDriver:
-            DRIVER_INFO: dict = {}
-
-            def __init__(self, device_id, config, state, events):
-                self.device_id = device_id
-                self.config = config
-                self.state = state
-                self.events = events
-                self.transport = None
-                self._connected = False
-                self._states: dict = {}
-
-            def set_state(self, key, value):
-                self._states[key] = value
-
-            def get_state(self, key):
-                return self._states.get(key)
-
-        base.BaseDriver = _BaseDriver
-        base.CommandParamError = CommandParamError
-        sys.modules["server.drivers.base"] = base
-
-        transport = ModuleType("server.transport")
-        transport.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server.transport", transport)
-        fp = ModuleType("server.transport.frame_parsers")
-
-        class FrameParser:
-            pass
-
-        class CallableFrameParser(FrameParser):
-            def __init__(self, parse_fn, max_buffer=65536):
-                self._parse_fn = parse_fn
-                self._buffer = b""
-
-            def feed(self, data):
-                self._buffer += data
-                out = []
-                while True:
-                    before = len(self._buffer)
-                    msg, remaining = self._parse_fn(self._buffer)
-                    # The returned buffer is authoritative on BOTH branches: a
-                    # parse function drops garbage or resyncs past a corrupt
-                    # frame by returning less buffer with no message.
-                    self._buffer = remaining
-                    if msg is None:
-                        if len(remaining) >= before:
-                            break      # nothing parsed, nothing consumed
-                        continue       # bytes dropped: retry on the remainder
-                    out.append(msg)
-                    if len(remaining) >= before:
-                        break          # no forward progress guard
-                return out
-
-            def reset(self):
-                self._buffer = b""
-
-        fp.FrameParser = FrameParser
-        fp.CallableFrameParser = CallableFrameParser
-        sys.modules["server.transport.frame_parsers"] = fp
-
-        utils = ModuleType("server.utils")
-        utils.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server.utils", utils)
-        logger = ModuleType("server.utils.logger")
-
-        class _Log:
-            def __getattr__(self, _):
-                return lambda *a, **k: None
-        logger.get_logger = lambda *_a, **_k: _Log()
-        sys.modules["server.utils.logger"] = logger
-
-    if "simulator.tcp_simulator" not in sys.modules:
-        simulator = ModuleType("simulator")
-        simulator.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("simulator", simulator)
-        tcp_sim = ModuleType("simulator.tcp_simulator")
-
-        class _TCPSimulator:
-            SIMULATOR_INFO: dict = {}
-
-            def __init__(self, device_id, config=None):
-                self.device_id = device_id
-                self.config = config or {}
-                self.state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
-
-            def set_state(self, key, value):
-                self.state[key] = value
-
-        tcp_sim.TCPSimulator = _TCPSimulator
-        sys.modules["simulator.tcp_simulator"] = tcp_sim
+        install_stubs()
 
 
 def _load(name, path):
@@ -158,7 +56,12 @@ class _FakeTransport:
 
 
 def _driver():
-    d = toa.TOA9000M2Driver("toa", {"port": "/dev/ttyUSB0", "baudrate": 9600}, object(), object())
+    # A real state store, not object(): the shared StubBaseDriver writes
+    # through it, as the platform does.
+    d = toa.TOA9000M2Driver(
+        "toa", {"port": "/dev/ttyUSB0", "baudrate": 9600},
+        StubState(), StubEvents(),
+    )
     d.transport = _FakeTransport()
     return d
 

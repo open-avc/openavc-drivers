@@ -20,9 +20,26 @@ own import time, so removing the stubs afterward doesn't affect it — it only
 stops the leak from reaching the next module.
 """
 
+import os
 import sys
 
 import pytest
+
+# Strict driver state, on for the whole suite.
+#
+# The platform reports a write to a state variable the driver never declared in
+# DRIVER_INFO["state_variables"]: a warning at runtime, a raise under this
+# variable. openavc's own conftest sets it so the platform suite runs strict.
+# It has to be set HERE too, because this is where driver authors actually run
+# tests -- a driver's own suite is the loop where an undeclared write is
+# actionable, and leaving it unset makes strict mode a no-op in the one repo
+# that matters most for it. ``setdefault``, so a deliberate
+# OPENAVC_STRICT_DRIVER_STATE=0 on the command line still wins.
+#
+# It bites for any test whose fake inherits ``_platform_stubs.StubBaseDriver``,
+# which carries the platform's check. A fake that still writes state its own
+# way is unaffected until it moves onto the shared stub.
+os.environ.setdefault("OPENAVC_STRICT_DRIVER_STATE", "1")
 
 # Package roots the tests stub: the platform packages, plus the third-party
 # libraries a driver imports at module load and its fake-based test replaces

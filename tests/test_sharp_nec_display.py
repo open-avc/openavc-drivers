@@ -39,6 +39,11 @@ from types import ModuleType
 import pytest
 
 from _lifecycle_fake import LifecycleFake
+from _platform_stubs import (
+    CallableFrameParser as _StubCallableFrameParser,
+    StubEvents as _FakeEvents,
+    StubState as _FakeState,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "displays" / "sharp_nec_display.py"
@@ -46,19 +51,6 @@ SIM_PATH = REPO_ROOT / "displays" / "sharp_nec_display_sim.py"
 
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeState:
-    def __init__(self) -> None:
-        self.data: dict = {}
-
-    def set(self, key, value, **_):
-        self.data[key] = value
-
-
-class _FakeEvents:
-    async def emit(self, name, *args, **kwargs):
-        pass
-
 
 class _FakeBaseDriver(LifecycleFake):
     """Functional stand-in for the platform BaseDriver surface this driver
@@ -263,38 +255,6 @@ class _FakeTCPTransport:
 
     async def close(self) -> None:
         self.connected = False
-
-
-class _StubCallableFrameParser:
-    """Platform-faithful CallableFrameParser: the buffer the parse function
-    returns is kept whether or not it returned a message (mirrors
-    frame_parsers.py, including the no-forward-progress guard)."""
-
-    def __init__(self, parse_fn, max_buffer=1_048_576) -> None:
-        self._parse_fn = parse_fn
-        self._buffer = b""
-
-    def feed(self, data: bytes) -> list[bytes]:
-        self._buffer += bytes(data)
-        messages: list[bytes] = []
-        while True:
-            before = len(self._buffer)
-            msg, remaining = self._parse_fn(self._buffer)
-            # The returned buffer is authoritative on BOTH branches: a parse
-            # function drops garbage or resyncs past a corrupt frame by
-            # returning less buffer with no message.
-            self._buffer = remaining
-            if msg is None:
-                if len(remaining) >= before:
-                    break          # nothing parsed, nothing consumed
-                continue           # bytes dropped: try again on the remainder
-            messages.append(msg)
-            if len(remaining) >= before:
-                break              # no forward progress guard
-        return messages
-
-    def reset(self) -> None:
-        self._buffer = b""
 
 
 class _FakeTCPSimulator:

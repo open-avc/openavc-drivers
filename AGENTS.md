@@ -2199,6 +2199,30 @@ await udp.send(magic_packet, "255.255.255.255", 9)
 udp.close()
 ```
 
+**Always pass `name=self.device_id`** when you build a transport yourself. Besides device-log filtering, that name is how the transport knows whose credentials to mask (below) — a transport built without it logs the device's password in the clear.
+
+### 3.7.1 Credentials in the log
+
+Every TX and RX is logged, and that log is served by `GET /api/logs/recent` and downloadable from the Log view. Credentials are masked automatically, so do **not** hand-roll redaction or skip logging to avoid a leak:
+
+- Any `config_schema` field with `secret: true`, and any field named like a credential (`password`, `token`, `api_key`, `passphrase`, `username`), has its **value** replaced with `***` wherever it appears — in wire traffic and in lines the driver writes itself.
+- Values shorter than four characters are ignored, so an empty or trivial password cannot blank unrelated log text.
+
+The one case the platform cannot know about is a secret the **device** issues at runtime — a session token from a login. Register it as soon as you have it:
+
+```python
+async def connect(self) -> None:
+    await super().connect()
+    reply = await self.transport.send_and_wait(b"LOGIN\r\n")
+    token = reply.decode().split()[-1]
+
+    self.redact_in_log(token)   # masked from here on: wire traffic and driver log alike
+
+    self._token = token
+```
+
+Call it before you use the token. The reply that delivered it was logged before your code ran; the stored log re-masks on read, but the live stream does not.
+
 ### 3.8 Frame Parsers (Binary Protocols)
 
 ```python

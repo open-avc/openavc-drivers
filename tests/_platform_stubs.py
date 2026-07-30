@@ -400,6 +400,10 @@ class StubBaseDriver:
         self._child_register_seq = 0
         self._project_child_entities: dict[str, dict[str, dict[str, Any]]] = {}
         self._undeclared_state_seen: set[str] = set()
+        # Runtime secrets the driver handed to redact_in_log(). The platform
+        # keeps these in a process-wide registry the transport formatter reads;
+        # here they are just recorded so a test can assert on them.
+        self.redacted_secrets: set[str] = set()
         self._init_state_variables()
 
     def _init_state_variables(self) -> None:
@@ -459,6 +463,17 @@ class StubBaseDriver:
             f"device.{self.device_id}.{property_name}",
             source=f"device.{self.device_id}",
         )
+
+    def redact_in_log(self, value: str) -> None:
+        """Mask a runtime secret (a session token) in this device's log.
+
+        The platform routes this into a process-wide redaction registry that the
+        transport's TX/RX formatter reads. There is no log here, so the stub
+        just records the value -- enough that a driver calling it under test
+        does not blow up, and that a test can assert it was called.
+        """
+        if isinstance(value, str) and len(value) >= 4:
+            self.redacted_secrets.add(value)
 
     def _check_undeclared_state(self, property_name: str) -> None:
         """Report a write to a state variable the driver never declared.

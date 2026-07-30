@@ -658,6 +658,38 @@ def test_delete_state_removes_the_same_key(monkeypatch):
     assert real_store.get("device.widget_1.power") is None
 
 
+def test_redact_in_log_accepts_the_same_values(monkeypatch):
+    """A driver that registers a session token must run under both.
+
+    The platform routes the value into a process-wide registry the transport
+    formatter reads; the stub only records it. What has to agree is the
+    contract a driver sees: the call exists, takes one string, returns None,
+    and ignores a value too short to be a credential.
+    """
+    stub_driver, _, real_driver, _ = _make_pair(monkeypatch)
+
+    assert stub_driver.redact_in_log("sess-4d91c07e") is None
+    assert real_driver.redact_in_log("sess-4d91c07e") is None
+    assert stub_driver.redact_in_log("ok") is None
+    assert real_driver.redact_in_log("ok") is None
+
+    assert stub_driver.redacted_secrets == {"sess-4d91c07e"}
+
+    # Reach the registry through the very function the real driver just called.
+    # Neither a plain `import server.utils.log_redaction` nor a sys.modules
+    # lookup works here: conftest installs and rolls back stub `server.*`
+    # entries around every test, so `server.drivers.base` is no longer in
+    # sys.modules and a fresh import would re-execute the module and hand back
+    # a second, empty singleton. The class object still holds its own globals.
+    registry = PLATFORM["BaseDriver"].redact_in_log.__globals__[
+        "get_secret_registry"
+    ]()
+    try:
+        assert registry.secrets_for("widget_1") == {"sess-4d91c07e"}
+    finally:
+        registry.forget("widget_1")
+
+
 def test_undeclared_state_raises_in_strict_mode_on_both(monkeypatch):
     """Strict mode is the external author's gate. If the stub did not carry it,
     turning it on in this repo -- where driver authors actually run tests --

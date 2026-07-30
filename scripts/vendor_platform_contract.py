@@ -73,6 +73,11 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     (
+        "server/drivers/python_info.py",
+        "scripts/_vendor/python_info.py",
+        (),
+    ),
+    (
         "tests/fixtures/driver_validation_cases.json",
         "scripts/_vendor/driver_validation_cases.json",
         (),

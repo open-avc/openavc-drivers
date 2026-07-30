@@ -33,6 +33,14 @@ Guide for contributing device drivers to the OpenAVC community library.
    python scripts/build_index.py          # regenerate index.json, devices.json, shards
    python scripts/build_index.py --check  # what CI runs
    ```
+   `--check` speaks for the whole repo, so it needs this repo's layout, its
+   `manufacturers.json`, and a rebuilt catalog. To check **one file** before any
+   of that exists, run the platform's checker from an OpenAVC checkout — it
+   takes any path and runs the same contract rules:
+   ```bash
+   python -m server.drivers.check path/to/my_driver.py
+   ```
+   See [Checking one driver file](#checking-one-driver-file) below.
 
 8. **Submit a pull request** with your driver file, the regenerated catalog files, and a `manufacturers.json` entry if your manufacturer is new.
 
@@ -378,6 +386,43 @@ To catch mistakes as you type, point your editor at the JSON Schema for the `.av
 ```
 
 The schema is checked into the repository root as [`avcdriver.schema.json`](../avcdriver.schema.json), generated from the OpenAVC platform's driver contract so it always matches what the platform actually loads. It covers the same rules CI enforces, so a file that validates cleanly against it is well on its way to passing `--check`.
+
+### Checking one driver file
+
+`build_index.py --check` validates the **catalog**: it needs this repo's folder
+layout, its `manufacturers.json`, and a rebuilt index. That is the right gate
+for a contribution and the wrong one while you are still writing the driver —
+and it is no use at all for a driver you are building for one job and will
+never publish.
+
+For that, run the platform's checker on the file itself, from an OpenAVC
+checkout:
+
+```bash
+python -m server.drivers.check path/to/my_driver.py
+python -m server.drivers.check path/to/my_driver.avcdriver
+python -m server.drivers.check path/to/a/folder/
+```
+
+It works on any path, needs no repo layout and no catalog, and defines no rules
+of its own — the verdicts come from the same functions `--check` calls, so the
+two cannot disagree. It prints nothing when a single file is clean and exits
+non-zero when anything is wrong:
+
+```
+my_driver.py: error: commands.power_on: unknown key 'labl' (did you mean 'label'?)
+```
+
+This matters most for a **Python** driver. A `.avcdriver` gets live editor
+feedback from the `# yaml-language-server:` line above; there is no equivalent
+for a `DRIVER_INFO` dict, so the command line is the only place a misspelled
+key gets caught before runtime. `python -m simulator.validate` runs the same
+check before its own parity checks, so either command will tell you.
+
+The checker also says what it could **not** read: a `DRIVER_INFO` value built
+by code rather than written as a literal cannot be evaluated from the source,
+and the keys under it go unchecked. Those spots are printed by name rather than
+passed over.
 
 ### Python drivers: the validators above only see what you declare
 

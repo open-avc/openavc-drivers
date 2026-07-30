@@ -2630,6 +2630,41 @@ The validator checks:
 Those are all checks of what the driver **declares**. Nothing above reads a
 Python driver's code. That half is covered by the test you ship with it.
 
+`build_index.py` speaks for the whole catalog, so it needs this repo's layout,
+its `manufacturers.json`, and a rebuilt index. To check **one file**, at any
+path, with none of that present — a driver mid-write, or one built for a single
+job that will never be contributed — use the platform's checker from an OpenAVC
+checkout:
+
+```bash
+python -m server.drivers.check path/to/my_driver.py
+python -m server.drivers.check path/to/my_driver.avcdriver
+python -m server.drivers.check path/to/a/folder/
+```
+
+It defines no rules of its own: the verdicts come from the same functions
+`build_index.py --check`, the Driver Builder's save, and the runtime loader
+call, so all four say the same sentence. It prints nothing when a single file
+is clean, exits non-zero when anything is wrong, and prints one line per
+problem:
+
+```
+my_driver.py: error: commands.power_on: unknown key 'labl' (did you mean 'label'?)
+```
+
+Reach for it first on a **Python** driver. A `.avcdriver` gets live editor
+feedback from its `# yaml-language-server:` schema line; a `DRIVER_INFO` dict
+has no equivalent, so a misspelled key there is invisible until the section it
+belongs to silently does nothing at runtime. `python -m simulator.validate`
+runs the same check before its own parity checks.
+
+It reports its own coverage too. A `DRIVER_INFO` value built by code rather
+than written as a literal cannot be read from the source, and the keys under it
+go unchecked — those spots are named in a note line rather than passed over, as
+are the two structural checks that need the loaded driver class
+(`run_setup_action` for a `kind: "setup"` action, `set_device_setting` for
+`device_settings`).
+
 ### 8.1 Writing the test
 
 `tests/` is a pytest suite and CI runs it (`python -m pytest tests/ -v`). Ship

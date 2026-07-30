@@ -228,10 +228,11 @@ def _extract_nec_frame(buf: bytes) -> tuple[bytes | None, bytes]:
     ``header + message + BCC + CR``. Returns the frame WITHOUT the
     trailing CR (SOH..BCC), plus the remaining buffer.
 
-    CallableFrameParser only persists the buffer when a message is
-    returned, so garbage is consumed by returning an EMPTY message
-    with the trimmed remainder (the driver ignores frames that short)
-    rather than ``(None, trimmed)``.
+    Garbage is consumed by returning an EMPTY message with the trimmed
+    remainder (the driver ignores frames that short). ``(None, trimmed)``
+    would work equally well -- CallableFrameParser keeps the buffer a parse
+    function returns whether or not it found a message -- but the empty-frame
+    form is what this driver's tests pin, so it stays.
     """
     if not buf:
         return None, buf

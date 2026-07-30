@@ -316,7 +316,7 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "15289af67818eb4f66c335973384ffcbcaa42f67df9592dedcea7d36912f6926",
+        "switchers/avproedge_mxnet_1g.py": "29c2131eb97b2e01276307cef6c69fd5c32295ba6b32b59e83409101cb53aaed",
         "switchers/avproedge_mxnet_1g_sim.py": "f243af97587f3a0eefdf2f8239d6a36802eb5891d1a0ef8a692fdf38fed7cc96"
       },
       "ports": [

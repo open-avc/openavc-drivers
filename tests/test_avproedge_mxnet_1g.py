@@ -68,9 +68,9 @@ class _FakeEvents:
 
 
 class _FakeCallableFrameParser:
-    """Mirrors server.transport.frame_parsers.CallableFrameParser, including
-    the contract that trips drivers up: the buffer is persisted ONLY when the
-    parse_fn returns a message, so a (None, trimmed) return discards the trim."""
+    """Mirrors server.transport.frame_parsers.CallableFrameParser: the buffer
+    the parse_fn returns is persisted whether or not it returned a message, so
+    a (None, trimmed) return really does drop the trimmed bytes."""
 
     def __init__(self, parse_fn, max_buffer=1 << 20) -> None:
         self._parse_fn = parse_fn
@@ -80,14 +80,19 @@ class _FakeCallableFrameParser:
         self._buffer += data
         messages: list[bytes] = []
         while True:
+            before = len(self._buffer)
             msg, remaining = self._parse_fn(self._buffer)
-            if msg is None:
-                break
-            messages.append(msg)
-            if len(remaining) >= len(self._buffer):
-                self._buffer = remaining
-                break
+            # The returned buffer is authoritative on BOTH branches: a parse
+            # function drops garbage or resyncs past a corrupt frame by
+            # returning less buffer with no message.
             self._buffer = remaining
+            if msg is None:
+                if len(remaining) >= before:
+                    break          # nothing parsed, nothing consumed
+                continue           # bytes dropped: try again on the remainder
+            messages.append(msg)
+            if len(remaining) >= before:
+                break              # no forward progress guard
         return messages
 
 
@@ -500,8 +505,9 @@ def test_json_framing_handles_split_and_batched_objects():
     assert rest == b""
 
     # Inter-object noise (the CRLF the sim sends) is consumed as an EMPTY frame
-    # with the trimmed remainder — returning (None, trimmed) would wedge the
-    # stream, since CallableFrameParser only persists the buffer on a message.
+    # with the trimmed remainder. (None, trimmed) would also work — the parser
+    # keeps whatever buffer the parse_fn returns — but this driver pins the
+    # empty-frame form.
     msg, rest = frame(b'\r\n{"code":0}')
     assert msg == b"" and rest == b'{"code":0}'
 

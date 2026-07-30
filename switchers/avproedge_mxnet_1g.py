@@ -127,9 +127,11 @@ def _json_frame(buf: bytes) -> tuple[bytes | None, bytes]:
     string/escape awareness) is the only framing that is correct regardless of
     whether a given firmware terminates with CRLF, LF or nothing at all.
 
-    Per the CallableFrameParser contract, garbage before the first `{` is
-    consumed by returning an EMPTY frame with the trimmed remainder — returning
-    (None, trimmed) would discard the trim and wedge the stream.
+    Garbage before the first `{` is consumed by returning an EMPTY frame with
+    the trimmed remainder. `(None, trimmed)` would work equally well —
+    CallableFrameParser keeps the buffer a parse function returns whether or
+    not it found a message — but the empty-frame form is what this driver's
+    tests pin, so it stays.
     """
     start = buf.find(b"{")
     if start < 0:

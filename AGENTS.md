@@ -2189,13 +2189,20 @@ parser = LengthPrefixFrameParser(header_size=2, header_offset=0, include_header=
 parser = FixedLengthFrameParser(length=12)
 
 # Custom: provide a function (buffer: bytes) -> (message | None, remaining_buffer)
+#
+# remaining_buffer is ALWAYS what the parser keeps, including when you return
+# no message. Return the buffer unchanged to wait for more data; return LESS of
+# it to throw bytes away that can never form a frame (leading garbage, or a
+# frame that failed its checksum). That second branch is how a binary protocol
+# resyncs — without it one bad packet stalls the stream until the 64 KB
+# overflow guard clears it.
 def my_parser(buf):
     if len(buf) < 4:
-        return None, buf
+        return None, buf            # unchanged: partial frame, wait for more
     length = buf[2]
     total = 3 + length + 1  # header + payload + checksum
     if len(buf) < total:
-        return None, buf
+        return None, buf            # unchanged: wait for the rest
     return buf[:total], buf[total:]
 
 parser = CallableFrameParser(my_parser)
@@ -2204,7 +2211,7 @@ parser = CallableFrameParser(my_parser)
 ### 3.9 Binary Helpers
 
 ```python
-from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16, hex_dump
+from server.transport.binary_helpers import checksum_xor, checksum_sum, crc16_ccitt, hex_dump
 ```
 
 ### 3.10 Setup Actions (Provisioning Wizards)
@@ -2916,7 +2923,7 @@ polling:
 """
 Acme Binary Protocol Driver
 
-Protocol: 4-byte header + payload + XOR checksum
+Protocol: 3-byte header + payload + XOR checksum
   [0xAA] [CMD] [LEN] [DATA...] [XOR]
 
 Source reference for BaseDriver API:
@@ -2928,11 +2935,16 @@ from server.transport.frame_parsers import CallableFrameParser
 
 
 def _parse_frame(buf: bytes) -> tuple[bytes | None, bytes]:
-    """Extract one complete frame from buffer."""
+    """Extract one complete frame from buffer.
+
+    The buffer returned is always what the parser keeps, message or not:
+    unchanged means "wait for more data", shorter means "discard these bytes".
+    The discard branch is what lets this driver resync after a bad packet.
+    """
     if len(buf) < 4:
-        return None, buf
+        return None, buf                    # unchanged: wait for more data
     if buf[0] != 0xAA:
-        # Scan for start byte
+        # Scan for the start byte and drop everything before it.
         idx = buf.find(b"\xaa", 1)
         return None, buf[idx:] if idx >= 0 else b""
     length = buf[2]

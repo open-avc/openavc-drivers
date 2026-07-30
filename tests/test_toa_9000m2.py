@@ -80,14 +80,19 @@ def _install_stubs() -> None:
                 self._buffer += data
                 out = []
                 while True:
+                    before = len(self._buffer)
                     msg, remaining = self._parse_fn(self._buffer)
-                    if msg is None:
-                        break
-                    out.append(msg)
-                    if len(remaining) >= len(self._buffer):
-                        self._buffer = remaining
-                        break
+                    # The returned buffer is authoritative on BOTH branches: a
+                    # parse function drops garbage or resyncs past a corrupt
+                    # frame by returning less buffer with no message.
                     self._buffer = remaining
+                    if msg is None:
+                        if len(remaining) >= before:
+                            break      # nothing parsed, nothing consumed
+                        continue       # bytes dropped: retry on the remainder
+                    out.append(msg)
+                    if len(remaining) >= before:
+                        break          # no forward progress guard
                 return out
 
             def reset(self):

@@ -1799,6 +1799,29 @@ class MyDriver(BaseDriver):
 > platforms Python bounds remain authoring aids only, so declaring them does
 > not require a `min_platform_version` bump.
 
+> **`required: true` is enforced by the same gate, from platform 0.24.0.**
+> A caller that omits the param (or passes null) is refused with
+> `'<command>': '<param>' is required` before `send_command` runs, so your
+> handler can index `params["output"]` without the `KeyError` surfacing to the
+> user as a generic "Failed to send command". A blank string still counts as
+> supplied. Mark a param required only when the command genuinely cannot run
+> without it — a value your handler would substitute anyway is a `default`, not
+> a requirement. Adding it needs no `min_platform_version` bump (on older
+> platforms it only drew the asterisk beside the input); dropping a
+> `params.get(name, fallback)` that relied on the old permissiveness does.
+
+> **A command name you do not declare is refused, from platform 0.24.0.** When
+> `DRIVER_INFO["commands"]` is a non-empty dict, the dispatch path rejects
+> anything outside it with `Command '<name>' not found on device '<id>'`
+> rather than handing it to your `send_command`. Two consequences. A driver
+> that builds its command set at runtime is judged on the *instance* dict, so
+> populate it before the device reports connected. A driver that deliberately
+> dispatches arbitrary names must leave `commands` empty — an empty set reads
+> as "this driver did not tell us" and the gate stands down. Likewise, a
+> `child_id` param whose `child_type` names a type absent from
+> `child_entity_types` is now refused by name, instead of falling through to
+> integer coercion and blaming the value the user typed.
+
 ### 3.2 Constructor
 
 ```python

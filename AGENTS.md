@@ -2658,12 +2658,52 @@ has no equivalent, so a misspelled key there is invisible until the section it
 belongs to silently does nothing at runtime. `python -m simulator.validate`
 runs the same check before its own parity checks.
 
+It also checks that a driver's declarations agree with each other. Anything in
+a driver that names something else in the same driver has to resolve:
+
+| Reference | Must name |
+|---|---|
+| `commands.*.params.*.child_type` | a key of `child_entity_types` |
+| `actions[].command` (or the entry's `id` when there is no `command`) | a key of `commands` |
+| `quick_actions[]` | a key of `commands` |
+| a `child_id` param's `min` / `max` | a range inside that type's `id_format` |
+
+None of these announces itself at runtime. A typo'd `child_type` falls back to
+plain integer handling at dispatch, so the failure blames the value the user
+typed rather than the driver; an `actions` entry naming no command still
+renders a live button on the device page that fails when pressed.
+
+```
+my_driver.py: error: commands.set_zone_level.params.zone: child_type 'zne' is not a declared child_entity_type (declared: zone)
+my_driver.py: error: actions[3]: command 'query_evrything' is not a declared command
+```
+
 It reports its own coverage too. A `DRIVER_INFO` value built by code rather
 than written as a literal cannot be read from the source, and the keys under it
 go unchecked — those spots are named in a note line rather than passed over, as
 are the two structural checks that need the loaded driver class
 (`run_setup_action` for a `kind: "setup"` action, `set_device_setting` for
 `device_settings`).
+
+The same honesty applies to the references above. When the thing a reference
+points **at** is built at runtime — a driver merging its `commands` in from a
+module constant, or filling them in once the device says what it supports —
+the check cannot decide that reference, so it skips it and names the skip:
+
+```
+my_driver.py: note: cross-reference not checked — 6 action/quick_action reference(s) into commands — commands is only partly visible (15 key(s) read, the rest merged or built at runtime)
+```
+
+That is deliberate. A subset of the target set proves nothing about what is
+missing from it, so reporting a working driver as broken would be worse than
+saying plainly that the check could not run. The skip is always per reference,
+never per driver — everything else in the file is still checked. Write your
+`DRIVER_INFO` as literals wherever it is reasonable and you get the checks;
+compute it and you get a named gap instead.
+
+Catalog CI treats these as **errors**; the runtime loader logs them as
+**warnings**, so a driver already installed keeps working and reports the
+problem rather than vanishing and taking its devices offline with it.
 
 ### 8.1 Writing the test
 

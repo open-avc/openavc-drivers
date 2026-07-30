@@ -419,10 +419,29 @@ for a `DRIVER_INFO` dict, so the command line is the only place a misspelled
 key gets caught before runtime. `python -m simulator.validate` runs the same
 check before its own parity checks, so either command will tell you.
 
+It also checks that your driver's declarations agree with each other. A
+`child_type` on a command parameter has to name a type you declared; an
+`actions` or `quick_actions` entry has to name a command that exists; a
+`child_id` parameter's `min`/`max` have to sit inside that child type's
+`id_format` range:
+
+```
+my_driver.py: error: commands.set_zone_level.params.zone: child_type 'zne' is not a declared child_entity_type (declared: zone)
+my_driver.py: error: actions[3]: command 'query_evrything' is not a declared command
+```
+
+Neither shows up on its own. A misspelled `child_type` makes the runtime treat
+the id as a plain number, so the error a user eventually sees blames the value
+they typed rather than your driver; an action naming no command still draws a
+working-looking button that fails when pressed.
+
 The checker also says what it could **not** read: a `DRIVER_INFO` value built
 by code rather than written as a literal cannot be evaluated from the source,
 and the keys under it go unchecked. Those spots are printed by name rather than
-passed over.
+passed over. The same holds for a reference whose *target* is computed — if
+your driver builds `commands` at runtime, the checker cannot tell whether an
+action's command exists, so it names the skip instead of guessing. A skip is
+not a pass; it tells you which of your declarations went unverified.
 
 ### Python drivers: the validators above only see what you declare
 

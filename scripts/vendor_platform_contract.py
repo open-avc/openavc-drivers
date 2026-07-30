@@ -75,7 +75,12 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
         "server/drivers/python_info.py",
         "scripts/_vendor/python_info.py",
-        (),
+        (
+            (
+                "from server.drivers.avcdriver_semantic import (",
+                "from .avcdriver_semantic import (",
+            ),
+        ),
     ),
     (
         "tests/fixtures/driver_validation_cases.json",

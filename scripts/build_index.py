@@ -56,6 +56,7 @@ from _vendor.python_info import (  # noqa: E402
     ExtractError,
     extract_python_driver_info_full,
     python_driver_info_issues,
+    python_driver_reference_skips,
 )
 from _vendor.spec import (  # noqa: E402
     CATEGORIES,
@@ -1680,6 +1681,7 @@ def main(argv: list[str] | None = None) -> int:
     # from a constant, a call or a comprehension). Reported, never silent:
     # these are exactly the spots the unknown-key check could not cover.
     unevaluated: list[str] = []
+    reference_skips: list[str] = []
     discovery_per_driver: list[tuple[str, str, dict[str, Any]]] = []
     for filepath, data in raw:
         rel = filepath.relative_to(repo_root).as_posix()
@@ -1739,6 +1741,15 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 for spot in opaque_spots:
                     unevaluated.append(f"{rel}: {spot}")
+                # A cross-reference whose TARGET SET is computed cannot be
+                # decided: a driver merging its commands in from a module
+                # constant has a real target the reader cannot see, so "not in
+                # the visible set" would report a working driver as broken.
+                # Those references are skipped, and named here for the same
+                # reason the computed-value note exists — an unexplained skip
+                # and a clean pass look identical from the outside.
+                for skip in python_driver_reference_skips(full_info):
+                    reference_skips.append(f"{rel}: {skip}")
 
         disc_errors, normalized = _validate_discovery_block(
             rel, data, yaml_dir=filepath.parent,
@@ -1762,6 +1773,17 @@ def main(argv: list[str] | None = None) -> int:
             f"Note: {len(unevaluated)} computed value(s) in {by_file} Python "
             f"driver(s) could not be read; keys nested under them are "
             f"unchecked."
+        )
+
+    if reference_skips:
+        # The same posture, for the other half of the coverage story: these
+        # references were not decided because the thing they point AT is built
+        # at runtime, not because they looked fine.
+        by_file = len({skip.split(":", 1)[0] for skip in reference_skips})
+        print(
+            f"Note: {len(reference_skips)} cross-reference group(s) in "
+            f"{by_file} Python driver(s) were not checked; the set they "
+            f"resolve against is computed at runtime."
         )
 
     if errors:

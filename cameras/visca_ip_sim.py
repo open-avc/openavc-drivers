@@ -119,7 +119,7 @@ class VISCAIPSimulator(UDPSimulator):
         "transport": "udp",
         "default_port": 52381,
         "initial_state": {
-            "power": True,
+            "power": "on",
             "pan_position": 0,
             "tilt_position": 0,
             "zoom_position": 0,
@@ -147,7 +147,7 @@ class VISCAIPSimulator(UDPSimulator):
                 "label": "White Balance",
                 "options": ["auto1", "indoor", "outdoor", "one_push", "auto2", "manual"],
             },
-            {"type": "toggle", "key": "power", "label": "Power"},
+            {"type": "power", "key": "power", "label": "Power"},
             {"type": "toggle", "key": "backlight", "label": "Backlight"},
         ],
     }
@@ -221,7 +221,7 @@ class VISCAIPSimulator(UDPSimulator):
 
         # Power: 00 02|03
         if op == 0x00 and len(rest) >= 1:
-            self.set_state("power", rest[0] == 0x02)
+            self.set_state("power", "on" if rest[0] == 0x02 else "standby")
             return _ack_completion()
 
         # Zoom: 07 XX
@@ -379,7 +379,7 @@ class VISCAIPSimulator(UDPSimulator):
 
     def _inquiry_cam(self, op: int) -> bytes:
         if op == 0x00:  # CAM_PowerInq
-            on = bool(self.get_state("power", True))
+            on = self.get_state("power", "on") == "on"
             return b"\x90\x50" + (b"\x02" if on else b"\x03") + b"\xff"
         if op == 0x47:  # zoom position
             return b"\x90\x50" + _encode_4nibble(

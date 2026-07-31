@@ -2584,6 +2584,14 @@ You can scaffold a simulator from a Python driver:
 python -m simulator.scaffold path/to/my_driver.py
 ```
 
+It reads your `DRIVER_INFO` and fills in the state variables, the command list,
+the base class for your transport, a child-entity starting point when you
+declare `child_entity_types`, and your framing when `DRIVER_INFO` declares it.
+Three things it cannot know, so review them: the seeded state values are
+plausible rather than real; the framing is missing if your driver sets it in
+`_transport_kwargs` instead of declaring it; and the enumeration reply for
+child entities is yours to write.
+
 **Simulator documentation:** [`docs/simulator.md`](https://github.com/open-avc/openavc/blob/main/docs/simulator.md), [`openavc-drivers/docs/writing-simulators.md`](https://github.com/open-avc/openavc-drivers/blob/main/docs/writing-simulators.md)
 
 ---

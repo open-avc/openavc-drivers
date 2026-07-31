@@ -169,7 +169,7 @@ class SonyVISCASimulator(UDPSimulator):
         "transport": "udp",
         "default_port": 52381,
         "initial_state": {
-            "power": True,
+            "power": "on",
             "pan_position": 0,
             "tilt_position": 0,
             "zoom_position": 0,
@@ -240,7 +240,7 @@ class SonyVISCASimulator(UDPSimulator):
                 "label": "Tally",
                 "options": list(_TALLY_LEVEL_TO_BYTE.keys()),
             },
-            {"type": "toggle", "key": "power", "label": "Power"},
+            {"type": "power", "key": "power", "label": "Power"},
             {"type": "toggle", "key": "backlight", "label": "Backlight"},
             {"type": "toggle", "key": "defog", "label": "Defog"},
         ],
@@ -316,7 +316,7 @@ class SonyVISCASimulator(UDPSimulator):
         rest = b[1:]
 
         if op == 0x00 and rest:
-            self.set_state("power", rest[0] == 0x02)
+            self.set_state("power", "on" if rest[0] == 0x02 else "standby")
             return _ack_completion()
 
         if op == 0x01 and rest:
@@ -639,7 +639,7 @@ class SonyVISCASimulator(UDPSimulator):
         op = b[0]
 
         if op == 0x00:
-            on = bool(self.get_state("power", True))
+            on = self.get_state("power", "on") == "on"
             return b"\x90\x50" + (b"\x02" if on else b"\x03") + b"\xff"
         if op == 0x01:
             return b"\x90\x50" + (

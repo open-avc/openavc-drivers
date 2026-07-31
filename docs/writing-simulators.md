@@ -501,28 +501,33 @@ python -m simulator.scaffold ../openavc-drivers/displays/samsung_mdc.py
 
 The skeleton includes:
 - Class structure with `SIMULATOR_INFO` populated from your driver's `DRIVER_INFO`
-- All state variables with types and default values
+- All state variables, seeded with plausible starting values
+- Your driver's `delimiter`, when `DRIVER_INFO` declares one
 - All command names listed as reference comments
+- A starting point for child entities, when your driver declares `child_entity_types`
 - Example code showing the pattern
 - The correct base class (`TCPSimulator`, `HTTPSimulator`, or `OSCSimulator`) chosen by transport type
 
-**It is a skeleton, not a first draft — check these three before you go further.**
-It saves the typing, and it cannot know what the device actually does:
+**It is a skeleton, not a first draft — check these three before you go
+further.** It saves the typing, and it cannot know what the device actually
+does:
 
-1. **The delimiter.** The scaffold does not carry your driver's declared
-   `delimiter` into `SIMULATOR_INFO`, and without one the simulator reads raw
-   byte chunks instead of lines (see [Custom Delimiter](#custom-delimiter)). If
-   your protocol is line-framed, add it — otherwise `handle_command` gets
-   whatever happened to arrive in one read, and a command split across two TCP
-   segments will not match anything.
-2. **The initial state.** Every value is seeded with its type's zero — `0`,
-   `False`, `""`. That is the opposite of Best Practice #4 below: a projector
-   with `lamp_hours: 0` and `power: ""` is not a device anybody would recognize
-   on a panel. Replace them with values a real unit would report.
+1. **The framing.** The scaffold copies the `delimiter` your `DRIVER_INFO`
+   declares. If your driver instead sets it in code — `kwargs["delimiter"]`
+   inside `_transport_kwargs`, which most drivers do — nothing declares it, so
+   the scaffold leaves a commented line telling you to fill it in. Without a
+   delimiter the simulator reads raw byte chunks instead of lines (see [Custom
+   Delimiter](#custom-delimiter)), and a command split across two TCP segments
+   will not match anything.
+2. **The initial state.** The values are plausible, not real: an enum starts at
+   its first declared value, a bounded number in the middle of its range, and a
+   few well-known names (lamp hours, model, firmware) at something a unit might
+   report. They are there so you are editing a device instead of a wall of
+   zeros — replace them with what your unit actually reports.
 3. **Child entities.** If your driver declares `child_entity_types`, the
-   scaffold says nothing about them — see [Children in a Python
-   simulator](#children-in-a-python-simulator) for what your simulator owes
-   them.
+   scaffold stubs a roster and a note about what to answer. Filling in the
+   enumeration reply is yours — see [Children in a Python
+   simulator](#children-in-a-python-simulator).
 
 A driver that self-manages a **WebSocket** connection (e.g. LG webOS SSAP) uses
 `WebSocketSimulator` instead. It serves plain `ws://` on localhost — the

@@ -2435,7 +2435,7 @@
       "files": {
         "cameras/visca_ip.py": "15ecd26af3422605cc91700d9aff279c456c428e2fb8eefe2ebd7418682e2cd9",
         "cameras/visca_ip_discovery.py": "a57320d4e6b4dcae81cc416fd342b96b6552605530b4cbce70aa607130302274",
-        "cameras/visca_ip_sim.py": "aaa5326a89b5fe41e848ea437e25e43950765442a198ba035142b201e5e01ba3"
+        "cameras/visca_ip_sim.py": "36a04dcdf1ebde2af3d34b963259d48351aa497612f24bf5fbba1b2c5ffa951b"
       },
       "ports": [
         52381
@@ -5406,7 +5406,7 @@
       "format": "python",
       "files": {
         "cameras/sony_visca.py": "dc5e54571f0b343af701250ed18b28556768e8137e506084ee6110be137bf568",
-        "cameras/sony_visca_sim.py": "8afd950a246cf3813763bd4a2122d4e61f76d9d333bcb4f24e4b846efdb596a9"
+        "cameras/sony_visca_sim.py": "6210dbacb5d54db7b304747ca2419a239811afbed80b902fa32bd62a1037f289"
       },
       "ports": [
         52381

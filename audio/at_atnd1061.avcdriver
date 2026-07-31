@@ -60,10 +60,12 @@
 #      on_connect arms the general flag; meters and talker position stay behind
 #      config switches because both are firehoses (see 5).
 #
-#   5. level_meter_notice and camera_control_notice each stream at ~16 frames
-#      per second at their factory 100 ms interval, continuously, whether or
-#      not anything is happening. Both are opt-in and both intervals are
-#      configurable; the defaults here are 500 ms rather than the device's 100.
+#   5. level_meter_notice and camera_control_notice each stream at ~10 frames
+#      per second at their factory 100 ms interval (measured 9.6-10.0/s),
+#      continuously, whether or not anything is happening. Both are opt-in and
+#      both intervals are configurable; the defaults here are 500 ms rather
+#      than the device's 100. Each also has a runtime command pair, so a panel
+#      can arm the stream only while a meter or camera page is open.
 #
 #   6. Field counts accepted by each Set were confirmed by writing one field
 #      and reading the record back: s_input_channel_settings 29 (the device
@@ -77,7 +79,11 @@
 #      always sends all three.
 #
 #   8. s_header_color really does have a sparse value set — 0, 1, 3, 4, 5 and 8
-#      are accepted; 2, 6 and 7 answer NAK 04.
+#      are accepted; 2, 6 and 7 answer NAK 04. Note what it actually is: the
+#      spec calls it "Device Color Setting", an identification colour shown for
+#      the unit in Digital Microphone Manager. It does NOT touch the ring
+#      indicator, and labelling it as the indicator (v1.0.0 did) is wrong — see
+#      12 for the command that does.
 #
 #   9. Gain Share (s_smart_mix / g_smart_mix) takes a beam channel parameter;
 #      without one it answers NAK 04. It covers beams only (wire 0-5), not the
@@ -88,12 +94,31 @@
 #      g_input_gain_level that the Set command treats as reserved.
 #
 #  11. Max 5 simultaneous TCP connections.
+#
+#  12. s_led / g_led is MISSING FROM THE SPEC'S COMMAND LIST (table 3-1 jumps
+#      s_log -> s_remotecontrol) and exists only in the detail section. It is
+#      the real ring indicator: Dimmer, Reserved, then three separate colours —
+#      Power Save, Mute and Unmute — each 0-10 (Black, Red, Orange, Yellow,
+#      Pink, Purple, Blue, Aqua, Green, Cyan, White). Verified on hardware:
+#      answers "0,,9,1,8" at factory (dimmer off, power save Cyan, mute Red,
+#      unmute Green), honours omitted-parameter writes, and NAKs 04 above 10.
+#      Building from the command list alone misses it entirely.
+#
+#  13. camera_control_notice has THREE shapes, not two, and the third is the
+#      one that matters for automation:
+#        1,0,32,53,1   talker in a beam       (channel is the WIRE id, 0-5)
+#        1,,20,48,1    talker outside a beam  (channel omitted)
+#        0,,,,1        nobody talking         (channel, elevation, rotation
+#                                              ALL omitted)
+#      v1.0.0 matched only the first two, so talker_active latched at 1 after
+#      the first talker and never went back to 0 — the "room went quiet" event
+#      a camera-home macro needs never fired. All three are matched below.
 
 id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -102,9 +127,10 @@ description: >
   channels and the analog input are child entities carrying fader, mute, gain,
   gain-share weight and live meters, labelled by the names set on the
   microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto
-  attenuation, Voice Lift and camera interlock are all controllable, and the
-  microphone's talker-position reporting can be surfaced as state for camera
-  automation.
+  attenuation, Voice Lift, the ring indicator colours and the camera interlock
+  are all controllable, and the microphone's talker-position reporting can be
+  surfaced as state for camera automation. Live meters and talker position can
+  each be switched on and off at runtime from a macro or panel button.
 
 source_url: https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_V4_EN_web_240114.pdf
 tags: [microphone, ceiling-mic, beamforming, array, conferencing, dante, automixer, camera-tracking]
@@ -157,9 +183,12 @@ help:
        notices are filtered, control still works and changes appear at the poll
        interval instead.
     6. Live Level Meters and Talker Position are both off by default. Each one
-       makes the microphone stream continuously (about 16 updates per second at
+       makes the microphone stream continuously (about 10 updates per second at
        the factory interval), so turn them on only if you bind them, and raise
-       the matching interval if you want less traffic.
+       the matching interval if you want less traffic. The settings here decide
+       what happens on connect; the Level Meters On/Off and Talker Position
+       On/Off commands switch them at runtime, so a panel can start the stream
+       when a meter page opens and stop it when the page closes.
     7. A factory-fresh microphone has all notifications disabled. OpenAVC turns
        on the ones it needs when it connects; nothing needs to be enabled by
        hand first.
@@ -276,9 +305,10 @@ config_schema:
     max: 300000
     label: Meter Interval (ms)
     help: >
-      How often the microphone sends level meters. Only applied while Enable
-      Level Meters is on. The microphone's own default is 100 ms, which is
-      about 16 updates a second; 500 ms is plenty for a panel meter.
+      How often the microphone sends level meters. Applied on connect while
+      Enable Level Meters is on; the Set Meter Interval command changes it at
+      runtime. The microphone's own default is 100 ms, which is about 10
+      updates a second; 500 ms is plenty for a panel meter.
   enable_talker_position:
     type: boolean
     default: false
@@ -295,8 +325,9 @@ config_schema:
     max: 300000
     label: Talker Position Interval (ms)
     help: >
-      How often the microphone reports talker position. Only applied while
-      Enable Talker Position is on. The microphone's own default is 100 ms.
+      How often the microphone reports talker position. Applied on connect
+      while Enable Talker Position is on; the Set Talker Position Interval
+      command changes it at runtime. The microphone's own default is 100 ms.
 
 # Join the microphone's notice group while connected. MD frames feed the
 # response rules below; only frames from this device's own address are
@@ -415,7 +446,7 @@ child_entity_types:
         min: 0
         max: 61
         cloud_priority: low
-        help: "Post-fader level meter. Updates only while Enable Level Meters is on."
+        help: "Post-fader level meter. Updates only while level meters are on."
       gain_share_meter:
         type: integer
         label: Gain Share Meter
@@ -465,7 +496,7 @@ child_entity_types:
         min: 0
         max: 61
         cloud_priority: low
-        help: "Output level meter. Updates only while Enable Level Meters is on."
+        help: "Output level meter. Updates only while level meters are on."
 
 state_variables:
   firmware_version:
@@ -601,19 +632,66 @@ state_variables:
     min: 0
     max: 61
     cloud_priority: low
-    help: "Updates only while Enable Level Meters is on."
+    help: "Updates only while level meters are on."
   aec_erl_meter:
     type: integer
     label: AEC (ERL) Meter
     min: 0
     max: 60
     cloud_priority: low
-    help: "Echo return loss. Updates only while Enable Level Meters is on."
+    help: "Echo return loss. Updates only while level meters are on."
+  # The protocol name is kept as the state key so existing bindings keep
+  # working, but this is the DEVICE colour, not the indicator — see below.
   header_color:
     type: enum
     values: ["Green", "Yellow", "Red", "Pink", "Blue", "Cyan"]
-    label: Indicator Colour
-    help: "Colour of the microphone's ring indicator."
+    label: Device Colour
+    help: >
+      Identification colour for this microphone in Audio-Technica's Digital
+      Microphone Manager and the microphone's own web interface. It does not
+      change the ring indicator — the Unmute, Mute and Power Save Colour
+      settings do that.
+
+  indicator_dimmer:
+    type: boolean
+    label: Indicator Dimmer
+    help: "True when the ring indicator is dimmed."
+  indicator_unmute_color:
+    type: enum
+    values: ["Black", "Red", "Orange", "Yellow", "Pink", "Purple", "Blue", "Aqua", "Green", "Cyan", "White"]
+    label: Unmute Colour
+    help: "Ring indicator colour while the microphone is live."
+  indicator_mute_color:
+    type: enum
+    values: ["Black", "Red", "Orange", "Yellow", "Pink", "Purple", "Blue", "Aqua", "Green", "Cyan", "White"]
+    label: Mute Colour
+    help: "Ring indicator colour while the microphone is muted."
+  indicator_powersave_color:
+    type: enum
+    values: ["Black", "Red", "Orange", "Yellow", "Pink", "Purple", "Blue", "Aqua", "Green", "Cyan", "White"]
+    label: Power Save Colour
+    help: "Ring indicator colour while the microphone is in power save mode."
+
+  camera_device_enabled:
+    type: boolean
+    label: Camera Interlock Enabled
+    help: >
+      True when the microphone is configured to drive a camera itself. It moves
+      the camera on its own when this is on, independently of OpenAVC — use
+      Pause Camera Interlock if OpenAVC should take over.
+  camera_device_host:
+    type: string
+    label: Camera IP Address
+    help: "Camera the microphone drives directly (blank if none is configured)."
+  camera_device_port:
+    type: integer
+    label: Camera Port
+    min: 1
+    max: 65535
+  camera_device_protocol:
+    type: enum
+    values: ["Panasonic", "VISCA over IP"]
+    label: Camera Protocol
   bootup_preset:
     type: integer
     label: Boot-Up Preset
@@ -625,8 +703,10 @@ state_variables:
     label: Talker Active
     cloud_priority: high
     help: >
-      True while the microphone is hearing a talker. Updates only while Enable
-      Talker Position is on.
+      True while the microphone is hearing a talker, false when the room goes
+      quiet — bind a trigger to the false edge to send a camera home. Updates
+      only while talker position is on (the Enable Talker Position setting, or
+      the Talker Position On command).
   talker_channel:
     type: integer
     label: Talker Beam Channel
@@ -643,7 +723,10 @@ state_variables:
     max: 90
     unit: deg
     cloud_priority: low
-    help: "Elevation angle of the talker. Updates only while Enable Talker Position is on."
+    help: >
+      Elevation angle of the talker. Holds the last known angle when nobody is
+      talking (the microphone stops sending one), so guard on Talker Active.
+      Updates only while talker position is on.
   talker_rotation:
     type: integer
     label: Talker Rotation
@@ -651,7 +734,10 @@ state_variables:
     max: 360
     unit: deg
     cloud_priority: low
-    help: "Rotation angle of the talker. Updates only while Enable Talker Position is on."
+    help: >
+      Rotation angle of the talker. Holds the last known angle when nobody is
+      talking (the microphone stops sending one), so guard on Talker Active.
+      Updates only while talker position is on.
   talker_camera_area:
     type: integer
     label: Talker Camera Area
@@ -660,7 +746,7 @@ state_variables:
     help: >
       Camera area the talker is standing in (0 = none), as laid out in the
       microphone's web interface. Bind a trigger to this to drive camera
-      presets. Updates only while Enable Talker Position is on.
+      presets. Updates only while talker position is on.
   camera_recall_time:
     type: integer
     label: Camera Preset Recall Delay
@@ -1080,6 +1166,75 @@ commands:
         min: 500
         max: 100000
 
+  # ── Live feeds, switchable at runtime ──
+  # The config switches above decide what is armed on connect; these turn the
+  # same two flags on and off while the device is running, so a panel can pay
+  # for the stream only while it is on screen. Each write sets only its own
+  # field of s_network and leaves the other 19 alone (verified on hardware:
+  # Set index 6/7/19 lands on answer index 7/8/20).
+  meters_on:
+    label: Level Meters On
+    send: 's_network S 0000 00 NC ,,,,,,,1,,,,,,,,,,,, \r'
+    help: >
+      Start the live level-meter stream. The microphone then sends meters
+      continuously whether or not there is any sound, so pair this with Level
+      Meters Off when the meter page closes.
+
+  meters_off:
+    label: Level Meters Off
+    send: 's_network S 0000 00 NC ,,,,,,,0,,,,,,,,,,,, \r'
+    help: "Stop the live level-meter stream. Meter values stop updating."
+
+  set_meter_interval:
+    label: Set Meter Interval
+    send: 's_level_meter_interval S 0000 00 NC {interval} \r'
+    help: "How often the microphone sends level meters, in milliseconds."
+    params:
+      interval:
+        type: integer
+        required: true
+        label: Interval (ms)
+        min: 100
+        max: 300000
+
+  talker_position_on:
+    label: Talker Position On
+    send: 's_network S 0000 00 NC ,,,,,,,,,,,,,,,,,,,1 \r'
+    help: >
+      Start talker-position reporting, which drives Talker Active, Talker Beam
+      Channel and Talker Camera Area. The microphone streams continuously once
+      this is on.
+
+  talker_position_off:
+    label: Talker Position Off
+    send: 's_network S 0000 00 NC ,,,,,,,,,,,,,,,,,,,0 \r'
+    help: "Stop talker-position reporting."
+
+  set_talker_interval:
+    label: Set Talker Position Interval
+    send: 's_camera_control_interval S 0000 00 NC {interval} \r'
+    help: "How often the microphone reports talker position, in milliseconds."
+    params:
+      interval:
+        type: integer
+        required: true
+        label: Interval (ms)
+        min: 100
+        max: 300000
+
+  pause_camera_interlock:
+    label: Pause Camera Interlock
+    send: 's_camera_stop S 0000 00 NC 1 \r'
+    help: >
+      Stop the microphone moving its own camera. Use this when OpenAVC should
+      drive the camera from Talker Camera Area instead. Has no effect unless a
+      camera is configured on the microphone.
+
+  resume_camera_interlock:
+    label: Resume Camera Interlock
+    send: 's_camera_stop S 0000 00 NC 0 \r'
+    help: "Let the microphone move its own camera again."
+
   refresh:
     label: Refresh From Device
     send: 'g_firmware_version O 0000 00 NC \r'
@@ -1297,6 +1452,9 @@ device_settings:
     write:
       send: 's_voicelift_channel_settings S 0000 00 NC ,,{value:d},, \r'
 
+  # Device colour — the badge colour in Digital Microphone Manager. NOT the
+  # ring indicator; that is the three s_led colours below. The microphone
+  # accepts only these six values (2, 6 and 7 answer NAK 04).
   header_color:
     type: enum
     values:
@@ -1306,15 +1464,98 @@ device_settings:
       - { value: "4", label: "Pink" }
       - { value: "5", label: "Blue" }
       - { value: "8", label: "Cyan" }
-    label: Indicator Colour
+    label: Device Colour
     help: >
-      Colour of the microphone's ring indicator. The microphone accepts only
-      these six values.
+      Identification colour for this microphone in Audio-Technica's Digital
+      Microphone Manager and its own web interface. This does not change the
+      ring indicator — use the Unmute, Mute and Power Save Colour settings for
+      that.
     state_key: header_color
     default: "0"
     setup: false
     write:
       send: 's_header_color S 0000 00 NC {value} \r'
+
+  # ── Ring indicator (s_led): dimmer plus one colour per state ──
+  # Field order is Dimmer, Reserved, Power Save, Mute, Unmute. Each write
+  # touches only its own field.
+  indicator_unmute_color:
+    type: enum
+    values:
+      - { value: "0", label: "Black (off)" }
+      - { value: "1", label: "Red" }
+      - { value: "2", label: "Orange" }
+      - { value: "3", label: "Yellow" }
+      - { value: "4", label: "Pink" }
+      - { value: "5", label: "Purple" }
+      - { value: "6", label: "Blue" }
+      - { value: "7", label: "Aqua" }
+      - { value: "8", label: "Green" }
+      - { value: "9", label: "Cyan" }
+      - { value: "10", label: "White" }
+    label: Unmute Colour
+    help: "Ring indicator colour while the microphone is live. Factory is Green."
+    state_key: indicator_unmute_color
+    default: "8"
+    setup: false
+    write:
+      send: 's_led S 0000 00 NC ,,,,{value} \r'
+
+  indicator_mute_color:
+    type: enum
+    values:
+      - { value: "0", label: "Black (off)" }
+      - { value: "1", label: "Red" }
+      - { value: "2", label: "Orange" }
+      - { value: "3", label: "Yellow" }
+      - { value: "4", label: "Pink" }
+      - { value: "5", label: "Purple" }
+      - { value: "6", label: "Blue" }
+      - { value: "7", label: "Aqua" }
+      - { value: "8", label: "Green" }
+      - { value: "9", label: "Cyan" }
+      - { value: "10", label: "White" }
+    label: Mute Colour
+    help: "Ring indicator colour while the microphone is muted. Factory is Red."
+    state_key: indicator_mute_color
+    default: "1"
+    setup: false
+    write:
+      send: 's_led S 0000 00 NC ,,,{value}, \r'
+
+  indicator_powersave_color:
+    type: enum
+    values:
+      - { value: "0", label: "Black (off)" }
+      - { value: "1", label: "Red" }
+      - { value: "2", label: "Orange" }
+      - { value: "3", label: "Yellow" }
+      - { value: "4", label: "Pink" }
+      - { value: "5", label: "Purple" }
+      - { value: "6", label: "Blue" }
+      - { value: "7", label: "Aqua" }
+      - { value: "8", label: "Green" }
+      - { value: "9", label: "Cyan" }
+      - { value: "10", label: "White" }
+    label: Power Save Colour
+    help: >
+      Ring indicator colour while the microphone is in power save mode.
+      Factory is Cyan.
+    state_key: indicator_powersave_color
+    default: "9"
+    setup: false
+    write:
+      send: 's_led S 0000 00 NC ,,{value},, \r'
+
+  indicator_dimmer:
+    type: boolean
+    label: Indicator Dimmer
+    help: "Dim the ring indicator. Useful in a dark room."
+    state_key: indicator_dimmer
+    default: false
+    setup: false
+    write:
+      send: 's_led S 0000 00 NC {value:d},,,, \r'
 
   bootup_preset:
     type: integer
@@ -1374,11 +1615,16 @@ responses:
   # Value maps on a regex response use the verbose mappings: form — a
   # {group, map} spec inside set: is only read by json: true rules, and would
   # otherwise be stored verbatim as a dict.
-  - match: 'g_audio_system \S+ \S+ \S+ [^,]*,[^,]*,[^,]*,[^,]*,([01]?),([012]?),([01]?),(\d*),(\d*)'
-    set:
-      auto_attenuation: "$3"
-      attenuation_level: "$4"
-      hold_time: "$5"
+  #
+  # EVERY captured value on a rule that needs a map has to live in mappings:
+  # too. The runtime reads set: only when mappings: is absent
+  # (compiled_protocol.py: `if not mappings and "set" in resp`), so a rule
+  # carrying both silently drops its whole set: half — no warning, no log line,
+  # the state variables simply keep their startup values. v1.0.0 had that here
+  # and auto_attenuation, attenuation_level and hold_time never once reflected
+  # the microphone. Hence the explicit type: on each entry: a mappings: entry
+  # defaults to type string, unlike set:, which infers the declared type.
+  - match: 'g_audio_system \S+ \S+ \S+ [^,]*,[^,]*,[^,]*,[^,]*,([01]),([012]),([01]),(\d+),(\d+)'
     mappings:
       - group: 1
         state: dante_tx6
@@ -1386,15 +1632,13 @@ responses:
       - group: 2
         state: beam_sensitivity
         map: { "0": "Low", "1": "Mid", "2": "High" }
+      - { group: 3, state: auto_attenuation, type: boolean }
+      - { group: 4, state: attenuation_level, type: integer }
+      - { group: 5, state: hold_time, type: integer }
 
   # AEC: enable, reference, ... noise-cancel level (8), NLP enable (9),
   # NLP sensitivity (10), ... NC enable (12).
-  - match: 'g_aec_general \S+ \S+ \S+ ([01]?),([01]?),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,(\d*),([01]?),([012]?),[^,]*,([01]?)'
-    set:
-      aec_enabled: "$1"
-      noise_cancel_level: "$3"
-      nlp_enabled: "$4"
-      noise_cancel_enabled: "$6"
+  - match: 'g_aec_general \S+ \S+ \S+ ([01]),([01]),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,(\d+),([01]),([012]),[^,]*,([01])'
     mappings:
       - group: 2
         state: aec_reference
@@ -1402,6 +1646,10 @@ responses:
       - group: 5
         state: nlp_sensitivity
         map: { "0": "Low", "1": "Mid", "2": "High" }
+      - { group: 1, state: aec_enabled, type: boolean }
+      - { group: 3, state: noise_cancel_level, type: integer }
+      - { group: 4, state: nlp_enabled, type: boolean }
+      - { group: 6, state: noise_cancel_enabled, type: boolean }
 
   - match: 'g_agc \S+ \S+ \S+ ([01]?),[^,]*,(-?\d*)'
     set:
@@ -1429,6 +1677,35 @@ responses:
       - group: 1
         state: header_color
         map: { "0": "Green", "1": "Yellow", "3": "Red", "4": "Pink", "5": "Blue", "8": "Cyan" }
+
+  # Ring indicator. Field 2 is reserved and always comes back empty, so it is
+  # skipped rather than captured. The three colours are always present.
+  - match: 'g_led \S+ \S+ \S+ ([01]),[^,]*,(\d+),(\d+),(\d+)'
+    mappings:
+      - { group: 1, state: indicator_dimmer, type: boolean }
+      - group: 2
+        state: indicator_powersave_color
+        map: { "0": "Black", "1": "Red", "2": "Orange", "3": "Yellow", "4": "Pink", "5": "Purple", "6": "Blue", "7": "Aqua", "8": "Green", "9": "Cyan", "10": "White" }
+      - group: 3
+        state: indicator_mute_color
+        map: { "0": "Black", "1": "Red", "2": "Orange", "3": "Yellow", "4": "Pink", "5": "Purple", "6": "Blue", "7": "Aqua", "8": "Green", "9": "Cyan", "10": "White" }
+      - group: 4
+        state: indicator_unmute_color
+        map: { "0": "Black", "1": "Red", "2": "Orange", "3": "Yellow", "4": "Pink", "5": "Purple", "6": "Blue", "7": "Aqua", "8": "Green", "9": "Cyan", "10": "White" }
+
+  # Camera the microphone drives itself. The IP field is empty when no camera
+  # is configured, so it is matched as [^,]* and stored as a blank string. Port
+  # is (\d+) not (\d*) on purpose: an empty capture would write "" into an
+  # integer state variable, which the runtime logs as a coercion error every
+  # poll. Better to skip the whole readout than to write junk.
+  - match: 'g_camera_device \S+ \S+ \S+ \d+,([01]),([^,]*),(\d+),([01])'
+    mappings:
+      - { group: 1, state: camera_device_enabled, type: boolean }
+      - { group: 2, state: camera_device_host, type: string }
+      - { group: 3, state: camera_device_port, type: integer }
+      - group: 4
+        state: camera_device_protocol
+        map: { "0": "Panasonic", "1": "VISCA over IP" }
 
   - match: 'g_bootup_preset \S+ \S+ \S+ (\d+)'
     set: { bootup_preset: "$1" }
@@ -1572,23 +1849,32 @@ responses:
   - match: 'MD powersave_notice \S+ \S+ \S+ ([01])'
     set: { power_save: "$1" }
 
-  # Talker position. The channel field carries the WIRE channel (0-5 = Beam
-  # Channel 1-6) and is left empty when the talker is outside every beam, so
-  # the two shapes are separate rules: the first maps the wire value onto the
-  # beam number the child entities use, the second reports beam 0 for "none".
-  # Reporting the raw wire value here would name the beam one too low and
-  # point a camera at the wrong preset.
+  # Talker position — THREE shapes, all captured on hardware:
+  #   1,0,32,53,1   talker in a beam      channel is the WIRE id (0-5)
+  #   1,,20,48,1    talker outside a beam channel omitted
+  #   0,,,,1        nobody talking        channel, elevation, rotation omitted
+  #
+  # The wire channel is mapped onto the beam number the child entities use;
+  # reporting it raw would name the beam one too low and point a camera at the
+  # wrong preset.
+  #
+  # The third rule is what makes "the room went quiet" observable. Without it
+  # nothing matches the idle frame, so talker_active latches at 1 after the
+  # first talker and a camera-return-home trigger never fires. It deliberately
+  # does NOT touch elevation and rotation: the microphone omits them rather
+  # than sending zero, so they hold the last known position instead of
+  # pretending the talker moved to 0,0. Guard on talker_active.
   - match: 'MD camera_control_notice \S+ \S+ \S+ ([01]),([0-5]),(\d+),(\d+),(\d+)'
     throttle: 0.25
-    set:
-      talker_active: "$1"
-      talker_elevation: "$3"
-      talker_rotation: "$4"
-      talker_camera_area: "$5"
     mappings:
       - group: 2
         state: talker_channel
+        type: integer
         map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6 }
+      - { group: 1, state: talker_active, type: boolean }
+      - { group: 3, state: talker_elevation, type: integer }
+      - { group: 4, state: talker_rotation, type: integer }
+      - { group: 5, state: talker_camera_area, type: integer }
   - match: 'MD camera_control_notice \S+ \S+ \S+ ([01]),,(\d+),(\d+),(\d+)'
     throttle: 0.25
     set:
@@ -1597,6 +1883,12 @@ responses:
       talker_elevation: "$2"
       talker_rotation: "$3"
       talker_camera_area: "$4"
+  - match: 'MD camera_control_notice \S+ \S+ \S+ 0,,,,(\d+)'
+    throttle: 0.25
+    set:
+      talker_active: "0"
+      talker_channel: "0"
+      talker_camera_area: "$1"
 
   # Level meters: 42 comma-separated values. Post-fader beams 1-6 and the
   # analog input are fields 1-7, Analog Out / Auto Mix / Voice Lift are 13-15,
@@ -1662,8 +1954,10 @@ polling:
     - 'g_voicelift O 0000 00 NC \r'
     - 'g_voicelift_channel_settings O 0000 00 NC \r'
     - 'g_header_color O 0000 00 NC \r'
+    - 'g_led O 0000 00 NC \r'
     - 'g_dante_tx5 O 0000 00 NC \r'
     - 'g_camera_control O 0000 00 NC \r'
+    - 'g_camera_device O 0000 00 NC 1 \r'
     - 'g_input_gain_level O 0000 00 NC 0 \r'
     - 'g_input_gain_level O 0000 00 NC 1 \r'
     - 'g_input_gain_level O 0000 00 NC 2 \r'
@@ -1748,6 +2042,15 @@ simulator:
     voice_lift_fader: 411
     voice_lift_mute: 0
     header_color: 0
+    led_dimmer: 0
+    led_powersave: 9
+    led_mute: 1
+    led_unmute: 8
+    camera_enabled: 0
+    camera_host: ""
+    camera_port: 52381
+    camera_protocol: 1
+    camera_paused: 0
     notifications_armed: 0
     meters_armed: 0
     talker_notices_armed: 0
@@ -1981,6 +2284,44 @@ simulator:
             respond("s_header_color ACK \r")
         else:
             respond("s_header_color NAK 04 \r")
+
+    # Ring indicator. Field 2 is reserved and stays empty, matching hardware.
+    - match: 'g_led O 0000 00 NC '
+      handler: |
+        respond(
+            f"g_led 0000 00 NC {state['led_dimmer']},,{state['led_powersave']},"
+            f"{state['led_mute']},{state['led_unmute']} \r"
+        )
+    # Honours omitted parameters and NAKs 04 out of range, as the hardware does.
+    - match: 's_led S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        pending = {}
+        bad = False
+        for idx, key, hi in ((0, "led_dimmer", 1), (2, "led_powersave", 10),
+                             (3, "led_mute", 10), (4, "led_unmute", 10)):
+            if idx < len(f) and f[idx] != "":
+                if f[idx].isdigit() and int(f[idx]) <= hi:
+                    pending[key] = int(f[idx])
+                else:
+                    bad = True
+        if bad:
+            respond("s_led NAK 04 \r")
+        else:
+            state.update(pending)
+            respond("s_led ACK \r")
+
+    - match: 'g_camera_device O 0000 00 NC (\d+)'
+      handler: |
+        respond(
+            f"g_camera_device 0000 00 NC {match.group(1)},"
+            f"{state['camera_enabled']},{state['camera_host']},"
+            f"{state['camera_port']},{state['camera_protocol']} \r"
+        )
+    - match: 's_camera_stop S 0000 00 NC ([01])'
+      handler: |
+        state["camera_paused"] = int(match.group(1))
+        respond("s_camera_stop ACK \r")
 
     - match: 'g_dante_tx5 O 0000 00 NC '
       handler: |

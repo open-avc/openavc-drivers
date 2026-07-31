@@ -839,6 +839,8 @@ SIMULATOR_INFO = {
 
 The simulator mints a throwaway certificate at startup, serves the same scheme the real device serves, and deletes the certificate when it stops. It accepts but never requires a client certificate, so a driver that presents one connects cleanly. Supported by `HTTPSimulator` and `MQTTSimulator`. Set the driver's verification option off (`verify_ssl: false`) exactly as an installer would for the real device.
 
+**YAML HTTP drivers get this without asking.** A `.avcdriver` whose resolved config says `ssl: true` is served over https by its auto-generated simulator — there is no `tls:` key to write, because the driver already said which scheme it speaks. The device also keeps that scheme while it is simulated: certificate verification is what gets turned off for the duration, not TLS. So an HTTPS-only device (a ClickShare, a Hue bridge) connects to its simulator through exactly the code path it uses against the real hardware, and `verify_ssl: false` in the driver's own defaults is all it takes.
+
 ### Custom Push Messages
 
 TCP, UDP, and OSC simulators with `push_state: true` in their `SIMULATOR_INFO` push state changes to connected drivers when `set_state()` is called. For protocols that need additional unsolicited messages beyond state changes (subscription-based updates, tally notifications, etc.), use `push()`:

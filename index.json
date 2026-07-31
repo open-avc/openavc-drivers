@@ -815,7 +815,7 @@
       "name": "Audio-Technica ATND1061",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation. Live meters and talker position can each be switched on and off at runtime from a macro or panel button.\n",
@@ -823,7 +823,7 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "203e1616587a32a11cccae7e281c172c9687a6a18633995a67deed22023a1ae1"
+        "audio/at_atnd1061.avcdriver": "71082f023e968ecfd8c54b7822c133e1c80cf81b676a9b35887acd5458a4a880"
       },
       "ports": [
         17300

@@ -118,7 +118,7 @@ id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.1.0
+version: 1.2.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -1569,11 +1569,39 @@ device_settings:
     write:
       send: 's_bootup_preset S 0000 00 NC {value} \r'
 
+# Quick Action buttons on the device view. The mute, meter and talker pairs
+# are each declared twice and gated on the state they set, so only the one that
+# does something shows — a single "Level Meters On" that becomes "Level Meters
+# Off" once armed, rather than two buttons where one is always a no-op. All
+# three flags are read back from the microphone, so the buttons follow the
+# device even when its web interface or another controller changes them.
+#
+# How fast a button flips depends on how its flag gets back, and the two cases
+# differ sharply here. device_mute has a multicast notice, so it flips as soon
+# as the microphone says so (sub-second, confirmed in the device view).
+# meters_armed and talker_notices_armed have no notice at all — they arrive
+# only on the next g_network poll, so those flip up to poll_interval later. The
+# action's own "done" toast is the immediate feedback; the button reports the
+# device, not the click, and is deliberately not updated optimistically.
 actions:
   - id: device_mute_on
     icon: mic-off
+    visible_when: { key: "device.$id.device_mute", operator: falsy }
   - id: device_mute_off
     icon: mic
+    visible_when: { key: "device.$id.device_mute", operator: truthy }
+  - id: meters_on
+    icon: eye
+    visible_when: { key: "device.$id.meters_armed", operator: falsy }
+  - id: meters_off
+    icon: eye-off
+    visible_when: { key: "device.$id.meters_armed", operator: truthy }
+  - id: talker_position_on
+    icon: crosshair
+    visible_when: { key: "device.$id.talker_notices_armed", operator: falsy }
+  - id: talker_position_off
+    icon: crosshair
+    visible_when: { key: "device.$id.talker_notices_armed", operator: truthy }
   - id: recall_preset
     icon: bookmark
   - id: identify

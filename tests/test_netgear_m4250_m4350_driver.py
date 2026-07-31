@@ -647,3 +647,99 @@ def test_enable_ssh_forced_change_without_new_password_errors():
         finally:
             restore()
     asyncio.run(run())
+
+
+# ── telemetry is drivable from the simulator ──
+#
+# The values behind these were constants inside the simulator's render
+# functions, so the switch's whole reason for being on a control system --
+# knowing a fan died, a PSU dropped, the PoE budget ran out -- could not be
+# rehearsed: a macro watching for it had nothing to watch. They live in
+# simulator state now, and these prove the whole path, from a key set on the
+# simulator to the value the driver publishes.
+
+
+def test_a_fan_failure_reaches_the_driver():
+    async def s(d, state, sim):
+        await d.poll()
+        await d._poll_slow()
+        assert state.get(_k("fan_status")) == "OK"
+
+        sim.set_state("fan_state", "Failed")
+        await d.poll()
+        await d._poll_slow()
+
+        assert state.get(_k("fan_status")) == "1 of 1 not OK"
+    _scenario(s)
+
+
+def test_an_over_temperature_reaches_the_driver():
+    async def s(d, state, sim):
+        await d.poll()
+        await d._poll_slow()
+
+        sim.set_state("temperature_c", 78)
+        sim.set_state("temperature_state", "Warning")
+        await d.poll()
+        await d._poll_slow()
+
+        assert state.get(_k("temperature_c")) == 78
+        assert state.get(_k("temperature_state")) == "Warning"
+    _scenario(s)
+
+
+def test_a_psu_dropping_out_of_redundancy_reaches_the_driver():
+    async def s(d, state, sim):
+        await d.poll()
+        await d._poll_slow()
+        assert state.get(_k("psu_redundancy")) == "Active"
+
+        sim.set_state("psu_state", "Failed")
+        sim.set_state("psu_redundancy_active", False)
+        await d.poll()
+        await d._poll_slow()
+
+        assert state.get(_k("psu_status")) != "OK"
+        assert state.get(_k("psu_redundancy")) != "Active"
+    _scenario(s)
+
+
+def test_the_poe_budget_and_controller_state_are_drivable():
+    async def s(d, state, sim):
+        await d.poll()
+        assert state.get(_k("poe_total_power_w")) == 720.0
+        assert state.get(_k("poe_status")) == "ON"
+
+        sim.set_state("poe_total_power_w", 380.0)
+        sim.set_state("poe_main_status", "OFF")
+        await d.poll()
+
+        assert state.get(_k("poe_total_power_w")) == 380.0
+        assert state.get(_k("poe_status")) == "OFF"
+    _scenario(s)
+
+
+def test_identity_comes_from_simulator_state_not_a_hardcoded_banner():
+    async def s(d, state, sim):
+        sim.set_state("serial_number", "9ZZ99Z9Z9Z9Z9")
+        sim.set_state("system_name", "AV-EDGE-SW7")
+        sim.set_state("uptime", "3 days 1 hrs 2 mins 3 secs")
+        await d._detect_family()
+
+        assert state.get(_k("serial_number")) == "9ZZ99Z9Z9Z9Z9"
+        assert state.get(_k("system_name")) == "AV-EDGE-SW7"
+        assert state.get(_k("uptime")) == "3 days 1 hrs 2 mins 3 secs"
+    _scenario(s)
+
+
+def test_cpu_and_memory_are_drivable():
+    async def s(d, state, sim):
+        sim.set_state("cpu_5s", 91.5)
+        sim.set_state("mem_free_kb", 134217728)
+        await d.poll()
+        await d._poll_slow()
+
+        assert state.get(_k("cpu_util_5s")) == 91.5
+        # The driver reports KB; the simulator's report is in bytes.
+        assert state.get(_k("mem_free_kb")) == 134217728 // 1024
+    _scenario(s)

@@ -3852,7 +3852,7 @@
       "name": "NETGEAR M4250 / M4350 AV Line Switch",
       "manufacturer": "NETGEAR",
       "category": "utility",
-      "version": "1.4.4",
+      "version": "1.4.5",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
@@ -3860,8 +3860,8 @@
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
       "files": {
-        "utility/netgear_m4250_m4350.py": "7aa80da42e969b5c9211c12cf1ed20f4cf23b6a017eef3677f080118a46f8716",
-        "utility/netgear_m4250_m4350_sim.py": "cb1cb4a26ae97084c565c10a59e1a92c519cbb97d85053ec49de927c1728bdf4"
+        "utility/netgear_m4250_m4350.py": "aa6d34c45a2ad37d5e8b676929bc565a54ce7fe0e809ce8701a6c7a2f2504992",
+        "utility/netgear_m4250_m4350_sim.py": "de7ecb650eca31df8db90df3738ca2a5eaeeb94571dafa271e52a2e1acd387ce"
       },
       "ports": [
         22,

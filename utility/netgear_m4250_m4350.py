@@ -539,7 +539,7 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.4",
+        "version": "1.4.5",
         "author": "OpenAVC",
         "min_platform_version": "0.15.0",
         "description": (

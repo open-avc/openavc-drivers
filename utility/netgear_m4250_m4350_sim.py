@@ -76,14 +76,77 @@ class NetgearM4250M4350Simulator(TCPSimulator):
         "transport": "tcp",
         "default_port": 23,
         "delimiter": "\r\n",
+        # Every value the rendered CLI output carries lives here, rather than
+        # inside the renderer that prints it. The switch's reason for being on
+        # a control system is its telemetry — temperature, fans, PSU
+        # redundancy, PoE budget — and a constant baked into a render function
+        # cannot be moved, so none of it could be exercised: a macro reacting
+        # to a failed fan or a PoE budget running out had nothing to react to.
+        # Held in state, each one is drivable from the Simulator UI.
         "initial_state": {
+            # Identity — show version
             "model": "M4350-24X4F",
             "firmware": "14.0.6.17",
+            "boot_version": "B1.0.0.6",
+            "serial_number": "7AB12C3D4E5F6",
+            "mac_address": "BC:A5:11:22:33:44",
+            "system_name": "AV-CORE-SW1",
+            "uptime": "12 days 4 hrs 9 mins 51 secs",
+            # Environment — show environment
+            "temperature_c": 41,
+            "temperature_state": "Normal",
+            "fan_state": "Operational",
+            "fan_speed": 3200,
+            "fan_duty": 30,
+            "psu_state": "Operational",
+            "psu_count": 2,
+            "psu_redundancy_enabled": True,
+            "psu_redundancy_active": True,
+            # Load — show process cpu
+            "cpu_5s": 3.20,
+            "cpu_60s": 2.80,
+            "cpu_300s": 2.50,
+            "mem_free_kb": 268435456,
+            "mem_alloc_kb": 805306368,
+            # PoE controller — show poe. Consumed power and the delivering
+            # port count are summed from the port table rather than seeded, so
+            # they stay honest when a port is switched off from the UI.
+            "poe_main_status": "ON",
+            "poe_total_power_w": 720.0,
+            "poe_threshold_power_w": 648.0,
+            "poe_usage_threshold": 90,
+            "poe_power_mgmt_mode": "Dynamic",
+            "poe_firmware": "1.2.0.8",
+            # Multicast — show igmpsnooping / querier
             "igmp_snooping": True,
+            "igmp_querier": True,
+            "igmp_querier_address": "10.20.0.1",
         },
         "controls": [
             {"type": "indicator", "key": "model", "label": "Model"},
             {"type": "indicator", "key": "firmware", "label": "Firmware"},
+            {"type": "indicator", "key": "uptime", "label": "Uptime"},
+            {"type": "slider", "key": "temperature_c", "min": 0, "max": 90,
+             "label": "Temperature (C)"},
+            {"type": "select", "key": "temperature_state",
+             "options": ["Normal", "Warning", "Critical"],
+             "label": "Temperature State"},
+            {"type": "select", "key": "fan_state",
+             "options": ["Operational", "Failed", "Not Present"],
+             "label": "Fan State"},
+            {"type": "select", "key": "psu_state",
+             "options": ["Operational", "Failed", "Not Present"],
+             "label": "PSU State"},
+            {"type": "toggle", "key": "psu_redundancy_active",
+             "label": "PSU N+1 Active"},
+            {"type": "slider", "key": "cpu_5s", "min": 0, "max": 100,
+             "label": "CPU 5s (%)"},
+            {"type": "select", "key": "poe_main_status",
+             "options": ["ON", "OFF"], "label": "PoE Controller"},
+            {"type": "slider", "key": "poe_total_power_w", "min": 0, "max": 1440,
+             "label": "PoE Budget (W)"},
+            {"type": "toggle", "key": "igmp_snooping", "label": "IGMP Snooping"},
+            {"type": "toggle", "key": "igmp_querier", "label": "IGMP Querier"},
         ],
         "delays": {"command_response": 0.002},
     }
@@ -225,28 +288,29 @@ class NetgearM4250M4350Simulator(TCPSimulator):
     def _render_show(self, low: str) -> str:
         ports = self._ports
         poe_ports = {i: p for i, p in ports.items() if p["poe_capable"]}
+        s = self.state
         if low == "show version" or low == "show hardware":
+            model = s.get("model", "M4350-24X4F")
             return (
-                "System Description............................. "
-                f"{self.state.get('model', 'M4350-24X4F')} ProAV Switch\r\n"
-                f"Machine Model.................................. {self.state.get('model', 'M4350-24X4F')}\r\n"
-                "Serial Number.................................. 7AB12C3D4E5F6\r\n"
-                "Burned In MAC Address.......................... BC:A5:11:22:33:44\r\n"
-                f"Software Version............................... {self.state.get('firmware', '14.0.6.17')}\r\n"
-                "Boot Code Version.............................. B1.0.0.6\r\n"
-                "System Name.................................... AV-CORE-SW1\r\n"
-                "System Up Time................................. 12 days 4 hrs 9 mins 51 secs"
+                f"System Description............................. {model} ProAV Switch\r\n"
+                f"Machine Model.................................. {model}\r\n"
+                f"Serial Number.................................. {s.get('serial_number', '')}\r\n"
+                f"Burned In MAC Address.......................... {s.get('mac_address', '')}\r\n"
+                f"Software Version............................... {s.get('firmware', '')}\r\n"
+                f"Boot Code Version.............................. {s.get('boot_version', '')}\r\n"
+                f"System Name.................................... {s.get('system_name', '')}\r\n"
+                f"System Up Time................................. {s.get('uptime', '')}"
             )
         if low == "show poe":
             consumed = sum(p["poe_power_mw"] for p in poe_ports.values()) / 1000
             return (
-                "Firmware Version............................... 1.2.0.8\r\n"
-                "PSE Main Operational Status.................... ON\r\n"
-                "Total Power Available.......................... 720.0 Watts\r\n"
-                "Threshold Power................................ 648.0 Watts\r\n"
+                f"Firmware Version............................... {s.get('poe_firmware', '')}\r\n"
+                f"PSE Main Operational Status.................... {s.get('poe_main_status', 'ON')}\r\n"
+                f"Total Power Available.......................... {float(s.get('poe_total_power_w', 0)):.1f} Watts\r\n"
+                f"Threshold Power................................ {float(s.get('poe_threshold_power_w', 0)):.1f} Watts\r\n"
                 f"Total Power Consumed........................... {consumed:.1f} Watts\r\n"
-                "Usage Threshold................................ 90\r\n"
-                "Power Management Mode.......................... Dynamic\r\n"
+                f"Usage Threshold................................ {s.get('poe_usage_threshold', 90)}\r\n"
+                f"Power Management Mode.......................... {s.get('poe_power_mgmt_mode', 'Dynamic')}\r\n"
                 "Traps.......................................... Enable"
             )
         if low.startswith("show poe port info"):
@@ -289,17 +353,19 @@ class NetgearM4250M4350Simulator(TCPSimulator):
                 [("Port", 8), ("Name", 16), ("Link", 8), ("PhysMode", 10),
                  ("PhysStatus", 12), ("Media", 10), ("Flow", 10), ("VLAN", 6)], rows)
         if low == "show igmpsnooping":
+            mode = "Enabled" if s.get("igmp_snooping", True) else "Disabled"
             return (
-                "Admin Mode..................................... Enabled\r\n"
+                f"Admin Mode..................................... {mode}\r\n"
                 "Multicast Control Frame Count.................. 142\r\n"
                 "Interfaces Enabled for IGMP Snooping.......... 1/0/1-1/0/48\r\n"
                 "VLANs enabled for IGMP snooping................ 10,20,30"
             )
         if low.startswith("show igmpsnooping querier"):
+            mode = "Enabled" if s.get("igmp_querier", True) else "Disabled"
             return (
-                "Admin Mode..................................... Enabled\r\n"
+                f"Admin Mode..................................... {mode}\r\n"
                 "Admin Version.................................. 2\r\n"
-                "Querier Address................................ 10.20.0.1\r\n"
+                f"Querier Address................................ {s.get('igmp_querier_address', '')}\r\n"
                 "Query Interval (secs).......................... 60\r\n"
                 "Querier Timeout (secs)......................... 120"
             )
@@ -317,40 +383,48 @@ class NetgearM4250M4350Simulator(TCPSimulator):
                 [("1", "default", "Default", ""), ("10", "Cameras", "Static", ""),
                  ("20", "Displays", "Static", ""), ("30", "Dante", "Static", "")])
         if low == "show environment":
+            temp = s.get("temperature_c", 41)
+            psu_rows = "\r\n".join(
+                f"1    {n:<5} PS-{n:<9} Fixed {s.get('psu_state', 'Operational')}"
+                for n in range(1, int(s.get("psu_count", 1)) + 1)
+            )
             return (
                 "Fan Control Mode............................... Quiet\r\n"
-                "Temp (C)....................................... 41\r\n"
+                f"Temp (C)....................................... {temp}\r\n"
                 "Temperature traps range: 0 to 90 degrees (Celsius)\r\n"
                 "\r\n"
                 "Temperature Sensors:\r\n"
                 "\r\n"
                 "Unit Sensor Description      Temp (C) State    Max_Temp (C)\r\n"
                 "---- ------ ---------------- -------- -------- ------------\r\n"
-                "1    1      sensor-1         41       Normal   53\r\n"
+                f"1    1      sensor-1         {str(temp).ljust(8)} "
+                f"{str(s.get('temperature_state', 'Normal')).ljust(8)} 53\r\n"
                 "\r\n"
                 "Fans:\r\n"
                 "\r\n"
                 "Unit Fan Description    Type  Speed Duty       State\r\n"
                 "---- --- -------------- ----- ----- ---------- -----------\r\n"
-                "1    1   FAN-1          Fixed 3200  30%        Operational\r\n"
+                f"1    1   FAN-1          Fixed {str(s.get('fan_speed', 3200)).ljust(5)} "
+                f"{(str(s.get('fan_duty', 30)) + '%').ljust(10)} {s.get('fan_state', 'Operational')}\r\n"
                 "\r\n"
                 "Power Modules:\r\n"
                 "\r\n"
                 "Unit Power Description Type  State\r\n"
                 "---- ----- ----------- ----- -----------\r\n"
-                "1    1     PS-1        Fixed Operational"
+                f"{psu_rows}"
             )
         if low.startswith("show process cpu"):
             return (
                 "Memory Utilization Report\r\n"
                 "\r\nstatus     bytes\r\n------ ----------\r\n"
-                "free   268435456\r\nalloc  805306368\r\n"
+                f"free   {s.get('mem_free_kb', 0)}\r\nalloc  {s.get('mem_alloc_kb', 0)}\r\n"
                 "\r\nCPU Utilization:\r\n"
                 "\r\nPID  Name      5 Secs 60 Secs 300 Secs\r\n"
                 "--------------------------------------------\r\n"
                 "765  task1     0.00%  0.01%   0.02%\r\n"
                 "--------------------------------------------\r\n"
-                "Total CPU Utilization   3.20%  2.80%   2.50%"
+                f"Total CPU Utilization   {float(s.get('cpu_5s', 0)):.2f}%  "
+                f"{float(s.get('cpu_60s', 0)):.2f}%   {float(s.get('cpu_300s', 0)):.2f}%"
             )
         if low.startswith("show lldp remote-device"):
             return _tbl(
@@ -360,11 +434,14 @@ class NetgearM4250M4350Simulator(TCPSimulator):
                  ("1/0/1", "2", "00:FC:E3:90:01:0F", "00:FC:E3:90:01:11",
                   "Conf Room Cam")])
         if low == "show power redundancy":
+            count = int(s.get("psu_count", 2))
             return (
-                "N+1 configuration: ............................ Enable\r\n"
-                "N+1 Active: ................................... Yes\r\n"
-                "Number of PSU: ................................ 2\r\n"
-                "Effective Number of PSU: ...................... 1"
+                "N+1 configuration: ............................ "
+                f"{'Enable' if s.get('psu_redundancy_enabled', True) else 'Disable'}\r\n"
+                "N+1 Active: ................................... "
+                f"{'Yes' if s.get('psu_redundancy_active', True) else 'No'}\r\n"
+                f"Number of PSU: ................................ {count}\r\n"
+                f"Effective Number of PSU: ...................... {max(count - 1, 1)}"
             )
         if low.startswith("show rgb-led"):
             return _tbl(

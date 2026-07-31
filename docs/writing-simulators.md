@@ -1059,7 +1059,7 @@ python -m simulator.validate ../openavc-drivers/ --summary
 | Check | What it catches |
 |-------|----------------|
 | **SIMULATOR_INFO structure** | Missing required fields (`driver_id`, `name`, `initial_state`) |
-| **State coverage** | DRIVER_INFO state variables missing from SIMULATOR_INFO initial_state |
+| **State coverage** | A simulator that seeds no `initial_state` at all while the driver declares state variables. Otherwise an INFO stating how many keys the simulator seeds against how many state variables the driver has -- the names are not expected to match (see below) |
 | **driver_id match** | Mismatched IDs between driver and simulator |
 | **Type consistency** | Wrong types in initial_state values |
 | **Transport match** | Driver and simulator using different transports |
@@ -1106,6 +1106,8 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 **"N simulator reply/replies match no driver response rule..."** -- An info, not a problem. These are replies to writes -- the `<cmd> ACK` / `<cmd> NAK <code>` acknowledgements most protocols send -- which carry no state, so no response rule should match them. The line is there so "not checked" doesn't look like "checked and clean". If one of the listed replies actually carries a value you want, add a response rule for it.
 
 **"State variable X not in initial_state"** -- Add the variable to your `simulator.initial_state` with a realistic default value.
+
+**"SIMULATOR_INFO seeds N state key(s); M of the driver's K state variables are not among them by name"** -- An info, and usually nothing to do. Your simulator seeds what the device puts *on the wire*; your driver's state variables are what it publishes after reading that, so the names legitimately differ -- `power_code` on the simulator against `power` on the driver, or one `lamp_hours` key the driver fans out into `lamp1_hours` through `lamp8_hours`. Read the two counts rather than the list: a simulator seeding 3 keys against a driver with 33 state variables is modelling almost none of the device, and that is worth fixing. One seeding 38 against 35 is fine no matter how few names line up.
 
 ---
 

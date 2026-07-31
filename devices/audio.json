@@ -381,7 +381,7 @@
         {
           "id": "at_atnd1061",
           "confidence": "partial",
-          "notes": "Same protocol and command set. The LK omits Dante, so the Dante Tx settings and the Dante network readouts do not apply.\n"
+          "notes": "Same command set \u2014 the control spec covers both models, and from document version 3.0 the LK is explicitly supported (firmware 1.2.0 for the full current set, including Voice Lift). Not bench-tested: everything here was verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout do not apply; expect those three to stay blank, and a Dante Tx setting written from OpenAVC may be refused. Nothing else should be affected \u2014 the Dante Tx6 field is matched as an optional group so an empty one cannot take the rest of the audio-system settings down with it. Discovery is an exact match on the modelName string \"ATND1061LK\", which is inferred from the DAN's naming scheme rather than captured, so it may simply not fire; adding the microphone by IP always works.\n"
         }
       ]
     },

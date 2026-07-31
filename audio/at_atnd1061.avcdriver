@@ -118,7 +118,7 @@ id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -146,8 +146,18 @@ compatible_models:
     models: [ATND1061LK]
     confidence: partial
     notes: >
-      Same protocol and command set. The LK omits Dante, so the Dante Tx
-      settings and the Dante network readouts do not apply.
+      Same command set — the control spec covers both models, and from document
+      version 3.0 the LK is explicitly supported (firmware 1.2.0 for the full
+      current set, including Voice Lift). Not bench-tested: everything here was
+      verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5,
+      Dante Tx6 and the Dante IP readout do not apply; expect those three to
+      stay blank, and a Dante Tx setting written from OpenAVC may be refused.
+      Nothing else should be affected — the Dante Tx6 field is matched as an
+      optional group so an empty one cannot take the rest of the audio-system
+      settings down with it. Discovery is an exact match on the modelName
+      string "ATND1061LK", which is inferred from the DAN's naming scheme
+      rather than captured, so it may simply not fire; adding the microphone by
+      IP always works.
 
 transport: tcp
 delimiter: "\r"
@@ -1652,7 +1662,17 @@ responses:
   # and auto_attenuation, attenuation_level and hold_time never once reflected
   # the microphone. Hence the explicit type: on each entry: a mappings: entry
   # defaults to type string, unlike set:, which infers the declared type.
-  - match: 'g_audio_system \S+ \S+ \S+ [^,]*,[^,]*,[^,]*,[^,]*,([01]),([012]),([01]),(\d+),(\d+)'
+  # Dante Tx6 is the ONE field here that a model may not populate: the LK has
+  # no Dante. It is written ([01])? — an optional GROUP, not ([01]?), optional
+  # CONTENT — and the difference decides whether this driver works on an LK.
+  #   ([01])   an empty field fails the whole rule, taking beam sensitivity,
+  #            auto attenuation, attenuation level and hold time down with it
+  #   ([01]?)  matches, but hands back "" and stores an empty string in an enum
+  #   ([01])?  matches, and the group is None, which the runtime skips outright
+  #            (`if raw_value is None: continue`) — no write, no junk value
+  # The other four are core features on both models, so they stay required: if
+  # one of those is missing something is wrong and a dead rule is honest.
+  - match: 'g_audio_system \S+ \S+ \S+ [^,]*,[^,]*,[^,]*,[^,]*,([01])?,([012]),([01]),(\d+),(\d+)'
     mappings:
       - group: 1
         state: dante_tx6

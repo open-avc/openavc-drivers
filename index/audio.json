@@ -584,7 +584,7 @@
       "name": "Audio-Technica ATND1061",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation. Live meters and talker position can each be switched on and off at runtime from a macro or panel button.\n",
@@ -592,7 +592,7 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "71082f023e968ecfd8c54b7822c133e1c80cf81b676a9b35887acd5458a4a880"
+        "audio/at_atnd1061.avcdriver": "806542d982e105ba8e37a65c1f0a1653b856cc85d96f17f77ea03daa860be51d"
       },
       "ports": [
         17300
@@ -628,7 +628,7 @@
             "ATND1061LK"
           ],
           "confidence": "partial",
-          "notes": "Same protocol and command set. The LK omits Dante, so the Dante Tx settings and the Dante network readouts do not apply.\n"
+          "notes": "Same command set \u2014 the control spec covers both models, and from document version 3.0 the LK is explicitly supported (firmware 1.2.0 for the full current set, including Voice Lift). Not bench-tested: everything here was verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout do not apply; expect those three to stay blank, and a Dante Tx setting written from OpenAVC may be refused. Nothing else should be affected \u2014 the Dante Tx6 field is matched as an optional group so an empty one cannot take the rest of the audio-system settings down with it. Discovery is an exact match on the modelName string \"ATND1061LK\", which is inferred from the DAN's naming scheme rather than captured, so it may simply not fire; adding the microphone by IP always works.\n"
         }
       ],
       "discovery": {

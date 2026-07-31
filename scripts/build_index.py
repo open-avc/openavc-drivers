@@ -1592,7 +1592,22 @@ def main(argv: list[str] | None = None) -> int:
 
     repo_root: Path = args.root.resolve()
     json_schema_path = args.json_schema_file or (repo_root / "avcdriver.schema.json")
-    if jsonschema_validator_for is not None and json_schema_path.is_file():
+    # Schema validation can be unavailable for two unrelated reasons, and they
+    # need different messages: a missing schema file is a repo problem, a
+    # missing jsonschema-rs is an environment one. Reporting the first when the
+    # cause is the second sends you to inspect a path where the file is sitting
+    # right there — which is exactly what happened, for 18 test failures.
+    if jsonschema_validator_for is None:
+        schema_unavailable: str | None = (
+            "jsonschema-rs is not installed, so JSON Schema validation cannot "
+            "run (pip install -r requirements-dev.txt)"
+        )
+    elif not json_schema_path.is_file():
+        schema_unavailable = f"JSON Schema file not found at {json_schema_path}"
+    else:
+        schema_unavailable = None
+
+    if schema_unavailable is None:
         json_schema = json.loads(json_schema_path.read_text(encoding="utf-8"))
         json_validator = jsonschema_validator_for(json_schema)
         # Python drivers validate against the platform-generated variant
@@ -1619,15 +1634,12 @@ def main(argv: list[str] | None = None) -> int:
             python_json_validator = None
     else:
         if args.check_json_schema:
-            # If the user explicitly requested JSON Schema validation,
-            # treat a missing schema file as an error.
-            print(
-                f"ERROR: JSON Schema file not found at {json_schema_path}",
-                file=sys.stderr,
-            )
+            # Validation was explicitly asked for and cannot run, so this is a
+            # failure rather than a downgrade.
+            print(f"ERROR: {schema_unavailable}", file=sys.stderr)
             return 1
         print(
-            f"WARNING: JSON Schema file not found at {json_schema_path}, skipping schema validation.",
+            f"WARNING: {schema_unavailable}, skipping schema validation.",
             file=sys.stderr,
         )
         json_schema = None

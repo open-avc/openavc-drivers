@@ -149,6 +149,30 @@ def _run(root: Path, *args: str, json_schema_only: bool = False) -> tuple[int, s
     return rc, stdout_buf.getvalue(), stderr_buf.getvalue()
 
 
+def _run_with_schema_file(
+    root: Path, schema_file: Path, *, check: bool = False
+) -> tuple[int, str, str]:
+    """Like `_run`, but pointed at a schema file of the caller's choosing.
+
+    Lets a test say "this path really has no schema on it" without touching
+    the repo's own.
+    """
+    import io
+
+    stderr_buf = io.StringIO()
+    stdout_buf = io.StringIO()
+    real_stderr, real_stdout = sys.stderr, sys.stdout
+    sys.stderr, sys.stdout = stderr_buf, stdout_buf
+    argv = ["--root", str(root), "--json-schema-file", str(schema_file)]
+    if check:
+        argv.append("--check-json-schema")
+    try:
+        rc = build_index.main(argv)
+    finally:
+        sys.stderr, sys.stdout = real_stderr, real_stdout
+    return rc, stdout_buf.getvalue(), stderr_buf.getvalue()
+
+
 # --- Round trip ------------------------------------------------------------
 
 
@@ -1116,3 +1140,57 @@ def test_a_computed_block_is_reported_not_silently_skipped(tmp_path: Path) -> No
     rc, out, err = _run(tmp_path)
     assert rc == 0, err
     assert "could not be read" in out, out
+
+
+# --- Why schema validation could not run -----------------------------------
+
+
+def test_an_absent_jsonschema_package_is_not_reported_as_a_missing_file(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The two reasons validation can't run must not share one message.
+
+    Both used to print "JSON Schema file not found at <path>". When the real
+    cause was an environment without `jsonschema-rs`, that named a path where
+    the file was sitting right there, and the check failed 18 tests while
+    pointing at the wrong thing entirely.
+    """
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    monkeypatch.setattr(build_index, "jsonschema_validator_for", None)
+
+    rc, _, err = _run(tmp_path, json_schema_only=True)
+
+    assert rc == 1
+    assert "jsonschema-rs is not installed" in err, err
+    # The schema file is present; saying otherwise is the bug.
+    assert JSON_SCHEMA_PATH.is_file()
+    assert "not found" not in err, err
+
+
+def test_a_genuinely_missing_schema_file_still_names_the_file(
+    tmp_path: Path,
+) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    absent = tmp_path / "no_such.schema.json"
+
+    rc, _, err = _run_with_schema_file(tmp_path, absent, check=True)
+
+    assert rc == 1
+    assert f"JSON Schema file not found at {absent}" in err, err
+
+
+def test_without_check_the_reason_is_a_warning_and_the_build_proceeds(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Schema validation is optional unless asked for; the reason still shows."""
+    _write_manufacturers(tmp_path)
+    _write_python_driver(tmp_path)
+    monkeypatch.setattr(build_index, "jsonschema_validator_for", None)
+
+    rc, _, err = _run(tmp_path)
+
+    assert rc == 0, err
+    assert "jsonschema-rs is not installed" in err, err
+    assert "skipping schema validation" in err, err

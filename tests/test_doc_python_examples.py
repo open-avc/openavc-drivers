@@ -2,25 +2,27 @@
 reference in it must resolve.
 
 ``AGENTS.md`` and ``docs/writing-simulators.md`` teach by example, and an agent
-or a contributor copies an example verbatim. ``test_agents_guide_documents_the
-_contract.py`` already pins the *declarative* half — that the guide's YAML uses
-real contract fields — but it never opens a ```python fence, so the code half
-was pinned by nothing. Three things went wrong there and all three shipped:
+or a contributor copies an example verbatim. The declarative half of that — that
+a guide's YAML uses real contract fields — is now pinned by the generated
+schemas the guides point at rather than by prose. The code half is pinned here,
+and by nothing else. Three things went wrong before it existed, and all three
+shipped:
 
-* **A helper that does not exist.** §3.9 imported ``crc16`` from
-  ``binary_helpers`` for years; the function is ``crc16_ccitt`` and ``crc16``
-  never existed. That fails loudly at import, which is the *good* case.
+* **A helper that does not exist.** A binary-protocol example imported
+  ``crc16`` from ``binary_helpers`` for years; the function is ``crc16_ccitt``
+  and ``crc16`` never existed. That fails loudly at import, which is the
+  *good* case.
 * **An async call that is never awaited.** ``writing-simulators.md``'s Level 3
   state-machine example called ``self._schedule_warmup()`` — an ``async def``
   — without awaiting it, so the warm-up it demonstrates never fires. Python
   says nothing at parse time; the coroutine is created and dropped. An author
   copying it gets code that runs, raises nothing, and does not work.
-* **An example contradicting the guide's own rule.** §3.4 says "Do not
-  override ``connect()``" and lists a hook per lifecycle stage; §3.5 then told
-  a controller author to override ``connect()``, and §3.7 showed them building
-  the transport by hand. That is not a style disagreement — the platform owns
-  transport construction, so following it produces a driver that cannot
-  connect.
+* **An example contradicting the guide's own rule.** One page said "Do not
+  override ``connect()``" and listed a hook per lifecycle stage; another told
+  a controller author to override ``connect()``, and a third showed them
+  building the transport by hand. That is not a style disagreement — the
+  platform owns transport construction, so following it produces a driver that
+  cannot connect.
 
 So this file asserts three things about every ```python fence:
 
@@ -93,9 +95,6 @@ EXAMPLE_HELPERS = {
     "CMD_INPUT": "A protocol constant the example driver defines on its class.",
     "CMD_POWER": "Same — the example's own protocol constant.",
     "CMD_STATUS": "Same — the example's own protocol constant.",
-    "_fetch_encoder_state": "The controller example's per-child detail fetch, "
-                            "passed to poll_children.",
-    "_login": "The example driver's authentication step.",
     "_schedule_transition": "The simulator example's timed-transition helper, "
                             "modelled on the PJLink reference simulator.",
     "_warmup_time": "The simulator example's own configured warm-up duration.",
@@ -519,8 +518,13 @@ def test_the_sweep_still_reaches_the_documents() -> None:
     still see, per document, so one guide going quiet cannot hide behind the
     others.
     """
+    # AGENTS.md's floor is low on purpose. It used to carry the whole Python
+    # driver API inline; that reference now lives in the platform's own guide
+    # and its generated schema, and what is left here is the worked binary
+    # driver in §9.2 plus the test-writing snippets in §8.1. Those are still
+    # copied verbatim, which is what this file is for.
     floors = {
-        "AGENTS.md": 20,
+        "AGENTS.md": 3,
         "docs/writing-simulators.md": 5,
         "docs/contributing-drivers.md": 2,
     }
@@ -544,8 +548,15 @@ def test_the_resolution_sweep_reaches_something() -> None:
     assert len(PLATFORM["simulator"]) > 50, "the simulator surface walk collapsed"
     assert len(PLATFORM["transport"]) > 50, "the transport surface walk collapsed"
 
+    # Four, and each one is load-bearing: ``BaseDriver`` and
+    # ``CallableFrameParser`` in AGENTS.md's worked binary driver, and the TCP
+    # and HTTP simulator bases in ``writing-simulators.md``. It was higher when
+    # AGENTS.md carried the whole Python driver API inline; that reference moved
+    # to the platform's own guide, and with it most of the import lines. The
+    # floor is set at what is actually there so a sweep that stops finding
+    # anything still fails, which is all this guard was ever for.
     imports = sum(len(_import_targets(t)) for rel in ALL_DOCS for _, t in _parsed(rel))
-    assert imports > 8, f"the import sweep found only {imports} platform imports"
+    assert imports >= 4, f"the import sweep found only {imports} platform imports"
 
     reads: set[str] = set()
     transport: set[str] = set()
@@ -553,7 +564,7 @@ def test_the_resolution_sweep_reaches_something() -> None:
         for _, tree in _parsed(rel):
             reads |= _self_reads(tree)
             transport |= _transport_reads(tree)
-    assert len(reads) > 20, f"the self sweep found only {len(reads)} attributes"
+    assert len(reads) >= 16, f"the self sweep found only {len(reads)} attributes"
     assert transport, "no guide calls anything on self.transport any more"
 
 
@@ -603,3 +614,39 @@ def test_the_elision_rule_keeps_a_real_body() -> None:
     body = "def __init__(self, device_id: str, config: dict):\n    ...\n"
     assert "..." in _normalize(body)
     ast.parse(_normalize(body))
+
+
+def test_the_code_fences_are_balanced() -> None:
+    """An odd number of ``` markers inverts every fence after the break.
+
+    Found by an outside audit: the http_listener push example had lost its
+    opening fence, so the back half of AGENTS.md was inside-out — YAML examples
+    reading as prose and prose reading as YAML. That matters twice over. A
+    contributor reads a mangled page, and the ``_FENCE`` sweep above walks
+    exactly these fences, so its coverage silently moves to the wrong half of
+    the document while every assertion in this file still passes.
+
+    Checked for every author-facing guide in this repo, not just AGENTS.md:
+    both broken files had the same defect in the same example, which is what a
+    single-document check would have missed.
+
+    Counting is the whole check. It cannot say a fence opens in a sensible
+    place, only that they pair up — the failure that actually happened.
+    """
+    broken = {}
+    for rel in ALL_DOCS:
+        path = REPO_ROOT / rel
+        assert path.exists(), f"{rel} moved — update ALL_DOCS"
+        fences = [
+            n
+            for n, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            )
+            if line.startswith("```")
+        ]
+        if len(fences) % 2:
+            broken[rel] = (len(fences), fences[-6:])
+    assert not broken, (
+        "odd code-fence count — one block is unterminated and every fence "
+        f"after it is inverted: {broken}"
+    )

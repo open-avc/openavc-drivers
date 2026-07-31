@@ -453,7 +453,7 @@ ship with it, run under this repo's suite — see
 
 ## Using an AI Assistant
 
-If you use an AI coding assistant, point it to [`AGENTS.md`](../AGENTS.md) in the root of this repository. It contains the complete YAML schema, Python driver API, naming conventions, and examples in a format optimized for LLM agents. Have your assistant run `python scripts/build_index.py --check` on its output to catch errors before you submit.
+If you use an AI coding assistant, point it to [`AGENTS.md`](../AGENTS.md) in the root of this repository. It covers naming conventions, driver metadata, validation, worked examples and the runtime gotchas, and it points at the two things that define the driver contract itself: the generated [`avcdriver.schema.json`](../avcdriver.schema.json) and [`pythondriver.schema.json`](../pythondriver.schema.json) in the repository root, and the [Creating Drivers](https://docs.openavc.com/creating-drivers/) guide. Have your assistant run `python scripts/build_index.py --check` on its output to catch errors before you submit.
 
 ## Driver Creation Reference
 

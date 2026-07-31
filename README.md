@@ -60,7 +60,7 @@ See the [Contributing Guide](docs/contributing-drivers.md) for the full checklis
 
 ### Using an AI Assistant
 
-If you use an AI coding assistant, point it to [`AGENTS.md`](AGENTS.md) in this repository. It contains the complete YAML schema, Python driver API, and examples in a format optimized for LLM agents. Run `python scripts/build_index.py --check` to validate the result before submitting.
+If you use an AI coding assistant, point it to [`AGENTS.md`](AGENTS.md) in this repository. It covers naming, layout, driver metadata, validation, worked examples and the runtime gotchas, and it points at the two things that define the driver contract itself: the generated [`avcdriver.schema.json`](avcdriver.schema.json) and [`pythondriver.schema.json`](pythondriver.schema.json) in this repository's root, and the [Creating Drivers](https://docs.openavc.com/creating-drivers/) guide. Run `python scripts/build_index.py --check` to validate the result before submitting.
 
 ## Validation
 

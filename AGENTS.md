@@ -124,7 +124,9 @@ For UDP, picking a poll interval is a tradeoff: too tight wastes wire traffic on
 
 ## 5. Simulator Support
 
-Drivers can include simulation support so users can test without real hardware. The simulator runs as a separate process. A `.avcdriver` adds an inline `simulator:` section; a Python driver ships a companion file with a `_sim.py` suffix alongside it (`pjlink_class1.py` -> `pjlink_class1_sim.py`). With neither, auto-generation still produces basic simulation: the device accepts connections and answers its declared commands.
+Drivers can include simulation support so users can test without real hardware. The simulator runs as a separate process. A `.avcdriver` adds an inline `simulator:` section; a Python driver ships a companion file with a `_sim.py` suffix alongside it (`pjlink_class1.py` -> `pjlink_class1_sim.py`).
+
+**Auto-generation covers YAML only.** A `.avcdriver` with no `simulator:` section still simulates — the generator builds handlers from its declared commands, so the device accepts connections and answers them. **A Python driver with no `_sim.py` gets nothing at all**, and the failure does not name itself: the device simply never connects, and its card reports `connection_refused` and asks whether the port is right. The port is fine; there is no simulator listening on it. The server log is where it says so (`No simulator available for driver '<id>'`). Ship the `_sim.py` — scaffold it with the command below.
 
 **Where this is documented:** [`docs/writing-simulators.md`](docs/writing-simulators.md) in this repository is the reference — the effort levels, the `simulator:` block section by section (initial state, delays, command and script handlers, state machines, error modes, controls, push and notifications), the Python simulator base class per transport, children in a simulator, and the validator. The `simulator:` block's fields are also in [`avcdriver.schema.json`](avcdriver.schema.json) like every other block, and the platform-side view of how simulation runs is [Device Simulator](https://docs.openavc.com/simulator/).
 
@@ -153,18 +155,25 @@ openavc-drivers/
 ├── streaming/           # NDI / RTSP encoders, streaming endpoints, Sonos
 ├── lighting/            # DMX, Art-Net, sACN
 ├── power/               # PDUs, power sequencers
-├── devices/             # Miscellaneous AV gear that doesn't fit elsewhere
-├── utility/             # Wake-on-LAN, relays, bridges
+├── utility/             # Wake-on-LAN, relays, bridges, miscellaneous helpers
 ├── docs/                # Contributing guide, writing simulators
 ├── scripts/             # Build + validation scripts (build_index.py)
 │   └── _vendor/         # Generated copies of the platform's validation rules — never edit
-├── index/               # Generated per-category index files
+├── index/               # Generated per-category index shards
+├── devices/             # Generated per-category device shards
 ├── tests/               # Driver tests
 ├── index.json           # Generated driver catalog
 ├── devices.json         # Generated device catalog
 ├── manufacturers.json   # Manufacturer registry
 └── AGENTS.md            # This file
 ```
+
+**A driver only counts if it sits in one of the ten category directories above.**
+`build_index.py` scans exactly those, so a driver file anywhere else — including
+`devices/`, which holds generated shards — is skipped without a word: the
+catalog builds clean, CI passes, and the driver never appears in Browse
+Drivers. There is no "miscellaneous" directory; gear that fits nowhere else
+goes in `utility/`.
 
 ### Naming Conventions
 

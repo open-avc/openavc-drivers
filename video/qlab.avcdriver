@@ -518,3 +518,210 @@ responses:
         json_path: data
         state: is_running
         type: boolean
+
+# ── Simulator ───────────────────────────────────────────────────────────────
+# QLab is a request/reply protocol: every message you send comes back as
+# "/reply" + the address you sent, carrying ONE string argument that holds a
+# JSON document ({"workspace_id":…,"address":…,"status":"ok","data":<value>}).
+#
+# That inversion is why this section has to exist. The auto-generated OSC
+# simulator builds its address handlers from the `responses:` block above, and
+# those addresses are all in QLab's *reply* namespace — so the generated
+# simulator listened on the addresses QLab SENDS and was deaf to every address
+# QLab RECEIVES. Measured 2026-07-31 against the generated simulator: /go,
+# /stop, /panic, /cue/1/start, /thump and all four playhead queries returned
+# nothing at all, and the only address that answered was /reply/version, which
+# no client ever sends. The driver polls four values and watchdogs on /thump,
+# so against that simulator the device would connect and then go offline after
+# two silent liveness probes.
+#
+# Handler order matters: the first fnmatch pattern that matches wins, and the
+# generic patterns swallow the specific ones ("*/playhead/*" matches
+# "/cue/playhead/uniqueID"; "*/stop" matches "/cue/1/stop"). Specific first.
+simulator:
+  initial_state:
+    qlab_version: "5.6.1"
+    connected_ok: "ok:view|edit|control"
+    current_cue_id: "1E5A7C90-3B2D-4F81-A6C4-77D9E0B1F234"
+    current_cue_number: "1"
+    current_cue_name: "Opening Music"
+    is_running: false
+
+  command_handlers:
+    # ── Feedback queries (must precede the generic playhead/cue patterns) ──
+    - address: "*/cue/playhead/uniqueID"
+      handler: |
+        v = str(state["current_cue_id"])
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok","data":"' + v + '"}')])
+
+    - address: "*/cue/playhead/displayName"
+      handler: |
+        v = str(state["current_cue_name"])
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok","data":"' + v + '"}')])
+
+    - address: "*/cue/playhead/number"
+      handler: |
+        v = str(state["current_cue_number"])
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok","data":"' + v + '"}')])
+
+    # data is a JSON ARRAY here — the driver takes its length and coerces that
+    # to the is_running boolean, so it must be [] or a populated list.
+    - address: "*/runningOrPausedCues"
+      handler: |
+        if state["is_running"]:
+            d = '[{"uniqueID":"' + str(state["current_cue_id"]) + '","number":"' + str(state["current_cue_number"]) + '"}]'
+        else:
+            d = '[]'
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok","data":' + d + '}')])
+
+    - address: "*/version"
+      handler: |
+        v = str(state["qlab_version"])
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok","data":"' + v + '"}')])
+
+    # Liveness watchdog probe. The driver flips the device offline after two
+    # probes that do not contain "data":"thump".
+    - address: "*/thump"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok","data":"thump"}')])
+
+    # ── Per-cue level / arm / color (most specific cue addresses first) ──
+    - address: "*/cue/*/sliderLevel/0/+"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/sliderLevel/0/-"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/sliderLevel/0"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/armed"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/colorName"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/loadAt"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    # ── Per-cue transport ──
+    - address: "*/cue/*/start"
+      handler: |
+        state["is_running"] = True
+        state["current_cue_number"] = address.split("/cue/")[1].split("/")[0]
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/stop"
+      handler: |
+        state["is_running"] = False
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/panic"
+      handler: |
+        state["is_running"] = False
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/load"
+      handler: |
+        state["current_cue_number"] = address.split("/cue/")[1].split("/")[0]
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue/*/preview"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/cue_id/*/start"
+      handler: |
+        state["is_running"] = True
+        state["current_cue_id"] = address.split("/cue_id/")[1].split("/")[0]
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    # ── Playhead movement (before the generic "*/playhead/*" selector) ──
+    - address: "*/playhead/next"
+      handler: |
+        n = int(state["current_cue_number"]) + 1 if str(state["current_cue_number"]).isdigit() else 1
+        state["current_cue_number"] = str(n)
+        state["current_cue_name"] = "Cue " + str(n)
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/playhead/previous"
+      handler: |
+        n = int(state["current_cue_number"]) - 1 if str(state["current_cue_number"]).isdigit() else 1
+        n = max(1, n)
+        state["current_cue_number"] = str(n)
+        state["current_cue_name"] = "Cue " + str(n)
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/select/*"
+      handler: |
+        state["current_cue_number"] = address.split("/select/")[1].split("/")[0]
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/playhead/*"
+      handler: |
+        state["current_cue_number"] = address.split("/playhead/")[1].split("/")[0]
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    # ── Workspace transport ──
+    - address: "*/go"
+      handler: |
+        state["is_running"] = True
+        n = int(state["current_cue_number"]) + 1 if str(state["current_cue_number"]).isdigit() else 1
+        state["current_cue_number"] = str(n)
+        state["current_cue_name"] = "Cue " + str(n)
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/hardStop"
+      handler: |
+        state["is_running"] = False
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/stop"
+      handler: |
+        state["is_running"] = False
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/panic"
+      handler: |
+        state["is_running"] = False
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/reset"
+      handler: |
+        state["is_running"] = False
+        state["current_cue_number"] = "1"
+        state["current_cue_name"] = "Opening Music"
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/pause"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/resume"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    # ── Session setup (on_connect) ──
+    # A wrong passcode answers "badpass", which is what the driver stores in
+    # connected_ok — the one case where this simulator can show a real failure.
+    - address: "*/connect"
+      handler: |
+        want = str(config.get("passcode", "") or "")
+        got = str(args[0][1]) if args else ""
+        v = "ok:view|edit|control" if got == want else "badpass"
+        state["connected_ok"] = v
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok","data":"' + v + '"}')])
+
+    - address: "*/alwaysReply"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])
+
+    - address: "*/updates"
+      handler: |
+        respond("/reply" + address, [("s", '{"workspace_id":"","address":"' + address + '","status":"ok"}')])

@@ -396,12 +396,14 @@ child_entity_types:
         label: Level Meter
         min: 0
         max: 61
+        cloud_priority: low
         help: "Post-fader level meter. Updates only while Enable Level Meters is on."
       gain_share_meter:
         type: integer
         label: Gain Share Meter
         min: 0
         max: 15
+        cloud_priority: low
         help: >
           How much automixer gain this channel is being given. Updates only
           while Enable Level Meters is on. Beam channels only.
@@ -444,6 +446,7 @@ child_entity_types:
         label: Level Meter
         min: 0
         max: 61
+        cloud_priority: low
         help: "Output level meter. Updates only while Enable Level Meters is on."
 
 state_variables:
@@ -579,12 +582,14 @@ state_variables:
     label: Voice Lift Meter
     min: 0
     max: 61
+    cloud_priority: low
     help: "Updates only while Enable Level Meters is on."
   aec_erl_meter:
     type: integer
     label: AEC (ERL) Meter
     min: 0
     max: 60
+    cloud_priority: low
     help: "Echo return loss. Updates only while Enable Level Meters is on."
   header_color:
     type: enum
@@ -619,6 +624,7 @@ state_variables:
     min: 0
     max: 90
     unit: deg
+    cloud_priority: low
     help: "Elevation angle of the talker. Updates only while Enable Talker Position is on."
   talker_rotation:
     type: integer
@@ -626,6 +632,7 @@ state_variables:
     min: 0
     max: 360
     unit: deg
+    cloud_priority: low
     help: "Rotation angle of the talker. Updates only while Enable Talker Position is on."
   talker_camera_area:
     type: integer

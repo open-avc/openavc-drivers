@@ -1,0 +1,2164 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Audio-Technica ATND1061 Beamforming Array Microphone
+#
+# Controls the ATND1061DAN and ATND1061LK ceiling array microphones over TCP
+# (port 17300).
+#
+# Protocol reference: ATND1061LK/ATND1061DAN IP Control Specifications,
+# document version 5.0 (file is published as "..._V4_EN_web_240114.pdf").
+#
+# Command format (Set):  <command> S <modelID> <unitNo> NC <params> \r
+# Command format (Get):  <command> O <modelID> <unitNo> NC <params> \r
+# Response ACK:          <command> ACK \r
+# Response NAK:          <command> NAK <error_code> \r
+# Answer:                <command> <modelID> <deviceID> <NC|CS|CM|CE> <params> \r
+# Notice (multicast):    MD <command> <modelID> <deviceID> NC <params> \r
+#
+# All fields are space-delimited (0x20), INCLUDING a trailing space before the
+# CR — the spec's own examples end "<params> \r". Parameters are comma-
+# separated; a parameter may be left empty between commas to leave that field
+# unchanged on a Set (spec 2.2.1).
+#
+# NAK codes: 01 syntax, 02 invalid/unsupported command, 03 split error,
+# 04 parameter error, 90/92 busy, 99 other.
+#
+# Channel model (child entities; wire ids are child id - 1):
+#   - Inputs 1-6  = Beam Channel 1-6   wire 0-5
+#   - Input  7    = Analog Input       wire 6
+#   - Outputs 1   = Analog Out         wire 0
+#   - Outputs 2   = Auto Mix           wire 1
+#   - Fader values: 0 = -inf, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB
+#     (non-linear taper, spec table 6.1)
+#
+# ── Hardware-verified on an ATND1061DAN, firmware 01.04.01 ──
+# Everything below was captured from real hardware rather than inferred, and
+# several points correct the published spec:
+#
+#   1. The spec's Command List (section 3) names the talker-position commands
+#      s_talkerposition_interval / g_talkerposition_interval and the notice
+#      talkerposition_notice. Those strings do not exist on the device — they
+#      answer NAK 02 (invalid command). The real strings are in the detail
+#      sections: s_camera_control_interval / g_camera_control_interval, and
+#      the notice is camera_control_notice. This driver uses the real ones.
+#
+#   2. Answers carry the Device ID in the Unit No field (00 to FF), not a
+#      fixed "00", and bulk answers such as g_name_bank use the split-message
+#      forms CS/CM/CE instead of NC. Response patterns below therefore match
+#      both fields as \S+ rather than hardcoding "0000 00 NC".
+#
+#   3. Notification flags apply immediately — no reboot. The spec says "If the
+#      network settings are changed, the ATND1061 needs to be rebooted", but an
+#      s_network omission write that touches only the notification flags takes
+#      effect at once: notices began arriving within the same connection, and a
+#      read-back confirmed every other field (IP config, MAC, port, multicast
+#      address, NTP, DST dates) was untouched. This is why on_connect can arm
+#      push at all.
+#
+#   4. A factory-fresh unit has ALL notification flags off (Notification 0,
+#      Audio Level 0, Camera Control 0), so it pushes nothing until armed.
+#      on_connect arms the general flag; meters and talker position stay behind
+#      config switches because both are firehoses (see 5).
+#
+#   5. level_meter_notice and camera_control_notice each stream at ~16 frames
+#      per second at their factory 100 ms interval, continuously, whether or
+#      not anything is happening. Both are opt-in and both intervals are
+#      configurable; the defaults here are 500 ms rather than the device's 100.
+#
+#   6. Field counts accepted by each Set were confirmed by writing one field
+#      and reading the record back: s_input_channel_settings 29 (the device
+#      also tolerates the 32 its own spec example implies), s_output_channel_
+#      settings 7, s_input_gain_level 10, s_output_level 6, s_audio_system 9,
+#      s_aec_general 12, s_agc 3, s_smart_mix 7, s_voicelift_channel_settings 5.
+#      In every case the omitted fields were genuinely left unchanged.
+#
+#   7. s_camera_control is the exception to omitted-parameter writes: it
+#      answers NAK 04 unless all three fields are supplied. Its command below
+#      always sends all three.
+#
+#   8. s_header_color really does have a sparse value set — 0, 1, 3, 4, 5 and 8
+#      are accepted; 2, 6 and 7 answer NAK 04.
+#
+#   9. Gain Share (s_smart_mix / g_smart_mix) takes a beam channel parameter;
+#      without one it answers NAK 04. It covers beams only (wire 0-5), not the
+#      analog input.
+#
+#  10. Mic gain on this model is 0-30 (0 to +30 dB), narrower than the ATDM
+#      mixers' 0-40. The analog input reports a Line gain in field 3 of
+#      g_input_gain_level that the Set command treats as reserved.
+#
+#  11. Max 5 simultaneous TCP connections.
+
+id: at_atnd1061
+name: Audio-Technica ATND1061
+manufacturer: Audio-Technica
+category: audio
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.23.0"
+description: >
+  Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array
+  microphones via TCP with real-time multicast push updates. The six beam
+  channels and the analog input are child entities carrying fader, mute, gain,
+  gain-share weight and live meters, labelled by the names set on the
+  microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto
+  attenuation, Voice Lift and camera interlock are all controllable, and the
+  microphone's talker-position reporting can be surfaced as state for camera
+  automation.
+
+source_url: https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_V4_EN_web_240114.pdf
+tags: [microphone, ceiling-mic, beamforming, array, conferencing, dante, automixer, camera-tracking]
+verified: false
+simulated: true
+ports: [17300]
+compatible_models:
+  - manufacturer: Audio-Technica
+    models: [ATND1061DAN]
+    confidence: full
+    notes: Built and tested against an ATND1061DAN on firmware 01.04.01.
+  - manufacturer: Audio-Technica
+    models: [ATND1061LK]
+    confidence: partial
+    notes: >
+      Same protocol and command set. The LK omits Dante, so the Dante Tx
+      settings and the Dante network readouts do not apply.
+
+transport: tcp
+delimiter: "\r"
+
+help:
+  overview: >
+    Controls the Audio-Technica ATND1061 beamforming array microphone, a
+    ceiling-mounted array that steers six independent pickup beams around a
+    room. Each beam and the analog input appear as child entities with their
+    own fader, mute, gain and meter, labelled with the channel names set on the
+    microphone. The microphone also reports which beam is currently picking up
+    a talker and where that talker is, which can drive camera presets from
+    OpenAVC macros.
+  setup: >
+    1. Connect the ATND1061 to the network. It ships set to Auto (DHCP), and
+       control uses TCP port 17300.
+    2. Find its address from your DHCP server, from the Audio-Technica Digital
+       Microphone Manager, or by running a network scan in OpenAVC.
+    3. Beam positions, beam shapes and camera areas are laid out in the
+       microphone's own web interface (browse to its IP address). This driver
+       controls levels, mutes, presets and processing; it does not reposition
+       beams.
+    4. Beam Channels 1-6 and the Analog Input appear as this device's child
+       entities, labelled with the names set on the microphone. Outputs are
+       Analog Out and Auto Mix.
+    5. Front-panel and web changes appear in OpenAVC instantly. The microphone
+       multicasts change notices (factory default group 239.0.0.100, port
+       17000) and OpenAVC listens automatically, arming the notices when it
+       connects. If the multicast address or port was changed on the
+       microphone, set the matching values in Notification Group and
+       Notification Port here. The microphone and the OpenAVC server must be on
+       the same VLAN, and switches with IGMP snooping need an IGMP querier — if
+       notices are filtered, control still works and changes appear at the poll
+       interval instead.
+    6. Live Level Meters and Talker Position are both off by default. Each one
+       makes the microphone stream continuously (about 16 updates per second at
+       the factory interval), so turn them on only if you bind them, and raise
+       the matching interval if you want less traffic.
+    7. A factory-fresh microphone has all notifications disabled. OpenAVC turns
+       on the ones it needs when it connects; nothing needs to be enabled by
+       hand first.
+
+discovery:
+  # The Audio-Technica control-unit family advertises a shared UPnP URN when
+  # "Allow Discovery" is on (factory default). The modelName in the description
+  # XML names the exact model.
+  #
+  # Active probe: g_firmware_version is answered by the whole Audio-Technica IP
+  # control family, so it cannot identify this model on its own. Beam channel
+  # gain-share (g_smart_mix) exists only on the beamforming models — the ATDM
+  # mixers have no such command and answer NAK 02 — so a positive g_smart_mix
+  # answer identifies an ATND1061.
+  ssdp:
+    - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"
+      model: "ATND1061"
+    - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"
+      model: "ATND1061DAN"
+    - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"
+      model: "ATND1061LK"
+  tcp_probe:
+    port: 17300
+    send_ascii: "g_smart_mix O 0000 00 NC 0 \r"
+    expect_regex: 'g_smart_mix \S+ \S+ \S+ 0,'
+    extract_manufacturer: "Audio-Technica"
+  oui:
+    - "00:0a:45"
+  port_open:
+    - 17300
+  manufacturer_alias:
+    - "audio-technica"
+    - "audio technica"
+
+default_config:
+  host: ""
+  port: 17300
+  poll_interval: 20
+  inter_command_delay: 0.05
+  notification_group: "239.0.0.100"
+  notification_port: 17000
+  enable_level_meters: false
+  meter_interval_ms: 500
+  enable_talker_position: false
+  talker_interval_ms: 500
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 17300
+    label: Port
+  poll_interval:
+    type: integer
+    default: 20
+    min: 0
+    label: Poll Interval (sec)
+    help: >
+      The full resync poll is about 45 queries (levels, mutes, gains, channel
+      names and settings, gain share, and the system settings). The default
+      20 s leaves a comfortable margin over the time one cycle takes.
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+  notification_group:
+    type: string
+    default: "239.0.0.100"
+    label: Notification Group
+    help: >
+      Multicast address the microphone sends its change notices to (set in its
+      web interface under Network). Leave at the factory default unless it was
+      changed on the microphone.
+  notification_port:
+    type: integer
+    default: 17000
+    min: 1
+    max: 65535
+    label: Notification Port
+    help: "UDP port for the microphone's multicast notices (factory default 17000)."
+  enable_level_meters:
+    type: boolean
+    default: false
+    label: Enable Level Meters
+    help: >
+      Stream live beam, output, Voice Lift and AEC meters into OpenAVC. The
+      microphone sends these continuously once enabled, so leave this off
+      unless you bind meters on a panel.
+  meter_interval_ms:
+    type: integer
+    default: 500
+    min: 100
+    max: 300000
+    label: Meter Interval (ms)
+    help: >
+      How often the microphone sends level meters. Only applied while Enable
+      Level Meters is on. The microphone's own default is 100 ms, which is
+      about 16 updates a second; 500 ms is plenty for a panel meter.
+  enable_talker_position:
+    type: boolean
+    default: false
+    label: Enable Talker Position
+    help: >
+      Report which beam is hearing a talker and where that talker is
+      (elevation, rotation and camera area), for driving camera presets from
+      macros. The microphone streams this continuously once enabled, so leave
+      it off unless you use it.
+  talker_interval_ms:
+    type: integer
+    default: 500
+    min: 100
+    max: 300000
+    label: Talker Position Interval (ms)
+    help: >
+      How often the microphone reports talker position. Only applied while
+      Enable Talker Position is on. The microphone's own default is 100 ms.
+
+# Join the microphone's notice group while connected. MD frames feed the
+# response rules below; only frames from this device's own address are
+# accepted.
+push:
+  type: multicast
+  group: "{notification_group}"
+  port: "{notification_port}"
+
+# A factory-fresh unit pushes nothing, so arm what we need. Each write sets
+# only its own flag and omits every other s_network field, which the hardware
+# confirmed leaves them unchanged — so the chatty feeds are never switched OFF
+# behind another controller's back, they are simply not switched on.
+on_connect:
+  # General change notices (field 7): levels, mutes, preset recalls, device
+  # mute, power save. Always on — this is what keeps OpenAVC in step.
+  - 's_network S 0000 00 NC ,,,,,,1,,,,,,,,,,,,, \r'
+  # Audio level meters (field 8).
+  - send: 's_network S 0000 00 NC ,,,,,,,1,,,,,,,,,,,, \r'
+    when: enable_level_meters
+  - send: 's_level_meter_interval S 0000 00 NC {meter_interval_ms} \r'
+    when: enable_level_meters
+  # Talker position / camera interlock notices (field 20).
+  - send: 's_network S 0000 00 NC ,,,,,,,,,,,,,,,,,,,1 \r'
+    when: enable_talker_position
+  - send: 's_camera_control_interval S 0000 00 NC {talker_interval_ms} \r'
+    when: enable_talker_position
+
+# ── Child entities: the microphone's beam channels, analog input and outputs.
+#    Child id = wire id + 1, so Beam Channel 1 is child 1 and the analog input
+#    is child 7. Children are labelled by the microphone's own channel names.
+child_entity_types:
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format: { type: integer, min: 1, max: 7 }
+    label_field: name
+    summary_fields: [name, level, mute]
+    instances:
+      count: 7
+    state_variables:
+      name:
+        type: string
+        label: Channel Name
+        help: "Channel name set on the microphone."
+      level:
+        type: integer
+        label: Level (Fader)
+        min: 0
+        max: 511
+        step: 1
+        control: true
+        help: "Fader level (0 = -inf, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+      mute:
+        type: boolean
+        label: Muted
+        control: true
+        cloud_priority: high
+        help: "True when this channel is muted."
+      gain:
+        type: integer
+        label: Mic Gain
+        min: 0
+        max: 30
+        step: 1
+        unit: dB
+        control: true
+        help: "Mic preamp gain, 0 to +30 dB. Not used by the analog input."
+      source:
+        type: enum
+        values: ["Mic", "Line"]
+        label: Input Source
+        control: true
+        help: >
+          Signal source. Beam channels are always Mic; only the analog input
+          can be switched to Line.
+      phantom:
+        type: boolean
+        label: Phantom Power
+        control: true
+        cloud_priority: high
+        help: "True when +48 V phantom power is on (analog input only)."
+      low_cut:
+        type: boolean
+        label: Low Cut
+        control: true
+        help: "True when the low-cut filter is engaged."
+      aec_enabled:
+        type: boolean
+        label: AEC Enabled
+        control: true
+        help: "True when this channel feeds the acoustic echo canceller."
+      smart_mix_enabled:
+        type: boolean
+        label: Gain Share Enabled
+        control: true
+        help: "True when this channel takes part in the gain-share automixer."
+      gain_share_weight:
+        type: integer
+        label: Gain Share Weight
+        min: 0
+        max: 60
+        step: 1
+        control: true
+        help: >
+          Automixer weighting, 0 to 60 (-15.0 dB to +15.0 dB in 0.5 dB steps;
+          30 = 0 dB). Beam channels only.
+      color:
+        type: enum
+        values: ["Green", "Yellow", "Brown", "Red", "Pink", "Blue", "Gray", "DarkGray"]
+        label: Channel Color
+        help: "Colour assigned to this channel in the microphone's web interface."
+      meter:
+        type: integer
+        label: Level Meter
+        min: 0
+        max: 61
+        help: "Post-fader level meter. Updates only while Enable Level Meters is on."
+      gain_share_meter:
+        type: integer
+        label: Gain Share Meter
+        min: 0
+        max: 15
+        help: >
+          How much automixer gain this channel is being given. Updates only
+          while Enable Level Meters is on. Beam channels only.
+
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format: { type: integer, min: 1, max: 2 }
+    label_field: name
+    summary_fields: [name, level, mute]
+    instances:
+      count: 2
+    state_variables:
+      name:
+        type: string
+        label: Channel Name
+        help: "Output name set on the microphone."
+      level:
+        type: integer
+        label: Level (Fader)
+        min: 0
+        max: 511
+        step: 1
+        control: true
+        help: "Fader level (0 = -inf, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB)."
+      mute:
+        type: boolean
+        label: Muted
+        control: true
+        cloud_priority: high
+        help: "True when this output is muted."
+      unity:
+        type: enum
+        values: ["+4dBu", "-10dBV", "-33dBV"]
+        label: Output Level (Unity)
+        control: true
+        help: "Nominal output level. Analog Out only."
+      meter:
+        type: integer
+        label: Level Meter
+        min: 0
+        max: 61
+        help: "Output level meter. Updates only while Enable Level Meters is on."
+
+state_variables:
+  firmware_version:
+    type: string
+    label: Firmware Version
+  device_name:
+    type: string
+    label: Device Name
+    help: "Name set on the microphone."
+  device_id:
+    type: string
+    label: Device ID
+    help: "Device ID used when several units share a control system."
+  mac_address:
+    type: string
+    label: MAC Address
+  dante_ip:
+    type: string
+    label: Dante IP Address
+    help: "Address of the Dante interface (a separate address from the control interface)."
+  device_mute:
+    type: boolean
+    label: Device Mute
+    cloud_priority: high
+    help: "True when the whole microphone is muted."
+  last_preset:
+    type: integer
+    label: Current Preset
+    min: 0
+    max: 16
+    help: "Preset bank last recalled (0 = none since power-on)."
+  power_save:
+    type: boolean
+    label: Power Save Mode
+    help: "True when the microphone has entered power save mode."
+  beam_sensitivity:
+    type: enum
+    values: ["Low", "Mid", "High"]
+    label: Beam Sensitivity
+    help: "How readily beams latch on to a talker."
+  auto_attenuation:
+    type: boolean
+    label: Auto Attenuation
+    help: "Attenuate beams that are not the active talker."
+  attenuation_level:
+    type: integer
+    label: Attenuation Level
+    min: 0
+    max: 28
+    help: "Amount of auto attenuation (0 = -inf, 1 = -30 dB ... 28 = -3 dB)."
+  hold_time:
+    type: integer
+    label: Hold Time
+    min: 0
+    max: 100
+    help: "How long a beam stays active after speech stops, in 0.1 s steps (0-10 s)."
+  dante_tx5:
+    type: boolean
+    label: Dante Tx5 Voice Lift
+    help: "True when Dante transmit channel 5 carries the Voice Lift signal."
+  dante_tx6:
+    type: enum
+    values: ["Auto Mix", "Priority 5"]
+    label: Dante Tx6 Signal
+    help: "Signal carried on Dante transmit channel 6."
+  aec_enabled:
+    type: boolean
+    label: AEC
+    help: "Acoustic echo canceller on or off."
+  aec_reference:
+    type: enum
+    values: ["Analog Input", "Digital Input"]
+    label: AEC Reference
+    help: "Which input the echo canceller uses as its far-end reference."
+  noise_cancel_enabled:
+    type: boolean
+    label: Noise Cancellation
+  noise_cancel_level:
+    type: integer
+    label: Noise Cancellation Level
+    min: 0
+    max: 20
+    unit: dB
+  nlp_enabled:
+    type: boolean
+    label: Non-Linear Processing
+    help: "Extra echo suppression for difficult rooms."
+  nlp_sensitivity:
+    type: enum
+    values: ["Low", "Mid", "High"]
+    label: Non-Linear Processing Sensitivity
+  agc_enabled:
+    type: boolean
+    label: Auto Gain Control
+  agc_target:
+    type: integer
+    label: AGC Target Level
+    min: -10
+    max: 10
+    unit: dB
+  gain_share_mode:
+    type: enum
+    values: ["Standalone", "Link"]
+    label: Gain Share Mode
+    help: "Link shares automixer gain across several units chained together."
+  voice_lift_level:
+    type: integer
+    label: Voice Lift Processing
+    min: 1
+    max: 5
+    help: "Voice Lift processing strength, 1 (least) to 5 (most)."
+  voice_lift_name:
+    type: string
+    label: Voice Lift Channel Name
+  voice_lift_gain:
+    type: integer
+    label: Voice Lift Gain
+    min: 0
+    max: 30
+    unit: dB
+  voice_lift_fader:
+    type: integer
+    label: Voice Lift Level
+    min: 0
+    max: 511
+    help: "Voice Lift fader (0 = -inf, 411 = 0 dB, 511 = +10 dB)."
+  voice_lift_mute:
+    type: boolean
+    label: Voice Lift Muted
+  voice_lift_meter:
+    type: integer
+    label: Voice Lift Meter
+    min: 0
+    max: 61
+    help: "Updates only while Enable Level Meters is on."
+  aec_erl_meter:
+    type: integer
+    label: AEC (ERL) Meter
+    min: 0
+    max: 60
+    help: "Echo return loss. Updates only while Enable Level Meters is on."
+  header_color:
+    type: enum
+    values: ["Green", "Yellow", "Red", "Pink", "Blue", "Cyan"]
+    label: Indicator Colour
+    help: "Colour of the microphone's ring indicator."
+  bootup_preset:
+    type: integer
+    label: Boot-Up Preset
+    min: 0
+    max: 16
+    help: "Preset recalled at power-on (0 = resume last state)."
+  talker_active:
+    type: boolean
+    label: Talker Active
+    cloud_priority: high
+    help: >
+      True while the microphone is hearing a talker. Updates only while Enable
+      Talker Position is on.
+  talker_channel:
+    type: integer
+    label: Talker Beam Channel
+    min: 0
+    max: 6
+    help: >
+      Beam channel hearing the talker, numbered the same as the Input children
+      (1-6). Reads 0 when the talker is outside every beam. Updates only while
+      Enable Talker Position is on.
+  talker_elevation:
+    type: integer
+    label: Talker Elevation
+    min: 0
+    max: 90
+    unit: deg
+    help: "Elevation angle of the talker. Updates only while Enable Talker Position is on."
+  talker_rotation:
+    type: integer
+    label: Talker Rotation
+    min: 0
+    max: 360
+    unit: deg
+    help: "Rotation angle of the talker. Updates only while Enable Talker Position is on."
+  talker_camera_area:
+    type: integer
+    label: Talker Camera Area
+    min: 0
+    max: 15
+    help: >
+      Camera area the talker is standing in (0 = none), as laid out in the
+      microphone's web interface. Bind a trigger to this to drive camera
+      presets. Updates only while Enable Talker Position is on.
+  camera_recall_time:
+    type: integer
+    label: Camera Preset Recall Delay
+    min: 500
+    max: 10000
+    unit: ms
+    help: "How long a talker must hold an area before the camera preset is recalled."
+  camera_home_enabled:
+    type: boolean
+    label: Camera Return Home
+    help: "Return the camera to its home preset when nobody is speaking."
+  camera_home_time:
+    type: integer
+    label: Camera Return Home Delay
+    min: 500
+    max: 100000
+    unit: ms
+  notifications_armed:
+    type: boolean
+    label: Change Notices Armed
+    help: >
+      True when the microphone is set to multicast change notices. OpenAVC
+      turns this on when it connects; if it reads false, notices are being
+      blocked rather than disabled.
+  meters_armed:
+    type: boolean
+    label: Meter Notices Armed
+  talker_notices_armed:
+    type: boolean
+    label: Talker Position Notices Armed
+  notification_group_actual:
+    type: string
+    label: Notification Group (on device)
+    help: >
+      Multicast group the microphone is actually sending to. If this does not
+      match the Notification Group setting, OpenAVC will not receive notices.
+  notification_port_actual:
+    type: integer
+    label: Notification Port (on device)
+  allow_discovery:
+    type: boolean
+    label: Allow Discovery (UPnP)
+    help: "Whether the microphone answers network scans."
+
+commands:
+  # ── Input channels (children 1-7; wire 0-6) ──
+  set_input_level:
+    label: Set Input Level
+    send: 'SICL S 0000 00 NC {channel},{level} \r'
+    help: "Set the fader level for a beam channel or the analog input."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      level:
+        type: integer
+        required: true
+        label: Level (Fader)
+        min: 0
+        max: 511
+        help: "0 = -inf, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB"
+
+  input_mute_on:
+    label: Input Mute On
+    send: 'SICM S 0000 00 NC {channel},1 \r'
+    help: "Mute a beam channel or the analog input."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+
+  input_mute_off:
+    label: Input Mute Off
+    send: 'SICM S 0000 00 NC {channel},0 \r'
+    help: "Unmute a beam channel or the analog input."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+
+  set_input_gain:
+    label: Set Input Gain
+    send: 's_input_gain_level S 0000 00 NC {channel},{gain},,,,,,,, \r'
+    help: >
+      Set the mic preamp gain for a channel, 0 to +30 dB. The fader level and
+      mute are left unchanged (omitted-parameter write).
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      gain:
+        type: integer
+        required: true
+        label: Gain (dB)
+        min: 0
+        max: 30
+
+  set_input_source:
+    label: Set Input Source
+    send: 's_input_channel_settings S 0000 00 NC {channel},{source},,,,,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: >
+      Switch the analog input between Mic and Line. Beam channels are always
+      Mic and will refuse this.
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      source:
+        type: enum
+        required: true
+        label: Source
+        values: ["Mic", "Line"]
+        map: { "Mic": "0", "Line": "1" }
+
+  set_input_phantom:
+    label: Set Phantom Power
+    send: 's_input_channel_settings S 0000 00 NC {channel},,{state},,,,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Turn +48 V phantom power on or off for the analog input."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      state:
+        type: boolean
+        required: true
+        label: Phantom Power
+        map: { "true": "1", "false": "0" }
+
+  set_input_low_cut:
+    label: Set Low Cut
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,{state},,,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Engage or release the low-cut filter on a channel."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      state:
+        type: boolean
+        required: true
+        label: Low Cut
+        map: { "true": "1", "false": "0" }
+
+  set_input_aec:
+    label: Set Channel AEC
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,,{state},,,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Include or exclude a channel from the acoustic echo canceller."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      state:
+        type: boolean
+        required: true
+        label: AEC Enabled
+        map: { "true": "1", "false": "0" }
+
+  set_input_gain_share:
+    label: Set Channel Gain Share
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,{state},,,,,,,,,,,,,,,,,,,,,, \r'
+    help: "Include or exclude a channel from the gain-share automixer."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      state:
+        type: boolean
+        required: true
+        label: Gain Share Enabled
+        map: { "true": "1", "false": "0" }
+
+  set_gain_share_weight:
+    label: Set Gain Share Weight
+    send: 's_smart_mix S 0000 00 NC {channel},,{weight},,,, \r'
+    help: >
+      Set how strongly a beam channel is weighted in the automixer. 0 to 60
+      maps to -15.0 dB to +15.0 dB in 0.5 dB steps; 30 is 0 dB. Beam channels
+      only — the analog input has no gain-share weight.
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Beam Channel
+        min: 1
+        max: 6
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5" }
+      weight:
+        type: integer
+        required: true
+        label: Weight
+        min: 0
+        max: 60
+
+  rename_input:
+    label: Rename Input
+    send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,,,,,,,,,,,,,,"{name}",,,,,,,,, \r'
+    help: "Change the name the microphone shows for a channel."
+    params:
+      channel:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5", "7": "6" }
+      name:
+        type: string
+        required: true
+        label: Name
+
+  # ── Outputs (children 1-2; wire 0-1) ──
+  set_output_level:
+    label: Set Output Level
+    send: 'SOCL S 0000 00 NC {channel},{level} \r'
+    help: "Set the fader level for Analog Out or Auto Mix."
+    params:
+      channel:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map: { "1": "0", "2": "1" }
+      level:
+        type: integer
+        required: true
+        label: Level (Fader)
+        min: 0
+        max: 511
+        help: "0 = -inf, 1 = -120 dB, 411 = 0 dB, 511 = +10 dB"
+
+  output_mute_on:
+    label: Output Mute On
+    send: 'SOCM S 0000 00 NC {channel},1 \r'
+    params:
+      channel:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map: { "1": "0", "2": "1" }
+
+  output_mute_off:
+    label: Output Mute Off
+    send: 'SOCM S 0000 00 NC {channel},0 \r'
+    params:
+      channel:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map: { "1": "0", "2": "1" }
+
+  set_output_unity:
+    label: Set Output Unity Level
+    send: 's_output_channel_settings S 0000 00 NC {channel},{unity},,,,, \r'
+    help: "Set the nominal output level. Analog Out only."
+    params:
+      channel:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map: { "1": "0", "2": "1" }
+      unity:
+        type: enum
+        required: true
+        label: Unity Level
+        values: ["+4dBu", "-10dBV", "-33dBV"]
+        map: { "+4dBu": "0", "-10dBV": "2", "-33dBV": "3" }
+
+  rename_output:
+    label: Rename Output
+    send: 's_output_channel_settings S 0000 00 NC {channel},,"{name}",,,, \r'
+    params:
+      channel:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map: { "1": "0", "2": "1" }
+      name:
+        type: string
+        required: true
+        label: Name
+
+  # ── Device-wide ──
+  device_mute_on:
+    label: Device Mute On
+    send: 's_mute S 0000 00 NC 1 \r'
+    help: "Mute the entire microphone."
+
+  device_mute_off:
+    label: Device Mute Off
+    send: 's_mute S 0000 00 NC 0 \r'
+    help: "Unmute the entire microphone."
+
+  recall_preset:
+    label: Recall Preset
+    send: 'call_preset S 0000 00 NC {bank} \r'
+    help: "Recall one of the 16 preset banks."
+    params:
+      bank:
+        type: integer
+        required: true
+        label: Preset Bank
+        min: 1
+        max: 16
+
+  save_preset:
+    label: Save Preset
+    send: 'save_preset S 0000 00 NC {bank} \r'
+    help: "Overwrite a preset bank with the microphone's current settings."
+    params:
+      bank:
+        type: integer
+        required: true
+        label: Preset Bank
+        min: 1
+        max: 16
+
+  rename_preset:
+    label: Rename Preset
+    send: 's_name_bank S 0000 00 NC {bank},"{name}" \r'
+    params:
+      bank:
+        type: integer
+        required: true
+        label: Preset Bank
+        min: 1
+        max: 16
+      name:
+        type: string
+        required: true
+        label: Name
+
+  identify:
+    label: Identify
+    send: 'identify S 0000 00 NC \r'
+    help: "Flash the microphone's indicator so you can find it in the ceiling."
+
+  set_vad:
+    label: Set Voice Activity Detection
+    send: 'SVAD S 0000 00 NC {state} \r'
+    help: >
+      Turn voice activity detection on or off. The microphone reports no
+      readback for this setting, so it is not mirrored as state.
+    params:
+      state:
+        type: boolean
+        required: true
+        label: VAD Enabled
+        map: { "true": "1", "false": "0" }
+
+  power_save_on:
+    label: Power Save On
+    send: 's_powersave S 0000 00 NC 1 \r'
+
+  power_save_off:
+    label: Power Save Off
+    send: 's_powersave S 0000 00 NC 0 \r'
+
+  reboot:
+    label: Reboot
+    send: 'reboot S 0000 00 NC \r'
+    help: "Restart the microphone. Audio drops for about a minute."
+
+  set_camera_control:
+    label: Set Camera Interlock Timing
+    send: 's_camera_control S 0000 00 NC {recall_ms},{home_enabled},{home_ms} \r'
+    help: >
+      Timing for the camera interlock: how long a talker must hold an area
+      before the camera preset is recalled, and whether and when the camera
+      returns to its home preset. All three values must be given — the
+      microphone rejects this command if any are omitted.
+    params:
+      recall_ms:
+        type: integer
+        required: true
+        label: Preset Recall Delay (ms)
+        min: 500
+        max: 10000
+      home_enabled:
+        type: boolean
+        required: true
+        label: Return Home
+        map: { "true": "1", "false": "0" }
+      home_ms:
+        type: integer
+        required: true
+        label: Return Home Delay (ms)
+        min: 500
+        max: 100000
+
+  refresh:
+    label: Refresh From Device
+    send: 'g_firmware_version O 0000 00 NC \r'
+    help: "Re-read the microphone's settings. The poll does this automatically."
+
+device_settings:
+  beam_sensitivity:
+    type: enum
+    values:
+      - { value: "0", label: "Low" }
+      - { value: "1", label: "Mid" }
+      - { value: "2", label: "High" }
+    label: Beam Sensitivity
+    help: >
+      How readily beams latch on to a talker. Higher picks up quiet or distant
+      talkers but is more prone to catching room noise.
+    state_key: beam_sensitivity
+    default: "1"
+    setup: false
+    write:
+      send: 's_audio_system S 0000 00 NC ,,,,,{value},,, \r'
+
+  auto_attenuation:
+    type: boolean
+    label: Auto Attenuation
+    help: "Pull down beams that are not the active talker."
+    state_key: auto_attenuation
+    default: true
+    setup: false
+    write:
+      send: 's_audio_system S 0000 00 NC ,,,,,,{value:d},, \r'
+
+  attenuation_level:
+    type: integer
+    min: 0
+    max: 28
+    label: Attenuation Level
+    help: "How far inactive beams are pulled down (0 = -inf, 1 = -30 dB ... 28 = -3 dB)."
+    state_key: attenuation_level
+    default: 17
+    setup: false
+    write:
+      send: 's_audio_system S 0000 00 NC ,,,,,,,{value}, \r'
+
+  hold_time:
+    type: integer
+    min: 0
+    max: 100
+    label: Hold Time
+    help: "How long a beam stays active after speech stops, in 0.1 s steps (0-10 s)."
+    state_key: hold_time
+    default: 15
+    setup: false
+    write:
+      send: 's_audio_system S 0000 00 NC ,,,,,,,,{value} \r'
+
+  dante_tx6:
+    type: enum
+    values:
+      - { value: "0", label: "Auto Mix" }
+      - { value: "1", label: "Priority 5" }
+    label: Dante Tx6 Signal
+    help: "Which signal the microphone sends on Dante transmit channel 6."
+    state_key: dante_tx6
+    default: "0"
+    setup: false
+    write:
+      send: 's_audio_system S 0000 00 NC ,,,,{value},,,, \r'
+
+  dante_tx5:
+    type: boolean
+    label: Dante Tx5 Voice Lift
+    help: "Send the Voice Lift signal on Dante transmit channel 5."
+    state_key: dante_tx5
+    default: false
+    setup: false
+    write:
+      send: 's_dante_tx5 S 0000 00 NC {value:d} \r'
+
+  aec_enabled:
+    type: boolean
+    label: AEC
+    help: "Acoustic echo canceller. Needed for conferencing, harmless otherwise."
+    state_key: aec_enabled
+    default: false
+    setup: false
+    write:
+      send: 's_aec_general S 0000 00 NC {value:d},,,,,,,,,,, \r'
+
+  aec_reference:
+    type: enum
+    values:
+      - { value: "0", label: "Analog Input" }
+      - { value: "1", label: "Digital Input" }
+    label: AEC Reference
+    help: "Which input carries the far-end audio the canceller listens to."
+    state_key: aec_reference
+    default: "0"
+    setup: false
+    write:
+      send: 's_aec_general S 0000 00 NC ,{value},,,,,,,,,, \r'
+
+  noise_cancel_enabled:
+    type: boolean
+    label: Noise Cancellation
+    help: "Reduce steady background noise such as HVAC."
+    state_key: noise_cancel_enabled
+    default: false
+    setup: false
+    write:
+      send: 's_aec_general S 0000 00 NC ,,,,,,,,,,,{value:d} \r'
+
+  noise_cancel_level:
+    type: integer
+    min: 0
+    max: 20
+    label: Noise Cancellation Level
+    help: "How much steady noise to remove, 0 to 20 dB."
+    state_key: noise_cancel_level
+    default: 6
+    setup: false
+    write:
+      send: 's_aec_general S 0000 00 NC ,,,,,,,{value},,,, \r'
+
+  nlp_enabled:
+    type: boolean
+    label: Non-Linear Processing
+    help: "Extra echo suppression for rooms the canceller alone cannot tame."
+    state_key: nlp_enabled
+    default: false
+    setup: false
+    write:
+      send: 's_aec_general S 0000 00 NC ,,,,,,,,{value:d},,, \r'
+
+  nlp_sensitivity:
+    type: enum
+    values:
+      - { value: "0", label: "Low" }
+      - { value: "1", label: "Mid" }
+      - { value: "2", label: "High" }
+    label: Non-Linear Processing Sensitivity
+    state_key: nlp_sensitivity
+    default: "1"
+    setup: false
+    write:
+      send: 's_aec_general S 0000 00 NC ,,,,,,,,,{value},, \r'
+
+  agc_enabled:
+    type: boolean
+    label: Auto Gain Control
+    help: "Even out the level between loud and quiet talkers."
+    state_key: agc_enabled
+    default: false
+    setup: false
+    write:
+      send: 's_agc S 0000 00 NC {value:d},, \r'
+
+  agc_target:
+    type: integer
+    min: -10
+    max: 10
+    label: AGC Target Level
+    help: "Level the auto gain control aims for, -10 to +10 dB."
+    state_key: agc_target
+    default: 0
+    setup: false
+    write:
+      send: 's_agc S 0000 00 NC ,,{value} \r'
+
+  gain_share_mode:
+    type: enum
+    values:
+      - { value: "0", label: "Standalone" }
+      - { value: "1", label: "Link" }
+    label: Gain Share Mode
+    help: >
+      Link shares automixer gain across several ATND1061s in one room. Only
+      change this when units are actually chained.
+    state_key: gain_share_mode
+    default: "0"
+    setup: false
+    write:
+      send: 's_gainshare_mode S 0000 00 NC {value} \r'
+
+  voice_lift_level:
+    type: integer
+    min: 1
+    max: 5
+    label: Voice Lift Processing
+    help: "Voice Lift processing strength, 1 (least) to 5 (most)."
+    state_key: voice_lift_level
+    default: 3
+    setup: false
+    write:
+      send: 's_voicelift S 0000 00 NC {value} \r'
+
+  voice_lift_fader:
+    type: integer
+    min: 0
+    max: 511
+    label: Voice Lift Level
+    help: "Voice Lift output fader (0 = -inf, 411 = 0 dB, 511 = +10 dB)."
+    state_key: voice_lift_fader
+    default: 411
+    setup: false
+    write:
+      send: 's_voicelift_channel_settings S 0000 00 NC ,{value},,, \r'
+
+  voice_lift_mute:
+    type: boolean
+    label: Voice Lift Muted
+    state_key: voice_lift_mute
+    default: false
+    setup: false
+    write:
+      send: 's_voicelift_channel_settings S 0000 00 NC ,,{value:d},, \r'
+
+  header_color:
+    type: enum
+    values:
+      - { value: "0", label: "Green" }
+      - { value: "1", label: "Yellow" }
+      - { value: "3", label: "Red" }
+      - { value: "4", label: "Pink" }
+      - { value: "5", label: "Blue" }
+      - { value: "8", label: "Cyan" }
+    label: Indicator Colour
+    help: >
+      Colour of the microphone's ring indicator. The microphone accepts only
+      these six values.
+    state_key: header_color
+    default: "0"
+    setup: false
+    write:
+      send: 's_header_color S 0000 00 NC {value} \r'
+
+  bootup_preset:
+    type: integer
+    min: 0
+    max: 16
+    label: Boot-Up Preset
+    help: "Preset recalled at power-on (0 = resume the state it was in)."
+    state_key: bootup_preset
+    default: 0
+    setup: false
+    write:
+      send: 's_bootup_preset S 0000 00 NC {value} \r'
+
+actions:
+  - id: device_mute_on
+    icon: mic-off
+  - id: device_mute_off
+    icon: mic
+  - id: recall_preset
+    icon: bookmark
+  - id: identify
+    icon: sun
+  - id: reboot
+    icon: refresh-cw
+    confirm: >
+      Restart the microphone? Audio drops for about a minute while it boots.
+
+responses:
+  # Answers carry the Device ID in the Unit No field and may use the split
+  # forms CS/CM/CE, so both fields are matched as \S+ rather than "00 NC".
+
+  # ── System ──
+  - match: 'g_firmware_version \S+ \S+ \S+ (\S+)'
+    set: { firmware_version: "$1" }
+
+  - match: 'g_permission \S+ \S+ \S+ "((?:[^"]|"")*)"'
+    set: { device_name: "$1" }
+
+  - match: 'g_deviceid \S+ \S+ \S+ (\S+)'
+    set: { device_id: "$1" }
+
+  # Network settings: MAC, discovery, the three notification flags and the
+  # multicast target the microphone is actually using.
+  - match: 'g_network \S+ \S+ \S+ [^,]*,[^,]*,[^,]*,[^,]*,([0-9A-Fa-f]*),([01]?),(\d*),([01]?),([01]?),([\d.]*),(\d*),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,([01]?)'
+    set:
+      mac_address: "$1"
+      allow_discovery: "$2"
+      notification_port_actual: "$7"
+      notification_group_actual: "$6"
+      notifications_armed: "$4"
+      meters_armed: "$5"
+      talker_notices_armed: "$8"
+
+  - match: 'g_network_dante \S+ \S+ \S+ [^,]*,[^,]*,[^,]*,([\d.]+)'
+    set: { dante_ip: "$1" }
+
+  # Value maps on a regex response use the verbose mappings: form — a
+  # {group, map} spec inside set: is only read by json: true rules, and would
+  # otherwise be stored verbatim as a dict.
+  - match: 'g_audio_system \S+ \S+ \S+ [^,]*,[^,]*,[^,]*,[^,]*,([01]?),([012]?),([01]?),(\d*),(\d*)'
+    set:
+      auto_attenuation: "$3"
+      attenuation_level: "$4"
+      hold_time: "$5"
+    mappings:
+      - group: 1
+        state: dante_tx6
+        map: { "0": "Auto Mix", "1": "Priority 5" }
+      - group: 2
+        state: beam_sensitivity
+        map: { "0": "Low", "1": "Mid", "2": "High" }
+
+  # AEC: enable, reference, ... noise-cancel level (8), NLP enable (9),
+  # NLP sensitivity (10), ... NC enable (12).
+  - match: 'g_aec_general \S+ \S+ \S+ ([01]?),([01]?),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,(\d*),([01]?),([012]?),[^,]*,([01]?)'
+    set:
+      aec_enabled: "$1"
+      noise_cancel_level: "$3"
+      nlp_enabled: "$4"
+      noise_cancel_enabled: "$6"
+    mappings:
+      - group: 2
+        state: aec_reference
+        map: { "0": "Analog Input", "1": "Digital Input" }
+      - group: 5
+        state: nlp_sensitivity
+        map: { "0": "Low", "1": "Mid", "2": "High" }
+
+  - match: 'g_agc \S+ \S+ \S+ ([01]?),[^,]*,(-?\d*)'
+    set:
+      agc_enabled: "$1"
+      agc_target: "$2"
+
+  - match: 'g_gainshare_mode \S+ \S+ \S+ ([01])'
+    mappings:
+      - group: 1
+        state: gain_share_mode
+        map: { "0": "Standalone", "1": "Link" }
+
+  - match: 'g_voicelift \S+ \S+ \S+ ([1-5])'
+    set: { voice_lift_level: "$1" }
+
+  - match: 'g_voicelift_channel_settings \S+ \S+ \S+ (\d*),(\d*),([01]?),"((?:[^"]|"")*)"'
+    set:
+      voice_lift_gain: "$1"
+      voice_lift_fader: "$2"
+      voice_lift_mute: "$3"
+      voice_lift_name: "$4"
+
+  - match: 'g_header_color \S+ \S+ \S+ (\d+)'
+    mappings:
+      - group: 1
+        state: header_color
+        map: { "0": "Green", "1": "Yellow", "3": "Red", "4": "Pink", "5": "Blue", "8": "Cyan" }
+
+  - match: 'g_bootup_preset \S+ \S+ \S+ (\d+)'
+    set: { bootup_preset: "$1" }
+
+  - match: 'g_preset_number \S+ \S+ \S+ (\d+)'
+    set: { last_preset: "$1" }
+
+  - match: 'g_mute \S+ \S+ \S+ ([01])'
+    set: { device_mute: "$1" }
+
+  - match: 'g_dante_tx5 \S+ \S+ \S+ ([01])'
+    set: { dante_tx5: "$1" }
+
+  - match: 'g_camera_control \S+ \S+ \S+ (\d+),([01]),(\d+)'
+    set:
+      camera_recall_time: "$1"
+      camera_home_enabled: "$2"
+      camera_home_time: "$3"
+
+  # ── Per-input answers ──
+  # Gain / level / mute. Field 3 is the analog input's Line gain, which the
+  # beams leave at 1; only the Mic gain in field 2 is mirrored.
+  - match: 'g_input_gain_level \S+ \S+ \S+ ([0-6]),(\d*),[^,]*,(\d*),[^,]*,[^,]*,([01]?)'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7 } }
+        state:
+          gain: $2
+          level: $3
+          mute: $4
+
+  # Channel settings. The reserved run between Gain Share and the quoted name
+  # is skipped by scanning to the first quote rather than counting commas.
+  - match: 'g_input_channel_settings \S+ \S+ \S+ ([0-6]),([01]?),([01]?),[^,]*,([01]?),([01]?),([01]?),[^"]*"((?:[^"]|"")*)",(\d*)'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7 } }
+        state:
+          source:
+            group: 2
+            map: { "0": "Mic", "1": "Line" }
+          phantom: $3
+          low_cut: $4
+          aec_enabled: $5
+          smart_mix_enabled: $6
+          name: $7
+          color:
+            group: 8
+            map: { "0": "Green", "1": "Yellow", "2": "Brown", "3": "Red", "4": "Pink", "5": "Blue", "6": "Gray", "7": "DarkGray" }
+
+  - match: 'g_smart_mix \S+ \S+ \S+ ([0-5]),[^,]*,(\d*)'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6 } }
+        state: { gain_share_weight: $2 }
+
+  - match: 'GICL \S+ \S+ \S+ ([0-6]),(\d+)'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7 } }
+        state: { level: $2 }
+
+  - match: 'GICM \S+ \S+ \S+ ([0-6]),([01])'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7 } }
+        state: { mute: $2 }
+
+  # ── Per-output answers ──
+  - match: 'g_output_level \S+ \S+ \S+ ([01]),(\d+)'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state: { level: $2 }
+
+  - match: 'g_output_mute \S+ \S+ \S+ ([01]),([01])'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state: { mute: $2 }
+
+  # Only Analog Out carries a Unity value; Auto Mix leaves that field empty.
+  # Two rules rather than one loose (\d*), so the empty field is skipped
+  # instead of writing "" into the enum.
+  - match: 'g_output_channel_settings \S+ \S+ \S+ ([01]),(\d+),"((?:[^"]|"")*)"'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state:
+          unity:
+            group: 2
+            map: { "0": "+4dBu", "2": "-10dBV", "3": "-33dBV" }
+          name: $3
+  - match: 'g_output_channel_settings \S+ \S+ \S+ ([01]),,"((?:[^"]|"")*)"'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state:
+          name: $2
+
+  - match: 'GOCL \S+ \S+ \S+ ([01]),(\d+)'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state: { level: $2 }
+
+  - match: 'GOCM \S+ \S+ \S+ ([01]),([01])'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state: { mute: $2 }
+
+  # ── Multicast change notices (MD frames) ──
+  - match: 'MD input_gain_level_notice \S+ \S+ \S+ ([0-6]),(\d*),[^,]*,(\d*),([01]?)'
+    child_set:
+      - type: input
+        id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7 } }
+        state:
+          gain: $2
+          level: $3
+          mute: $4
+
+  - match: 'MD output_level_notice \S+ \S+ \S+ ([01]),(\d+)'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state: { level: $2 }
+
+  - match: 'MD output_mute_notice \S+ \S+ \S+ ([01]),([01])'
+    child_set:
+      - type: output
+        id: { group: 1, map: { "0": 1, "1": 2 } }
+        state: { mute: $2 }
+
+  - match: 'MD recall_preset_notice \S+ \S+ \S+ (\d+)'
+    set: { last_preset: "$1" }
+
+  - match: 'MD mute_notice \S+ \S+ \S+ ([01])'
+    set: { device_mute: "$1" }
+
+  - match: 'MD powersave_notice \S+ \S+ \S+ ([01])'
+    set: { power_save: "$1" }
+
+  # Talker position. The channel field carries the WIRE channel (0-5 = Beam
+  # Channel 1-6) and is left empty when the talker is outside every beam, so
+  # the two shapes are separate rules: the first maps the wire value onto the
+  # beam number the child entities use, the second reports beam 0 for "none".
+  # Reporting the raw wire value here would name the beam one too low and
+  # point a camera at the wrong preset.
+  - match: 'MD camera_control_notice \S+ \S+ \S+ ([01]),([0-5]),(\d+),(\d+),(\d+)'
+    throttle: 0.25
+    set:
+      talker_active: "$1"
+      talker_elevation: "$3"
+      talker_rotation: "$4"
+      talker_camera_area: "$5"
+    mappings:
+      - group: 2
+        state: talker_channel
+        map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6 }
+  - match: 'MD camera_control_notice \S+ \S+ \S+ ([01]),,(\d+),(\d+),(\d+)'
+    throttle: 0.25
+    set:
+      talker_active: "$1"
+      talker_channel: "0"
+      talker_elevation: "$2"
+      talker_rotation: "$3"
+      talker_camera_area: "$4"
+
+  # Level meters: 42 comma-separated values. Post-fader beams 1-6 and the
+  # analog input are fields 1-7, Analog Out / Auto Mix / Voice Lift are 13-15,
+  # AEC (ERL) is 23, and the gain-share meters for beams 1-6 are 33-38. The
+  # rest are reserved and always empty.
+  #
+  # Both this and the talker notice are continuous feeds — about 16 frames a
+  # second at the microphone's factory interval — so each is throttled to a
+  # panel-friendly rate. Throttling is drop-style: the frame that arrives after
+  # the window carries the current value, so nothing goes stale.
+  - match: 'MD level_meter_notice \S+ \S+ \S+ (\d*),(\d*),(\d*),(\d*),(\d*),(\d*),(\d*),\d*,\d*,\d*,\d*,\d*,(\d*),(\d*),(\d*),\d*,\d*,\d*,\d*,\d*,\d*,\d*,(\d*),\d*,\d*,\d*,\d*,\d*,\d*,\d*,\d*,\d*,(\d*),(\d*),(\d*),(\d*),(\d*),(\d*)'
+    throttle: 0.2
+    set:
+      voice_lift_meter: "$10"
+      aec_erl_meter: "$11"
+    child_set:
+      - type: input
+        id: 1
+        state: { meter: $1, gain_share_meter: $12 }
+      - type: input
+        id: 2
+        state: { meter: $2, gain_share_meter: $13 }
+      - type: input
+        id: 3
+        state: { meter: $3, gain_share_meter: $14 }
+      - type: input
+        id: 4
+        state: { meter: $4, gain_share_meter: $15 }
+      - type: input
+        id: 5
+        state: { meter: $5, gain_share_meter: $16 }
+      - type: input
+        id: 6
+        state: { meter: $6, gain_share_meter: $17 }
+      - type: input
+        id: 7
+        state: { meter: $7 }
+      - type: output
+        id: 1
+        state: { meter: $8 }
+      - type: output
+        id: 2
+        state: { meter: $9 }
+
+polling:
+  # Every query ends "<params> \r" — the trailing space is part of the grammar.
+  # g_input_gain_level answers gain, level and mute in one round-trip, so the
+  # short GICL/GICM codes are not polled. Channel names, settings and the
+  # system block have no change notice and refresh only here.
+  queries:
+    - 'g_firmware_version O 0000 00 NC \r'
+    - 'g_permission O 0000 00 NC \r'
+    - 'g_deviceid O 0000 00 NC \r'
+    - 'g_network O 0000 00 NC \r'
+    - 'g_network_dante O 0000 00 NC \r'
+    - 'g_mute O 0000 00 NC \r'
+    - 'g_preset_number O 0000 00 NC \r'
+    - 'g_bootup_preset O 0000 00 NC \r'
+    - 'g_audio_system O 0000 00 NC \r'
+    - 'g_aec_general O 0000 00 NC \r'
+    - 'g_agc O 0000 00 NC \r'
+    - 'g_gainshare_mode O 0000 00 NC \r'
+    - 'g_voicelift O 0000 00 NC \r'
+    - 'g_voicelift_channel_settings O 0000 00 NC \r'
+    - 'g_header_color O 0000 00 NC \r'
+    - 'g_dante_tx5 O 0000 00 NC \r'
+    - 'g_camera_control O 0000 00 NC \r'
+    - 'g_input_gain_level O 0000 00 NC 0 \r'
+    - 'g_input_gain_level O 0000 00 NC 1 \r'
+    - 'g_input_gain_level O 0000 00 NC 2 \r'
+    - 'g_input_gain_level O 0000 00 NC 3 \r'
+    - 'g_input_gain_level O 0000 00 NC 4 \r'
+    - 'g_input_gain_level O 0000 00 NC 5 \r'
+    - 'g_input_gain_level O 0000 00 NC 6 \r'
+    - 'g_input_channel_settings O 0000 00 NC 0 \r'
+    - 'g_input_channel_settings O 0000 00 NC 1 \r'
+    - 'g_input_channel_settings O 0000 00 NC 2 \r'
+    - 'g_input_channel_settings O 0000 00 NC 3 \r'
+    - 'g_input_channel_settings O 0000 00 NC 4 \r'
+    - 'g_input_channel_settings O 0000 00 NC 5 \r'
+    - 'g_input_channel_settings O 0000 00 NC 6 \r'
+    - 'g_smart_mix O 0000 00 NC 0 \r'
+    - 'g_smart_mix O 0000 00 NC 1 \r'
+    - 'g_smart_mix O 0000 00 NC 2 \r'
+    - 'g_smart_mix O 0000 00 NC 3 \r'
+    - 'g_smart_mix O 0000 00 NC 4 \r'
+    - 'g_smart_mix O 0000 00 NC 5 \r'
+    - 'g_output_level O 0000 00 NC 0 \r'
+    - 'g_output_level O 0000 00 NC 1 \r'
+    - 'g_output_mute O 0000 00 NC 0 \r'
+    - 'g_output_mute O 0000 00 NC 1 \r'
+    - 'g_output_channel_settings O 0000 00 NC 0 \r'
+    - 'g_output_channel_settings O 0000 00 NC 1 \r'
+
+# The microphone never speaks first on the control connection, so a quiet room
+# produces no TCP traffic between polls and a vanished device would otherwise
+# sit at connected. Probe the firmware-version query and require its answer;
+# two silent probes force a reconnect with a typed no_response fault.
+liveness:
+  send: 'g_firmware_version O 0000 00 NC \r'
+  expect: 'g_firmware_version \S+'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+# ── SIMULATOR DEFINITION ──
+# Simulates the TCP control surface (polling plus commands). The real
+# microphone sends its change notices over multicast rather than the control
+# connection, and the simulator does the same for the notices it models.
+simulator:
+  initial_state:
+    firmware_version: "01.04.01"
+    device_name: "ATND1061"
+    device_id: "00"
+    mac_address: "000A45379AF7"
+    dante_ip: "192.168.1.55"
+    allow_discovery: 1
+    notification_group_actual: "239.000.000.100"
+    notification_port_actual: 17000
+    power_save: 0
+    voice_lift_name: "Voice Lift"
+    voice_lift_meter: 0
+    aec_erl_meter: 0
+    talker_active: 0
+    talker_channel: 0
+    talker_elevation: 0
+    talker_rotation: 0
+    talker_camera_area: 0
+    device_mute: 0
+    last_preset: 0
+    bootup_preset: 0
+    beam_sensitivity: 1
+    auto_attenuation: 1
+    attenuation_level: 17
+    hold_time: 15
+    dante_tx5: 0
+    dante_tx6: 0
+    aec_enabled: 0
+    aec_reference: 0
+    noise_cancel_level: 6
+    nlp_enabled: 0
+    nlp_sensitivity: 1
+    noise_cancel_enabled: 0
+    agc_enabled: 0
+    agc_target: 0
+    gain_share_mode: 0
+    voice_lift_level: 3
+    voice_lift_gain: 0
+    voice_lift_fader: 411
+    voice_lift_mute: 0
+    header_color: 0
+    notifications_armed: 0
+    meters_armed: 0
+    talker_notices_armed: 0
+    camera_recall_time: 500
+    camera_home_enabled: 1
+    camera_home_time: 500
+    level_meter_interval: 100
+    talker_interval: 100
+    in0_level: 411
+    in1_level: 411
+    in2_level: 411
+    in3_level: 411
+    in4_level: 411
+    in5_level: 411
+    in6_level: 411
+    in0_mute: 0
+    in1_mute: 0
+    in2_mute: 0
+    in3_mute: 0
+    in4_mute: 0
+    in5_mute: 0
+    in6_mute: 0
+    in0_gain: 0
+    in1_gain: 0
+    in2_gain: 0
+    in3_gain: 0
+    in4_gain: 0
+    in5_gain: 0
+    in6_gain: 0
+    in0_name: "CH1"
+    in1_name: "CH2"
+    in2_name: "CH3"
+    in3_name: "CH4"
+    in4_name: "CH5"
+    in5_name: "CH6"
+    in6_name: "Analog In"
+    in0_weight: 30
+    in1_weight: 30
+    in2_weight: 30
+    in3_weight: 30
+    in4_weight: 30
+    in5_weight: 30
+    out0_level: 411
+    out1_level: 411
+    out0_mute: 0
+    out1_mute: 0
+    out0_name: "Analog Out"
+    out1_name: "Auto Mix"
+    out0_unity: 0
+
+  controls:
+    - type: toggle
+      key: device_mute
+      label: Device Mute
+    - type: select
+      key: beam_sensitivity
+      label: Beam Sensitivity
+      options: ["0", "1", "2"]
+    - type: slider
+      key: in0_level
+      label: Beam 1 Level
+      min: 0
+      max: 511
+    - type: toggle
+      key: in0_mute
+      label: Beam 1 Mute
+    - type: slider
+      key: out0_level
+      label: Analog Out Level
+      min: 0
+      max: 511
+    - type: toggle
+      key: out0_mute
+      label: Analog Out Mute
+
+  command_handlers:
+    # ── Simple system getters ──
+    - receive: 'g_firmware_version O 0000 00 NC '
+      respond: "g_firmware_version 0000 00 NC 01.04.01 \r"
+    - receive: 'g_permission O 0000 00 NC '
+      respond: "g_permission 0000 00 NC \"ATND1061\",,,,,,,,,, \r"
+    - receive: 'g_deviceid O 0000 00 NC '
+      respond: "g_deviceid 0000 00 NC 00 \r"
+    - receive: 'g_network_dante O 0000 00 NC '
+      respond: "g_network_dante 0000 00 NC 0,3,0,192.168.001.055,255.255.255.000,192.168.001.001,,0,,,, \r"
+
+    # ── Scripted handlers (these run after the explicit ones above) ──
+    - match: 'g_network O 0000 00 NC '
+      handler: |
+        respond(
+            "g_network 0000 00 NC 0,,,,000A45379AF7,1,17300,"
+            f"{state['notifications_armed']},{state['meters_armed']},"
+            "239.000.000.100,17000,0,,123,0000,0,03270200,10300200,,,"
+            f"{state['talker_notices_armed']} \r"
+        )
+
+    # Arming write: pick the flags out of the 20-field parameter list, leaving
+    # any field the host omitted untouched, exactly as the hardware does.
+    - match: 's_network S 0000 00 NC (.*)'
+      handler: |
+        fields = match.group(1).rstrip().split(",")
+        def take(idx, key):
+            if idx < len(fields) and fields[idx] != "":
+                state[key] = int(fields[idx])
+        take(6, "notifications_armed")
+        take(7, "meters_armed")
+        take(19, "talker_notices_armed")
+        respond("s_network ACK \r")
+
+    - match: 'g_mute O 0000 00 NC '
+      handler: |
+        respond(f"g_mute 0000 00 NC {state['device_mute']} \r")
+    - match: 's_mute S 0000 00 NC ([01])'
+      handler: |
+        state["device_mute"] = int(match.group(1))
+        respond("s_mute ACK \r")
+        notify(f"MD mute_notice 0000 00 NC {state['device_mute']} \r")
+
+    - match: 'g_preset_number O 0000 00 NC '
+      handler: |
+        respond(f"g_preset_number 0000 00 NC {state['last_preset']} \r")
+    - match: '(?:call_preset|CALLP) S 0000 00 NC (\d+)'
+      handler: |
+        bank = int(match.group(1))
+        if 1 <= bank <= 16:
+            state["last_preset"] = bank
+            respond("call_preset ACK \r")
+            notify(f"MD recall_preset_notice 0000 00 NC {bank} \r")
+        else:
+            respond("call_preset NAK 04 \r")
+    - match: '(?:save_preset|REGIP) S 0000 00 NC (\d+)'
+      handler: |
+        respond("save_preset ACK \r")
+
+    - match: 'g_bootup_preset O 0000 00 NC '
+      handler: |
+        respond(f"g_bootup_preset 0000 00 NC {state['bootup_preset']} \r")
+    - match: 's_bootup_preset S 0000 00 NC (\d+)'
+      handler: |
+        state["bootup_preset"] = int(match.group(1))
+        respond("s_bootup_preset ACK \r")
+
+    - match: 'g_audio_system O 0000 00 NC '
+      handler: |
+        respond(
+            "g_audio_system 0000 00 NC ,,,,"
+            f"{state['dante_tx6']},{state['beam_sensitivity']},"
+            f"{state['auto_attenuation']},{state['attenuation_level']},"
+            f"{state['hold_time']} \r"
+        )
+    - match: 's_audio_system S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        for idx, key in ((4, "dante_tx6"), (5, "beam_sensitivity"),
+                         (6, "auto_attenuation"), (7, "attenuation_level"),
+                         (8, "hold_time")):
+            if idx < len(f) and f[idx] != "":
+                state[key] = int(f[idx])
+        respond("s_audio_system ACK \r")
+
+    - match: 'g_aec_general O 0000 00 NC '
+      handler: |
+        respond(
+            f"g_aec_general 0000 00 NC {state['aec_enabled']},"
+            f"{state['aec_reference']},,,,,,{state['noise_cancel_level']},"
+            f"{state['nlp_enabled']},{state['nlp_sensitivity']},,"
+            f"{state['noise_cancel_enabled']} \r"
+        )
+    - match: 's_aec_general S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        for idx, key in ((0, "aec_enabled"), (1, "aec_reference"),
+                         (7, "noise_cancel_level"), (8, "nlp_enabled"),
+                         (9, "nlp_sensitivity"), (11, "noise_cancel_enabled")):
+            if idx < len(f) and f[idx] != "":
+                state[key] = int(f[idx])
+        respond("s_aec_general ACK \r")
+
+    - match: 'g_agc O 0000 00 NC '
+      handler: |
+        respond(f"g_agc 0000 00 NC {state['agc_enabled']},1,{state['agc_target']} \r")
+    - match: 's_agc S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        if len(f) > 0 and f[0] != "":
+            state["agc_enabled"] = int(f[0])
+        if len(f) > 2 and f[2] != "":
+            state["agc_target"] = int(f[2])
+        respond("s_agc ACK \r")
+
+    - match: 'g_gainshare_mode O 0000 00 NC '
+      handler: |
+        respond(f"g_gainshare_mode 0000 00 NC {state['gain_share_mode']} \r")
+    - match: 's_gainshare_mode S 0000 00 NC ([01])'
+      handler: |
+        state["gain_share_mode"] = int(match.group(1))
+        respond("s_gainshare_mode ACK \r")
+
+    - match: 'g_voicelift O 0000 00 NC '
+      handler: |
+        respond(f"g_voicelift 0000 00 NC {state['voice_lift_level']} \r")
+    - match: 's_voicelift S 0000 00 NC ([1-5])'
+      handler: |
+        state["voice_lift_level"] = int(match.group(1))
+        respond("s_voicelift ACK \r")
+
+    - match: 'g_voicelift_channel_settings O 0000 00 NC '
+      handler: |
+        respond(
+            f"g_voicelift_channel_settings 0000 00 NC {state['voice_lift_gain']},"
+            f"{state['voice_lift_fader']},{state['voice_lift_mute']},"
+            "\"Voice Lift\",6 \r"
+        )
+    - match: 's_voicelift_channel_settings S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        for idx, key in ((0, "voice_lift_gain"), (1, "voice_lift_fader"),
+                         (2, "voice_lift_mute")):
+            if idx < len(f) and f[idx] != "":
+                state[key] = int(f[idx])
+        respond("s_voicelift_channel_settings ACK \r")
+
+    - match: 'g_header_color O 0000 00 NC '
+      handler: |
+        respond(f"g_header_color 0000 00 NC {state['header_color']} \r")
+    - match: 's_header_color S 0000 00 NC (\d+)'
+      handler: |
+        val = int(match.group(1))
+        if val in (0, 1, 3, 4, 5, 8):
+            state["header_color"] = val
+            respond("s_header_color ACK \r")
+        else:
+            respond("s_header_color NAK 04 \r")
+
+    - match: 'g_dante_tx5 O 0000 00 NC '
+      handler: |
+        respond(f"g_dante_tx5 0000 00 NC {state['dante_tx5']} \r")
+    - match: 's_dante_tx5 S 0000 00 NC ([01])'
+      handler: |
+        state["dante_tx5"] = int(match.group(1))
+        respond("s_dante_tx5 ACK \r")
+
+    - match: 'g_camera_control O 0000 00 NC '
+      handler: |
+        respond(
+            f"g_camera_control 0000 00 NC {state['camera_recall_time']},"
+            f"{state['camera_home_enabled']},{state['camera_home_time']} \r"
+        )
+    # The hardware refuses this one when any field is omitted.
+    - match: 's_camera_control S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        if len(f) != 3 or any(x == "" for x in f):
+            respond("s_camera_control NAK 04 \r")
+        else:
+            state["camera_recall_time"] = int(f[0])
+            state["camera_home_enabled"] = int(f[1])
+            state["camera_home_time"] = int(f[2])
+            respond("s_camera_control ACK \r")
+
+    - match: 'g_camera_control_interval O 0000 00 NC '
+      handler: |
+        respond(f"g_camera_control_interval 0000 00 NC {state['talker_interval']} \r")
+    - match: 's_camera_control_interval S 0000 00 NC (\d+)'
+      handler: |
+        state["talker_interval"] = int(match.group(1))
+        respond("s_camera_control_interval ACK \r")
+
+    - match: 'g_level_meter_interval O 0000 00 NC '
+      handler: |
+        respond(f"g_level_meter_interval 0000 00 NC {state['level_meter_interval']} \r")
+    - match: 's_level_meter_interval S 0000 00 NC (\d+)'
+      handler: |
+        state["level_meter_interval"] = int(match.group(1))
+        respond("s_level_meter_interval ACK \r")
+
+    # ── Inputs ──
+    - match: 'g_input_gain_level O 0000 00 NC ([0-6])'
+      handler: |
+        ch = match.group(1)
+        respond(
+            f"g_input_gain_level 0000 00 NC {ch},{state['in%s_gain' % ch]},1,"
+            f"{state['in%s_level' % ch]},,,{state['in%s_mute' % ch]},,, \r"
+        )
+    - match: 's_input_gain_level S 0000 00 NC ([0-6]),(.*)'
+      handler: |
+        ch = match.group(1)
+        f = match.group(2).rstrip().split(",")
+        if len(f) > 0 and f[0] != "":
+            state["in%s_gain" % ch] = int(f[0])
+        if len(f) > 2 and f[2] != "":
+            state["in%s_level" % ch] = int(f[2])
+        if len(f) > 5 and f[5] != "":
+            state["in%s_mute" % ch] = int(f[5])
+        respond("s_input_gain_level ACK \r")
+        notify(
+            f"MD input_gain_level_notice 0000 00 NC {ch},"
+            f"{state['in%s_gain' % ch]},1,{state['in%s_level' % ch]},"
+            f"{state['in%s_mute' % ch]} \r"
+        )
+
+    - match: 'g_input_channel_settings O 0000 00 NC ([0-6])'
+      handler: |
+        ch = match.group(1)
+        src = 1 if ch == "6" else 0
+        respond(
+            f"g_input_channel_settings 0000 00 NC {ch},{src},0,,0,0,0,,,,,,,,,,,,,"
+            f"\"{state['in%s_name' % ch]}\",{ch},,,,,,,, \r"
+        )
+    - match: 's_input_channel_settings S 0000 00 NC ([0-6]),(.*)'
+      handler: |
+        ch = match.group(1)
+        f = match.group(2).rstrip().split(",")
+        if len(f) > 18 and f[18] != "":
+            state["in%s_name" % ch] = f[18].strip('"')
+        respond("s_input_channel_settings ACK \r")
+
+    - match: 'g_smart_mix O 0000 00 NC ([0-5])'
+      handler: |
+        ch = match.group(1)
+        respond(f"g_smart_mix 0000 00 NC {ch},,{state['in%s_weight' % ch]},,,, \r")
+    - match: 's_smart_mix S 0000 00 NC ([0-5]),(.*)'
+      handler: |
+        ch = match.group(1)
+        f = match.group(2).rstrip().split(",")
+        if len(f) > 1 and f[1] != "":
+            state["in%s_weight" % ch] = int(f[1])
+        respond("s_smart_mix ACK \r")
+
+    - match: 'GICL O 0000 00 NC ([0-6])'
+      handler: |
+        ch = match.group(1)
+        respond(f"GICL 0000 00 NC {ch},{state['in%s_level' % ch]} \r")
+    - match: 'SICL S 0000 00 NC ([0-6]),(\d+)'
+      handler: |
+        ch, lvl = match.group(1), int(match.group(2))
+        if lvl > 511:
+            respond("SICL NAK 04 \r")
+        else:
+            state["in%s_level" % ch] = lvl
+            respond("SICL ACK \r")
+            notify(
+                f"MD input_gain_level_notice 0000 00 NC {ch},"
+                f"{state['in%s_gain' % ch]},1,{lvl},{state['in%s_mute' % ch]} \r"
+            )
+    - match: 'GICM O 0000 00 NC ([0-6])'
+      handler: |
+        ch = match.group(1)
+        respond(f"GICM 0000 00 NC {ch},{state['in%s_mute' % ch]} \r")
+    - match: 'SICM S 0000 00 NC ([0-6]),([01])'
+      handler: |
+        ch, m = match.group(1), int(match.group(2))
+        state["in%s_mute" % ch] = m
+        respond("SICM ACK \r")
+        notify(
+            f"MD input_gain_level_notice 0000 00 NC {ch},"
+            f"{state['in%s_gain' % ch]},1,{state['in%s_level' % ch]},{m} \r"
+        )
+
+    # ── Outputs ──
+    - match: 'g_output_level O 0000 00 NC ([01])'
+      handler: |
+        ch = match.group(1)
+        respond(f"g_output_level 0000 00 NC {ch},{state['out%s_level' % ch]},,,, \r")
+    - match: '(?:s_output_level|SOCL) S 0000 00 NC ([01]),(\d+)'
+      handler: |
+        ch, lvl = match.group(1), int(match.group(2))
+        if lvl > 511:
+            respond("SOCL NAK 04 \r")
+        else:
+            state["out%s_level" % ch] = lvl
+            respond("SOCL ACK \r")
+            notify(f"MD output_level_notice 0000 00 NC {ch},{lvl} \r")
+    - match: 'g_output_mute O 0000 00 NC ([01])'
+      handler: |
+        ch = match.group(1)
+        respond(f"g_output_mute 0000 00 NC {ch},{state['out%s_mute' % ch]} \r")
+    - match: '(?:s_output_mute|SOCM) S 0000 00 NC ([01]),([01])'
+      handler: |
+        ch, m = match.group(1), int(match.group(2))
+        state["out%s_mute" % ch] = m
+        respond("SOCM ACK \r")
+        notify(f"MD output_mute_notice 0000 00 NC {ch},{m} \r")
+    - match: 'GOCL O 0000 00 NC ([01])'
+      handler: |
+        ch = match.group(1)
+        respond(f"GOCL 0000 00 NC {ch},{state['out%s_level' % ch]} \r")
+    - match: 'GOCM O 0000 00 NC ([01])'
+      handler: |
+        ch = match.group(1)
+        respond(f"GOCM 0000 00 NC {ch},{state['out%s_mute' % ch]} \r")
+
+    - match: 'g_output_channel_settings O 0000 00 NC ([01])'
+      handler: |
+        ch = match.group(1)
+        unity = state["out0_unity"] if ch == "0" else ""
+        respond(
+            f"g_output_channel_settings 0000 00 NC {ch},{unity},"
+            f"\"{state['out%s_name' % ch]}\",,,, \r"
+        )
+    - match: 's_output_channel_settings S 0000 00 NC ([01]),(.*)'
+      handler: |
+        ch = match.group(1)
+        f = match.group(2).rstrip().split(",")
+        if ch == "0" and len(f) > 0 and f[0] != "":
+            state["out0_unity"] = int(f[0])
+        if len(f) > 1 and f[1] != "":
+            state["out%s_name" % ch] = f[1].strip('"')
+        respond("s_output_channel_settings ACK \r")
+
+    # ── Action commands ──
+    - match: 'identify S 0000 00 NC '
+      handler: |
+        respond("identify ACK \r")
+    - match: 'SVAD S 0000 00 NC ([01])'
+      handler: |
+        respond("SVAD ACK \r")
+    - match: 's_powersave S 0000 00 NC ([01])'
+      handler: |
+        respond("s_powersave ACK \r")
+        notify(f"MD powersave_notice 0000 00 NC {match.group(1)} \r")
+    - match: 'reboot S 0000 00 NC '
+      handler: |
+        respond("reboot ACK \r")
+    - match: 's_name_bank S 0000 00 NC (\d+),(.*)'
+      handler: |
+        respond("s_name_bank ACK \r")
+    - match: 'g_name_bank O 0000 00 NC (\d+)'
+      handler: |
+        for bank in range(1, 17):
+            cs = "CS" if bank == 1 else ("CE" if bank == 16 else "CM")
+            respond(f"g_name_bank 0000 00 {cs} {bank},\"Preset {bank}\" \r")
+
+    # Anything else this driver does not model gets the microphone's own
+    # answer for an unknown command. Written as a script handler so it stays
+    # last in dispatch order.
+    - match: '(\S+) [SO] 0000 00 NC.*'
+      handler: |
+        respond(f"{match.group(1)} NAK 02 \r")

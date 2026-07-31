@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 92,
+    "total_drivers": 93,
     "shards": null
   },
   "drivers": [
@@ -807,6 +807,92 @@
           "audio-technica",
           "audio technica",
           "at"
+        ]
+      }
+    },
+    {
+      "id": "at_atnd1061",
+      "name": "Audio-Technica ATND1061",
+      "manufacturer": "Audio-Technica",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift and camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation.\n",
+      "source_url": "https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_V4_EN_web_240114.pdf",
+      "file": "audio/at_atnd1061.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/at_atnd1061.avcdriver": "1d9f492f28059fe907ec84df3af70cbc90e703032d6d8360985535497a27de06"
+      },
+      "ports": [
+        17300
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "microphone",
+        "ceiling-mic",
+        "beamforming",
+        "array",
+        "conferencing",
+        "dante",
+        "automixer",
+        "camera-tracking"
+      ],
+      "help": {
+        "overview": "Controls the Audio-Technica ATND1061 beamforming array microphone, a ceiling-mounted array that steers six independent pickup beams around a room. Each beam and the analog input appear as child entities with their own fader, mute, gain and meter, labelled with the channel names set on the microphone. The microphone also reports which beam is currently picking up a talker and where that talker is, which can drive camera presets from OpenAVC macros.\n",
+        "setup": "1. Connect the ATND1061 to the network. It ships set to Auto (DHCP), and\n   control uses TCP port 17300.\n2. Find its address from your DHCP server, from the Audio-Technica Digital\n   Microphone Manager, or by running a network scan in OpenAVC.\n3. Beam positions, beam shapes and camera areas are laid out in the\n   microphone's own web interface (browse to its IP address). This driver\n   controls levels, mutes, presets and processing; it does not reposition\n   beams.\n4. Beam Channels 1-6 and the Analog Input appear as this device's child\n   entities, labelled with the names set on the microphone. Outputs are\n   Analog Out and Auto Mix.\n5. Front-panel and web changes appear in OpenAVC instantly. The microphone\n   multicasts change notices (factory default group 239.0.0.100, port\n   17000) and OpenAVC listens automatically, arming the notices when it\n   connects. If the multicast address or port was changed on the\n   microphone, set the matching values in Notification Group and\n   Notification Port here. The microphone and the OpenAVC server must be on\n   the same VLAN, and switches with IGMP snooping need an IGMP querier \u2014 if\n   notices are filtered, control still works and changes appear at the poll\n   interval instead.\n6. Live Level Meters and Talker Position are both off by default. Each one\n   makes the microphone stream continuously (about 16 updates per second at\n   the factory interval), so turn them on only if you bind them, and raise\n   the matching interval if you want less traffic.\n7. A factory-fresh microphone has all notifications disabled. OpenAVC turns\n   on the ones it needs when it connects; nothing needs to be enabled by\n   hand first.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Audio-Technica",
+          "models": [
+            "ATND1061DAN"
+          ],
+          "confidence": "full",
+          "notes": "Built and tested against an ATND1061DAN on firmware 01.04.01."
+        },
+        {
+          "manufacturer": "Audio-Technica",
+          "models": [
+            "ATND1061LK"
+          ],
+          "confidence": "partial",
+          "notes": "Same protocol and command set. The LK omits Dante, so the Dante Tx settings and the Dante network readouts do not apply.\n"
+        }
+      ],
+      "discovery": {
+        "requires": "0.23.0",
+        "ssdp": [
+          {
+            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
+            "model": "ATND1061"
+          },
+          {
+            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
+            "model": "ATND1061DAN"
+          },
+          {
+            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
+            "model": "ATND1061LK"
+          }
+        ],
+        "tcp_probe": {
+          "port": 17300,
+          "send_ascii": "g_smart_mix O 0000 00 NC 0 \r",
+          "expect_regex": "g_smart_mix \\S+ \\S+ \\S+ 0,",
+          "extract_manufacturer": "Audio-Technica"
+        },
+        "oui": [
+          "00:0a:45"
+        ],
+        "port_open": [
+          17300
+        ],
+        "manufacturer_alias": [
+          "audio-technica",
+          "audio technica"
         ]
       }
     },

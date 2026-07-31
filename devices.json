@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 755,
+    "total_devices": 757,
     "shards": null
   },
   "devices": [
@@ -597,6 +597,30 @@
         {
           "id": "at_atdm_1012",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATND1061DAN",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atnd1061",
+          "confidence": "full",
+          "notes": "Built and tested against an ATND1061DAN on firmware 01.04.01."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Audio-Technica",
+      "model": "ATND1061LK",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "at_atnd1061",
+          "confidence": "partial",
+          "notes": "Same protocol and command set. The LK omits Dante, so the Dante Tx settings and the Dante network readouts do not apply.\n"
         }
       ]
     },

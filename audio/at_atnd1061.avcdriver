@@ -165,18 +165,36 @@ help:
        hand first.
 
 discovery:
-  # The Audio-Technica control-unit family advertises a shared UPnP URN when
-  # "Allow Discovery" is on (factory default). The modelName in the description
-  # XML names the exact model.
+  # The Audio-Technica control-unit family advertises one shared UPnP URN when
+  # "Allow Discovery" is on (factory default), so the URN alone cannot tell an
+  # ATND1061 from an ATDM mixer — the modelName in the description XML is what
+  # separates them.
   #
-  # Active probe: g_firmware_version is answered by the whole Audio-Technica IP
-  # control family, so it cannot identify this model on its own. Beam channel
-  # gain-share (g_smart_mix) exists only on the beamforming models — the ATDM
-  # mixers have no such command and answer NAK 02 — so a positive g_smart_mix
-  # answer identifies an ATND1061.
+  # Captured from ATND1061DAN hardware:
+  #   ST/USN   urn:schemas-upnp-org:device:ATCUDevice:1
+  #   SERVER   FreeRTOS/10.0.1, UPnP/1.0, Audio-Technica UPnP Device/1.0
+  #   LOCATION http://<ip>:51247/devdesc.xml   (ephemeral port, don't match it)
+  #   modelName    ATND1061DAN
+  #   friendlyName ATND1061
+  # modelName carries the full variant string, and the model filter is an exact
+  # (case-insensitive) match — so a bare "ATND1061" fingerprint would never fire
+  # and is deliberately absent. friendlyName is the user-editable device name,
+  # so it is not matched on either. A future variant needs its own entry here.
+  # The ATND1061LK string is inferred from the same naming scheme; being an
+  # exact match it stays inert rather than mis-firing if it is wrong.
+  #
+  # Active probe: g_firmware_version is answered identically across the whole
+  # Audio-Technica IP-control family, so it identifies nothing on its own.
+  # Beam-channel gain share (g_smart_mix) is the beamforming-only command — the
+  # ATDM mixers' equivalent is the differently named g_smart_mix_general.
+  # Verified on hardware: this microphone answers the probe, and it answers the
+  # ATDM-1012's own probe (input channel 7) with NAK 04, so the two drivers
+  # cannot claim each other's devices. The negative side for the ATDM models is
+  # reasoned rather than bench-checked (no ATDM here), but it is fail-safe in
+  # the right direction: expect_regex needs four space-separated fields before
+  # the channel, which neither a NAK ("g_smart_mix NAK 02") nor an answer to
+  # the longer g_smart_mix_general verb can satisfy.
   ssdp:
-    - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"
-      model: "ATND1061"
     - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"
       model: "ATND1061DAN"
     - device_type: "urn:schemas-upnp-org:device:ATCUDevice:1"

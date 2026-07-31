@@ -592,7 +592,7 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "c786e08b6a3ee7c76f03a3127865d3a65c88eabc035a0d268e6efc1daf3170bf"
+        "audio/at_atnd1061.avcdriver": "afab5abffe0970609ae16ae80bf6277352f675fd753df7b6902c7982bfe1902b"
       },
       "ports": [
         17300
@@ -634,10 +634,6 @@
       "discovery": {
         "requires": "0.23.0",
         "ssdp": [
-          {
-            "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
-            "model": "ATND1061"
-          },
           {
             "device_type": "urn:schemas-upnp-org:device:ATCUDevice:1",
             "model": "ATND1061DAN"

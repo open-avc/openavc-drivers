@@ -51,6 +51,7 @@ from __future__ import annotations
 import fnmatch
 import importlib.util
 import logging
+import math
 import os
 import re
 import sys
@@ -416,19 +417,7 @@ class StubBaseDriver:
         """
         for prop_name, prop_info in self.DRIVER_INFO.get(
                 "state_variables", {}).items():
-            var_type = prop_info.get("type", "string")
-            if var_type == "boolean":
-                default: Any = False
-            elif var_type == "integer":
-                default = self._numeric_default(prop_info, as_int=True)
-            elif var_type in ("number", "float"):
-                default = self._numeric_default(prop_info, as_int=False)
-            elif var_type == "enum":
-                values = prop_info.get("values", [])
-                default = values[0] if values else ""
-            else:
-                default = ""
-            self.set_state(prop_name, default)
+            self.set_state(prop_name, self._default_for_var_def(prop_info))
         self.set_state("connected", False)
 
     # -- device state --
@@ -604,32 +593,43 @@ class StubBaseDriver:
             )
 
     @staticmethod
-    def _numeric_default(var_def: dict[str, Any], *, as_int: bool) -> int | float:
-        """A numeric state variable's default is its declared ``min``, or 0.
-
-        Not "0 clamped into range" — that is what this stub said before the
-        fidelity test compared it, and it seeds a fader declared ``min: -100``
-        at 0 dB instead of the platform's -100.
-        """
-        raw = var_def.get("min", 0)
-        try:
-            return int(raw) if as_int else float(raw)
-        except (TypeError, ValueError):
-            log.warning(
-                "state variable declares a non-numeric 'min' %r; defaulting to 0",
-                raw,
-            )
-            return 0 if as_int else 0.0
-
-    @staticmethod
     def _default_for_var_def(var_def: dict[str, Any]) -> Any:
+        """A declared state variable's value before anything is read.
+
+        A numeric variable starts at its declared ``min``, not at "0 clamped
+        into range" — that is what this stub said before the fidelity test
+        compared it, and it seeds a fader declared ``min: -100`` at 0 dB
+        instead of the platform's -100. An ``integer`` with a fractional
+        ``min`` rounds UP, so the value never starts below the minimum the
+        driver itself declared, and a ``min`` that isn't a number (``true``
+        included — ``float(True)`` is 1) falls back to 0 rather than raising
+        at instantiation.
+
+        The platform keeps this rule in ``compiled_protocol.state_var_default``
+        so its runtime, simulator and validator cannot drift apart on it. This
+        repo's suite runs with no platform installed, so the rule is spelled
+        out here instead of imported; the platform-stub fidelity job is what
+        stops the two from drifting.
+        """
         var_type = var_def.get("type", "string")
         if var_type == "boolean":
             return False
-        if var_type == "integer":
-            return StubBaseDriver._numeric_default(var_def, as_int=True)
-        if var_type in ("number", "float"):
-            return StubBaseDriver._numeric_default(var_def, as_int=False)
+        if var_type in ("integer", "number", "float"):
+            raw = var_def.get("min")
+            min_num = None
+            if raw is not None and not isinstance(raw, bool):
+                try:
+                    min_num = float(raw)
+                except (TypeError, ValueError):
+                    min_num = None
+            if min_num is None:
+                if raw is not None:
+                    log.warning(
+                        "state variable declares a non-numeric 'min' %r; "
+                        "defaulting to 0", raw,
+                    )
+                return 0 if var_type == "integer" else 0.0
+            return math.ceil(min_num) if var_type == "integer" else min_num
         if var_type == "enum":
             values = var_def.get("values", [])
             return values[0] if values else ""

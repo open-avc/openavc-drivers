@@ -74,7 +74,7 @@ The sections below remain the authoritative field-by-field reference; the schema
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `manufacturer` | string | `"Generic"` | Manufacturer name. |
-| `category` | string | `"utility"` | One of: `projector`, `display`, `switcher`, `scaler`, `audio`, `camera`, `lighting`, `relay`, `utility`, `other` |
+| `category` | string | `"utility"` | One of the ten categories in §7's table — written down once, there, so the two lists cannot drift apart. |
 | `version` | string | `"1.0.0"` | Semantic version of the driver. |
 | `author` | string | `"Community"` | Driver author. |
 | `description` | string | `""` | Brief description. |

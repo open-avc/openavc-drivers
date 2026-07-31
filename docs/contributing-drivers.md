@@ -72,7 +72,7 @@ For YAML drivers, metadata sits at the top level alongside `transport` and `comm
 | `protocols` | Protocol IDs that auto-discovery probes can identify (e.g., `["pjlink"]`). |
 | `simulated` | `true` if a simulator covers this driver. |
 | `verified` | `true` only after testing on real hardware. New contributions: leave `false`. |
-| `min_platform_version` | Minimum OpenAVC version (semver). Omit when compatible with all versions. |
+| `min_platform_version` | Minimum OpenAVC version (semver). Computed for you — see below. Omit only when the driver uses no field that needs a particular release. |
 | `tags` | Lowercase, hyphen-separated keywords for Browse Drivers search (e.g., `["ndi", "ptz"]`). |
 | `help` | `{ overview, setup }` block — both non-empty strings. Shown in Browse Drivers. |
 | `deprecated` | Mark this driver as superseded. |
@@ -153,7 +153,9 @@ The schema parser auto-registers two synthetic probe IDs (`custom_<driver_id>_co
 
 Some discovery signals identify a *protocol class* shared by many vendors (a multi-vendor projector control protocol, a multi-vendor camera discovery beacon, a control-system family beacon). Drivers hosting those signals declare `cross_vendor: true` on the relevant fingerprint. When a `cross_vendor: true` fingerprint matches, the matcher consults peer drivers' hints — a vendor-specific peer matching via `oui`, `hostname`, `manufacturer_alias`, or `port_open` becomes the primary driver, and the cross-vendor anchor moves to `alternatives[0]` in the dropdown on the Discovery card.
 
-When you bump a driver to use a discovery field your platform target may lack, set `min_platform_version` in `index.json` so older OpenAVC instances grey out the driver instead of trying to parse fields they don't understand.
+When you bump a driver to use a field your platform target may lack, set `min_platform_version` so older OpenAVC instances grey out the driver instead of trying to parse fields they don't understand.
+
+You don't have to work that version out by hand. Fields added in a particular release say so in their schema description ("Requires platform 0.23.0"), and `build_index.py` reads the same annotation: it computes the highest floor your driver reaches and fails the build when `min_platform_version` is lower — or missing — naming the field responsible. Don't pad the number to be safe, either. That version is exactly what decides who can install the driver, so an inflated floor shuts out people whose platform would have run it fine.
 
 When the device's protocol fits none of these patterns, leave the `discovery:` block empty (or off) and open an issue describing the wire format — or contribute the listener / probe upstream as a generic core capability.
 

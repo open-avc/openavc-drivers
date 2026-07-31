@@ -233,7 +233,7 @@ Each generated entry also carries a `files` map — repo-relative path to SHA-25
 | `protocols` | list[string] | Protocol family identifiers (e.g., `["pjlink"]`). |
 | `simulated` | bool | `true` if a simulator covers this driver. |
 | `verified` | bool | `true` only after testing on real hardware. |
-| `min_platform_version` | string | Minimum OpenAVC version (semver). Omit when compatible with all platform versions. |
+| `min_platform_version` | string | Minimum OpenAVC version (semver). Omit only when the driver uses no field that carries a floor — the build computes the floor and rejects a driver declaring less than it, or nothing at all. Don't guess it; see section 8. |
 | `tags` | list[string] | Lowercase, hyphen-separated keywords for Browse Drivers search. Examples: `["ndi", "ptz"]`, `["ceiling-mic"]`. |
 | `help` | object | `{ "overview": "...", "setup": "..." }`. Both strings non-empty. |
 | `deprecated` | bool | Mark superseded drivers. |
@@ -287,6 +287,17 @@ The validator checks:
 - Delimiter is valid
 - index.json entry matches driver fields
 - File exists at declared path
+- `min_platform_version` covers every field the driver uses
+
+That last one is computed, not looked up. Fields the platform grew in a
+particular release say so in their schema description ("Requires platform
+0.23.0"), and the check reads the same annotation: declare less than the
+highest floor your driver reaches — or nothing at all — and the build fails
+naming the field that set it. Don't guess the number and don't raise it "to be
+safe": the version is exactly what stops the driver installing on older
+releases, so an inflated floor locks out users who could have run it, and a low
+one installs on a release that reads the file, ignores the fields it doesn't
+know, and runs the driver wrong.
 
 Those are all checks of what the driver **declares**. Nothing above reads a
 Python driver's code. That half is covered by the test you ship with it.

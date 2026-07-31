@@ -48,6 +48,7 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 from _vendor.avcdriver_semantic import (  # noqa: E402
+    platform_version_errors,
     unknown_key_errors,
     validate_driver_definition,
 )
@@ -1564,6 +1565,31 @@ def _format_validation_errors(file: str, exc: ValidationError) -> list[str]:
     return out
 
 
+def _with_catalog_platform_floor(
+    info: dict[str, Any], errors: list[str]
+) -> list[str]:
+    """Add the one min_platform_version rule that is publishing-only.
+
+    The platform's own rules (which this repo runs verbatim) already reject a
+    ``min_platform_version`` lower than the fields the driver uses. They stop
+    short of requiring the field at all, because a driver written for one job
+    on one server has no install gate to satisfy — it is running on the
+    platform it was written against.
+
+    A published driver does have one. Omitting the field there means every
+    OpenAVC instance is offered the driver, including the releases that will
+    read the file, ignore the fields they do not recognise, and run it wrong.
+    So the catalog asks the same rule the stricter way, and drops the message
+    the platform already produced rather than saying it twice.
+    """
+    extra = [
+        err
+        for err in platform_version_errors(info, require_declaration=True)
+        if err not in errors
+    ]
+    return list(errors) + extra
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
     parser.add_argument(
@@ -1716,7 +1742,9 @@ def main(argv: list[str] | None = None) -> int:
             # ships to anyone.
             errors.extend(
                 f"{rel}: {err}"
-                for err in validate_driver_definition(data, strict=True)
+                for err in _with_catalog_platform_floor(
+                    data, validate_driver_definition(data, strict=True)
+                )
             )
         else:
             # A Python driver only ever had its 20 index fields checked: the
@@ -1750,7 +1778,9 @@ def main(argv: list[str] | None = None) -> int:
                 # unanswered (None) — nothing here imports a driver.
                 errors.extend(
                     f"{rel}: {err}"
-                    for err in python_driver_info_issues(full_info)
+                    for err in _with_catalog_platform_floor(
+                        full_info, python_driver_info_issues(full_info)
+                    )
                 )
                 for spot in opaque_spots:
                     unevaluated.append(f"{rel}: {spot}")

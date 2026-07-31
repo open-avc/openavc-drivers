@@ -1194,3 +1194,93 @@ def test_without_check_the_reason_is_a_warning_and_the_build_proceeds(
     assert rc == 0, err
     assert "jsonschema-rs is not installed" in err, err
     assert "skipping schema validation" in err, err
+
+
+# --- min_platform_version, computed from the fields a driver uses -----------
+#
+# The floor itself is the platform's rule (and its own tests); what these pin
+# is the catalog's stricter reading of it: publishing without the field at all
+# offers the driver to releases that will run it wrong.
+
+
+def test_a_driver_declaring_too_low_a_platform_version_is_rejected(
+    tmp_path: Path,
+) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"web_ui": True, "min_platform_version": "0.23.0"},
+    )
+
+    rc, _, err = _run(tmp_path, "--check")
+
+    assert rc == 1
+    assert "min_platform_version" in err, err
+    # The field that forces the floor is named — otherwise the author has to
+    # bisect their own driver to find out what is buying the version.
+    assert "web_ui" in err and "0.24.0" in err, err
+
+
+def test_the_rejection_is_reported_once(tmp_path: Path) -> None:
+    """Two gates ask the same rule; the author should hear it once."""
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"web_ui": True, "min_platform_version": "0.23.0"},
+    )
+
+    _, _, err = _run(tmp_path, "--check")
+
+    assert err.count("min_platform_version is") == 1, err
+
+
+def test_a_gated_field_with_no_declaration_is_rejected(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path, overrides={"web_ui": True})
+
+    rc, _, err = _run(tmp_path, "--check")
+
+    assert rc == 1
+    assert "min_platform_version is not declared" in err, err
+    assert "0.24.0" in err, err
+
+
+def test_a_sufficient_declaration_passes(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(
+        tmp_path,
+        overrides={"web_ui": True, "min_platform_version": "0.24.0"},
+    )
+
+    rc, _, err = _run(tmp_path)
+
+    assert rc == 0, err
+
+
+def test_a_driver_using_nothing_gated_needs_no_declaration(
+    tmp_path: Path,
+) -> None:
+    """The rule must not turn into "every driver declares a version"."""
+    _write_manufacturers(tmp_path)
+    _write_yaml_driver(tmp_path)
+
+    rc, _, err = _run(tmp_path)
+
+    assert rc == 0, err
+    assert "min_platform_version" not in err, err
+
+
+def test_a_python_driver_is_held_to_the_same_floor(tmp_path: Path) -> None:
+    _write_manufacturers(tmp_path)
+    _write_python_driver(
+        tmp_path,
+        info_overrides={
+            "min_platform_version": "0.22.0",
+            "push": {"type": "multicast", "group": "239.0.0.100", "port": 17000},
+        },
+    )
+
+    rc, _, err = _run(tmp_path, "--check")
+
+    assert rc == 1
+    assert "min_platform_version" in err and "0.23.0" in err, err

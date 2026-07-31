@@ -1044,7 +1044,7 @@ python -m simulator.validate ../openavc-drivers/ --summary
 |-------|----------------|
 | **State coverage** | State variables missing from `simulator.initial_state` |
 | **Command coverage** | Commands with no matching simulator handler. For OSC drivers this checks command addresses against handler `address:` patterns, response addresses, and the simulator's built-in system addresses (`/xremote`, `/info`, `/status`, `/-action/`, `/-show/`) |
-| **Response parsing** | Simulator responses that don't match any driver response pattern |
+| **Response parsing** | A query the driver polls whose answer matches no driver response pattern — nothing reads the reply, so the state behind that query never updates. A reply to a *write* is an acknowledgement (`<cmd> ACK`, `<cmd> NAK 04`) and carries no state, so those are counted and listed, not warned about |
 | **Poll coverage** | Polling queries with no matching handler. `each_child` queries are checked with a sample child id; OSC queries that name a command are checked as that command |
 | **Type consistency** | Boolean state used in `respond:` templates (produces `True` not `true`), wrong initial value types, enum values not in the allowed list |
 | **State machines** | Malformed `state_machines` entries (missing states/initial/transitions, off-list states, transitions that can never fire, duplicate `from`/`trigger` pairs where the later one is unreachable) |
@@ -1072,11 +1072,13 @@ PASS: kramer_p3000 [yaml]
 FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriver)
   ERROR [command_coverage] No simulator handler matches command 'recall_preset' (sample: 'Preset1 recall 1')
   ERROR [type_consistency] Handler uses {state.mute} in respond: template, but 'mute' is boolean...
-  WARN  [response_parsing] Handler response may not match any driver response pattern...
+  WARN  [response_parsing] Simulator answers a query this driver polls with a reply no response rule matches...
+  INFO  [response_parsing] 12 simulator reply/replies match no driver response rule, none of them the only answer to a polled query...
 ```
 
 - **ERROR** = something that will break at runtime. Fix before testing.
 - **WARN** = might be intentional. Review, but may not need fixing.
+- **INFO** = a heads-up, or a statement of what was not checked. Nothing to fix.
 - Exit code 0 = all passed. Exit code 1 = at least one error.
 
 ### Common Issues and Fixes
@@ -1098,6 +1100,10 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 ```
 
 **"No simulator handler matches polling query"** -- Your polling section sends a query that no handler recognizes. Add a handler for it, or check that the query text matches what the handler expects (including config variable substitution).
+
+**"Simulator answers a query this driver polls with a reply no response rule matches"** -- The driver polls for a value and the simulator answers with something the driver's `responses:` block cannot read, so that state variable stays at its startup value. Either the driver is missing a response rule, or the simulator is answering in the wrong format -- compare the reply against the device's manual. This only fires when *none* of that handler's replies parses; an error branch beside a real answer (a `NAK` reply next to the data reply) is not a finding.
+
+**"N simulator reply/replies match no driver response rule..."** -- An info, not a problem. These are replies to writes -- the `<cmd> ACK` / `<cmd> NAK <code>` acknowledgements most protocols send -- which carry no state, so no response rule should match them. The line is there so "not checked" doesn't look like "checked and clean". If one of the listed replies actually carries a value you want, add a response rule for it.
 
 **"State variable X not in initial_state"** -- Add the variable to your `simulator.initial_state` with a realistic default value.
 

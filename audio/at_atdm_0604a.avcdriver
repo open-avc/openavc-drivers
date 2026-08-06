@@ -59,12 +59,51 @@
 #     meter feed is never disturbed. Polling stays on as the baseline resync
 #     (channel names/settings have no MD notice and only refresh by poll).
 #   - Max 5 simultaneous TCP connections; commands are asynchronous.
+#
+# ── Audio-Technica LINK ──
+# LINK is an audio and power bus, not a control bus. It daisy-chains up to
+# eight ATDM-0604a units over Cat5e so they share their output buses and the
+# AEC reference signal, and it carries +48 V to LINK-powered endpoints. It
+# carries no third-party control: every unit on the chain is still reached by
+# its own IP address on 17300, and this driver talks to exactly one of them.
+#
+#   - s_link / g_link set and read the unit's ROLE on that chain, and the
+#     parameter is 0 = Extension, 1 = Primary. It is NOT an on/off switch for
+#     the LINK feature, which is why this driver models it as a two-value role
+#     rather than the boolean earlier versions used. Writing the wrong value
+#     demotes a working Primary to an Extension, and on the ATDM-1012 the
+#     change also needs a restart. A chain has exactly one Primary, and it must
+#     be a unit at one END of the chain, never one in the middle.
+#
+#   - An Extension refuses most of the control surface: it answers NAK 93,
+#     "unable to process due to the Extension mode". A NAK 93 to any command is
+#     therefore proof of the unit's role, so the response rule below reads it
+#     as one — link_command_blocked goes true and at_link_role corrects itself
+#     to Extension without waiting for the next g_link poll. Point OpenAVC at
+#     the Primary; an Extension is configured through it.
+#
+#   - g_link_extstatus reports what is actually ON the chain, one slot at a
+#     time (Extension 1 to 7): device name, serial number and firmware version.
+#     That is the readout that answers "is the array microphone really linked",
+#     so the seven slots are modelled as child entities and polled behind the
+#     Enable AT-LINK Status config switch (off by default — a standalone mixer
+#     should not spend seven round-trips a poll on an empty chain). What an
+#     unpopulated slot answers is not documented and there is no chained rig
+#     here to check; if it NAKs, nothing matches and that slot stays blank,
+#     which is the intended reading either way.
+#
+#   - An ATND1061LK beamforming microphone is a LINK endpoint on this same bus
+#     (Audio-Technica's compatibility list pairs the two from ATDM-0604a
+#     firmware 1.1.2). It is NOT controlled through this mixer — the microphone
+#     has its own network port and its own IP control, so add it to the project
+#     as its own device using the at_atnd1061 driver. The only thing this
+#     driver can tell you about it is that it shows up in the AT-LINK slots.
 
 id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 2.0.0
+version: 2.1.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -73,7 +112,8 @@ description: >
   with fader, mute, preamp gain, source select, phantom power, and live
   meters, labelled by the mixer's own channel names. Preset recall,
   SmartMix and AEC configuration, USB output routing, test oscillator,
-  and front-panel lockout.
+  and front-panel lockout. When mixers are chained over Audio-Technica LINK,
+  the unit's role and what is connected on the chain are both reported.
 
 source_url: https://docs.audio-technica.com/all/ATDM-0604a_IP_Control_Protocol_Specifications_EN_Ver1.0_web_221209.pdf
 tags: [mixer, smartmixer, conferencing, automixer]
@@ -117,6 +157,16 @@ help:
     6. Enable Level Meters (off by default) streams live input/output
        meters into OpenAVC at about two updates per second — bind panel
        meter elements to the child meter values.
+    7. Audio-Technica LINK chains: point OpenAVC at the Primary mixer. An
+       Extension refuses most commands, and this driver will show that as
+       AT-LINK Commands Blocked if you connect to one by mistake. Turn on
+       Enable AT-LINK Status to see what is actually on the chain — each
+       slot reports the connected device's name, serial and firmware.
+    8. An ATND1061LK ceiling array microphone connected over Audio-Technica
+       LINK is not controlled through this mixer. It has its own network
+       connection, so add it to the project separately using the
+       Audio-Technica ATND1061 driver. LINK carries its audio and its power
+       only.
 
 discovery:
   # Captured from a real ATDM-0604a (fw 01.03.01). The whole Audio-Technica
@@ -149,6 +199,7 @@ default_config:
   notification_group: "239.0.0.100"
   notification_port: 17000
   enable_level_meters: false
+  enable_link_status: false
 
 config_schema:
   host:
@@ -192,6 +243,16 @@ config_schema:
       Stream live input/output level meters into OpenAVC (about two updates
       per second). Uses the mixer's Audio Level Notification; leave off if
       you don't bind meters on a panel.
+  enable_link_status:
+    type: boolean
+    default: false
+    label: Enable AT-LINK Status
+    help: >
+      Read what is connected on the Audio-Technica LINK chain — each of the
+      seven extension slots reports the device name, serial number and
+      firmware version of whatever is there. Only useful when mixers are
+      actually chained; leave off on a standalone mixer, where it would add
+      seven queries per poll for nothing.
 
 # Rendered against config at connect: empty while Enable Level Meters is
 # off, "1" when on — so the on_connect arming write below OMITS the Audio
@@ -469,15 +530,55 @@ child_entity_types:
       count: 1
       label: "Output ST"
 
+  # The seven Audio-Technica LINK extension slots. These are not channels —
+  # each one is a place on the chain where another device may be connected,
+  # and g_link_extstatus reports what is in it. On a standalone mixer all
+  # seven read blank, which is the correct answer. Populated only while
+  # Enable AT-LINK Status is on.
+  link_extension:
+    label: AT-LINK Extension
+    label_plural: AT-LINK Extensions
+    id_format: { type: integer, min: 1, max: 7 }
+    label_field: device_name
+    summary_fields: [device_name, firmware_version]
+    state_variables:
+      device_name:
+        type: string
+        label: Device
+        help: "Model name the connected device reports, blank when the slot is empty."
+      serial:
+        type: string
+        label: Serial Number
+        cloud_priority: low
+      firmware_version:
+        type: string
+        label: Firmware Version
+        cloud_priority: low
+    instances:
+      count: 7
+      label: "Extension {id}"
+
 state_variables:
   firmware_version:
     type: string
     label: Firmware Version
     help: "Firmware version string reported by the mixer (g_firmware_version)."
-  at_link_mode:
+  at_link_role:
+    type: enum
+    values: ["Extension", "Primary"]
+    label: AT-LINK Role
+    help: >
+      This mixer's role on the Audio-Technica LINK chain. A chain has one
+      Primary, at one end, and up to seven Extensions. Control OpenAVC through
+      the Primary — an Extension refuses most commands.
+  link_command_blocked:
     type: boolean
-    label: AT-LINK Mode
-    help: "True when Audio-Technica LINK mode (multi-unit extension) is enabled."
+    label: AT-LINK Commands Blocked
+    cloud_priority: high
+    help: >
+      True when the mixer has refused a command because it is running as an
+      Audio-Technica LINK Extension. If this is on, OpenAVC is pointed at the
+      wrong unit on the chain: connect it to the Primary instead.
   smart_mix_mode:
     type: integer
     label: SmartMix Mode
@@ -1328,18 +1429,23 @@ device_settings:
     setup: false
     write:
       send: 's_usb_out S 0000 00 NC ,,{value} \r'
-  at_link_mode:
-    type: boolean
-    label: AT-LINK Mode
+  at_link_role:
+    type: enum
+    values:
+      - { value: "1", label: "Primary" }
+      - { value: "0", label: "Extension" }
+    label: AT-LINK Role
     help: >
-      Audio-Technica LINK multi-unit extension mode. Only change this when
-      physically chaining units -- it reconfigures how the mixer expects to
-      be addressed.
-    state_key: at_link_mode
-    default: false
+      This mixer's role on an Audio-Technica LINK chain. Leave it at Primary
+      on a standalone mixer. Only change it while physically chaining units,
+      and change it on the right one: a chain has exactly one Primary, it has
+      to be a unit at one END of the chain, and setting a unit to Extension
+      makes it refuse most commands from OpenAVC.
+    state_key: at_link_role
+    default: "1"
     setup: false
     write:
-      send: 's_link S 0000 00 NC {value:d} \r'
+      send: 's_link S 0000 00 NC {value} \r'
   front_recall_preset:
     type: boolean
     label: Front Panel Preset Recall
@@ -1403,11 +1509,38 @@ responses:
   - match: 'g_firmware_version 0000 \S+ NC (\S+)'
     set: { firmware_version: "$1" }
 
-  # ── AT-LINK mode answer ──
+  # ── AT-LINK role answer ──
+  # 1 = Primary, 0 = Extension. Reading Primary also clears the blocked flag:
+  # g_link is polled every cycle, so a unit that has been promoted back to
+  # Primary stops reporting blocked without needing a reconnect.
   - match: 'g_link 0000 \S+ NC 1'
-    set: { at_link_mode: "true" }
+    set:
+      at_link_role: "Primary"
+      link_command_blocked: "false"
   - match: 'g_link 0000 \S+ NC 0'
-    set: { at_link_mode: "false" }
+    set: { at_link_role: "Extension" }
+
+  # NAK 93 is "unable to process due to the Extension mode". Only an Extension
+  # can answer it, so it settles the mixer's role on the spot rather than
+  # waiting for the next g_link. This is the one NAK worth reading: the others
+  # describe the command, this one describes the device.
+  - match: '\S+ NAK 93'
+    set:
+      link_command_blocked: "true"
+      at_link_role: "Extension"
+
+  # ── AT-LINK chain contents ──
+  # One slot per answer: extension number, quoted device name, serial,
+  # firmware. Doubled quotes inside the name are handled the same way as the
+  # channel-name rules.
+  - match: 'g_link_extstatus 0000 \S+ NC ([1-7]),"((?:[^"]|"")*)",(\S+),(\S+)'
+    child_set:
+      - type: link_extension
+        id: $1
+        state:
+          device_name: $2
+          serial: $3
+          firmware_version: $4
 
   # ── SmartMix common settings answer (9 fields fan out into 8 vars;
   #    the trailing field is the SmartMix group, fixed to 1) ──
@@ -1631,6 +1764,11 @@ polling:
     - 'g_oscillator O 0000 00 NC \r'
     - 'g_front_panel O 0000 00 NC \r'
     - 'g_bootup_preset O 0000 00 NC \r'
+    # AT-LINK chain contents, one query per slot, only while the config
+    # switch is on. No query_for: that field needs platform 0.24.0 and only
+    # helps an auto-generated simulator, and the simulator section below
+    # answers this query itself.
+    - { each_child: link_extension, send: 'g_link_extstatus O 0000 00 NC {child_id} \r', when: enable_link_status }
 
 # ── LIVENESS WATCHDOG ──
 # The protocol is asynchronous and a quiet mixer produces no traffic between
@@ -1656,7 +1794,9 @@ liveness:
 simulator:
   initial_state:
     firmware_version: "01.03.01"
-    at_link_mode: 0
+    # 1 = Primary. A simulated mixer is a standalone one, so it is the
+    # Primary of a chain of one and every extension slot is empty.
+    at_link_mode: 1
     input_1_level: 411
     input_2_level: 411
     input_3_level: 411
@@ -1926,6 +2066,18 @@ simulator:
       handler: |
         state['at_link_mode'] = int(match.group(1))
         respond('s_link ACK \r')
+
+    # AT-LINK chain contents. Nothing is chained to a simulated mixer, so
+    # every slot answers with an empty name — which is what the driver reads
+    # as "this slot is empty". Setting at_link_mode to 0 turns the simulator
+    # into an Extension, and it then answers NAK 93 here, which is how the
+    # blocked-command path can be exercised without a second mixer.
+    - match: 'g_link_extstatus O 0000 00 NC ([1-7]) ?'
+      handler: |
+        if not state['at_link_mode']:
+            respond('g_link_extstatus NAK 93 \r')
+        else:
+            respond(f'g_link_extstatus 0000 00 NC {match.group(1)},"",00000000,00.00.00 \r')
 
     # Device ID query (documented on this generation)
     - match: 'g_deviceid O 0000 00 NC ?'

@@ -141,6 +141,8 @@ simulator:
 
 **Regex escaping in YAML:** Use single quotes for patterns. Within single quotes, backslashes are literal, so `'\d+'` is the regex `\d+`. If you need a literal backslash in the regex, use `'\\'`. Do NOT double-escape: `'\\d+'` would be the regex `\\d+` (literal backslash followed by d), which is wrong.
 
+**Never end a pattern with a literal space.** Incoming data is stripped of surrounding whitespace before it is matched, so a pattern ending in a space can never fire. This matters for the protocols that put a space before their terminator: if the device expects `g_mute O 0000 00 NC \r` on the wire, the handler still has to be written `'g_mute O 0000 00 NC ?'` with the space optional, because by match time the trailing space is gone. Nothing warns you about this. The driver keeps working against real hardware while the simulated device answers an error to every one of those commands, so it looks like the device is rejecting them rather than like a typo in the pattern.
+
 ### Script Handlers
 
 For protocols that need conditional logic, math, or config variable access, use a `match:` + `handler:` pair with inline Python:

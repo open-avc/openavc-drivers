@@ -4,6 +4,17 @@
 #
 # Protocol reference: IP Control Protocol Specification ATDM-0604 (docs.audio-technica.com)
 #
+# Audio-Technica LINK: an audio and power bus, not a control bus. It chains
+# mixers so they share audio buses and the AEC reference; every unit on the
+# chain is still reached by its own IP address on 17300. s_link / g_link set
+# and read this unit's ROLE on that chain — 0 = Extension, 1 = Primary — which
+# is why the driver models it as a two-value role rather than the boolean
+# earlier versions used. An Extension refuses most of the control surface with
+# NAK 93 ("unable to process due to Extension mode"), so a NAK 93 to any
+# command is read below as proof of the unit's role. Point OpenAVC at the
+# Primary. This generation has no g_link_extstatus, so unlike the ATDM-0604a
+# and ATDM-1012 drivers it cannot report what is connected on the chain.
+#
 # Command format (Set):  <command> S <modelID> <unitNo> NC <params> \r
 # Command format (Get):  <command> O <modelID> <unitNo> NC <params> \r
 # Response ACK:          <command> ACK \r
@@ -66,7 +77,7 @@ id: at_atdm_0604
 name: Audio-Technica ATDM-0604
 manufacturer: Audio-Technica
 category: audio
-version: 2.0.1
+version: 2.1.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -417,10 +428,22 @@ state_variables:
     type: string
     label: Firmware Version
     help: "Firmware version string reported by the mixer (g_firmware_version)."
-  at_link_mode:
+  at_link_role:
+    type: enum
+    values: ["Extension", "Primary"]
+    label: AT-LINK Role
+    help: >
+      This mixer's role on the Audio-Technica LINK chain. A chain has one
+      Primary, at one end, and up to seven Extensions. Control OpenAVC through
+      the Primary — an Extension refuses most commands.
+  link_command_blocked:
     type: boolean
-    label: AT-LINK Mode
-    help: "True when Audio-Technica LINK mode (multi-unit extension) is enabled."
+    label: AT-LINK Commands Blocked
+    cloud_priority: high
+    help: >
+      True when the mixer has refused a command because it is running as an
+      Audio-Technica LINK Extension. If this is on, OpenAVC is pointed at the
+      wrong unit on the chain: connect it to the Primary instead.
   smart_mix_mode:
     type: integer
     label: SmartMix Mode
@@ -923,18 +946,23 @@ device_settings:
     setup: false
     write:
       send: 's_usb_out S 0000 00 NC ,{value} \r'
-  at_link_mode:
-    type: boolean
-    label: AT-LINK Mode
+  at_link_role:
+    type: enum
+    values:
+      - { value: "1", label: "Primary" }
+      - { value: "0", label: "Extension" }
+    label: AT-LINK Role
     help: >
-      Audio-Technica LINK multi-unit extension mode. Only change this when
-      physically chaining units -- it reconfigures how the mixer expects to
-      be addressed.
-    state_key: at_link_mode
-    default: false
+      This mixer's role on an Audio-Technica LINK chain. Leave it at Primary
+      on a standalone mixer. Only change it while physically chaining units,
+      and change it on the right one: a chain has exactly one Primary, it has
+      to be a unit at one END of the chain, and setting a unit to Extension
+      makes it refuse most commands from OpenAVC.
+    state_key: at_link_role
+    default: "1"
     setup: false
     write:
-      send: 's_link S 0000 00 NC {value:d} \r'
+      send: 's_link S 0000 00 NC {value} \r'
 
 # ── Quick actions ──
 actions:
@@ -956,11 +984,25 @@ responses:
   - match: 'g_firmware_version 0000 \S+ NC (\S+)'
     set: { firmware_version: "$1" }
 
-  # ── AT-LINK mode answer ──
+  # ── AT-LINK role answer ──
+  # 1 = Primary, 0 = Extension. Reading Primary also clears the blocked flag:
+  # g_link is polled every cycle, so a unit that has been promoted back to
+  # Primary stops reporting blocked without needing a reconnect.
   - match: 'g_link 0000 \S+ NC 1'
-    set: { at_link_mode: "true" }
+    set:
+      at_link_role: "Primary"
+      link_command_blocked: "false"
   - match: 'g_link 0000 \S+ NC 0'
-    set: { at_link_mode: "false" }
+    set: { at_link_role: "Extension" }
+
+  # NAK 93 is "unable to process due to Extension mode". Only an Extension can
+  # answer it, so it settles the mixer's role on the spot rather than waiting
+  # for the next g_link. This is the one NAK worth reading: the others describe
+  # the command, this one describes the device.
+  - match: '\S+ NAK 93'
+    set:
+      link_command_blocked: "true"
+      at_link_role: "Extension"
 
   # ── SmartMix common settings answer (6 fields on this generation) ──
   - match: 'g_smart_mix_general 0000 \S+ NC (\d+),(\d+),(\d+),(\d+),(\d+),(\d+)'
@@ -1159,7 +1201,9 @@ liveness:
 simulator:
   initial_state:
     firmware_version: "01.01.02"
-    at_link_mode: 0
+    # 1 = Primary. A simulated mixer is a standalone one, so it is the
+    # Primary of a chain of one.
+    at_link_mode: 1
     smart_mix_mode: 0
     last_mic_on: 0
     gate_hold_time: 2500

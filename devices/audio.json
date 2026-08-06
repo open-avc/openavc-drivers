@@ -369,7 +369,7 @@
         {
           "id": "at_atnd1061",
           "confidence": "full",
-          "notes": "Built and tested against an ATND1061DAN on firmware 01.04.01."
+          "notes": "Built and tested against an ATND1061DAN on firmware 01.04.01. The commands added by document versions 6.0 to 9.0 (room type, Voice Lift output select, talker-position read, device sync, external control) were added from the specification afterwards and have not been run against hardware.\n"
         }
       ]
     },
@@ -381,7 +381,7 @@
         {
           "id": "at_atnd1061",
           "confidence": "partial",
-          "notes": "Same command set \u2014 the control spec covers both models, and from document version 3.0 the LK is explicitly supported (firmware 1.2.0 for the full current set, including Voice Lift). Not bench-tested: everything here was verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout do not apply; expect those three to stay blank, and a Dante Tx setting written from OpenAVC may be refused. Nothing else should be affected \u2014 the Dante Tx6 field is matched as an optional group so an empty one cannot take the rest of the audio-system settings down with it. Discovery is an exact match on the modelName string \"ATND1061LK\", which is inferred from the DAN's naming scheme rather than captured, so it may simply not fire; adding the microphone by IP always works.\n"
+          "notes": "Same command set, and the same connection. Audio-Technica LINK carries audio and the microphone's power only, so an LK is controlled over its own NETWORK port on TCP 17300 exactly like a DAN \u2014 not through the ATDM mixer it feeds, which exposes nothing about it. Add it as its own device. Not bench-tested: everything here was verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout do not apply; expect those three to stay blank, and a Dante Tx setting written from OpenAVC may be refused. That is a real difference rather than a gap \u2014 on the LINK bus the LK carries the six beams, Auto Mix and Voice Lift Out on dedicated channels, so there is nothing for a Tx sharing setting to do. Nothing else should be affected: the Dante Tx6 field is matched as an optional group so an empty one cannot take the rest of the audio-system settings down with it. Discovery is an exact match on the modelName string \"ATND1061LK\", which is inferred from the DAN's naming scheme rather than captured, so it may simply not fire; adding the microphone by IP always works.\n"
         }
       ]
     },

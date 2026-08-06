@@ -621,7 +621,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, gain, mute, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, and AT-LINK mode.\n",
@@ -629,7 +629,7 @@
       "file": "audio/at_atdm_0604.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604.avcdriver": "bf522917eb324e46909af0218b7c1415440ad4380f89898e11d1709e34b89a0a"
+        "audio/at_atdm_0604.avcdriver": "1a2824d468de58b6ca3c82e40a92851bef55faafaf7a8d53303b55b37260423b"
       },
       "ports": [
         17300
@@ -681,15 +681,15 @@
       "name": "Audio-Technica ATDM-0604a",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout.\n",
+      "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
       "source_url": "https://docs.audio-technica.com/all/ATDM-0604a_IP_Control_Protocol_Specifications_EN_Ver1.0_web_221209.pdf",
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "296bd064aef9a6589f0c74ebf4c0472073731663ef9957e6d0174d6240e40042"
+        "audio/at_atdm_0604a.avcdriver": "111f7cf1e008aadd63fbdad742c2d1644f044183d5e0b979d5ed7e543a41d359"
       },
       "ports": [
         17300
@@ -705,7 +705,7 @@
       ],
       "help": {
         "overview": "Controls the Audio-Technica ATDM-0604a Digital SmartMixer, a 6-input automatic mixer for conference and installed sound applications. Each input and output appears as a child entity carrying its fader, mute, gain, and settings, labelled with the channel name configured on the mixer.\n",
-        "setup": "1. Connect the ATDM-0604a to the network (default control port 17300). 2. Configure the mixer's IP address via Web Remote (http://<mixer-ip>/). 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Inputs 1-6 and Input ST, Outputs 1-2 and Output ST appear as this\n   device's child entities, labelled by the channel names set on the\n   mixer (rename them with the Rename commands or in Web Remote).\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   239.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead. Channel names and\n   input settings have no change notice and refresh at the poll\n   interval.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the child meter values.\n"
+        "setup": "1. Connect the ATDM-0604a to the network (default control port 17300). 2. Configure the mixer's IP address via Web Remote (http://<mixer-ip>/). 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Inputs 1-6 and Input ST, Outputs 1-2 and Output ST appear as this\n   device's child entities, labelled by the channel names set on the\n   mixer (rename them with the Rename commands or in Web Remote).\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   239.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead. Channel names and\n   input settings have no change notice and refresh at the poll\n   interval.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the child meter values.\n7. Audio-Technica LINK chains: point OpenAVC at the Primary mixer. An\n   Extension refuses most commands, and this driver will show that as\n   AT-LINK Commands Blocked if you connect to one by mistake. Turn on\n   Enable AT-LINK Status to see what is actually on the chain \u2014 each\n   slot reports the connected device's name, serial and firmware.\n8. An ATND1061LK ceiling array microphone connected over Audio-Technica\n   LINK is not controlled through this mixer. It has its own network\n   connection, so add it to the project separately using the\n   Audio-Technica ATND1061 driver. LINK carries its audio and its power\n   only.\n"
       },
       "compatible_models": [
         {
@@ -743,15 +743,15 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Inputs, sub-inputs, outputs, and SmartMix groups are child entities with fader, mute, gain, source select, bus routing, and live meters, labelled by the mixer's own channel names. Preset recall, operator faders, USB output routing, test oscillator, and front-panel lockout.\n",
+      "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Inputs, sub-inputs, outputs, and SmartMix groups are child entities with fader, mute, gain, source select, bus routing, and live meters, labelled by the mixer's own channel names. Preset recall, operator faders, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
       "source_url": "https://docs.audio-technica.com/all/IP_Control_Protocol_Specification_-_ATDM-1012_ATDM-1012DAN.pdf",
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "90e82af3d91645fe197f9cb199c3a7d2da7d6bebb9446d39a580152507b2e9c8"
+        "audio/at_atdm_1012.avcdriver": "368cf10e80f3f18a6ca036b3c6bcdf762aabafb5945fef2dd054b39ba3f7d794"
       },
       "ports": [
         17300
@@ -767,7 +767,7 @@
       ],
       "help": {
         "overview": "Controls Audio-Technica ATDM-1012 / ATDM-1012DAN Digital SmartMixers. The ATDM-1012 is a 10-input, 8-output automatic mixer with 12 mix buses, designed for conference rooms, courtrooms, and council chambers. The DAN variant adds Dante audio networking. Each input, sub-input, output, and SmartMix group appears as a child entity, labelled with the channel name configured on the mixer.\n",
-        "setup": "1. Connect the ATDM-1012 to the network (default control port 17300). 2. Configure the mixer's IP address via the front panel or Web Remote. 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Inputs 1-10, ST1/ST2, Sub-inputs 1-8, Outputs 1-8 and ST1/ST2, and\n   SmartMix Groups 1-4 appear as this device's child entities, labelled\n   by the names set on the mixer (rename them with the Rename commands\n   or in Web Remote).\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   225.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead. Channel names and\n   input settings have no change notice and refresh at the poll\n   interval.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the child meter values.\n7. The ATDM-1012DAN uses the same protocol with added Dante settings.\n"
+        "setup": "1. Connect the ATDM-1012 to the network (default control port 17300). 2. Configure the mixer's IP address via the front panel or Web Remote. 3. To let OpenAVC find the mixer in a network scan, enable\n   \"Allow Discovery\" (UPnP) in the mixer's network settings.\n4. Inputs 1-10, ST1/ST2, Sub-inputs 1-8, Outputs 1-8 and ST1/ST2, and\n   SmartMix Groups 1-4 appear as this device's child entities, labelled\n   by the names set on the mixer (rename them with the Rename commands\n   or in Web Remote).\n5. Front-panel and Web Remote changes appear in OpenAVC instantly:\n   the mixer multicasts change notices (factory default group\n   225.0.0.100, port 17000) and OpenAVC listens automatically. If you\n   changed the multicast address or port in Web Remote's network\n   settings, set the matching values in this device's Notification\n   Group / Notification Port fields. The mixer and the OpenAVC server\n   must be on the same VLAN, and switches with IGMP snooping need an\n   IGMP querier \u2014 if notices are filtered, control still works and\n   changes appear at the poll interval instead. Channel names and\n   input settings have no change notice and refresh at the poll\n   interval.\n6. Enable Level Meters (off by default) streams live input/output\n   meters into OpenAVC at about two updates per second \u2014 bind panel\n   meter elements to the child meter values.\n7. The ATDM-1012DAN uses the same protocol with added Dante settings. 8. Audio-Technica LINK chains: point OpenAVC at the Primary mixer. An\n   Extension refuses most commands, and this driver will show that as\n   AT-LINK Commands Blocked if you connect to one by mistake. Turn on\n   Enable AT-LINK Status to see what is actually on the chain \u2014 each\n   slot reports the connected device's name, serial and firmware.\n9. An ATND1061LK ceiling array microphone connected over Audio-Technica\n   LINK is not controlled through this mixer. It has its own network\n   connection, so add it to the project separately using the\n   Audio-Technica ATND1061 driver. LINK carries its audio and its power\n   only.\n"
       },
       "compatible_models": [
         {
@@ -815,15 +815,15 @@
       "name": "Audio-Technica ATND1061",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation. Live meters and talker position can each be switched on and off at runtime from a macro or panel button.\n",
-      "source_url": "https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_V4_EN_web_240114.pdf",
+      "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, room type, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation or read on demand. Live meters and talker position can each be switched on and off at runtime from a macro or panel button. Several microphones in one room can be linked so a mute, preset recall or power-save follows across all of them.\n",
+      "source_url": "https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_Document_Ver9.0_EN_web_250930.pdf",
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "806542d982e105ba8e37a65c1f0a1653b856cc85d96f17f77ea03daa860be51d"
+        "audio/at_atnd1061.avcdriver": "7ab607c09cee2b98c0a375226eb25c0f2493e4b25c8a0f77210d6b7eac364c0a"
       },
       "ports": [
         17300
@@ -842,7 +842,7 @@
       ],
       "help": {
         "overview": "Controls the Audio-Technica ATND1061 beamforming array microphone, a ceiling-mounted array that steers six independent pickup beams around a room. Each beam and the analog input appear as child entities with their own fader, mute, gain and meter, labelled with the channel names set on the microphone. The microphone also reports which beam is currently picking up a talker and where that talker is, which can drive camera presets from OpenAVC macros.\n",
-        "setup": "1. Connect the ATND1061 to the network. It ships set to Auto (DHCP), and\n   control uses TCP port 17300.\n2. Find its address from your DHCP server, from the Audio-Technica Digital\n   Microphone Manager, or by running a network scan in OpenAVC.\n3. Beam positions, beam shapes and camera areas are laid out in the\n   microphone's own web interface (browse to its IP address). This driver\n   controls levels, mutes, presets and processing; it does not reposition\n   beams.\n4. Beam Channels 1-6 and the Analog Input appear as this device's child\n   entities, labelled with the names set on the microphone. Outputs are\n   Analog Out and Auto Mix.\n5. Front-panel and web changes appear in OpenAVC instantly. The microphone\n   multicasts change notices (factory default group 239.0.0.100, port\n   17000) and OpenAVC listens automatically, arming the notices when it\n   connects. If the multicast address or port was changed on the\n   microphone, set the matching values in Notification Group and\n   Notification Port here. The microphone and the OpenAVC server must be on\n   the same VLAN, and switches with IGMP snooping need an IGMP querier \u2014 if\n   notices are filtered, control still works and changes appear at the poll\n   interval instead.\n6. Live Level Meters and Talker Position are both off by default. Each one\n   makes the microphone stream continuously (about 10 updates per second at\n   the factory interval), so turn them on only if you bind them, and raise\n   the matching interval if you want less traffic. The settings here decide\n   what happens on connect; the Level Meters On/Off and Talker Position\n   On/Off commands switch them at runtime, so a panel can start the stream\n   when a meter page opens and stop it when the page closes.\n7. A factory-fresh microphone has all notifications disabled. OpenAVC turns\n   on the ones it needs when it connects; nothing needs to be enabled by\n   hand first.\n"
+        "setup": "1. Connect the ATND1061 to the network. It ships set to Auto (DHCP), and\n   control uses TCP port 17300.\n2. Find its address from your DHCP server, from the Audio-Technica Digital\n   Microphone Manager, or by running a network scan in OpenAVC.\n3. Beam positions, beam shapes and camera areas are laid out in the\n   microphone's own web interface (browse to its IP address). This driver\n   controls levels, mutes, presets and processing; it does not reposition\n   beams.\n4. Beam Channels 1-6 and the Analog Input appear as this device's child\n   entities, labelled with the names set on the microphone. Outputs are\n   Analog Out and Auto Mix.\n5. Front-panel and web changes appear in OpenAVC instantly. The microphone\n   multicasts change notices (factory default group 239.0.0.100, port\n   17000) and OpenAVC listens automatically, arming the notices when it\n   connects. If the multicast address or port was changed on the\n   microphone, set the matching values in Notification Group and\n   Notification Port here. The microphone and the OpenAVC server must be on\n   the same VLAN, and switches with IGMP snooping need an IGMP querier \u2014 if\n   notices are filtered, control still works and changes appear at the poll\n   interval instead.\n6. Live Level Meters and Talker Position are both off by default. Each one\n   makes the microphone stream continuously (about 10 updates per second at\n   the factory interval), so turn them on only if you bind them, and raise\n   the matching interval if you want less traffic. The settings here decide\n   what happens on connect; the Level Meters On/Off and Talker Position\n   On/Off commands switch them at runtime, so a panel can start the stream\n   when a meter page opens and stop it when the page closes.\n7. A factory-fresh microphone has all notifications disabled. OpenAVC turns\n   on the ones it needs when it connects; nothing needs to be enabled by\n   hand first.\n8. ATND1061LK: connect BOTH cables. Audio-Technica LINK carries the audio\n   and the microphone's power to the mixer; the separate Network port is\n   what OpenAVC talks to, and it has to reach your switch. The microphone\n   is not controlled through the mixer, so add it here as its own device\n   alongside the mixer. Note that the LK is powered over the LINK cable\n   rather than by PoE, so if it drops offline in OpenAVC, check the LINK\n   run as well as the network one.\n9. Several microphones in one room can follow each other. Set the same\n   Sync Group number on each, turn on the Sync settings you want (mute,\n   preset recall, power save), and a change made to any one of them\n   applies to all. Gain Share Mode set to Link is the separate audio-side\n   version of the same idea and shares automixer gain across the units.\n"
       },
       "compatible_models": [
         {
@@ -851,7 +851,7 @@
             "ATND1061DAN"
           ],
           "confidence": "full",
-          "notes": "Built and tested against an ATND1061DAN on firmware 01.04.01."
+          "notes": "Built and tested against an ATND1061DAN on firmware 01.04.01. The commands added by document versions 6.0 to 9.0 (room type, Voice Lift output select, talker-position read, device sync, external control) were added from the specification afterwards and have not been run against hardware.\n"
         },
         {
           "manufacturer": "Audio-Technica",
@@ -859,7 +859,7 @@
             "ATND1061LK"
           ],
           "confidence": "partial",
-          "notes": "Same command set \u2014 the control spec covers both models, and from document version 3.0 the LK is explicitly supported (firmware 1.2.0 for the full current set, including Voice Lift). Not bench-tested: everything here was verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout do not apply; expect those three to stay blank, and a Dante Tx setting written from OpenAVC may be refused. Nothing else should be affected \u2014 the Dante Tx6 field is matched as an optional group so an empty one cannot take the rest of the audio-system settings down with it. Discovery is an exact match on the modelName string \"ATND1061LK\", which is inferred from the DAN's naming scheme rather than captured, so it may simply not fire; adding the microphone by IP always works.\n"
+          "notes": "Same command set, and the same connection. Audio-Technica LINK carries audio and the microphone's power only, so an LK is controlled over its own NETWORK port on TCP 17300 exactly like a DAN \u2014 not through the ATDM mixer it feeds, which exposes nothing about it. Add it as its own device. Not bench-tested: everything here was verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout do not apply; expect those three to stay blank, and a Dante Tx setting written from OpenAVC may be refused. That is a real difference rather than a gap \u2014 on the LINK bus the LK carries the six beams, Auto Mix and Voice Lift Out on dedicated channels, so there is nothing for a Tx sharing setting to do. Nothing else should be affected: the Dante Tx6 field is matched as an optional group so an empty one cannot take the rest of the audio-system settings down with it. Discovery is an exact match on the modelName string \"ATND1061LK\", which is inferred from the DAN's naming scheme rather than captured, so it may simply not fire; adding the microphone by IP always works.\n"
         }
       ],
       "discovery": {

@@ -6,7 +6,13 @@
 # (port 17300).
 #
 # Protocol reference: ATND1061LK/ATND1061DAN IP Control Specifications,
-# document version 5.0 (file is published as "..._V4_EN_web_240114.pdf").
+# document version 9.0 (2025-09-30).
+#
+# Firmware and document version move together, and Audio-Technica's own
+# compatibility list is the map: firmware 1.2.0/1.2.1 = document 5.0,
+# 1.3.0 = 6.0, 1.3.1 = 7.0, 1.4.0 = 8.0, 1.4.1 = 9.0. A microphone older than
+# 1.3.0 simply NAKs the commands added after its own document version, which
+# is harmless — the poll skips them and their state stays blank.
 #
 # Command format (Set):  <command> S <modelID> <unitNo> NC <params> \r
 # Command format (Get):  <command> O <modelID> <unitNo> NC <params> \r
@@ -113,12 +119,68 @@
 #      v1.0.0 matched only the first two, so talker_active latched at 1 after
 #      the first talker and never went back to 0 — the "room went quiet" event
 #      a camera-home macro needs never fired. All three are matched below.
+#
+# ── Added by document versions 6.0 to 9.0 (untested: the bench unit predates
+#    this catch-up, so treat the four commands below as spec-built) ──
+#
+#  14. Talker position can be READ as well as streamed. g_camera_control_notice
+#      (document 8.0) answers the same five fields as the multicast notice, on
+#      demand, over the control connection. That decouples "where is the
+#      talker" from "stream it ten times a second": a macro can ask once when
+#      it needs to point a camera, with nothing armed. The Get Talker Position
+#      command does exactly that, and its answer feeds the same talker_* state
+#      the notice does, so a binding works either way.
+#
+#  15. Room Type (document 6.0) tells the microphone how live the room is —
+#      Dry, Live or Reverberant. Voice Lift Output Select (also 6.0) picks
+#      which zones feed the Voice Lift output: Coverage & Priority, Coverage
+#      only, or Priority only.
+#
+#  16. Document 9.0 marks the NTP fields of s_network / g_network "Reserved".
+#      This driver never wrote them (it touches only the notification flags, by
+#      omission), so nothing changes here — noted so a later edit does not
+#      reintroduce them.
+#
+# ── Simulator handler patterns must not END in a literal space ──
+#
+#  18. The protocol's trailing space before the CR is real on the wire, but the
+#      simulator strips whitespace from an incoming frame before matching it,
+#      so a handler pattern written "g_mute O 0000 00 NC " can never fire. Every
+#      Get handler here ends "NC ?" instead, making that space optional. This
+#      is not cosmetic: with the literal space, all 23 Get handlers were dead
+#      and the simulated microphone answered NAK 02 to every poll query, so the
+#      whole driver read blank against it while working fine on hardware. The
+#      Set handlers were never affected — their capture group follows the
+#      space, so there was nothing at the end to strip.
+#
+# ── How an ATND1061LK actually connects ──
+#
+#  17. The LK is NOT controlled through the mixer it feeds. Audio-Technica LINK
+#      carries audio and the microphone's +48 V and nothing else. The LK has a
+#      separate NETWORK port that goes to the switch, and IP control on 17300
+#      is identical to the DAN's. The mixer's IP control exposes nothing about
+#      the microphone, and the microphone has no AT-LINK command surface at all
+#      — document 9.0 uses the ATDM mixers' g_link as its worked example of an
+#      INVALID command answering NAK 04. An LK is added to a project as its own
+#      device, exactly like a DAN.
+#
+#      What the LK puts on the LINK bus (its signal diagram) is CH1-CH6 for the
+#      six beams, CH7 Auto Mix and CH8 Voice Lift Out, plus a shared gain-share
+#      bus and an AEC reference return. Every one of those is a dedicated
+#      channel, which is why the DAN's Dante Tx5/Tx6 sharing settings have no
+#      meaning on an LK: there is nothing to share.
+#
+#      Consequence worth knowing in the field: the LK takes its power from the
+#      LINK cable, not from PoE on its network port. Pull the LINK cable and
+#      the microphone goes dark, IP control included — so an LK that has gone
+#      offline in OpenAVC is at least as likely to be a LINK-side fault as a
+#      network one.
 
 id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.2.1
+version: 1.3.0
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -127,12 +189,14 @@ description: >
   channels and the analog input are child entities carrying fader, mute, gain,
   gain-share weight and live meters, labelled by the names set on the
   microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto
-  attenuation, Voice Lift, the ring indicator colours and the camera interlock
-  are all controllable, and the microphone's talker-position reporting can be
-  surfaced as state for camera automation. Live meters and talker position can
-  each be switched on and off at runtime from a macro or panel button.
+  attenuation, Voice Lift, room type, the ring indicator colours and the camera
+  interlock are all controllable, and the microphone's talker-position reporting
+  can be surfaced as state for camera automation or read on demand. Live meters
+  and talker position can each be switched on and off at runtime from a macro or
+  panel button. Several microphones in one room can be linked so a mute, preset
+  recall or power-save follows across all of them.
 
-source_url: https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_V4_EN_web_240114.pdf
+source_url: https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_Document_Ver9.0_EN_web_250930.pdf
 tags: [microphone, ceiling-mic, beamforming, array, conferencing, dante, automixer, camera-tracking]
 verified: false
 simulated: true
@@ -141,23 +205,32 @@ compatible_models:
   - manufacturer: Audio-Technica
     models: [ATND1061DAN]
     confidence: full
-    notes: Built and tested against an ATND1061DAN on firmware 01.04.01.
+    notes: >
+      Built and tested against an ATND1061DAN on firmware 01.04.01. The
+      commands added by document versions 6.0 to 9.0 (room type, Voice Lift
+      output select, talker-position read, device sync, external control) were
+      added from the specification afterwards and have not been run against
+      hardware.
   - manufacturer: Audio-Technica
     models: [ATND1061LK]
     confidence: partial
     notes: >
-      Same command set — the control spec covers both models, and from document
-      version 3.0 the LK is explicitly supported (firmware 1.2.0 for the full
-      current set, including Voice Lift). Not bench-tested: everything here was
-      verified on a DAN. What differs is Dante. The LK has none, so Dante Tx5,
-      Dante Tx6 and the Dante IP readout do not apply; expect those three to
-      stay blank, and a Dante Tx setting written from OpenAVC may be refused.
-      Nothing else should be affected — the Dante Tx6 field is matched as an
-      optional group so an empty one cannot take the rest of the audio-system
-      settings down with it. Discovery is an exact match on the modelName
-      string "ATND1061LK", which is inferred from the DAN's naming scheme
-      rather than captured, so it may simply not fire; adding the microphone by
-      IP always works.
+      Same command set, and the same connection. Audio-Technica LINK carries
+      audio and the microphone's power only, so an LK is controlled over its
+      own NETWORK port on TCP 17300 exactly like a DAN — not through the ATDM
+      mixer it feeds, which exposes nothing about it. Add it as its own device.
+      Not bench-tested: everything here was verified on a DAN. What differs is
+      Dante. The LK has none, so Dante Tx5, Dante Tx6 and the Dante IP readout
+      do not apply; expect those three to stay blank, and a Dante Tx setting
+      written from OpenAVC may be refused. That is a real difference rather
+      than a gap — on the LINK bus the LK carries the six beams, Auto Mix and
+      Voice Lift Out on dedicated channels, so there is nothing for a Tx
+      sharing setting to do. Nothing else should be affected: the Dante Tx6
+      field is matched as an optional group so an empty one cannot take the
+      rest of the audio-system settings down with it. Discovery is an exact
+      match on the modelName string "ATND1061LK", which is inferred from the
+      DAN's naming scheme rather than captured, so it may simply not fire;
+      adding the microphone by IP always works.
 
 transport: tcp
 delimiter: "\r"
@@ -202,6 +275,18 @@ help:
     7. A factory-fresh microphone has all notifications disabled. OpenAVC turns
        on the ones it needs when it connects; nothing needs to be enabled by
        hand first.
+    8. ATND1061LK: connect BOTH cables. Audio-Technica LINK carries the audio
+       and the microphone's power to the mixer; the separate Network port is
+       what OpenAVC talks to, and it has to reach your switch. The microphone
+       is not controlled through the mixer, so add it here as its own device
+       alongside the mixer. Note that the LK is powered over the LINK cable
+       rather than by PoE, so if it drops offline in OpenAVC, check the LINK
+       run as well as the network one.
+    9. Several microphones in one room can follow each other. Set the same
+       Sync Group number on each, turn on the Sync settings you want (mute,
+       preset recall, power save), and a change made to any one of them
+       applies to all. Gain Share Mode set to Link is the separate audio-side
+       version of the same idea and shares automixer gain across the units.
 
 discovery:
   # The Audio-Technica control-unit family advertises one shared UPnP URN when
@@ -612,6 +697,20 @@ state_variables:
     values: ["Standalone", "Link"]
     label: Gain Share Mode
     help: "Link shares automixer gain across several units chained together."
+  room_type:
+    type: enum
+    values: ["Dry", "Live", "Reverberant"]
+    label: Room Type
+    help: >
+      How reverberant the room is, which the microphone uses to tune its
+      beamforming and echo handling. Requires firmware 1.3.0 or newer.
+  voice_lift_output:
+    type: enum
+    values: ["Coverage & Priority", "Coverage", "Priority"]
+    label: Voice Lift Output
+    help: >
+      Which pickup zones feed the Voice Lift output. Requires firmware 1.3.0
+      or newer.
   voice_lift_level:
     type: integer
     label: Voice Lift Processing
@@ -800,6 +899,53 @@ state_variables:
     type: boolean
     label: Allow Discovery (UPnP)
     help: "Whether the microphone answers network scans."
+
+  # ── Device sync (the microphone's own "Command Link") ──
+  # Ties several ATND1061s in one room together: units sharing a Sync Group
+  # number follow each other's mute, preset recall and power save. This is the
+  # control-side counterpart to Gain Share Mode, which shares automix gain.
+  sync_mute:
+    type: boolean
+    label: Sync Mute
+    help: "True when muting this microphone also mutes the others in its sync group."
+  sync_preset:
+    type: boolean
+    label: Sync Preset Recall
+    help: "True when a preset recall here also recalls it on the others in the sync group."
+  sync_power_save:
+    type: boolean
+    label: Sync Power Save
+    help: "True when power save follows across the sync group."
+  sync_group:
+    type: integer
+    label: Sync Group
+    min: 1
+    max: 128
+    help: "Sync group number. Microphones that should follow each other share one number."
+
+  # ── External control (IR remote + the two GPI ports) ──
+  ir_mute:
+    type: boolean
+    label: IR Remote Mute
+    help: "True when the infrared remote is allowed to mute the microphone."
+  ir_preset:
+    type: boolean
+    label: IR Remote Preset Recall
+    help: "True when the infrared remote is allowed to recall presets."
+  ir_power_save:
+    type: boolean
+    label: IR Remote Power Save
+    help: "True when the infrared remote is allowed to switch power save."
+  gpi_port1:
+    type: enum
+    values: ["Power Save", "Mute", "Reboot", "Camera Control"]
+    label: GPI Port 1 Function
+    help: "What a contact closure on GPI port 1 does."
+  gpi_port2:
+    type: enum
+    values: ["Power Save", "Mute", "Reboot", "Camera Control"]
+    label: GPI Port 2 Function
+    help: "What a contact closure on GPI port 2 does."
 
 commands:
   # ── Input channels (children 1-7; wire 0-6) ──
@@ -1220,6 +1366,19 @@ commands:
     send: 's_network S 0000 00 NC ,,,,,,,,,,,,,,,,,,,0 \r'
     help: "Stop talker-position reporting."
 
+  # Reads the same five fields the multicast notice carries, once, on the
+  # control connection. Nothing needs to be armed for this, so a camera macro
+  # can ask "where is the talker right now" without the microphone streaming
+  # ten frames a second in the background. Requires firmware 1.4.0 or newer.
+  get_talker_position:
+    label: Get Talker Position
+    send: 'g_camera_control_notice O 0000 00 NC \r'
+    help: >
+      Read the talker's position once and update Talker Active, Talker Beam
+      Channel, Talker Elevation, Talker Rotation and Talker Camera Area. Use
+      this instead of Talker Position On when a macro needs the position at one
+      moment rather than continuously.
+
   set_talker_interval:
     label: Set Talker Position Interval
     send: 's_camera_control_interval S 0000 00 NC {interval} \r'
@@ -1429,6 +1588,24 @@ device_settings:
     write:
       send: 's_gainshare_mode S 0000 00 NC {value} \r'
 
+  room_type:
+    type: enum
+    values:
+      - { value: "0", label: "Dry" }
+      - { value: "1", label: "Live" }
+      - { value: "2", label: "Reverberant" }
+    label: Room Type
+    help: >
+      How reverberant the room is. The microphone uses this to tune its
+      beamforming and echo handling, so set it to match the space: Dry for a
+      carpeted, treated room, Reverberant for hard surfaces and glass.
+      Requires firmware 1.3.0 or newer.
+    state_key: room_type
+    default: "1"
+    setup: false
+    write:
+      send: 's_roomtype S 0000 00 NC {value} \r'
+
   voice_lift_level:
     type: integer
     min: 1
@@ -1440,6 +1617,22 @@ device_settings:
     setup: false
     write:
       send: 's_voicelift S 0000 00 NC {value} \r'
+
+  voice_lift_output:
+    type: enum
+    values:
+      - { value: "0", label: "Coverage & Priority" }
+      - { value: "1", label: "Coverage" }
+      - { value: "2", label: "Priority" }
+    label: Voice Lift Output
+    help: >
+      Which pickup zones feed the Voice Lift output. Requires firmware 1.3.0
+      or newer.
+    state_key: voice_lift_output
+    default: "0"
+    setup: false
+    write:
+      send: 's_voicelift_outputselect S 0000 00 NC {value} \r'
 
   voice_lift_fader:
     type: integer
@@ -1579,6 +1772,122 @@ device_settings:
     write:
       send: 's_bootup_preset S 0000 00 NC {value} \r'
 
+  # ── Device sync ("Command Link" in the microphone's own web interface) ──
+  # s_synccontrol takes Power, Mute, Preset, Group and one reserved field.
+  # Each setting writes only its own slot and leaves the rest empty, which the
+  # protocol's omission rule (spec 2.2.1) treats as "leave unchanged" — the
+  # same technique the rest of this driver uses, so two of these settings can
+  # be changed independently without one clobbering the other.
+  sync_power_save:
+    type: boolean
+    label: Sync Power Save
+    help: "Power save follows across every microphone sharing this Sync Group."
+    state_key: sync_power_save
+    default: false
+    setup: false
+    write:
+      send: 's_synccontrol S 0000 00 NC {value:d},,,, \r'
+
+  sync_mute:
+    type: boolean
+    label: Sync Mute
+    help: >
+      Muting this microphone also mutes every other one sharing its Sync
+      Group. Use this when several arrays cover one room and a single mute
+      button on the panel should silence all of them.
+    state_key: sync_mute
+    default: false
+    setup: false
+    write:
+      send: 's_synccontrol S 0000 00 NC ,{value:d},,, \r'
+
+  sync_preset:
+    type: boolean
+    label: Sync Preset Recall
+    help: "A preset recall here also recalls the same preset across the Sync Group."
+    state_key: sync_preset
+    default: false
+    setup: false
+    write:
+      send: 's_synccontrol S 0000 00 NC ,,{value:d},, \r'
+
+  sync_group:
+    type: integer
+    min: 1
+    max: 128
+    label: Sync Group
+    help: >
+      Sync group number, 1 to 128. Microphones that should follow each other
+      share one number; microphones that should stay independent get different
+      ones.
+    state_key: sync_group
+    default: 1
+    setup: false
+    write:
+      send: 's_synccontrol S 0000 00 NC ,,,{value}, \r'
+
+  # ── External control: the IR remote and the two GPI ports ──
+  # s_remotecontrol takes IR Power, IR Mute, IR Preset, GPI Port 1, GPI Port 2.
+  ir_power_save:
+    type: boolean
+    label: IR Remote Power Save
+    help: "Let the infrared remote switch power save."
+    state_key: ir_power_save
+    default: false
+    setup: false
+    write:
+      send: 's_remotecontrol S 0000 00 NC {value:d},,,, \r'
+
+  ir_mute:
+    type: boolean
+    label: IR Remote Mute
+    help: "Let the infrared remote mute the microphone."
+    state_key: ir_mute
+    default: false
+    setup: false
+    write:
+      send: 's_remotecontrol S 0000 00 NC ,{value:d},,, \r'
+
+  ir_preset:
+    type: boolean
+    label: IR Remote Preset Recall
+    help: "Let the infrared remote recall presets."
+    state_key: ir_preset
+    default: false
+    setup: false
+    write:
+      send: 's_remotecontrol S 0000 00 NC ,,{value:d},, \r'
+
+  gpi_port1:
+    type: enum
+    values:
+      - { value: "0", label: "Power Save" }
+      - { value: "1", label: "Mute" }
+      - { value: "2", label: "Reboot" }
+      - { value: "3", label: "Camera Control" }
+    label: GPI Port 1 Function
+    help: "What a contact closure on GPI port 1 does."
+    state_key: gpi_port1
+    default: "1"
+    setup: false
+    write:
+      send: 's_remotecontrol S 0000 00 NC ,,,{value}, \r'
+
+  gpi_port2:
+    type: enum
+    values:
+      - { value: "0", label: "Power Save" }
+      - { value: "1", label: "Mute" }
+      - { value: "2", label: "Reboot" }
+      - { value: "3", label: "Camera Control" }
+    label: GPI Port 2 Function
+    help: "What a contact closure on GPI port 2 does."
+    state_key: gpi_port2
+    default: "0"
+    setup: false
+    write:
+      send: 's_remotecontrol S 0000 00 NC ,,,,{value} \r'
+
 # Quick Action buttons on the device view. The mute, meter and talker pairs
 # are each declared twice and gated on the state they set, so only the one that
 # does something shows — a single "Level Meters On" that becomes "Level Meters
@@ -1712,6 +2021,39 @@ responses:
 
   - match: 'g_voicelift \S+ \S+ \S+ ([1-5])'
     set: { voice_lift_level: "$1" }
+
+  - match: 'g_voicelift_outputselect \S+ \S+ \S+ ([0-2])'
+    mappings:
+      - group: 1
+        state: voice_lift_output
+        map: { "0": "Coverage & Priority", "1": "Coverage", "2": "Priority" }
+
+  - match: 'g_roomtype \S+ \S+ \S+ ([0-2])'
+    mappings:
+      - group: 1
+        state: room_type
+        map: { "0": "Dry", "1": "Live", "2": "Reverberant" }
+
+  # Device sync and external control. Both answer five fields; the trailing
+  # reserved slot on g_synccontrol is not captured.
+  - match: 'g_synccontrol \S+ \S+ \S+ ([01]),([01]),([01]),(\d+)'
+    mappings:
+      - { group: 1, state: sync_power_save, type: boolean }
+      - { group: 2, state: sync_mute, type: boolean }
+      - { group: 3, state: sync_preset, type: boolean }
+      - { group: 4, state: sync_group, type: integer }
+
+  - match: 'g_remotecontrol \S+ \S+ \S+ ([01]),([01]),([01]),([0-3]),([0-3])'
+    mappings:
+      - { group: 1, state: ir_power_save, type: boolean }
+      - { group: 2, state: ir_mute, type: boolean }
+      - { group: 3, state: ir_preset, type: boolean }
+      - group: 4
+        state: gpi_port1
+        map: { "0": "Power Save", "1": "Mute", "2": "Reboot", "3": "Camera Control" }
+      - group: 5
+        state: gpi_port2
+        map: { "0": "Power Save", "1": "Mute", "2": "Reboot", "3": "Camera Control" }
 
   - match: 'g_voicelift_channel_settings \S+ \S+ \S+ (\d*),(\d*),([01]?),"((?:[^"]|"")*)"'
     set:
@@ -1938,6 +2280,32 @@ responses:
       talker_channel: "0"
       talker_camera_area: "$1"
 
+  # The polled read (Get Talker Position) answers the same three shapes on the
+  # control connection instead of over multicast, so it lands in the same
+  # state. No throttle: this one only arrives when something asked for it.
+  - match: 'g_camera_control_notice \S+ \S+ \S+ ([01]),([0-5]),(\d+),(\d+),(\d+)'
+    mappings:
+      - group: 2
+        state: talker_channel
+        type: integer
+        map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6 }
+      - { group: 1, state: talker_active, type: boolean }
+      - { group: 3, state: talker_elevation, type: integer }
+      - { group: 4, state: talker_rotation, type: integer }
+      - { group: 5, state: talker_camera_area, type: integer }
+  - match: 'g_camera_control_notice \S+ \S+ \S+ ([01]),,(\d+),(\d+),(\d+)'
+    set:
+      talker_active: "$1"
+      talker_channel: "0"
+      talker_elevation: "$2"
+      talker_rotation: "$3"
+      talker_camera_area: "$4"
+  - match: 'g_camera_control_notice \S+ \S+ \S+ 0,,,,(\d+)'
+    set:
+      talker_active: "0"
+      talker_channel: "0"
+      talker_camera_area: "$1"
+
   # Level meters: 42 comma-separated values. Post-fader beams 1-6 and the
   # analog input are fields 1-7, Analog Out / Auto Mix / Voice Lift are 13-15,
   # AEC (ERL) is 23, and the gain-share meters for beams 1-6 are 33-38. The
@@ -2001,6 +2369,12 @@ polling:
     - 'g_gainshare_mode O 0000 00 NC \r'
     - 'g_voicelift O 0000 00 NC \r'
     - 'g_voicelift_channel_settings O 0000 00 NC \r'
+    # Firmware 1.3.0 and newer. An older microphone answers NAK 02, no rule
+    # matches, and the two settings simply stay blank.
+    - 'g_voicelift_outputselect O 0000 00 NC \r'
+    - 'g_roomtype O 0000 00 NC \r'
+    - 'g_synccontrol O 0000 00 NC \r'
+    - 'g_remotecontrol O 0000 00 NC \r'
     - 'g_header_color O 0000 00 NC \r'
     - 'g_led O 0000 00 NC \r'
     - 'g_dante_tx5 O 0000 00 NC \r'
@@ -2089,6 +2463,17 @@ simulator:
     voice_lift_gain: 0
     voice_lift_fader: 411
     voice_lift_mute: 0
+    voice_lift_output: 0
+    room_type: 1
+    sync_power_save: 0
+    sync_mute: 0
+    sync_preset: 0
+    sync_group: 1
+    ir_power_save: 0
+    ir_mute: 0
+    ir_preset: 0
+    gpi_port1: 1
+    gpi_port2: 0
     header_color: 0
     led_dimmer: 0
     led_powersave: 9
@@ -2186,7 +2571,7 @@ simulator:
       respond: "g_network_dante 0000 00 NC 0,3,0,192.168.001.055,255.255.255.000,192.168.001.001,,0,,,, \r"
 
     # ── Scripted handlers (these run after the explicit ones above) ──
-    - match: 'g_network O 0000 00 NC '
+    - match: 'g_network O 0000 00 NC ?'
       handler: |
         respond(
             "g_network 0000 00 NC 0,,,,000A45379AF7,1,17300,"
@@ -2208,7 +2593,7 @@ simulator:
         take(19, "talker_notices_armed")
         respond("s_network ACK \r")
 
-    - match: 'g_mute O 0000 00 NC '
+    - match: 'g_mute O 0000 00 NC ?'
       handler: |
         respond(f"g_mute 0000 00 NC {state['device_mute']} \r")
     - match: 's_mute S 0000 00 NC ([01])'
@@ -2217,7 +2602,7 @@ simulator:
         respond("s_mute ACK \r")
         notify(f"MD mute_notice 0000 00 NC {state['device_mute']} \r")
 
-    - match: 'g_preset_number O 0000 00 NC '
+    - match: 'g_preset_number O 0000 00 NC ?'
       handler: |
         respond(f"g_preset_number 0000 00 NC {state['last_preset']} \r")
     - match: '(?:call_preset|CALLP) S 0000 00 NC (\d+)'
@@ -2233,7 +2618,7 @@ simulator:
       handler: |
         respond("save_preset ACK \r")
 
-    - match: 'g_bootup_preset O 0000 00 NC '
+    - match: 'g_bootup_preset O 0000 00 NC ?'
       handler: |
         respond(f"g_bootup_preset 0000 00 NC {state['bootup_preset']} \r")
     - match: 's_bootup_preset S 0000 00 NC (\d+)'
@@ -2241,7 +2626,7 @@ simulator:
         state["bootup_preset"] = int(match.group(1))
         respond("s_bootup_preset ACK \r")
 
-    - match: 'g_audio_system O 0000 00 NC '
+    - match: 'g_audio_system O 0000 00 NC ?'
       handler: |
         respond(
             "g_audio_system 0000 00 NC ,,,,"
@@ -2259,7 +2644,7 @@ simulator:
                 state[key] = int(f[idx])
         respond("s_audio_system ACK \r")
 
-    - match: 'g_aec_general O 0000 00 NC '
+    - match: 'g_aec_general O 0000 00 NC ?'
       handler: |
         respond(
             f"g_aec_general 0000 00 NC {state['aec_enabled']},"
@@ -2277,7 +2662,7 @@ simulator:
                 state[key] = int(f[idx])
         respond("s_aec_general ACK \r")
 
-    - match: 'g_agc O 0000 00 NC '
+    - match: 'g_agc O 0000 00 NC ?'
       handler: |
         respond(f"g_agc 0000 00 NC {state['agc_enabled']},1,{state['agc_target']} \r")
     - match: 's_agc S 0000 00 NC (.*)'
@@ -2289,7 +2674,7 @@ simulator:
             state["agc_target"] = int(f[2])
         respond("s_agc ACK \r")
 
-    - match: 'g_gainshare_mode O 0000 00 NC '
+    - match: 'g_gainshare_mode O 0000 00 NC ?'
       handler: |
         respond(f"g_gainshare_mode 0000 00 NC {state['gain_share_mode']} \r")
     - match: 's_gainshare_mode S 0000 00 NC ([01])'
@@ -2297,7 +2682,7 @@ simulator:
         state["gain_share_mode"] = int(match.group(1))
         respond("s_gainshare_mode ACK \r")
 
-    - match: 'g_voicelift O 0000 00 NC '
+    - match: 'g_voicelift O 0000 00 NC ?'
       handler: |
         respond(f"g_voicelift 0000 00 NC {state['voice_lift_level']} \r")
     - match: 's_voicelift S 0000 00 NC ([1-5])'
@@ -2305,7 +2690,7 @@ simulator:
         state["voice_lift_level"] = int(match.group(1))
         respond("s_voicelift ACK \r")
 
-    - match: 'g_voicelift_channel_settings O 0000 00 NC '
+    - match: 'g_voicelift_channel_settings O 0000 00 NC ?'
       handler: |
         respond(
             f"g_voicelift_channel_settings 0000 00 NC {state['voice_lift_gain']},"
@@ -2321,7 +2706,58 @@ simulator:
                 state[key] = int(f[idx])
         respond("s_voicelift_channel_settings ACK \r")
 
-    - match: 'g_header_color O 0000 00 NC '
+    - match: 'g_voicelift_outputselect O 0000 00 NC ?'
+      handler: |
+        respond(f"g_voicelift_outputselect 0000 00 NC {state['voice_lift_output']} \r")
+    - match: 's_voicelift_outputselect S 0000 00 NC ([0-2])'
+      handler: |
+        state["voice_lift_output"] = int(match.group(1))
+        respond("s_voicelift_outputselect ACK \r")
+
+    - match: 'g_roomtype O 0000 00 NC ?'
+      handler: |
+        respond(f"g_roomtype 0000 00 NC {state['room_type']} \r")
+    - match: 's_roomtype S 0000 00 NC ([0-2])'
+      handler: |
+        state["room_type"] = int(match.group(1))
+        respond("s_roomtype ACK \r")
+
+    # Device sync and external control both answer five fields and both honour
+    # omitted parameters, so the simulator applies only the fields that were
+    # actually sent — the same behaviour the driver's settings rely on.
+    - match: 'g_synccontrol O 0000 00 NC ?'
+      handler: |
+        respond(
+            f"g_synccontrol 0000 00 NC {state['sync_power_save']},"
+            f"{state['sync_mute']},{state['sync_preset']},"
+            f"{state['sync_group']},0 \r"
+        )
+    - match: 's_synccontrol S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        for idx, key in ((0, "sync_power_save"), (1, "sync_mute"),
+                         (2, "sync_preset"), (3, "sync_group")):
+            if idx < len(f) and f[idx] != "":
+                state[key] = int(f[idx])
+        respond("s_synccontrol ACK \r")
+
+    - match: 'g_remotecontrol O 0000 00 NC ?'
+      handler: |
+        respond(
+            f"g_remotecontrol 0000 00 NC {state['ir_power_save']},"
+            f"{state['ir_mute']},{state['ir_preset']},"
+            f"{state['gpi_port1']},{state['gpi_port2']} \r"
+        )
+    - match: 's_remotecontrol S 0000 00 NC (.*)'
+      handler: |
+        f = match.group(1).rstrip().split(",")
+        for idx, key in ((0, "ir_power_save"), (1, "ir_mute"), (2, "ir_preset"),
+                         (3, "gpi_port1"), (4, "gpi_port2")):
+            if idx < len(f) and f[idx] != "":
+                state[key] = int(f[idx])
+        respond("s_remotecontrol ACK \r")
+
+    - match: 'g_header_color O 0000 00 NC ?'
       handler: |
         respond(f"g_header_color 0000 00 NC {state['header_color']} \r")
     - match: 's_header_color S 0000 00 NC (\d+)'
@@ -2334,7 +2770,7 @@ simulator:
             respond("s_header_color NAK 04 \r")
 
     # Ring indicator. Field 2 is reserved and stays empty, matching hardware.
-    - match: 'g_led O 0000 00 NC '
+    - match: 'g_led O 0000 00 NC ?'
       handler: |
         respond(
             f"g_led 0000 00 NC {state['led_dimmer']},,{state['led_powersave']},"
@@ -2371,7 +2807,7 @@ simulator:
         state["camera_paused"] = int(match.group(1))
         respond("s_camera_stop ACK \r")
 
-    - match: 'g_dante_tx5 O 0000 00 NC '
+    - match: 'g_dante_tx5 O 0000 00 NC ?'
       handler: |
         respond(f"g_dante_tx5 0000 00 NC {state['dante_tx5']} \r")
     - match: 's_dante_tx5 S 0000 00 NC ([01])'
@@ -2379,7 +2815,7 @@ simulator:
         state["dante_tx5"] = int(match.group(1))
         respond("s_dante_tx5 ACK \r")
 
-    - match: 'g_camera_control O 0000 00 NC '
+    - match: 'g_camera_control O 0000 00 NC ?'
       handler: |
         respond(
             f"g_camera_control 0000 00 NC {state['camera_recall_time']},"
@@ -2397,7 +2833,7 @@ simulator:
             state["camera_home_time"] = int(f[2])
             respond("s_camera_control ACK \r")
 
-    - match: 'g_camera_control_interval O 0000 00 NC '
+    - match: 'g_camera_control_interval O 0000 00 NC ?'
       handler: |
         respond(f"g_camera_control_interval 0000 00 NC {state['talker_interval']} \r")
     - match: 's_camera_control_interval S 0000 00 NC (\d+)'
@@ -2405,7 +2841,28 @@ simulator:
         state["talker_interval"] = int(match.group(1))
         respond("s_camera_control_interval ACK \r")
 
-    - match: 'g_level_meter_interval O 0000 00 NC '
+    # Polled talker position. Answers the same three shapes the multicast
+    # notice uses, so testing a camera macro against the simulator exercises
+    # the same response rules: a beam number when someone is in a beam, an
+    # empty channel when they are outside every beam, and everything but the
+    # camera area omitted when the room is quiet.
+    - match: 'g_camera_control_notice O 0000 00 NC ?'
+      handler: |
+        if not state["talker_active"]:
+            respond(f"g_camera_control_notice 0000 00 NC 0,,,,{state['talker_camera_area']} \r")
+        elif state["talker_channel"]:
+            respond(
+                f"g_camera_control_notice 0000 00 NC 1,{state['talker_channel'] - 1},"
+                f"{state['talker_elevation']},{state['talker_rotation']},"
+                f"{state['talker_camera_area']} \r"
+            )
+        else:
+            respond(
+                f"g_camera_control_notice 0000 00 NC 1,,{state['talker_elevation']},"
+                f"{state['talker_rotation']},{state['talker_camera_area']} \r"
+            )
+
+    - match: 'g_level_meter_interval O 0000 00 NC ?'
       handler: |
         respond(f"g_level_meter_interval 0000 00 NC {state['level_meter_interval']} \r")
     - match: 's_level_meter_interval S 0000 00 NC (\d+)'
@@ -2548,7 +3005,7 @@ simulator:
         respond("s_output_channel_settings ACK \r")
 
     # ── Action commands ──
-    - match: 'identify S 0000 00 NC '
+    - match: 'identify S 0000 00 NC ?'
       handler: |
         respond("identify ACK \r")
     - match: 'SVAD S 0000 00 NC ([01])'
@@ -2558,7 +3015,7 @@ simulator:
       handler: |
         respond("s_powersave ACK \r")
         notify(f"MD powersave_notice 0000 00 NC {match.group(1)} \r")
-    - match: 'reboot S 0000 00 NC '
+    - match: 'reboot S 0000 00 NC ?'
       handler: |
         respond("reboot ACK \r")
     - match: 's_name_bank S 0000 00 NC (\d+),(.*)'

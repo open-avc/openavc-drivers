@@ -947,6 +947,7 @@ These are common errors that produce drivers that fail validation or don't work 
 | Putting command parameters in `default_config` | `default_config` is for connection settings. Command parameters go in `commands.<cmd>.params`. |
 | Category doesn't match directory | A driver in `audio/` must have `category: audio`. |
 | YAML single-quote escaping for regex | In YAML, use `'\*Q'` not `'\\*Q'` for regex special chars in simulator command_handlers. |
+| Simulator handler pattern ending in a space | The simulator strips whitespace off an incoming frame before matching, so a `command_handlers` pattern that ends in a literal space can never fire -- and it fails silently, with the simulated device answering an error to every such command while the driver works fine on hardware. If the protocol puts a space before its terminator, end the pattern `NC ?` (optional) rather than `NC `. |
 
 ### Python Drivers
 

@@ -956,7 +956,7 @@ Start the simulator with your driver and connect with a raw TCP client:
 ```bash
 # Start the simulator
 cd openavc
-python -m simulator --driver-paths ../openavc-drivers
+python -m openavc.simulator --driver-paths ../openavc-drivers
 
 # In another terminal, connect to the simulated device
 # (port is logged when the simulator starts)

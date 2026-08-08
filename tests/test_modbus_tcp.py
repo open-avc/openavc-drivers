@@ -315,9 +315,10 @@ def _make_driver(config_overrides=None):
 
 def test_version_and_platform_gate():
     info = DRV.ModbusTCPDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
+    assert info["version"] == "1.0.2"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
     assert info["transport"] == "tcp"
 
 

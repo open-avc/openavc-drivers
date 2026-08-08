@@ -199,8 +199,8 @@ def pair():
 
 def test_metadata_shape():
     info = DRV.OptomaProjectorDriver.DRIVER_INFO
-    assert info["version"] == "1.0.0"
-    assert info["min_platform_version"] == "0.23.0"
+    assert info["version"] == "1.0.1"
+    assert info["min_platform_version"] == "0.25.0"
     assert info["ports"] == [23]
     assert info["transports"] == ["tcp", "serial"]
     assert info["source_url"].startswith("https://")

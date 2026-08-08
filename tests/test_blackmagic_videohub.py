@@ -313,7 +313,7 @@ async def _make_pair(sim_config=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.2"
+    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.3"
 
 
 def test_child_entity_types_declared():
@@ -359,7 +359,8 @@ def test_discovery_probe_and_actions_present():
     action_ids = {a["id"] for a in info["actions"]}
     assert "refresh" in action_ids and "test_connection" in action_ids
     # The BaseDriver liveness watchdog hook is a 0.22.0 platform API.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
 
 
 # ── CE: children sized to the frame (the truncation fix) ─────────────────────

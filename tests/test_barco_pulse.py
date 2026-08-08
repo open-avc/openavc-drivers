@@ -394,11 +394,12 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.BarcoPulseDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
+    assert info["version"] == "1.0.2"
     # The BaseDriver connection lifecycle hooks this driver overrides
     # (_pre_connect / _post_connect / _initial_sync / _close_session)
     # ship in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
     assert info["ports"] == [9090]
 
 

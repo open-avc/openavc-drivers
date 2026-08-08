@@ -381,9 +381,10 @@ def _run(coro):
 
 def test_metadata_and_actions_shape():
     info = DRV.AtlasIEDAtmosphereDriver.DRIVER_INFO
-    assert info["version"] == "2.0.1"
+    assert info["version"] == "2.0.2"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
     for cid in info["quick_actions"]:
         assert cid in info["commands"], cid
     assert {a["id"] for a in info["actions"]} == set(info["quick_actions"])

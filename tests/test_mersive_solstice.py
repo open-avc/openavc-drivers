@@ -258,8 +258,8 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SolsticeDriver.DRIVER_INFO["version"] == "1.4.1"
-    assert DRV.SolsticeDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
+    assert DRV.SolsticeDriver.DRIVER_INFO["version"] == "1.4.2"
+    assert DRV.SolsticeDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
 def test_display_name_promoted_to_setting():

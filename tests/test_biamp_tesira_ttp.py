@@ -530,9 +530,10 @@ def test_parse_blocks_legacy_string_and_rows_agree():
 
 def test_metadata_and_actions_shape():
     info = DRV.BiampTesiraTTPDriver.DRIVER_INFO
-    assert info["version"] == "3.1.1"
+    assert info["version"] == "3.1.2"
     # The connection-lifecycle hooks the driver overrides landed in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
 
     # Static class-level surface: escape hatches + child-scoped commands +
     # system state vars, plus the dynamic "block" child type.

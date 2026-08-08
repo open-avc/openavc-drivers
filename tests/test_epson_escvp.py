@@ -291,7 +291,7 @@ async def _make_pair(driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.4.1"
+    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.4.2"
 
 
 def test_device_settings_declared():

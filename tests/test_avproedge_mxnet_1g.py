@@ -401,9 +401,10 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.0.2"
+    assert info["version"] == "1.0.3"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
     assert info["source_url"].startswith("https://support.avproglobal.com")
     # String-id children (MACs) from a device-enumerated roster.
     for ctype in ("encoder", "decoder"):

@@ -183,6 +183,8 @@ def test_discovery_hints_match_real_beacon():
     assert "00:0C:1E" in disc["oui"]
 
 
-def test_min_platform_version_gates_on_bridge_runtime():
-    # Bridge runtime (resolver + prepare_bridge_port) ships in 0.19.0.
-    assert drv.GlobalCacheItachIP2SLDriver.DRIVER_INFO["min_platform_version"] == "0.19.0"
+def test_min_platform_version_gates_on_the_package_move():
+    # Bridge runtime (resolver + prepare_bridge_port) ships in 0.19.0, but this
+    # file imports openavc.*, which only exists from 0.25.0 — so that is the
+    # floor an older box has to refuse the install on.
+    assert drv.GlobalCacheItachIP2SLDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"

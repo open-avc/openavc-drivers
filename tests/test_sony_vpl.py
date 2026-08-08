@@ -326,8 +326,8 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyVPLDriver.DRIVER_INFO["version"] == "1.4.1"
-    assert DRV.SonyVPLDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
+    assert DRV.SonyVPLDriver.DRIVER_INFO["version"] == "1.4.2"
+    assert DRV.SonyVPLDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
 def test_device_settings_declared():

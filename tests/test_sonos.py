@@ -327,7 +327,7 @@ async def _connected_pair(driver_overrides=None):
 
 def test_driver_declares_http_listener_push():
     assert DRV.SonosDriver.DRIVER_INFO["push"] == {"type": "http_listener"}
-    assert DRV.SonosDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
+    assert DRV.SonosDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
 def test_device_settings_ranges_match_the_speaker_scpd():

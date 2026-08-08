@@ -294,9 +294,10 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.AtlonaOmeMsDriver.DRIVER_INFO
-    assert info["version"] == "1.3.2"
+    assert info["version"] == "1.3.3"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
 
 
 def test_device_settings_declared():

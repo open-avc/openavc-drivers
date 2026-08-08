@@ -367,9 +367,10 @@ def _child(driver, monitor_id):
 
 def test_version_and_platform_gate():
     info = DRV.SharpNECDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.0.2"
+    assert info["version"] == "1.0.3"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
     assert info["ports"] == [7142]
     assert info["manufacturer"] == "Sharp NEC"
 

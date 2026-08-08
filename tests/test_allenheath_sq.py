@@ -323,8 +323,8 @@ async def _make_pair(config=None):
 
 def test_metadata_shape():
     info = sq.AllenHeathSQDriver.DRIVER_INFO
-    assert info["version"] == "2.0.2"
-    assert info["min_platform_version"] == "0.24.0"
+    assert info["version"] == "2.0.3"
+    assert info["min_platform_version"] == "0.25.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:
         assert qa in info["commands"]

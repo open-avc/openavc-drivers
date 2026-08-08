@@ -406,7 +406,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.4"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.5"
 
 
 def test_child_entity_types_declared():

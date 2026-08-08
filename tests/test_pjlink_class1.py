@@ -296,8 +296,8 @@ async def _make_pair(driver_overrides=None, sim_password=""):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.0"
-    assert DRV.PJLinkDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
+    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.1"
+    assert DRV.PJLinkDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
 def test_no_device_settings():

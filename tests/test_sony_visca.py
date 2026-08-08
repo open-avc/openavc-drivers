@@ -200,7 +200,7 @@ async def _make_pair(driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyVISCADriver.DRIVER_INFO["version"] == "1.3.1"
+    assert DRV.SonyVISCADriver.DRIVER_INFO["version"] == "1.3.2"
 
 
 def test_zoom_direct_bound_widened():

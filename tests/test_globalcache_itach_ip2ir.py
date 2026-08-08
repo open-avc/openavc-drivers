@@ -467,8 +467,11 @@ def test_discovery_hints_match_real_beacon():
     assert "IR" not in "device,1,3 RELAY"
 
 
-def test_min_platform_version_is_ir_runtime_floor():
-    assert drv.GlobalCacheItachIP2IRDriver.DRIVER_INFO["min_platform_version"] == "0.22.0"
+def test_min_platform_version_gates_on_the_package_move():
+    # The IR runtime ships in 0.22.0, but this file imports openavc.*, which
+    # only exists from 0.25.0 — so that is the floor an older box has to refuse
+    # the install on.
+    assert drv.GlobalCacheItachIP2IRDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
 # ---------------------------------------------------------------------------

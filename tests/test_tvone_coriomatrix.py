@@ -362,9 +362,10 @@ def _child(driver, ctype, cid, prop):
 
 def test_metadata_and_platform_gate():
     info = DRV.TvoneCoriomatrixDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
+    assert info["version"] == "1.0.2"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    assert info["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert info["min_platform_version"] == "0.25.0"
     assert info["ports"] == [10001]
     # No active probe on purpose: the CLI answers nothing documented
     # before login.

@@ -410,8 +410,8 @@ def _make_driver(device: _PolyDevice, **cfg):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.3.1"
-    assert DRV.PolyStudioDriver.DRIVER_INFO["min_platform_version"] == "0.24.0"
+    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.3.2"
+    assert DRV.PolyStudioDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
 def test_actions_reference_real_commands():

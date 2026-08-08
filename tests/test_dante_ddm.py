@@ -312,8 +312,8 @@ async def _close(driver):
 
 def test_version_and_min_platform():
     info = DRV.DanteDDMDriver.DRIVER_INFO
-    assert info["version"] == "1.7.1"
-    assert info["min_platform_version"] == "0.24.0"
+    assert info["version"] == "1.7.2"
+    assert info["min_platform_version"] == "0.25.0"
 
 
 def test_device_child_type_declared():

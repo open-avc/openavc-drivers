@@ -296,9 +296,11 @@ def test_discovery_hints_match_real_beacon():
     assert "00:0C:1E" in disc["oui"]
 
 
-def test_min_platform_version_matches_discovery_runtime():
-    # amx_ddp discovery hints ship in 0.19.0 (same floor as the IP2SL sibling).
-    assert drv.GlobalCacheItachIP2CCDriver.DRIVER_INFO["min_platform_version"] == "0.19.0"
+def test_min_platform_version_gates_on_the_package_move():
+    # amx_ddp discovery hints ship in 0.19.0, but this file imports openavc.*,
+    # which only exists from 0.25.0 — so that is the floor an older box has to
+    # refuse the install on. The higher of the two always wins.
+    assert drv.GlobalCacheItachIP2CCDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
 # ---------------------------------------------------------------------------

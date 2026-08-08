@@ -344,9 +344,10 @@ def test_driver_identity():
     assert INFO["id"] == "darwin_control"
     assert INFO["manufacturer"] == "TurtleAV"
     assert INFO["transport"] == "tcp"
-    assert INFO["version"] == "1.1.8"
+    assert INFO["version"] == "1.1.9"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    assert INFO["min_platform_version"] == "0.24.0"
+    # The 0.25.0 floor is the package move: this file imports openavc.*.
+    assert INFO["min_platform_version"] == "0.25.0"
 
 
 # ── Command surface consistency ──

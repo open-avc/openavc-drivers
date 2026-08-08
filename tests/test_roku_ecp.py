@@ -457,8 +457,8 @@ def _make_driver(device: _RokuDevice, **cfg):
 # ── Metadata ────────────────────────────────────────────────────────────────
 
 def test_version_and_platform_floor():
-    assert INFO["version"] == "1.0.3"
-    assert INFO["min_platform_version"] == "0.24.0"
+    assert INFO["version"] == "1.0.4"
+    assert INFO["min_platform_version"] == "0.25.0"
 
 
 # ── device-info parsing ──

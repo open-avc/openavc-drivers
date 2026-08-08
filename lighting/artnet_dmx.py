@@ -49,9 +49,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.transport.udp import UDPTransport
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.udp import UDPTransport
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -123,9 +123,9 @@ class ArtNetDMXDriver(BaseDriver):
         "name": "Art-Net DMX (Generic)",
         "manufacturer": "Generic",
         "category": "lighting",
-        "version": "1.4.1",
+        "version": "1.4.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Sends DMX512 lighting data over Art-Net (UDP 6454) to "

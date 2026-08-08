@@ -12,7 +12,7 @@
       "name": "Middle Atlantic RackLink PDU",
       "manufacturer": "Middle Atlantic",
       "category": "power",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Middle Atlantic / Legrand RackLink RLNK power distribution units (Select, Premium, Premium+) over the RackLink Control Protocol on TCP port 60000. Outlet and dry-contact control, sequencing, naming, EPO, and live voltage / current / temperature / wattage telemetry. Premium models push unsolicited status changes; Select models fall back to polling.",
@@ -20,8 +20,8 @@
       "file": "power/racklink_rlnk.py",
       "format": "python",
       "files": {
-        "power/racklink_rlnk.py": "56321b344ca593233f6f4c5d68ca6a13ed0b5caf6f106a73b2deb4ba5e851ffe",
-        "power/racklink_rlnk_sim.py": "f36b66ef05fd757b4025dbfb05ace0fd59b0cc27480bab347c1f8f3562760db7"
+        "power/racklink_rlnk.py": "95170800ddaaa058c12a5680e14d4efc7edfb5f2864049556d0842e9b2580413",
+        "power/racklink_rlnk_sim.py": "76c370d2625d3ebe16dc518787e1f095998740759d353847c037eea60aa2294a"
       },
       "ports": [
         60000
@@ -30,7 +30,7 @@
         "racklink-control-protocol"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "pdu",
         "power",
@@ -85,7 +85,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Outlets are addressable children with per-outlet state, name, and power metering. Supports on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
@@ -93,8 +93,8 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "f05a40210696d5c95bf91dadca207c86f2b09a2ddc16344946f1a7855e586fe5",
-        "power/wattbox_ip_sim.py": "d450e9d719afb9eb93b6e20117a84347b2c7450be7d610e3fa369be597a30d02"
+        "power/wattbox_ip.py": "9b1c20940c6bba18b70c2a0c4492461b1372571a698f6284eb615f14265f1b6c",
+        "power/wattbox_ip_sim.py": "e6306a9adaaea62b0729ad8e022c9fff7bc7d488efa1cbb37884891c83eec981"
       },
       "ports": [
         23
@@ -103,7 +103,7 @@
         "wattbox-integration-v1.7"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "pdu",
         "power",

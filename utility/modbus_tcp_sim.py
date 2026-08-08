@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import struct
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 logger = logging.getLogger(__name__)
 

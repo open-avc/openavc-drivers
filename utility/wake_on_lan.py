@@ -14,9 +14,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.transport.udp import UDPTransport
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.udp import UDPTransport
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -55,9 +55,9 @@ class WakeOnLANDriver(BaseDriver):
         "name": "Wake-on-LAN",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.3.2",
+        "version": "1.3.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Send Wake-on-LAN magic packets to wake devices on the network. "

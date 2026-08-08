@@ -81,7 +81,7 @@
       "name": "Mersive Solstice Pod",
       "manufacturer": "Mersive",
       "category": "streaming",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
@@ -89,15 +89,15 @@
       "file": "streaming/mersive_solstice.py",
       "format": "python",
       "files": {
-        "streaming/mersive_solstice.py": "1e1b4dfed1f8f1b89f3e6583bfc9f43f58830e819d9ddc7946e088b626bd0c60",
-        "streaming/mersive_solstice_sim.py": "1daadb772040d96fdca37710bdd2793ca8fc8a802effd38814f3622ca42a2fc6"
+        "streaming/mersive_solstice.py": "df586e6785f37e90edac25188e973707c7af11bac1713d6ac0ea144ab59f273b",
+        "streaming/mersive_solstice_sim.py": "855f0a5ee846a0dff3951601eb80e5b7288974185b9a6edff23623d20b950903"
       },
       "ports": [
         80,
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "wireless-presentation",
         "byod",
@@ -145,7 +145,7 @@
       "name": "Roku (ECP)",
       "manufacturer": "Roku",
       "category": "streaming",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Roku streaming players and Roku TVs over the local network using the External Control Protocol (ECP). Full remote surface, text entry, app launch/install, and TV power, volume, input, and tuner control on supported models.",
@@ -153,8 +153,8 @@
       "file": "streaming/roku_ecp.py",
       "format": "python",
       "files": {
-        "streaming/roku_ecp.py": "f2eafc56b55ce5f520dd3a27b8b6f8187d7fcc862ed95a0e18da9e926d831003",
-        "streaming/roku_ecp_sim.py": "02aec1330bde202c92a8ae0f0095dadee92a4bc00781b3f83eb5b9344b7af1ab"
+        "streaming/roku_ecp.py": "8acab024024a8f83982c95981b3e99b1c3dbec9dff84afce830c6b82a21ed602",
+        "streaming/roku_ecp_sim.py": "b4e165359d18a840ad93172103f4791d596c04065885d192c054c8d396862b1a"
       },
       "ports": [
         8060
@@ -163,7 +163,7 @@
         "roku_ecp"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "roku",
         "streaming",

@@ -1,6 +1,6 @@
 """Unit tests for the netgear_m4250_m4350 driver.
 
-Loads ``utility/netgear_m4250_m4350.py`` directly, stubbing the ``server.*``
+Loads ``utility/netgear_m4250_m4350.py`` directly, stubbing the ``openavc.*``
 imports it needs so the community repo's test suite stays self-contained (no
 ``openavc`` install). Exercises the CLI output parsers against the sample
 outputs in fixtures/, plus command-surface consistency and the interface-id
@@ -23,40 +23,40 @@ FIXTURES_PATH = REPO_ROOT / "tests" / "fixtures" / "netgear_m4250_m4350_outputs.
 
 
 def _install_server_stubs() -> None:
-    if "server.drivers.base" in sys.modules:
+    if "openavc.drivers.base" in sys.modules:
         return
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server", server)
+    sys.modules.setdefault("openavc", server)
 
-    drivers = ModuleType("server.drivers")
+    drivers = ModuleType("openavc.drivers")
     drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+    sys.modules.setdefault("openavc.drivers", drivers)
+    base = ModuleType("openavc.drivers.base")
 
     class _BaseDriver:  # minimal stand-in; we only test module-level code
         DRIVER_INFO: dict = {}
 
     base.BaseDriver = _BaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    transport = ModuleType("server.transport")
+    transport = ModuleType("openavc.transport")
     transport.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.transport", transport)
-    tcp = ModuleType("server.transport.tcp")
+    sys.modules.setdefault("openavc.transport", transport)
+    tcp = ModuleType("openavc.transport.tcp")
 
     class _TCPTransport:
         pass
 
     tcp.TCPTransport = _TCPTransport
-    sys.modules["server.transport.tcp"] = tcp
+    sys.modules["openavc.transport.tcp"] = tcp
 
-    utils = ModuleType("server.utils")
+    utils = ModuleType("openavc.utils")
     utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.utils", utils)
-    logger = ModuleType("server.utils.logger")
+    sys.modules.setdefault("openavc.utils", utils)
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="netgear": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 def _load(path: Path, name: str) -> ModuleType:

@@ -71,6 +71,6 @@ def test_files_are_fetched_at_the_resolved_ref(monkeypatch):
     monkeypatch.setattr(vendor, "_upstream_ref", lambda: sha)
     monkeypatch.setattr(vendor.urllib.request, "urlopen", _capture)
 
-    assert vendor._fetch_upstream("server/drivers/spec.py") == b"contents"
-    assert seen == [f"{vendor.RAW_BASE}{sha}/server/drivers/spec.py"]
+    assert vendor._fetch_upstream("openavc/drivers/spec.py") == b"contents"
+    assert seen == [f"{vendor.RAW_BASE}{sha}/openavc/drivers/spec.py"]
     assert vendor.UPSTREAM_BRANCH not in seen[0].rsplit("/", 3)[0]

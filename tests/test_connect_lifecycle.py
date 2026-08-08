@@ -15,12 +15,10 @@ For each driver it asserts the whole arc:
     one command (the first parameter-free one, if any) runs without raising
     disconnect -> ``device.disconnected.<id>`` event + ``connected`` state False
 
-Because it runs the real platform (``server.*`` and the in-tree ``simulator``
-package), the whole module skips when ``openavc`` is not importable: in this
-repo's isolated CI (stdlib + pyyaml + pydantic) it skips cleanly; it runs in the
-workspace where ``openavc`` is installed alongside. ``simulator`` is not exposed
-by the editable install, so its location is derived from the importable
-``server`` package and added to ``sys.path`` here.
+Because it runs the real platform (``openavc.*``, simulator included), the whole
+module skips when ``openavc`` is not importable: in this repo's isolated CI
+(stdlib + pyyaml + pydantic) it skips cleanly; it runs in the workspace where
+``openavc`` is installed alongside.
 
 Adding a driver is automatic: ship a ``<driver>_sim.py`` next to ``<driver>.py``
 and it is picked up. Drivers whose simulator needs specific config get a
@@ -32,7 +30,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
@@ -43,20 +40,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # --- Platform gate: skip the whole module unless openavc is importable ---
 
 try:
-    import server  # noqa: F401  (real platform; not the conftest stub)
+    # One import covers both halves now: the driver sims import
+    # ``openavc.simulator.tcp_simulator``, which ships inside the same package
+    # the install exposes. This used to need the checkout root added to
+    # ``sys.path`` by hand, because ``simulator`` was a second top-level package
+    # that no install carried.
+    import openavc  # noqa: F401  (real platform; not the conftest stub)
 
-    # The editable install exposes ``server`` but not the in-tree ``simulator``
-    # package (the driver sims import ``simulator.tcp_simulator`` etc.). Derive
-    # the openavc checkout root from the already-imported ``server`` and put it
-    # on the path so ``import simulator`` resolves to the same checkout.
-    _OPENAVC_ROOT = Path(server.__file__).resolve().parent.parent
-    if str(_OPENAVC_ROOT) not in sys.path:
-        sys.path.insert(0, str(_OPENAVC_ROOT))
-
-    import simulator  # noqa: F401  (gate: the driver sims import simulator.*)
-
-    from server.core.event_bus import EventBus
-    from server.core.state_store import StateStore
+    from openavc.core.event_bus import EventBus
+    from openavc.core.state_store import StateStore
 except ModuleNotFoundError:
     pytest.skip(
         "connect-lifecycle smoke requires the openavc platform "

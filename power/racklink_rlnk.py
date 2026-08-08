@@ -36,9 +36,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.transport.binary_helpers import checksum_sum
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
+from openavc.transport.binary_helpers import checksum_sum
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -240,9 +240,9 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.4",
+        "version": "1.3.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Middle Atlantic / Legrand RackLink RLNK power "

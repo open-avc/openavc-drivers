@@ -12,7 +12,7 @@
       "name": "BirdDog NDI Encoder/Decoder",
       "manufacturer": "BirdDog",
       "category": "video",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog NDI encoders and decoders via REST API. Select NDI sources on decoders, monitor input/output status, reboot, and refresh source lists.",
@@ -20,14 +20,14 @@
       "file": "video/birddog_codec.py",
       "format": "python",
       "files": {
-        "video/birddog_codec.py": "7e4295da31072e1b9dd4d12d4302b513b6801e9e9c9bb7c74beeca25e933bd00",
-        "video/birddog_codec_sim.py": "20a4bf1aba58f4d26dd8d24d02b97ade3d3689b69aeee139771bde7fdeb698d7"
+        "video/birddog_codec.py": "6f1ed10163000bb13f4559499a15f06b9a1a9299950617db55ac8f0c1a2f6fa9",
+        "video/birddog_codec_sim.py": "1d84d80a44a8744ea5858e8c4302f3a0682d29ff051e1149e49cc24f6838b3b0"
       },
       "ports": [
         8080
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "ndi",
         "encoder",
@@ -263,7 +263,7 @@
       "name": "Poly Studio (VideoOS)",
       "manufacturer": "Poly",
       "category": "video",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
@@ -271,8 +271,8 @@
       "file": "video/poly_studio.py",
       "format": "python",
       "files": {
-        "video/poly_studio.py": "8ba95cae54c1575dc2e1faf0c67694b524f05767c7197496b4e227867bc4d447",
-        "video/poly_studio_sim.py": "5661432a4f4299e02ecf8d5f8a2c45d901bfce32d38bff4eab0d46574fe1696f"
+        "video/poly_studio.py": "4671505de1b04ab99ccc7793011954664ca85e84f966b01811704e99b5509e80",
+        "video/poly_studio_sim.py": "6dff3007ceabf7d325e4a35b4c38699b61485a610515d29d6c4ce28725646fd6"
       },
       "ports": [
         443
@@ -281,7 +281,7 @@
         "poly_videoos"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "poly",
         "hp",
@@ -333,7 +333,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
@@ -341,14 +341,14 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "53968001cdcd9caf31a2842a2274f7095606f1e26adbead4665f2d450e5ff1e4",
-        "video/vmix_sim.py": "be61c809f23e2a569e3c661b2a1da56c1b0b80b47c9c070a85b66c0bdfbf3ec4"
+        "video/vmix.py": "474122e6dd7e2cb510b02311375e5561bdfe87579ffd3d4bfd5d66ae76d9555a",
+        "video/vmix_sim.py": "d54ea756ba7aad785553d34bb172474013d031b8450ebfc5b258a4d86260067e"
       },
       "ports": [
         8099
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "video-production",
         "streaming",
@@ -384,7 +384,7 @@
       "name": "tvONE CORIOmaster",
       "manufacturer": "tvONE",
       "category": "video",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls tvONE CORIOmaster, CORIOmaster mini/micro, and CORIOmaster2 video wall processors over the CORIOmax command-line API (TCP 10001). Windows, canvases, and the installed input/output cards are discovered from the unit and modeled as child entities \u2014 route sources into wall windows, move and resize windows, recall presets and storyboards, run canvas audio, and drive the Streaming Media card's playback, with live updates over the unit's event subscription.",
@@ -392,8 +392,8 @@
       "file": "video/tvone_coriomaster.py",
       "format": "python",
       "files": {
-        "video/tvone_coriomaster.py": "f7ff3c77c4e9c58e5d38ddeeff485ddd42527ab15e11f9d37c69948f0efdf1a4",
-        "video/tvone_coriomaster_sim.py": "ecf666becbe5fc50f2857167c4ccab38aad41ca15860e43b18ebd8bc065ba39a"
+        "video/tvone_coriomaster.py": "c76be044e07dcc03bd9f766fe770ee09a8774ab07c38cbd21d3f9c4801410bee",
+        "video/tvone_coriomaster_sim.py": "0b75d09fb25b28bc6d2459e794f4055d1dbc785591a19c93c5a60096f9c37618"
       },
       "ports": [
         10001
@@ -402,7 +402,7 @@
         "coriomax_cli"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "video-wall",
         "processor",

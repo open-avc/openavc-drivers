@@ -1,7 +1,7 @@
 """Tests for the Darwin Control discovery companion.
 
 Loads ``switchers/darwin_control_discovery.py`` directly with a stubbed
-``server.discovery.companion`` so it runs without a real ``openavc`` install
+``openavc.discovery.companion`` so it runs without a real ``openavc`` install
 (CI runs the community repo with openavc imports blocked). Exercises the pure
 ``parse_welcome`` / ``is_darwin_token`` helpers and the full ``probe`` path
 against a loopback telnet server that replays the live IAC-then-banner
@@ -65,20 +65,20 @@ CHAZY_STD_BANNER = (
 
 
 def _load_companion() -> ModuleType:
-    if "server.discovery.companion" not in sys.modules:
-        stub_pkg = ModuleType("server")
+    if "openavc.discovery.companion" not in sys.modules:
+        stub_pkg = ModuleType("openavc")
         stub_pkg.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server", stub_pkg)
-        stub_disc = ModuleType("server.discovery")
+        sys.modules.setdefault("openavc", stub_pkg)
+        stub_disc = ModuleType("openavc.discovery")
         stub_disc.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server.discovery", stub_disc)
-        stub_comp = ModuleType("server.discovery.companion")
+        sys.modules.setdefault("openavc.discovery", stub_disc)
+        stub_comp = ModuleType("openavc.discovery.companion")
 
         class _StubProbeContext:  # noqa: D401 — test stub
             """Placeholder so the companion's type annotation imports."""
 
         stub_comp.ProbeContext = _StubProbeContext
-        sys.modules["server.discovery.companion"] = stub_comp
+        sys.modules["openavc.discovery.companion"] = stub_comp
 
     module_name = "darwin_control_discovery_under_test"
     spec = importlib.util.spec_from_file_location(module_name, COMPANION_PATH)

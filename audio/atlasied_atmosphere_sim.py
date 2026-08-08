@@ -26,7 +26,7 @@ import json
 import logging
 from typing import Any
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 logger = logging.getLogger(__name__)
 

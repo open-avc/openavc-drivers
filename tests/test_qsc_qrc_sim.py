@@ -1,7 +1,7 @@
 """Integration tests for the qsc_qrc simulator + driver duality.
 
-Loads ``audio/qsc_qrc_sim.py`` (stubbing ``simulator.tcp_simulator``) and
-``audio/qsc_qrc.py`` (stubbing ``server.*`` with a faithful in-memory
+Loads ``audio/qsc_qrc_sim.py`` (stubbing ``openavc.simulator.tcp_simulator``) and
+``audio/qsc_qrc.py`` (stubbing ``openavc.*`` with a faithful in-memory
 BaseDriver), then drives the simulator's JSON-RPC surface and feeds its output
 into the driver — proving the simulated Core exposes a topology the driver
 auto-discovers and that change-group pushes fan out into child state. The
@@ -31,12 +31,12 @@ NUL = b"\x00"
 # ── Stubs ──
 
 def _install_simulator_stub() -> None:
-    if "simulator.tcp_simulator" in sys.modules:
+    if "openavc.simulator.tcp_simulator" in sys.modules:
         return
-    pkg = ModuleType("simulator")
+    pkg = ModuleType("openavc.simulator")
     pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("simulator", pkg)
-    mod = ModuleType("simulator.tcp_simulator")
+    sys.modules.setdefault("openavc.simulator", pkg)
+    mod = ModuleType("openavc.simulator.tcp_simulator")
 
     class _TCPSimulator:
         SIMULATOR_INFO: dict = {}
@@ -63,21 +63,21 @@ def _install_simulator_stub() -> None:
             self.pushed.append((client_id, frame))
 
     mod.TCPSimulator = _TCPSimulator
-    sys.modules["simulator.tcp_simulator"] = mod
+    sys.modules["openavc.simulator.tcp_simulator"] = mod
 
 
 def _install_server_stubs() -> None:
     """Faithful in-memory BaseDriver (per-child dynamic schemas + validation),
     so the driver's real register/fan-out methods run unchanged."""
-    if "server.drivers.base" in sys.modules:
+    if "openavc.drivers.base" in sys.modules:
         return
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server", server)
-    drivers = ModuleType("server.drivers")
+    sys.modules.setdefault("openavc", server)
+    drivers = ModuleType("openavc.drivers")
     drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+    sys.modules.setdefault("openavc.drivers", drivers)
+    base = ModuleType("openavc.drivers.base")
 
     class _BaseDriver:
         DRIVER_INFO: dict = {}
@@ -153,25 +153,25 @@ def _install_server_stubs() -> None:
 
     base.BaseDriver = _BaseDriver
     base.ConnectionFaultError = _ConnectionFaultError
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    transport = ModuleType("server.transport")
+    transport = ModuleType("openavc.transport")
     transport.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.transport", transport)
-    tcp = ModuleType("server.transport.tcp")
+    sys.modules.setdefault("openavc.transport", transport)
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = type("TCPTransport", (), {})
-    sys.modules["server.transport.tcp"] = tcp
-    sysconfig = ModuleType("server.system_config")
+    sys.modules["openavc.transport.tcp"] = tcp
+    sysconfig = ModuleType("openavc.system_config")
     sysconfig.get_system_config = lambda: type(
         "C", (), {"get": staticmethod(lambda *a, **k: None)})()
-    sys.modules["server.system_config"] = sysconfig
-    utils = ModuleType("server.utils")
+    sys.modules["openavc.system_config"] = sysconfig
+    utils = ModuleType("openavc.utils")
     utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.utils", utils)
-    logger = ModuleType("server.utils.logger")
+    sys.modules.setdefault("openavc.utils", utils)
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda *_a, **_k: type(
         "L", (), {"__getattr__": lambda s, n: (lambda *a, **k: None)})()
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 def _load(path, name):

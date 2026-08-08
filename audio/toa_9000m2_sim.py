@@ -16,7 +16,7 @@ byte stream and extracts complete <command><length><data...> frames itself.
 
 from __future__ import annotations
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 NUM_INPUTS = 8
 NUM_OUTPUTS = 8

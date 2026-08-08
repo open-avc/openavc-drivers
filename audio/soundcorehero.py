@@ -40,8 +40,8 @@ from typing import Any, Optional
 import httpx
 import websockets
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -147,7 +147,7 @@ class SoundCoreHeroDriver(BaseDriver):
         "name": "SoundCoreHero Audio System",
         "manufacturer": "Hero AV",
         "category": "audio",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "Wiktor Myszolow (Hero AV)",
         "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
         "source_url": "https://soundcorehero.com",
@@ -156,7 +156,7 @@ class SoundCoreHeroDriver(BaseDriver):
         # which the platform only invokes from 0.24.0 on — an earlier build
         # would never open the session. (Child entities need 0.13.0 and the
         # tls: discovery probe 0.15.0; both are subsumed by this floor.)
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "transport": "tcp",  # nominal; real I/O is custom httpx + websockets
         "help": {
             "overview": (

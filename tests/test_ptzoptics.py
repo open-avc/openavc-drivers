@@ -13,7 +13,7 @@ Covers the device-settings + quick-actions upgrade:
     read back through the pending-queue state_key, alongside the transient
     set_* commands they share byte-building with.
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
+Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected).
 """
@@ -47,7 +47,7 @@ _CURRENT_SIM: object | None = None
 
 
 class _FakeTCPTransport:
-    """Stand-in for server.transport.tcp.TCPTransport over the live sim.
+    """Stand-in for openavc.transport.tcp.TCPTransport over the live sim.
 
     PTZOptics frames on the trailing 0xFF, so the real frame parser strips the
     delimiter and delivers one VISCA packet body per ``on_data`` call. The sim
@@ -146,7 +146,7 @@ class _FakeBaseDriver(LifecycleFake):
 
 
 class _FakeTCPSimulator:
-    """Stand-in for simulator.tcp_simulator.TCPSimulator."""
+    """Stand-in for openavc.simulator.tcp_simulator.TCPSimulator."""
 
     SIMULATOR_INFO: dict = {}
 
@@ -166,26 +166,26 @@ class _FakeTCPSimulator:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.drivers.base"] = base
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
+    sys.modules["openavc.simulator"] = sim_pkg
+    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
     sim_tcp.TCPSimulator = _FakeTCPSimulator
-    sys.modules["simulator.tcp_simulator"] = sim_tcp
+    sys.modules["openavc.simulator.tcp_simulator"] = sim_tcp
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

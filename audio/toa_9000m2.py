@@ -32,9 +32,9 @@ from __future__ import annotations
 from collections import deque
 from typing import Any
 
-from server.drivers.base import BaseDriver, CommandParamError
-from server.transport.frame_parsers import CallableFrameParser, FrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver, CommandParamError
+from openavc.transport.frame_parsers import CallableFrameParser, FrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -489,7 +489,8 @@ class TOA9000M2Driver(BaseDriver):
         "name": "TOA 9000M2 Matrix Mixer",
         "manufacturer": "TOA",
         "category": "audio",
-        "version": "1.0.3",
+        "version": "1.0.4",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls the TOA M-9000M2 Digital Matrix Mixer and protocol-"

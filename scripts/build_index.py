@@ -275,7 +275,7 @@ class DriverEntry(BaseModel):
 #
 # Reading a Python driver's DRIVER_INFO out of the source is the platform's,
 # under scripts/_vendor/python_info.py: the standalone checker (python -m
-# server.drivers.check) and simulator.validate read it the same way, so what
+# openavc.drivers.check) and openavc.simulator.validate read it the same way, so what
 # the catalog checks and what an author is told before publishing cannot
 # diverge. What stays here is the catalog's own stricter pass — index fields
 # must be static literals, because they ship in index.json.
@@ -1763,7 +1763,7 @@ def main(argv: list[str] | None = None) -> int:
             #
             # Both rule sets are the platform's, and so is the reader that
             # feeds them: python_driver_info_issues is what driver_loader logs
-            # at load, and what `python -m server.drivers.check` prints in a
+            # at load, and what `python -m openavc.drivers.check` prints in a
             # terminal. A contributor therefore sees the same sentence here,
             # locally, and in the server log.
             try:

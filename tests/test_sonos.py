@@ -18,7 +18,7 @@ Covers the v2.0.0 push retrofit:
     the old driver reported success anyway (found on hardware, 2026-07-12);
   - track position coming only from polling (Sonos does not event RelTime).
 
-The driver is loaded with the ``server.*`` / ``simulator.*`` imports stubbed so
+The driver is loaded with the ``openavc.*`` imports stubbed so
 the community CI stays self-contained (conftest.py rolls the stubs back).
 """
 
@@ -148,7 +148,7 @@ class _FakeBaseDriver:
         await self.events.emit(f"device.disconnected.{self.device_id}")
 
 
-# In-memory stand-in for server.transport.http_listener: records each
+# In-memory stand-in for openavc.transport.http_listener: records each
 # subscription's callback by label so the simulator's NOTIFY can be routed
 # straight back into the driver, no sockets involved.
 class _PushRegistry:
@@ -193,35 +193,35 @@ def _fake_callback_url(device_host, path):
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
+        sys.modules[f"openavc.{sub}"] = m
 
-    base = ModuleType("server.drivers.base")
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    hl = ModuleType("server.transport.http_listener")
+    hl = ModuleType("openavc.transport.http_listener")
     hl.subscribe = _fake_subscribe
     hl.callback_url = _fake_callback_url
     hl.HTTPPushRequest = _FakePushRequest
-    sys.modules["server.transport.http_listener"] = hl
-    sys.modules["server.transport"].http_listener = hl  # type: ignore[attr-defined]
+    sys.modules["openavc.transport.http_listener"] = hl
+    sys.modules["openavc.transport"].http_listener = hl  # type: ignore[attr-defined]
 
-    logger = ModuleType("server.utils.logger")
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_http = ModuleType("simulator.http_simulator")
+    sys.modules["openavc.simulator"] = sim_pkg
+    sim_http = ModuleType("openavc.simulator.http_simulator")
     sim_http.HTTPSimulator = _FakeHTTPSimulator
-    sys.modules["simulator.http_simulator"] = sim_http
+    sys.modules["openavc.simulator.http_simulator"] = sim_http
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

@@ -1,6 +1,6 @@
 """Unit tests for the globalcache_itach_ip2sl bridge driver.
 
-Self-contained / stdlib only: stubs the ``server.*`` modules the driver imports
+Self-contained / stdlib only: stubs the ``openavc.*`` modules the driver imports
 so the test runs in the community repo's isolated CI without an ``openavc``
 install. Exercises the pure protocol helpers against byte-exact captures taken
 from a real iTach IP2SL (fixtures/globalcache_itach_ip2sl/), and checks the
@@ -21,27 +21,27 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "globalcache_itach_ip2sl"
 
 
 def _install_server_stubs() -> None:
-    """Provide the minimal ``server.*`` surface the driver imports at module load."""
-    if "server.drivers.base" in sys.modules:
+    """Provide the minimal ``openavc.*`` surface the driver imports at module load."""
+    if "openavc.drivers.base" in sys.modules:
         return
-    server = ModuleType("server")
-    sys.modules.setdefault("server", server)
+    server = ModuleType("openavc")
+    sys.modules.setdefault("openavc", server)
 
-    drivers = ModuleType("server.drivers")
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+    drivers = ModuleType("openavc.drivers")
+    sys.modules.setdefault("openavc.drivers", drivers)
+    base = ModuleType("openavc.drivers.base")
 
     class _BaseDriver:
         DRIVER_INFO: dict = {}
 
     base.BaseDriver = _BaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    utils = ModuleType("server.utils")
-    sys.modules.setdefault("server.utils", utils)
-    logger_mod = ModuleType("server.utils.logger")
+    utils = ModuleType("openavc.utils")
+    sys.modules.setdefault("openavc.utils", utils)
+    logger_mod = ModuleType("openavc.utils.logger")
     logger_mod.get_logger = lambda name="gc": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger_mod
+    sys.modules["openavc.utils.logger"] = logger_mod
 
 
 def _load(path: Path, name: str) -> ModuleType:

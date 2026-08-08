@@ -30,7 +30,7 @@ License: MIT.
 
 from __future__ import annotations
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 # End-of-response marker re-printed after the connect banner and every reply.
 PROMPT = b"CONTROLLER> "

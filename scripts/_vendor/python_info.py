@@ -1,6 +1,6 @@
 # GENERATED FILE - DO NOT EDIT.
 # Vendored from the OpenAVC platform repo (github.com/open-avc/openavc),
-# source: server/drivers/python_info.py
+# source: openavc/drivers/python_info.py
 # The platform copy is the source of truth for the driver contract; CI
 # fails when this copy drifts from it. To update, run:
 #     python scripts/vendor_platform_contract.py
@@ -9,7 +9,7 @@
 
 A ``.py`` driver's contract lives in a ``DRIVER_INFO`` dict on its class. Every
 door that wants to check that contract before the driver runs — the standalone
-checker, ``simulator.validate``, the community catalog's CI — has to read it
+checker, ``openavc.simulator.validate``, the community catalog's CI — has to read it
 from the source text, because importing a driver executes arbitrary code and
 needs its dependencies present.
 

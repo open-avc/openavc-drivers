@@ -27,7 +27,7 @@ import logging
 import struct
 from typing import Any
 
-from simulator.udp_simulator import UDPSimulator
+from openavc.simulator.udp_simulator import UDPSimulator
 
 logger = logging.getLogger(__name__)
 

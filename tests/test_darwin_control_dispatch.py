@@ -110,22 +110,22 @@ class _FakeBaseDriver(LifecycleFake):
 
 
 def _load_driver() -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    tcp = ModuleType("server.transport.tcp")
+    sys.modules["openavc.drivers.base"] = base
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = object
-    sys.modules["server.transport.tcp"] = tcp
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.transport.tcp"] = tcp
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
     spec = importlib.util.spec_from_file_location("darwin_dispatch_under_test", DRIVER_PATH)
     mod = importlib.util.module_from_spec(spec)
     sys.modules["darwin_dispatch_under_test"] = mod

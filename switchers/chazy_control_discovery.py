@@ -36,7 +36,7 @@ import asyncio
 import logging
 import re
 
-from server.discovery.companion import ProbeContext
+from openavc.discovery.companion import ProbeContext
 
 # Telnet control API port. Module-level so tests can point the probe at a
 # loopback server on an unprivileged port.

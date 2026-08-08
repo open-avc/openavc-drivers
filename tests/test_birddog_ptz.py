@@ -12,7 +12,7 @@ Covers the exposure_mode + wb_mode device-settings promotion: each was a
 command + poll read-back before; they're now device_settings entries whose
 set_device_setting routes to the existing set_* command (dual surface).
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
+Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected). httpx is a real dependency.
 """
@@ -83,26 +83,26 @@ class _FakeHTTPSimulator:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.drivers.base"] = base
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_http = ModuleType("simulator.http_simulator")
+    sys.modules["openavc.simulator"] = sim_pkg
+    sim_http = ModuleType("openavc.simulator.http_simulator")
     sim_http.HTTPSimulator = _FakeHTTPSimulator
-    sys.modules["simulator.http_simulator"] = sim_http
+    sys.modules["openavc.simulator.http_simulator"] = sim_http
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

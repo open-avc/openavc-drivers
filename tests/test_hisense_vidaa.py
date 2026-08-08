@@ -1,6 +1,6 @@
 """Unit tests for the hisense_vidaa driver.
 
-Loads ``displays/hisense_vidaa.py`` directly, stubbing the ``server.*`` imports
+Loads ``displays/hisense_vidaa.py`` directly, stubbing the ``openavc.*`` imports
 it needs (BaseDriver, get_system_config, get_logger) so the community repo's
 test suite stays self-contained — mirrors test_qsc_qrc.py.
 
@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "displays" / "hisense_vidaa.py"
 
 
-# ── Stub server.* so the driver imports without an openavc install ──
+# ── Stub openavc.* so the driver imports without an openavc install ──
 
 class _BaseDriver:
     """Functional stand-in for the platform BaseDriver: the driver supplies
@@ -174,8 +174,8 @@ class _BaseDriver:
 
 
 class FakeMQTTTransport:
-    """Stand-in for server.transport.mqtt.MQTTTransport. The driver imports it
-    with a deferred ``from server.transport.mqtt import MQTTTransport`` INSIDE
+    """Stand-in for openavc.transport.mqtt.MQTTTransport. The driver imports it
+    with a deferred ``from openavc.transport.mqtt import MQTTTransport`` INSIDE
     _create_transport at test-run time, so the stub module must already be in
     sys.modules (installed by _install_server_stubs) — a module-level class
     referenced there directly, per the repo's stub convention."""
@@ -209,35 +209,35 @@ class FakeMQTTTransport:
 
 
 def _install_server_stubs(tmp_dir: str) -> None:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
 
-    drivers = ModuleType("server.drivers")
+    drivers = ModuleType("openavc.drivers")
     drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server.drivers"] = drivers
+    sys.modules["openavc.drivers"] = drivers
 
-    base = ModuleType("server.drivers.base")
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _BaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    transport_pkg = ModuleType("server.transport")
+    transport_pkg = ModuleType("openavc.transport")
     transport_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server.transport"] = transport_pkg
-    mqtt = ModuleType("server.transport.mqtt")
+    sys.modules["openavc.transport"] = transport_pkg
+    mqtt = ModuleType("openavc.transport.mqtt")
     mqtt.MQTTTransport = FakeMQTTTransport
-    sys.modules["server.transport.mqtt"] = mqtt
+    sys.modules["openavc.transport.mqtt"] = mqtt
 
-    sysconfig = ModuleType("server.system_config")
+    sysconfig = ModuleType("openavc.system_config")
     sysconfig.get_system_config = lambda: _SysConfig(tmp_dir)
-    sys.modules["server.system_config"] = sysconfig
+    sys.modules["openavc.system_config"] = sysconfig
 
-    utils = ModuleType("server.utils")
+    utils = ModuleType("openavc.utils")
     utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server.utils"] = utils
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.utils"] = utils
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name: _Logger()
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 class _SysConfig:
@@ -269,13 +269,13 @@ class FakeTransport:
 @pytest.fixture(scope="module")
 def mod(tmp_path_factory):
     tmp_dir = str(tmp_path_factory.mktemp("vidaa_data"))
-    # These server.* stubs are installed at fixture (run) time, not module-import
+    # These openavc.* stubs are installed at fixture (run) time, not module-import
     # time, so conftest.py's collection-time snapshot/rollback does NOT cover
     # them. Without restoring here they leak into later test modules that use the
     # REAL platform — e.g. test_netgear, whose BaseDriver.connect() then picks up
-    # this fixture's stubbed server.system_config (a _SysConfig with no .get) and
+    # this fixture's stubbed openavc.system_config (a _SysConfig with no .get) and
     # fails. Snapshot the platform modules and roll them back on teardown.
-    _platform = ("server", "simulator")
+    _platform = ("openavc",)
     _before = {
         n: m for n, m in sys.modules.items() if n.split(".", 1)[0] in _platform
     }

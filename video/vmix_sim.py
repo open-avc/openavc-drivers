@@ -22,7 +22,7 @@ Protocol: TCP text on port 8099.
 import asyncio
 import xml.etree.ElementTree as ET
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 
 class VmixSimulator(TCPSimulator):

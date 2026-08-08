@@ -4,7 +4,7 @@ Replays representative EIKI EK-307W "Basic Serial Command" replies through the
 driver's declared ``responses:`` patterns and asserts they classify and extract
 the way the runtime would. The runtime applies responses first-match-wins on
 the CR-stripped reply (verified against ``ConfigurableDriver.on_data_received``
-in server/drivers/configurable.py: walk ``responses`` in order, stop at the
+in openavc/drivers/configurable.py: walk ``responses`` in order, stop at the
 first whose ``match`` searches the text, apply its ``set``/``mappings``). This
 test mirrors that contract without importing the platform, so the community CI
 runs it with only PyYAML installed.

@@ -1,6 +1,6 @@
 """Unit tests for the chazy_control_pro driver.
 
-Loads ``switchers/chazy_control_pro.py`` directly, stubbing the ``server.*``
+Loads ``switchers/chazy_control_pro.py`` directly, stubbing the ``openavc.*``
 imports it needs (BaseDriver, get_logger) so the community repo's test suite
 stays self-contained — mirrors test_crestron_cip_discovery.py.
 
@@ -310,19 +310,19 @@ class _FakeBaseDriver(LifecycleFake):
 
 
 def _install_server_stubs() -> None:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.drivers.base"] = base
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="chazy": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 def _load(path: Path, name: str) -> ModuleType:

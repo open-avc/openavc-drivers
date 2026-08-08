@@ -16,7 +16,7 @@ Covers the v1.4.0 additions:
   - the connection-fault fix: a handshake timeout now words as no_response and
     a rejected handshake (password set / version mismatch) as auth_failed.
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
+Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected).
 """
@@ -218,7 +218,7 @@ class _FakeBaseDriver(LifecycleFake):
 
 
 class _FakeTCPSimulator:
-    """Stand-in for simulator.tcp_simulator.TCPSimulator."""
+    """Stand-in for openavc.simulator.tcp_simulator.TCPSimulator."""
 
     SIMULATOR_INFO: dict = {}
 
@@ -235,32 +235,32 @@ class _FakeTCPSimulator:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    tcp = ModuleType("server.transport.tcp")
+    sys.modules["openavc.drivers.base"] = base
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
-    sys.modules["server.transport.tcp"] = tcp
-    fp = ModuleType("server.transport.frame_parsers")
+    sys.modules["openavc.transport.tcp"] = tcp
+    fp = ModuleType("openavc.transport.frame_parsers")
     fp.CallableFrameParser = _CallableFrameParser
-    sys.modules["server.transport.frame_parsers"] = fp
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.transport.frame_parsers"] = fp
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
+    sys.modules["openavc.simulator"] = sim_pkg
+    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
     sim_tcp.TCPSimulator = _FakeTCPSimulator
-    sys.modules["simulator.tcp_simulator"] = sim_tcp
+    sys.modules["openavc.simulator.tcp_simulator"] = sim_tcp
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

@@ -68,8 +68,8 @@ import re
 import socket
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -302,7 +302,7 @@ class ViewSonicCdeDriver(BaseDriver):
         "name": "ViewSonic Commercial Display",
         "manufacturer": "ViewSonic",
         "category": "display",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls ViewSonic CDE-series commercial displays (and other "
@@ -320,7 +320,7 @@ class ViewSonicCdeDriver(BaseDriver):
         "verified": False,
         "simulated": True,
         "ports": [5000],
-        "min_platform_version": "0.23.0",
+        "min_platform_version": "0.25.0",
         "transport": "tcp",
         "transports": ["tcp", "serial"],
         "delimiter": "\r",

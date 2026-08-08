@@ -45,8 +45,8 @@ from typing import Any
 
 import httpx
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -63,9 +63,9 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.4.1",
+        "version": "1.4.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Mersive Solstice Pods (and Solstice Windows Software) "

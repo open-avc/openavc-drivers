@@ -49,35 +49,35 @@ API_BASE = "https://api.github.com/repos/open-avc/openavc"
 # the published JSON Schemas land at the repo root, where editors and the
 # contributing guide have always pointed. The platform generates the
 # schemas from its driver-contract registry (python -m
-# server.drivers.contract_gen); this repo byte-copies them.
+# openavc.drivers.contract_gen); this repo byte-copies them.
 FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
     (
-        "server/drivers/spec.py",
+        "openavc/drivers/spec.py",
         "scripts/_vendor/spec.py",
         (),
     ),
     (
-        "server/utils/regex_safety.py",
+        "openavc/utils/regex_safety.py",
         "scripts/_vendor/regex_safety.py",
         (),
     ),
     (
-        "server/drivers/avcdriver_semantic.py",
+        "openavc/drivers/avcdriver_semantic.py",
         "scripts/_vendor/avcdriver_semantic.py",
         (
-            ("from server.drivers.spec import (", "from .spec import ("),
+            ("from openavc.drivers.spec import (", "from .spec import ("),
             (
-                "from server.utils.regex_safety import",
+                "from openavc.utils.regex_safety import",
                 "from .regex_safety import",
             ),
         ),
     ),
     (
-        "server/drivers/python_info.py",
+        "openavc/drivers/python_info.py",
         "scripts/_vendor/python_info.py",
         (
             (
-                "from server.drivers.avcdriver_semantic import (",
+                "from openavc.drivers.avcdriver_semantic import (",
                 "from .avcdriver_semantic import (",
             ),
         ),
@@ -93,12 +93,12 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (),
     ),
     (
-        "server/drivers/avcdriver.schema.json",
+        "openavc/drivers/avcdriver.schema.json",
         "avcdriver.schema.json",
         (),
     ),
     (
-        "server/drivers/pythondriver.schema.json",
+        "openavc/drivers/pythondriver.schema.json",
         "pythondriver.schema.json",
         (),
     ),

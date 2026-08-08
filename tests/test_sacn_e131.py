@@ -1,7 +1,7 @@
 """Tests for the sACN / E1.31 DMX driver.
 
 Self-contained: the driver and receiver simulator are loaded against
-lightweight ``server.*`` / ``simulator.*`` stubs installed in
+lightweight ``openavc.*`` stubs installed in
 ``sys.modules`` (this repo's community CI has no ``openavc`` install;
 ``conftest.py`` brackets the stub install so it can't leak into other
 modules). The dual-proof round trip pipes the driver's outgoing bytes
@@ -177,7 +177,7 @@ _CURRENT_SIM: object | None = None
 
 
 class _FakeUDPTransport:
-    """Stand-in for server.transport.udp.UDPTransport — pipes every
+    """Stand-in for openavc.transport.udp.UDPTransport — pipes every
     datagram straight into the paired simulator's decoder."""
 
     def __init__(self, host=None, port=None, on_data=None,
@@ -211,7 +211,7 @@ class _FakeSimState:
 
 
 class _FakeUDPSimulator:
-    """Stand-in for simulator.udp_simulator.UDPSimulator."""
+    """Stand-in for openavc.simulator.udp_simulator.UDPSimulator."""
 
     SIMULATOR_INFO: dict = {}
 
@@ -227,29 +227,29 @@ class _FakeUDPSimulator:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    udp = ModuleType("server.transport.udp")
+    sys.modules["openavc.drivers.base"] = base
+    udp = ModuleType("openavc.transport.udp")
     udp.UDPTransport = _FakeUDPTransport
-    sys.modules["server.transport.udp"] = udp
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.transport.udp"] = udp
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_udp = ModuleType("simulator.udp_simulator")
+    sys.modules["openavc.simulator"] = sim_pkg
+    sim_udp = ModuleType("openavc.simulator.udp_simulator")
     sim_udp.UDPSimulator = _FakeUDPSimulator
-    sys.modules["simulator.udp_simulator"] = sim_udp
+    sys.modules["openavc.simulator.udp_simulator"] = sim_udp
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

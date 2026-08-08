@@ -1,6 +1,6 @@
 """Shared stand-ins for the OpenAVC platform, for driver and simulator tests.
 
-A driver imports ``server.*`` (and its simulator imports ``simulator.*``) at
+A driver imports ``openavc.*`` (and its simulator imports ``openavc.simulator.*``) at
 module load. This repo's CI installs ``requirements-dev.txt`` and nothing else,
 so there is no ``openavc`` package for those imports to resolve against. Every
 test here therefore puts lightweight stand-ins into ``sys.modules`` before
@@ -37,7 +37,7 @@ shape alone would not catch a divergence. It skips when the platform is absent
 loudly when a run promised the platform and did not provide it. Change anything
 here and run that test with the platform present.
 
-**Never import ``server`` or ``simulator`` from this module, and never install
+**Never import ``openavc`` from this module, and never install
 stubs at import time.** ``conftest.py`` brackets ``sys.modules`` per test
 module, but this helper is cached like any other module: a top-level install
 here would fire once, be rolled back after the first importer, and starve every
@@ -159,7 +159,7 @@ class ConnectionFaultError(ConnectionError):
 # ── State store and event bus ───────────────────────────────────────────────
 
 class StubState:
-    """Stand-in for ``server.core.state_store.StateStore``.
+    """Stand-in for ``openavc.core.state_store.StateStore``.
 
     Values live in ``.data`` so a test can assert on the flat key space the
     platform really writes -- ``device.<id>.<property>`` for a device variable,
@@ -208,7 +208,7 @@ class StubState:
 
 
 class StubEvents:
-    """Stand-in for ``server.core.event_bus.EventBus``.
+    """Stand-in for ``openavc.core.event_bus.EventBus``.
 
     ``emit`` records the event name in ``.emitted`` so a test can assert the
     canonical ``device.connected.<id>`` / ``device.disconnected.<id>``
@@ -225,7 +225,7 @@ class StubEvents:
 
 
 class StubProbeContext:
-    """Stand-in for ``server.discovery.companion.ProbeContext``.
+    """Stand-in for ``openavc.discovery.companion.ProbeContext``.
 
     A discovery companion annotates its probe function with this type, so the
     module needs *something* importable under that name; companions that use
@@ -239,7 +239,7 @@ DEFAULT_MAX_BUFFER = 65536
 
 
 class FrameParser:
-    """Stand-in for the ``server.transport.frame_parsers.FrameParser`` base."""
+    """Stand-in for the ``openavc.transport.frame_parsers.FrameParser`` base."""
 
     #: Stamped by whichever transport owns the parser, so an overflow warning
     #: can name the device whose traffic was dropped.
@@ -361,7 +361,7 @@ _CHILD_STRING_ID_MAX_LEN = 128
 
 
 class StubBaseDriver:
-    """Stand-in for the state-owning half of ``server.drivers.base.BaseDriver``.
+    """Stand-in for the state-owning half of ``openavc.drivers.base.BaseDriver``.
 
     What it models, faithfully, is everything a driver's *code* does to state:
     the ``device.<id>.`` namespace, the undeclared-state posture, and the whole
@@ -881,7 +881,7 @@ class StubBaseDriver:
 # ── Simulators ──────────────────────────────────────────────────────────────
 
 class StubBaseSimulator:
-    """Stand-in for ``simulator.base.BaseSimulator``.
+    """Stand-in for ``openavc.simulator.base.BaseSimulator``.
 
     ``state`` is a read-only copy, as it is on the real base -- simulator code
     that mutates ``self.state[...]`` directly is a bug the real class also
@@ -960,7 +960,7 @@ class StubBaseSimulator:
 
 
 class StubTCPSimulator(StubBaseSimulator):
-    """Stand-in for ``simulator.tcp_simulator.TCPSimulator``.
+    """Stand-in for ``openavc.simulator.tcp_simulator.TCPSimulator``.
 
     ``push`` fans out to whatever the test registered in ``push_targets`` --
     the real class writes to every connected socket, and a test's fake
@@ -985,7 +985,7 @@ class StubTCPSimulator(StubBaseSimulator):
 
 
 class StubHTTPSimulator(StubBaseSimulator):
-    """Stand-in for ``simulator.http_simulator.HTTPSimulator``."""
+    """Stand-in for ``openavc.simulator.http_simulator.HTTPSimulator``."""
 
     def handle_request(self, method: str, path: str, headers: dict[str, str],
                        body: str) -> Any:
@@ -993,7 +993,7 @@ class StubHTTPSimulator(StubBaseSimulator):
 
 
 class StubUDPSimulator(StubBaseSimulator):
-    """Stand-in for ``simulator.udp_simulator.UDPSimulator``."""
+    """Stand-in for ``openavc.simulator.udp_simulator.UDPSimulator``."""
 
     def handle_command(self, data: bytes) -> bytes | None:
         return None
@@ -1006,36 +1006,36 @@ class StubUDPSimulator(StubBaseSimulator):
 #: resolves through it.
 def _default_tree() -> dict[str, dict[str, Any]]:
     return {
-        "server": {},
-        "server.drivers": {},
-        "server.drivers.base": {
+        "openavc": {},
+        "openavc.drivers": {},
+        "openavc.drivers.base": {
             "BaseDriver": StubBaseDriver,
             "CommandParamError": CommandParamError,
             "DeviceSettingValueError": DeviceSettingValueError,
             "UndeclaredStateError": UndeclaredStateError,
             "ConnectionFaultError": ConnectionFaultError,
         },
-        "server.transport": {},
-        "server.transport.frame_parsers": {
+        "openavc.transport": {},
+        "openavc.transport.frame_parsers": {
             "FrameParser": FrameParser,
             "CallableFrameParser": CallableFrameParser,
             "DelimiterFrameParser": DelimiterFrameParser,
             "DEFAULT_MAX_BUFFER": DEFAULT_MAX_BUFFER,
         },
-        "server.discovery": {},
-        "server.discovery.companion": {"ProbeContext": StubProbeContext},
-        "server.utils": {},
-        "server.utils.logger": {"get_logger": _get_logger},
-        "simulator": {},
-        "simulator.base": {"BaseSimulator": StubBaseSimulator},
-        "simulator.tcp_simulator": {"TCPSimulator": StubTCPSimulator},
-        "simulator.http_simulator": {"HTTPSimulator": StubHTTPSimulator},
-        "simulator.udp_simulator": {"UDPSimulator": StubUDPSimulator},
+        "openavc.discovery": {},
+        "openavc.discovery.companion": {"ProbeContext": StubProbeContext},
+        "openavc.utils": {},
+        "openavc.utils.logger": {"get_logger": _get_logger},
+        "openavc.simulator": {},
+        "openavc.simulator.base": {"BaseSimulator": StubBaseSimulator},
+        "openavc.simulator.tcp_simulator": {"TCPSimulator": StubTCPSimulator},
+        "openavc.simulator.http_simulator": {"HTTPSimulator": StubHTTPSimulator},
+        "openavc.simulator.udp_simulator": {"UDPSimulator": StubUDPSimulator},
     }
 
 
 def _get_logger(name: str = "openavc") -> logging.Logger:
-    """Stand-in for ``server.utils.logger.get_logger``.
+    """Stand-in for ``openavc.utils.logger.get_logger``.
 
     A real ``logging.Logger``, not a swallow-everything object, so a test can
     assert on the warnings a driver emits with ``caplog``.
@@ -1064,12 +1064,12 @@ def stub_modules(
 
     ``overrides`` maps a dotted module name to the attributes to set on it,
     merged over the defaults; naming a module the defaults do not carry creates
-    it (``{"server.transport.ir_codec": {"IRCode": _FakeIRCode}}``).
+    it (``{"openavc.transport.ir_codec": {"IRCode": _FakeIRCode}}``).
     ``base_driver`` is shorthand for the commonest override of all.
     """
     tree = _default_tree()
     if base_driver is not None:
-        tree["server.drivers.base"]["BaseDriver"] = base_driver
+        tree["openavc.drivers.base"]["BaseDriver"] = base_driver
     for name, attrs in (overrides or {}).items():
         tree.setdefault(name, {}).update(attrs)
 
@@ -1107,7 +1107,7 @@ def install_stubs(
 def load_module(name: str, path: Path | str) -> ModuleType:
     """Import a driver or simulator file directly, under ``name``.
 
-    Call :func:`install_stubs` first -- the file's ``server.*`` imports run
+    Call :func:`install_stubs` first -- the file's ``openavc.*`` imports run
     while this executes.
     """
     spec = importlib.util.spec_from_file_location(name, str(path))

@@ -1,6 +1,6 @@
 """Unit tests for the chazy_control (standard, non-Pro) simulator.
 
-Loads ``switchers/chazy_control_sim.py`` directly, stubbing the ``simulator.*``
+Loads ``switchers/chazy_control_sim.py`` directly, stubbing the ``openavc.simulator.*``
 base it imports, so the community repo's test suite stays self-contained
 (mirrors test_chazy_control_pro_sim.py).
 
@@ -29,15 +29,15 @@ DRIVER_PATH = REPO_ROOT / "switchers" / "chazy_control.py"
 
 
 def _install_simulator_stub() -> None:
-    """Minimal stand-in for simulator.tcp_simulator.TCPSimulator that mirrors
+    """Minimal stand-in for openavc.simulator.tcp_simulator.TCPSimulator that mirrors
     the parts of BaseSimulator the simulator relies on (state + error modes).
     """
-    if "simulator.tcp_simulator" in sys.modules:
+    if "openavc.simulator.tcp_simulator" in sys.modules:
         return
-    pkg = ModuleType("simulator")
+    pkg = ModuleType("openavc.simulator")
     pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("simulator", pkg)
-    mod = ModuleType("simulator.tcp_simulator")
+    sys.modules.setdefault("openavc.simulator", pkg)
+    mod = ModuleType("openavc.simulator.tcp_simulator")
 
     class _TCPSimulator:
         SIMULATOR_INFO: dict = {}
@@ -77,43 +77,43 @@ def _install_simulator_stub() -> None:
             )
 
     mod.TCPSimulator = _TCPSimulator
-    sys.modules["simulator.tcp_simulator"] = mod
+    sys.modules["openavc.simulator.tcp_simulator"] = mod
 
 
 def _install_server_stubs() -> None:
-    if "server.drivers.base" in sys.modules:
+    if "openavc.drivers.base" in sys.modules:
         return
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server", server)
-    drivers = ModuleType("server.drivers")
+    sys.modules.setdefault("openavc", server)
+    drivers = ModuleType("openavc.drivers")
     drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+    sys.modules.setdefault("openavc.drivers", drivers)
+    base = ModuleType("openavc.drivers.base")
 
     class _BaseDriver:
         DRIVER_INFO: dict = {}
 
     base.BaseDriver = _BaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    transport = ModuleType("server.transport")
+    transport = ModuleType("openavc.transport")
     transport.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.transport", transport)
-    tcp = ModuleType("server.transport.tcp")
+    sys.modules.setdefault("openavc.transport", transport)
+    tcp = ModuleType("openavc.transport.tcp")
 
     class _TCPTransport:
         pass
 
     tcp.TCPTransport = _TCPTransport
-    sys.modules["server.transport.tcp"] = tcp
+    sys.modules["openavc.transport.tcp"] = tcp
 
-    utils = ModuleType("server.utils")
+    utils = ModuleType("openavc.utils")
     utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.utils", utils)
-    logger = ModuleType("server.utils.logger")
+    sys.modules.setdefault("openavc.utils", utils)
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="chazy": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 def _load(path: Path, name: str) -> ModuleType:

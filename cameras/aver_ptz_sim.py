@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 
 _SYS_STAT_KEYS = (

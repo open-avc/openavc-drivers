@@ -40,8 +40,8 @@ from typing import Any
 
 import httpx
 
-from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -82,10 +82,10 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.0.5",
+        "version": "2.0.6",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "description": (
             "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext "
             "REST API. One driver adapts to the endpoint's role: transmit stream "

@@ -12,7 +12,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
@@ -20,8 +20,8 @@
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
       "files": {
-        "switchers/atlona_ome_ms.py": "ae426a9690e96154234d0de8d5fda329690efafa027cabc8a6f1440892bfa870",
-        "switchers/atlona_ome_ms_sim.py": "6e910e3cc478517d32a0917207c678654aaee49ab687c2664e38cb07e79e67a3"
+        "switchers/atlona_ome_ms.py": "e22d886ad1df28148d6d23cf275d78238febcf750e432d9282cadb3af2f7dc84",
+        "switchers/atlona_ome_ms_sim.py": "dbcdaa385c4849e22e10d1f8dcb3a60391c0793e4d1e5250f8ba3069882228ea"
       },
       "ports": [
         23
@@ -30,7 +30,7 @@
         "atlona_ome_ms"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -308,7 +308,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -316,8 +316,8 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "29c2131eb97b2e01276307cef6c69fd5c32295ba6b32b59e83409101cb53aaed",
-        "switchers/avproedge_mxnet_1g_sim.py": "f243af97587f3a0eefdf2f8239d6a36802eb5891d1a0ef8a692fdf38fed7cc96"
+        "switchers/avproedge_mxnet_1g.py": "93b85d88d7960c65131d39505e1f3df2ab20d57a5fb9c55f1815ca6bc15493fa",
+        "switchers/avproedge_mxnet_1g_sim.py": "ebc090902331269a8a4302a3f03ceaab9c09b4700b9181fb93cdc83137bc24ae"
       },
       "ports": [
         24
@@ -326,7 +326,7 @@
         "mxnet_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "av-over-ip",
         "mxnet",
@@ -380,7 +380,7 @@
       "name": "Blackmagic Videohub",
       "manufacturer": "Blackmagic Design",
       "category": "switcher",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Video and monitoring outputs, inputs, routing, output locks, and labels are modeled as child entities sized to the connected frame \u2014 from a 12\u00d712 Smart Videohub to a 288\u00d7288 Universal Videohub.",
@@ -388,8 +388,8 @@
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
       "files": {
-        "switchers/blackmagic_videohub.py": "e7a32c9245cfe1127c729c71c22fbbee8c5b0461a4afe93b6c71d50af7ade55f",
-        "switchers/blackmagic_videohub_sim.py": "20656f8d96bf152b09fb82449c5d528f295387321ae5ce63200e60b819f430cf"
+        "switchers/blackmagic_videohub.py": "8ecb2e23a86922162b24994b73926595f08e772262920ff4c6ef884d82d8d9b8",
+        "switchers/blackmagic_videohub_sim.py": "d0caa03dd64e36d5b1e02475bc96d21dd6156cdca0c52a48931596a3723b37cd"
       },
       "ports": [
         9990
@@ -398,7 +398,7 @@
         "videohub"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "matrix-switcher",
         "sdi",
@@ -464,7 +464,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "switcher",
-      "version": "2.0.5",
+      "version": "2.0.6",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext REST API. One driver adapts to the endpoint's role: transmit stream + bitrate + HDMI-in monitoring on encoders, stream routing + scaler output + video wall on decoders. Covers the E20/D20/D200, E30/D30, and combo 35x/36x lines.",
@@ -472,8 +472,8 @@
       "file": "switchers/crestron_nvx.py",
       "format": "python",
       "files": {
-        "switchers/crestron_nvx.py": "406ba27ac7d53afbb8024cb4de383a858ae0c7e2bba85213c64f4cc4635b74b4",
-        "switchers/crestron_nvx_sim.py": "891bb41c68b47485480a07b58a0d2086f1344bd17b82ec8d0601c28bf15867c5"
+        "switchers/crestron_nvx.py": "78eb0306d9def6d989485f00db9679bafe9f377c4cdf8d75f4a1d098600232af",
+        "switchers/crestron_nvx_sim.py": "47b270cbe9067875ea3b8f485a4794b6cbd9269d93220bb00a228bd5e586f6da"
       },
       "ports": [
         443
@@ -483,7 +483,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "av-over-ip",
         "encoder",
@@ -816,7 +816,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.10",
+      "version": "1.2.11",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -824,9 +824,9 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "be86e466c59d1d80065edc26c5e9ce2e558a75768bd2310af411625c1a4b8ae8",
-        "switchers/chazy_control_discovery.py": "0cb4bace1fc64828e8c4d6474abdb888aee180859f211070d71774d4f1afc9d4",
-        "switchers/chazy_control_sim.py": "fa4162d1abc73c6b1c3cd33d0de7f75d2e1b16186d1ca70d41fdb76cf012d8e2"
+        "switchers/chazy_control.py": "bed960c6135617b89d7cd32e14b4d2eb9806245cdb039c5eabab8c36db2b1925",
+        "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
+        "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
       },
       "ports": [
         23
@@ -835,7 +835,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -893,7 +893,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.10",
+      "version": "1.4.11",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -901,9 +901,9 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "464404fbbb0207f2384e0fd87468b8fa23e23a620fb9b8db4cf760a1c9b37380",
-        "switchers/chazy_control_pro_discovery.py": "2dd323275d8f562c543bf188feccb7cd0c23f8dcdf9bbbe1fc483ee3a74564df",
-        "switchers/chazy_control_pro_sim.py": "3bb7910740960457f417a346c620b02fa9b6c62e30d8835b5b83d2233789e50b"
+        "switchers/chazy_control_pro.py": "7ba3a10a8bb96fa15de02d748a862d21cb7c58a247c7d11d7c51703faaabb9f4",
+        "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
+        "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
       "ports": [
         23
@@ -912,7 +912,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -970,7 +970,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.8",
+      "version": "1.1.9",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -978,9 +978,9 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "a48962fdf47d5157a4eca7284a5b6d797dbb3c5137c4547e7046c67c9d5c57d9",
-        "switchers/darwin_control_discovery.py": "0319a009e44c712fbabe0e77b1386a9e7377f2569b39af5ce57377d3271a37dd",
-        "switchers/darwin_control_sim.py": "74bf6b2f04930dfc4a426fcc8acb4a095b12d86140dc7ae8cba0261aa3eb8600"
+        "switchers/darwin_control.py": "491e9e8d28ef0b77c7e143f8d3c9e0c9e17014c10d8376c0c55a14ef15bde882",
+        "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
+        "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
       },
       "ports": [
         23
@@ -989,7 +989,7 @@
         "darwin_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -1047,7 +1047,7 @@
       "name": "tvONE CORIOmatrix",
       "manufacturer": "tvONE",
       "category": "switcher",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls tvONE CORIOmatrix and CORIOmatrix mini modular matrix routers over the CORIOmax command-line API (TCP 10001). The installed input/output cards are discovered from the frame, so every port appears as a child entity with its routing, signal status, and cut-to-black state. Includes routing preset recall and save with a live preset picker.",
@@ -1055,8 +1055,8 @@
       "file": "switchers/tvone_coriomatrix.py",
       "format": "python",
       "files": {
-        "switchers/tvone_coriomatrix.py": "bdfcc14badc18e568ef13af060a7484980bacd10bddd03f64c56d8700a531f7f",
-        "switchers/tvone_coriomatrix_sim.py": "4e5ef41a3813e7d6af598673df988301418fde62ca148d9961577400b2135684"
+        "switchers/tvone_coriomatrix.py": "b29decb91424c4af975494a4a434c48a308f40226729f0af4099b93746b1bb71",
+        "switchers/tvone_coriomatrix_sim.py": "5c8d8bfd4e663da9806e49c2bb9ee136bc9cec16b9373002e956eb2db0593a07"
       },
       "ports": [
         10001
@@ -1065,7 +1065,7 @@
         "coriomax_cli"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "matrix-switcher",
         "modular",
@@ -1168,7 +1168,7 @@
       "name": "WyreStorm NetworkHD",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a WyreStorm NetworkHD AV-over-IP system through its NHD-000-CTL or NHD-CTL-PRO controller. Every encoder (TX) and decoder (RX) the controller knows about appears as a child entity with live online, routing, and signal state. Covers matrix switching with per-stream breakaway (video, audio, USB, IR, RS-232), video wall scenes and windows, multiview layouts, display power proxy commands, and CEC / IR / RS-232 command injection to connected devices.",
@@ -1176,8 +1176,8 @@
       "file": "switchers/wyrestorm_networkhd.py",
       "format": "python",
       "files": {
-        "switchers/wyrestorm_networkhd.py": "a26915189792f6fb8b3e67e0849e058b43d5cd53a997464f24a2e0098317755c",
-        "switchers/wyrestorm_networkhd_sim.py": "eb7ef1cb89e55ee470ea9ea9bee3b4077533b1150a18f8425f2feb49fedc4733"
+        "switchers/wyrestorm_networkhd.py": "e204c97fae4cb0e6a12d62989fd959add39f382161da00515526e103e6bff51d",
+        "switchers/wyrestorm_networkhd_sim.py": "b7b37b35f92332c4d78fa7df559f9bf12f146ba9d81a6408e57d9615eab9cc57"
       },
       "ports": [
         23
@@ -1186,7 +1186,7 @@
         "networkhd_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "av-over-ip",
         "networkhd",

@@ -40,7 +40,7 @@ entries), or *unreachable* -- and unreachable is a failure. The per-class
 counts print with ``-s``.
 
 **Running it.** The platform is found through ``OPENAVC_PLATFORM_ROOT``, or
-beside this repo in the workspace, or wherever ``server`` is already
+beside this repo in the workspace, or wherever ``openavc`` is already
 importable. Absent, the whole module skips -- a contributor with only this repo
 cloned still gets a green run. A run that means to provide the platform says so
 with ``OPENAVC_REQUIRE_PLATFORM=1``, and then a missing platform fails instead
@@ -79,30 +79,30 @@ def _import_platform() -> tuple[dict, str]:
     """Import the real platform, or return the reason it could not be.
 
     The classes imported below stay live through this module's own references;
-    conftest drops the ``server`` / ``simulator`` entries from ``sys.modules``
+    conftest drops the ``openavc`` entries from ``sys.modules``
     once this module is collected, exactly as it does for every other module's
     stubs.
     """
     with platform_on_path():
         try:
-            from server.core.connection_fault import (    # noqa: PLC0415
+            from openavc.core.connection_fault import (    # noqa: PLC0415
                 _DRIVER_FAULT_CODES, ConnectionFaultError,
             )
-            from server.core.event_bus import EventBus    # noqa: PLC0415
-            from server.core.state_store import StateStore  # noqa: PLC0415
-            from server.discovery.companion import ProbeContext  # noqa: PLC0415
-            from server.drivers.base import (             # noqa: PLC0415
+            from openavc.core.event_bus import EventBus    # noqa: PLC0415
+            from openavc.core.state_store import StateStore  # noqa: PLC0415
+            from openavc.discovery.companion import ProbeContext  # noqa: PLC0415
+            from openavc.drivers.base import (             # noqa: PLC0415
                 BaseDriver, CommandParamError, DeviceSettingValueError,
                 UndeclaredStateError,
             )
-            from server.transport.frame_parsers import (  # noqa: PLC0415
+            from openavc.transport.frame_parsers import (  # noqa: PLC0415
                 DEFAULT_MAX_BUFFER, CallableFrameParser, DelimiterFrameParser,
                 FrameParser,
             )
-            from simulator.base import BaseSimulator      # noqa: PLC0415
-            from simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
-            from simulator.tcp_simulator import TCPSimulator  # noqa: PLC0415
-            from simulator.udp_simulator import UDPSimulator  # noqa: PLC0415
+            from openavc.simulator.base import BaseSimulator      # noqa: PLC0415
+            from openavc.simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
+            from openavc.simulator.tcp_simulator import TCPSimulator  # noqa: PLC0415
+            from openavc.simulator.udp_simulator import UDPSimulator  # noqa: PLC0415
         except Exception as exc:                          # noqa: BLE001
             return {}, f"the openavc platform is not importable ({exc})"
 
@@ -632,9 +632,9 @@ def test_redact_in_log_accepts_the_same_values(monkeypatch):
     assert stub_driver.redacted_secrets == {"sess-4d91c07e"}
 
     # Reach the registry through the very function the real driver just called.
-    # Neither a plain `import server.utils.log_redaction` nor a sys.modules
+    # Neither a plain `import openavc.utils.log_redaction` nor a sys.modules
     # lookup works here: conftest installs and rolls back stub `server.*`
-    # entries around every test, so `server.drivers.base` is no longer in
+    # entries around every test, so `openavc.drivers.base` is no longer in
     # sys.modules and a fresh import would re-execute the module and hand back
     # a second, empty singleton. The class object still holds its own globals.
     registry = PLATFORM["BaseDriver"].redact_in_log.__globals__[

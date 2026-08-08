@@ -37,7 +37,7 @@
       "name": "Modbus TCP Device",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Read and write any Modbus TCP device by declaring its register map.",
@@ -45,14 +45,14 @@
       "file": "utility/modbus_tcp.py",
       "format": "python",
       "files": {
-        "utility/modbus_tcp.py": "1dc9e9fe2ee58289d6b84a47ac347e21570437fb5e058c49f7b6337f9ba95720",
-        "utility/modbus_tcp_sim.py": "cb1c2820891f73d5b590fc1e20949bc3c73a2a7c1845068a5627f3b03a1bcca7"
+        "utility/modbus_tcp.py": "1d39d937ec3c39ebf80695bcc1b7147fb933404469ac1e320815634834d9f87f",
+        "utility/modbus_tcp_sim.py": "4f2b12cb891e579f5d353ac73c1c6d0c76a5859ac2e28c9b8263d55dddd05f5d"
       },
       "protocols": [
         "modbus_tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "help": {
         "overview": "Controls any Modbus TCP device (PLCs, HVAC controllers, power meters, industrial gear). You declare the device's register map on the device page; the driver turns read registers into live status values, write registers into commands, and read/write registers into device settings.",
         "setup": "Enter the IP address and Unit ID (usually 1), then add the registers from the device's Modbus register map. Addresses are 0-based: a register listed as 40001 in the manual is holding address 0."
@@ -63,7 +63,7 @@
       "name": "Wake-on-LAN",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Send Wake-on-LAN magic packets to wake devices on the network. No persistent connection required.",
@@ -71,9 +71,9 @@
       "file": "utility/wake_on_lan.py",
       "format": "python",
       "files": {
-        "utility/wake_on_lan.py": "b69b0099b0c2861bc78818feec2c466c109329d7a15620d8a2743b7f14316f50"
+        "utility/wake_on_lan.py": "df175426410b1bba2c4ddc799e0b02f7e85046a6bc8dc36de1db03d8bdf7e0b0"
       },
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "wol",
         "magic-packet",
@@ -90,7 +90,7 @@
       "name": "Global Cache iTach IP2CC Contact Closure (Relay)",
       "manufacturer": "Global Cache",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Network-controlled three-relay contact closure. Latch or pulse each dry-contact relay to trigger screens, lifts, shades, door strikes, or the trigger input of other AV gear.",
@@ -98,8 +98,8 @@
       "file": "utility/globalcache_itach_ip2cc.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2cc.py": "ce8a51288921016af0248aabff7e9944110860c1e842bdf5e10ceaf0963cdae8",
-        "utility/globalcache_itach_ip2cc_sim.py": "3645c62a80e1b33051717f490fe0dbc1e9c5fc991ed34d8f993c3787daf5d3ae"
+        "utility/globalcache_itach_ip2cc.py": "38666195734280bea12917eac6a4097b27b758741f3aca98ab16c3348225495e",
+        "utility/globalcache_itach_ip2cc_sim.py": "0ca560bfd16e923d789fd2e47fbc997aa95fe83e851962d04a10169efcb4fbb7"
       },
       "ports": [
         4998
@@ -109,7 +109,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.19.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "relay",
         "relays",
@@ -154,7 +154,7 @@
       "name": "Global Cache iTach IP2IR (IR Bridge)",
       "manufacturer": "Global Cache",
       "category": "utility",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Network IR bridge with three emitter ports. Bind IR devices (TVs, cable boxes, AVRs) to a port and control them with a learned or database code-set. Learn codes straight from the original remote.",
@@ -162,8 +162,8 @@
       "file": "utility/globalcache_itach_ip2ir.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2ir.py": "d0d22241729a39ceb4fe8e49ee67be79ce4dd89aeae763dba627f619d600c336",
-        "utility/globalcache_itach_ip2ir_sim.py": "42c0b68dfdfa10437240030ed254d05ea59c5f4e84da06cb8ccaabb744323f09"
+        "utility/globalcache_itach_ip2ir.py": "987eb28cab18672d1def1daaceb16de560f331017e14b9dfd47da6015b1e6640",
+        "utility/globalcache_itach_ip2ir_sim.py": "fbcfc93e7fd62bd67bccc21bb20a546cd8a501104c2118fb07d01120c1cad33b"
       },
       "ports": [
         4998
@@ -173,7 +173,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "ir",
         "infrared",
@@ -217,7 +217,7 @@
       "name": "Global Cache iTach IP2SL Serial Bridge",
       "manufacturer": "Global Cache",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Ethernet-to-RS-232 bridge. Connect serial devices through the iTach: bind a serial device to this bridge's port and OpenAVC routes it over the transparent pass-through while pushing the right baud and parity to the hardware.",
@@ -225,7 +225,7 @@
       "file": "utility/globalcache_itach_ip2sl.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2sl.py": "dacf4f0ec44148fae2cda15426d386541570a3c0d454b12308d1f91224136eda"
+        "utility/globalcache_itach_ip2sl.py": "68fa5c34d0bd58eb78dc831d43766c38c7c27c52de8f34b3eab36c5a757e153f"
       },
       "ports": [
         4998,
@@ -235,7 +235,7 @@
         "global-cache-unified-tcp"
       ],
       "verified": true,
-      "min_platform_version": "0.19.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "serial",
         "rs232",
@@ -279,7 +279,7 @@
       "name": "NETGEAR M4250 / M4350 AV Line Switch",
       "manufacturer": "NETGEAR",
       "category": "utility",
-      "version": "1.4.5",
+      "version": "1.4.6",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
@@ -287,8 +287,8 @@
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
       "files": {
-        "utility/netgear_m4250_m4350.py": "aa6d34c45a2ad37d5e8b676929bc565a54ce7fe0e809ce8701a6c7a2f2504992",
-        "utility/netgear_m4250_m4350_sim.py": "de7ecb650eca31df8db90df3738ca2a5eaeeb94571dafa271e52a2e1acd387ce"
+        "utility/netgear_m4250_m4350.py": "30b4dc1d2293cbd500ed9c75ba284b56dc29de70935e29897a1de2770ebd41a6",
+        "utility/netgear_m4250_m4350_sim.py": "903c955b16528ad958f5ba6f6e58d0b3785a0e9592552e358e385ca3bf53830c"
       },
       "ports": [
         22,
@@ -299,7 +299,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.15.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "network",
         "switch",

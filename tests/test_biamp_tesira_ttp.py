@@ -18,7 +18,7 @@ Covers the v2.2.0 first-class adoption:
   - the class-level catalog surface (generic commands / system state vars)
     is non-empty.
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
+Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected).
 """
@@ -208,7 +208,7 @@ class _FakeBaseDriver(LifecycleFake):
             local_addr=None,
         )
         # The module-level fake is referenced directly — a deferred
-        # `from server.transport...` import at test-run time would miss the
+        # `from openavc.transport...` import at test-run time would miss the
         # collection-time stubs.
         self.transport = await _FakeTCPTransport.create(
             **self._transport_kwargs(transport_type, kwargs))
@@ -290,7 +290,7 @@ class _FakeSimState:
 
 
 class _FakeTCPSimulator:
-    """Stand-in for simulator.tcp_simulator.TCPSimulator."""
+    """Stand-in for openavc.simulator.tcp_simulator.TCPSimulator."""
 
     SIMULATOR_INFO: dict = {}
 
@@ -385,35 +385,35 @@ class _FakeSystemConfig:
 
 
 def _build_stub_modules() -> dict[str, ModuleType]:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    stubs: dict[str, ModuleType] = {"server": server}
+    stubs: dict[str, ModuleType] = {"openavc": server}
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        stubs[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        stubs[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    stubs["server.drivers.base"] = base
-    tcp = ModuleType("server.transport.tcp")
+    stubs["openavc.drivers.base"] = base
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
-    stubs["server.transport.tcp"] = tcp
-    parsers = ModuleType("server.transport.frame_parsers")
+    stubs["openavc.transport.tcp"] = tcp
+    parsers = ModuleType("openavc.transport.frame_parsers")
     parsers.DelimiterFrameParser = _DelimiterFrameParser
-    stubs["server.transport.frame_parsers"] = parsers
-    sysconf = ModuleType("server.system_config")
+    stubs["openavc.transport.frame_parsers"] = parsers
+    sysconf = ModuleType("openavc.system_config")
     sysconf.get_system_config = lambda: _FakeSystemConfig()
-    stubs["server.system_config"] = sysconf
-    logger = ModuleType("server.utils.logger")
+    stubs["openavc.system_config"] = sysconf
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    stubs["server.utils.logger"] = logger
+    stubs["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    stubs["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
+    stubs["openavc.simulator"] = sim_pkg
+    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
     sim_tcp.TCPSimulator = _FakeTCPSimulator
-    stubs["simulator.tcp_simulator"] = sim_tcp
+    stubs["openavc.simulator.tcp_simulator"] = sim_tcp
     return stubs
 
 

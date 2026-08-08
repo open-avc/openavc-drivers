@@ -50,9 +50,9 @@ from typing import Any
 
 import httpx
 
-from server.drivers.base import BaseDriver
-from server.transport import http_listener
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport import http_listener
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -286,7 +286,7 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers via the local UPnP API. Play/pause, "
@@ -299,7 +299,7 @@ class SonosDriver(BaseDriver):
         "simulated": True,
         "ports": [1400],
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "compatible_models": [
             {
                 "manufacturer": "Sonos",

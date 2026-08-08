@@ -1,6 +1,6 @@
 """Unit tests for the globalcache_itach_ip2cc relay driver + simulator.
 
-Self-contained / stdlib only: stubs the ``server.*`` and ``simulator.*`` modules
+Self-contained / stdlib only: stubs the ``openavc.*`` modules
 the driver and simulator import, so the test runs in the community repo's
 isolated CI without an ``openavc`` install. Exercises the pure protocol helpers
 and command/parse logic against byte-exact captures taken from a real iTach
@@ -26,14 +26,14 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "globalcache_itach_ip2cc"
 
 
 def _install_stubs() -> None:
-    """Provide the minimal ``server.*`` / ``simulator.*`` surface the driver and
+    """Provide the minimal ``openavc.*`` surface the driver and
     simulator import at module load."""
-    if "server.drivers.base" not in sys.modules:
-        server = ModuleType("server")
-        sys.modules.setdefault("server", server)
-        drivers = ModuleType("server.drivers")
-        sys.modules.setdefault("server.drivers", drivers)
-        base = ModuleType("server.drivers.base")
+    if "openavc.drivers.base" not in sys.modules:
+        server = ModuleType("openavc")
+        sys.modules.setdefault("openavc", server)
+        drivers = ModuleType("openavc.drivers")
+        sys.modules.setdefault("openavc.drivers", drivers)
+        base = ModuleType("openavc.drivers.base")
 
         class _BaseDriver:
             DRIVER_INFO: dict = {}
@@ -50,18 +50,18 @@ def _install_stubs() -> None:
                 self._published[key] = value
 
         base.BaseDriver = _BaseDriver
-        sys.modules["server.drivers.base"] = base
+        sys.modules["openavc.drivers.base"] = base
 
-        utils = ModuleType("server.utils")
-        sys.modules.setdefault("server.utils", utils)
-        logger_mod = ModuleType("server.utils.logger")
+        utils = ModuleType("openavc.utils")
+        sys.modules.setdefault("openavc.utils", utils)
+        logger_mod = ModuleType("openavc.utils.logger")
         logger_mod.get_logger = lambda name="gc": logging.getLogger(name)
-        sys.modules["server.utils.logger"] = logger_mod
+        sys.modules["openavc.utils.logger"] = logger_mod
 
-    if "simulator.tcp_simulator" not in sys.modules:
-        sim_pkg = ModuleType("simulator")
-        sys.modules.setdefault("simulator", sim_pkg)
-        sim_tcp = ModuleType("simulator.tcp_simulator")
+    if "openavc.simulator.tcp_simulator" not in sys.modules:
+        sim_pkg = ModuleType("openavc.simulator")
+        sys.modules.setdefault("openavc.simulator", sim_pkg)
+        sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
 
         class _TCPSimulator:
             SIMULATOR_INFO: dict = {}
@@ -75,7 +75,7 @@ def _install_stubs() -> None:
                 self.state[key] = value
 
         sim_tcp.TCPSimulator = _TCPSimulator
-        sys.modules["simulator.tcp_simulator"] = sim_tcp
+        sys.modules["openavc.simulator.tcp_simulator"] = sim_tcp
 
 
 def _load(path: Path, name: str) -> ModuleType:

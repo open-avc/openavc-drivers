@@ -86,8 +86,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -713,7 +713,7 @@ class AllenHeathAvantisDriver(BaseDriver):
         "name": "Allen & Heath Avantis Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath Avantis digital mixing consoles via "
@@ -759,7 +759,7 @@ class AllenHeathAvantisDriver(BaseDriver):
             ],
         },
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "compatible_models": [
             {
                 "manufacturer": "Allen & Heath",

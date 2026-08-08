@@ -1,16 +1,16 @@
 """Test isolation for stubbed modules in ``sys.modules``.
 
 Most driver / simulator / discovery tests in this repo load their driver by
-importing it with the real ``server`` / ``simulator`` packages (and the odd
+importing it with the real ``openavc`` packages (and the odd
 third-party lib such as ``websockets``) replaced by lightweight stubs in
 ``sys.modules`` — the community CI has no ``openavc`` install, so the drivers'
-``from server.* import ...`` lines need something to resolve against. Those
+``from openavc.* import ...`` lines need something to resolve against. Those
 stubs are installed at module-import time and never removed, so they leak into
 the shared ``sys.modules`` table and shadow the real module for any later test
 module that needs it (e.g. ``test_vmix_driver.py`` / ``test_connect_lifecycle.py``,
 which run the real driver against a simulator when ``openavc`` *is* installed —
-a leaked partial ``server.transport`` stub with no ``__path__`` hides the real
-``server.transport.frame_parsers`` it imports; a leaked ``websockets`` stub with
+a leaked partial ``openavc.transport`` stub with no ``__path__`` hides the real
+``openavc.transport.frame_parsers`` it imports; a leaked ``websockets`` stub with
 ``connect = None`` breaks a real WebSocket driver's ``connect()``).
 
 This brackets each test module's import with a snapshot/restore of those
@@ -45,7 +45,7 @@ os.environ.setdefault("OPENAVC_STRICT_DRIVER_STATE", "1")
 # libraries a driver imports at module load and its fake-based test replaces
 # (``websockets`` for the WebSocket drivers). Bracketing these keeps a stub from
 # outliving the module that installed it.
-_BRACKETED_ROOTS = ("server", "simulator", "websockets")
+_BRACKETED_ROOTS = ("openavc", "websockets")
 
 
 def _is_platform_module(name: str) -> bool:

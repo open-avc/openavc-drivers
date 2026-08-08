@@ -30,7 +30,7 @@ additional Set IDs are backed by an internal per-display map (wire-only,
 for exercising a driver's multi-display roster).
 """
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 
 INPUT_CODES = {

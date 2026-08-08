@@ -88,8 +88,8 @@ from typing import Any
 
 import httpx
 
-from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -177,11 +177,11 @@ class PhilipsHueDriver(BaseDriver):
         "name": "Philips Hue Bridge",
         "manufacturer": "Signify",
         "category": "lighting",
-        "version": "3.0.1",
+        "version": "3.0.2",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (which also covers the 0.23.0 needs: the HTTPS simulation
         # redirect and the SSE push generation).
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Philips Hue lights, rooms, zones, and scenes via the "

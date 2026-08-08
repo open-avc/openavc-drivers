@@ -66,10 +66,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Optional
 
-from server.drivers.base import BaseDriver
-from server.transport.binary_helpers import checksum_xor
-from server.transport.frame_parsers import CallableFrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.binary_helpers import checksum_xor
+from openavc.transport.frame_parsers import CallableFrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -376,9 +376,9 @@ class SharpNECDisplayDriver(BaseDriver):
         "name": "Sharp/NEC Display (External Control)",
         "manufacturer": "Sharp NEC",
         "category": "display",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp/NEC professional large-format displays over "

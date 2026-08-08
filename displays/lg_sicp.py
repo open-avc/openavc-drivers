@@ -64,9 +64,9 @@ import re
 from collections import deque
 from typing import Any, Optional
 
-from server.drivers.base import BaseDriver
-from server.transport.frame_parsers import CallableFrameParser, FrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.frame_parsers import CallableFrameParser, FrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -281,10 +281,10 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "description": (
             "Controls LG commercial displays via SICP over TCP (port 9761). "
             "Each Set ID on an RS-232 daisy chain is a display child entity "

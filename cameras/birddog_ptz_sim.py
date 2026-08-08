@@ -14,7 +14,7 @@ Transport: http
 
 import json
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 
 class BirddogPtzSimulator(HTTPSimulator):

@@ -46,7 +46,7 @@ from typing import Any
 
 from aiohttp import web
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 logger = logging.getLogger(__name__)
 

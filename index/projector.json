@@ -12,7 +12,7 @@
       "name": "Barco Pulse Projector",
       "manufacturer": "Barco",
       "category": "projector",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Barco Pulse-platform laser projectors (F70 / F80 / F90, UDX, UDM, HDX 4K, I600, G62 / G100, XDL and other Pulse models) over the Pulse JSON-RPC API on TCP 9090. Live push updates for power, source, shutter, laser power and picture settings; source picker built from the projector's own input list; lens shift / zoom / focus; test patterns; environment temperatures; and a raw property/method escape hatch for the full Pulse API.",
@@ -20,8 +20,8 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "81d795187a306f30707e683ad787e75527c8249751c24fc7e07dd69a8d2fd562",
-        "projectors/barco_pulse_sim.py": "3f8f250102c5367c195b0c82401de2b8ee078061316b7032ed7c4755c2b416a9"
+        "projectors/barco_pulse.py": "280b6252f247133d83e999f509c10394499c1eda292b88c0b5fddc5364d35f81",
+        "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
         9090
@@ -30,7 +30,7 @@
         "barco_pulse"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "projector",
         "barco",
@@ -245,7 +245,7 @@
       "name": "Epson Projector (ESC/VP21)",
       "manufacturer": "Epson",
       "category": "projector",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Epson business and installation projectors over ESC/VP21 wrapped in ESC/VP.net on TCP port 3629. Power, input, A/V mute, freeze, aspect ratio, color mode, lamp hours, and remote-key passthrough.",
@@ -253,8 +253,8 @@
       "file": "projectors/epson_escvp.py",
       "format": "python",
       "files": {
-        "projectors/epson_escvp.py": "c11b94af491a50dc7cf8caac48ecb9192732928412f66478d0f6508cc0b27fe3",
-        "projectors/epson_escvp_sim.py": "b8650164f1ae825346ac213056219c1dfc1e74e42c11b7540db87ef98041bc46"
+        "projectors/epson_escvp.py": "f3f4c9c83837a73b89ea1d2f3aff2e3450689f9ae0625287aac2392883841aec",
+        "projectors/epson_escvp_sim.py": "5d20fd678d357c75591ab17d4b3c00c9b1c20c2594e89b4b5694389e9cb21ed9"
       },
       "ports": [
         3629
@@ -263,7 +263,7 @@
         "esc_vp_net"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "projector",
         "epson",
@@ -311,7 +311,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.6.0",
+      "version": "2.6.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -319,9 +319,9 @@
       "file": "projectors/pjlink_class1.py",
       "format": "python",
       "files": {
-        "projectors/pjlink_class1.py": "8aa5f93262c382425050c93a434a2f0ff9cfc7355318d0091ac867b776dd2920",
-        "projectors/pjlink_class1_discovery.py": "bcb01eaf63196a1b4b28651db910c517f37b71ee80ced4d10bf3af8f50cb0658",
-        "projectors/pjlink_class1_sim.py": "31e796450ed4b5b70a19de7f98f7d48aeeb73a604c8f9d59937376bddfa151bd"
+        "projectors/pjlink_class1.py": "cdbbbc363906933cbe27aa4a37cc7f8070a97573a22cd8c00d5be84ee5b95f08",
+        "projectors/pjlink_class1_discovery.py": "a8e65922160cfd5e615bd0cf43344df54ad69d2b6b1df82581854cbfa2be11a5",
+        "projectors/pjlink_class1_sim.py": "a1ea39cff9769f057ade1c4324b35190844ff0282062f54e5c7fcc9dba0e9de5"
       },
       "ports": [
         4352
@@ -331,7 +331,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "pjlink",
         "projector",
@@ -504,7 +504,7 @@
       "name": "Optoma Projector",
       "manufacturer": "Optoma",
       "category": "projector",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Optoma projectors over Optoma's RS232/LAN command protocol (Telnet port 23 or direct RS-232). Power, input select, A/V mute, shutter, audio, display modes, aspect, brightness/contrast, keystone, motorized lens with lens memories, remote-key navigation, light-source hours, and live fault notifications. Covers the ZU/ZK installation and large-venue laser series and other Optoma models sharing the published command table \u2014 the full brand feature set beyond what generic PJLink offers.",
@@ -512,8 +512,8 @@
       "file": "projectors/optoma_projector.py",
       "format": "python",
       "files": {
-        "projectors/optoma_projector.py": "c96e25d4997e2b23eb5ea3b3ad000e0fb8eb7b9370ee5199bf2149d70986ccf3",
-        "projectors/optoma_projector_sim.py": "4d0df45cf58ce5e3feeaddd2102df7c09d71b3044afc725acb0edd91431fe66a"
+        "projectors/optoma_projector.py": "2ea3e6e7df17dedf480ff1553f14937de1bdf23250335149059b6dc6cf4a0b3a",
+        "projectors/optoma_projector_sim.py": "d5329a4dfe13ada3d5675f593a677626944e85fc31b0b0eb363a0da897ad8cbd"
       },
       "ports": [
         23
@@ -522,7 +522,7 @@
         "optoma_rs232"
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "projector",
         "optoma",
@@ -571,7 +571,7 @@
       "name": "Panasonic PT-MZ / PT-RZ Projector",
       "manufacturer": "Panasonic",
       "category": "projector",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic PT-MZ (LCD) and PT-RZ (DLP) professional installation projectors via the NTCONTROL TCP protocol (Protocol 2). Power, input, shutter / AV mute, freeze, and operating-hours readout. Supports Panasonic's MD5 session-challenge authentication so the projector keeps its default Web Control admin password.",
@@ -579,8 +579,8 @@
       "file": "projectors/panasonic_pt.py",
       "format": "python",
       "files": {
-        "projectors/panasonic_pt.py": "0f0da505980c1fca0bdc9935dd21ca004e5be878f462b5a1780c05a01e9b6e89",
-        "projectors/panasonic_pt_sim.py": "7b257364dd1ee7b3a2ad1f01e58eac04065d72836a8ee2cd1cfe188449f9ed2c"
+        "projectors/panasonic_pt.py": "7d1a98641f1d8232d168303aa15a2fb98826cda60a42ca9b994cdbdc6b642fd6",
+        "projectors/panasonic_pt_sim.py": "91817756d9ad3333358e18df07cb0fa7b58a2d7c8742349e9ce1d6d0c4177cff"
       },
       "ports": [
         1024
@@ -589,7 +589,7 @@
         "ntcontrol"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "projector",
         "panasonic",
@@ -744,7 +744,7 @@
       "name": "Sharp NEC Projector",
       "manufacturer": "Sharp NEC",
       "category": "projector",
-      "version": "2.5.2",
+      "version": "2.5.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp NEC projectors via the NEC binary control protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, and M series projectors.",
@@ -752,8 +752,8 @@
       "file": "projectors/sharp_nec_projector.py",
       "format": "python",
       "files": {
-        "projectors/sharp_nec_projector.py": "f6053dadef44e9feae0162f195ace5d6150e861277027e4e5a74d9222250fbd5",
-        "projectors/sharp_nec_projector_sim.py": "f1e9ae48582df53f3cb78021d1dd3c2b9b11364f22ce7b16cf32ee682749769d"
+        "projectors/sharp_nec_projector.py": "822e02ea87a3a8c7c8340c9243e8960169264663369822ae7a018390121d7b08",
+        "projectors/sharp_nec_projector_sim.py": "349aa58449c8d6660fc9f5a93d5345b290c2f01c95ce90ee76776bac629cf32d"
       },
       "ports": [
         7142
@@ -763,7 +763,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "projector",
         "binary-protocol"
@@ -823,7 +823,7 @@
       "name": "Sony VPL Projector (ADCP)",
       "manufacturer": "Sony",
       "category": "projector",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sony VPL professional installation projectors over Sony's Advanced Display Control Protocol (ADCP) on TCP port 53595. Power, input, blank, freeze, picture mode, aspect ratio, image-quality (contrast / brightness / colour / sharpness), and the universal remote-key set. Supports SHA-256 challenge-response authentication so the projector can keep its default auth-on web setting.",
@@ -831,8 +831,8 @@
       "file": "projectors/sony_vpl.py",
       "format": "python",
       "files": {
-        "projectors/sony_vpl.py": "e8101f93306013557a5664a77959968b8e732aacb559db5d20c0bdb1295da375",
-        "projectors/sony_vpl_sim.py": "65e8a8b1916d8b62b7fced840dac9661f17c43385ff838df472a7128b8258c80"
+        "projectors/sony_vpl.py": "f089eafe698fd949e4a27b6c766187c79878b2da1361aa110c0b068b6aee9be0",
+        "projectors/sony_vpl_sim.py": "225eb5c08b97ad5c0c05f277ad7b334e99077490ecebe7e6dec675244796acb3"
       },
       "ports": [
         53595
@@ -841,7 +841,7 @@
         "adcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "projector",
         "sony",

@@ -65,8 +65,8 @@ import re
 from collections import deque
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -207,7 +207,7 @@ class SharpPnDisplayDriver(BaseDriver):
         "name": "Sharp PN Display (AQUOS BOARD)",
         "manufacturer": "Sharp",
         "category": "display",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls pre-merger Sharp PN-series commercial displays and "
@@ -226,7 +226,7 @@ class SharpPnDisplayDriver(BaseDriver):
         "simulated": True,
         "ports": [10008],
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "transport": "tcp",
         "transports": ["tcp", "serial"],
         "delimiter": "\r\n",

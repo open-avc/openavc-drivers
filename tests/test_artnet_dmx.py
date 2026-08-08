@@ -1,6 +1,6 @@
 """Tests for the Art-Net DMX driver's declared surface.
 
-``artnet_dmx.py`` imports ``server.*`` at module load, so the whole module
+``artnet_dmx.py`` imports ``openavc.*`` at module load, so the whole module
 skips when the openavc platform isn't importable (this repo's isolated CI);
 it runs in the workspace where openavc is installed alongside.
 """

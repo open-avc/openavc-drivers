@@ -26,26 +26,26 @@ COMPANION_PATH = REPO_ROOT / "projectors" / "pjlink_class1_discovery.py"
 def _load_companion_module() -> ModuleType:
     """Import the companion file in isolation.
 
-    The companion imports ``server.discovery.companion`` which is part
+    The companion imports ``openavc.discovery.companion`` which is part
     of the openavc platform — so we stub a minimal ``ProbeContext``
     placeholder before exec so the import succeeds in the community-
     repo test environment (which doesn't have openavc on its path).
     """
-    if "server.discovery.companion" not in sys.modules:
+    if "openavc.discovery.companion" not in sys.modules:
         # Stub the openavc symbol the companion imports.
-        stub_pkg = ModuleType("server")
+        stub_pkg = ModuleType("openavc")
         stub_pkg.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server", stub_pkg)
-        stub_disc = ModuleType("server.discovery")
+        sys.modules.setdefault("openavc", stub_pkg)
+        stub_disc = ModuleType("openavc.discovery")
         stub_disc.__path__ = []  # type: ignore[attr-defined]
-        sys.modules.setdefault("server.discovery", stub_disc)
-        stub_comp = ModuleType("server.discovery.companion")
+        sys.modules.setdefault("openavc.discovery", stub_disc)
+        stub_comp = ModuleType("openavc.discovery.companion")
 
         class _StubProbeContext:  # noqa: D401 — test stub
             """Placeholder so the companion's type annotation imports."""
 
         stub_comp.ProbeContext = _StubProbeContext
-        sys.modules["server.discovery.companion"] = stub_comp
+        sys.modules["openavc.discovery.companion"] = stub_comp
 
     module_name = "pjlink_class1_discovery_under_test"
     spec = importlib.util.spec_from_file_location(module_name, COMPANION_PATH)

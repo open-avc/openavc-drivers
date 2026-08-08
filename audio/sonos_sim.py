@@ -21,7 +21,7 @@ import asyncio
 import re
 from html import escape
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 # Service control endpoints
 _AV_TRANSPORT = "/MediaRenderer/AVTransport/Control"

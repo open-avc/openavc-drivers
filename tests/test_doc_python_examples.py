@@ -193,21 +193,21 @@ def _platform() -> tuple[dict, str]:
     """The platform classes the guides refer to, or the reason they are absent."""
     with platform_on_path():
         try:
-            from server.drivers.base import BaseDriver          # noqa: PLC0415
-            from server.transport.http_client import HTTPClientTransport  # noqa: PLC0415, E501
-            from server.transport.mqtt import MQTTTransport     # noqa: PLC0415
-            from server.transport.osc import OSCTransport       # noqa: PLC0415
-            from server.transport.serial_transport import SerialTransport  # noqa: PLC0415, E501
-            from server.transport.ssh import SSHTransport       # noqa: PLC0415
-            from server.transport.tcp import TCPTransport       # noqa: PLC0415
-            from server.transport.udp import UDPTransport       # noqa: PLC0415
-            from simulator.base import BaseSimulator            # noqa: PLC0415
-            from simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
-            from simulator.mqtt_simulator import MQTTSimulator  # noqa: PLC0415
-            from simulator.osc_simulator import OSCSimulator    # noqa: PLC0415
-            from simulator.tcp_simulator import TCPSimulator    # noqa: PLC0415
-            from simulator.udp_simulator import UDPSimulator    # noqa: PLC0415
-            from simulator.websocket_simulator import WebSocketSimulator  # noqa: PLC0415, E501
+            from openavc.drivers.base import BaseDriver          # noqa: PLC0415
+            from openavc.transport.http_client import HTTPClientTransport  # noqa: PLC0415, E501
+            from openavc.transport.mqtt import MQTTTransport     # noqa: PLC0415
+            from openavc.transport.osc import OSCTransport       # noqa: PLC0415
+            from openavc.transport.serial_transport import SerialTransport  # noqa: PLC0415, E501
+            from openavc.transport.ssh import SSHTransport       # noqa: PLC0415
+            from openavc.transport.tcp import TCPTransport       # noqa: PLC0415
+            from openavc.transport.udp import UDPTransport       # noqa: PLC0415
+            from openavc.simulator.base import BaseSimulator            # noqa: PLC0415
+            from openavc.simulator.http_simulator import HTTPSimulator  # noqa: PLC0415
+            from openavc.simulator.mqtt_simulator import MQTTSimulator  # noqa: PLC0415
+            from openavc.simulator.osc_simulator import OSCSimulator    # noqa: PLC0415
+            from openavc.simulator.tcp_simulator import TCPSimulator    # noqa: PLC0415
+            from openavc.simulator.udp_simulator import UDPSimulator    # noqa: PLC0415
+            from openavc.simulator.websocket_simulator import WebSocketSimulator  # noqa: PLC0415, E501
         except Exception as exc:                                # noqa: BLE001
             return {}, f"the openavc platform is not importable ({exc})"
 
@@ -263,7 +263,7 @@ def _import_targets(tree: ast.Module) -> list[tuple[str, str]]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.ImportFrom) or not node.module:
             continue
-        if node.module.split(".")[0] not in ("server", "simulator"):
+        if node.module.split(".")[0] != "openavc":
             continue
         out.extend((node.module, alias.name) for alias in node.names)
     return out

@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import logging
 
-from simulator.mqtt_simulator import MQTTSimulator
+from openavc.simulator.mqtt_simulator import MQTTSimulator
 
 logger = logging.getLogger(__name__)
 

@@ -22,7 +22,7 @@ import asyncio
 import re
 from typing import Any
 
-from server.discovery.companion import ProbeContext
+from openavc.discovery.companion import ProbeContext
 
 
 TESIRA_PORT = 23

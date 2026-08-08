@@ -39,8 +39,8 @@ import re
 import struct
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -263,13 +263,13 @@ class ModbusTCPDriver(BaseDriver):
         "name": "Modbus TCP Device",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": "Read and write any Modbus TCP device by declaring its register map.",
         "source_url": "https://www.modbus.org/modbus-specifications",
         "simulated": True,
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "transport": "tcp",
         "protocols": ["modbus_tcp"],
         "default_config": {

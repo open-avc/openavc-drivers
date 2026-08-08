@@ -20,7 +20,7 @@ Covers the protocol essentials from the Pulse API catalogs:
     answers and forces a typed no_response reconnect when it goes silent;
   - the offline Test Connection wizard against a real in-test TCP server.
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*``
+Loads the driver + simulator with the ``openavc.*``
 imports stubbed so the community CI stays self-contained (conftest.py
 rolls the stubs back after this module is collected; an autouse fixture
 re-installs them for each test because the driver imports UDPTransport
@@ -263,7 +263,7 @@ class _FakeUDPTransport:
 
 
 class _FakeTCPSimulator:
-    """Stand-in for simulator.tcp_simulator.TCPSimulator."""
+    """Stand-in for openavc.simulator.tcp_simulator.TCPSimulator."""
 
     SIMULATOR_INFO: dict = {}
 
@@ -299,36 +299,36 @@ class _FakeTCPSimulator:
 
 def _build_stub_modules() -> dict[str, ModuleType]:
     modules: dict[str, ModuleType] = {}
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    modules["server"] = server
+    modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     base.ConnectionFaultError = _FakeConnectionFaultError
-    modules["server.drivers.base"] = base
-    tcp = ModuleType("server.transport.tcp")
+    modules["openavc.drivers.base"] = base
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
-    modules["server.transport.tcp"] = tcp
-    udp = ModuleType("server.transport.udp")
+    modules["openavc.transport.tcp"] = tcp
+    udp = ModuleType("openavc.transport.udp")
     udp.UDPTransport = _FakeUDPTransport
-    modules["server.transport.udp"] = udp
-    parsers = ModuleType("server.transport.frame_parsers")
+    modules["openavc.transport.udp"] = udp
+    parsers = ModuleType("openavc.transport.frame_parsers")
     parsers.FrameParser = _FrameParserBase
-    modules["server.transport.frame_parsers"] = parsers
-    logger = ModuleType("server.utils.logger")
+    modules["openavc.transport.frame_parsers"] = parsers
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    modules["server.utils.logger"] = logger
+    modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    modules["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
+    modules["openavc.simulator"] = sim_pkg
+    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
     sim_tcp.TCPSimulator = _FakeTCPSimulator
-    modules["simulator.tcp_simulator"] = sim_tcp
+    modules["openavc.simulator.tcp_simulator"] = sim_tcp
     return modules
 
 

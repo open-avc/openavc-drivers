@@ -15,7 +15,7 @@ Covers:
     through the pending-queue state_key (aspect excluded — no read-back verb);
   - the discovery tcp_probe on 7142.
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
+Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected).
 """
@@ -115,7 +115,7 @@ class _FakeBaseDriver(StubBaseDriver, LifecycleFake):
 def _load(name: str, path: Path) -> ModuleType:
     install_stubs(
         {
-            "server.transport.binary_helpers": {
+            "openavc.transport.binary_helpers": {
                 "checksum_sum": lambda data, mask=0xFF: sum(data) & mask,
             },
         },

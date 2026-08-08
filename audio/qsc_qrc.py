@@ -64,8 +64,8 @@ import json
 import re
 from typing import Any
 
-from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -333,10 +333,10 @@ class QSCQRCDriver(BaseDriver):
         "name": "QSC Q-SYS QRC",
         "manufacturer": "QSC",
         "category": "audio",
-        "version": "4.3.1",
+        "version": "4.3.2",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) — "

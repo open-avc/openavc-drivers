@@ -1,6 +1,6 @@
 """Unit tests for the globalcache_itach_ip2ir IR-bridge driver + simulator.
 
-Self-contained / stdlib only: stubs the ``server.*`` and ``simulator.*`` modules
+Self-contained / stdlib only: stubs the ``openavc.*`` modules
 the driver and simulator import (including a faithful minimal ``ir_codec`` that
 mirrors the platform's Pronto <-> structure math), so the test runs in the
 community repo's isolated CI without an ``openavc`` install. Exercises the pure
@@ -27,13 +27,13 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures" / "globalcache_itach_ip2ir"
 
 
 def _install_stubs() -> None:
-    """Minimal ``server.*`` / ``simulator.*`` surface the driver + sim import."""
-    if "server.drivers.base" not in sys.modules:
-        server = ModuleType("server")
-        sys.modules.setdefault("server", server)
-        drivers = ModuleType("server.drivers")
-        sys.modules.setdefault("server.drivers", drivers)
-        base = ModuleType("server.drivers.base")
+    """Minimal ``openavc.*`` surface the driver + sim import."""
+    if "openavc.drivers.base" not in sys.modules:
+        server = ModuleType("openavc")
+        sys.modules.setdefault("openavc", server)
+        drivers = ModuleType("openavc.drivers")
+        sys.modules.setdefault("openavc.drivers", drivers)
+        base = ModuleType("openavc.drivers.base")
 
         import abc
 
@@ -69,18 +69,18 @@ def _install_stubs() -> None:
                 ...
 
         base.BaseDriver = _BaseDriver
-        sys.modules["server.drivers.base"] = base
+        sys.modules["openavc.drivers.base"] = base
 
-        utils = ModuleType("server.utils")
-        sys.modules.setdefault("server.utils", utils)
-        logger_mod = ModuleType("server.utils.logger")
+        utils = ModuleType("openavc.utils")
+        sys.modules.setdefault("openavc.utils", utils)
+        logger_mod = ModuleType("openavc.utils.logger")
         logger_mod.get_logger = lambda name="gc": logging.getLogger(name)
-        sys.modules["server.utils.logger"] = logger_mod
+        sys.modules["openavc.utils.logger"] = logger_mod
 
-    if "server.transport.ir_codec" not in sys.modules:
-        transport = ModuleType("server.transport")
-        sys.modules.setdefault("server.transport", transport)
-        ir_codec = ModuleType("server.transport.ir_codec")
+    if "openavc.transport.ir_codec" not in sys.modules:
+        transport = ModuleType("openavc.transport")
+        sys.modules.setdefault("openavc.transport", transport)
+        ir_codec = ModuleType("openavc.transport.ir_codec")
 
         # Faithful mirror of the platform ir_codec (tested for real in the core
         # repo). Kept here so this driver test needs no openavc install.
@@ -113,12 +113,12 @@ def _install_stubs() -> None:
         ir_codec.IRCode = IRCode
         ir_codec.parse_pronto = parse_pronto
         ir_codec.build_pronto = build_pronto
-        sys.modules["server.transport.ir_codec"] = ir_codec
+        sys.modules["openavc.transport.ir_codec"] = ir_codec
 
-    if "simulator.tcp_simulator" not in sys.modules:
-        sim_pkg = ModuleType("simulator")
-        sys.modules.setdefault("simulator", sim_pkg)
-        sim_tcp = ModuleType("simulator.tcp_simulator")
+    if "openavc.simulator.tcp_simulator" not in sys.modules:
+        sim_pkg = ModuleType("openavc.simulator")
+        sys.modules.setdefault("openavc.simulator", sim_pkg)
+        sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
 
         class _TCPSimulator:
             SIMULATOR_INFO: dict = {}
@@ -132,7 +132,7 @@ def _install_stubs() -> None:
                 self.state[key] = value
 
         sim_tcp.TCPSimulator = _TCPSimulator
-        sys.modules["simulator.tcp_simulator"] = sim_tcp
+        sys.modules["openavc.simulator.tcp_simulator"] = sim_tcp
 
 
 def _load(path: Path, name: str) -> ModuleType:

@@ -23,7 +23,7 @@ Covers the v2.0.0 first-class adoption:
     socket banks, gain / fader anchors, scene / cue banking, the
     running-status example).
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*``
+Loads the driver + simulator with the ``openavc.*``
 imports stubbed so the community CI stays self-contained (conftest.py
 rolls the stubs back after this module is collected).
 """
@@ -201,7 +201,7 @@ class _FakeBaseDriver(LifecycleFake):
 
 
 class _FakeTCPSimulatorBase:
-    """Stand-in for simulator.tcp_simulator.TCPSimulator."""
+    """Stand-in for openavc.simulator.tcp_simulator.TCPSimulator."""
 
     SIMULATOR_INFO: dict = {}
 
@@ -261,33 +261,33 @@ class _FakeTCPTransport:
 
 
 def _build_stub_modules() -> dict[str, ModuleType]:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    stubs: dict[str, ModuleType] = {"server": server}
+    stubs: dict[str, ModuleType] = {"openavc": server}
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        stubs[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        stubs[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    stubs["server.drivers.base"] = base
-    tcp = ModuleType("server.transport.tcp")
+    stubs["openavc.drivers.base"] = base
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
-    stubs["server.transport.tcp"] = tcp
-    logger = ModuleType("server.utils.logger")
+    stubs["openavc.transport.tcp"] = tcp
+    logger = ModuleType("openavc.utils.logger")
 
     class _Log:
         def __getattr__(self, _):
             return lambda *a, **k: None
     logger.get_logger = lambda *_a, **_k: _Log()
-    stubs["server.utils.logger"] = logger
+    stubs["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    stubs["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
+    stubs["openavc.simulator"] = sim_pkg
+    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
     sim_tcp.TCPSimulator = _FakeTCPSimulatorBase
-    stubs["simulator.tcp_simulator"] = sim_tcp
+    stubs["openavc.simulator.tcp_simulator"] = sim_tcp
     return stubs
 
 

@@ -36,8 +36,8 @@ import xml.etree.ElementTree as ET
 from typing import Any
 from urllib.parse import quote
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -227,9 +227,9 @@ class RokuECPDriver(BaseDriver):
         "name": "Roku (ECP)",
         "manufacturer": "Roku",
         "category": "streaming",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Roku streaming players and Roku TVs over the local "

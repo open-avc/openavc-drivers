@@ -12,7 +12,7 @@
       "name": "BenQ Display",
       "manufacturer": "BenQ",
       "category": "display",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and Wake-on-LAN wake-up for displays in standby. Polls for status.",
@@ -20,8 +20,8 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "9f3be4aba328f9e45fa4d014cedbb8fa3713fe161008becf5010614dd8bc83bf",
-        "displays/benq_display_sim.py": "880cbd0641a2e8f40d6ec3d3dbc23431386e1041a700e0a6c2272b7d0f62ca1b"
+        "displays/benq_display.py": "65d4373ce92f8f928ef49a6dfa19c99ad03ef7e67227435c4748d66129af3296",
+        "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [
         4660
@@ -30,7 +30,7 @@
         "benq_rs232_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "display",
         "benq",
@@ -97,7 +97,7 @@
       "name": "Hisense VIDAA TV",
       "manufacturer": "Hisense",
       "category": "display",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "mqtt",
       "description": "Controls Hisense VIDAA OS TVs over the TV's embedded MQTT broker (the path the RemoteNOW/VIDAA app uses). Power, volume, input, key passthrough, and PIN pairing.",
@@ -105,14 +105,14 @@
       "file": "displays/hisense_vidaa.py",
       "format": "python",
       "files": {
-        "displays/hisense_vidaa.py": "8bbdbb677bfcbf923eb3fdeb5af42b970a71ce0f549a769ca0922c0c35c66657",
-        "displays/hisense_vidaa_sim.py": "0a7b9cc96495660a0f325f189c73306c58092603ae55f5aa3da3340be02810d2"
+        "displays/hisense_vidaa.py": "4521d0071a2ecbbdf512df57d51cdbb6989093009d61152dd94eb656878d91ed",
+        "displays/hisense_vidaa_sim.py": "ba41e4d1077ce9d3cb6cddf4b6071f7fb28e206ab10ff7abd99b886bd69683e5"
       },
       "ports": [
         36669
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "tv",
         "display",
@@ -141,7 +141,7 @@
       "name": "LG SICP Display",
       "manufacturer": "LG",
       "category": "display",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG commercial displays via SICP over TCP (port 9761). Each Set ID on an RS-232 daisy chain is a display child entity with power, input, volume, mute, screen-off, signal status, picture settings, and panel health. Covers webOS Signage, LED, and OLED commercial series.",
@@ -149,8 +149,8 @@
       "file": "displays/lg_sicp.py",
       "format": "python",
       "files": {
-        "displays/lg_sicp.py": "e6a7b42ba295952de9f0e3d63b32713e29049399f1050100e9fd227a2ea1e3f0",
-        "displays/lg_sicp_sim.py": "32aba09f21b560f97aaf6983d82b6f858ae18e78f5c1651310f1ee7938cffbfb"
+        "displays/lg_sicp.py": "7b0beff464f1e6809c5197f3079e614bc2af3ed27669b46820be4cfa8a9bbf04",
+        "displays/lg_sicp_sim.py": "c648fa2adf7c1463bb1db03414ba9c85609c07cd497ffed728b9431fd483f826"
       },
       "ports": [
         9761
@@ -159,7 +159,7 @@
         "lg_sicp"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "display",
         "signage",
@@ -214,7 +214,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.1.1",
+      "version": "4.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",
@@ -222,14 +222,14 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "310ce2077b56fb0e37253f4f29ee3c4c7ff97cad40d5489606d288f1055fc102",
-        "displays/lg_webos_sim.py": "624cc9c18fb2cca2aed3dd8fae872394f5a47de6fdc7424f93cff9cb308cb2e5"
+        "displays/lg_webos.py": "727c307711327932ec540fb60ded9b1f3183e4cd6d310f0843239f4b417112b2",
+        "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [
         3001
       ],
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "tv",
         "display",
@@ -290,7 +290,7 @@
       "name": "Panasonic Professional Display",
       "manufacturer": "Panasonic",
       "category": "display",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic TH-series professional displays (SQ / EQ / CQ / VF / SF / BQ lines) over the LAN command channel. Power, input, volume, audio / video mute, aspect, and the picture adjustment surface. Speaks both of Panasonic's LAN control protocols (auto-detected) and supports the MD5 challenge authentication, so the display works whichever way its service menu is set.",
@@ -298,8 +298,8 @@
       "file": "displays/panasonic_display.py",
       "format": "python",
       "files": {
-        "displays/panasonic_display.py": "695ce915f69a09fd15df02a410b3a8c25b78a6e0ff24fea6dffecb093a491d0c",
-        "displays/panasonic_display_sim.py": "8b5c32076dcf608ac5c445a9ecb58bab2a08ce672f2190b90b72fae098d93919"
+        "displays/panasonic_display.py": "cd6d6b9b92d981f9b2e15a026a3c519d66b8c0b5eb1fd37a577756e2fe9efbc4",
+        "displays/panasonic_display_sim.py": "34a023a6571d7dd1b8faa2904c1a95b33c0ae32b4bbfea8403e992127007d184"
       },
       "ports": [
         1024
@@ -309,7 +309,7 @@
         "pdpcontrol"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "display",
         "panasonic",
@@ -365,7 +365,7 @@
       "name": "Samsung MDC Display",
       "manufacturer": "Samsung",
       "category": "display",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP. Each Set ID on the chain is a display child entity with power, volume, mute, input, and picture settings (brightness, contrast, backlight, picture mode, color tone).",
@@ -373,8 +373,8 @@
       "file": "displays/samsung_mdc.py",
       "format": "python",
       "files": {
-        "displays/samsung_mdc.py": "5666b9d313b72e4f1ade1db4806f203cfee4fe8cae96f6ed85a0018d25a64bf0",
-        "displays/samsung_mdc_sim.py": "1808fa9c8df92475c9e2e45b9bee4fc787bbe6bdd2532c5a353c27bc1f712f14"
+        "displays/samsung_mdc.py": "c4e68de448f4cbbb319cd91f46025b99cda8ed8933c5f0c03ba4a27b2bc13941",
+        "displays/samsung_mdc_sim.py": "18932a6ea3d18ca67866c8bf8c0e75ea991f93f8bc5698608a884b814184d5a7"
       },
       "ports": [
         1515
@@ -383,7 +383,7 @@
         "samsung_mdc"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "display",
         "signage",
@@ -430,7 +430,7 @@
       "name": "Sharp PN Display (AQUOS BOARD)",
       "manufacturer": "Sharp",
       "category": "display",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls pre-merger Sharp PN-series commercial displays and AQUOS BOARD interactive displays (PN-L, PN-E, PN-R and related series) using Sharp's 4-character RS-232C/LAN command protocol on TCP port 10008 or direct RS-232. Power, input select, volume, mute, brightness and picture values, audio EQ, screen size, PIP/PbyP, touch enable, control locks, temperature monitoring, and standby-mode configuration. Polls for status. Post-merger Sharp/NEC displays are covered by the Sharp NEC Display driver instead.",
@@ -438,8 +438,8 @@
       "file": "displays/sharp_pn_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_pn_display.py": "d8841ff499aaf5ecdaeb2e4681f48c343f384121ca863db46612fc6351872c4b",
-        "displays/sharp_pn_display_sim.py": "8d715e773971e9a654d2fc662f06d0dc3797f71bdf197eddde21c18ebc274190"
+        "displays/sharp_pn_display.py": "560d1288f16ab4313857cb1f8823f48e48be386f78c60d7178ce235182aff1f7",
+        "displays/sharp_pn_display_sim.py": "f4da32241081323c9041c846b260b6902d96eaa5995abc2e6309dff0201982e2"
       },
       "ports": [
         10008
@@ -448,7 +448,7 @@
         "sharp_pn_rs232c_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "display",
         "sharp",
@@ -495,7 +495,7 @@
       "name": "Sharp/NEC Display (External Control)",
       "manufacturer": "Sharp NEC",
       "category": "display",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Sharp/NEC professional large-format displays over the NEC External Control protocol on TCP 7142. Each Monitor ID on the daisy chain is a display child entity with power, input, volume, mutes, picture settings, panel temperature, and self-diagnosis status. Includes a raw opcode escape hatch for the full protocol surface.",
@@ -503,8 +503,8 @@
       "file": "displays/sharp_nec_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_nec_display.py": "54698d856c93db51202ca1270e6853fbc7f08ab41476fc4565240a44ca653ade",
-        "displays/sharp_nec_display_sim.py": "943a62aec5137be4ee0c7c4ac1d880434fb72874faf234f881b0b737683f06f8"
+        "displays/sharp_nec_display.py": "80ac3f202bfcd8f5d955c7c3d6170608117b79e2dc0dd98c5546415a47e6e19b",
+        "displays/sharp_nec_display_sim.py": "ffd2204a5c187dde4f14e04c4e37c9c4bc13b0f2789a5ecb0751e987bafe0f98"
       },
       "ports": [
         7142
@@ -513,7 +513,7 @@
         "nec_external_control"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "display",
         "signage",
@@ -569,7 +569,7 @@
       "name": "Sony Bravia Display",
       "manufacturer": "Sony",
       "category": "display",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sony Bravia TVs and professional displays via the JSON-RPC REST API and IRCC remote emulation. Power, input, volume, mute, navigation, media transport, app launch. Covers Android TV, Google TV, and Pro Bravia models.",
@@ -577,8 +577,8 @@
       "file": "displays/sony_bravia.py",
       "format": "python",
       "files": {
-        "displays/sony_bravia.py": "671d2f194b17661e069939483648c2797650abbdc407f8a86542fd5ab629fcf3",
-        "displays/sony_bravia_sim.py": "fde5d2efbdffe52c7a38d8337dffd035b399adcb0419169d677bcedb98a916db"
+        "displays/sony_bravia.py": "65940fdfe40d96c8675d19fa3b6973f646adcfff3763e79c99b17a364d2b282e",
+        "displays/sony_bravia_sim.py": "31dc0bee9cc71fcc35d3986b7daa33ecea16aed46006112a814f6afd39b08c14"
       },
       "ports": [
         80
@@ -588,7 +588,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "tv",
         "display",
@@ -635,7 +635,7 @@
       "name": "ViewSonic Commercial Display",
       "manufacturer": "ViewSonic",
       "category": "display",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, ambient sensor readings, and Wake-on-LAN wake-up for displays whose standby closes the network port. Listens for the display's own status pushes and polls for the rest.",
@@ -643,8 +643,8 @@
       "file": "displays/viewsonic_cde.py",
       "format": "python",
       "files": {
-        "displays/viewsonic_cde.py": "b712e5866c1194be652b7527888250c8ee0289730fcb729abfaca6263ff99f05",
-        "displays/viewsonic_cde_sim.py": "c525ab176a1b2e2436311f55d430ce5aa4a12230cb679d817992e1d9a4955037"
+        "displays/viewsonic_cde.py": "ba985c27467f28ec9822a9dc9458f317623cbee96d916591b8110eced5e38d8b",
+        "displays/viewsonic_cde_sim.py": "327dc5974a82d5a339b6c6bedd65a2be03e15f1c9c95cbfabd74602e6f32b880"
       },
       "ports": [
         5000
@@ -653,7 +653,7 @@
         "viewsonic_lfd_rs232_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "display",
         "viewsonic",

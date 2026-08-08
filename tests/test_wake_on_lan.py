@@ -1,6 +1,6 @@
 """Tests for the Wake-on-LAN driver.
 
-Self-contained: the driver is loaded against lightweight ``server.*``
+Self-contained: the driver is loaded against lightweight ``openavc.*``
 stubs installed in ``sys.modules`` (this repo's community CI has no
 ``openavc`` install; ``conftest.py`` brackets the stub install so it
 can't leak into other modules).
@@ -114,7 +114,7 @@ class _FakeBaseDriver:
 
 
 class _FakeUDPTransport:
-    """Stand-in for server.transport.udp.UDPTransport (the driver only
+    """Stand-in for openavc.transport.udp.UDPTransport (the driver only
     builds throwaway instances inside send_command).
 
     The method signatures deliberately mirror the real transport exactly —
@@ -147,22 +147,22 @@ class _FakeUDPTransport:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    udp = ModuleType("server.transport.udp")
+    sys.modules["openavc.drivers.base"] = base
+    udp = ModuleType("openavc.transport.udp")
     udp.UDPTransport = _FakeUDPTransport
-    sys.modules["server.transport.udp"] = udp
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.transport.udp"] = udp
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

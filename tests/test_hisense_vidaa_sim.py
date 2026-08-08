@@ -1,8 +1,8 @@
 """Tests for the hisense_vidaa simulator + driver duality.
 
 Loads ``displays/hisense_vidaa_sim.py`` (stubbing the platform
-``simulator.mqtt_simulator`` broker base with a fake that just records
-publishes) and ``displays/hisense_vidaa.py`` (stubbing ``server.*``), then:
+``openavc.simulator.mqtt_simulator`` broker base with a fake that just records
+publishes) and ``displays/hisense_vidaa.py`` (stubbing ``openavc.*``), then:
 
   1. drives the simulator's command hooks and checks it answers on the topics a
      real VIDAA TV uses, and
@@ -34,12 +34,12 @@ CID = "AA:BB:CC:DD:EE:FF$his$256DBF_vidaacommon_001"
 # ── Stub the platform MQTTSimulator broker base ──
 
 def _install_simulator_stub() -> None:
-    if "simulator.mqtt_simulator" in sys.modules:
+    if "openavc.simulator.mqtt_simulator" in sys.modules:
         return
-    pkg = ModuleType("simulator")
+    pkg = ModuleType("openavc.simulator")
     pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("simulator", pkg)
-    mod = ModuleType("simulator.mqtt_simulator")
+    sys.modules.setdefault("openavc.simulator", pkg)
+    mod = ModuleType("openavc.simulator.mqtt_simulator")
 
     class _MQTTSimulator:
         """Fake broker base: records publishes, no sockets."""
@@ -68,21 +68,21 @@ def _install_simulator_stub() -> None:
             self.broadcasts.append((topic, payload))
 
     mod.MQTTSimulator = _MQTTSimulator
-    sys.modules["simulator.mqtt_simulator"] = mod
+    sys.modules["openavc.simulator.mqtt_simulator"] = mod
 
 
-# ── Stub server.* so the driver imports without an openavc install ──
+# ── Stub openavc.* so the driver imports without an openavc install ──
 
 def _install_server_stubs() -> None:
-    if "server.drivers.base" in sys.modules:
+    if "openavc.drivers.base" in sys.modules:
         return
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server", server)
-    drivers = ModuleType("server.drivers")
+    sys.modules.setdefault("openavc", server)
+    drivers = ModuleType("openavc.drivers")
     drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+    sys.modules.setdefault("openavc.drivers", drivers)
+    base = ModuleType("openavc.drivers.base")
 
     class _BaseDriver:
         DRIVER_INFO: dict = {}
@@ -103,18 +103,18 @@ def _install_server_stubs() -> None:
             return self._state.get(key)
 
     base.BaseDriver = _BaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    sysconfig = ModuleType("server.system_config")
+    sysconfig = ModuleType("openavc.system_config")
     sysconfig.get_system_config = lambda: type("C", (), {"data_dir": "/tmp"})()
-    sys.modules["server.system_config"] = sysconfig
-    utils = ModuleType("server.utils")
+    sys.modules["openavc.system_config"] = sysconfig
+    utils = ModuleType("openavc.utils")
     utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.utils", utils)
-    logger = ModuleType("server.utils.logger")
+    sys.modules.setdefault("openavc.utils", utils)
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda *_a, **_k: type(
         "L", (), {"__getattr__": lambda s, n: (lambda *a, **k: None)})()
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 def _load(path, name):

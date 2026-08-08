@@ -77,9 +77,9 @@ import asyncio
 import json
 from typing import Any
 
-from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.transport.frame_parsers import FrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
+from openavc.transport.frame_parsers import FrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -253,9 +253,9 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Barco Pulse-platform laser projectors (F70 / F80 "
@@ -1334,7 +1334,7 @@ class BarcoPulseDriver(BaseDriver):
                 "Wake-on-LAN for ECO wake-up"
             )
             return
-        from server.transport.udp import UDPTransport
+        from openavc.transport.udp import UDPTransport
 
         udp = UDPTransport(name=self.device_id)
         try:

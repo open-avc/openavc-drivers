@@ -18,7 +18,7 @@ Covers the v1.5.0 first-class adoption:
   - the byte-exact request framing and streaming response parser (kept from the
     original suite).
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*`` imports
+Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
 back after this module is collected).
 """
@@ -199,7 +199,7 @@ class _FakeSimState:
 
 
 class _FakeTCPSimulator:
-    """Stand-in for simulator.tcp_simulator.TCPSimulator."""
+    """Stand-in for openavc.simulator.tcp_simulator.TCPSimulator."""
 
     SIMULATOR_INFO: dict = {}
 
@@ -252,37 +252,37 @@ class _FakeTCPTransport:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    binary_helpers = ModuleType("server.transport.binary_helpers")
+    binary_helpers = ModuleType("openavc.transport.binary_helpers")
     binary_helpers.checksum_sum = lambda data, mask=0xFF: sum(data) & mask
-    sys.modules["server.transport.binary_helpers"] = binary_helpers
+    sys.modules["openavc.transport.binary_helpers"] = binary_helpers
 
-    frame_parsers = ModuleType("server.transport.frame_parsers")
+    frame_parsers = ModuleType("openavc.transport.frame_parsers")
 
     frame_parsers.CallableFrameParser = CallableFrameParser
     frame_parsers.FrameParser = FrameParser
-    sys.modules["server.transport.frame_parsers"] = frame_parsers
+    sys.modules["openavc.transport.frame_parsers"] = frame_parsers
 
-    logger = ModuleType("server.utils.logger")
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
+    sys.modules["openavc.simulator"] = sim_pkg
+    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
     sim_tcp.TCPSimulator = _FakeTCPSimulator
-    sys.modules["simulator.tcp_simulator"] = sim_tcp
+    sys.modules["openavc.simulator.tcp_simulator"] = sim_tcp
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

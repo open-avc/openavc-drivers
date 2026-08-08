@@ -27,9 +27,9 @@ from typing import Any
 
 import websockets
 
-from server.drivers.base import BaseDriver, ConnectionFaultError
-from server.system_config import get_system_config
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
+from openavc.system_config import get_system_config
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -125,7 +125,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.1.1",
+        "version": "4.1.2",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -137,7 +137,7 @@ class LgWebosDriver(BaseDriver):
         # driver overrides connect() and never uses a platform transport.
         "transport": "tcp",
         "ports": [3001],
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
 
         "default_config": {
             "host": "",

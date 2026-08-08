@@ -13,7 +13,7 @@ One fixture per driver, named by driver id:
 `tests/test_discovery_probe_fixtures.py` reads each driver's probe block from
 `index.json` and, **for every driver that has a fixture here**, replays it
 through a small stdlib matcher (mirroring openavc's
-`server/discovery/probe_runner`) to confirm the declaration matches the capture
+`openavc/discovery/probe_runner`) to confirm the declaration matches the capture
 and each extract rule pulls a value.
 
 A driver may declare a probe without shipping a fixture (e.g. no hardware to

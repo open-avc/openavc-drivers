@@ -22,9 +22,9 @@ several fakes deliberately override ``_start_health_loop`` to raise, as a
 tripwire for a driver growing a liveness probe the fake doesn't model; that
 override is intentional and must stay.
 
-**This module must never import ``server`` or ``simulator``, and must never
+**This module must never import ``openavc``, and must never
 install stubs at import time.** ``conftest.py`` brackets ``sys.modules`` per
-test module, but only for the ``server`` / ``simulator`` / ``websockets``
+test module, but only for the ``openavc`` / ``websockets``
 roots — this helper is cached like any other module, so a top-level stub
 install here would fire once, get rolled back after the first importer, and
 starve every module after it. Stubs stay in each test module, installed by a

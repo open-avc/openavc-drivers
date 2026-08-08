@@ -19,7 +19,7 @@ detection (the `control_enabled` state variable).
 
 import json
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 # Channel ID -> display name for launch / active-app / apps responses.
 _APPS = {

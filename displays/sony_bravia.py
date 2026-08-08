@@ -30,9 +30,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.transport.http_client import HTTPClientTransport
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.http_client import HTTPClientTransport
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -169,9 +169,9 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.1",
+        "version": "1.5.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sony Bravia TVs and professional displays via the "

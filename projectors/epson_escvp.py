@@ -54,9 +54,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.transport.frame_parsers import CallableFrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.frame_parsers import CallableFrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -173,9 +173,9 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.4.1",
+        "version": "1.4.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Epson business and installation projectors over "

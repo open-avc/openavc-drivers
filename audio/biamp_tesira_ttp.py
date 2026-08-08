@@ -80,9 +80,9 @@ import asyncio
 import re
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.transport.frame_parsers import DelimiterFrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.frame_parsers import DelimiterFrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -866,10 +866,10 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.1.1",
+        "version": "3.1.2",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Biamp Tesira and TesiraFORTÉ DSPs over the Tesira "

@@ -32,10 +32,10 @@ def _load_module(name: str, path: Path):
 
 
 try:
-    from server.discovery.hints import build_signal_index, parse_driver_discovery
-    from server.discovery.result import DeviceState
-    from server.discovery.ssdp_scanner import SSDPResult, _parse_upnp_xml
-    from server.discovery.tier_matcher import (
+    from openavc.discovery.hints import build_signal_index, parse_driver_discovery
+    from openavc.discovery.result import DeviceState
+    from openavc.discovery.ssdp_scanner import SSDPResult, _parse_upnp_xml
+    from openavc.discovery.tier_matcher import (
         TierMatcher,
         evidence_oui,
         extract_vendor_strings,
@@ -81,8 +81,8 @@ def test_legacy_ui_probe_identifies_outright():
     # The 49151 management UI returns "<TITLE>NETGEAR M4250-...</TITLE>"; the
     # tcp_probe matches that and identifies the switch outright (strong signal),
     # rather than the soft OUI "possible". Byte-exact title from a live GET /.
-    from server.discovery.probe_runner import _matches
-    from server.discovery.tier_matcher import evidence_active_probe
+    from openavc.discovery.probe_runner import _matches
+    from openavc.discovery.tier_matcher import evidence_active_probe
 
     hint = parse_driver_discovery(INFO)
     assert hint.tcp_probe is not None

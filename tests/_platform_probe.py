@@ -66,7 +66,7 @@ def candidate_roots() -> list[Path]:
 def platform_root() -> Path | None:
     """The first candidate that actually holds a platform, or None."""
     for root in candidate_roots():
-        if (root / "server" / "drivers" / "base.py").exists():
+        if (root / "openavc" / "drivers" / "base.py").exists():
             return root
     return None
 
@@ -76,9 +76,9 @@ def platform_on_path():
     """Put a located platform checkout on ``sys.path`` for this block.
 
     Yields the root it found, or None. ``sys.path`` is always restored, and
-    any partially-stubbed ``server`` / ``simulator`` entries another module
-    leaked into ``sys.modules`` are dropped first, so the import below can
-    never resolve against a stand-in.
+    any partially-stubbed ``openavc`` entries another module leaked into
+    ``sys.modules`` are dropped first, so the import below can never resolve
+    against a stand-in. One root covers the simulator too now.
     """
     path_before = list(sys.path)
     root = platform_root()
@@ -88,7 +88,7 @@ def platform_on_path():
     leaked = [
         name
         for name in sys.modules
-        if name.split(".", 1)[0] in ("server", "simulator")
+        if name.split(".", 1)[0] == "openavc"
         and getattr(sys.modules[name], "__file__", None) is None
     ]
     for name in leaked:

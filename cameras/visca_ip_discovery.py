@@ -28,7 +28,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
-from server.discovery.companion import ProbeContext
+from openavc.discovery.companion import ProbeContext
 
 
 VISCA_PORT = 10500

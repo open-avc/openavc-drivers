@@ -37,10 +37,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Optional
 
-from server.drivers.base import BaseDriver
-from server.transport.binary_helpers import checksum_sum
-from server.transport.frame_parsers import CallableFrameParser, FrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.binary_helpers import checksum_sum
+from openavc.transport.frame_parsers import CallableFrameParser, FrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -241,10 +241,10 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.5.2",
+        "version": "2.5.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "description": (
             "Controls Sharp NEC projectors via the NEC binary control "
             "protocol over TCP. Compatible with P, PA, PE, PV, PX, ME, "

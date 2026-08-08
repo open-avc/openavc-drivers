@@ -22,7 +22,7 @@ Covers the protocol essentials:
   - teardown (graceful disconnect and transport drop) aborts the
     in-flight request, and a reconnect starts with a clean slate.
 
-Loads the driver + simulator with the ``server.*`` / ``simulator.*``
+Loads the driver + simulator with the ``openavc.*``
 imports stubbed so the community CI stays self-contained (conftest.py
 rolls the stubs back after this module is collected).
 """
@@ -291,16 +291,16 @@ class _FakeTCPSimulator:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
     def _xor(data: bytes) -> int:
         result = 0
@@ -308,22 +308,22 @@ def _load(name: str, path: Path) -> ModuleType:
             result ^= b
         return result
 
-    binary_helpers = ModuleType("server.transport.binary_helpers")
+    binary_helpers = ModuleType("openavc.transport.binary_helpers")
     binary_helpers.checksum_xor = _xor
-    sys.modules["server.transport.binary_helpers"] = binary_helpers
-    parsers = ModuleType("server.transport.frame_parsers")
+    sys.modules["openavc.transport.binary_helpers"] = binary_helpers
+    parsers = ModuleType("openavc.transport.frame_parsers")
     parsers.CallableFrameParser = _StubCallableFrameParser
-    sys.modules["server.transport.frame_parsers"] = parsers
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.transport.frame_parsers"] = parsers
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
-    sim_pkg = ModuleType("simulator")
+    sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["simulator"] = sim_pkg
-    sim_tcp = ModuleType("simulator.tcp_simulator")
+    sys.modules["openavc.simulator"] = sim_pkg
+    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
     sim_tcp.TCPSimulator = _FakeTCPSimulator
-    sys.modules["simulator.tcp_simulator"] = sim_tcp
+    sys.modules["openavc.simulator.tcp_simulator"] = sim_tcp
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

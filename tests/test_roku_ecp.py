@@ -1,6 +1,6 @@
 """Unit tests for the roku_ecp driver.
 
-Loads ``streaming/roku_ecp.py`` directly, stubbing the ``server.*`` imports it
+Loads ``streaming/roku_ecp.py`` directly, stubbing the ``openavc.*`` imports it
 needs (BaseDriver, get_logger) so the community repo's test suite stays
 self-contained — the CI has no ``openavc`` install (conftest.py rolls the
 stubs back after collection). httpx is a real dependency.
@@ -229,7 +229,7 @@ class _FakeBaseDriver(LifecycleFake):
 # ── Faithful HTTPClientTransport stub (real httpx via MockTransport) ─────────
 
 class _FakeHTTPClientTransport:
-    """Mirrors server.transport.http_client.HTTPClientTransport closely enough
+    """Mirrors openavc.transport.http_client.HTTPClientTransport closely enough
     for the driver: get/post/request return an object with ok/status_code/
     text/json_data, verify() HEADs "/" and reports False on any exception,
     and a ConnectError surfaces as a ConnectionError (as the real transport
@@ -406,25 +406,25 @@ class _RokuDevice:
         return httpx.Response(404)
 
 
-# ── Driver loader (server.* stubbed) ────────────────────────────────────────
+# ── Driver loader (openavc.* stubbed) ────────────────────────────────────────
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "transport", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    http_client = ModuleType("server.transport.http_client")
+    sys.modules["openavc.drivers.base"] = base
+    http_client = ModuleType("openavc.transport.http_client")
     http_client.HTTPClientTransport = _FakeHTTPClientTransport
-    sys.modules["server.transport.http_client"] = http_client
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.transport.http_client"] = http_client
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

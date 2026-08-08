@@ -1,6 +1,6 @@
 """Unit tests for the allenheath_qu driver.
 
-Loads ``audio/allenheath_qu.py`` directly, stubbing the ``server.*`` imports it
+Loads ``audio/allenheath_qu.py`` directly, stubbing the ``openavc.*`` imports it
 needs (BaseDriver, ConnectionFaultError, TCPTransport, get_logger) so the
 community repo's test suite stays self-contained — mirrors test_qsc_qrc.py.
 
@@ -23,18 +23,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "audio" / "allenheath_qu.py"
 
 
-# ── Stub server.* with an in-memory BaseDriver ──
+# ── Stub openavc.* with an in-memory BaseDriver ──
 
 def _install_server_stubs() -> None:
-    if "server.drivers.base" in sys.modules:
+    if "openavc.drivers.base" in sys.modules:
         return
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server", server)
-    drivers = ModuleType("server.drivers")
+    sys.modules.setdefault("openavc", server)
+    drivers = ModuleType("openavc.drivers")
     drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+    sys.modules.setdefault("openavc.drivers", drivers)
+    base = ModuleType("openavc.drivers.base")
 
     class _BaseDriver:
         DRIVER_INFO: dict = {}
@@ -137,25 +137,25 @@ def _install_server_stubs() -> None:
 
     base.BaseDriver = _BaseDriver
     base.ConnectionFaultError = _ConnectionFaultError
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    transport = ModuleType("server.transport")
+    transport = ModuleType("openavc.transport")
     transport.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.transport", transport)
-    tcp = ModuleType("server.transport.tcp")
+    sys.modules.setdefault("openavc.transport", transport)
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = type("TCPTransport", (), {})
-    sys.modules["server.transport.tcp"] = tcp
+    sys.modules["openavc.transport.tcp"] = tcp
 
-    utils = ModuleType("server.utils")
+    utils = ModuleType("openavc.utils")
     utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.utils", utils)
-    logger = ModuleType("server.utils.logger")
+    sys.modules.setdefault("openavc.utils", utils)
+    logger = ModuleType("openavc.utils.logger")
 
     class _Log:
         def __getattr__(self, _):
             return lambda *a, **k: None
     logger.get_logger = lambda *_a, **_k: _Log()
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 def _load_driver():

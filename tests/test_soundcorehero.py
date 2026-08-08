@@ -16,7 +16,7 @@ is the protocol logic that has to be right regardless of the sockets:
   - the connection lifecycle hooks the platform runs (login, WS snapshot gate,
     teardown) with httpx + websockets mocked.
 
-Loads the driver with the ``server.*`` / ``websockets`` imports stubbed so the
+Loads the driver with the ``openavc.*`` / ``websockets`` imports stubbed so the
 community CI stays self-contained (conftest.py rolls the stubs back after this
 module is collected). httpx is a real dependency.
 """
@@ -197,19 +197,19 @@ class _FakeBaseDriver:
 
 
 def _install_stubs() -> None:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.drivers.base"] = base
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
     # websockets is not a community-CI dependency; the protocol tests never open
     # a socket and the lifecycle test swaps in a fake connect().
     ws_stub = ModuleType("websockets")

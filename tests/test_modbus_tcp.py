@@ -17,7 +17,7 @@ Covers:
     transactions and dropping any half-received frame;
   - the connect-failure message wording.
 
-Loads the driver with the ``server.*`` imports stubbed so the community
+Loads the driver with the ``openavc.*`` imports stubbed so the community
 CI stays self-contained (conftest.py rolls the stubs back after this
 module is collected).
 """
@@ -264,19 +264,19 @@ class _FakeTCPTransport:
 
 
 def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["server"] = server
+    sys.modules["openavc"] = server
     for sub in ("drivers", "utils"):
-        m = ModuleType(f"server.{sub}")
+        m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"server.{sub}"] = m
-    base = ModuleType("server.drivers.base")
+        sys.modules[f"openavc.{sub}"] = m
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
-    sys.modules["server.drivers.base"] = base
-    logger = ModuleType("server.utils.logger")
+    sys.modules["openavc.drivers.base"] = base
+    logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)

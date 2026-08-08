@@ -36,9 +36,9 @@ import time
 import uuid as uuid_mod
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.system_config import get_system_config
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.system_config import get_system_config
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -121,9 +121,9 @@ class HisenseVidaaDriver(BaseDriver):
         "name": "Hisense VIDAA TV",
         "manufacturer": "Hisense",
         "category": "display",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Hisense VIDAA OS TVs over the TV's embedded MQTT broker "
@@ -343,7 +343,7 @@ class HisenseVidaaDriver(BaseDriver):
         # Wholesale override of the platform ladder: the TV's broker accepts
         # one of several credential schemes and we must retry transport
         # creation per candidate, which per-kwarg adjustment can't express.
-        from server.transport.mqtt import MQTTTransport
+        from openavc.transport.mqtt import MQTTTransport
 
         host = str(self.config.get("host", "")).strip()
         port = int(self.config.get("port", DEFAULT_PORT) or DEFAULT_PORT)

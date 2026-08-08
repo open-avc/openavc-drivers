@@ -21,7 +21,7 @@ import json
 import re
 from typing import Any
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 # mac -> (name, kind, model, firmware, channel)
 ENDPOINTS: dict[str, tuple[str, str, str, str, str]] = {

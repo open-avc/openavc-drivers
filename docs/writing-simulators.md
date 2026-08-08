@@ -11,7 +11,7 @@ Simulation support is optional but strongly recommended. It enables:
 
 ## How Simulation Works
 
-The [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main OpenAVC repo at `simulator/`) is a standalone application that runs alongside OpenAVC. It discovers your driver files, starts fake protocol servers (TCP, HTTP, or OSC), and responds to commands using the rules you define. OpenAVC drivers connect to these servers instead of real hardware. From the driver's perspective, it's talking to a real device.
+The [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main OpenAVC repo at `openavc/simulator/`) is a standalone application that runs alongside OpenAVC. It discovers your driver files, starts fake protocol servers (TCP, HTTP, or OSC), and responds to commands using the rules you define. OpenAVC drivers connect to these servers instead of real hardware. From the driver's perspective, it's talking to a real device.
 
 ```
 OpenAVC                          Simulator
@@ -497,7 +497,7 @@ For Python drivers with binary or complex protocols, write a companion simulator
 
 ```bash
 cd openavc
-python -m simulator.scaffold ../openavc-drivers/displays/samsung_mdc.py
+python -m openavc.simulator.scaffold ../openavc-drivers/displays/samsung_mdc.py
 # Creates: ../openavc-drivers/displays/samsung_mdc_sim.py
 ```
 
@@ -574,7 +574,7 @@ whether you need a buffer:
 **For TCP drivers**, implement `handle_command(data: bytes) -> bytes | None`:
 
 ```python
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 
 class SamsungMdcSimulator(TCPSimulator):
@@ -639,7 +639,7 @@ class SamsungMdcSimulator(TCPSimulator):
 
 ```python
 import json
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 
 class SonyBraviaSimulator(HTTPSimulator):
@@ -1028,16 +1028,16 @@ Before testing manually, run the validator to catch common mistakes automaticall
 ```bash
 # Validate a single driver
 cd openavc
-python -m simulator.validate ../openavc-drivers/audio/biamp_tesira_ttp.avcdriver
+python -m openavc.simulator.validate ../openavc-drivers/audio/biamp_tesira_ttp.avcdriver
 
 # Validate a Python driver (checks the _sim.py companion file)
-python -m simulator.validate ../openavc-drivers/displays/samsung_mdc.py
+python -m openavc.simulator.validate ../openavc-drivers/displays/samsung_mdc.py
 
 # Validate all drivers in a directory
-python -m simulator.validate ../openavc-drivers/
+python -m openavc.simulator.validate ../openavc-drivers/
 
 # Quick summary (pass/fail only)
-python -m simulator.validate ../openavc-drivers/ --summary
+python -m openavc.simulator.validate ../openavc-drivers/ --summary
 ```
 
 ### What It Checks
@@ -1117,7 +1117,7 @@ FAIL: biamp_tesira_ttp [yaml] (../openavc-drivers/audio/biamp_tesira_ttp.avcdriv
 
 ## Best Practices
 
-1. **Run the validator first.** Before starting the simulator, run `python -m simulator.validate` on your driver. It catches the most common mistakes in seconds.
+1. **Run the validator first.** Before starting the simulator, run `python -m openavc.simulator.validate` on your driver. It catches the most common mistakes in seconds.
 
 2. **Match real device behavior.** Study the device's protocol manual. If the device takes 3 seconds to warm up, your simulator should too. If the device rejects input changes when powered off, your simulator should too.
 

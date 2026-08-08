@@ -30,8 +30,8 @@ import asyncio
 import re
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -179,7 +179,7 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
         "name": "Global Cache iTach IP2SL Serial Bridge",
         "manufacturer": "Global Cache",
         "category": "utility",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "transport": "tcp",
         "description": (
@@ -193,7 +193,7 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
         "protocols": ["global-cache-unified-tcp"],
         "simulated": False,
         "verified": True,
-        "min_platform_version": "0.19.0",
+        "min_platform_version": "0.25.0",
         # Search-friendly: integrators look for what they need ("RS232",
         # "serial", "bridge"), not the box name.
         "tags": [

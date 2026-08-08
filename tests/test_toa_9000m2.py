@@ -1,7 +1,7 @@
 """Byte-exact unit tests for the toa_9000m2 driver + simulator.
 
 Loads ``audio/toa_9000m2.py`` and ``audio/toa_9000m2_sim.py`` directly, stubbing
-the ``server.*`` / ``simulator.*`` imports they need so the community repo's test
+the ``openavc.*`` imports they need so the community repo's test
 suite stays self-contained (stdlib only).
 
 Every command's on-the-wire bytes and every parsed response are checked against
@@ -28,7 +28,7 @@ SIM_PATH = REPO_ROOT / "audio" / "toa_9000m2_sim.py"
 # ── Platform stubs ──────────────────────────────────────────────────────────
 
 def _install_stubs() -> None:
-    if "server.drivers.base" not in sys.modules:
+    if "openavc.drivers.base" not in sys.modules:
         install_stubs()
 
 

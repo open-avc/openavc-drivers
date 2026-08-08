@@ -12,7 +12,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -20,8 +20,8 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "3ad98a51888d736bacf54aa232fbb2c1f9690761c8adc42956e16369f41e7f10",
-        "cameras/aver_ptz_sim.py": "7705f5ea96255637991fa207c2839bfde3b309de0df04604c96d6d1c85571803"
+        "cameras/aver_ptz.py": "e62a00afd5c64072a380dde165fdccdc551c0152926f90107220787702da4102",
+        "cameras/aver_ptz_sim.py": "3e978c9424061f2eb353da408fa6a46d9cc8da49fa2ccfe854dffe782d7dbd37"
       },
       "ports": [
         80,
@@ -32,7 +32,7 @@
         "aver-cgi"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "ptz",
         "camera",
@@ -71,7 +71,7 @@
       "name": "BirdDog PTZ Camera",
       "manufacturer": "BirdDog",
       "category": "camera",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls BirdDog PTZ cameras via REST API and VISCA. Pan, tilt, zoom, focus, presets, exposure, white balance, tally, and NDI encode settings.",
@@ -79,8 +79,8 @@
       "file": "cameras/birddog_ptz.py",
       "format": "python",
       "files": {
-        "cameras/birddog_ptz.py": "9d3b9f161d2df03ec780191a093e79ccf32c50956122a5cd74dac5c4c067bad8",
-        "cameras/birddog_ptz_sim.py": "e189714584f736bcc4aca22ba74897fff9caab276725a2c8ea0486f237fe2dfb"
+        "cameras/birddog_ptz.py": "d1feaa66c33cc15364d9f3f9d8d5de594e78684ec226a236f1f2b4c8e6e2749f",
+        "cameras/birddog_ptz_sim.py": "b88871dc244e45dde2d654f33b0e9a6cab0655389858177ecf003a78edddb05f"
       },
       "ports": [
         8080,
@@ -90,7 +90,7 @@
         "visca"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "ptz",
         "ndi",
@@ -141,7 +141,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -149,9 +149,9 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "15ecd26af3422605cc91700d9aff279c456c428e2fb8eefe2ebd7418682e2cd9",
-        "cameras/visca_ip_discovery.py": "a57320d4e6b4dcae81cc416fd342b96b6552605530b4cbce70aa607130302274",
-        "cameras/visca_ip_sim.py": "36a04dcdf1ebde2af3d34b963259d48351aa497612f24bf5fbba1b2c5ffa951b"
+        "cameras/visca_ip.py": "72a700a3273370929f9062c0524c3dccbfe8fa9bce54aaf7d512db989f0f2c47",
+        "cameras/visca_ip_discovery.py": "e303ef39607c842dfc2de68747e4a8c8b98695257db2ccf07434798126558ede",
+        "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
       },
       "ports": [
         52381
@@ -160,6 +160,7 @@
         "visca-ip"
       ],
       "simulated": true,
+      "min_platform_version": "0.25.0",
       "tags": [
         "visca",
         "visca-ip",
@@ -244,7 +245,7 @@
       "format": "avcdriver",
       "files": {
         "cameras/onvif_camera.avcdriver": "f544de932524685a8d381851b3f8c7c5f28c5dc666d43a6fb0cc85c18cbd8892",
-        "cameras/onvif_camera_discovery.py": "38ce006e7ebee4ff1e10af6d0abc880e5e77a3458137f35651750a8385b08bde"
+        "cameras/onvif_camera_discovery.py": "da18440c979f5507289b4ab02e5234206aafa49aff7fb4ef4301635ea594c162"
       },
       "protocols": [
         "onvif"
@@ -367,7 +368,7 @@
       "name": "PTZOptics Camera",
       "manufacturer": "PTZOptics",
       "category": "camera",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls PTZOptics PTZ cameras over the VISCA-over-IP protocol on TCP port 5678. Pan, tilt, zoom, focus, preset recall / save / reset, tally light, image flip, auto-exposure mode, white balance mode, and backlight. Polled state covers pan / tilt / zoom / focus position, focus mode, AE mode, WB mode, backlight, and flip settings.",
@@ -375,8 +376,8 @@
       "file": "cameras/ptzoptics.py",
       "format": "python",
       "files": {
-        "cameras/ptzoptics.py": "10c7bdc4482c46db03eb059e9c3ff269832fcf9570ba57429966882b6524431a",
-        "cameras/ptzoptics_sim.py": "2d713a89bd29dd8f0b03b9e22eca0afd145aa85a251ca5279e456c599d685e52"
+        "cameras/ptzoptics.py": "14eb4cd1346d21fb77c8538063d8bf8d31463b5cf58557802d98bccd3932bcb4",
+        "cameras/ptzoptics_sim.py": "0eba8e3249fc131689b6d9a5ecec39ee37331047b904b3a1dd69921dac1da7d7"
       },
       "ports": [
         5678
@@ -385,7 +386,7 @@
         "visca"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "ptz",
         "camera",
@@ -440,7 +441,7 @@
       "name": "Sony VISCA-IP PTZ Camera",
       "manufacturer": "Sony",
       "category": "camera",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port 52381). Adds Sony picture profiles, R/B gain, color matrix, defog, visibility enhancer, low-light, chroma suppress, PRESET MODE + PTZ TRACE (BRC-X400/X401), tally, IR correction, ICR, AF mode, AE speed, min/max shutter, high sensitivity, and OSD on/off \u2014 on top of the standard PTZ + AE/WB command set.",
@@ -448,8 +449,8 @@
       "file": "cameras/sony_visca.py",
       "format": "python",
       "files": {
-        "cameras/sony_visca.py": "dc5e54571f0b343af701250ed18b28556768e8137e506084ee6110be137bf568",
-        "cameras/sony_visca_sim.py": "6210dbacb5d54db7b304747ca2419a239811afbed80b902fa32bd62a1037f289"
+        "cameras/sony_visca.py": "73a99e56467e786898a6c5f9c045f5a827693b4c111a73d41e7cda96c4faedb1",
+        "cameras/sony_visca_sim.py": "a7f7224b3127909f777db7874b69bccf97f58f2c75bfbffe71ed1a71def02c30"
       },
       "ports": [
         52381
@@ -458,6 +459,7 @@
         "visca-ip"
       ],
       "simulated": true,
+      "min_platform_version": "0.25.0",
       "tags": [
         "visca",
         "visca-ip",

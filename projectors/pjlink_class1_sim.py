@@ -17,7 +17,7 @@ import asyncio
 import hashlib
 import secrets
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 
 class PjlinkClass1Simulator(TCPSimulator):

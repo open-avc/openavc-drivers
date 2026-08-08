@@ -46,9 +46,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.transport.http_client import HTTPClientTransport
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.http_client import HTTPClientTransport
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -86,9 +86,9 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.3.1",
+        "version": "1.3.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls Poly (HP) Studio X30, X50, X70, E70, and "

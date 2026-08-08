@@ -61,8 +61,8 @@ import asyncio
 import struct
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -242,7 +242,8 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.3.1",
+        "version": "1.3.2",
+        "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port "

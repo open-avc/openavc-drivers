@@ -9,7 +9,7 @@ actually hits the capture and each extract rule pulls a value.
 
 Self-contained: it reads the declarations from the built ``index.json`` and
 mirrors the matcher/extract semantics of openavc's
-``server/discovery/probe_runner`` in a few lines of stdlib, so it runs in this
+``openavc/discovery/probe_runner`` in a few lines of stdlib, so it runs in this
 repo's isolated CI (no ``openavc`` install). The probe *engine* itself is tested
 generically, with synthetic devices, in the openavc platform repo — this file
 validates the *drivers*.
@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 INDEX = REPO_ROOT / "index.json"
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "discovery"
 
-# Mirrors server/discovery/hints.RESERVED_EXTRACT_KEYS — values that feed the
+# Mirrors openavc/discovery/hints.RESERVED_EXTRACT_KEYS — values that feed the
 # manufacturer-alias narrowing path.
 RESERVED_EXTRACT_KEYS = {"manufacturer", "make"}
 

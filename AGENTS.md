@@ -82,7 +82,7 @@ A Python driver is a class that subclasses the platform's `BaseDriver`, carries 
 - **[`pythondriver.schema.json`](pythondriver.schema.json)** (this repository's root) — the machine-readable contract for the `DRIVER_INFO` dict. Same generator and same vendoring as the YAML schema; it additionally allows the Python-only `ssh` and `mqtt` transports and `kind: "setup"` actions.
 - **[Creating Drivers](https://docs.openavc.com/creating-drivers/)**, section "Method 3: Python Driver" onward — `BaseDriver` hooks, the `poll()` contract, lifecycle hooks (`_post_connect` and friends, rather than overriding `connect()`), driver-owned HTTP sessions, controller drivers and the child-entity helpers, frame parsers, binary helpers, the device log, declaring every state variable you write, and the full `DRIVER_INFO` reference.
 
-A `DRIVER_INFO` dict gets none of the live editor feedback a `.avcdriver` gets from its schema line, so a misspelled key there is invisible until the block it belongs to silently does nothing at runtime. Check it explicitly with `python -m server.drivers.check path/to/my_driver.py` from an OpenAVC checkout — see section 8.
+A `DRIVER_INFO` dict gets none of the live editor feedback a `.avcdriver` gets from its schema line, so a misspelled key there is invisible until the block it belongs to silently does nothing at runtime. Check it explicitly with `python -m openavc.drivers.check path/to/my_driver.py` from an OpenAVC checkout — see section 8.
 
 Every Python driver ships a test (section 8.1) and a companion simulator (section 5). Section 9.2 is a complete worked example of a binary protocol.
 
@@ -133,10 +133,10 @@ Drivers can include simulation support so users can test without real hardware. 
 Scaffold a Python driver's simulator from its `DRIVER_INFO`:
 
 ```bash
-python -m simulator.scaffold path/to/my_driver.py
+python -m openavc.simulator.scaffold path/to/my_driver.py
 ```
 
-Check that a driver and its simulator still agree with `python -m simulator.validate` (section 8). Section 10 lists the simulator dispatch behaviors that are not obvious from the schema and have each caused a silent bug.
+Check that a driver and its simulator still agree with `python -m openavc.simulator.validate` (section 8). Section 10 lists the simulator dispatch behaviors that are not obvious from the schema and have each caused a silent bug.
 
 ---
 
@@ -309,9 +309,9 @@ job that will never be contributed — use the platform's checker from an OpenAV
 checkout:
 
 ```bash
-python -m server.drivers.check path/to/my_driver.py
-python -m server.drivers.check path/to/my_driver.avcdriver
-python -m server.drivers.check path/to/a/folder/
+python -m openavc.drivers.check path/to/my_driver.py
+python -m openavc.drivers.check path/to/my_driver.avcdriver
+python -m openavc.drivers.check path/to/a/folder/
 ```
 
 It defines no rules of its own: the verdicts come from the same functions
@@ -327,7 +327,7 @@ my_driver.py: error: commands.power_on: unknown key 'labl' (did you mean 'label'
 Reach for it first on a **Python** driver. A `.avcdriver` gets live editor
 feedback from its `# yaml-language-server:` schema line; a `DRIVER_INFO` dict
 has no equivalent, so a misspelled key there is invisible until the section it
-belongs to silently does nothing at runtime. `python -m simulator.validate`
+belongs to silently does nothing at runtime. `python -m openavc.simulator.validate`
 runs the same check before its own parity checks.
 
 It also checks that a driver's declarations agree with each other. Anything in
@@ -385,7 +385,7 @@ unit-test — the platform that interprets it is tested in the OpenAVC repo — 
 it normally needs none.
 
 **CI installs `requirements-dev.txt` and nothing else, so there is no `openavc`
-package in this repo.** A driver's `from server.drivers.base import BaseDriver`
+package in this repo.** A driver's `from openavc.drivers.base import BaseDriver`
 has nothing to resolve against, and every test here puts stand-ins into
 `sys.modules` before loading the driver.
 
@@ -429,7 +429,7 @@ re-installed per test:
 
 ```python
 install_stubs(
-    {"server.transport.ir_codec": {"IRCode": _FakeIRCode}},
+    {"openavc.transport.ir_codec": {"IRCode": _FakeIRCode}},
     base_driver=_FakeBaseDriver,
 )
 ```
@@ -793,11 +793,11 @@ Protocol: 3-byte header + payload + XOR checksum
   [0xAA] [CMD] [LEN] [DATA...] [XOR]
 
 Source reference for BaseDriver API:
-  https://github.com/open-avc/openavc/blob/main/server/drivers/base.py
+  https://github.com/open-avc/openavc/blob/main/openavc/drivers/base.py
 """
 
-from server.drivers.base import BaseDriver
-from server.transport.frame_parsers import CallableFrameParser
+from openavc.drivers.base import BaseDriver
+from openavc.transport.frame_parsers import CallableFrameParser
 
 
 def _parse_frame(buf: bytes) -> tuple[bytes | None, bytes]:

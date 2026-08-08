@@ -44,7 +44,7 @@ from typing import Any
 
 # Resolved at runtime via the openavc package; the companion runs in
 # the platform's Python environment.
-from server.discovery.companion import ProbeContext
+from openavc.discovery.companion import ProbeContext
 
 
 PJLINK_PORT = 4352

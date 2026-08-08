@@ -18,7 +18,7 @@ Protocol: HTTP JSON-RPC on port 80.
 
 import json
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 # Map of input URIs to friendly display titles
 _INPUT_TITLES = {

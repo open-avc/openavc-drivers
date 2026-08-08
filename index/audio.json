@@ -12,7 +12,7 @@
       "name": "Allen & Heath Avantis Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath Avantis digital mixing consoles via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, main, DCA, mute group and UFX send/return is a child entity with live mute / fader / name / colour state \u2014 the console's own channel names become the labels in OpenAVC. Send levels, main / DCA / mute-group assigns, Scene Recall (1-500), MMC transport and UFX global key / scale, with bidirectional state from console-side moves and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -20,8 +20,8 @@
       "file": "audio/allenheath_avantis.py",
       "format": "python",
       "files": {
-        "audio/allenheath_avantis.py": "a20eaac5fab2355a38f08c63de0413bf15a9a797b3ab2b04a5d65292ee58ae2f",
-        "audio/allenheath_avantis_sim.py": "aca4c9f621951c8f1cc8cfa000ff6bf1ca03c7cb930cc1605c56279a83d2ff59"
+        "audio/allenheath_avantis.py": "80006e7a73e7713952b75a2011df06d9bd3c5f70172be64fca72304bbd9cca8e",
+        "audio/allenheath_avantis_sim.py": "90bd9aa9e27a343c92b72438c7d16d371a316c88c44541ea083414fd30213650"
       },
       "ports": [
         51325
@@ -30,7 +30,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "mixer",
         "console",
@@ -75,7 +75,7 @@
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, main, DCA, mute group and UFX send/return is a child entity with live mute / fader / name / colour state, and all 128 preamp sockets are children with live gain / pad / 48V state \u2014 the console's own channel names become the labels in OpenAVC. Send levels and assigns, per-channel HPF, Scene Recall (MixRack, 1-500), Cue List Recall (Surface, 1-2000), MMC transport and UFX global key / scale, with bidirectional state from console-side moves and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -83,8 +83,8 @@
       "file": "audio/allenheath_dlive.py",
       "format": "python",
       "files": {
-        "audio/allenheath_dlive.py": "96ea1f59d0affc7d0abce742a373421a25af5636a1558ec8c6604bf04e43952b",
-        "audio/allenheath_dlive_sim.py": "23ed92371eb0eac1a1b8f7c6baf8b3b12c7828cf363ec4cb84bdca43f1286736"
+        "audio/allenheath_dlive.py": "2ce407ffb840217e999d1f5f33b03be0571f1323183ffcab6d7881137378df37",
+        "audio/allenheath_dlive_sim.py": "e72466efbac7b258b8ca402c879f8b49d018357f370a00516d424acfb76b651d"
       },
       "ports": [
         51325
@@ -93,7 +93,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "mixer",
         "console",
@@ -146,7 +146,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -154,8 +154,8 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "729361d6d42b388814babd2ceb4a0169e875dfba377055b6c1338502146f30e6",
-        "audio/allenheath_qu_sim.py": "e82f7b0562ef0156b51528c8feef358eff388e334f00f84a3dbe30e0642a47e5"
+        "audio/allenheath_qu.py": "c7aafdc2936593e898334bdb9f2692bd1c4b804868cad6ad57fc71179413e5b2",
+        "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
         51325
@@ -165,7 +165,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "mixer",
         "console",
@@ -220,7 +220,7 @@
       "name": "Allen & Heath SQ Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / pan state and a channel picker on its commands. Scene recall (1-300), 1 dB nudges, SoftKey triggers, master balances, and bidirectional state \u2014 console-side moves push back into OpenAVC, and a Get-probe watchdog flips the device offline if the console vanishes.",
@@ -228,8 +228,8 @@
       "file": "audio/allenheath_sq.py",
       "format": "python",
       "files": {
-        "audio/allenheath_sq.py": "8616752b3efaa48daaa74abdf608257aaa21303bf35ab841dacfe199926056a3",
-        "audio/allenheath_sq_sim.py": "db59520df85e4048990faddf0ceb26c1a81f45ddba462491f8d607e1f201d4c9"
+        "audio/allenheath_sq.py": "3e5c3052f6ef6f42cf8b539d750203f46750dd0e29862b048e26e42d1472f662",
+        "audio/allenheath_sq_sim.py": "c0205512893a529ab9e1df86c1bdee0c9fda30e14d5274a3fecbe9a01edb7d22"
       },
       "ports": [
         51325
@@ -238,7 +238,7 @@
         "midi-over-tcp"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "mixer",
         "console",
@@ -283,7 +283,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Models sources, zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs, and bell schedules as child entities labelled with the names from the Atmosphere configuration. Covers gain and mute per source / zone / mix / group, zone and group source select, group combine, message / routine / scene / GPO-preset triggers, GPO pin state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -291,8 +291,8 @@
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
       "files": {
-        "audio/atlasied_atmosphere.py": "01d956004d1a4bd929b5352a8d0cd17d2d7bed08269e88c205e93912fde8c837",
-        "audio/atlasied_atmosphere_sim.py": "88fabeacaf9ccc498f2924896e240a4d2f8b6dbbaa1d865a78dadf1d7efe5169"
+        "audio/atlasied_atmosphere.py": "571a80a2e2954c01bc9b50cde9336778f7a354c5b85cd7d21fbeee1650b03563",
+        "audio/atlasied_atmosphere_sim.py": "5abeef1019aa4a3780f6997008c020b9721294d1ea853a3b857dcfdd8d43c9a4"
       },
       "ports": [
         5321
@@ -301,7 +301,7 @@
         "atlasied-atmosphere-thirdparty"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "atmosphere",
         "azm4",
@@ -343,7 +343,7 @@
       "name": "Dante DDM / Director",
       "manufacturer": "Audinate",
       "category": "audio",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Dante audio routing via the Audinate Managed API. Requires Dante Domain Manager or Dante Director Professional. Each Dante device is a child entity; route/unroute any Rx channel to a Tx channel and monitor live subscription status.",
@@ -351,14 +351,14 @@
       "file": "audio/dante_ddm.py",
       "format": "python",
       "files": {
-        "audio/dante_ddm.py": "c2b1e61ef366a3679c8b00cea25cd25855f5ad429e042545534817af49819be2",
-        "audio/dante_ddm_sim.py": "a5231ab8bec5490c662fd8ac8a5f41f9b4122bab0f242c169923c053e6f3a1dd"
+        "audio/dante_ddm.py": "7d46df1782d4d9cd1f312897db73905b55d50567396e63fd5d015b20d6dc8ded",
+        "audio/dante_ddm_sim.py": "025bc28def87ff5b177c63f99bca1c91b7820a6f136f3fd4ccc43d32a45539d0"
       },
       "ports": [
         443
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "dante",
         "audio-routing",
@@ -731,7 +731,7 @@
       "name": "Biamp Tesira TTP",
       "manufacturer": "Biamp",
       "category": "audio",
-      "version": "3.1.1",
+      "version": "3.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Biamp Tesira and TesiraFORT\u00c9 DSPs over the Tesira Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, Source Selector, Matrix Mixer (crosspoints), Auto Mixer, Router, Logic, AEC, Room Combiner, Audio Meter, Signal Present Meter, Tone Generator, Preset recall, and basic VoIP / Dialer surfaces. Subscribes to push updates instead of polling. Declare your Tesira blocks once in the device config \u2014 each block becomes a child entity whose per-channel controls panel UIs bind to directly.",
@@ -739,9 +739,9 @@
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
       "files": {
-        "audio/biamp_tesira_ttp.py": "1510cce3d6200123fe6fd8f7855722ceddbb9cfd513ab0500e273035879b05b7",
-        "audio/biamp_tesira_ttp_discovery.py": "08efc26d29dc97a0b410edf82b3f280dc953ca5a5e1bec42d1d34044e543be8d",
-        "audio/biamp_tesira_ttp_sim.py": "aefb6d76646d687ae387fa1fd31d48be36f696848eecfee2f755cadfefb70ef0"
+        "audio/biamp_tesira_ttp.py": "964d096f7e2017fd2ec7777860bb4de28cfaf7e06185fdc66bdee63f92451777",
+        "audio/biamp_tesira_ttp_discovery.py": "52a9a3d6c365efd4549d6b69b5bab2d385b207ac51da02d197089464a723d66e",
+        "audio/biamp_tesira_ttp_sim.py": "501c2200221ddc5852e5183f8b4218e6ee09d7c091cb2c83bed0236cd9d8b819"
       },
       "ports": [
         23
@@ -750,7 +750,7 @@
         "biamp_tesira"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "dsp",
         "tesira",
@@ -800,7 +800,7 @@
       "name": "SoundCoreHero Audio System",
       "manufacturer": "Hero AV",
       "category": "audio",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "Wiktor Myszolow (Hero AV)",
       "transport": "tcp",
       "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
@@ -808,12 +808,12 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "601809f4bf82bf285e0e5a65126afdbcbdc384171696f5e29ea325d92a621bdd"
+        "audio/soundcorehero.py": "35c3f3355e028eccb99165f6ec96c459f83f40b45e4074d8149df308185c483a"
       },
       "protocols": [
         "soundcorehero"
       ],
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "help": {
         "overview": "SoundCoreHero is a professional multi-zone audio distribution and management system. This driver exposes its zones, players, speakers and inputs as child entities, controls volume/mute/transport, and plays announcements.",
         "setup": "1. Note the device IP. By default only HTTPS (port 443) is enabled.\n2. Create or pick a user account in Settings -> Users. The driver logs in with that account's email and password to obtain a session (required by the control WebSocket).\n3. Enter IP, email and password. Leave 'Verify SSL' off if the device uses its default self-signed certificate."
@@ -1087,7 +1087,7 @@
       "name": "QSC Q-SYS QRC",
       "manufacturer": "QSC",
       "category": "audio",
-      "version": "4.3.1",
+      "version": "4.3.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls QSC Q-SYS Cores via QRC (Q-SYS Remote Control) \u2014 JSON-RPC 2.0 over TCP port 1710. Auto-discovers the running design's Components and their controls on connect (no manual block list), models each Component as a typed child entity, and streams real-time state via Change Group auto-poll. Covers Component control, Named Controls, Mixer, Audio Router, Snapshot recall/save, Loop Player, and PA Router paging.",
@@ -1095,8 +1095,8 @@
       "file": "audio/qsc_qrc.py",
       "format": "python",
       "files": {
-        "audio/qsc_qrc.py": "e6fe462c1f22f1464f9252d21d5daf8a7cb6e39baca61a65d744d9b3a7bc18ce",
-        "audio/qsc_qrc_sim.py": "f19287039fafb8bff683618309e46e48c32f16e6b93acd0b6f035a9bb3866b67"
+        "audio/qsc_qrc.py": "897c1cbb1153bfe68badc05d269c932b209a89dddfc87e7d0c04987d4df9ac6a",
+        "audio/qsc_qrc_sim.py": "9668f6f8082acffbe222245aba544b641930eff96125b0f8e2462e545dec1ab0"
       },
       "ports": [
         1710
@@ -1106,7 +1106,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "dsp",
         "q-sys",
@@ -1168,7 +1168,7 @@
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
@@ -1176,8 +1176,8 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "5c33cd97dcf16355a6b142034f3980d0b318188b44cf0bbb518cf3925108a499",
-        "audio/shure_network_sim.py": "3003d53fe021ce42a3fe7ce2768f40e1ddd15c126f7f74e1238c78f54ade2c5f"
+        "audio/shure_network.py": "a9a8dd77bde07d2b6c24e4cf53c9f85964997ee5a2377f218c60ead2e8729941",
+        "audio/shure_network_sim.py": "1ce148bf5df3ffe117152b1e0ce812720cb237df4c47ab1b1725140e692cdfb1"
       },
       "ports": [
         2202
@@ -1186,7 +1186,7 @@
         "shure_dcs"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "ceiling-mic",
         "microphone",
@@ -1254,7 +1254,7 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, bass/treble, track info, and transport control. The speaker pushes state changes as they happen (UPnP eventing).",
@@ -1262,15 +1262,15 @@
       "file": "audio/sonos.py",
       "format": "python",
       "files": {
-        "audio/sonos.py": "a3bff4fca6f6ad1441980be5b9c291a925997bc009866ec41547f4b698a39e5d",
-        "audio/sonos_sim.py": "fbfcd0239a39889f37fdce2b91cf68bdba74a4ce74d6c2e5db74735074a7623f"
+        "audio/sonos.py": "49c0760c19cc75cfd280887bf99482e451917b7b4eecdc03edc223b2febd8e9b",
+        "audio/sonos_sim.py": "81b822ced3814073ca8f2d924ca5a22b6971344ef85f65a82fb7d9ebdfab5756"
       },
       "ports": [
         1400
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "speaker",
         "wireless-audio",
@@ -1318,7 +1318,7 @@
       "name": "Symetrix Composer DSP",
       "manufacturer": "Symetrix",
       "category": "audio",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, Prism, Solus NX, and xControl DSPs via the Composer Control Protocol on TCP port 48631. Generic controller model: assign controller numbers (1\u201310000) in Composer to faders, mutes, selectors, and meters; this driver reads / writes those numbers and subscribes to push-enabled value changes.",
@@ -1326,8 +1326,8 @@
       "file": "audio/symetrix_composer.py",
       "format": "python",
       "files": {
-        "audio/symetrix_composer.py": "555babfaf9b9aad3f273721efcd17b45df553442c7b7eda61fa09fad5d2cfd95",
-        "audio/symetrix_composer_sim.py": "9cc0d65bf7e548ce80c7d983a688889d352fa7a56ec4fab982cc92dd13b1e6da"
+        "audio/symetrix_composer.py": "b05f89368347ad170054702ef6f678b0f1281596d59d505e7d27d87cc56eadd2",
+        "audio/symetrix_composer_sim.py": "55075a2e9fb32b84db0015dba6084d95f9a0dc974ab4874db60f4f865bca458e"
       },
       "ports": [
         48631
@@ -1336,7 +1336,7 @@
         "symetrix-composer"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.25.0",
       "tags": [
         "dsp",
         "symetrix",
@@ -1389,7 +1389,7 @@
       "name": "TOA 9000M2 Matrix Mixer",
       "manufacturer": "TOA",
       "category": "audio",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "OpenAVC",
       "transport": "serial",
       "description": "Controls the TOA M-9000M2 Digital Matrix Mixer and protocol-compatible A-9000M2 Series mixer/amplifiers over RS-232C. 8 mixing inputs x 8 outputs: input/output fader gain, the 8x8 crosspoint matrix, channel on/off, tone, parametric EQ, loudness, HPF/LPF, input sensitivity, phantom power, preset / paging-event recall, speaker presets, and ANC. The device is write-then-echo with no live readback except channel names and ANC reference, so state is tracked optimistically from the confirmations it returns.",
@@ -1397,13 +1397,14 @@
       "file": "audio/toa_9000m2.py",
       "format": "python",
       "files": {
-        "audio/toa_9000m2.py": "03ba9a193523a7c5a2686683aea11e2ee376c83f33b064f66cbb8eeb8c16bd57",
-        "audio/toa_9000m2_sim.py": "575a51bc57bc07f79d0f43cdb2c1ad3be05ed4631ffe53eb91e48917202351a7"
+        "audio/toa_9000m2.py": "891f97e08d342620e465c1bc290daf3e6c0f7e0ad2dd2c419128457fe0ca76fa",
+        "audio/toa_9000m2_sim.py": "d20b771fcff119b8c8f638f80f028060912a62cd2fb40b8180feb7cf8c4a9f47"
       },
       "protocols": [
         "toa_9000m2"
       ],
       "simulated": true,
+      "min_platform_version": "0.25.0",
       "tags": [
         "dsp",
         "matrix-mixer",

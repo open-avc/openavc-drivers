@@ -19,7 +19,7 @@ same way it connects to hardware.
 
 import json
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 
 class CrestronNvxSimulator(HTTPSimulator):

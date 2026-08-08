@@ -11,7 +11,7 @@ logic that has to be right regardless of the socket:
   - picker lists built from the metadata queries,
   - pairing-key persistence and the small helpers.
 
-Loads the driver with the ``server.*`` / ``websockets`` imports stubbed so the
+Loads the driver with the ``openavc.*`` / ``websockets`` imports stubbed so the
 community CI stays self-contained (conftest.py rolls the stubs back after this
 module is collected).
 """
@@ -177,19 +177,19 @@ class _FakeBaseDriver:
 
 
 def _install_stubs() -> None:
-    server = ModuleType("server")
-    drivers = ModuleType("server.drivers")
-    base = ModuleType("server.drivers.base")
+    server = ModuleType("openavc")
+    drivers = ModuleType("openavc.drivers")
+    base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     base.ConnectionFaultError = _FakeFault
     drivers.base = base
     server.drivers = drivers
 
-    system_config = ModuleType("server.system_config")
+    system_config = ModuleType("openavc.system_config")
     system_config.get_system_config = lambda: SimpleNamespace(data_dir=_TMP)
 
-    utils = ModuleType("server.utils")
-    logger_mod = ModuleType("server.utils.logger")
+    utils = ModuleType("openavc.utils")
+    logger_mod = ModuleType("openavc.utils.logger")
     logger_mod.get_logger = lambda *_: SimpleNamespace(
         info=lambda *a, **k: None, debug=lambda *a, **k: None,
         warning=lambda *a, **k: None, error=lambda *a, **k: None)
@@ -199,9 +199,9 @@ def _install_stubs() -> None:
     ws_stub.connect = None  # tests never open a socket
 
     for name, mod in (
-        ("server", server), ("server.drivers", drivers),
-        ("server.drivers.base", base), ("server.system_config", system_config),
-        ("server.utils", utils), ("server.utils.logger", logger_mod),
+        ("openavc", server), ("openavc.drivers", drivers),
+        ("openavc.drivers.base", base), ("openavc.system_config", system_config),
+        ("openavc.utils", utils), ("openavc.utils.logger", logger_mod),
         ("websockets", ws_stub),
     ):
         sys.modules[name] = mod

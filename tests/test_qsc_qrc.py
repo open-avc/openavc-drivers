@@ -1,6 +1,6 @@
 """Unit tests for the qsc_qrc driver.
 
-Loads ``audio/qsc_qrc.py`` directly, stubbing the ``server.*`` imports it needs
+Loads ``audio/qsc_qrc.py`` directly, stubbing the ``openavc.*`` imports it needs
 (BaseDriver, TCPTransport, get_logger) so the community repo's test suite stays
 self-contained — mirrors test_chazy_control_pro.py.
 
@@ -32,7 +32,7 @@ DRIVER_PATH = REPO_ROOT / "audio" / "qsc_qrc.py"
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "qsc_qrc_qrc.json"
 
 
-# ── Stub server.* with an in-memory BaseDriver that mimics child semantics ──
+# ── Stub openavc.* with an in-memory BaseDriver that mimics child semantics ──
 
 class _FakeQRCTransport:
     """Minimal transport for the connect/disconnect lifecycle tests.
@@ -61,16 +61,16 @@ class _FakeQRCTransport:
 
 
 def _install_server_stubs() -> None:
-    if "server.drivers.base" in sys.modules:
+    if "openavc.drivers.base" in sys.modules:
         return
-    server = ModuleType("server")
+    server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server", server)
+    sys.modules.setdefault("openavc", server)
 
-    drivers = ModuleType("server.drivers")
+    drivers = ModuleType("openavc.drivers")
     drivers.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.drivers", drivers)
-    base = ModuleType("server.drivers.base")
+    sys.modules.setdefault("openavc.drivers", drivers)
+    base = ModuleType("openavc.drivers.base")
 
     class _BaseDriver:
         """Faithful enough stand-in: device + child state in plain dicts, with
@@ -299,7 +299,7 @@ def _install_server_stubs() -> None:
                 local_addr=None,
             )
             # The module-level fake is referenced directly — a deferred
-            # `from server.transport...` import at test-run time would miss
+            # `from openavc.transport...` import at test-run time would miss
             # the collection-time stubs.
             self.transport = await _FakeQRCTransport.create(
                 **self._transport_kwargs(transport_type, kwargs))
@@ -383,30 +383,30 @@ def _install_server_stubs() -> None:
 
     base.BaseDriver = _BaseDriver
     base.ConnectionFaultError = _ConnectionFaultError
-    sys.modules["server.drivers.base"] = base
+    sys.modules["openavc.drivers.base"] = base
 
-    transport = ModuleType("server.transport")
+    transport = ModuleType("openavc.transport")
     transport.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.transport", transport)
-    tcp = ModuleType("server.transport.tcp")
+    sys.modules.setdefault("openavc.transport", transport)
+    tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = type("TCPTransport", (), {})
-    sys.modules["server.transport.tcp"] = tcp
+    sys.modules["openavc.transport.tcp"] = tcp
 
-    sysconfig = ModuleType("server.system_config")
+    sysconfig = ModuleType("openavc.system_config")
     sysconfig.get_system_config = lambda: type(
         "C", (), {"get": staticmethod(lambda *a, **k: None)})()
-    sys.modules["server.system_config"] = sysconfig
+    sys.modules["openavc.system_config"] = sysconfig
 
-    utils = ModuleType("server.utils")
+    utils = ModuleType("openavc.utils")
     utils.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("server.utils", utils)
-    logger = ModuleType("server.utils.logger")
+    sys.modules.setdefault("openavc.utils", utils)
+    logger = ModuleType("openavc.utils.logger")
 
     class _Log:
         def __getattr__(self, _):
             return lambda *a, **k: None
     logger.get_logger = lambda *_a, **_k: _Log()
-    sys.modules["server.utils.logger"] = logger
+    sys.modules["openavc.utils.logger"] = logger
 
 
 def _load_driver():

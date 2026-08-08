@@ -28,7 +28,7 @@ multi-display roster). A request to a Set ID that isn't present gets no reply,
 modelling an absent display.
 """
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 
 # MDC command bytes (must match the driver)

@@ -13,7 +13,7 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 3. **Add simulation support** so your driver works without real hardware (YAML drivers get this automatically, Python drivers need a `_sim.py` companion file) — see [Writing Simulators](writing-simulators.md)
 
-4. **Write a test and run it** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main repo at `simulator/`). `tests/` in this repo is a pytest suite and CI runs it — see [Writing a driver test](#writing-a-driver-test)
+4. **Write a test and run it** against real hardware or the [OpenAVC Simulator](https://github.com/open-avc/openavc) (included in the main repo at `openavc/simulator/`). `tests/` in this repo is a pytest suite and CI runs it — see [Writing a driver test](#writing-a-driver-test)
 
 5. **Fork this repo** and add your driver to the appropriate category folder:
    - `projectors/` — Projectors
@@ -38,7 +38,7 @@ Guide for contributing device drivers to the OpenAVC community library.
    of that exists, run the platform's checker from an OpenAVC checkout — it
    takes any path and runs the same contract rules:
    ```bash
-   python -m server.drivers.check path/to/my_driver.py
+   python -m openavc.drivers.check path/to/my_driver.py
    ```
    See [Checking one driver file](#checking-one-driver-file) below.
 
@@ -256,7 +256,7 @@ python -m pytest tests/ -v
 ### The one rule that is not obvious
 
 **CI installs `requirements-dev.txt` and nothing else, so there is no `openavc`
-package here.** Your driver's `from server.drivers.base import BaseDriver` has
+package here.** Your driver's `from openavc.drivers.base import BaseDriver` has
 nothing to resolve against. Every test in this repo therefore puts stand-ins
 into `sys.modules` before loading the driver.
 
@@ -296,7 +296,7 @@ def test_power_on_bytes():
 
 ```python
 install_stubs(
-    {"server.transport.ir_codec": {"IRCode": _FakeIRCode}},
+    {"openavc.transport.ir_codec": {"IRCode": _FakeIRCode}},
     base_driver=_FakeBaseDriver,
 )
 ```
@@ -401,9 +401,9 @@ For that, run the platform's checker on the file itself, from an OpenAVC
 checkout:
 
 ```bash
-python -m server.drivers.check path/to/my_driver.py
-python -m server.drivers.check path/to/my_driver.avcdriver
-python -m server.drivers.check path/to/a/folder/
+python -m openavc.drivers.check path/to/my_driver.py
+python -m openavc.drivers.check path/to/my_driver.avcdriver
+python -m openavc.drivers.check path/to/a/folder/
 ```
 
 It works on any path, needs no repo layout and no catalog, and defines no rules
@@ -418,7 +418,7 @@ my_driver.py: error: commands.power_on: unknown key 'labl' (did you mean 'label'
 This matters most for a **Python** driver. A `.avcdriver` gets live editor
 feedback from the `# yaml-language-server:` line above; there is no equivalent
 for a `DRIVER_INFO` dict, so the command line is the only place a misspelled
-key gets caught before runtime. `python -m simulator.validate` runs the same
+key gets caught before runtime. `python -m openavc.simulator.validate` runs the same
 check before its own parity checks, so either command will tell you.
 
 It also checks that your driver's declarations agree with each other. A

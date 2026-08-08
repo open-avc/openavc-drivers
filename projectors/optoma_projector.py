@@ -80,8 +80,8 @@ import re
 from collections import deque
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -311,7 +311,7 @@ class OptomaProjectorDriver(BaseDriver):
         "name": "Optoma Projector",
         "manufacturer": "Optoma",
         "category": "projector",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Optoma projectors over Optoma's RS232/LAN command "
@@ -332,7 +332,7 @@ class OptomaProjectorDriver(BaseDriver):
         "verified": False,
         "simulated": True,
         "ports": [23],
-        "min_platform_version": "0.23.0",
+        "min_platform_version": "0.25.0",
         "transport": "tcp",
         "transports": ["tcp", "serial"],
         "delimiter": "\r",

@@ -6,11 +6,11 @@ real connect -> command -> state path, plus the frame parser directly.
 
 This drives the actual platform runtime (StateStore, EventBus, BaseDriver,
 TCPTransport), so it needs ``openavc`` importable. ``vmix.py`` also imports
-``server.*`` at module load, so the whole module skips together when the
+``openavc.*`` at module load, so the whole module skips together when the
 platform isn't present: in this repo's isolated CI (stdlib + pyyaml + pydantic)
 it skips cleanly; it runs in the workspace where openavc is installed alongside.
 
-Other tests' leaked ``server`` stubs are handled centrally in conftest.py, so
+Other tests' leaked ``openavc`` stubs are handled centrally in conftest.py, so
 this module imports the real platform normally.
 
 Integration tests use ``asyncio.run()`` in a sync test, matching the
@@ -37,9 +37,9 @@ def _load_module(name: str, path: Path):
 
 
 try:
-    from server.core.event_bus import EventBus
-    from server.core.state_store import StateStore
-    # vmix.py imports server.* at module load, so this also requires the platform.
+    from openavc.core.event_bus import EventBus
+    from openavc.core.state_store import StateStore
+    # vmix.py imports openavc.* at module load, so this also requires the platform.
     _driver_mod = _load_module("_vmix_driver", REPO_ROOT / "video" / "vmix.py")
     _sim_mod = _load_module("_vmix_simulator", TESTS_DIR / "vmix_simulator.py")
 except ModuleNotFoundError:

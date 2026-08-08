@@ -31,7 +31,7 @@ Header types:
 
 import asyncio
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 
 # Command bytes (matching the driver)

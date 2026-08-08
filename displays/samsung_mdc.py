@@ -37,10 +37,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from server.drivers.base import BaseDriver
-from server.transport.binary_helpers import checksum_sum
-from server.transport.frame_parsers import CallableFrameParser, FrameParser
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.binary_helpers import checksum_sum
+from openavc.transport.frame_parsers import CallableFrameParser, FrameParser
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -250,10 +250,10 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.5.1",
+        "version": "1.5.2",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.24.0",
+        "min_platform_version": "0.25.0",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
             "Display Control) binary protocol over TCP. Each Set ID on the "

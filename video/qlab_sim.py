@@ -41,7 +41,7 @@ import logging
 import re
 from typing import Any
 
-from simulator.osc_simulator import OSCSimulator
+from openavc.simulator.osc_simulator import OSCSimulator
 
 logger = logging.getLogger(__name__)
 

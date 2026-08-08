@@ -18,7 +18,7 @@ from typing import Any
 
 from aiohttp import web
 
-from simulator.websocket_simulator import WebSocketSimulator
+from openavc.simulator.websocket_simulator import WebSocketSimulator
 
 # subscription id -> the state topic it tracks. Mirrors the driver's sub ids.
 _SUB_TOPICS = {

@@ -38,7 +38,7 @@ import json
 import time
 from typing import Any
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 _BAD_KEY = "invalid"
 

@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
@@ -34,15 +33,12 @@ def _load_module(name: str, path: Path):
 
 
 try:
-    from server.core.event_bus import EventBus
-    from server.core.state_store import StateStore
-    # The production simulator imports the ``simulator`` package, a top-level
-    # dir under openavc/ that isn't pip-installed (only ``server`` is). Add the
-    # sibling openavc/ so it resolves when run from the workspace; in isolated
-    # CI the ``server`` import above already fails first and the module skips.
-    _OPENAVC = REPO_ROOT.parent / "openavc"
-    if _OPENAVC.is_dir() and str(_OPENAVC) not in sys.path:
-        sys.path.insert(0, str(_OPENAVC))
+    from openavc.core.event_bus import EventBus
+    from openavc.core.state_store import StateStore
+    # The production simulator imports ``openavc.simulator``, which now ships
+    # inside the package the install carries — so nothing has to be added to
+    # ``sys.path`` for it. In isolated CI the imports above fail first and the
+    # module skips.
     _driver_mod = _load_module(
         "_netgear_driver", REPO_ROOT / "utility" / "netgear_m4250_m4350.py")
     _sim_mod = _load_module(

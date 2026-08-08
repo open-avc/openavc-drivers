@@ -1,6 +1,6 @@
 """Unit tests for the QLab simulator (``video/qlab_sim.py``).
 
-Loads the simulator directly, stubbing the ``simulator.osc_simulator`` base it
+Loads the simulator directly, stubbing the ``openavc.simulator.osc_simulator`` base it
 imports, so the community repo's test suite stays self-contained (no openavc
 install needed — mirrors test_chazy_control_sim.py).
 
@@ -26,14 +26,14 @@ SIM_PATH = REPO_ROOT / "video" / "qlab_sim.py"
 
 
 def _install_simulator_stub() -> None:
-    """Minimal stand-in for simulator.osc_simulator.OSCSimulator covering the
+    """Minimal stand-in for openavc.simulator.osc_simulator.OSCSimulator covering the
     parts of BaseSimulator the QLab simulator relies on (state)."""
-    if "simulator.osc_simulator" in sys.modules:
+    if "openavc.simulator.osc_simulator" in sys.modules:
         return
-    pkg = ModuleType("simulator")
+    pkg = ModuleType("openavc.simulator")
     pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules.setdefault("simulator", pkg)
-    mod = ModuleType("simulator.osc_simulator")
+    sys.modules.setdefault("openavc.simulator", pkg)
+    mod = ModuleType("openavc.simulator.osc_simulator")
 
     class _OSCSimulator:
         SIMULATOR_INFO: dict = {}
@@ -54,7 +54,7 @@ def _install_simulator_stub() -> None:
             return self._state.get(key, default)
 
     mod.OSCSimulator = _OSCSimulator
-    sys.modules["simulator.osc_simulator"] = mod
+    sys.modules["openavc.simulator.osc_simulator"] = mod
 
 
 def _load_sim_class():

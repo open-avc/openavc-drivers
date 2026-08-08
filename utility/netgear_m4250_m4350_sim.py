@@ -21,7 +21,7 @@ License: MIT.
 
 from __future__ import annotations
 
-from simulator.tcp_simulator import TCPSimulator
+from openavc.simulator.tcp_simulator import TCPSimulator
 
 _NAME = "M4350-AVSWITCH"
 

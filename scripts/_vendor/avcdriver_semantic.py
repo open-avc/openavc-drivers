@@ -1,6 +1,6 @@
 # GENERATED FILE - DO NOT EDIT.
 # Vendored from the OpenAVC platform repo (github.com/open-avc/openavc),
-# source: server/drivers/avcdriver_semantic.py
+# source: openavc/drivers/avcdriver_semantic.py
 # The platform copy is the source of truth for the driver contract; CI
 # fails when this copy drifts from it. To update, run:
 #     python scripts/vendor_platform_contract.py

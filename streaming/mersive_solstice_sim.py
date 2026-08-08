@@ -23,7 +23,7 @@ import string
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from simulator.http_simulator import HTTPSimulator
+from openavc.simulator.http_simulator import HTTPSimulator
 
 
 def _random_screen_key() -> str:

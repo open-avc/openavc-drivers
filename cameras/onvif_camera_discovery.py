@@ -43,7 +43,7 @@ from typing import Any
 from defusedxml.ElementTree import fromstring as _safe_fromstring
 from defusedxml.ElementTree import ParseError as _XMLParseError
 
-from server.discovery.companion import ProbeContext
+from openavc.discovery.companion import ProbeContext
 
 
 WSD_GROUP = "239.255.255.250"

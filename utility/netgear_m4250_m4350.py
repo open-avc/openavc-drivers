@@ -41,9 +41,9 @@ import asyncio
 import re
 from typing import Any
 
-from server.drivers.base import BaseDriver
-from server.transport.tcp import TCPTransport  # the Enable SSH wizard opens its own telnet session
-from server.utils.logger import get_logger
+from openavc.drivers.base import BaseDriver
+from openavc.transport.tcp import TCPTransport  # the Enable SSH wizard opens its own telnet session
+from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
 
@@ -539,9 +539,9 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.5",
+        "version": "1.4.6",
         "author": "OpenAVC",
-        "min_platform_version": "0.15.0",
+        "min_platform_version": "0.25.0",
         "description": (
             "Monitor and control NETGEAR M4250 and M4350 AV Line managed "
             "switches over their CLI: per-port PoE power-cycling and draw, "

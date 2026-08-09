@@ -17,3 +17,14 @@ scripts/_vendor/** text eol=lf linguist-generated=true
 # contract and byte-copied here by scripts/vendor_platform_contract.py.
 avcdriver.schema.json text eol=lf linguist-generated=true
 pythondriver.schema.json text eol=lf linguist-generated=true
+
+# Driver files and the catalog generated from them. build_index.py hashes
+# the bytes on disk and the platform hashes what raw.githubusercontent
+# serves, which is the blob as stored - so the two only agree when the
+# working tree matches the blob. Without this, regenerating the catalog on
+# Windows writes CRLF checksums that no download can ever match, and every
+# driver in the catalog becomes uninstallable (the hash check is
+# fail-closed). Same reasoning as the vendored files above.
+*.avcdriver text eol=lf
+*.py text eol=lf
+*.json text eol=lf

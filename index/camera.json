@@ -20,8 +20,8 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "e62a00afd5c64072a380dde165fdccdc551c0152926f90107220787702da4102",
-        "cameras/aver_ptz_sim.py": "3e978c9424061f2eb353da408fa6a46d9cc8da49fa2ccfe854dffe782d7dbd37"
+        "cameras/aver_ptz.py": "04ab3842385b1880ee717c8eba3b6ff5188cc29d35b9f74971610022b3991712",
+        "cameras/aver_ptz_sim.py": "7bc00212d59d3894a7995876619c40170c81d7e3fb8c0438f257274622db4cd8"
       },
       "ports": [
         80,
@@ -79,8 +79,8 @@
       "file": "cameras/birddog_ptz.py",
       "format": "python",
       "files": {
-        "cameras/birddog_ptz.py": "d1feaa66c33cc15364d9f3f9d8d5de594e78684ec226a236f1f2b4c8e6e2749f",
-        "cameras/birddog_ptz_sim.py": "b88871dc244e45dde2d654f33b0e9a6cab0655389858177ecf003a78edddb05f"
+        "cameras/birddog_ptz.py": "d961d984adecf7739dc92b2a735184696ef9e5956c477494dc3c24d1851fa8e7",
+        "cameras/birddog_ptz_sim.py": "62c802c2fcea6e88cf716c2e44cab63e3a231d4244d09c878a3f17a4e129ae78"
       },
       "ports": [
         8080,
@@ -149,9 +149,9 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "72a700a3273370929f9062c0524c3dccbfe8fa9bce54aaf7d512db989f0f2c47",
-        "cameras/visca_ip_discovery.py": "e303ef39607c842dfc2de68747e4a8c8b98695257db2ccf07434798126558ede",
-        "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
+        "cameras/visca_ip.py": "2fbabcfe40078d84af65e6043034cadbe7efdfbdf0ad011c0834e4c2d2de6c7e",
+        "cameras/visca_ip_discovery.py": "37d6025773c5f3cfd46538a814a952d117e6ff4f80fc648bae73937779a7d153",
+        "cameras/visca_ip_sim.py": "18972aa8bbf5676e2c9ad4f1bbea51696fd2aa604927bae35c3233e17f489769"
       },
       "ports": [
         52381
@@ -244,8 +244,8 @@
       "file": "cameras/onvif_camera.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/onvif_camera.avcdriver": "f544de932524685a8d381851b3f8c7c5f28c5dc666d43a6fb0cc85c18cbd8892",
-        "cameras/onvif_camera_discovery.py": "da18440c979f5507289b4ab02e5234206aafa49aff7fb4ef4301635ea594c162"
+        "cameras/onvif_camera.avcdriver": "51e64c82943c10bdb5f08af6d88cafae1d2d489bd242152cda596d82896f7c4f",
+        "cameras/onvif_camera_discovery.py": "0ef89b78531450326d4ff1990ec2917315e594eff832d04d7a6a76cad59b7e28"
       },
       "protocols": [
         "onvif"
@@ -289,7 +289,7 @@
       "file": "cameras/panasonic_awhe.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/panasonic_awhe.avcdriver": "f1073d13da724ea98a3ede0aac7992c031bab8090641415ebc3476c471527470"
+        "cameras/panasonic_awhe.avcdriver": "0db3ed00433dfeab556e2ec03ada151f476aaf8340ad0777132e64cc0d04e165"
       },
       "ports": [
         80
@@ -376,8 +376,8 @@
       "file": "cameras/ptzoptics.py",
       "format": "python",
       "files": {
-        "cameras/ptzoptics.py": "14eb4cd1346d21fb77c8538063d8bf8d31463b5cf58557802d98bccd3932bcb4",
-        "cameras/ptzoptics_sim.py": "0eba8e3249fc131689b6d9a5ecec39ee37331047b904b3a1dd69921dac1da7d7"
+        "cameras/ptzoptics.py": "73378681fea033123c8860ceea6d035f58e2e8267ac21e077b513cbc525e9e26",
+        "cameras/ptzoptics_sim.py": "599aae2e106c41901046b397937de0b3492b572df2e5b9e3bc8a0900726f6311"
       },
       "ports": [
         5678
@@ -449,8 +449,8 @@
       "file": "cameras/sony_visca.py",
       "format": "python",
       "files": {
-        "cameras/sony_visca.py": "73a99e56467e786898a6c5f9c045f5a827693b4c111a73d41e7cda96c4faedb1",
-        "cameras/sony_visca_sim.py": "a7f7224b3127909f777db7874b69bccf97f58f2c75bfbffe71ed1a71def02c30"
+        "cameras/sony_visca.py": "fb1a7b6c73bc199a201ffb8c7d99903cf8845547089a01f3e3a985a70a7bc42d",
+        "cameras/sony_visca_sim.py": "cf61aea3963e5ee1ae49223647b546f99785bdf110f6988306740456d31780d5"
       },
       "ports": [
         52381
@@ -508,7 +508,7 @@
       "file": "cameras/vaddio_roboshot.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/vaddio_roboshot.avcdriver": "ba21ebc39af2a97fdb0b994d6b7478766d0c5051c86096ee29d71bc06529e4e8"
+        "cameras/vaddio_roboshot.avcdriver": "78dc8a35ea334162f8a991b6261518c7ce43f6468fd2febbd5be6790fbb88f45"
       },
       "ports": [
         23

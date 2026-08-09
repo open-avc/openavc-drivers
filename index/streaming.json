@@ -20,7 +20,7 @@
       "file": "streaming/barco_clickshare_cx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "streaming/barco_clickshare_cx.avcdriver": "bcca4a9d43f149c868d095cbd9a19204c5b604b9ef982c31d4a31f1177ea8fb8"
+        "streaming/barco_clickshare_cx.avcdriver": "617bda9eb952b52fff760a3bfc72bd2ad67c39e2b8dbf27ff9995c49fce48e2c"
       },
       "ports": [
         4003
@@ -89,8 +89,8 @@
       "file": "streaming/mersive_solstice.py",
       "format": "python",
       "files": {
-        "streaming/mersive_solstice.py": "df586e6785f37e90edac25188e973707c7af11bac1713d6ac0ea144ab59f273b",
-        "streaming/mersive_solstice_sim.py": "855f0a5ee846a0dff3951601eb80e5b7288974185b9a6edff23623d20b950903"
+        "streaming/mersive_solstice.py": "3f1f8e8d9486133f543fc3af817d61319e9c2c78ed47b1f8f0c6aabb70b8edc4",
+        "streaming/mersive_solstice_sim.py": "2d8fb216240ef1a27579315d9ce161b75eafb67fd63b4f313e14fc368c842c3c"
       },
       "ports": [
         80,
@@ -153,8 +153,8 @@
       "file": "streaming/roku_ecp.py",
       "format": "python",
       "files": {
-        "streaming/roku_ecp.py": "8acab024024a8f83982c95981b3e99b1c3dbec9dff84afce830c6b82a21ed602",
-        "streaming/roku_ecp_sim.py": "b4e165359d18a840ad93172103f4791d596c04065885d192c054c8d396862b1a"
+        "streaming/roku_ecp.py": "3f8823a4dfec810c163c49d6873f7eed6853c0f32842800a66c0da9feabeae8f",
+        "streaming/roku_ecp_sim.py": "a2edc83a82146c8ef71dccb22f42bb4c27d4fa32bce6fd933275c034779e4e19"
       },
       "ports": [
         8060

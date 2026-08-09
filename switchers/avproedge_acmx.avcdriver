@@ -6,9 +6,17 @@
 # command list; each model's manual documents its supported subset, and
 # an unsupported command answers an error the driver ignores.
 #
-# Protocol reference: AC-MX1616-AUHD-HDBT user manual, "RS-232 and TCP/IP
-# Control" (Serial Command List, pages 17-18):
-# https://p11.secure.hostingprod.com/@site.hdtvsupply.com/ssl/brand/avpro-edge/avpro-edge-ac-mx1616-auhd-hdbt-chassis-um.pdf
+# Protocol reference: the AC-MX-88 RS-232/TCP command list published by
+# AVPro Edge (firmware 1.10), which is the same text the unit prints for
+# the "H" (help) command:
+# https://www.avproglobal.com/products/ac-mx-88
+#
+# VERIFIED ON HARDWARE 2026-08-09 against an AC-MX-88-B ("Matrix 8:8
+# (HDMI2.0)", F/W 1.10). Everything below marked "measured" was read off
+# that unit rather than inferred from the manual. The previous version of
+# this driver took its reply grammar from a third-party implementation
+# and shipped untested; five of its assumptions were wrong and are noted
+# where they were corrected, so nobody re-derives them from the doc.
 #
 # Wire format:
 #   Commands are plain ASCII terminated with a carriage return; replies
@@ -16,72 +24,96 @@
 #   command grammar without the SET/GET verb ("OUT1 VS IN2"). Reply
 #   digits may be zero-padded on some firmware ("OUT01 VS IN02") and
 #   casing varies — response rules match case-insensitively and strip
-#   leading zeros. (Reply shapes verified against a mature open-source
-#   implementation maintained against real AC-MX hardware; its line
-#   gather uses CRLF and its parsers accept the padded forms.)
+#   leading zeros. The 88-B pads none of them.
 #
-#   OUT/IN number 0 addresses ALL — "GET OUT0 VS" answers one line per
-#   output, which the per-line response dispatch fans out into the
-#   output children (rules.md "Multi-line response fan-out"). Polling
-#   therefore needs only three queries regardless of matrix size.
+#   MEASURED — the "0 = ALL" write does NOT echo one line per port. It
+#   answers a single line naming port 0 ("SET OUT0 VS IN2" -> "OUT0 VS
+#   IN2"), which matches no child and would leave every output stale
+#   until the next poll. Every ALL-form command below therefore sends its
+#   own re-query in the same write ("SET OUT0 VS IN{input}\rGET OUT0
+#   VS\r"); the device processes CR-terminated commands in order, so the
+#   eight real lines come back with the echo and land in child state
+#   immediately. The GET form of 0 = ALL does fan out normally.
 #
-# Family variance:
-#   - HDBaseT-equipped models split per-output stream control into
-#     "HP STREAM" (HDMI ports) and "TP STREAM" (HDBaseT ports); the
-#     HDMI-only models use plain "STREAM". All three command forms are
-#     provided; the wrong form for a model answers an error (benign).
-#   - Extracted-audio matrix routing ("AS IN") needs the ex-audio mode
-#     set to Matrix (SET EXAMX MODE2) first.
-#   - Reply shapes for KEY LOCK / LCD / DEV TEMP GETs are not publicly
-#     captured, so those stay commands without state read-back until a
-#     capture lands; routing, ex-audio routing, signal status, and MAC
-#     are the verified read-back set.
+#   MEASURED — the error reply is "CMD ERR", not "ERR", and only for a
+#   well-formed command with an out-of-range argument. A command the
+#   firmware does not recognise draws NO REPLY AT ALL.
 #
-# Push vs poll: POLL-ONLY. The protocol is strictly request/response —
-# the manual documents no unsolicited notifications — but every SET
-# answers a state echo which the response rules apply immediately.
+#   MEASURED — "GET MAC" answers dot-separated ("MAC 18.8a.6a.03.83.f4"),
+#   not colon-separated. The old colon-only rule never matched, so
+#   mac_address was permanently empty.
+#
+# Polling strategy:
+#   "GET STA" returns the whole device in one round trip — 125 structured
+#   lines in the same grammar as the individual queries, so the response
+#   rules below parse it with no special handling. That is far cheaper
+#   than one query per property, and it is size-independent. Four narrow
+#   queries cover what STA omits (signal, HPD, TMDS, video format).
+#
+#   MEASURED — one STA line must NOT be parsed: "INx PW ON/OFF" claims to
+#   be the input port power but contradicts "GET INx TMDS" on the same
+#   unit at the same moment (STA said OFF for all eight while TMDS said
+#   ON for all eight). The command list defines TMDS as the port power
+#   status, so TMDS wins and no rule matches the PW line.
+#
+# Push vs poll: POLL-ONLY, and this was tested rather than assumed — an
+# idle connection was watched for 75 seconds and the device sent nothing.
+# Every SET answers a state echo which the response rules apply
+# immediately, so UI feedback is instant despite the polling. (Changing
+# an EDID makes the unit re-emit "INx VID FMT INF" for all inputs; that
+# is a solicited side effect of the write, not a subscription.)
 
 id: avproedge_acmx
 name: AVPro Edge AC-MX Matrix
 manufacturer: AVPro Edge
 category: switcher
-version: 1.0.0
+version: 2.0.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.24.0"
 description: >
   Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up
   to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every
-  output is a child entity tracking its routed video source and extracted
-  -audio source, and every input a child showing signal presence. Also
-  covers the extracted-audio matrix mode, audio delay and level, per-port
-  stream enable, input EDID management, front-panel key lock, LCD
-  timeout, and reboot.
+  output is a child entity tracking its routed video and extracted-audio
+  source, sync and HPD status, scaling mode, stream enable and the full
+  balanced-audio chain; every input a child tracking signal presence,
+  assigned EDID, port power and detected video format. Also covers the
+  extracted-audio matrix mode, front-panel lock, LCD timeout, fan speed,
+  IR code setup and the unit's network configuration.
 
-source_url: https://p11.secure.hostingprod.com/@site.hdtvsupply.com/ssl/brand/avpro-edge/avpro-edge-ac-mx1616-auhd-hdbt-chassis-um.pdf
+source_url: https://www.avproglobal.com/products/ac-mx-88
 tags: [matrix-switcher, hdmi, hdbaset, avpro-edge, auhd, telnet]
-verified: false
+verified: true
 simulated: true
 protocols: [avproedge_acmx]
 ports: [23]
 compatible_models:
   - manufacturer: AVPro Edge
     models:
-      - AC-MX1616-AUHD / AC-MX1616-AUHD-HDBT
+      - AC-MX-88 / AC-MX-88-B
+    confidence: full
+    notes: >
+      Hardware-verified on an AC-MX-88-B (F/W 1.10) on 2026-08-09: every
+      command driven against the unit and every state variable read back
+      from it, including the status dump, the balanced-audio chain, EDID,
+      port power and the network block. HDMI-only, so it uses the plain
+      Stream commands rather than the HDMI/HDBaseT port split.
+  - manufacturer: AVPro Edge
+    models:
       - AC-MX88-AUHD / AC-MX88-AUHD-HDBT / AC-MX88-AUHD-GEN2
       - AC-MX88-UHD-GEN2
+      - AC-MX1616-AUHD / AC-MX1616-AUHD-HDBT
       - AC-MX44-AUHD / AC-MX44-AUHD-HDBT
       - AC-MX62-AUHD / AC-MX-42 / AC-MX-82
       - ConferX AC-CXMF62-AUHD
     confidence: untested
     notes: >
-      AVPro Edge's unified ASCII command list is shared across the AC-MX
-      matrix range; each model's manual documents its subset, and an
+      Covered by AVPro Edge's unified ASCII command list, which is shared
+      across the AC-MX matrix family, but not yet driven against one of
+      these units. Each model documents its own subset, and an
       unsupported command answers an error the driver ignores. Set the
       Input IDs / Output IDs lists to the model's shape (defaults
-      describe a 16x16). HDBaseT-equipped models use the HDMI Stream /
-      HDBaseT Stream commands; HDMI-only models use the plain Stream
-      commands. MXNet AVoIP systems use a different control system — not
-      this driver.
+      describe an 8x8). HDBaseT models split per-output stream control
+      into the HDMI-port and HDBaseT-port commands.
 
 transport: tcp
 delimiter: "\r\n"
@@ -90,28 +122,31 @@ help:
   overview: >
     AVPro Edge AC-MX matrices route HDMI sources to HDMI or HDBaseT
     outputs. Each output is a child entity showing its routed video
-    source and its extracted-audio source; each input a child showing
-    whether a signal is present. Use the Route command to send a source
-    to one output (or 0 for all), and the extracted-audio commands to
-    run the audio ports as a separate audio matrix. EDID presets can be
-    assigned per input.
+    source, extracted-audio source, sync and HPD state, and audio
+    settings; each input a child showing signal presence, its EDID and
+    port power. Use the Route command to send a source to one output, or
+    Route to All Outputs for everything at once, and the extracted-audio
+    commands to run the audio ports as a separate audio matrix.
   setup: >
-    1. Give the matrix a static IP via its WebOS page (or a DHCP
-    reservation) and add it here with Telnet port 23.
+    1. Give the matrix a static IP via its web page (or a DHCP
+    reservation) and add it here with Telnet port 23. The unit ships
+    with DHCP enabled, so on a network with no DHCP server it will have
+    no address at all until you set one from the front panel.
     2. Match the Input IDs and Output IDs lists to the model (a 4x4
-    would use "1,2,3,4" for both; the defaults describe a 16x16). Each
+    would use "1,2,3,4" for both; the defaults describe an 8x8). Each
     ID becomes a child entity that is polled for state.
     3. To use the extracted audio ports as an independent audio matrix,
-    send Set Ex-Audio Matrix Mode = Matrix once, then route with the
-    Route Ex-Audio command. In the default Bind-to-Output mode the
-    audio ports simply follow the HDMI routing.
+    set Ex-Audio Matrix Mode to Matrix. Routing ex-audio while in
+    another mode also works: the unit switches itself to Matrix and
+    reports the change.
     4. RS-232 control instead: null-modem cable at 57600 8N1, no
     handshaking.
 
 discovery:
   # Active fingerprint: a single-output route query on the Telnet
   # control port — an AC-MX answers "OUT1 VS INx". Other port-23 gear
-  # answers prompts/banners that never match.
+  # answers prompts/banners that never match. Confirmed against the
+  # AC-MX-88-B, which replies "OUT1 VS IN1".
   tcp_probe:
     port: 23
     send_ascii: "GET OUT1 VS\r"
@@ -125,8 +160,8 @@ discovery:
 default_config:
   host: ""
   port: 23
-  input_ids: "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16"
-  output_ids: "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16"
+  input_ids: "1,2,3,4,5,6,7,8"
+  output_ids: "1,2,3,4,5,6,7,8"
   poll_interval: 15
   inter_command_delay: 0.1
 
@@ -142,15 +177,15 @@ config_schema:
     description: "AVPro Edge matrices listen on Telnet port 23 (configurable on the unit)."
   input_ids:
     type: string
-    default: "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16"
+    default: "1,2,3,4,5,6,7,8"
     label: Input IDs
     description: >
       Comma-separated input numbers — each becomes an Input child showing
-      signal presence. Match the model: "1,2,3,4" for a 4x4, "1,...,8"
-      for an 8x8. Default describes a 16x16.
+      signal presence, EDID and port power. Match the model: "1,2,3,4"
+      for a 4x4, "1,...,16" for a 16x16. Default describes an 8x8.
   output_ids:
     type: string
-    default: "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16"
+    default: "1,2,3,4,5,6,7,8"
     label: Output IDs
     description: >
       Comma-separated output numbers — each becomes an Output child
@@ -160,7 +195,10 @@ config_schema:
     default: 15
     min: 0
     label: Poll Interval (sec)
-    description: "Refreshes routing, ex-audio routing, and input signal status (three queries per cycle). Set to 0 to disable."
+    description: >
+      Refreshes the whole device. One "GET STA" carries most of it, plus
+      four narrow queries for signal, HPD, port power and video format.
+      Set to 0 to disable.
   inter_command_delay:
     type: number
     default: 0.1
@@ -172,7 +210,58 @@ state_variables:
   mac_address:
     type: string
     label: MAC Address
-    help: "The matrix's MAC address, read once on connect — handy for DHCP reservations."
+    help: "The matrix's MAC address — handy for DHCP reservations."
+  system_address:
+    type: integer
+    label: System Address
+    help: "RS-232 daisy-chain address. 0 means single-unit (no address prefix on commands)."
+  baud_rate:
+    type: integer
+    label: Baud Rate Code
+    help: "0=9600, 1=14400, 2=19200, 3=38400, 4=57600, 5=115200."
+  key_lock:
+    type: boolean
+    label: Front Panel Locked
+    cloud_priority: high
+  lcd_timeout:
+    type: integer
+    label: LCD Timeout Code
+    help: "0=always on, 1=15s, 2=30s, 3=60s."
+  fan_speed:
+    type: integer
+    label: Fan Speed
+    min: 0
+    max: 3
+    step: 1
+    control: true
+  examx_mode:
+    type: integer
+    label: Ex-Audio Matrix Mode
+    help: "0=bind to output, 1=bind to input, 2=independent matrix."
+    cloud_priority: high
+  ir_custom_code:
+    type: string
+    label: IR Custom Code
+    help: "The unit's IR custom (system) code, as two hex bytes."
+  ir_switch_mode:
+    type: integer
+    label: IR Switch Mode
+    help: "0=left/right switch, 1=output selects the input."
+  host_ip:
+    type: string
+    label: Host IP Address
+  route_ip:
+    type: string
+    label: Gateway IP Address
+  netmask:
+    type: string
+    label: Subnet Mask
+  tcp_port:
+    type: integer
+    label: TCP/IP Port
+  dhcp_enabled:
+    type: boolean
+    label: DHCP Enabled
 
 child_entity_types:
   output:
@@ -185,11 +274,91 @@ child_entity_types:
         label: Routed Input
         help: "Input number whose video is routed to this output."
         cloud_priority: high
+        control: true
+        min: 1
+        max: 16
+        step: 1
       audio_input:
         type: integer
         label: Ex-Audio Input
         help: "Input whose audio feeds this output's extracted-audio port (meaningful in Matrix ex-audio mode)."
-    summary_fields: [input, audio_input]
+        cloud_priority: high
+        control: true
+        min: 1
+        max: 16
+        step: 1
+      signal:
+        type: boolean
+        label: Output Sync
+        help: "True when the output is producing sync to the display."
+        cloud_priority: high
+      hpd:
+        type: boolean
+        label: Hot Plug Detect
+        help: "True when a display asserts HPD on this output."
+      video_mode:
+        type: integer
+        label: Video Mode
+        help: "0=auto, 1=bypass, 2=4K to 2K downscale, 4=4:4:4 to 4:2:0."
+      signal_generator:
+        type: integer
+        label: Signal Generator
+        help: "0=off, 1=1080p60 test pattern, 2=4K30 test pattern."
+      ex_audio_enabled:
+        type: boolean
+        label: Ex-Audio Output Enabled
+      audio_delay:
+        type: integer
+        label: Ex-Audio Delay Step
+        help: "0=bypass, 1-7 = 90ms steps up to 630ms."
+        min: 0
+        max: 7
+        step: 1
+        control: true
+      audio_level:
+        type: integer
+        label: EQ-Audio Volume
+        min: 0
+        max: 100
+        step: 1
+        unit: "%"
+        control: true
+        cloud_priority: low
+      audio_left:
+        type: integer
+        label: Balanced Left Level
+        min: 0
+        max: 10
+        step: 1
+        control: true
+        cloud_priority: low
+      audio_right:
+        type: integer
+        label: Balanced Right Level
+        min: 0
+        max: 10
+        step: 1
+        control: true
+        cloud_priority: low
+      eq_mode:
+        type: integer
+        label: Audio EQ Mode
+        help: "0=off, 1=classical, 2=headphone, 3=hall, 4=live, 5=pop, 6=rock, 7=vocal."
+        min: 0
+        max: 7
+        step: 1
+        control: true
+      stream:
+        type: boolean
+        label: Stream Enabled
+        help: "False blanks the output without changing its routing."
+        cloud_priority: high
+        control: true
+      hdmi_stream_mode:
+        type: integer
+        label: HDMI Stream Mode
+        help: "Reported by the unit's status dump; 0 on HDMI-only models."
+    summary_fields: [input, audio_input, signal, stream]
     instances:
       ids_from: output_ids
       label: "Output {id}"
@@ -203,10 +372,81 @@ child_entity_types:
         label: Signal Present
         help: "True when a live video signal is detected on this input."
         cloud_priority: high
-    summary_fields: [signal]
+      edid:
+        type: integer
+        label: EDID Preset
+        help: "0-29 are the built-in resolution/audio/HDR combinations; 30-32 are the user EDID buffers."
+        min: 0
+        max: 32
+        step: 1
+        control: true
+      tmds:
+        type: boolean
+        label: Port Power (TMDS)
+        help: "Input port power. Turning it off makes the source see an unplugged input."
+        control: true
+      video_format:
+        type: string
+        label: Detected Video Format
+        help: "Format the unit detects on this input, or <invalid> when nothing is connected."
+    summary_fields: [signal, edid, video_format]
     instances:
       ids_from: input_ids
       label: "Input {id}"
+
+# Writable values the unit reports back and persists. Each has a polled
+# state_key as its read-back, so a change made at the front panel shows
+# up here too, and a write made while the device is offline queues.
+device_settings:
+  lcd_timeout:
+    type: enum
+    label: LCD Stays On
+    state_key: lcd_timeout
+    default: 3
+    setup: false
+    values:
+      - { value: "0", label: "Always on" }
+      - { value: "1", label: "15 seconds" }
+      - { value: "2", label: "30 seconds" }
+      - { value: "3", label: "60 seconds" }
+    write:
+      send: "SET LCD ON T{value}\r"
+  fan_speed:
+    type: enum
+    label: Fan Speed
+    state_key: fan_speed
+    default: 2
+    setup: false
+    values:
+      - { value: "0", label: "0 (quietest)" }
+      - { value: "1", label: "1" }
+      - { value: "2", label: "2" }
+      - { value: "3", label: "3 (fastest)" }
+    write:
+      send: "SET FAN SPEED {value}\r"
+  examx_mode:
+    type: enum
+    label: Ex-Audio Matrix Mode
+    state_key: examx_mode
+    default: 0
+    setup: false
+    values:
+      - { value: "0", label: "Bind to Output" }
+      - { value: "1", label: "Bind to Input" }
+      - { value: "2", label: "Matrix (independent)" }
+    write:
+      send: "SET EXAMX MODE{value}\r"
+  ir_switch_mode:
+    type: enum
+    label: IR Switch Mode
+    state_key: ir_switch_mode
+    default: 0
+    setup: false
+    values:
+      - { value: "0", label: "Left / Right switch" }
+      - { value: "1", label: "Output selects the input" }
+    write:
+      send: "SET IR SWMD {value}\r"
 
 commands:
 
@@ -215,35 +455,42 @@ commands:
   route:
     label: Route Input to Output
     send: "SET OUT{output} VS IN{input}\r"
-    help: "Route a video input to an output. Output 0 routes the input to ALL outputs."
+    help: "Route a video input to a single output."
+    # No `sets:` here — the child-scoped form needs exactly one child_id
+    # param and this command takes two (which output, which input). The
+    # device echoes "OUT1 VS IN2" anyway, so state lands from the reply.
     params:
       output:
-        type: integer
+        type: child_id
         required: true
-        label: Output (0 = all)
-        min: 0
-        max: 16
+        label: Output
+        child_type: output
       input:
-        type: integer
+        type: child_id
         required: true
         label: Input
-        min: 1
-        max: 16
+        child_type: input
 
   route_all:
     label: Route Input to All Outputs
-    send: "SET OUT0 VS IN{input}\r"
+    # The ALL echo names port 0 and matches no child, so re-query in the
+    # same write to refresh every output immediately (see header).
+    send: "SET OUT0 VS IN{input}\rGET OUT0 VS\r"
     params:
       input:
-        type: integer
+        type: child_id
         required: true
         label: Input
-        min: 1
-        max: 16
+        child_type: input
 
   query_routes:
     label: Query All Video Routes
     send: "GET OUT0 VS\r"
+
+  query_all_status:
+    label: Refresh All Status
+    help: "Re-reads the entire device — the same status dump the poll cycle uses."
+    send: "GET STA\r"
 
   # ── Extracted audio ──
 
@@ -254,6 +501,7 @@ commands:
       How the extracted-audio ports behave: Bind to Output (audio follows
       the HDMI output), Bind to Input (port number = input number), or
       Matrix (route audio independently with the Route Ex-Audio command).
+    sets: { examx_mode: "{mode}" }
     params:
       mode:
         type: enum
@@ -267,20 +515,32 @@ commands:
   audio_route:
     label: Route Ex-Audio Input to Output
     send: "SET OUT{output} AS IN{input}\r"
-    help: "Route an input's audio to an output's extracted-audio port. Requires Matrix ex-audio mode. Output 0 = all."
+    help: >
+      Route an input's audio to an output's extracted-audio port. If the
+      unit is not already in Matrix ex-audio mode it switches itself and
+      reports the change.
+    # Two child_id params, so no child-scoped `sets:` — see route above.
     params:
       output:
-        type: integer
+        type: child_id
         required: true
-        label: Output (0 = all)
-        min: 0
-        max: 16
+        label: Output
+        child_type: output
       input:
-        type: integer
+        type: child_id
         required: true
         label: Input
-        min: 1
-        max: 16
+        child_type: input
+
+  audio_route_all:
+    label: Route Ex-Audio to All Outputs
+    send: "SET OUT0 AS IN{input}\rGET OUT0 AS IN\r"
+    params:
+      input:
+        type: child_id
+        required: true
+        label: Input
+        child_type: input
 
   query_audio_routes:
     label: Query All Ex-Audio Routes
@@ -289,36 +549,36 @@ commands:
   ex_audio_on:
     label: Enable Ex-Audio Output
     send: "SET OUT{output} EXA EN\r"
+    sets: { ex_audio_enabled: true }
     params:
       output:
-        type: integer
+        type: child_id
         required: true
-        label: Output (0 = all)
-        min: 0
-        max: 16
+        label: Output
+        child_type: output
 
   ex_audio_off:
     label: Disable Ex-Audio Output
     send: "SET OUT{output} EXA DIS\r"
+    sets: { ex_audio_enabled: false }
     params:
       output:
-        type: integer
+        type: child_id
         required: true
-        label: Output (0 = all)
-        min: 0
-        max: 16
+        label: Output
+        child_type: output
 
   set_audio_delay:
     label: Set Ex-Audio Delay
     send: "SET OUT{output} EXADL PH{step}\r"
     help: "Lip-sync delay on an output's extracted-audio port."
+    sets: { audio_delay: "{step}" }
     params:
       output:
-        type: integer
+        type: child_id
         required: true
-        label: Output (0 = all)
-        min: 0
-        max: 16
+        label: Output
+        child_type: output
       step:
         type: enum
         required: true
@@ -334,48 +594,159 @@ commands:
           - { value: "7", label: "630 ms" }
 
   set_audio_level:
-    label: Set EQ-Audio Volume Level
+    label: Set EQ-Audio Volume
     send: "SET OUT{output} EXAUD LEV{level}\r"
-    help: "Balanced-audio output volume step (models with EQ-audio, e.g. the 1616)."
+    help: "Extracted-audio output volume, 0-100."
+    sets: { audio_level: "{level}" }
     params:
       output:
-        type: integer
+        type: child_id
         required: true
         label: Output
-        min: 1
-        max: 16
+        child_type: output
       level:
         type: integer
         required: true
-        label: Level (0-14)
+        label: Volume
         min: 0
-        max: 14
+        max: 100
+
+  set_audio_left:
+    label: Set Balanced Left Level
+    send: "SET OUT{output} EXA LVL{level}\r"
+    help: "Left-channel level of the balanced audio output, 0-10."
+    sets: { audio_left: "{level}" }
+    params:
+      output:
+        type: child_id
+        required: true
+        label: Output
+        child_type: output
+      level:
+        type: integer
+        required: true
+        label: Left Level
+        min: 0
+        max: 10
+
+  set_audio_right:
+    label: Set Balanced Right Level
+    send: "SET OUT{output} EXA RVL{level}\r"
+    help: "Right-channel level of the balanced audio output, 0-10."
+    sets: { audio_right: "{level}" }
+    params:
+      output:
+        type: child_id
+        required: true
+        label: Output
+        child_type: output
+      level:
+        type: integer
+        required: true
+        label: Right Level
+        min: 0
+        max: 10
+
+  set_eq_mode:
+    label: Set Audio EQ Mode
+    send: "SET OUT{output} EXEQ MODE{mode}\r"
+    sets: { eq_mode: "{mode}" }
+    params:
+      output:
+        type: child_id
+        required: true
+        label: Output
+        child_type: output
+      mode:
+        type: enum
+        required: true
+        label: EQ Mode
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "Classical" }
+          - { value: "2", label: "Headphone" }
+          - { value: "3", label: "Hall" }
+          - { value: "4", label: "Live" }
+          - { value: "5", label: "Pop" }
+          - { value: "6", label: "Rock" }
+          - { value: "7", label: "Vocal" }
+
+  # ── Output video processing ──
+
+  set_video_mode:
+    label: Set Output Video Mode
+    send: "SET OUT{output} VIDEO{mode}\r"
+    help: "Per-output scaling. Auto follows the display; the others force a conversion."
+    sets: { video_mode: "{mode}" }
+    params:
+      output:
+        type: child_id
+        required: true
+        label: Output
+        child_type: output
+      mode:
+        type: enum
+        required: true
+        label: Video Mode
+        values:
+          - { value: "0", label: "Auto" }
+          - { value: "1", label: "Bypass" }
+          - { value: "2", label: "4K to 2K" }
+          - { value: "4", label: "4:4:4 to 4:2:0" }
+
+  set_signal_generator:
+    label: Set Output Test Pattern
+    send: "SET OUT{output} SGMT {timing}\r"
+    help: "Built-in test pattern on an output — useful for proving a display and cable without a source."
+    sets: { signal_generator: "{timing}" }
+    params:
+      output:
+        type: child_id
+        required: true
+        label: Output
+        child_type: output
+      timing:
+        type: enum
+        required: true
+        label: Pattern
+        values:
+          - { value: "0", label: "Off" }
+          - { value: "1", label: "1080p 60Hz" }
+          - { value: "2", label: "4K 30Hz" }
 
   # ── Per-output stream enable ──
 
   stream_on:
     label: Output Stream On
     send: "SET OUT{output} STREAM ON\r"
-    help: "Enable an output's video stream (HDMI-only models; 0 = all). HDBaseT models use the HDMI/HDBaseT Stream commands."
+    help: "Enable an output's video stream (HDMI-only models). HDBaseT models use the HDMI/HDBaseT Stream commands."
+    sets: { stream: true }
     params:
       output:
-        type: integer
+        type: child_id
         required: true
-        label: Output (0 = all)
-        min: 0
-        max: 16
+        label: Output
+        child_type: output
 
   stream_off:
     label: Output Stream Off
     send: "SET OUT{output} STREAM OFF\r"
     help: "Disable an output's video stream — blanks the display without unrouting."
+    sets: { stream: false }
     params:
       output:
-        type: integer
+        type: child_id
         required: true
-        label: Output (0 = all)
-        min: 0
-        max: 16
+        label: Output
+        child_type: output
+
+  stream_all_on:
+    label: All Outputs Stream On
+    send: "SET OUT0 STREAM ON\rGET OUT0 STREAM\r"
+
+  stream_all_off:
+    label: All Outputs Stream Off
+    send: "SET OUT0 STREAM OFF\rGET OUT0 STREAM\r"
 
   hdmi_stream_on:
     label: HDMI Port Stream On
@@ -422,19 +793,19 @@ commands:
         min: 0
         max: 16
 
-  # ── Input EDID ──
+  # ── Input EDID and port power ──
 
   set_input_edid:
     label: Set Input EDID
     send: "SET IN{input} EDID {edid}\r"
-    help: "Assign an EDID preset to an input (0 = all inputs). User 1-3 are the unit's stored user EDID buffers."
+    help: "Assign an EDID preset to an input. User 1-3 are the unit's stored user EDID buffers."
+    sets: { edid: "{edid}" }
     params:
       input:
-        type: integer
+        type: child_id
         required: true
-        label: Input (0 = all)
-        min: 0
-        max: 16
+        label: Input
+        child_type: input
       edid:
         type: enum
         required: true
@@ -474,25 +845,142 @@ commands:
           - { value: "31", label: "User 2 EDID" }
           - { value: "32", label: "User 3 EDID" }
 
+  set_all_input_edid:
+    label: Set EDID on All Inputs
+    send: "SET IN0 EDID {edid}\rGET IN0 EDID\r"
+    params:
+      edid:
+        type: integer
+        required: true
+        label: EDID Preset Code
+        min: 0
+        max: 32
+
+  copy_output_edid:
+    label: Copy Output EDID to Input
+    send: "SET IN{input} EDID CY OUT{output}\r"
+    help: "Read the connected display's EDID and store it as the input's User 1 buffer, then use it."
+    params:
+      input:
+        type: child_id
+        required: true
+        label: Input
+        child_type: input
+      output:
+        type: child_id
+        required: true
+        label: Copy EDID From Output
+        child_type: output
+
+  copy_output_edid_to_buffer:
+    label: Copy Output EDID to a User Buffer
+    send: "SET IN{input} U{buffer} EDID CY OUT{output}\r"
+    params:
+      input:
+        type: child_id
+        required: true
+        label: Input
+        child_type: input
+      buffer:
+        type: integer
+        required: true
+        label: User Buffer (1-3)
+        min: 1
+        max: 3
+      output:
+        type: child_id
+        required: true
+        label: Copy EDID From Output
+        child_type: output
+
+  tmds_on:
+    label: Input Port Power On
+    send: "SET IN{input} TMDS ON\r"
+    help: "Restore an input's port power (+5V). Sources see the input as connected."
+    sets: { tmds: true }
+    params:
+      input:
+        type: child_id
+        required: true
+        label: Input
+        child_type: input
+
+  tmds_off:
+    label: Input Port Power Off
+    send: "SET IN{input} TMDS OFF\r"
+    help: "Drop an input's port power so the source behaves as if unplugged — a way to force a source to re-negotiate."
+    sets: { tmds: false }
+    params:
+      input:
+        type: child_id
+        required: true
+        label: Input
+        child_type: input
+
   # ── Signal status ──
 
   query_signal_status:
     label: Query Input Signal Status
     send: "GET IN0 SIG STA\r"
 
+  query_output_status:
+    label: Query Output Sync and HPD
+    send: "GET OUT0 SIG STA\rGET OUT0 HPD\r"
+
+  query_video_formats:
+    label: Query Input Video Formats
+    send: "GET IN0 VID FMT INF\r"
+
+  # ── IR ──
+
+  set_ir_custom_code:
+    label: Set IR Custom Code
+    send: "SET IR SYS {code}\r"
+    help: "The unit's IR system (custom) code, as two hex bytes separated by a dot, e.g. 00.ff."
+    params:
+      code:
+        type: string
+        required: true
+        label: Custom Code (xx.yy)
+        pattern: '^[0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2}$'
+
+  set_ir_code:
+    label: Set IR Data Code
+    send: "SET IR OUT{output} IN{input} CODE {code}\r"
+    help: "Assign the IR data code that routes an input to an output from a handheld remote."
+    params:
+      output:
+        type: child_id
+        required: true
+        label: Output
+        child_type: output
+      input:
+        type: child_id
+        required: true
+        label: Input
+        child_type: input
+      code:
+        type: string
+        required: true
+        label: Data Code (hex)
+        pattern: '^[0-9A-Fa-f]{2}$'
+
   # ── Front panel / system ──
 
   key_lock_on:
     label: Lock Front Panel Keys
     send: "SET KEY LOCK ON\r"
+    sets: { key_lock: true }
 
   key_lock_off:
     label: Unlock Front Panel Keys
     send: "SET KEY LOCK OFF\r"
+    sets: { key_lock: false }
 
   set_lcd_timeout:
     label: Set LCD Timeout
     send: "SET LCD ON T{mode}\r"
+    sets: { lcd_timeout: "{mode}" }
     params:
       mode:
         type: enum
@@ -504,15 +992,128 @@ commands:
           - { value: "2", label: "30 seconds" }
           - { value: "3", label: "60 seconds" }
 
+  set_fan_speed:
+    label: Set Fan Speed
+    send: "SET FAN SPEED {speed}\r"
+    sets: { fan_speed: "{speed}" }
+    params:
+      speed:
+        type: integer
+        required: true
+        label: Fan Speed
+        min: 0
+        max: 3
+
   reboot:
     label: Reboot Matrix
     send: "SET RBT\r"
     help: "System reset to reboot — routing and settings are kept."
 
+  reboot_lan:
+    label: Reboot Network Interface
+    send: "SET LAN RBT\r"
+    help: "Restarts just the LAN controller. The control connection drops and reconnects."
+
+  factory_reset:
+    label: Reset to Factory Defaults
+    send: "SET RST\r"
+    help: "DESTRUCTIVE — clears routing, EDID assignments and network settings. The unit returns to DHCP."
+
+  # ── Network configuration ──
+
+  set_host_ip:
+    label: Set Host IP Address
+    send: "SET HIP {address}\r"
+    help: "Changes the matrix's own IP. The control connection drops; update the device's IP Address here to match."
+    params:
+      address:
+        type: string
+        required: true
+        label: IP Address
+        pattern: '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$'
+
+  set_route_ip:
+    label: Set Gateway Address
+    send: "SET RIP {address}\r"
+    params:
+      address:
+        type: string
+        required: true
+        label: Gateway
+        pattern: '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$'
+
+  set_netmask:
+    label: Set Subnet Mask
+    send: "SET NMK {address}\r"
+    params:
+      address:
+        type: string
+        required: true
+        label: Subnet Mask
+        pattern: '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$'
+
+  set_tcp_port:
+    label: Set TCP/IP Port
+    send: "SET TIP {port}\r"
+    help: "Changes the control port. Update the device's Telnet Port here to match."
+    params:
+      port:
+        type: integer
+        required: true
+        label: Port
+        min: 1
+        max: 9999
+
+  set_dhcp:
+    label: Set DHCP
+    send: "SET DHCP {enabled}\r"
+    help: "With DHCP on and no DHCP server present, the unit ends up with no address at all."
+    sets: { dhcp_enabled: "{enabled}" }
+    params:
+      enabled:
+        type: enum
+        required: true
+        label: DHCP
+        values:
+          - { value: "1", label: "Enabled" }
+          - { value: "0", label: "Disabled (static)" }
+
+  set_system_address:
+    label: Set System Address
+    send: "SET ADDR {address}\r"
+    help: >
+      RS-232 daisy-chain address. Anything other than 00 makes the unit
+      ignore un-prefixed commands, so this driver will stop controlling
+      it. Leave at 00 unless you are chaining units on one serial line.
+    params:
+      address:
+        type: integer
+        required: true
+        label: Address
+        min: 0
+        max: 99
+
+  set_baud_rate:
+    label: Set Serial Baud Rate
+    send: "SET BAUDR {code}\r"
+    help: "RS-232 only. Changing this does not affect Telnet control."
+    params:
+      code:
+        type: enum
+        required: true
+        label: Baud Rate
+        values:
+          - { value: "0", label: "9600" }
+          - { value: "1", label: "14400" }
+          - { value: "2", label: "19200" }
+          - { value: "3", label: "38400" }
+          - { value: "4", label: "57600 (default)" }
+          - { value: "5", label: "115200" }
+
   raw_command:
     label: Send Raw Command
     send: "{command}\r"
-    help: "Escape hatch for anything in your model's serial command list, e.g. SET OUT2 TP POE1 or GET IN2 VID FMT INF."
+    help: "Escape hatch for anything in your model's serial command list, e.g. SET OUT2 TP POE1 or GET IN2 EDID 0 DATA."
     params:
       command:
         type: string
@@ -520,7 +1121,7 @@ commands:
         label: Command
 
 # Quick Action strip: routing + panel lock. The full command list still
-# shows everything, including ex-audio and EDID management.
+# shows everything, including ex-audio, EDID and network management.
 actions:
   - id: route
     icon: route
@@ -528,6 +1129,8 @@ actions:
     icon: copy
   - id: audio_route
     icon: volume-2
+  - id: query_all_status
+    icon: refresh-cw
   - id: key_lock_on
     icon: lock
   - id: key_lock_off
@@ -535,40 +1138,178 @@ actions:
 
 responses:
 
-  # Video route — SET echoes and GET answers share one shape:
-  # "OUT1 VS IN2" (some firmware zero-pads: "OUT01 VS IN02").
+  # Every rule is anchored and case-insensitive, and tolerates the zero
+  # padding some firmware in the family emits ("OUT01 VS IN02"). The
+  # leading [1-9] deliberately excludes the "OUT0"/"IN0" ALL echo, which
+  # names no real port — the ALL commands re-query instead.
+
+  # ── Routing ──
   - match: '(?i:^OUT0*([1-9]\d*)\s+VS\s+IN0*([1-9]\d*)\s*$)'
     child_set:
       - { type: output, id: "$1", state: { input: "$2" } }
 
-  # Extracted-audio route: "OUT1 AS IN2".
   - match: '(?i:^OUT0*([1-9]\d*)\s+AS\s+IN0*([1-9]\d*)\s*$)'
     child_set:
       - { type: output, id: "$1", state: { audio_input: "$2" } }
 
-  # Input signal status: "IN1 SIG STA 1" (0 = no signal).
+  # ── Signal / sync / HPD ──
   - match: '(?i:^IN0*([1-9]\d*)\s+SIG\s+STA\s+([01])\s*$)'
     child_set:
       - { type: input, id: "$1", state: { signal: "$2" } }
 
-  # MAC address: "MAC 6C:DF:FB:03:12:0F".
-  - match: '(?i:^MAC\s+([0-9A-F]{2}(?::[0-9A-F]{2}){5})\s*$)'
+  - match: '(?i:^OUT0*([1-9]\d*)\s+SIG\s+STA\s+([01])\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { signal: "$2" } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+HPD\s+([01])\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { hpd: "$2" } }
+
+  # Detected input format, e.g. "IN1 VID FMT INF <invalid>" when nothing
+  # is connected. Kept as free text — the unit reports a descriptive
+  # string whose vocabulary the command list does not enumerate.
+  - match: '(?i:^IN0*([1-9]\d*)\s+VID\s+FMT\s+INF\s+(.+?)\s*$)'
+    child_set:
+      - { type: input, id: "$1", state: { video_format: "$2" } }
+
+  # ── Input EDID and port power ──
+  # Anchored so the bulk "IN1 EDID 0 DATA 00 ff ..." dump does not match.
+  - match: '(?i:^IN0*([1-9]\d*)\s+EDID\s+(\d+)\s*$)'
+    child_set:
+      - { type: input, id: "$1", state: { edid: "$2" } }
+
+  - match: '(?i:^IN0*([1-9]\d*)\s+TMDS\s+(ON|OFF)\s*$)'
+    child_set:
+      - { type: input, id: "$1", state: { tmds: { group: 2, map: { "ON": true, "OFF": false, "on": true, "off": false } } } }
+
+  # ── Per-output audio and video processing ──
+  - match: '(?i:^OUT0*([1-9]\d*)\s+EXA\s+(EN|DIS)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { ex_audio_enabled: { group: 2, map: { "EN": true, "DIS": false, "en": true, "dis": false } } } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+EXADL\s+PH(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { audio_delay: "$2" } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+EXAUD\s+LEV(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { audio_level: "$2" } }
+
+  # MEASURED: these two are the only commands whose write echo is spaced
+  # differently from the read. "SET OUT3 EXA LVL6" answers "OUT3 EXA
+  # LVL 6" while "GET OUT3 EXA LVL" answers "OUT3 EXA LVL6". The \s*
+  # absorbs it; without it a level write silently failed to update state
+  # until the next poll. EXAUD LEV is consistent both ways.
+  - match: '(?i:^OUT0*([1-9]\d*)\s+EXA\s+LVL\s*(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { audio_left: "$2" } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+EXA\s+RVL\s*(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { audio_right: "$2" } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+EXEQ\s+MODE(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { eq_mode: "$2" } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+VIDEO(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { video_mode: "$2" } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+SGMT\s+(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { signal_generator: "$2" } }
+
+  # Anchored to exclude "OUT1 HDMI STREAM MODE0", handled by the next rule.
+  - match: '(?i:^OUT0*([1-9]\d*)\s+STREAM\s+(ON|OFF)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { stream: { group: 2, map: { "ON": true, "OFF": false, "on": true, "off": false } } } }
+
+  - match: '(?i:^OUT0*([1-9]\d*)\s+HDMI\s+STREAM\s+MODE(\d+)\s*$)'
+    child_set:
+      - { type: output, id: "$1", state: { hdmi_stream_mode: "$2" } }
+
+  # ── Device-level ──
+  - match: '(?i:^EXAMX\s+MODE(\d+)\s*$)'
+    set: { examx_mode: "$1" }
+
+  - match: '(?i:^KEY\s+LOCK\s+(ON|OFF)\s*$)'
+    mappings:
+      - state: key_lock
+        group: 1
+        type: boolean
+        map: { "ON": true, "OFF": false, "on": true, "off": false }
+
+  - match: '(?i:^LCD\s+ON\s+T(\d+)\s*$)'
+    set: { lcd_timeout: "$1" }
+
+  - match: '(?i:^FAN\s+SPEED\s+(\d+)\s*$)'
+    set: { fan_speed: "$1" }
+
+  - match: '(?i:^ADDR\s+(\d+)\s*$)'
+    set: { system_address: "$1" }
+
+  - match: '(?i:^BAUDR\s+(\d+)\s*$)'
+    set: { baud_rate: "$1" }
+
+  # MEASURED: the 88-B answers dot-separated. Colon-separated is accepted
+  # too because other firmware in the family may use it.
+  - match: '(?i:^MAC\s+([0-9A-F]{2}(?:[.:][0-9A-F]{2}){5})\s*$)'
     set: { mac_address: "$1" }
 
+  # ── Network configuration (zero-padded octets on the wire) ──
+  - match: '(?i:^HIP\s+([\d.]+)\s*$)'
+    set: { host_ip: "$1" }
+
+  - match: '(?i:^RIP\s+([\d.]+)\s*$)'
+    set: { route_ip: "$1" }
+
+  - match: '(?i:^NMK\s+([\d.]+)\s*$)'
+    set: { netmask: "$1" }
+
+  - match: '(?i:^TIP\s+(\d+)\s*$)'
+    set: { tcp_port: "$1" }
+
+  - match: '(?i:^DHCP\s+([01])\s*$)'
+    mappings:
+      - state: dhcp_enabled
+        group: 1
+        type: boolean
+        map: { "1": true, "0": false }
+
+  # ── IR ──
+  - match: '(?i:^IR\s+SYS\s+([0-9A-F]{2}\.[0-9A-F]{2})\s*$)'
+    set: { ir_custom_code: "$1" }
+
+  - match: '(?i:^IR\s+SWMD\s+(\d+)\s*$)'
+    set: { ir_switch_mode: "$1" }
+
 on_connect:
-  - "GET MAC\r"
+  - "GET STA\r"
+  - "GET IN0 SIG STA\r"
+  - "GET OUT0 SIG STA\r"
+  - "GET OUT0 HPD\r"
+  - "GET IN0 TMDS\r"
+  - "GET IR SYS\r"
 
 polling:
   queries:
-    - "GET OUT0 VS\r"
-    - "GET OUT0 AS IN\r"
+    # One dump carries routing, ex-audio, EDID, per-output processing,
+    # panel, fan and network state in a single round trip, at any matrix
+    # size. The four narrow queries below are what it leaves out.
+    - "GET STA\r"
     - "GET IN0 SIG STA\r"
+    - "GET OUT0 SIG STA\r"
+    - "GET OUT0 HPD\r"
+    - "GET IN0 TMDS\r"
+    - "GET IN0 VID FMT INF\r"
 
 # ── SIMULATOR DEFINITION ──
-# Models a 16x16 AUHD: identity video routing by default, ex-audio in
-# Bind-to-Output mode until switched to Matrix, live signal on the first
-# four inputs. OUT0/IN0 address ALL, exactly like hardware; every SET
-# echoes the resulting state line(s).
+# Models an 8x8 AC-MX-88-B, matching the hardware this driver was
+# verified against: identity video routing, ex-audio bound to output,
+# live signal on the first four inputs. Behaviours below marked MEASURED
+# reproduce quirks confirmed on the real unit, several of which the
+# previous simulator had backwards.
 simulator:
   push_state: false
   initial_state:
@@ -580,14 +1321,6 @@ simulator:
     route_6: 6
     route_7: 7
     route_8: 8
-    route_9: 9
-    route_10: 10
-    route_11: 11
-    route_12: 12
-    route_13: 13
-    route_14: 14
-    route_15: 15
-    route_16: 16
     audio_route_1: 1
     audio_route_2: 2
     audio_route_3: 3
@@ -596,14 +1329,6 @@ simulator:
     audio_route_6: 6
     audio_route_7: 7
     audio_route_8: 8
-    audio_route_9: 9
-    audio_route_10: 10
-    audio_route_11: 11
-    audio_route_12: 12
-    audio_route_13: 13
-    audio_route_14: 14
-    audio_route_15: 15
-    audio_route_16: 16
     signal_1: 1
     signal_2: 1
     signal_3: 1
@@ -612,17 +1337,132 @@ simulator:
     signal_6: 0
     signal_7: 0
     signal_8: 0
-    signal_9: 0
-    signal_10: 0
-    signal_11: 0
-    signal_12: 0
-    signal_13: 0
-    signal_14: 0
-    signal_15: 0
-    signal_16: 0
+    out_signal_1: 1
+    out_signal_2: 1
+    out_signal_3: 0
+    out_signal_4: 0
+    out_signal_5: 0
+    out_signal_6: 0
+    out_signal_7: 0
+    out_signal_8: 0
+    hpd_1: 1
+    hpd_2: 1
+    hpd_3: 0
+    hpd_4: 0
+    hpd_5: 0
+    hpd_6: 0
+    hpd_7: 0
+    hpd_8: 0
+    edid_1: 0
+    edid_2: 0
+    edid_3: 0
+    edid_4: 0
+    edid_5: 0
+    edid_6: 0
+    edid_7: 0
+    edid_8: 0
+    tmds_1: "ON"
+    tmds_2: "ON"
+    tmds_3: "ON"
+    tmds_4: "ON"
+    tmds_5: "ON"
+    tmds_6: "ON"
+    tmds_7: "ON"
+    tmds_8: "ON"
+    exa_1: "EN"
+    exa_2: "EN"
+    exa_3: "EN"
+    exa_4: "EN"
+    exa_5: "EN"
+    exa_6: "EN"
+    exa_7: "EN"
+    exa_8: "EN"
+    exadl_1: 0
+    exadl_2: 0
+    exadl_3: 0
+    exadl_4: 0
+    exadl_5: 0
+    exadl_6: 0
+    exadl_7: 0
+    exadl_8: 0
+    exaud_1: 100
+    exaud_2: 100
+    exaud_3: 100
+    exaud_4: 100
+    exaud_5: 100
+    exaud_6: 100
+    exaud_7: 100
+    exaud_8: 100
+    lvl_1: 10
+    lvl_2: 10
+    lvl_3: 10
+    lvl_4: 10
+    lvl_5: 10
+    lvl_6: 10
+    lvl_7: 10
+    lvl_8: 10
+    rvl_1: 10
+    rvl_2: 10
+    rvl_3: 10
+    rvl_4: 10
+    rvl_5: 10
+    rvl_6: 10
+    rvl_7: 10
+    rvl_8: 10
+    exeq_1: 0
+    exeq_2: 0
+    exeq_3: 0
+    exeq_4: 0
+    exeq_5: 0
+    exeq_6: 0
+    exeq_7: 0
+    exeq_8: 0
+    video_1: 1
+    video_2: 1
+    video_3: 1
+    video_4: 1
+    video_5: 1
+    video_6: 1
+    video_7: 1
+    video_8: 1
+    sgmt_1: 0
+    sgmt_2: 0
+    sgmt_3: 0
+    sgmt_4: 0
+    sgmt_5: 0
+    sgmt_6: 0
+    sgmt_7: 0
+    sgmt_8: 0
+    stream_1: "ON"
+    stream_2: "ON"
+    stream_3: "ON"
+    stream_4: "ON"
+    stream_5: "ON"
+    stream_6: "ON"
+    stream_7: "ON"
+    stream_8: "ON"
+    fmt_1: "3840x2160p60"
+    fmt_2: "1920x1080p60"
+    fmt_3: "1920x1080p60"
+    fmt_4: "1280x720p60"
+    fmt_5: "<invalid>"
+    fmt_6: "<invalid>"
+    fmt_7: "<invalid>"
+    fmt_8: "<invalid>"
     examx_mode: 0
-    key_lock: false
-    mac: "6C:DF:FB:03:12:0F"
+    key_lock: "OFF"
+    lcd_timeout: 3
+    fan_speed: 2
+    system_address: "00"
+    baud_rate: 4
+    ir_swmd: 0
+    ir_sys: "00.ff"
+    host_ip: "192.168.004.141"
+    route_ip: "192.168.004.001"
+    netmask: "255.255.252.000"
+    tcp_port: 23
+    dhcp: 1
+    mac: "18.8a.6a.03.83.f4"
 
   delays:
     command_response: 0.05
@@ -630,8 +1470,8 @@ simulator:
   controls:
     - type: matrix
       label: Video Routing
-      inputs: 16
-      outputs: 16
+      inputs: 8
+      outputs: 8
       state_pattern: "route_{output}"
     - type: select
       key: examx_mode
@@ -644,134 +1484,462 @@ simulator:
       key: signal_5
       label: Input 5 Signal
     - type: toggle
+      key: out_signal_1
+      label: Output 1 Sync
+    - type: slider
+      key: exaud_1
+      label: Output 1 EQ-Audio Volume
+      min: 0
+      max: 100
+    - type: select
       key: key_lock
       label: Key Lock
+      options: ["ON", "OFF"]
     - type: indicator
       key: mac
       label: MAC
 
   command_handlers:
 
-    # ── Video routing: SET OUTx VS INy (x=0 -> all) ──
+    # Every handler wraps its body in a local function: a bare `return`
+    # is a syntax error at module level and would silently drop the
+    # whole handler (rules.md, simulator script-handler exec context).
+
+    # ── Video routing: SET OUTx VS INy ──
+    # MEASURED: the x=0 ALL form answers ONE line naming port 0, not one
+    # line per output. The driver re-queries in the same write.
     - match: 'SET OUT(\d+) VS IN(\d+)'
       handler: |
-        out = int(match.group(1))
-        inp = int(match.group(2))
-        if inp < 1 or inp > 16 or out > 16:
-            respond("ERR\r\n")
-        else:
-            outs = range(1, 17) if out == 0 else [out]
-            lines = []
-            for o in outs:
-                state[f"route_{o}"] = inp
-                lines.append(f"OUT{o} VS IN{inp}")
-            respond("\r\n".join(lines) + "\r\n")
+        def _run():
+            out = int(match.group(1))
+            inp = int(match.group(2))
+            if inp < 1 or inp > 8 or out > 8:
+                respond("CMD ERR\r\n")
+                return
+            if out == 0:
+                for o in range(1, 9):
+                    state[f"route_{o}"] = inp
+                respond(f"OUT0 VS IN{inp}\r\n")
+                return
+            state[f"route_{out}"] = inp
+            respond(f"OUT{out} VS IN{inp}\r\n")
+        _run()
 
-    # ── Video route query: GET OUTx VS (x=0 -> all) ──
     - match: 'GET OUT(\d+) VS'
       handler: |
-        out = int(match.group(1))
-        if out > 16:
-            respond("ERR\r\n")
-        else:
-            outs = range(1, 17) if out == 0 else [out]
-            lines = [f"OUT{o} VS IN{state[f'route_{o}']}" for o in outs]
-            respond("\r\n".join(lines) + "\r\n")
+        def _run():
+            out = int(match.group(1))
+            if out > 8:
+                respond("CMD ERR\r\n")
+                return
+            outs = range(1, 9) if out == 0 else [out]
+            respond("\r\n".join(f"OUT{o} VS IN{state[f'route_{o}']}" for o in outs) + "\r\n")
+        _run()
 
-    # ── Ex-audio routing: SET OUTx AS INy — needs Matrix mode ──
+    # ── Ex-audio routing ──
+    # MEASURED: routing ex-audio outside Matrix mode does NOT error. The
+    # unit promotes itself to MODE2 and reports the change on its own
+    # line. The previous simulator answered ERR here, which meant the
+    # driver's own ex-audio path was never exercised truthfully.
     - match: 'SET OUT(\d+) AS IN(\d+)'
       handler: |
-        out = int(match.group(1))
-        inp = int(match.group(2))
-        if int(state["examx_mode"]) != 2 or inp < 1 or inp > 16 or out > 16:
-            respond("ERR\r\n")
-        else:
-            outs = range(1, 17) if out == 0 else [out]
-            lines = []
-            for o in outs:
-                state[f"audio_route_{o}"] = inp
-                lines.append(f"OUT{o} AS IN{inp}")
-            respond("\r\n".join(lines) + "\r\n")
+        def _run():
+            out = int(match.group(1))
+            inp = int(match.group(2))
+            if inp < 1 or inp > 8 or out > 8:
+                respond("CMD ERR\r\n")
+                return
+            promoted = int(state["examx_mode"]) != 2
+            if promoted:
+                state["examx_mode"] = 2
+            if out == 0:
+                for o in range(1, 9):
+                    state[f"audio_route_{o}"] = inp
+                line = f"OUT0 AS IN{inp}"
+            else:
+                state[f"audio_route_{out}"] = inp
+                line = f"OUT{out} AS IN{inp}"
+            respond(line + "\r\n" + ("EXAMX MODE2\r\n" if promoted else ""))
+        _run()
 
-    # ── Ex-audio route query: GET OUTx AS IN ──
     - match: 'GET OUT(\d+) AS IN'
       handler: |
-        out = int(match.group(1))
-        if out > 16:
-            respond("ERR\r\n")
-        else:
-            outs = range(1, 17) if out == 0 else [out]
-            lines = [f"OUT{o} AS IN{state[f'audio_route_{o}']}" for o in outs]
-            respond("\r\n".join(lines) + "\r\n")
+        def _run():
+            out = int(match.group(1))
+            if out > 8:
+                respond("CMD ERR\r\n")
+                return
+            outs = range(1, 9) if out == 0 else [out]
+            respond("\r\n".join(f"OUT{o} AS IN{state[f'audio_route_{o}']}" for o in outs) + "\r\n")
+        _run()
 
-    # ── Ex-audio matrix mode ──
-    - match: 'SET EXAMX MODE([0-2])'
+    - match: 'SET EXAMX MODE([0-9]+)'
       handler: |
-        state["examx_mode"] = int(match.group(1))
-        respond(f"EXAMX MODE{match.group(1)}\r\n")
+        def _run():
+            m = int(match.group(1))
+            if m > 2:
+                respond("CMD ERR\r\n")
+                return
+            state["examx_mode"] = m
+            respond(f"EXAMX MODE{m}\r\n")
+        _run()
+
     - match: 'GET EXAMX MODE'
       handler: |
         respond(f"EXAMX MODE{state['examx_mode']}\r\n")
 
-    # ── Signal status: GET INx SIG STA (x=0 -> all) ──
+    # ── Signal / sync / HPD / format ──
     - match: 'GET IN(\d+) SIG STA'
       handler: |
-        inp = int(match.group(1))
-        if inp > 16:
-            respond("ERR\r\n")
-        else:
-            ins = range(1, 17) if inp == 0 else [inp]
-            lines = [f"IN{i} SIG STA {state[f'signal_{i}']}" for i in ins]
-            respond("\r\n".join(lines) + "\r\n")
+        def _run():
+            inp = int(match.group(1))
+            if inp > 8:
+                respond("CMD ERR\r\n")
+                return
+            ins = range(1, 9) if inp == 0 else [inp]
+            respond("\r\n".join(f"IN{i} SIG STA {state[f'signal_{i}']}" for i in ins) + "\r\n")
+        _run()
 
-    # ── Ex-audio enable / delay / level, stream enables, EDID: echo-only ──
-    - match: 'SET OUT(\d+) EXA (EN|DIS)'
+    - match: 'GET OUT(\d+) SIG STA'
       handler: |
-        respond(f"OUT{match.group(1)} EXA {match.group(2)}\r\n")
-    - match: 'SET OUT(\d+) EXADL PH([0-7])'
+        def _run():
+            out = int(match.group(1))
+            if out > 8:
+                respond("CMD ERR\r\n")
+                return
+            outs = range(1, 9) if out == 0 else [out]
+            respond("\r\n".join(f"OUT{o} SIG STA {state[f'out_signal_{o}']}" for o in outs) + "\r\n")
+        _run()
+
+    - match: 'GET OUT(\d+) HPD'
       handler: |
-        respond(f"OUT{match.group(1)} EXADL PH{match.group(2)}\r\n")
-    - match: 'SET OUT(\d+) EXAUD LEV(\d+)'
+        def _run():
+            out = int(match.group(1))
+            if out > 8:
+                respond("CMD ERR\r\n")
+                return
+            outs = range(1, 9) if out == 0 else [out]
+            respond("\r\n".join(f"OUT{o} HPD {state[f'hpd_{o}']}" for o in outs) + "\r\n")
+        _run()
+
+    - match: 'GET IN(\d+) VID FMT INF'
       handler: |
-        respond(f"OUT{match.group(1)} EXAUD LEV{match.group(2)}\r\n")
-    - match: 'SET OUT(\d+)( HP| TP)? STREAM (ON|OFF)'
-      handler: |
-        port = match.group(2) or ""
-        respond(f"OUT{match.group(1)}{port} STREAM {match.group(3)}\r\n")
+        def _run():
+            inp = int(match.group(1))
+            if inp > 8:
+                respond("CMD ERR\r\n")
+                return
+            ins = range(1, 9) if inp == 0 else [inp]
+            respond("\r\n".join(f"IN{i} VID FMT INF {state[f'fmt_{i}']}" for i in ins) + "\r\n")
+        _run()
+
+    # ── Input EDID / port power ──
     - match: 'SET IN(\d+) EDID (\d+)'
       handler: |
-        inp = int(match.group(1))
-        code = int(match.group(2))
-        if inp > 16 or code > 32:
-            respond("ERR\r\n")
-        else:
-            respond(f"IN{match.group(1)} EDID {code}\r\n")
+        def _run():
+            inp = int(match.group(1))
+            code = int(match.group(2))
+            if inp > 8 or code > 32:
+                respond("CMD ERR\r\n")
+                return
+            ins = range(1, 9) if inp == 0 else [inp]
+            for i in ins:
+                state[f"edid_{i}"] = code
+            # MEASURED: an EDID write makes the unit re-emit the format
+            # line for every input alongside the echo.
+            fmt = "\r\n".join(f"IN{i} VID FMT INF {state[f'fmt_{i}']}" for i in range(1, 9))
+            respond(f"IN{inp} EDID {code}\r\n" + fmt + "\r\n")
+        _run()
+
+    - match: 'GET IN(\d+) EDID$'
+      handler: |
+        def _run():
+            inp = int(match.group(1))
+            if inp > 8:
+                respond("CMD ERR\r\n")
+                return
+            ins = range(1, 9) if inp == 0 else [inp]
+            respond("\r\n".join(f"IN{i} EDID {state[f'edid_{i}']}" for i in ins) + "\r\n")
+        _run()
+
+    - match: 'SET IN(\d+) TMDS (ON|OFF)'
+      handler: |
+        def _run():
+            inp = int(match.group(1))
+            if inp > 8:
+                respond("CMD ERR\r\n")
+                return
+            ins = range(1, 9) if inp == 0 else [inp]
+            for i in ins:
+                state[f"tmds_{i}"] = match.group(2)
+            respond(f"IN{inp} TMDS {match.group(2)}\r\n")
+        _run()
+
+    - match: 'GET IN(\d+) TMDS'
+      handler: |
+        def _run():
+            inp = int(match.group(1))
+            if inp > 8:
+                respond("CMD ERR\r\n")
+                return
+            ins = range(1, 9) if inp == 0 else [inp]
+            respond("\r\n".join(f"IN{i} TMDS {state[f'tmds_{i}']}" for i in ins) + "\r\n")
+        _run()
+
+    # ── Per-output audio / video processing ──
+    # One dispatcher for the whole "SET OUTx <thing>" family: a matched
+    # script handler never falls through, so these must not be split in
+    # a way that lets an earlier pattern swallow a later one.
+    - match: 'SET OUT(\d+) (EXA EN|EXA DIS|EXADL PH\d+|EXAUD LEV\d+|EXA LVL\d+|EXA RVL\d+|EXEQ MODE\d+|VIDEO\d+|SGMT \d+|STREAM ON|STREAM OFF)'
+      handler: |
+        def _run():
+            out = int(match.group(1))
+            rest = match.group(2)
+            if out > 8:
+                respond("CMD ERR\r\n")
+                return
+            outs = list(range(1, 9)) if out == 0 else [out]
+            key, val, bound = None, None, None
+            if rest == "EXA EN":
+                key, val = "exa", "EN"
+            elif rest == "EXA DIS":
+                key, val = "exa", "DIS"
+            elif rest.startswith("EXADL PH"):
+                key, val, bound = "exadl", int(rest[8:]), 7
+            elif rest.startswith("EXAUD LEV"):
+                key, val, bound = "exaud", int(rest[9:]), 100
+            elif rest.startswith("EXA LVL"):
+                key, val, bound = "lvl", int(rest[7:]), 10
+            elif rest.startswith("EXA RVL"):
+                key, val, bound = "rvl", int(rest[7:]), 10
+            elif rest.startswith("EXEQ MODE"):
+                key, val, bound = "exeq", int(rest[9:]), 7
+            elif rest.startswith("VIDEO"):
+                key, val = "video", int(rest[5:])
+                if val not in (0, 1, 2, 4):
+                    respond("CMD ERR\r\n")
+                    return
+            elif rest.startswith("SGMT "):
+                key, val, bound = "sgmt", int(rest[5:]), 2
+            elif rest == "STREAM ON":
+                key, val = "stream", "ON"
+            elif rest == "STREAM OFF":
+                key, val = "stream", "OFF"
+            if bound is not None and val > bound:
+                respond("CMD ERR\r\n")
+                return
+            for o in outs:
+                state[f"{key}_{o}"] = val
+            # MEASURED: the balanced-level writes echo with a space before
+            # the value ("OUT3 EXA LVL 6") while their GET answers without
+            # one. Reproduced so the driver's rule is tested against the
+            # shape the hardware actually sends.
+            if key in ("lvl", "rvl"):
+                tag = "LVL" if key == "lvl" else "RVL"
+                respond(f"OUT{out} EXA {tag} {val}\r\n")
+                return
+            respond(f"OUT{out} {rest}\r\n")
+        _run()
+
+    - match: 'GET OUT(\d+) (EXA|EXADL PH|EXAUD LEV|EXA LVL|EXA RVL|EXEQ MODE|VIDEO|SGMT|STREAM)'
+      handler: |
+        def _run():
+            out = int(match.group(1))
+            what = match.group(2)
+            if out > 8:
+                respond("CMD ERR\r\n")
+                return
+            outs = range(1, 9) if out == 0 else [out]
+            shape = {
+                "EXA": ("exa", "OUT{o} EXA {v}"),
+                "EXADL PH": ("exadl", "OUT{o} EXADL PH{v}"),
+                "EXAUD LEV": ("exaud", "OUT{o} EXAUD LEV{v}"),
+                "EXA LVL": ("lvl", "OUT{o} EXA LVL{v}"),
+                "EXA RVL": ("rvl", "OUT{o} EXA RVL{v}"),
+                "EXEQ MODE": ("exeq", "OUT{o} EXEQ MODE{v}"),
+                "VIDEO": ("video", "OUT{o} VIDEO{v}"),
+                "SGMT": ("sgmt", "OUT{o} SGMT {v}"),
+                "STREAM": ("stream", "OUT{o} STREAM {v}"),
+            }[what]
+            lines = [shape[1].format(o=o, v=state[f"{shape[0]}_{o}"]) for o in outs]
+            respond("\r\n".join(lines) + "\r\n")
+        _run()
 
     # ── Front panel / system ──
     - match: 'SET KEY LOCK (ON|OFF)'
       handler: |
-        state["key_lock"] = match.group(1) == "ON"
+        state["key_lock"] = match.group(1)
         respond(f"KEY LOCK {match.group(1)}\r\n")
+
     - match: 'GET KEY LOCK'
       handler: |
-        respond(f"KEY LOCK {'ON' if state['key_lock'] else 'OFF'}\r\n")
+        respond(f"KEY LOCK {state['key_lock']}\r\n")
+
     - match: 'SET LCD ON T([0-3])'
       handler: |
+        state["lcd_timeout"] = int(match.group(1))
         respond(f"LCD ON T{match.group(1)}\r\n")
+
+    - match: 'GET LCD ON T'
+      handler: |
+        respond(f"LCD ON T{state['lcd_timeout']}\r\n")
+
+    - match: 'SET FAN SPEED ([0-3])'
+      handler: |
+        state["fan_speed"] = int(match.group(1))
+        respond(f"FAN SPEED {match.group(1)}\r\n")
+
+    - match: 'GET FAN SPEED'
+      handler: |
+        respond(f"FAN SPEED {state['fan_speed']}\r\n")
+
+    - match: 'SET ADDR (\d+)'
+      handler: |
+        state["system_address"] = match.group(1)
+        respond(f"ADDR {match.group(1)}\r\n")
+
+    - match: 'GET ADDR'
+      handler: |
+        respond(f"ADDR {state['system_address']}\r\n")
+
+    - match: 'SET BAUDR ([0-5])'
+      handler: |
+        state["baud_rate"] = int(match.group(1))
+        respond(f"BAUDR {match.group(1)}\r\n")
+
+    - match: 'GET BAUDR'
+      handler: |
+        respond(f"BAUDR {state['baud_rate']}\r\n")
+
+    # ── Network ──
+    - match: 'SET (HIP|RIP|NMK) ([\d.]+)'
+      handler: |
+        key = {"HIP": "host_ip", "RIP": "route_ip", "NMK": "netmask"}[match.group(1)]
+        state[key] = match.group(2)
+        respond(f"{match.group(1)} {match.group(2)}\r\n")
+
+    - match: 'GET (HIP|RIP|NMK)'
+      handler: |
+        key = {"HIP": "host_ip", "RIP": "route_ip", "NMK": "netmask"}[match.group(1)]
+        respond(f"{match.group(1)} {state[key]}\r\n")
+
+    - match: 'SET TIP (\d+)'
+      handler: |
+        state["tcp_port"] = int(match.group(1))
+        respond(f"TIP {match.group(1)}\r\n")
+
+    - match: 'GET TIP'
+      handler: |
+        respond(f"TIP {state['tcp_port']}\r\n")
+
+    - match: 'SET DHCP ([01])'
+      handler: |
+        state["dhcp"] = int(match.group(1))
+        respond(f"DHCP {match.group(1)}\r\n")
+
+    - match: 'GET DHCP'
+      handler: |
+        respond(f"DHCP {state['dhcp']}\r\n")
+
     - match: 'GET MAC'
       handler: |
         respond(f"MAC {state['mac']}\r\n")
-    - match: 'SET RBT'
-      handler: |
-        respond("SYSTEM REBOOT\r\n")
-    - match: 'STA'
-      handler: |
-        respond("================ AC-MX1616-AUHD-HDBT STATUS ================\r\n")
 
-    # Catch-all — must stay last (script form so it runs after specific entries).
+    # ── IR ──
+    - match: 'SET IR SYS ([0-9A-Fa-f]{2}\.[0-9A-Fa-f]{2})'
+      handler: |
+        state["ir_sys"] = match.group(1)
+        respond(f"IR SYS {match.group(1)}\r\n")
+
+    - match: 'GET IR SYS'
+      handler: |
+        respond(f"IR SYS {state['ir_sys']}\r\n")
+
+    - match: 'SET IR SWMD ([01])'
+      handler: |
+        state["ir_swmd"] = int(match.group(1))
+        respond(f"IR SWMD {match.group(1)}\r\n")
+
+    - match: 'GET IR SWMD'
+      handler: |
+        respond(f"IR SWMD {state['ir_swmd']}\r\n")
+
+    - match: 'SET IR OUT(\d+) IN(\d+) CODE ([0-9A-Fa-f]{2})'
+      handler: |
+        respond(f"IR OUT{match.group(1)} IN{match.group(2)} CODE {match.group(3)}\r\n")
+
+    - match: 'GET IR OUT(\d+) IN(\d+) CODE'
+      handler: |
+        respond(f"IR OUT{match.group(1)} IN{match.group(2)} CODE 80\r\n")
+
+    # ── Reboot / reset ──
+    - match: 'SET (RBT|LAN RBT|RST)'
+      handler: |
+        respond("")
+
+    # ── Global status dump ──
+    # MEASURED: 125 structured lines in the same grammar as the
+    # individual queries, which is why the driver polls this one command
+    # instead of twenty. Deliberately includes the "INx PW" line the
+    # real unit emits AND the driver refuses to parse - it contradicts
+    # GET INx TMDS on the same unit, so the simulator reproduces the
+    # contradiction rather than tidying it away.
+    - match: '(GET )?STA$'
+      handler: |
+        def _run():
+            L = []
+            L.append(f"ADDR {state['system_address']}")
+            L.append(f"BAUDR {state['baud_rate']}")
+            L.append(f"LCD ON T{state['lcd_timeout']}")
+            L.append(f"KEY LOCK {state['key_lock']}")
+            L.append(f"FAN SPEED {state['fan_speed']}")
+            L.append(f"IR SWMD {state['ir_swmd']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} VS IN{state[f'route_{o}']}")
+            for i in range(1, 9):
+                L.append(f"IN{i} EDID {state[f'edid_{i}']}")
+            for i in range(1, 9):
+                L.append(f"IN{i} PW OFF")
+            for o in range(1, 9):
+                L.append(f"OUT{o} EXA {state[f'exa_{o}']}")
+            L.append(f"EXAMX MODE{state['examx_mode']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} AS IN{state[f'audio_route_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} EXADL PH{state[f'exadl_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} EXAUD LEV{state[f'exaud_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} EXA LVL{state[f'lvl_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} EXA RVL{state[f'rvl_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} EXEQ MODE{state[f'exeq_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} VIDEO{state[f'video_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} SGMT {state[f'sgmt_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} STREAM {state[f'stream_{o}']}")
+            for o in range(1, 9):
+                L.append(f"OUT{o} HDMI STREAM MODE0")
+            L.append(f"RIP {state['route_ip']}")
+            L.append(f"HIP {state['host_ip']}")
+            L.append(f"NMK {state['netmask']}")
+            L.append(f"TIP {state['tcp_port']}")
+            L.append(f"DHCP {state['dhcp']}")
+            L.append(f"MAC {state['mac']}")
+            respond("\r\n".join(L) + "\r\n")
+        _run()
+
+    # Catch-all — must stay last, and must stay in script form so it
+    # lands in _script_handlers after the specific entries above.
+    # MEASURED: an unrecognised command draws NO reply at all. "CMD ERR"
+    # is reserved for a well-formed command with a bad argument, which
+    # the handlers above emit themselves.
     - match: '.+'
       handler: |
-        respond("ERR\r\n")
+        respond("")
 
   error_modes:
     communication_timeout:

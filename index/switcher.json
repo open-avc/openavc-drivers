@@ -20,8 +20,8 @@
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
       "files": {
-        "switchers/atlona_ome_ms.py": "e22d886ad1df28148d6d23cf275d78238febcf750e432d9282cadb3af2f7dc84",
-        "switchers/atlona_ome_ms_sim.py": "dbcdaa385c4849e22e10d1f8dcb3a60391c0793e4d1e5250f8ba3069882228ea"
+        "switchers/atlona_ome_ms.py": "9987988db2ab0d8305eb8419801439786450978ce87554283a0f2622c4c2a4ce",
+        "switchers/atlona_ome_ms_sim.py": "c097bed669f23a7010a2fbec71383fdcc1159428dc4291acfabeac532458d350"
       },
       "ports": [
         23
@@ -79,7 +79,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "9461e5146ae2aea9880f4832d5048d9be6bb909886e8d6fecced47a21edb5fca"
+        "switchers/atlona_ome_ps62.avcdriver": "f049b7fbd89fd7f648b8bc75f5ef3a31b52da02b14eb00fc74db8ef4a3945c04"
       },
       "ports": [
         23
@@ -134,7 +134,7 @@
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_uhd_pro3.avcdriver": "3be2dd0ac88050291f1364ffb1f4346617ed87a1494738e49c830d33b62f17e7"
+        "switchers/atlona_uhd_pro3.avcdriver": "6ad8b01d818cc40da77242c51ad7f79cdba0265377814b685155e80db30d39bd"
       },
       "ports": [
         23
@@ -190,7 +190,7 @@
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_omnistream.avcdriver": "9cebacbacfd57f672c8a061e978ccf3ff2f2cdd70e163e4815ff42b5b39ff0eb"
+        "switchers/atlona_omnistream.avcdriver": "1fb3e46c080397aa865409138c70e96947b50c1593ccad740dff69808c9e0d0c"
       },
       "ports": [
         23,
@@ -244,15 +244,15 @@
       "name": "AVPro Edge AC-MX Matrix",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed video source and extracted -audio source, and every input a child showing signal presence. Also covers the extracted-audio matrix mode, audio delay and level, per-port stream enable, input EDID management, front-panel key lock, LCD timeout, and reboot.\n",
-      "source_url": "https://p11.secure.hostingprod.com/@site.hdtvsupply.com/ssl/brand/avpro-edge/avpro-edge-ac-mx1616-auhd-hdbt-chassis-um.pdf",
+      "description": "Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed video and extracted-audio source, sync and HPD status, scaling mode, stream enable and the full balanced-audio chain; every input a child tracking signal presence, assigned EDID, port power and detected video format. Also covers the extracted-audio matrix mode, front-panel lock, LCD timeout, fan speed, IR code setup and the unit's network configuration.\n",
+      "source_url": "https://www.avproglobal.com/products/ac-mx-88",
       "file": "switchers/avproedge_acmx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/avproedge_acmx.avcdriver": "02e29efadee9b4f4e70fb49fd5baffedda01b434bd72424e4b7f1b9aea4df9dc"
+        "switchers/avproedge_acmx.avcdriver": "278110eb472cb0045cc39be4fe43ae0ab13f91e48898d7fb401b85dcdeb50808"
       },
       "ports": [
         23
@@ -261,7 +261,8 @@
         "avproedge_acmx"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "verified": true,
+      "min_platform_version": "0.24.0",
       "tags": [
         "matrix-switcher",
         "hdmi",
@@ -271,22 +272,30 @@
         "telnet"
       ],
       "help": {
-        "overview": "AVPro Edge AC-MX matrices route HDMI sources to HDMI or HDBaseT outputs. Each output is a child entity showing its routed video source and its extracted-audio source; each input a child showing whether a signal is present. Use the Route command to send a source to one output (or 0 for all), and the extracted-audio commands to run the audio ports as a separate audio matrix. EDID presets can be assigned per input.\n",
-        "setup": "1. Give the matrix a static IP via its WebOS page (or a DHCP reservation) and add it here with Telnet port 23. 2. Match the Input IDs and Output IDs lists to the model (a 4x4 would use \"1,2,3,4\" for both; the defaults describe a 16x16). Each ID becomes a child entity that is polled for state. 3. To use the extracted audio ports as an independent audio matrix, send Set Ex-Audio Matrix Mode = Matrix once, then route with the Route Ex-Audio command. In the default Bind-to-Output mode the audio ports simply follow the HDMI routing. 4. RS-232 control instead: null-modem cable at 57600 8N1, no handshaking.\n"
+        "overview": "AVPro Edge AC-MX matrices route HDMI sources to HDMI or HDBaseT outputs. Each output is a child entity showing its routed video source, extracted-audio source, sync and HPD state, and audio settings; each input a child showing signal presence, its EDID and port power. Use the Route command to send a source to one output, or Route to All Outputs for everything at once, and the extracted-audio commands to run the audio ports as a separate audio matrix.\n",
+        "setup": "1. Give the matrix a static IP via its web page (or a DHCP reservation) and add it here with Telnet port 23. The unit ships with DHCP enabled, so on a network with no DHCP server it will have no address at all until you set one from the front panel. 2. Match the Input IDs and Output IDs lists to the model (a 4x4 would use \"1,2,3,4\" for both; the defaults describe an 8x8). Each ID becomes a child entity that is polled for state. 3. To use the extracted audio ports as an independent audio matrix, set Ex-Audio Matrix Mode to Matrix. Routing ex-audio while in another mode also works: the unit switches itself to Matrix and reports the change. 4. RS-232 control instead: null-modem cable at 57600 8N1, no handshaking.\n"
       },
       "compatible_models": [
         {
           "manufacturer": "AVPro Edge",
           "models": [
-            "AC-MX1616-AUHD / AC-MX1616-AUHD-HDBT",
+            "AC-MX-88 / AC-MX-88-B"
+          ],
+          "confidence": "full",
+          "notes": "Hardware-verified on an AC-MX-88-B (F/W 1.10) on 2026-08-09: every command driven against the unit and every state variable read back from it, including the status dump, the balanced-audio chain, EDID, port power and the network block. HDMI-only, so it uses the plain Stream commands rather than the HDMI/HDBaseT port split.\n"
+        },
+        {
+          "manufacturer": "AVPro Edge",
+          "models": [
             "AC-MX88-AUHD / AC-MX88-AUHD-HDBT / AC-MX88-AUHD-GEN2",
             "AC-MX88-UHD-GEN2",
+            "AC-MX1616-AUHD / AC-MX1616-AUHD-HDBT",
             "AC-MX44-AUHD / AC-MX44-AUHD-HDBT",
             "AC-MX62-AUHD / AC-MX-42 / AC-MX-82",
             "ConferX AC-CXMF62-AUHD"
           ],
           "confidence": "untested",
-          "notes": "AVPro Edge's unified ASCII command list is shared across the AC-MX matrix range; each model's manual documents its subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe a 16x16). HDBaseT-equipped models use the HDMI Stream / HDBaseT Stream commands; HDMI-only models use the plain Stream commands. MXNet AVoIP systems use a different control system \u2014 not this driver.\n"
+          "notes": "Covered by AVPro Edge's unified ASCII command list, which is shared across the AC-MX matrix family, but not yet driven against one of these units. Each model documents its own subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe an 8x8). HDBaseT models split per-output stream control into the HDMI-port and HDBaseT-port commands.\n"
         }
       ],
       "discovery": {
@@ -316,8 +325,8 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "93b85d88d7960c65131d39505e1f3df2ab20d57a5fb9c55f1815ca6bc15493fa",
-        "switchers/avproedge_mxnet_1g_sim.py": "ebc090902331269a8a4302a3f03ceaab9c09b4700b9181fb93cdc83137bc24ae"
+        "switchers/avproedge_mxnet_1g.py": "b3c9ee07ec42459be9969a87752b0f553d6f6e800393d0421bc7a4ae9c04dd6e",
+        "switchers/avproedge_mxnet_1g_sim.py": "d90ae1d09262651876e1bf9852fd3ada5e706acf4047721391d420373e5687be"
       },
       "ports": [
         24
@@ -388,8 +397,8 @@
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
       "files": {
-        "switchers/blackmagic_videohub.py": "8ecb2e23a86922162b24994b73926595f08e772262920ff4c6ef884d82d8d9b8",
-        "switchers/blackmagic_videohub_sim.py": "d0caa03dd64e36d5b1e02475bc96d21dd6156cdca0c52a48931596a3723b37cd"
+        "switchers/blackmagic_videohub.py": "99f743e1cb444b56a8536a3125f8729088803d14dd7a4e0bbe6e363a9cfed481",
+        "switchers/blackmagic_videohub_sim.py": "54467c0fc124ad99d928cc5b06a443c34963134ef553106c382a1fc19399381e"
       },
       "ports": [
         9990
@@ -472,8 +481,8 @@
       "file": "switchers/crestron_nvx.py",
       "format": "python",
       "files": {
-        "switchers/crestron_nvx.py": "78eb0306d9def6d989485f00db9679bafe9f377c4cdf8d75f4a1d098600232af",
-        "switchers/crestron_nvx_sim.py": "47b270cbe9067875ea3b8f485a4794b6cbd9269d93220bb00a228bd5e586f6da"
+        "switchers/crestron_nvx.py": "375354da47ae4b87c41c6a4273c70107b2dd2e7ccb2c47efb18a3b4f32988a14",
+        "switchers/crestron_nvx_sim.py": "a8fd2122e730db7d45e7160fbeb64247878784110d71d80af8b768a7f72b20bf"
       },
       "ports": [
         443
@@ -551,7 +560,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "ff029715e2d5cbf7e89e8acb4e23c952b078d8fee057ca9c68b91a03270a2349"
+        "switchers/extron_sis.avcdriver": "9405e85f6d43ec143ca04807cb26e24345b53124c2fa9063e3540853dc74d367"
       },
       "ports": [
         23
@@ -622,7 +631,7 @@
       "file": "switchers/gefen_uhd600a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/gefen_uhd600a.avcdriver": "b4be6163bbf4fceea40fbb5475c477703b29e4e96125681cc7ae0d44a2ea75b6"
+        "switchers/gefen_uhd600a.avcdriver": "e59afae3c78a931d6893f0c75a878d22717ee5381ab6075fee4cfeb5d4aa7c41"
       },
       "ports": [
         23
@@ -685,7 +694,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "afae4a805fa09e1dac8ecb56dbd23034b2f589ab4b61091c79f27155490b4c0c"
+        "switchers/kramer_p3000.avcdriver": "a426d05b66aa4bcc1a476bc6340cbed7855baa45c4684d3f0efabb3d4cd5de16"
       },
       "ports": [
         5000,
@@ -748,7 +757,7 @@
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "ff4e20a8aa3bb95c9b004731be604e33c37ecad8576bdc4456c952074fe75fae"
+        "switchers/lightware_lw3.avcdriver": "c4c9603db1f5d9aedd8fb3affb9e18639bd0f17d9dd08362f50b7d8c3f73b54a"
       },
       "ports": [
         6107
@@ -824,9 +833,9 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "bed960c6135617b89d7cd32e14b4d2eb9806245cdb039c5eabab8c36db2b1925",
-        "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
-        "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
+        "switchers/chazy_control.py": "45d9706559ec07e0b660bd5198aa24c7b6f54b48474aff4e9d36c027a1a78d25",
+        "switchers/chazy_control_discovery.py": "742ef36e0bc056ee85e92e3b1e4457db03c202634640cdc1a608ec91e5286e20",
+        "switchers/chazy_control_sim.py": "ee5436fe9dd1f951c2dc6030a7bdbcc4a711838af01d69e6a24a0e2db65c999c"
       },
       "ports": [
         23
@@ -901,9 +910,9 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "7ba3a10a8bb96fa15de02d748a862d21cb7c58a247c7d11d7c51703faaabb9f4",
-        "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
-        "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
+        "switchers/chazy_control_pro.py": "4243f49a2a39ac723140943538dcc5c5de189796fa66b0d524ac4387328fa6d4",
+        "switchers/chazy_control_pro_discovery.py": "3bac396fdf427168bbf3a4c47655a60e93d2f1039eb6f83d78af9cc06a65d1a7",
+        "switchers/chazy_control_pro_sim.py": "9a574efe0f90003c367878be2a5f02ed10c61efee476bd0c43f0551d9b8d8336"
       },
       "ports": [
         23
@@ -978,9 +987,9 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "491e9e8d28ef0b77c7e143f8d3c9e0c9e17014c10d8376c0c55a14ef15bde882",
-        "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
-        "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
+        "switchers/darwin_control.py": "c6e35c9e5dffe24864d42b4673d1967f84768ffe24fdaf1ac3a84a78e8a6654c",
+        "switchers/darwin_control_discovery.py": "35dbe17cf87fd66babaac86bdc81dab426f4986e91a6bf15b77ac1d4b892e9dd",
+        "switchers/darwin_control_sim.py": "0b21270ac595fcc7276adf002d53d1f3fd78ba3a627f6d27039f3da05b32f75b"
       },
       "ports": [
         23
@@ -1055,8 +1064,8 @@
       "file": "switchers/tvone_coriomatrix.py",
       "format": "python",
       "files": {
-        "switchers/tvone_coriomatrix.py": "b29decb91424c4af975494a4a434c48a308f40226729f0af4099b93746b1bb71",
-        "switchers/tvone_coriomatrix_sim.py": "5c8d8bfd4e663da9806e49c2bb9ee136bc9cec16b9373002e956eb2db0593a07"
+        "switchers/tvone_coriomatrix.py": "569280cb8a87d720a2c80c18023fdabd5318961ca7432d020486b7c06bd92832",
+        "switchers/tvone_coriomatrix_sim.py": "4894d7ad70f7dc24730c2f471d6e5710ca404e9e6c48ac3f35766e65239c3a39"
       },
       "ports": [
         10001
@@ -1111,7 +1120,7 @@
       "file": "switchers/wyrestorm_mx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/wyrestorm_mx.avcdriver": "1f5428af41ea87199357d7864c554d382d25fbd060494a82f9b579c130a7ad73"
+        "switchers/wyrestorm_mx.avcdriver": "8fd244abb16e9a00a80a149bd05e95b92a3eb0ec636994074f63b02f8decb59f"
       },
       "ports": [
         23
@@ -1176,8 +1185,8 @@
       "file": "switchers/wyrestorm_networkhd.py",
       "format": "python",
       "files": {
-        "switchers/wyrestorm_networkhd.py": "e204c97fae4cb0e6a12d62989fd959add39f382161da00515526e103e6bff51d",
-        "switchers/wyrestorm_networkhd_sim.py": "b7b37b35f92332c4d78fa7df559f9bf12f146ba9d81a6408e57d9615eab9cc57"
+        "switchers/wyrestorm_networkhd.py": "d7ae1306927874d58fd402ea2e144b0f7f2cb85d2ab3618ed185889a0e7dc176",
+        "switchers/wyrestorm_networkhd_sim.py": "8d2c650fb78223d13921ee68b88e27de2ed2fe8211878ad37baa4c172e2587b6"
       },
       "ports": [
         23

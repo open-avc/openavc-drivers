@@ -457,7 +457,15 @@ def _validate_json_schema(
     try:
         validator.validate(driver_info)
     except JsonSchemaValidationError as e:
-        errors.append(f"{filepath}: JSON Schema validation error: {e.message}")
+        # jsonschema exposes .message; jsonschema_rs raises plain ValueError
+        # for things it cannot even represent (a non-string mapping key, for
+        # instance, which YAML produces from a bare "on:" or "off:"). Reading
+        # .message unconditionally turned that into an AttributeError
+        # traceback, hiding the driver and the reason.
+        detail = getattr(e, "message", None) or str(e)
+        errors.append(f"{filepath}: JSON Schema validation error: {detail}")
+    except ValueError as e:
+        errors.append(f"{filepath}: JSON Schema validation error: {e}")
     return errors
 
 

@@ -20,8 +20,8 @@
       "file": "audio/allenheath_avantis.py",
       "format": "python",
       "files": {
-        "audio/allenheath_avantis.py": "80006e7a73e7713952b75a2011df06d9bd3c5f70172be64fca72304bbd9cca8e",
-        "audio/allenheath_avantis_sim.py": "90bd9aa9e27a343c92b72438c7d16d371a316c88c44541ea083414fd30213650"
+        "audio/allenheath_avantis.py": "1bed2c26e3a3b74ba78c0e43d97969fe2a993fda650dfc1ea50eae842ed60553",
+        "audio/allenheath_avantis_sim.py": "dfa482a5fe707c0211dcb8bbe9f6a768cbb4bd1cb713ca2616a94d14286f6243"
       },
       "ports": [
         51325
@@ -83,8 +83,8 @@
       "file": "audio/allenheath_dlive.py",
       "format": "python",
       "files": {
-        "audio/allenheath_dlive.py": "2ce407ffb840217e999d1f5f33b03be0571f1323183ffcab6d7881137378df37",
-        "audio/allenheath_dlive_sim.py": "e72466efbac7b258b8ca402c879f8b49d018357f370a00516d424acfb76b651d"
+        "audio/allenheath_dlive.py": "97eb7a26f6ae030f8b787291036e6557b6a928d04a1729ff2859d04f4cf571ea",
+        "audio/allenheath_dlive_sim.py": "fa4ca8e6733a18ca9d8e8dedb958edf54fc4daf4b75bb69c97b50d7680a57db0"
       },
       "ports": [
         51325
@@ -154,8 +154,8 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "c7aafdc2936593e898334bdb9f2692bd1c4b804868cad6ad57fc71179413e5b2",
-        "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
+        "audio/allenheath_qu.py": "8d897975e97168b741238ba8fa4aeb71f7c55c1df1943c72fba6df64ef751363",
+        "audio/allenheath_qu_sim.py": "b56e09363f7f2b9cebf0baecea8b5a596b38f9300f7bb547cde833948af56b59"
       },
       "ports": [
         51325
@@ -228,8 +228,8 @@
       "file": "audio/allenheath_sq.py",
       "format": "python",
       "files": {
-        "audio/allenheath_sq.py": "3e5c3052f6ef6f42cf8b539d750203f46750dd0e29862b048e26e42d1472f662",
-        "audio/allenheath_sq_sim.py": "c0205512893a529ab9e1df86c1bdee0c9fda30e14d5274a3fecbe9a01edb7d22"
+        "audio/allenheath_sq.py": "a6d705fd072dd4e7a09d1cc74d8c0bf171550899edad348d1279cd08b4bee48f",
+        "audio/allenheath_sq_sim.py": "a63bb5116d81028f6ee77b3c05abc021ff776f8a8e9951767bbe3d447e349f26"
       },
       "ports": [
         51325
@@ -291,8 +291,8 @@
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
       "files": {
-        "audio/atlasied_atmosphere.py": "571a80a2e2954c01bc9b50cde9336778f7a354c5b85cd7d21fbeee1650b03563",
-        "audio/atlasied_atmosphere_sim.py": "5abeef1019aa4a3780f6997008c020b9721294d1ea853a3b857dcfdd8d43c9a4"
+        "audio/atlasied_atmosphere.py": "6a8ada14ba1351746d1c21b931a84a5852201b35d4be4090fd493d69b99e142d",
+        "audio/atlasied_atmosphere_sim.py": "3617e847f31487821892f8ce4cd3fdf64e137c790953d6a434588e31d39e5984"
       },
       "ports": [
         5321
@@ -351,8 +351,8 @@
       "file": "audio/dante_ddm.py",
       "format": "python",
       "files": {
-        "audio/dante_ddm.py": "7d46df1782d4d9cd1f312897db73905b55d50567396e63fd5d015b20d6dc8ded",
-        "audio/dante_ddm_sim.py": "025bc28def87ff5b177c63f99bca1c91b7820a6f136f3fd4ccc43d32a45539d0"
+        "audio/dante_ddm.py": "edb43fe33397bf1251645cfeaa866032d10c6f5815e04c2fddb905c51846e17f",
+        "audio/dante_ddm_sim.py": "9a72961f9d55fe451633d1d0ff380f9908b8f0c4d4c24b569d891e9cfe29015e"
       },
       "ports": [
         443
@@ -398,7 +398,7 @@
       "file": "audio/at_atdm_0604.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604.avcdriver": "1a2824d468de58b6ca3c82e40a92851bef55faafaf7a8d53303b55b37260423b"
+        "audio/at_atdm_0604.avcdriver": "e111ca9f38a80f4d641daca33d54e9f8e7dfc6a0534542d7282f21634387eb27"
       },
       "ports": [
         17300
@@ -458,7 +458,7 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "111f7cf1e008aadd63fbdad742c2d1644f044183d5e0b979d5ed7e543a41d359"
+        "audio/at_atdm_0604a.avcdriver": "f4e9f919bd9703e87d628405068f8be21cf01bffc68f29cd3e9c779c236fa725"
       },
       "ports": [
         17300
@@ -520,7 +520,7 @@
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "368cf10e80f3f18a6ca036b3c6bcdf762aabafb5945fef2dd054b39ba3f7d794"
+        "audio/at_atdm_1012.avcdriver": "7525d66450cd4ef9a52b40dad398351d1562ebc9350ae510a36c927576dd84c2"
       },
       "ports": [
         17300
@@ -592,7 +592,7 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "7ab607c09cee2b98c0a375226eb25c0f2493e4b25c8a0f77210d6b7eac364c0a"
+        "audio/at_atnd1061.avcdriver": "9f65c1efa27d17a4186adc6d154154b9aa7dfe0be572fdf9e25e460330fa1f0c"
       },
       "ports": [
         17300
@@ -674,7 +674,7 @@
       "file": "audio/behringer_x32.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/behringer_x32.avcdriver": "db10b2dd0673528c3e1a1443ebe5302dc43f9e8762b4f4eabbdd40cebd7f84b8"
+        "audio/behringer_x32.avcdriver": "c5e75ba50b723df3d79b430fb63a049c46ae181bf05c6bb442fb8384f026be39"
       },
       "ports": [
         10023
@@ -739,9 +739,9 @@
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
       "files": {
-        "audio/biamp_tesira_ttp.py": "964d096f7e2017fd2ec7777860bb4de28cfaf7e06185fdc66bdee63f92451777",
-        "audio/biamp_tesira_ttp_discovery.py": "52a9a3d6c365efd4549d6b69b5bab2d385b207ac51da02d197089464a723d66e",
-        "audio/biamp_tesira_ttp_sim.py": "501c2200221ddc5852e5183f8b4218e6ee09d7c091cb2c83bed0236cd9d8b819"
+        "audio/biamp_tesira_ttp.py": "113b7783c8739a20ec312b2baa7b6aa4e9a37255b44964074203bc534ec12582",
+        "audio/biamp_tesira_ttp_discovery.py": "eb1e7b0ca3dea4eeda878c6ed8052405df638c52cb60334f82a8fc9a23d8f6b0",
+        "audio/biamp_tesira_ttp_sim.py": "566299a7bc2a3a745907697f1cabeb2fb4047f082438327e00da2ab618d7966f"
       },
       "ports": [
         23
@@ -808,7 +808,7 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "35c3f3355e028eccb99165f6ec96c459f83f40b45e4074d8149df308185c483a"
+        "audio/soundcorehero.py": "200f94b12f79583437ec1bdec841b23889dcfc9f32cd80d8f4072ba24159ebd4"
       },
       "protocols": [
         "soundcorehero"
@@ -847,7 +847,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "02ee043afea5d19db6b248b96c04a694a003f8c8bc722e829d29f3905417c25d"
+        "audio/lea_connect.avcdriver": "6dc8bda36897051ebd76898cbbbadcd6b16f3b21c48dd991ccada02c3c2d9f67"
       },
       "ports": [
         4321
@@ -950,7 +950,7 @@
       "file": "audio/onkyo_integra_eiscp.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/onkyo_integra_eiscp.avcdriver": "d250e65632cdb68f58c97fb9659336140c7e2af9b1ef39978f3a1919f6f17f32"
+        "audio/onkyo_integra_eiscp.avcdriver": "713930c91fca7a607fa4f0da703c5aad5f6e68a98d98761c54a6a66572df8419"
       },
       "ports": [
         60128
@@ -1039,7 +1039,7 @@
       "file": "audio/onkyo_integra_iscp.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/onkyo_integra_iscp.avcdriver": "fb7c16efe2fca7ba396c7b7271bfb82915ba74dcb080b2a573a309978050d02f"
+        "audio/onkyo_integra_iscp.avcdriver": "341c25d1b323013d64b1451a8134464a55286f9368894d922270a62cd47045d1"
       },
       "simulated": true,
       "min_platform_version": "0.24.0",
@@ -1095,8 +1095,8 @@
       "file": "audio/qsc_qrc.py",
       "format": "python",
       "files": {
-        "audio/qsc_qrc.py": "897c1cbb1153bfe68badc05d269c932b209a89dddfc87e7d0c04987d4df9ac6a",
-        "audio/qsc_qrc_sim.py": "9668f6f8082acffbe222245aba544b641930eff96125b0f8e2462e545dec1ab0"
+        "audio/qsc_qrc.py": "3d7b951db5bf5a927d180fa29bc3d91ba85cc3c348770499ffd31223a1eae418",
+        "audio/qsc_qrc_sim.py": "5304d5c6d5ecb425a298fe6de37e388df8c8b9bf586a0356241664572b59eb62"
       },
       "ports": [
         1710
@@ -1176,8 +1176,8 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "a9a8dd77bde07d2b6c24e4cf53c9f85964997ee5a2377f218c60ead2e8729941",
-        "audio/shure_network_sim.py": "1ce148bf5df3ffe117152b1e0ce812720cb237df4c47ab1b1725140e692cdfb1"
+        "audio/shure_network.py": "ebe7f4e785fd7a323d5f25c15500608fa78c5187e92a7ba80a786371ca154271",
+        "audio/shure_network_sim.py": "24742f778bb1fd7996ad1565c782524d3d2b8f93aa252e9483ae2050f0587068"
       },
       "ports": [
         2202
@@ -1262,8 +1262,8 @@
       "file": "audio/sonos.py",
       "format": "python",
       "files": {
-        "audio/sonos.py": "49c0760c19cc75cfd280887bf99482e451917b7b4eecdc03edc223b2febd8e9b",
-        "audio/sonos_sim.py": "81b822ced3814073ca8f2d924ca5a22b6971344ef85f65a82fb7d9ebdfab5756"
+        "audio/sonos.py": "0496d04f878266e816e05bce7cb19f1a51c556689de5537e02e4175e8203cbc7",
+        "audio/sonos_sim.py": "22df5877dfa7f9e6a2bf41cbbdfcbdd431568185942ddecec2e71660753769fa"
       },
       "ports": [
         1400
@@ -1326,8 +1326,8 @@
       "file": "audio/symetrix_composer.py",
       "format": "python",
       "files": {
-        "audio/symetrix_composer.py": "b05f89368347ad170054702ef6f678b0f1281596d59d505e7d27d87cc56eadd2",
-        "audio/symetrix_composer_sim.py": "55075a2e9fb32b84db0015dba6084d95f9a0dc974ab4874db60f4f865bca458e"
+        "audio/symetrix_composer.py": "eeb878ea766b53687c6487dd86126f45bf66cebb3a691eb008f6822f0595d053",
+        "audio/symetrix_composer_sim.py": "8ab97a3e2cc141b5b00fdc298a0557f0072c269986872365697cc8cfd921a03c"
       },
       "ports": [
         48631
@@ -1397,8 +1397,8 @@
       "file": "audio/toa_9000m2.py",
       "format": "python",
       "files": {
-        "audio/toa_9000m2.py": "891f97e08d342620e465c1bc290daf3e6c0f7e0ad2dd2c419128457fe0ca76fa",
-        "audio/toa_9000m2_sim.py": "d20b771fcff119b8c8f638f80f028060912a62cd2fb40b8180feb7cf8c4a9f47"
+        "audio/toa_9000m2.py": "ddbe73d6e99916d09585cdace41655908c9a237401ff4784707c1996d31c3943",
+        "audio/toa_9000m2_sim.py": "25d2ad3c1cc969d112a8286fb1998329a3d1c2b90a978cdfc5837445e922ed72"
       },
       "protocols": [
         "toa_9000m2"
@@ -1455,7 +1455,7 @@
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/turtle_bt_wallplate.avcdriver": "07b41195f509a7874c14c0d874f30d042b42101b18d3a1baddb0271e035370a3"
+        "audio/turtle_bt_wallplate.avcdriver": "7cb451cf8c8faa9375b4e4c2a9f4df5ba5334a484eec79a4ba594aa2b98c95e3"
       },
       "ports": [
         23
@@ -1531,7 +1531,7 @@
       "file": "audio/yamaha_mtx_mrx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/yamaha_mtx_mrx.avcdriver": "9ce55d201b0c11dffd9ea06636ca86832005f8da0481ce6500109639644f5ad7"
+        "audio/yamaha_mtx_mrx.avcdriver": "31b7f6604d4c1318247e9f32ea4febda5fbb4cd8e6e788e044e4e9024ca0243d"
       },
       "ports": [
         49280

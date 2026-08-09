@@ -1235,8 +1235,55 @@ def _with_discovery_requires(discovery: dict[str, Any]) -> dict[str, Any]:
     }}
 
 
+class CatalogHashError(RuntimeError):
+    """A file cannot be hashed into the catalog as it currently sits on disk."""
+
+
 def _sha256_file(path: Path) -> str:
+    """SHA-256 of a driver file, as the platform will see it.
+
+    This hash is a promise about bytes we do not control: the installer
+    downloads the file from raw.githubusercontent, which serves the git blob,
+    and refuses the install when the SHA-256 does not match. So the only
+    correct answer here is the hash of the blob - and hashing the working copy
+    only gives that when the working copy IS the blob.
+
+    On Windows with core.autocrlf that is not free. A checkout rewrites LF to
+    CRLF, so a catalog generated there records checksums no download can ever
+    match, for every driver at once, and because the check is fail-closed the
+    result is not a warning: nothing in the catalog can be installed. It
+    happened on 2026-08-09 and CI caught it, which is luck rather than design
+    - the local --check compares the working copy against itself and is
+    perfectly happy.
+
+    .gitattributes pins these files to LF so a checkout matches the blob on
+    every OS. This guard is what notices when that has been bypassed: a stale
+    clone made before those rules landed, a file written by a tool that forced
+    CRLF, an archive extracted with conversion. Refusing here costs a rerun;
+    not refusing ships a catalog that installs nothing.
+    """
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _assert_hashable_bytes(path: Path) -> None:
+    """Refuse to hash a file whose bytes cannot be the bytes GitHub serves.
+
+    Scoped to a real checkout by its caller: "the working copy must equal the
+    blob" is only meaningful where there IS a blob. Test fixtures built in a
+    temp directory have none, and on Windows they are written CRLF by the same
+    text-mode default that caused the original bug - enforcing there would fail
+    locally and pass in CI, which is the worst shape a check can have.
+    """
+    if b"\r\n" in path.read_bytes():
+        raise CatalogHashError(
+            f"{path}: file contains CRLF line endings, so its checksum would "
+            f"not match the bytes GitHub serves and the platform would refuse "
+            f"to install it.\n"
+            f"    Renormalize this checkout, then rebuild:\n"
+            f"        git add --renormalize .\n"
+            f"        git rm -r --cached . && git reset --hard\n"
+            f"        python scripts/build_index.py"
+        )
 
 
 def _installed_file_set(filepath: Path, raw: dict[str, Any]) -> list[Path]:
@@ -1282,9 +1329,17 @@ def _artifact_hashes(
     """Repo-relative path -> SHA-256 for every file an install of this driver
     fetches. Consumed by the platform installer to check the bytes it got are
     the bytes this catalog was built from."""
+    # In a real checkout the bytes on disk must already equal the blob, since
+    # that is what the installer downloads and hashes. (.git is a directory in
+    # a clone and a file in a linked worktree, so test for existence.)
+    guard = (repo_root / ".git").exists()
+    files = _installed_file_set(filepath, raw)
+    if guard:
+        for f in files:
+            _assert_hashable_bytes(f)
     return {
         f.relative_to(repo_root).as_posix(): _sha256_file(f)
-        for f in _installed_file_set(filepath, raw)
+        for f in files
     }
 
 

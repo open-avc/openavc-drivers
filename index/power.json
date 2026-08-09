@@ -20,8 +20,8 @@
       "file": "power/racklink_rlnk.py",
       "format": "python",
       "files": {
-        "power/racklink_rlnk.py": "f14d88c8c9454f736e1dd0ea686da44ce99b847f99addcf871ebc80a1f81f653",
-        "power/racklink_rlnk_sim.py": "655c95f92028888974f527d5289ad5a30db22f2fdc12bdc496e7d651962ba35f"
+        "power/racklink_rlnk.py": "95170800ddaaa058c12a5680e14d4efc7edfb5f2864049556d0842e9b2580413",
+        "power/racklink_rlnk_sim.py": "76c370d2625d3ebe16dc518787e1f095998740759d353847c037eea60aa2294a"
       },
       "ports": [
         60000
@@ -93,8 +93,8 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "3e249742c271b2b6941690c572afa6261e78f140e7c341c86b0ca877466416eb",
-        "power/wattbox_ip_sim.py": "2e7c7ce08e9db0b7fa16645338258213f05f1a4b09fca4f3d34a51a48caa5d58"
+        "power/wattbox_ip.py": "9b1c20940c6bba18b70c2a0c4492461b1372571a698f6284eb615f14265f1b6c",
+        "power/wattbox_ip_sim.py": "e6306a9adaaea62b0729ad8e022c9fff7bc7d488efa1cbb37884891c83eec981"
       },
       "ports": [
         23

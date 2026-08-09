@@ -20,8 +20,8 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "878ae3a2bbf9ecda58a12dca93f1786ae5191e224ce6fa3a60dec0b7eb965de9",
-        "projectors/barco_pulse_sim.py": "bb7366ff7c15200a2befb2cb6d3dd0caeec4af371d3f360507da4ca0316dfc80"
+        "projectors/barco_pulse.py": "280b6252f247133d83e999f509c10394499c1eda292b88c0b5fddc5364d35f81",
+        "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
         9090
@@ -102,7 +102,7 @@
       "file": "projectors/benq_projector.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/benq_projector.avcdriver": "b4863387617825341ac63eb1ca405f9b78059f6fe053ba0a87c54cf328f29267"
+        "projectors/benq_projector.avcdriver": "b466179c42ec54088ac5d19b902dc96953c3024f43d141efe0f1641fc8509616"
       },
       "ports": [
         8000
@@ -181,7 +181,7 @@
       "file": "projectors/christie_serial.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/christie_serial.avcdriver": "157a78542f1fe6affee953f515199994c7c529b9b697c6341e7f9bf9f1203820"
+        "projectors/christie_serial.avcdriver": "7e4f272f571a5e3b76d73f0c58a0ace77875e06926740a597143e33a6e76de70"
       },
       "ports": [
         3002
@@ -253,8 +253,8 @@
       "file": "projectors/epson_escvp.py",
       "format": "python",
       "files": {
-        "projectors/epson_escvp.py": "272ae1837d957f77fca5b54f122a8166c2a05a5ec2a374546da9c7438391f5d3",
-        "projectors/epson_escvp_sim.py": "3fe72c61efb395ecbb25c1e1d9d8cc0330b9032a9b2e95d6ffa2c82ce4ad7ca6"
+        "projectors/epson_escvp.py": "f3f4c9c83837a73b89ea1d2f3aff2e3450689f9ae0625287aac2392883841aec",
+        "projectors/epson_escvp_sim.py": "5d20fd678d357c75591ab17d4b3c00c9b1c20c2594e89b4b5694389e9cb21ed9"
       },
       "ports": [
         3629
@@ -319,9 +319,9 @@
       "file": "projectors/pjlink_class1.py",
       "format": "python",
       "files": {
-        "projectors/pjlink_class1.py": "aa262ee4c5425aca03fae9654840e28d419060d56d6556b9b9052e3ff782dc29",
-        "projectors/pjlink_class1_discovery.py": "f307072f5f2cc1636ddde415a7c1bb9e5950eb13dab1ead7587e49a8c11ecb89",
-        "projectors/pjlink_class1_sim.py": "9690c9041328ba4e86b7f9ae0041bb7e8970e94f3c18271a5ccf9a11a8149419"
+        "projectors/pjlink_class1.py": "cdbbbc363906933cbe27aa4a37cc7f8070a97573a22cd8c00d5be84ee5b95f08",
+        "projectors/pjlink_class1_discovery.py": "a8e65922160cfd5e615bd0cf43344df54ad69d2b6b1df82581854cbfa2be11a5",
+        "projectors/pjlink_class1_sim.py": "a1ea39cff9769f057ade1c4324b35190844ff0282062f54e5c7fcc9dba0e9de5"
       },
       "ports": [
         4352
@@ -512,8 +512,8 @@
       "file": "projectors/optoma_projector.py",
       "format": "python",
       "files": {
-        "projectors/optoma_projector.py": "d4401c70e01f24b0715681d1513a954bce5fad5d9f92b9947b8d44685aa04dc6",
-        "projectors/optoma_projector_sim.py": "104d75a030e03dae657945ecd79182d60e4812d213706ff0306f87a5144500de"
+        "projectors/optoma_projector.py": "2ea3e6e7df17dedf480ff1553f14937de1bdf23250335149059b6dc6cf4a0b3a",
+        "projectors/optoma_projector_sim.py": "d5329a4dfe13ada3d5675f593a677626944e85fc31b0b0eb363a0da897ad8cbd"
       },
       "ports": [
         23
@@ -579,8 +579,8 @@
       "file": "projectors/panasonic_pt.py",
       "format": "python",
       "files": {
-        "projectors/panasonic_pt.py": "4994959a63178843119c8a3ad9d45ad23c759741335ca9c6b88030956fe929ae",
-        "projectors/panasonic_pt_sim.py": "15ee77b1320fe807343eabba88a236df7fcfb2d8ac262b25bbafb19655ddef2a"
+        "projectors/panasonic_pt.py": "7d1a98641f1d8232d168303aa15a2fb98826cda60a42ca9b994cdbdc6b642fd6",
+        "projectors/panasonic_pt_sim.py": "91817756d9ad3333358e18df07cb0fa7b58a2d7c8742349e9ce1d6d0c4177cff"
       },
       "ports": [
         1024
@@ -669,7 +669,7 @@
       "file": "projectors/sanyo_serial_projector.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/sanyo_serial_projector.avcdriver": "b340ca95a7c688e9fb69312d8871c5937f54b2e5b4661d37c9e3c158aff60a22"
+        "projectors/sanyo_serial_projector.avcdriver": "c127dcf9bbbac89afc5a733dda87f1b74d7b95d80b9388662aaa2744ea14eb17"
       },
       "simulated": true,
       "verified": true,
@@ -752,8 +752,8 @@
       "file": "projectors/sharp_nec_projector.py",
       "format": "python",
       "files": {
-        "projectors/sharp_nec_projector.py": "ef501a2f4afb34914e7204409dfd68b87569374244224bdc888cf2d5ed5487f7",
-        "projectors/sharp_nec_projector_sim.py": "bbc7719138d4bb51762a8e666a6efd5815d843ea49be99567dd5ccb52a070e6c"
+        "projectors/sharp_nec_projector.py": "822e02ea87a3a8c7c8340c9243e8960169264663369822ae7a018390121d7b08",
+        "projectors/sharp_nec_projector_sim.py": "349aa58449c8d6660fc9f5a93d5345b290c2f01c95ce90ee76776bac629cf32d"
       },
       "ports": [
         7142
@@ -831,8 +831,8 @@
       "file": "projectors/sony_vpl.py",
       "format": "python",
       "files": {
-        "projectors/sony_vpl.py": "390e9cfe72d8fdf227df9812a2166ee20b4635a7e871746add75ea2b61af824e",
-        "projectors/sony_vpl_sim.py": "ee404ec44094ce89e1006d2a47a30524b28385ecb57aa245c4aed93aabf352cf"
+        "projectors/sony_vpl.py": "f089eafe698fd949e4a27b6c766187c79878b2da1361aa110c0b068b6aee9be0",
+        "projectors/sony_vpl_sim.py": "225eb5c08b97ad5c0c05f277ad7b334e99077490ecebe7e6dec675244796acb3"
       },
       "ports": [
         53595

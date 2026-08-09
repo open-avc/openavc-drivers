@@ -20,8 +20,8 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "d42e83ba3503873649dd1e99cd299475b46011166afd4f0ed48ed1ebc77cb8a2",
-        "displays/benq_display_sim.py": "003515d3b14e9dc0c7a00437f783c2f598d8924acb465fbcb24a275c0e6a04ec"
+        "displays/benq_display.py": "65d4373ce92f8f928ef49a6dfa19c99ad03ef7e67227435c4748d66129af3296",
+        "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [
         4660
@@ -105,8 +105,8 @@
       "file": "displays/hisense_vidaa.py",
       "format": "python",
       "files": {
-        "displays/hisense_vidaa.py": "a110f44d01873d7d28f6d280d9f3041dbccc7d0381f69aa7321c64a1e6d65087",
-        "displays/hisense_vidaa_sim.py": "80b3be1134aab20fc907c53d9955304a38982fae145f326164b9caf41f7d1fed"
+        "displays/hisense_vidaa.py": "4521d0071a2ecbbdf512df57d51cdbb6989093009d61152dd94eb656878d91ed",
+        "displays/hisense_vidaa_sim.py": "ba41e4d1077ce9d3cb6cddf4b6071f7fb28e206ab10ff7abd99b886bd69683e5"
       },
       "ports": [
         36669
@@ -149,8 +149,8 @@
       "file": "displays/lg_sicp.py",
       "format": "python",
       "files": {
-        "displays/lg_sicp.py": "04c1e8a58698c0abc306aaf1de92946cf9a48d4c748d4c351855e589e2898f54",
-        "displays/lg_sicp_sim.py": "b53d723e926e9363f217940e7ff91723d257d1a70960cdd77c6df2be3ae0a1ae"
+        "displays/lg_sicp.py": "7b0beff464f1e6809c5197f3079e614bc2af3ed27669b46820be4cfa8a9bbf04",
+        "displays/lg_sicp_sim.py": "c648fa2adf7c1463bb1db03414ba9c85609c07cd497ffed728b9431fd483f826"
       },
       "ports": [
         9761
@@ -222,8 +222,8 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "a1bdd07e9b73e334b2c3094410e282c56c3b7a711fb40fe4ac085be7f0833d40",
-        "displays/lg_webos_sim.py": "28d1a0f9782fa29db20dc6cd24ece4b93c1d59b76c4847fae30d44e1a7afebab"
+        "displays/lg_webos.py": "727c307711327932ec540fb60ded9b1f3183e4cd6d310f0843239f4b417112b2",
+        "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [
         3001
@@ -298,8 +298,8 @@
       "file": "displays/panasonic_display.py",
       "format": "python",
       "files": {
-        "displays/panasonic_display.py": "6e4553f3a80b6a55c2055938ac0db52446d1afeaab92914a9a312c384bdfce2e",
-        "displays/panasonic_display_sim.py": "38fc1bdb405f1e59a4992ace359a5029c30e13310fd3757c560bd41ea673b3a1"
+        "displays/panasonic_display.py": "cd6d6b9b92d981f9b2e15a026a3c519d66b8c0b5eb1fd37a577756e2fe9efbc4",
+        "displays/panasonic_display_sim.py": "34a023a6571d7dd1b8faa2904c1a95b33c0ae32b4bbfea8403e992127007d184"
       },
       "ports": [
         1024
@@ -373,8 +373,8 @@
       "file": "displays/samsung_mdc.py",
       "format": "python",
       "files": {
-        "displays/samsung_mdc.py": "c5d67ea787b10d265d373cdb115c3454101cf870efd546d35b01c5e358ca32bc",
-        "displays/samsung_mdc_sim.py": "8e7547b2bbd1c583f46b4284385197a8d07169a33a80dfa29d07419ea388eb95"
+        "displays/samsung_mdc.py": "c4e68de448f4cbbb319cd91f46025b99cda8ed8933c5f0c03ba4a27b2bc13941",
+        "displays/samsung_mdc_sim.py": "18932a6ea3d18ca67866c8bf8c0e75ea991f93f8bc5698608a884b814184d5a7"
       },
       "ports": [
         1515
@@ -438,8 +438,8 @@
       "file": "displays/sharp_pn_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_pn_display.py": "16deb61566e97021b472570fcebfaec08cc5e3f7747e687e218c10c63dfe4d03",
-        "displays/sharp_pn_display_sim.py": "f2a80779ea0b35bdda31540863170c54aacb83e9b599e1379776669c3f3c6896"
+        "displays/sharp_pn_display.py": "560d1288f16ab4313857cb1f8823f48e48be386f78c60d7178ce235182aff1f7",
+        "displays/sharp_pn_display_sim.py": "f4da32241081323c9041c846b260b6902d96eaa5995abc2e6309dff0201982e2"
       },
       "ports": [
         10008
@@ -503,8 +503,8 @@
       "file": "displays/sharp_nec_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_nec_display.py": "c8efcbb9e3e2a40d4de5b0ee5989befb9b8aed8fcebc0f6bb04ca32d199d5ea8",
-        "displays/sharp_nec_display_sim.py": "8ee0826ea5c75f175482abdfcb846a2ddae9a1dd1d5b7fc4331962ba1ed2b159"
+        "displays/sharp_nec_display.py": "80ac3f202bfcd8f5d955c7c3d6170608117b79e2dc0dd98c5546415a47e6e19b",
+        "displays/sharp_nec_display_sim.py": "ffd2204a5c187dde4f14e04c4e37c9c4bc13b0f2789a5ecb0751e987bafe0f98"
       },
       "ports": [
         7142
@@ -577,8 +577,8 @@
       "file": "displays/sony_bravia.py",
       "format": "python",
       "files": {
-        "displays/sony_bravia.py": "c51cfa879641c66f4996099a0027be6228f710c8d2ed79a785f44a0bc21cc530",
-        "displays/sony_bravia_sim.py": "5b1b3fc8d672409ea733fd657f8dc7e0263c0fa41416818c85c07795071be495"
+        "displays/sony_bravia.py": "65940fdfe40d96c8675d19fa3b6973f646adcfff3763e79c99b17a364d2b282e",
+        "displays/sony_bravia_sim.py": "31dc0bee9cc71fcc35d3986b7daa33ecea16aed46006112a814f6afd39b08c14"
       },
       "ports": [
         80
@@ -643,8 +643,8 @@
       "file": "displays/viewsonic_cde.py",
       "format": "python",
       "files": {
-        "displays/viewsonic_cde.py": "646e81d19255c5a07a404a3bf9eda53950211149e839e07dfdaa8dcb5ab1aa50",
-        "displays/viewsonic_cde_sim.py": "df6797d2350f6c4c642bfcb1ad7eea4471556c83729d9d8c82b177f17294f804"
+        "displays/viewsonic_cde.py": "ba985c27467f28ec9822a9dc9458f317623cbee96d916591b8110eced5e38d8b",
+        "displays/viewsonic_cde_sim.py": "327dc5974a82d5a339b6c6bedd65a2be03e15f1c9c95cbfabd74602e6f32b880"
       },
       "ports": [
         5000

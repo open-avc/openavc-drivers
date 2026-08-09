@@ -19,8 +19,8 @@
       "file": "audio/allenheath_avantis.py",
       "format": "python",
       "files": {
-        "audio/allenheath_avantis.py": "1bed2c26e3a3b74ba78c0e43d97969fe2a993fda650dfc1ea50eae842ed60553",
-        "audio/allenheath_avantis_sim.py": "dfa482a5fe707c0211dcb8bbe9f6a768cbb4bd1cb713ca2616a94d14286f6243"
+        "audio/allenheath_avantis.py": "80006e7a73e7713952b75a2011df06d9bd3c5f70172be64fca72304bbd9cca8e",
+        "audio/allenheath_avantis_sim.py": "90bd9aa9e27a343c92b72438c7d16d371a316c88c44541ea083414fd30213650"
       },
       "ports": [
         51325
@@ -82,8 +82,8 @@
       "file": "audio/allenheath_dlive.py",
       "format": "python",
       "files": {
-        "audio/allenheath_dlive.py": "97eb7a26f6ae030f8b787291036e6557b6a928d04a1729ff2859d04f4cf571ea",
-        "audio/allenheath_dlive_sim.py": "fa4ca8e6733a18ca9d8e8dedb958edf54fc4daf4b75bb69c97b50d7680a57db0"
+        "audio/allenheath_dlive.py": "2ce407ffb840217e999d1f5f33b03be0571f1323183ffcab6d7881137378df37",
+        "audio/allenheath_dlive_sim.py": "e72466efbac7b258b8ca402c879f8b49d018357f370a00516d424acfb76b651d"
       },
       "ports": [
         51325
@@ -153,8 +153,8 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "8d897975e97168b741238ba8fa4aeb71f7c55c1df1943c72fba6df64ef751363",
-        "audio/allenheath_qu_sim.py": "b56e09363f7f2b9cebf0baecea8b5a596b38f9300f7bb547cde833948af56b59"
+        "audio/allenheath_qu.py": "c7aafdc2936593e898334bdb9f2692bd1c4b804868cad6ad57fc71179413e5b2",
+        "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
         51325
@@ -227,8 +227,8 @@
       "file": "audio/allenheath_sq.py",
       "format": "python",
       "files": {
-        "audio/allenheath_sq.py": "a6d705fd072dd4e7a09d1cc74d8c0bf171550899edad348d1279cd08b4bee48f",
-        "audio/allenheath_sq_sim.py": "a63bb5116d81028f6ee77b3c05abc021ff776f8a8e9951767bbe3d447e349f26"
+        "audio/allenheath_sq.py": "3e5c3052f6ef6f42cf8b539d750203f46750dd0e29862b048e26e42d1472f662",
+        "audio/allenheath_sq_sim.py": "c0205512893a529ab9e1df86c1bdee0c9fda30e14d5274a3fecbe9a01edb7d22"
       },
       "ports": [
         51325
@@ -290,8 +290,8 @@
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
       "files": {
-        "audio/atlasied_atmosphere.py": "6a8ada14ba1351746d1c21b931a84a5852201b35d4be4090fd493d69b99e142d",
-        "audio/atlasied_atmosphere_sim.py": "3617e847f31487821892f8ce4cd3fdf64e137c790953d6a434588e31d39e5984"
+        "audio/atlasied_atmosphere.py": "571a80a2e2954c01bc9b50cde9336778f7a354c5b85cd7d21fbeee1650b03563",
+        "audio/atlasied_atmosphere_sim.py": "5abeef1019aa4a3780f6997008c020b9721294d1ea853a3b857dcfdd8d43c9a4"
       },
       "ports": [
         5321
@@ -350,8 +350,8 @@
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
       "files": {
-        "switchers/atlona_ome_ms.py": "9987988db2ab0d8305eb8419801439786450978ce87554283a0f2622c4c2a4ce",
-        "switchers/atlona_ome_ms_sim.py": "c097bed669f23a7010a2fbec71383fdcc1159428dc4291acfabeac532458d350"
+        "switchers/atlona_ome_ms.py": "e22d886ad1df28148d6d23cf275d78238febcf750e432d9282cadb3af2f7dc84",
+        "switchers/atlona_ome_ms_sim.py": "dbcdaa385c4849e22e10d1f8dcb3a60391c0793e4d1e5250f8ba3069882228ea"
       },
       "ports": [
         23
@@ -409,7 +409,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "f049b7fbd89fd7f648b8bc75f5ef3a31b52da02b14eb00fc74db8ef4a3945c04"
+        "switchers/atlona_ome_ps62.avcdriver": "9461e5146ae2aea9880f4832d5048d9be6bb909886e8d6fecced47a21edb5fca"
       },
       "ports": [
         23
@@ -464,7 +464,7 @@
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_uhd_pro3.avcdriver": "6ad8b01d818cc40da77242c51ad7f79cdba0265377814b685155e80db30d39bd"
+        "switchers/atlona_uhd_pro3.avcdriver": "3be2dd0ac88050291f1364ffb1f4346617ed87a1494738e49c830d33b62f17e7"
       },
       "ports": [
         23
@@ -520,7 +520,7 @@
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_omnistream.avcdriver": "1fb3e46c080397aa865409138c70e96947b50c1593ccad740dff69808c9e0d0c"
+        "switchers/atlona_omnistream.avcdriver": "9cebacbacfd57f672c8a061e978ccf3ff2f2cdd70e163e4815ff42b5b39ff0eb"
       },
       "ports": [
         23,
@@ -582,8 +582,8 @@
       "file": "audio/dante_ddm.py",
       "format": "python",
       "files": {
-        "audio/dante_ddm.py": "edb43fe33397bf1251645cfeaa866032d10c6f5815e04c2fddb905c51846e17f",
-        "audio/dante_ddm_sim.py": "9a72961f9d55fe451633d1d0ff380f9908b8f0c4d4c24b569d891e9cfe29015e"
+        "audio/dante_ddm.py": "7d46df1782d4d9cd1f312897db73905b55d50567396e63fd5d015b20d6dc8ded",
+        "audio/dante_ddm_sim.py": "025bc28def87ff5b177c63f99bca1c91b7820a6f136f3fd4ccc43d32a45539d0"
       },
       "ports": [
         443
@@ -629,7 +629,7 @@
       "file": "audio/at_atdm_0604.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604.avcdriver": "e111ca9f38a80f4d641daca33d54e9f8e7dfc6a0534542d7282f21634387eb27"
+        "audio/at_atdm_0604.avcdriver": "1a2824d468de58b6ca3c82e40a92851bef55faafaf7a8d53303b55b37260423b"
       },
       "ports": [
         17300
@@ -689,7 +689,7 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "f4e9f919bd9703e87d628405068f8be21cf01bffc68f29cd3e9c779c236fa725"
+        "audio/at_atdm_0604a.avcdriver": "111f7cf1e008aadd63fbdad742c2d1644f044183d5e0b979d5ed7e543a41d359"
       },
       "ports": [
         17300
@@ -751,7 +751,7 @@
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "7525d66450cd4ef9a52b40dad398351d1562ebc9350ae510a36c927576dd84c2"
+        "audio/at_atdm_1012.avcdriver": "368cf10e80f3f18a6ca036b3c6bcdf762aabafb5945fef2dd054b39ba3f7d794"
       },
       "ports": [
         17300
@@ -823,7 +823,7 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "9f65c1efa27d17a4186adc6d154154b9aa7dfe0be572fdf9e25e460330fa1f0c"
+        "audio/at_atnd1061.avcdriver": "7ab607c09cee2b98c0a375226eb25c0f2493e4b25c8a0f77210d6b7eac364c0a"
       },
       "ports": [
         17300
@@ -905,8 +905,8 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "04ab3842385b1880ee717c8eba3b6ff5188cc29d35b9f74971610022b3991712",
-        "cameras/aver_ptz_sim.py": "7bc00212d59d3894a7995876619c40170c81d7e3fb8c0438f257274622db4cd8"
+        "cameras/aver_ptz.py": "e62a00afd5c64072a380dde165fdccdc551c0152926f90107220787702da4102",
+        "cameras/aver_ptz_sim.py": "3e978c9424061f2eb353da408fa6a46d9cc8da49fa2ccfe854dffe782d7dbd37"
       },
       "ports": [
         80,
@@ -1037,8 +1037,8 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "b3c9ee07ec42459be9969a87752b0f553d6f6e800393d0421bc7a4ae9c04dd6e",
-        "switchers/avproedge_mxnet_1g_sim.py": "d90ae1d09262651876e1bf9852fd3ada5e706acf4047721391d420373e5687be"
+        "switchers/avproedge_mxnet_1g.py": "93b85d88d7960c65131d39505e1f3df2ab20d57a5fb9c55f1815ca6bc15493fa",
+        "switchers/avproedge_mxnet_1g_sim.py": "ebc090902331269a8a4302a3f03ceaab9c09b4700b9181fb93cdc83137bc24ae"
       },
       "ports": [
         24
@@ -1109,7 +1109,7 @@
       "file": "streaming/barco_clickshare_cx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "streaming/barco_clickshare_cx.avcdriver": "617bda9eb952b52fff760a3bfc72bd2ad67c39e2b8dbf27ff9995c49fce48e2c"
+        "streaming/barco_clickshare_cx.avcdriver": "bcca4a9d43f149c868d095cbd9a19204c5b604b9ef982c31d4a31f1177ea8fb8"
       },
       "ports": [
         4003
@@ -1178,8 +1178,8 @@
       "file": "projectors/barco_pulse.py",
       "format": "python",
       "files": {
-        "projectors/barco_pulse.py": "878ae3a2bbf9ecda58a12dca93f1786ae5191e224ce6fa3a60dec0b7eb965de9",
-        "projectors/barco_pulse_sim.py": "bb7366ff7c15200a2befb2cb6d3dd0caeec4af371d3f360507da4ca0316dfc80"
+        "projectors/barco_pulse.py": "280b6252f247133d83e999f509c10394499c1eda292b88c0b5fddc5364d35f81",
+        "projectors/barco_pulse_sim.py": "4f87820c7c9d18294a059a3f25b163334ef66a126e8d52a52592908090c6d0fa"
       },
       "ports": [
         9090
@@ -1260,7 +1260,7 @@
       "file": "audio/behringer_x32.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/behringer_x32.avcdriver": "c5e75ba50b723df3d79b430fb63a049c46ae181bf05c6bb442fb8384f026be39"
+        "audio/behringer_x32.avcdriver": "db10b2dd0673528c3e1a1443ebe5302dc43f9e8762b4f4eabbdd40cebd7f84b8"
       },
       "ports": [
         10023
@@ -1325,8 +1325,8 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "d42e83ba3503873649dd1e99cd299475b46011166afd4f0ed48ed1ebc77cb8a2",
-        "displays/benq_display_sim.py": "003515d3b14e9dc0c7a00437f783c2f598d8924acb465fbcb24a275c0e6a04ec"
+        "displays/benq_display.py": "65d4373ce92f8f928ef49a6dfa19c99ad03ef7e67227435c4748d66129af3296",
+        "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [
         4660
@@ -1410,7 +1410,7 @@
       "file": "projectors/benq_projector.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/benq_projector.avcdriver": "b4863387617825341ac63eb1ca405f9b78059f6fe053ba0a87c54cf328f29267"
+        "projectors/benq_projector.avcdriver": "b466179c42ec54088ac5d19b902dc96953c3024f43d141efe0f1641fc8509616"
       },
       "ports": [
         8000
@@ -1489,9 +1489,9 @@
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
       "files": {
-        "audio/biamp_tesira_ttp.py": "113b7783c8739a20ec312b2baa7b6aa4e9a37255b44964074203bc534ec12582",
-        "audio/biamp_tesira_ttp_discovery.py": "eb1e7b0ca3dea4eeda878c6ed8052405df638c52cb60334f82a8fc9a23d8f6b0",
-        "audio/biamp_tesira_ttp_sim.py": "566299a7bc2a3a745907697f1cabeb2fb4047f082438327e00da2ab618d7966f"
+        "audio/biamp_tesira_ttp.py": "964d096f7e2017fd2ec7777860bb4de28cfaf7e06185fdc66bdee63f92451777",
+        "audio/biamp_tesira_ttp_discovery.py": "52a9a3d6c365efd4549d6b69b5bab2d385b207ac51da02d197089464a723d66e",
+        "audio/biamp_tesira_ttp_sim.py": "501c2200221ddc5852e5183f8b4218e6ee09d7c091cb2c83bed0236cd9d8b819"
       },
       "ports": [
         23
@@ -1558,8 +1558,8 @@
       "file": "video/birddog_codec.py",
       "format": "python",
       "files": {
-        "video/birddog_codec.py": "4519a088c5ec0f42e678ccb1d1e1b68fae4026915f9bccd3596416a8efcc292a",
-        "video/birddog_codec_sim.py": "a94f841e78c00060a2e06992ad5fc509b04374342e50d2855f827dfa1ffddae0"
+        "video/birddog_codec.py": "6f1ed10163000bb13f4559499a15f06b9a1a9299950617db55ac8f0c1a2f6fa9",
+        "video/birddog_codec_sim.py": "1d84d80a44a8744ea5858e8c4302f3a0682d29ff051e1149e49cc24f6838b3b0"
       },
       "ports": [
         8080
@@ -1620,8 +1620,8 @@
       "file": "cameras/birddog_ptz.py",
       "format": "python",
       "files": {
-        "cameras/birddog_ptz.py": "d961d984adecf7739dc92b2a735184696ef9e5956c477494dc3c24d1851fa8e7",
-        "cameras/birddog_ptz_sim.py": "62c802c2fcea6e88cf716c2e44cab63e3a231d4244d09c878a3f17a4e129ae78"
+        "cameras/birddog_ptz.py": "d1feaa66c33cc15364d9f3f9d8d5de594e78684ec226a236f1f2b4c8e6e2749f",
+        "cameras/birddog_ptz_sim.py": "b88871dc244e45dde2d654f33b0e9a6cab0655389858177ecf003a78edddb05f"
       },
       "ports": [
         8080,
@@ -1690,8 +1690,8 @@
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
       "files": {
-        "switchers/blackmagic_videohub.py": "99f743e1cb444b56a8536a3125f8729088803d14dd7a4e0bbe6e363a9cfed481",
-        "switchers/blackmagic_videohub_sim.py": "54467c0fc124ad99d928cc5b06a443c34963134ef553106c382a1fc19399381e"
+        "switchers/blackmagic_videohub.py": "8ecb2e23a86922162b24994b73926595f08e772262920ff4c6ef884d82d8d9b8",
+        "switchers/blackmagic_videohub_sim.py": "d0caa03dd64e36d5b1e02475bc96d21dd6156cdca0c52a48931596a3723b37cd"
       },
       "ports": [
         9990
@@ -1774,7 +1774,7 @@
       "file": "projectors/christie_serial.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/christie_serial.avcdriver": "157a78542f1fe6affee953f515199994c7c529b9b697c6341e7f9bf9f1203820"
+        "projectors/christie_serial.avcdriver": "7e4f272f571a5e3b76d73f0c58a0ace77875e06926740a597143e33a6e76de70"
       },
       "ports": [
         3002
@@ -1846,7 +1846,7 @@
       "file": "video/cisco_roomos_xapi.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/cisco_roomos_xapi.avcdriver": "f1f15387a6da1a701734beea0d32a3f79e660b566c311c8008dccfbde034f073"
+        "video/cisco_roomos_xapi.avcdriver": "73ae2a9943c8548d0beae7321afe0b73b07995b8f7661aa953396376928e4c0a"
       },
       "ports": [
         443
@@ -1929,8 +1929,8 @@
       "file": "switchers/crestron_nvx.py",
       "format": "python",
       "files": {
-        "switchers/crestron_nvx.py": "375354da47ae4b87c41c6a4273c70107b2dd2e7ccb2c47efb18a3b4f32988a14",
-        "switchers/crestron_nvx_sim.py": "a8fd2122e730db7d45e7160fbeb64247878784110d71d80af8b768a7f72b20bf"
+        "switchers/crestron_nvx.py": "78eb0306d9def6d989485f00db9679bafe9f377c4cdf8d75f4a1d098600232af",
+        "switchers/crestron_nvx_sim.py": "47b270cbe9067875ea3b8f485a4794b6cbd9269d93220bb00a228bd5e586f6da"
       },
       "ports": [
         443
@@ -2008,8 +2008,8 @@
       "file": "projectors/epson_escvp.py",
       "format": "python",
       "files": {
-        "projectors/epson_escvp.py": "272ae1837d957f77fca5b54f122a8166c2a05a5ec2a374546da9c7438391f5d3",
-        "projectors/epson_escvp_sim.py": "3fe72c61efb395ecbb25c1e1d9d8cc0330b9032a9b2e95d6ffa2c82ce4ad7ca6"
+        "projectors/epson_escvp.py": "f3f4c9c83837a73b89ea1d2f3aff2e3450689f9ae0625287aac2392883841aec",
+        "projectors/epson_escvp_sim.py": "5d20fd678d357c75591ab17d4b3c00c9b1c20c2594e89b4b5694389e9cb21ed9"
       },
       "ports": [
         3629
@@ -2074,7 +2074,7 @@
       "file": "lighting/etc_eos.avcdriver",
       "format": "avcdriver",
       "files": {
-        "lighting/etc_eos.avcdriver": "54b3a6031a90f12d0e96d3c56c46eb09d9e53aec6a7d3988e3fd0ee94ebdb34d"
+        "lighting/etc_eos.avcdriver": "c03f5db401457787814df052a99a10859be1e6724ccb0344f102db90e2e81ffb"
       },
       "ports": [
         8000,
@@ -2145,7 +2145,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "9405e85f6d43ec143ca04807cb26e24345b53124c2fa9063e3540853dc74d367"
+        "switchers/extron_sis.avcdriver": "ff029715e2d5cbf7e89e8acb4e23c952b078d8fee057ca9c68b91a03270a2349"
       },
       "ports": [
         23
@@ -2216,7 +2216,7 @@
       "file": "video/qlab.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/qlab.avcdriver": "02b0eadf65b1eb7676b0df227d6112b857c2229ad3f9c6ee70815d22798b50d2"
+        "video/qlab.avcdriver": "cfa803b86b33fe6c98e469c8aefdd826c717187d8865b26ea1f3a92a2b2854df"
       },
       "ports": [
         53000
@@ -2269,7 +2269,7 @@
       "file": "switchers/gefen_uhd600a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/gefen_uhd600a.avcdriver": "e59afae3c78a931d6893f0c75a878d22717ee5381ab6075fee4cfeb5d4aa7c41"
+        "switchers/gefen_uhd600a.avcdriver": "b4be6163bbf4fceea40fbb5475c477703b29e4e96125681cc7ae0d44a2ea75b6"
       },
       "ports": [
         23
@@ -2332,8 +2332,8 @@
       "file": "lighting/artnet_dmx.py",
       "format": "python",
       "files": {
-        "lighting/artnet_dmx.py": "00a813409985febe35abb2cf082689deda8e76d5d02c2fda15ba53dffff23a83",
-        "lighting/artnet_dmx_sim.py": "378ec93b90b4d5c95d5dfe7b7e4fda828990cfbfc996fe9778865f23e2e68408"
+        "lighting/artnet_dmx.py": "0ccda5e77db5b6dc4bf6cff963353972bb3cb3282ccb5ea0a643196a68be9e5f",
+        "lighting/artnet_dmx_sim.py": "639d3cd041f3e9af9216b9684cfef064a10f61eef34450f5a85fff0dfb5bfd6f"
       },
       "ports": [
         6454
@@ -2499,7 +2499,7 @@
       "file": "utility/generic_http.avcdriver",
       "format": "avcdriver",
       "files": {
-        "utility/generic_http.avcdriver": "6b29b8e0326f4ebf4697dadd5f9e48b10c1fd15672da97f2f6a3daae1b6bb480"
+        "utility/generic_http.avcdriver": "43bd1439cbdbb99bf203aea25c4ef63f8776586c956645525352e7a0a1656737"
       },
       "tags": [
         "template",
@@ -2524,9 +2524,9 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "2fbabcfe40078d84af65e6043034cadbe7efdfbdf0ad011c0834e4c2d2de6c7e",
-        "cameras/visca_ip_discovery.py": "37d6025773c5f3cfd46538a814a952d117e6ff4f80fc648bae73937779a7d153",
-        "cameras/visca_ip_sim.py": "18972aa8bbf5676e2c9ad4f1bbea51696fd2aa604927bae35c3233e17f489769"
+        "cameras/visca_ip.py": "72a700a3273370929f9062c0524c3dccbfe8fa9bce54aaf7d512db989f0f2c47",
+        "cameras/visca_ip_discovery.py": "e303ef39607c842dfc2de68747e4a8c8b98695257db2ccf07434798126558ede",
+        "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
       },
       "ports": [
         52381
@@ -2619,8 +2619,8 @@
       "file": "utility/modbus_tcp.py",
       "format": "python",
       "files": {
-        "utility/modbus_tcp.py": "1c69d27455dec7014d01f9e87304dc563f43000dc4cf78625c9add21da60717e",
-        "utility/modbus_tcp_sim.py": "c096bc3bf121bb468f9c7578068c718285bd5e4da77307add582d153d5bd847e"
+        "utility/modbus_tcp.py": "1d39d937ec3c39ebf80695bcc1b7147fb933404469ac1e320815634834d9f87f",
+        "utility/modbus_tcp_sim.py": "4f2b12cb891e579f5d353ac73c1c6d0c76a5859ac2e28c9b8263d55dddd05f5d"
       },
       "protocols": [
         "modbus_tcp"
@@ -2645,9 +2645,9 @@
       "file": "projectors/pjlink_class1.py",
       "format": "python",
       "files": {
-        "projectors/pjlink_class1.py": "aa262ee4c5425aca03fae9654840e28d419060d56d6556b9b9052e3ff782dc29",
-        "projectors/pjlink_class1_discovery.py": "f307072f5f2cc1636ddde415a7c1bb9e5950eb13dab1ead7587e49a8c11ecb89",
-        "projectors/pjlink_class1_sim.py": "9690c9041328ba4e86b7f9ae0041bb7e8970e94f3c18271a5ccf9a11a8149419"
+        "projectors/pjlink_class1.py": "cdbbbc363906933cbe27aa4a37cc7f8070a97573a22cd8c00d5be84ee5b95f08",
+        "projectors/pjlink_class1_discovery.py": "a8e65922160cfd5e615bd0cf43344df54ad69d2b6b1df82581854cbfa2be11a5",
+        "projectors/pjlink_class1_sim.py": "a1ea39cff9769f057ade1c4324b35190844ff0282062f54e5c7fcc9dba0e9de5"
       },
       "ports": [
         4352
@@ -2838,8 +2838,8 @@
       "file": "lighting/sacn_e131.py",
       "format": "python",
       "files": {
-        "lighting/sacn_e131.py": "da87d82c85aeb9bcf6af276be2eb27b675c9600519a3a2ad80a65b55c5b8b42f",
-        "lighting/sacn_e131_sim.py": "9ad25043957580e69c8df30b718d8bc4677963498ebb12e2d582398c5f196893"
+        "lighting/sacn_e131.py": "4589b65b8a20d28ca6eaf12734146dada4d2baf8c885812b14253cbf953cd389",
+        "lighting/sacn_e131_sim.py": "350b89ef019c34d69085600261a2b52f10de356e67b3982ef9d26a8365204516"
       },
       "ports": [
         5568
@@ -2981,7 +2981,7 @@
       "file": "utility/wake_on_lan.py",
       "format": "python",
       "files": {
-        "utility/wake_on_lan.py": "2c8c7c0a8d63c9f76140ef06aa7984ccf0ebe7fe5a6e1c9330f378d3b77c28c9"
+        "utility/wake_on_lan.py": "df175426410b1bba2c4ddc799e0b02f7e85046a6bc8dc36de1db03d8bdf7e0b0"
       },
       "min_platform_version": "0.25.0",
       "tags": [
@@ -3008,8 +3008,8 @@
       "file": "utility/globalcache_itach_ip2cc.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2cc.py": "f7fd1c8c7dcdd66d7b3d7c46396c1e7c7098b279c74bb56a2efb2489cce8e6ac",
-        "utility/globalcache_itach_ip2cc_sim.py": "4da4cd7f3d07702cad625cd485e3254952182408d9d51c8a65253a062bc6bf04"
+        "utility/globalcache_itach_ip2cc.py": "38666195734280bea12917eac6a4097b27b758741f3aca98ab16c3348225495e",
+        "utility/globalcache_itach_ip2cc_sim.py": "0ca560bfd16e923d789fd2e47fbc997aa95fe83e851962d04a10169efcb4fbb7"
       },
       "ports": [
         4998
@@ -3072,8 +3072,8 @@
       "file": "utility/globalcache_itach_ip2ir.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2ir.py": "064002cbb5a9a85dcba722417041403a7fbffdf481fc7ddc124934488dcd03c7",
-        "utility/globalcache_itach_ip2ir_sim.py": "47a97ba0cb5450387ee7f23d4b62c035a48170e7260a1323fa2aabb8cb5b97bb"
+        "utility/globalcache_itach_ip2ir.py": "987eb28cab18672d1def1daaceb16de560f331017e14b9dfd47da6015b1e6640",
+        "utility/globalcache_itach_ip2ir_sim.py": "fbcfc93e7fd62bd67bccc21bb20a546cd8a501104c2118fb07d01120c1cad33b"
       },
       "ports": [
         4998
@@ -3135,7 +3135,7 @@
       "file": "utility/globalcache_itach_ip2sl.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2sl.py": "df26f35d4eaf8a61f5ec5409fbc6413e31c9a72223aac8767a120d654fb98ae4"
+        "utility/globalcache_itach_ip2sl.py": "68fa5c34d0bd58eb78dc831d43766c38c7c27c52de8f34b3eab36c5a757e153f"
       },
       "ports": [
         4998,
@@ -3197,7 +3197,7 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "200f94b12f79583437ec1bdec841b23889dcfc9f32cd80d8f4072ba24159ebd4"
+        "audio/soundcorehero.py": "35c3f3355e028eccb99165f6ec96c459f83f40b45e4074d8149df308185c483a"
       },
       "protocols": [
         "soundcorehero"
@@ -3236,8 +3236,8 @@
       "file": "displays/hisense_vidaa.py",
       "format": "python",
       "files": {
-        "displays/hisense_vidaa.py": "a110f44d01873d7d28f6d280d9f3041dbccc7d0381f69aa7321c64a1e6d65087",
-        "displays/hisense_vidaa_sim.py": "80b3be1134aab20fc907c53d9955304a38982fae145f326164b9caf41f7d1fed"
+        "displays/hisense_vidaa.py": "4521d0071a2ecbbdf512df57d51cdbb6989093009d61152dd94eb656878d91ed",
+        "displays/hisense_vidaa_sim.py": "ba41e4d1077ce9d3cb6cddf4b6071f7fb28e206ab10ff7abd99b886bd69683e5"
       },
       "ports": [
         36669
@@ -3280,7 +3280,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "a426d05b66aa4bcc1a476bc6340cbed7855baa45c4684d3f0efabb3d4cd5de16"
+        "switchers/kramer_p3000.avcdriver": "afae4a805fa09e1dac8ecb56dbd23034b2f589ab4b61091c79f27155490b4c0c"
       },
       "ports": [
         5000,
@@ -3343,7 +3343,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "6dc8bda36897051ebd76898cbbbadcd6b16f3b21c48dd991ccada02c3c2d9f67"
+        "audio/lea_connect.avcdriver": "02ee043afea5d19db6b248b96c04a694a003f8c8bc722e829d29f3905417c25d"
       },
       "ports": [
         4321
@@ -3446,8 +3446,8 @@
       "file": "displays/lg_sicp.py",
       "format": "python",
       "files": {
-        "displays/lg_sicp.py": "04c1e8a58698c0abc306aaf1de92946cf9a48d4c748d4c351855e589e2898f54",
-        "displays/lg_sicp_sim.py": "b53d723e926e9363f217940e7ff91723d257d1a70960cdd77c6df2be3ae0a1ae"
+        "displays/lg_sicp.py": "7b0beff464f1e6809c5197f3079e614bc2af3ed27669b46820be4cfa8a9bbf04",
+        "displays/lg_sicp_sim.py": "c648fa2adf7c1463bb1db03414ba9c85609c07cd497ffed728b9431fd483f826"
       },
       "ports": [
         9761
@@ -3519,8 +3519,8 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "a1bdd07e9b73e334b2c3094410e282c56c3b7a711fb40fe4ac085be7f0833d40",
-        "displays/lg_webos_sim.py": "28d1a0f9782fa29db20dc6cd24ece4b93c1d59b76c4847fae30d44e1a7afebab"
+        "displays/lg_webos.py": "727c307711327932ec540fb60ded9b1f3183e4cd6d310f0843239f4b417112b2",
+        "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [
         3001
@@ -3595,7 +3595,7 @@
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "c4c9603db1f5d9aedd8fb3affb9e18639bd0f17d9dd08362f50b7d8c3f73b54a"
+        "switchers/lightware_lw3.avcdriver": "ff4e20a8aa3bb95c9b004731be604e33c37ecad8576bdc4456c952074fe75fae"
       },
       "ports": [
         6107
@@ -3671,7 +3671,7 @@
       "file": "lighting/lutron_homeworks_qs.avcdriver",
       "format": "avcdriver",
       "files": {
-        "lighting/lutron_homeworks_qs.avcdriver": "f942590095c325bae95e21d4ef784bd8431a16f0479814fb030f9e49754ccce8"
+        "lighting/lutron_homeworks_qs.avcdriver": "8d2d49e72a34a99a04a4d60d7f061c8b4685f8a016fc5f105e1bc69bd1c1375a"
       },
       "ports": [
         23
@@ -3733,8 +3733,8 @@
       "file": "streaming/mersive_solstice.py",
       "format": "python",
       "files": {
-        "streaming/mersive_solstice.py": "3f1f8e8d9486133f543fc3af817d61319e9c2c78ed47b1f8f0c6aabb70b8edc4",
-        "streaming/mersive_solstice_sim.py": "2d8fb216240ef1a27579315d9ce161b75eafb67fd63b4f313e14fc368c842c3c"
+        "streaming/mersive_solstice.py": "df586e6785f37e90edac25188e973707c7af11bac1713d6ac0ea144ab59f273b",
+        "streaming/mersive_solstice_sim.py": "855f0a5ee846a0dff3951601eb80e5b7288974185b9a6edff23623d20b950903"
       },
       "ports": [
         80,
@@ -3797,8 +3797,8 @@
       "file": "power/racklink_rlnk.py",
       "format": "python",
       "files": {
-        "power/racklink_rlnk.py": "f14d88c8c9454f736e1dd0ea686da44ce99b847f99addcf871ebc80a1f81f653",
-        "power/racklink_rlnk_sim.py": "655c95f92028888974f527d5289ad5a30db22f2fdc12bdc496e7d651962ba35f"
+        "power/racklink_rlnk.py": "95170800ddaaa058c12a5680e14d4efc7edfb5f2864049556d0842e9b2580413",
+        "power/racklink_rlnk_sim.py": "76c370d2625d3ebe16dc518787e1f095998740759d353847c037eea60aa2294a"
       },
       "ports": [
         60000
@@ -3870,8 +3870,8 @@
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
       "files": {
-        "utility/netgear_m4250_m4350.py": "84dc4e6e4ac201cf9615228d8fe6656276551e78ffe2a564ef8a2580b6de899a",
-        "utility/netgear_m4250_m4350_sim.py": "a57c2e2b398b14dd0b5f2be00c5cec78d646402d873d251ab12be97efa40e111"
+        "utility/netgear_m4250_m4350.py": "30b4dc1d2293cbd500ed9c75ba284b56dc29de70935e29897a1de2770ebd41a6",
+        "utility/netgear_m4250_m4350_sim.py": "903c955b16528ad958f5ba6f6e58d0b3785a0e9592552e358e385ca3bf53830c"
       },
       "ports": [
         22,
@@ -3946,7 +3946,7 @@
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/novastar_h_series.avcdriver": "816ef733a3634f3a99e26fe76b35a051804bf073d7e8ee7a1adcee0fcfd3022c"
+        "video/novastar_h_series.avcdriver": "018f11cc1e007111eb7dbba1cc5ec7cb79d67f4ac3dccbf9d8742672977bedb5"
       },
       "ports": [
         6000
@@ -3999,7 +3999,7 @@
       "file": "audio/onkyo_integra_eiscp.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/onkyo_integra_eiscp.avcdriver": "713930c91fca7a607fa4f0da703c5aad5f6e68a98d98761c54a6a66572df8419"
+        "audio/onkyo_integra_eiscp.avcdriver": "d250e65632cdb68f58c97fb9659336140c7e2af9b1ef39978f3a1919f6f17f32"
       },
       "ports": [
         60128
@@ -4088,7 +4088,7 @@
       "file": "audio/onkyo_integra_iscp.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/onkyo_integra_iscp.avcdriver": "341c25d1b323013d64b1451a8134464a55286f9368894d922270a62cd47045d1"
+        "audio/onkyo_integra_iscp.avcdriver": "fb7c16efe2fca7ba396c7b7271bfb82915ba74dcb080b2a573a309978050d02f"
       },
       "simulated": true,
       "min_platform_version": "0.24.0",
@@ -4144,8 +4144,8 @@
       "file": "cameras/onvif_camera.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/onvif_camera.avcdriver": "51e64c82943c10bdb5f08af6d88cafae1d2d489bd242152cda596d82896f7c4f",
-        "cameras/onvif_camera_discovery.py": "0ef89b78531450326d4ff1990ec2917315e594eff832d04d7a6a76cad59b7e28"
+        "cameras/onvif_camera.avcdriver": "f544de932524685a8d381851b3f8c7c5f28c5dc666d43a6fb0cc85c18cbd8892",
+        "cameras/onvif_camera_discovery.py": "da18440c979f5507289b4ab02e5234206aafa49aff7fb4ef4301635ea594c162"
       },
       "protocols": [
         "onvif"
@@ -4189,8 +4189,8 @@
       "file": "projectors/optoma_projector.py",
       "format": "python",
       "files": {
-        "projectors/optoma_projector.py": "d4401c70e01f24b0715681d1513a954bce5fad5d9f92b9947b8d44685aa04dc6",
-        "projectors/optoma_projector_sim.py": "104d75a030e03dae657945ecd79182d60e4812d213706ff0306f87a5144500de"
+        "projectors/optoma_projector.py": "2ea3e6e7df17dedf480ff1553f14937de1bdf23250335149059b6dc6cf4a0b3a",
+        "projectors/optoma_projector_sim.py": "d5329a4dfe13ada3d5675f593a677626944e85fc31b0b0eb363a0da897ad8cbd"
       },
       "ports": [
         23
@@ -4256,7 +4256,7 @@
       "file": "cameras/panasonic_awhe.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/panasonic_awhe.avcdriver": "0db3ed00433dfeab556e2ec03ada151f476aaf8340ad0777132e64cc0d04e165"
+        "cameras/panasonic_awhe.avcdriver": "f1073d13da724ea98a3ede0aac7992c031bab8090641415ebc3476c471527470"
       },
       "ports": [
         80
@@ -4343,8 +4343,8 @@
       "file": "displays/panasonic_display.py",
       "format": "python",
       "files": {
-        "displays/panasonic_display.py": "6e4553f3a80b6a55c2055938ac0db52446d1afeaab92914a9a312c384bdfce2e",
-        "displays/panasonic_display_sim.py": "38fc1bdb405f1e59a4992ace359a5029c30e13310fd3757c560bd41ea673b3a1"
+        "displays/panasonic_display.py": "cd6d6b9b92d981f9b2e15a026a3c519d66b8c0b5eb1fd37a577756e2fe9efbc4",
+        "displays/panasonic_display_sim.py": "34a023a6571d7dd1b8faa2904c1a95b33c0ae32b4bbfea8403e992127007d184"
       },
       "ports": [
         1024
@@ -4418,8 +4418,8 @@
       "file": "projectors/panasonic_pt.py",
       "format": "python",
       "files": {
-        "projectors/panasonic_pt.py": "4994959a63178843119c8a3ad9d45ad23c759741335ca9c6b88030956fe929ae",
-        "projectors/panasonic_pt_sim.py": "15ee77b1320fe807343eabba88a236df7fcfb2d8ac262b25bbafb19655ddef2a"
+        "projectors/panasonic_pt.py": "7d1a98641f1d8232d168303aa15a2fb98826cda60a42ca9b994cdbdc6b642fd6",
+        "projectors/panasonic_pt_sim.py": "91817756d9ad3333358e18df07cb0fa7b58a2d7c8742349e9ce1d6d0c4177cff"
       },
       "ports": [
         1024
@@ -4508,8 +4508,8 @@
       "file": "video/poly_studio.py",
       "format": "python",
       "files": {
-        "video/poly_studio.py": "7b91f2b3fbc0a064a73d7c5b0853c28ee0ff6d1a0f8c1e06d61b474adf8674f2",
-        "video/poly_studio_sim.py": "1a498ef51f4cb16d94d6cbf5c5f55090f68eca123221ff06bff5b6dc76ebe9d1"
+        "video/poly_studio.py": "4671505de1b04ab99ccc7793011954664ca85e84f966b01811704e99b5509e80",
+        "video/poly_studio_sim.py": "6dff3007ceabf7d325e4a35b4c38699b61485a610515d29d6c4ce28725646fd6"
       },
       "ports": [
         443
@@ -4578,8 +4578,8 @@
       "file": "cameras/ptzoptics.py",
       "format": "python",
       "files": {
-        "cameras/ptzoptics.py": "73378681fea033123c8860ceea6d035f58e2e8267ac21e077b513cbc525e9e26",
-        "cameras/ptzoptics_sim.py": "599aae2e106c41901046b397937de0b3492b572df2e5b9e3bc8a0900726f6311"
+        "cameras/ptzoptics.py": "14eb4cd1346d21fb77c8538063d8bf8d31463b5cf58557802d98bccd3932bcb4",
+        "cameras/ptzoptics_sim.py": "0eba8e3249fc131689b6d9a5ecec39ee37331047b904b3a1dd69921dac1da7d7"
       },
       "ports": [
         5678
@@ -4651,8 +4651,8 @@
       "file": "audio/qsc_qrc.py",
       "format": "python",
       "files": {
-        "audio/qsc_qrc.py": "3d7b951db5bf5a927d180fa29bc3d91ba85cc3c348770499ffd31223a1eae418",
-        "audio/qsc_qrc_sim.py": "5304d5c6d5ecb425a298fe6de37e388df8c8b9bf586a0356241664572b59eb62"
+        "audio/qsc_qrc.py": "897c1cbb1153bfe68badc05d269c932b209a89dddfc87e7d0c04987d4df9ac6a",
+        "audio/qsc_qrc_sim.py": "9668f6f8082acffbe222245aba544b641930eff96125b0f8e2462e545dec1ab0"
       },
       "ports": [
         1710
@@ -4732,8 +4732,8 @@
       "file": "streaming/roku_ecp.py",
       "format": "python",
       "files": {
-        "streaming/roku_ecp.py": "3f8823a4dfec810c163c49d6873f7eed6853c0f32842800a66c0da9feabeae8f",
-        "streaming/roku_ecp_sim.py": "a2edc83a82146c8ef71dccb22f42bb4c27d4fa32bce6fd933275c034779e4e19"
+        "streaming/roku_ecp.py": "8acab024024a8f83982c95981b3e99b1c3dbec9dff84afce830c6b82a21ed602",
+        "streaming/roku_ecp_sim.py": "b4e165359d18a840ad93172103f4791d596c04065885d192c054c8d396862b1a"
       },
       "ports": [
         8060
@@ -4842,8 +4842,8 @@
       "file": "displays/samsung_mdc.py",
       "format": "python",
       "files": {
-        "displays/samsung_mdc.py": "c5d67ea787b10d265d373cdb115c3454101cf870efd546d35b01c5e358ca32bc",
-        "displays/samsung_mdc_sim.py": "8e7547b2bbd1c583f46b4284385197a8d07169a33a80dfa29d07419ea388eb95"
+        "displays/samsung_mdc.py": "c4e68de448f4cbbb319cd91f46025b99cda8ed8933c5f0c03ba4a27b2bc13941",
+        "displays/samsung_mdc_sim.py": "18932a6ea3d18ca67866c8bf8c0e75ea991f93f8bc5698608a884b814184d5a7"
       },
       "ports": [
         1515
@@ -4907,7 +4907,7 @@
       "file": "projectors/sanyo_serial_projector.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/sanyo_serial_projector.avcdriver": "b340ca95a7c688e9fb69312d8871c5937f54b2e5b4661d37c9e3c158aff60a22"
+        "projectors/sanyo_serial_projector.avcdriver": "c127dcf9bbbac89afc5a733dda87f1b74d7b95d80b9388662aaa2744ea14eb17"
       },
       "simulated": true,
       "verified": true,
@@ -4990,8 +4990,8 @@
       "file": "displays/sharp_pn_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_pn_display.py": "16deb61566e97021b472570fcebfaec08cc5e3f7747e687e218c10c63dfe4d03",
-        "displays/sharp_pn_display_sim.py": "f2a80779ea0b35bdda31540863170c54aacb83e9b599e1379776669c3f3c6896"
+        "displays/sharp_pn_display.py": "560d1288f16ab4313857cb1f8823f48e48be386f78c60d7178ce235182aff1f7",
+        "displays/sharp_pn_display_sim.py": "f4da32241081323c9041c846b260b6902d96eaa5995abc2e6309dff0201982e2"
       },
       "ports": [
         10008
@@ -5055,8 +5055,8 @@
       "file": "projectors/sharp_nec_projector.py",
       "format": "python",
       "files": {
-        "projectors/sharp_nec_projector.py": "ef501a2f4afb34914e7204409dfd68b87569374244224bdc888cf2d5ed5487f7",
-        "projectors/sharp_nec_projector_sim.py": "bbc7719138d4bb51762a8e666a6efd5815d843ea49be99567dd5ccb52a070e6c"
+        "projectors/sharp_nec_projector.py": "822e02ea87a3a8c7c8340c9243e8960169264663369822ae7a018390121d7b08",
+        "projectors/sharp_nec_projector_sim.py": "349aa58449c8d6660fc9f5a93d5345b290c2f01c95ce90ee76776bac629cf32d"
       },
       "ports": [
         7142
@@ -5134,8 +5134,8 @@
       "file": "displays/sharp_nec_display.py",
       "format": "python",
       "files": {
-        "displays/sharp_nec_display.py": "c8efcbb9e3e2a40d4de5b0ee5989befb9b8aed8fcebc0f6bb04ca32d199d5ea8",
-        "displays/sharp_nec_display_sim.py": "8ee0826ea5c75f175482abdfcb846a2ddae9a1dd1d5b7fc4331962ba1ed2b159"
+        "displays/sharp_nec_display.py": "80ac3f202bfcd8f5d955c7c3d6170608117b79e2dc0dd98c5546415a47e6e19b",
+        "displays/sharp_nec_display_sim.py": "ffd2204a5c187dde4f14e04c4e37c9c4bc13b0f2789a5ecb0751e987bafe0f98"
       },
       "ports": [
         7142
@@ -5208,8 +5208,8 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "ebe7f4e785fd7a323d5f25c15500608fa78c5187e92a7ba80a786371ca154271",
-        "audio/shure_network_sim.py": "24742f778bb1fd7996ad1565c782524d3d2b8f93aa252e9483ae2050f0587068"
+        "audio/shure_network.py": "a9a8dd77bde07d2b6c24e4cf53c9f85964997ee5a2377f218c60ead2e8729941",
+        "audio/shure_network_sim.py": "1ce148bf5df3ffe117152b1e0ce812720cb237df4c47ab1b1725140e692cdfb1"
       },
       "ports": [
         2202
@@ -5294,8 +5294,8 @@
       "file": "lighting/philips_hue.py",
       "format": "python",
       "files": {
-        "lighting/philips_hue.py": "8ebfb17f0cd99ae1e70281705fb26bc9691f7516c9ac510a6731e1bcffb578bf",
-        "lighting/philips_hue_sim.py": "d67d15c63d6abf7e9a2c321f3cf7f758050ec47ea0314b908e82fc8f65cbb1ff"
+        "lighting/philips_hue.py": "0c3e5a969e6415bd39b3dafea946e7d7c5fcfcae6116a392633b40c0da0aeb57",
+        "lighting/philips_hue_sim.py": "07b2365e117f674195e111ac28fced23d577d44f67746b6db98b97bf7abfd636"
       },
       "ports": [
         443
@@ -5367,8 +5367,8 @@
       "file": "audio/sonos.py",
       "format": "python",
       "files": {
-        "audio/sonos.py": "0496d04f878266e816e05bce7cb19f1a51c556689de5537e02e4175e8203cbc7",
-        "audio/sonos_sim.py": "22df5877dfa7f9e6a2bf41cbbdfcbdd431568185942ddecec2e71660753769fa"
+        "audio/sonos.py": "49c0760c19cc75cfd280887bf99482e451917b7b4eecdc03edc223b2febd8e9b",
+        "audio/sonos_sim.py": "81b822ced3814073ca8f2d924ca5a22b6971344ef85f65a82fb7d9ebdfab5756"
       },
       "ports": [
         1400
@@ -5431,8 +5431,8 @@
       "file": "displays/sony_bravia.py",
       "format": "python",
       "files": {
-        "displays/sony_bravia.py": "c51cfa879641c66f4996099a0027be6228f710c8d2ed79a785f44a0bc21cc530",
-        "displays/sony_bravia_sim.py": "5b1b3fc8d672409ea733fd657f8dc7e0263c0fa41416818c85c07795071be495"
+        "displays/sony_bravia.py": "65940fdfe40d96c8675d19fa3b6973f646adcfff3763e79c99b17a364d2b282e",
+        "displays/sony_bravia_sim.py": "31dc0bee9cc71fcc35d3986b7daa33ecea16aed46006112a814f6afd39b08c14"
       },
       "ports": [
         80
@@ -5497,8 +5497,8 @@
       "file": "cameras/sony_visca.py",
       "format": "python",
       "files": {
-        "cameras/sony_visca.py": "fb1a7b6c73bc199a201ffb8c7d99903cf8845547089a01f3e3a985a70a7bc42d",
-        "cameras/sony_visca_sim.py": "cf61aea3963e5ee1ae49223647b546f99785bdf110f6988306740456d31780d5"
+        "cameras/sony_visca.py": "73a99e56467e786898a6c5f9c045f5a827693b4c111a73d41e7cda96c4faedb1",
+        "cameras/sony_visca_sim.py": "a7f7224b3127909f777db7874b69bccf97f58f2c75bfbffe71ed1a71def02c30"
       },
       "ports": [
         52381
@@ -5556,8 +5556,8 @@
       "file": "projectors/sony_vpl.py",
       "format": "python",
       "files": {
-        "projectors/sony_vpl.py": "390e9cfe72d8fdf227df9812a2166ee20b4635a7e871746add75ea2b61af824e",
-        "projectors/sony_vpl_sim.py": "ee404ec44094ce89e1006d2a47a30524b28385ecb57aa245c4aed93aabf352cf"
+        "projectors/sony_vpl.py": "f089eafe698fd949e4a27b6c766187c79878b2da1361aa110c0b068b6aee9be0",
+        "projectors/sony_vpl_sim.py": "225eb5c08b97ad5c0c05f277ad7b334e99077490ecebe7e6dec675244796acb3"
       },
       "ports": [
         53595
@@ -5635,8 +5635,8 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "750a88cf579267c39f51192efacba91db83562e3c95d8c80c9ebfcaf59e8e230",
-        "video/vmix_sim.py": "a1e7a36c5ad6e130ae75bd3978f1dcebc71b436fed990bcf6e8b4c292b760dd0"
+        "video/vmix.py": "474122e6dd7e2cb510b02311375e5561bdfe87579ffd3d4bfd5d66ae76d9555a",
+        "video/vmix_sim.py": "d54ea756ba7aad785553d34bb172474013d031b8450ebfc5b258a4d86260067e"
       },
       "ports": [
         8099
@@ -5686,8 +5686,8 @@
       "file": "audio/symetrix_composer.py",
       "format": "python",
       "files": {
-        "audio/symetrix_composer.py": "eeb878ea766b53687c6487dd86126f45bf66cebb3a691eb008f6822f0595d053",
-        "audio/symetrix_composer_sim.py": "8ab97a3e2cc141b5b00fdc298a0557f0072c269986872365697cc8cfd921a03c"
+        "audio/symetrix_composer.py": "b05f89368347ad170054702ef6f678b0f1281596d59d505e7d27d87cc56eadd2",
+        "audio/symetrix_composer_sim.py": "55075a2e9fb32b84db0015dba6084d95f9a0dc974ab4874db60f4f865bca458e"
       },
       "ports": [
         48631
@@ -5757,8 +5757,8 @@
       "file": "audio/toa_9000m2.py",
       "format": "python",
       "files": {
-        "audio/toa_9000m2.py": "ddbe73d6e99916d09585cdace41655908c9a237401ff4784707c1996d31c3943",
-        "audio/toa_9000m2_sim.py": "25d2ad3c1cc969d112a8286fb1998329a3d1c2b90a978cdfc5837445e922ed72"
+        "audio/toa_9000m2.py": "891f97e08d342620e465c1bc290daf3e6c0f7e0ad2dd2c419128457fe0ca76fa",
+        "audio/toa_9000m2_sim.py": "d20b771fcff119b8c8f638f80f028060912a62cd2fb40b8180feb7cf8c4a9f47"
       },
       "protocols": [
         "toa_9000m2"
@@ -5815,7 +5815,7 @@
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/turtle_bt_wallplate.avcdriver": "7cb451cf8c8faa9375b4e4c2a9f4df5ba5334a484eec79a4ba594aa2b98c95e3"
+        "audio/turtle_bt_wallplate.avcdriver": "07b41195f509a7874c14c0d874f30d042b42101b18d3a1baddb0271e035370a3"
       },
       "ports": [
         23
@@ -5891,9 +5891,9 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "45d9706559ec07e0b660bd5198aa24c7b6f54b48474aff4e9d36c027a1a78d25",
-        "switchers/chazy_control_discovery.py": "742ef36e0bc056ee85e92e3b1e4457db03c202634640cdc1a608ec91e5286e20",
-        "switchers/chazy_control_sim.py": "ee5436fe9dd1f951c2dc6030a7bdbcc4a711838af01d69e6a24a0e2db65c999c"
+        "switchers/chazy_control.py": "bed960c6135617b89d7cd32e14b4d2eb9806245cdb039c5eabab8c36db2b1925",
+        "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
+        "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
       },
       "ports": [
         23
@@ -5968,9 +5968,9 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "4243f49a2a39ac723140943538dcc5c5de189796fa66b0d524ac4387328fa6d4",
-        "switchers/chazy_control_pro_discovery.py": "3bac396fdf427168bbf3a4c47655a60e93d2f1039eb6f83d78af9cc06a65d1a7",
-        "switchers/chazy_control_pro_sim.py": "9a574efe0f90003c367878be2a5f02ed10c61efee476bd0c43f0551d9b8d8336"
+        "switchers/chazy_control_pro.py": "7ba3a10a8bb96fa15de02d748a862d21cb7c58a247c7d11d7c51703faaabb9f4",
+        "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
+        "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
       "ports": [
         23
@@ -6045,9 +6045,9 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "c6e35c9e5dffe24864d42b4673d1967f84768ffe24fdaf1ac3a84a78e8a6654c",
-        "switchers/darwin_control_discovery.py": "35dbe17cf87fd66babaac86bdc81dab426f4986e91a6bf15b77ac1d4b892e9dd",
-        "switchers/darwin_control_sim.py": "0b21270ac595fcc7276adf002d53d1f3fd78ba3a627f6d27039f3da05b32f75b"
+        "switchers/darwin_control.py": "491e9e8d28ef0b77c7e143f8d3c9e0c9e17014c10d8376c0c55a14ef15bde882",
+        "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
+        "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
       },
       "ports": [
         23
@@ -6122,8 +6122,8 @@
       "file": "video/tvone_coriomaster.py",
       "format": "python",
       "files": {
-        "video/tvone_coriomaster.py": "0c99d42a676f5f9d424bdba271c57075869ce04c35ead58d49289748d8516739",
-        "video/tvone_coriomaster_sim.py": "e679fcb14e56106c97a7b63417a4cadac8179c176b9b7d6d16292037c269435b"
+        "video/tvone_coriomaster.py": "c76be044e07dcc03bd9f766fe770ee09a8774ab07c38cbd21d3f9c4801410bee",
+        "video/tvone_coriomaster_sim.py": "0b75d09fb25b28bc6d2459e794f4055d1dbc785591a19c93c5a60096f9c37618"
       },
       "ports": [
         10001
@@ -6181,8 +6181,8 @@
       "file": "switchers/tvone_coriomatrix.py",
       "format": "python",
       "files": {
-        "switchers/tvone_coriomatrix.py": "569280cb8a87d720a2c80c18023fdabd5318961ca7432d020486b7c06bd92832",
-        "switchers/tvone_coriomatrix_sim.py": "4894d7ad70f7dc24730c2f471d6e5710ca404e9e6c48ac3f35766e65239c3a39"
+        "switchers/tvone_coriomatrix.py": "b29decb91424c4af975494a4a434c48a308f40226729f0af4099b93746b1bb71",
+        "switchers/tvone_coriomatrix_sim.py": "5c8d8bfd4e663da9806e49c2bb9ee136bc9cec16b9373002e956eb2db0593a07"
       },
       "ports": [
         10001
@@ -6237,7 +6237,7 @@
       "file": "cameras/vaddio_roboshot.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/vaddio_roboshot.avcdriver": "78dc8a35ea334162f8a991b6261518c7ce43f6468fd2febbd5be6790fbb88f45"
+        "cameras/vaddio_roboshot.avcdriver": "ba21ebc39af2a97fdb0b994d6b7478766d0c5051c86096ee29d71bc06529e4e8"
       },
       "ports": [
         23
@@ -6317,8 +6317,8 @@
       "file": "displays/viewsonic_cde.py",
       "format": "python",
       "files": {
-        "displays/viewsonic_cde.py": "646e81d19255c5a07a404a3bf9eda53950211149e839e07dfdaa8dcb5ab1aa50",
-        "displays/viewsonic_cde_sim.py": "df6797d2350f6c4c642bfcb1ad7eea4471556c83729d9d8c82b177f17294f804"
+        "displays/viewsonic_cde.py": "ba985c27467f28ec9822a9dc9458f317623cbee96d916591b8110eced5e38d8b",
+        "displays/viewsonic_cde_sim.py": "327dc5974a82d5a339b6c6bedd65a2be03e15f1c9c95cbfabd74602e6f32b880"
       },
       "ports": [
         5000
@@ -6392,8 +6392,8 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "3e249742c271b2b6941690c572afa6261e78f140e7c341c86b0ca877466416eb",
-        "power/wattbox_ip_sim.py": "2e7c7ce08e9db0b7fa16645338258213f05f1a4b09fca4f3d34a51a48caa5d58"
+        "power/wattbox_ip.py": "9b1c20940c6bba18b70c2a0c4492461b1372571a698f6284eb615f14265f1b6c",
+        "power/wattbox_ip_sim.py": "e6306a9adaaea62b0729ad8e022c9fff7bc7d488efa1cbb37884891c83eec981"
       },
       "ports": [
         23
@@ -6460,7 +6460,7 @@
       "file": "switchers/wyrestorm_mx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/wyrestorm_mx.avcdriver": "8fd244abb16e9a00a80a149bd05e95b92a3eb0ec636994074f63b02f8decb59f"
+        "switchers/wyrestorm_mx.avcdriver": "1f5428af41ea87199357d7864c554d382d25fbd060494a82f9b579c130a7ad73"
       },
       "ports": [
         23
@@ -6525,8 +6525,8 @@
       "file": "switchers/wyrestorm_networkhd.py",
       "format": "python",
       "files": {
-        "switchers/wyrestorm_networkhd.py": "d7ae1306927874d58fd402ea2e144b0f7f2cb85d2ab3618ed185889a0e7dc176",
-        "switchers/wyrestorm_networkhd_sim.py": "8d2c650fb78223d13921ee68b88e27de2ed2fe8211878ad37baa4c172e2587b6"
+        "switchers/wyrestorm_networkhd.py": "e204c97fae4cb0e6a12d62989fd959add39f382161da00515526e103e6bff51d",
+        "switchers/wyrestorm_networkhd_sim.py": "b7b37b35f92332c4d78fa7df559f9bf12f146ba9d81a6408e57d9615eab9cc57"
       },
       "ports": [
         23
@@ -6582,7 +6582,7 @@
       "file": "audio/yamaha_mtx_mrx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/yamaha_mtx_mrx.avcdriver": "31b7f6604d4c1318247e9f32ea4febda5fbb4cd8e6e788e044e4e9024ca0243d"
+        "audio/yamaha_mtx_mrx.avcdriver": "9ce55d201b0c11dffd9ea06636ca86832005f8da0481ce6500109639644f5ad7"
       },
       "ports": [
         49280

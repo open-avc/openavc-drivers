@@ -67,9 +67,9 @@ id: avproedge_acmx
 name: AVPro Edge AC-MX Matrix
 manufacturer: AVPro Edge
 category: switcher
-version: 2.0.0
+version: 2.1.0
 author: OpenAVC
-min_platform_version: "0.24.0"
+min_platform_version: "0.27.0"
 description: >
   Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up
   to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every
@@ -262,6 +262,20 @@ state_variables:
   dhcp_enabled:
     type: boolean
     label: DHCP Enabled
+
+# Two matrices in one frame: video, and the extracted audio that can follow it
+# or break away. They route with different commands and report on different
+# properties, so each is its own Matrix control.
+routing:
+  destination_child_type: output
+  source_child_type: input
+  planes:
+    - label: Video
+      route_property: input
+      command: route
+    - label: Extracted Audio
+      route_property: audio_input
+      command: audio_route
 
 child_entity_types:
   output:

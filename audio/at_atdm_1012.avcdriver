@@ -108,9 +108,9 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 2.1.0
+version: 2.2.0
 author: OpenAVC
-min_platform_version: "0.23.0"
+min_platform_version: "0.27.0"
 description: >
   Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers
   via TCP with real-time multicast push updates. Inputs, sub-inputs,
@@ -305,6 +305,44 @@ on_connect:
 
 # ── Child entities: the mixer's channel strips and SmartMix groups.
 #    Children are labelled by the mixer's own channel names (label_field).
+# A mixer, not a switcher: what is routed TO is a channel, and this device
+# calls its input channels "input". Five separately routable groups, each
+# selecting its own source. The sub-inputs report a raw protocol code rather
+# than a named source, so that one's source list is the widest the driver can
+# state and wants trimming to what is patched.
+routing:
+  planes:
+    - label: Source
+      destination_child_type: input
+      route_property: source
+      command: set_input_source
+      destination_param: channel
+      source_param: source
+    - label: Source
+      destination_child_type: stereo_input
+      route_property: source
+      command: set_st_input_source
+      destination_param: channel
+      source_param: source
+    - label: Source
+      destination_child_type: output
+      route_property: source
+      command: set_output_source
+      destination_param: channel
+      source_param: source
+    - label: Source
+      destination_child_type: stereo_output
+      route_property: source
+      command: set_st_output_source
+      destination_param: channel
+      source_param: source
+    - label: Source
+      destination_child_type: sub_input
+      route_property: source
+      command: set_sub_input_source
+      destination_param: channel
+      source_param: source
+
 child_entity_types:
   input:
     label: Input

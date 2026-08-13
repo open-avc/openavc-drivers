@@ -82,10 +82,11 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.0.6",
+        "version": "2.1.0",
         "author": "OpenAVC",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0;
+        # the routing: block below needs 0.27.0.
+        "min_platform_version": "0.27.0",
         "description": (
             "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext "
             "REST API. One driver adapts to the endpoint's role: transmit stream "
@@ -100,6 +101,36 @@ class CrestronNVXDriver(BaseDriver):
         "web_ui": True,          # exposes an HTTPS web interface (Open Web UI action)
         "protocols": ["cresnext"],
         "ports": [443],
+        # An NVX endpoint IS one end of a route. There is no destination child
+        # to enumerate -- the device shows one thing at a time -- so each plane
+        # here is a one-row matrix, and a wall of them is one row per device
+        # (every destination carries its own route key, so they combine into a
+        # single control). Video and audio select locally between the HDMI
+        # inputs and the stream; "Stream" then asks which encoder, which is an
+        # IP address or an rtsp:// URL rather than a port number, so nothing can
+        # enumerate its sources and the author supplies them.
+        "routing": {
+            "planes": [
+                {
+                    "label": "Video",
+                    "route_property": "video_source",
+                    "command": "set_video_source",
+                    "source_param": "source",
+                },
+                {
+                    "label": "Audio",
+                    "route_property": "audio_source",
+                    "command": "set_audio_source",
+                    "source_param": "source",
+                },
+                {
+                    "label": "Stream",
+                    "route_property": "stream_location",
+                    "command": "route_stream",
+                    "source_param": "encoder",
+                },
+            ],
+        },
         "discovery": {
             # NVX endpoints don't advertise themselves at all (no mDNS/SSDP, and
             # they answer neither the unicast nor the broadcast CIP probe —

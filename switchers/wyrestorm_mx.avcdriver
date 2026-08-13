@@ -45,9 +45,9 @@ id: wyrestorm_mx
 name: WyreStorm MX / MXV Matrix
 manufacturer: WyreStorm
 category: switcher
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.27.0"
 description: >
   Controls WyreStorm MX-H2A, MXV, and MX-KIT series HDMI/HDBaseT matrix
   switchers (4x4 up to 8x8) via Telnet on port 23 or RS-232. Every video
@@ -212,6 +212,23 @@ state_variables:
     type: string
     label: Reported IP Address
     help: "The IP address the matrix reports for itself, read once on connect."
+
+# Three planes across two child types: video on the HDMI outputs, and on the
+# audio outputs both the routed audio and which embedded source it de-embeds.
+routing:
+  planes:
+    - label: Video
+      destination_child_type: output
+      route_property: input
+      command: route
+    - label: Audio
+      destination_child_type: audio_output
+      route_property: audio_input
+      command: audio_route
+    - label: De-embed Source
+      destination_child_type: audio_output
+      route_property: deembed_source
+      command: set_deembed_source
 
 child_entity_types:
   output:

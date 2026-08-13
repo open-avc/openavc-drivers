@@ -210,10 +210,10 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.11",
+        "version": "1.3.0",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.27.0",
         "description": (
             "Controls a TurtleAV Chazy Control AV-over-IP matrix controller "
             "and the sub-units it manages: video encoders (TX), decoders (RX), "
@@ -229,6 +229,29 @@ class ChazyControlDriver(BaseDriver):
         "protocols": ["chazy_telnet"],
         "ports": [23],
         "transport": "tcp",
+        # A decoder is not one destination: it carries six independently
+        # routable signals, and a Matrix control watches one of them. They all
+        # go out on dec_route, which is told which by its signal parameter --
+        # the one thing the property name cannot supply on its own.
+        "routing": {
+            "destination_child_type": "decoder",
+            "source_child_type": "encoder",
+            "command": "dec_route",
+            "planes": [
+                {"label": "Video", "route_property": "source_video",
+                 "params": {"signal": "VIDEO"}},
+                {"label": "Audio", "route_property": "source_audio",
+                 "params": {"signal": "AUDIO"}},
+                {"label": "USB", "route_property": "source_usb",
+                 "params": {"signal": "USB"}},
+                {"label": "IR", "route_property": "source_ir",
+                 "params": {"signal": "IR"}},
+                {"label": "RS-232", "route_property": "source_rs232",
+                 "params": {"signal": "RS232"}},
+                {"label": "CEC", "route_property": "source_cec",
+                 "params": {"signal": "CEC"}},
+            ],
+        },
         "discovery": {
             # A.5 resolved (2026-05-20): the standard Control and the Pro are
             # indistinguishable on the wire by hostname/port (both default to

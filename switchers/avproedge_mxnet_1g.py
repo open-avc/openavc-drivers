@@ -192,9 +192,9 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.0.3",
+        "version": "1.1.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.27.0",
         "author": "OpenAVC",
         "description": (
             "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet "
@@ -217,6 +217,25 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "protocols": ["mxnet_api"],
         "ports": [24],
         "transport": "tcp",
+        # Five independently routable streams per decoder, all switched by the
+        # one route command and told apart by its stream parameter.
+        "routing": {
+            "destination_child_type": "decoder",
+            "source_child_type": "encoder",
+            "command": "route",
+            "planes": [
+                {"label": "Video", "route_property": "source_video",
+                 "params": {"stream": "video"}},
+                {"label": "Audio", "route_property": "source_audio",
+                 "params": {"stream": "audio"}},
+                {"label": "USB", "route_property": "source_usb",
+                 "params": {"stream": "usb"}},
+                {"label": "IR", "route_property": "source_infrared",
+                 "params": {"stream": "infrared"}},
+                {"label": "Serial", "route_property": "source_serial",
+                 "params": {"stream": "serial"}},
+            ],
+        },
         "discovery": {
             "port_open": [24],
             "manufacturer_alias": ["avpro edge", "avpro global", "avproedge"],

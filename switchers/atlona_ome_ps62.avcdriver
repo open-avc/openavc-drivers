@@ -59,9 +59,9 @@ id: atlona_ome_ps62
 name: Atlona AT-OME-PS62 Matrix Switcher
 manufacturer: Atlona
 category: switcher
-version: 1.4.0
+version: 1.5.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.27.0"
 description: >
   Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher
   over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT)
@@ -186,6 +186,20 @@ state_variables:
     type: integer
     label: USB Host Source
     help: "Currently-selected USB host port (1 = USB-C, 2 = USB-B)."
+
+# Two planes on two different child types: the HDMI/HDBaseT outputs switch
+# video, and the analog audio outs select their own source separately.
+routing:
+  source_child_type: input
+  planes:
+    - label: Video
+      destination_child_type: output
+      route_property: input
+      command: route
+    - label: Analog Audio
+      destination_child_type: analog_out
+      route_property: source
+      command: set_audio_source
 
 child_entity_types:
   output:

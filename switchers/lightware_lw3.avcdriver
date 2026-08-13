@@ -59,9 +59,9 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.5.0
+version: 1.6.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.27.0"
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
   TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each
@@ -212,6 +212,15 @@ state_variables:
     type: boolean
     label: Analog Audio Out (O4) — Mute
     help: "True when the analog audio output on the O4 port is muted."
+
+# LW3 calls the routed source "source" rather than "input"; one video plane.
+routing:
+  destination_child_type: output
+  source_child_type: input
+  command: set_video_route
+  planes:
+    - label: Video
+      route_property: source
 
 child_entity_types:
   output:

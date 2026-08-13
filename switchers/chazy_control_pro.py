@@ -210,10 +210,10 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.11",
+        "version": "1.5.0",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.27.0",
         "description": (
             "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix "
             "controller and every sub-unit it manages: video encoders (TX) "
@@ -228,6 +228,30 @@ class ChazyControlProDriver(BaseDriver):
         "protocols": ["chazy_telnet"],
         "ports": [23],
         "transport": "tcp",
+        # A decoder carries six independently routable signals plus, on the Pro,
+        # a Dante audio selector. The six go out on dec_route with a signal
+        # parameter saying which; dec_dante_audio_source is a separate thing
+        # entirely -- it chooses Dante or native audio, not which encoder --
+        # and is deliberately not offered as a route.
+        "routing": {
+            "destination_child_type": "decoder",
+            "source_child_type": "encoder",
+            "command": "dec_route",
+            "planes": [
+                {"label": "Video", "route_property": "source_video",
+                 "params": {"signal": "VIDEO"}},
+                {"label": "Audio", "route_property": "source_audio",
+                 "params": {"signal": "AUDIO"}},
+                {"label": "USB", "route_property": "source_usb",
+                 "params": {"signal": "USB"}},
+                {"label": "IR", "route_property": "source_ir",
+                 "params": {"signal": "IR"}},
+                {"label": "RS-232", "route_property": "source_rs232",
+                 "params": {"signal": "RS232"}},
+                {"label": "CEC", "route_property": "source_cec",
+                 "params": {"signal": "CEC"}},
+            ],
+        },
         "discovery": {
             # A.5 resolved against live hardware (FW 1.10.11): the controller
             # advertises exactly one mDNS service, the generic Audinate Dante

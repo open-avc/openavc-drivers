@@ -103,9 +103,9 @@ id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 2.1.0
+version: 2.2.0
 author: OpenAVC
-min_platform_version: "0.23.0"
+min_platform_version: "0.27.0"
 description: >
   Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with
   real-time multicast push updates. Inputs and outputs are child entities
@@ -280,6 +280,24 @@ on_connect:
 #    (inputs 0-5, outputs 0-1) with 10 for the ST channels, so commands
 #    carry wire value maps and response rules translate with id maps.
 #    Children are labelled by the mixer's own channel names (label_field).
+# A mixer, not a switcher: the thing routed TO is a channel, and this device
+# calls its channels "input". Each one selects which physical source feeds it,
+# which is a matrix even though nothing here is called an output.
+routing:
+  planes:
+    - label: Source
+      destination_child_type: input
+      route_property: source
+      command: set_input_source
+      destination_param: channel
+      source_param: source
+    - label: Source
+      destination_child_type: stereo_input
+      route_property: source
+      command: set_st_input_source
+      destination_param: channel
+      source_param: source
+
 child_entity_types:
   input:
     label: Input

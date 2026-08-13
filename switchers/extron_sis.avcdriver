@@ -44,9 +44,9 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.7.0
+version: 1.8.0
 author: OpenAVC
-min_platform_version: "0.24.0"
+min_platform_version: "0.27.0"
 description: >
   Controls Extron products via the SIS (Simple Instruction Set) protocol.
   Covers crosspoint matrix switchers (DXP, CrossPoint), presentation
@@ -193,6 +193,19 @@ state_variables:
     type: boolean
     label: Signal Detected
     help: "True when the device detects a valid signal on the active input ('Sig1' / 'Sig0' notification)."
+
+# One frame, two switching planes: video and audio, which can be routed
+# together or broken away. Each reports on its own property.
+routing:
+  destination_child_type: output
+  source_child_type: input
+  planes:
+    - label: Video
+      route_property: input
+      command: route
+    - label: Audio
+      route_property: audio_input
+      command: route_audio
 
 child_entity_types:
   output:

@@ -73,9 +73,9 @@ id: gefen_uhd600a
 name: Gefen EXT-UHD600A Matrix
 manufacturer: Gefen
 category: switcher
-version: 1.0.0
+version: 1.1.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.27.0"
 description: >
   Controls Gefen EXT-UHD600A-44 and EXT-UHD600A-88 4K HDMI matrix
   switchers via Telnet on port 23 or RS-232. Every output is a child
@@ -243,6 +243,16 @@ state_variables:
     min: 0
     max: 100
     help: "Front-panel LCD display brightness (EXT-UHD600A-88 only)."
+
+# One video plane. The outputs are string-keyed, which is why a destination
+# carries whatever the device calls it rather than a row number.
+routing:
+  destination_child_type: output
+  source_child_type: input
+  command: route
+  planes:
+    - label: Video
+      route_property: input
 
 child_entity_types:
   input:

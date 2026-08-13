@@ -68,9 +68,9 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.4.0
+version: 1.5.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.27.0"
 description: >
   Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers
   (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Every output is a
@@ -230,6 +230,17 @@ state_variables:
     type: boolean
     label: Front Panel Locked
     help: "True when the front-panel buttons are locked (Lock / Unlock)."
+
+# One video plane. The route command takes plain integers rather than typed
+# child ids, so the ends are named here.
+routing:
+  destination_child_type: output
+  command: route
+  destination_param: output
+  source_param: input
+  planes:
+    - label: Video
+      route_property: input
 
 child_entity_types:
   output:

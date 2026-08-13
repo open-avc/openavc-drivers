@@ -365,10 +365,10 @@ def _dev(driver, key):
 
 def test_metadata_and_platform_gate():
     info = DRV.WyrestormNetworkHDDriver.DRIVER_INFO
-    assert info["version"] == "1.0.3"
+    assert info["version"] == "1.1.0"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.25.0"
+    assert info["min_platform_version"] == "0.27.0"
     assert info["simulated"] is True
     assert info["source_url"].startswith("https://")
     for ctype in ("tx", "rx"):

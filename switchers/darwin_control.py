@@ -203,10 +203,11 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.1.9",
+        "version": "1.2.0",
         "author": "OpenAVC",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0;
+        # the routing: block below needs 0.27.0.
+        "min_platform_version": "0.27.0",
         "description": (
             "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP "
             "matrix controller and every sub-unit it manages: video encoders "
@@ -219,6 +220,23 @@ class DarwinControlDriver(BaseDriver):
         "protocols": ["darwin_telnet"],
         "ports": [23],
         "transport": "tcp",
+        # A decoder shows one encoder, and dec_switch needs to be told WHICH
+        # signal it is switching -- ALL follows every signal, the rest lock one
+        # independently. The decoder reports a single "source", so there is one
+        # plane here and it is the following one; without saying signal: ALL the
+        # command goes out short a required parameter and the device refuses it.
+        "routing": {
+            "destination_child_type": "decoder",
+            "source_child_type": "encoder",
+            "command": "dec_switch",
+            "planes": [
+                {
+                    "label": "Source",
+                    "route_property": "source",
+                    "params": {"signal": "ALL"},
+                },
+            ],
+        },
         "discovery": {
             # The controller's only on-wire identity is the telnet connect
             # banner ("Welcome To Controller(h) Terminal Control System" on FW

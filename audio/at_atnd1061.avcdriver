@@ -180,9 +180,9 @@ id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
-min_platform_version: "0.23.0"
+min_platform_version: "0.27.0"
 description: >
   Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array
   microphones via TCP with real-time multicast push updates. The six beam
@@ -454,6 +454,17 @@ on_connect:
 # ── Child entities: the microphone's beam channels, analog input and outputs.
 #    Child id = wire id + 1, so Beam Channel 1 is child 1 and the analog input
 #    is child 7. Children are labelled by the microphone's own channel names.
+# A beamforming mic array's input channels each select their own source, so
+# the thing routed TO is a child called "input". Mic or line, per channel.
+routing:
+  planes:
+    - label: Source
+      destination_child_type: input
+      route_property: source
+      command: set_input_source
+      destination_param: channel
+      source_param: source
+
 child_entity_types:
   input:
     label: Input

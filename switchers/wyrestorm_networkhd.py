@@ -139,9 +139,9 @@ class WyrestormNetworkHDDriver(BaseDriver):
         "name": "WyreStorm NetworkHD",
         "manufacturer": "WyreStorm",
         "category": "switcher",
-        "version": "1.0.3",
+        "version": "1.1.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.27.0",
         "author": "OpenAVC",
         "description": (
             "Controls a WyreStorm NetworkHD AV-over-IP system through its "
@@ -163,6 +163,24 @@ class WyrestormNetworkHDDriver(BaseDriver):
         "protocols": ["networkhd_api"],
         "ports": [23],
         "transport": "tcp",
+        # NetworkHD gives each stream its own command rather than a selector
+        # parameter, so a plane names the command that switches it. "All
+        # Streams" is the everyday one and comes first; the rest break a single
+        # stream away from it.
+        "routing": {
+            "destination_child_type": "rx",
+            "source_child_type": "tx",
+            "planes": [
+                {"label": "All Streams", "route_property": "source",
+                 "command": "route"},
+                {"label": "Video", "route_property": "video_source",
+                 "command": "route_video"},
+                {"label": "Audio", "route_property": "audio_source",
+                 "command": "route_audio"},
+                {"label": "USB", "route_property": "usb_source",
+                 "command": "route_usb"},
+            ],
+        },
         "discovery": {
             # The API channel is plain Telnet on the shared port 23 with no
             # documented banner or safe identifying probe, so evidence is

@@ -58,9 +58,9 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.4.0
+version: 1.5.0
 author: OpenAVC
-min_platform_version: "0.22.0"
+min_platform_version: "0.27.0"
 description: >
   Controls Kramer products via Protocol 3000 over TCP (port 5000) or
   RS-232. Covers matrix switchers (VS series), scalers and presentation
@@ -225,6 +225,19 @@ state_variables:
     type: string
     label: Firmware Version
     help: "Firmware version reported by #VERSION?."
+
+# Video and audio switch independently on a P3000 frame, so each is its own
+# Matrix control watching its own property.
+routing:
+  destination_child_type: output
+  source_child_type: input
+  planes:
+    - label: Video
+      route_property: input
+      command: route
+    - label: Audio
+      route_property: audio_input
+      command: route_audio
 
 child_entity_types:
   output:

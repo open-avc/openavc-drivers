@@ -401,7 +401,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -409,7 +409,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "9461e5146ae2aea9880f4832d5048d9be6bb909886e8d6fecced47a21edb5fca"
+        "switchers/atlona_ome_ps62.avcdriver": "2fb449693337e9496edb7af165249302651f733e58b3ef753610591d23d16546"
       },
       "ports": [
         23
@@ -418,7 +418,7 @@
         "atlona_ome_ps62"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -456,7 +456,7 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Every output is a child entity tracking its routed source, and every HDBaseT audio zone a child with volume and mute \u2014 the Output IDs / Audio Zone IDs config lists match the roster to the model (defaults describe the 88M, including its HDMI mirror outputs). Also covers power, presets (save / recall / clear), HDMI output mirroring, front-panel lock, and identify.\n",
@@ -464,7 +464,7 @@
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_uhd_pro3.avcdriver": "3be2dd0ac88050291f1364ffb1f4346617ed87a1494738e49c830d33b62f17e7"
+        "switchers/atlona_uhd_pro3.avcdriver": "a25fb96ff4e48ac6056199036dbe1696c8817d684cdc999367f0864b0114cca2"
       },
       "ports": [
         23
@@ -473,7 +473,7 @@
         "atlona_pro3"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -681,7 +681,7 @@
       "name": "Audio-Technica ATDM-0604a",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -689,14 +689,14 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "111f7cf1e008aadd63fbdad742c2d1644f044183d5e0b979d5ed7e543a41d359"
+        "audio/at_atdm_0604a.avcdriver": "6a7b0a410173c331ba85a094e186e170f2e44a7d0760d439c21ed22fe99e6fde"
       },
       "ports": [
         17300
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "mixer",
         "smartmixer",
@@ -743,7 +743,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Inputs, sub-inputs, outputs, and SmartMix groups are child entities with fader, mute, gain, source select, bus routing, and live meters, labelled by the mixer's own channel names. Preset recall, operator faders, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -751,13 +751,13 @@
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "368cf10e80f3f18a6ca036b3c6bcdf762aabafb5945fef2dd054b39ba3f7d794"
+        "audio/at_atdm_1012.avcdriver": "93617f14ec9bfc3fc910bfbe2d24e37bdb74da9892ddde73ca6e619f61cdbe71"
       },
       "ports": [
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "mixer",
         "smartmixer",
@@ -815,7 +815,7 @@
       "name": "Audio-Technica ATND1061",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, room type, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation or read on demand. Live meters and talker position can each be switched on and off at runtime from a macro or panel button. Several microphones in one room can be linked so a mute, preset recall or power-save follows across all of them.\n",
@@ -823,13 +823,13 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "7ab607c09cee2b98c0a375226eb25c0f2493e4b25c8a0f77210d6b7eac364c0a"
+        "audio/at_atnd1061.avcdriver": "b5d7bf425354f9ccf52c767701d1acd834c948780fb891048de534d9ec10754a"
       },
       "ports": [
         17300
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "microphone",
         "ceiling-mic",
@@ -956,7 +956,7 @@
       "name": "AVPro Edge AC-MX Matrix",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed video and extracted-audio source, sync and HPD status, scaling mode, stream enable and the full balanced-audio chain; every input a child tracking signal presence, assigned EDID, port power and detected video format. Also covers the extracted-audio matrix mode, front-panel lock, LCD timeout, fan speed, IR code setup and the unit's network configuration.\n",
@@ -964,7 +964,7 @@
       "file": "switchers/avproedge_acmx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/avproedge_acmx.avcdriver": "278110eb472cb0045cc39be4fe43ae0ab13f91e48898d7fb401b85dcdeb50808"
+        "switchers/avproedge_acmx.avcdriver": "fa5146087af71168898d970d0aa0ec8e3b4f3754e85871af2f67cb64070fd096"
       },
       "ports": [
         23
@@ -974,7 +974,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "hdmi",
@@ -1029,7 +1029,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.0.3",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -1037,7 +1037,7 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "93b85d88d7960c65131d39505e1f3df2ab20d57a5fb9c55f1815ca6bc15493fa",
+        "switchers/avproedge_mxnet_1g.py": "2cea4b55de4430ce31906b49f2deb825fd6c318ee39eab852e729e4b378d3bfb",
         "switchers/avproedge_mxnet_1g_sim.py": "ebc090902331269a8a4302a3f03ceaab9c09b4700b9181fb93cdc83137bc24ae"
       },
       "ports": [
@@ -1047,7 +1047,7 @@
         "mxnet_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "av-over-ip",
         "mxnet",
@@ -1921,7 +1921,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "switcher",
-      "version": "2.0.6",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext REST API. One driver adapts to the endpoint's role: transmit stream + bitrate + HDMI-in monitoring on encoders, stream routing + scaler output + video wall on decoders. Covers the E20/D20/D200, E30/D30, and combo 35x/36x lines.",
@@ -1929,7 +1929,7 @@
       "file": "switchers/crestron_nvx.py",
       "format": "python",
       "files": {
-        "switchers/crestron_nvx.py": "78eb0306d9def6d989485f00db9679bafe9f377c4cdf8d75f4a1d098600232af",
+        "switchers/crestron_nvx.py": "b601cc6e49f6c842ed4a0d982765636250bdd82e8784b7107c676ad64da77bab",
         "switchers/crestron_nvx_sim.py": "47b270cbe9067875ea3b8f485a4794b6cbd9269d93220bb00a228bd5e586f6da"
       },
       "ports": [
@@ -1940,7 +1940,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "av-over-ip",
         "encoder",
@@ -2137,7 +2137,7 @@
       "name": "Extron SIS Protocol",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.7.0",
+      "version": "1.8.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Extron products via the SIS (Simple Instruction Set) protocol. Covers crosspoint matrix switchers (DXP, CrossPoint), presentation switchers (IN Series), scalers (DSC, DVS), distribution amplifiers, and DSP products. On matrix models each configured output and input is a child entity with per-output routing and mute state. Works over TCP (port 23) or RS-232 (9600 8N1).\n",
@@ -2145,7 +2145,7 @@
       "file": "switchers/extron_sis.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/extron_sis.avcdriver": "ff029715e2d5cbf7e89e8acb4e23c952b078d8fee057ca9c68b91a03270a2349"
+        "switchers/extron_sis.avcdriver": "f97d43c15a4e073bef7cc051a2c977f9ccfaad4f73207d9746438247e4047f7c"
       },
       "ports": [
         23
@@ -2154,7 +2154,7 @@
         "extron_sis"
       ],
       "simulated": true,
-      "min_platform_version": "0.24.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "scaler",
@@ -2261,7 +2261,7 @@
       "name": "Gefen EXT-UHD600A Matrix",
       "manufacturer": "Gefen",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Gefen EXT-UHD600A-44 and EXT-UHD600A-88 4K HDMI matrix switchers via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed input, analog audio volume/mute, masking, sink status, and HDCP; every input is a child tracking signal presence, HDCP, and EDID mode. Covers routing presets, input/output naming, HDCP modes, per-output video scaling (44), panel brightness, IR channel, and the RS-232 feedback setting.\n",
@@ -2269,7 +2269,7 @@
       "file": "switchers/gefen_uhd600a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/gefen_uhd600a.avcdriver": "b4be6163bbf4fceea40fbb5475c477703b29e4e96125681cc7ae0d44a2ea75b6"
+        "switchers/gefen_uhd600a.avcdriver": "7418277fcfb22b18ed3cca569edc92b4539e0a1fcbf78181315f4b7d4526c1d7"
       },
       "ports": [
         23
@@ -2278,7 +2278,7 @@
         "gefen_cli"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "hdmi",
@@ -3272,7 +3272,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
@@ -3280,7 +3280,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "afae4a805fa09e1dac8ecb56dbd23034b2f589ab4b61091c79f27155490b4c0c"
+        "switchers/kramer_p3000.avcdriver": "5be6b17fb1fc6e285bcedc518a86a919111b4030b738351fdad4cc19b389f6df"
       },
       "ports": [
         5000,
@@ -3290,7 +3290,7 @@
         "kramer_p3000"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "scaler",
@@ -3587,7 +3587,7 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each configured output and input is a child entity tracking its routed source, mute, lock, HDCP, 5V and signal-type state per port, updated in real time via change-notification subscriptions with a keep-alive watchdog guarding the link. Provides video and audio crosspoint switching, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
@@ -3595,7 +3595,7 @@
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "ff4e20a8aa3bb95c9b004731be604e33c37ecad8576bdc4456c952074fe75fae"
+        "switchers/lightware_lw3.avcdriver": "3545f8155f192750ee6d50f3d083031fb0435fa32315eb61cd3eb65c330036af"
       },
       "ports": [
         6107
@@ -3604,7 +3604,7 @@
         "lightware_lw3"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -5883,7 +5883,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.11",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -5891,7 +5891,7 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "bed960c6135617b89d7cd32e14b4d2eb9806245cdb039c5eabab8c36db2b1925",
+        "switchers/chazy_control.py": "b952040746325d9e6a85458b15ca9ddb46ed9b38298ed0a6017ce3f1b05838fb",
         "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
         "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
       },
@@ -5902,7 +5902,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -5960,7 +5960,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.11",
+      "version": "1.5.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -5968,7 +5968,7 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "7ba3a10a8bb96fa15de02d748a862d21cb7c58a247c7d11d7c51703faaabb9f4",
+        "switchers/chazy_control_pro.py": "d725784d815b2a8f4d166b070886b3c4037eb0a6c51d94b183c48c944eeeb435",
         "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
         "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
@@ -5979,7 +5979,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -6037,7 +6037,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.1.9",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -6045,7 +6045,7 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "491e9e8d28ef0b77c7e143f8d3c9e0c9e17014c10d8376c0c55a14ef15bde882",
+        "switchers/darwin_control.py": "bad378a2e34530dbe732b99170b755c037f5a92c3193c4d3b3500bcdac98a3d0",
         "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
         "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
       },
@@ -6056,7 +6056,7 @@
         "darwin_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -6452,7 +6452,7 @@
       "name": "WyreStorm MX / MXV Matrix",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls WyreStorm MX-H2A, MXV, and MX-KIT series HDMI/HDBaseT matrix switchers (4x4 up to 8x8) via Telnet on port 23 or RS-232. Every video output and every audio de-embed output is a child entity tracking its routed source; audio outputs also track mute. Covers independent audio routing, A/V scene presets, CEC display power (manual and automatic), low-power standby, IR system codes, and input EDID presets on the MX-0404-HDMI.\n",
@@ -6460,7 +6460,7 @@
       "file": "switchers/wyrestorm_mx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/wyrestorm_mx.avcdriver": "1f5428af41ea87199357d7864c554d382d25fbd060494a82f9b579c130a7ad73"
+        "switchers/wyrestorm_mx.avcdriver": "cc8d8b446c8e9efaed0ab2b5eccbf9c7ef87dbe3bbc8413ecb0acb90289f5a8d"
       },
       "ports": [
         23
@@ -6469,7 +6469,7 @@
         "wyrestorm_mx"
       ],
       "simulated": true,
-      "min_platform_version": "0.22.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "matrix-switcher",
         "hdmi",
@@ -6517,7 +6517,7 @@
       "name": "WyreStorm NetworkHD",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.0.3",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a WyreStorm NetworkHD AV-over-IP system through its NHD-000-CTL or NHD-CTL-PRO controller. Every encoder (TX) and decoder (RX) the controller knows about appears as a child entity with live online, routing, and signal state. Covers matrix switching with per-stream breakaway (video, audio, USB, IR, RS-232), video wall scenes and windows, multiview layouts, display power proxy commands, and CEC / IR / RS-232 command injection to connected devices.",
@@ -6525,7 +6525,7 @@
       "file": "switchers/wyrestorm_networkhd.py",
       "format": "python",
       "files": {
-        "switchers/wyrestorm_networkhd.py": "e204c97fae4cb0e6a12d62989fd959add39f382161da00515526e103e6bff51d",
+        "switchers/wyrestorm_networkhd.py": "aece22862625c6cb27525de23c23faddd15b8e7e185d9a5630b278094db90186",
         "switchers/wyrestorm_networkhd_sim.py": "b7b37b35f92332c4d78fa7df559f9bf12f146ba9d81a6408e57d9615eab9cc57"
       },
       "ports": [
@@ -6535,7 +6535,7 @@
         "networkhd_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.27.0",
       "tags": [
         "av-over-ip",
         "networkhd",

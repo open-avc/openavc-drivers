@@ -402,10 +402,14 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.2.0"
+    assert info["version"] == "1.3.0"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.27.0"
+    # 0.27.0 was the routing: block. 0.28.0 is the combined "All streams"
+    # plane: it watches the same property as the Video plane and sends a
+    # different stream, which earlier releases refuse as a duplicate and then
+    # hand the picker two planes answering to one id.
+    assert info["min_platform_version"] == "0.28.0"
     assert info["source_url"].startswith("https://support.avproglobal.com")
     # String-id children (MACs) from a device-enumerated roster.
     for ctype in ("encoder", "decoder"):
@@ -610,6 +614,50 @@ async def test_route_rejects_an_unknown_endpoint():
     # An encoder passed where a decoder belongs is caught by the type check.
     with pytest.raises(ValueError, match="Unknown decoder"):
         await driver.send_command("route", {"tx": TX_APPLE, "rx": TX_LAPTOP})
+
+
+@pytest.mark.asyncio
+async def test_routing_an_endpoint_that_is_not_there_is_refused_by_the_box():
+    """The CBOX's own answer, and the simulator has to give it too.
+
+    An endpoint stays in the CBOX database after it leaves the rack, so it is
+    still a child and still shows up wherever ports are offered. Real firmware
+    refuses a route naming it, in these words. The simulator used to accept one
+    -- which made a decoder that is not there draw a route on the panel and
+    agreed with the driver about it, the same shape of agreement that hid the
+    presence bug until hardware.
+    """
+    driver, _sim = await _make_pair()
+    with pytest.raises(ValueError, match="Device not online"):
+        await driver.send_command("route", {"tx": TX_APPLE, "rx": RX_BOARD})
+    # And per-stream, which is what routing actually sends.
+    with pytest.raises(ValueError, match="Device not online"):
+        await driver.send_command(
+            "route", {"tx": TX_APPLE, "rx": RX_BOARD, "stream": "video"},
+        )
+    # Clearing one is refused for the same reason -- there is nothing there to
+    # clear, and a panel that reported success would be reporting a fiction.
+    with pytest.raises(ValueError, match="Device not online"):
+        await driver.send_command("route_off", {"rx": RX_BOARD, "stream": "video"})
+
+
+@pytest.mark.asyncio
+async def test_the_declaration_offers_all_streams_before_the_single_planes():
+    """The plane a room wants, first.
+
+    `route` takes a stream and its own default is `all`, so a matrix built from
+    the Video plane alone routes video and leaves audio, USB, IR and serial on
+    whatever was on that display before -- with nothing on the panel to say so.
+    """
+    planes = DRV.AVProEdgeMXNet1GDriver.DRIVER_INFO["routing"]["planes"]
+    assert [p["label"] for p in planes] == [
+        "All streams", "Video", "Audio", "USB", "IR", "Serial",
+    ]
+    assert planes[0]["params"] == {"stream": "all"}
+    # It watches what a tile should read, which is the same property the Video
+    # plane watches -- two controls, not one twice.
+    assert planes[0]["route_property"] == "source_video"
+    assert planes[1]["route_property"] == "source_video"
 
 
 @pytest.mark.asyncio

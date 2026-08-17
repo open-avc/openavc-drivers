@@ -317,7 +317,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -325,8 +325,8 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "1bb775a6b6c97529572525582c048d7e4f4f550803e4149ff211e1c0052f4331",
-        "switchers/avproedge_mxnet_1g_sim.py": "04602af174ca2eea6e2f89686459fe16c3e8e154abd011dcad83cb68d4e7bdc0"
+        "switchers/avproedge_mxnet_1g.py": "b6649f92494e804db21d9e824e6b6f7c6a3209b49d41106354ea484ac92a4524",
+        "switchers/avproedge_mxnet_1g_sim.py": "95affbb8da8db55d0397ea543172311a5caf03658573587371cf48b34e47693a"
       },
       "ports": [
         24
@@ -335,7 +335,7 @@
         "mxnet_api"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.28.0",
       "tags": [
         "av-over-ip",
         "mxnet",

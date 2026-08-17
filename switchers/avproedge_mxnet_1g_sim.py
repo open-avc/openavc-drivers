@@ -459,6 +459,21 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
             return self._ok(line, {name: {} for name in lists[low]})
         return None
 
+    def _offline_route(self, line: str, *macs: str) -> bytes | None:
+        """The CBOX's own refusal for a route touching an endpoint it cannot reach.
+
+        Verified on a CBOX-B: an endpoint stays in the database after it leaves
+        the rack, and a route naming it is rejected with this reason rather than
+        accepted and dropped. The simulator used to accept it, so a decoder that
+        was not there drew a route on the panel and every gate stayed green --
+        the same shape of agreement between driver and simulator that hid the
+        presence bug until hardware.
+        """
+        for mac in macs:
+            if mac and not self._online(mac):
+                return self._err(line, "Device not online")
+        return None
+
     def _routing(self, line: str) -> bytes | None:
         m = _RE_ASET.match(line)
         if m:
@@ -479,10 +494,16 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
             src = self._by_name(m.group(3))
             if src is None or self._eps[src]["kind"] != "encoder":
                 return self._err(line, f"encoder {m.group(3)} not found")
+            refused = self._offline_route(line, src)
+            if refused is not None:
+                return refused
             for token in m.group(4).split():
                 dst = self._by_name(token)
                 if dst is None or self._eps[dst]["kind"] != "decoder":
                     return self._err(line, f"decoder {token} not found")
+                refused = self._offline_route(line, dst)
+                if refused is not None:
+                    return refused
                 for stream in streams:
                     self._routes[dst][stream] = src
                 self._sync_route_state(dst)
@@ -497,6 +518,9 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
                 return self._err(line, f"encoder {m.group(2)} not found")
             if dst is None or self._eps[dst]["kind"] != "decoder":
                 return self._err(line, f"decoder {m.group(3)} not found")
+            refused = self._offline_route(line, src, dst)
+            if refused is not None:
+                return refused
             self._routes[dst][stream] = src
             self._sync_route_state(dst)
             return self._frame({"code": 0, "cmd": line})
@@ -509,6 +533,9 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
             dst = self._by_name(m.group(2))
             if dst is None or self._eps[dst]["kind"] != "decoder":
                 return self._err(line, f"decoder {m.group(2)} not found")
+            refused = self._offline_route(line, dst)
+            if refused is not None:
+                return refused
             self._routes[dst][PATH_STREAMS[key]] = ""
             self._sync_route_state(dst)
             return self._frame({"code": 0, "cmd": line})

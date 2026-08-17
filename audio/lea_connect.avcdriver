@@ -66,7 +66,7 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -2197,6 +2197,16 @@ simulator:
   command_handlers:
     - match: '(?s:.+)'
       handler: |
+        # The amp terminates every reply line with \n, and the driver splits
+        # incoming bytes on it. A script handler's reply is returned verbatim
+        # (unlike a declarative respond:, which the simulator frames), so the
+        # terminator has to be written here or the driver never completes a
+        # frame and parses nothing at all.
+        _send = respond
+
+        def reply(text):
+            _send(text + "\n")
+
         def _run():
             line = match.group(0).strip()
             if not line:
@@ -2412,7 +2422,7 @@ simulator:
             # An unrecognized verb (or a bare word) is a parse error. Note the two
             # spaces after 'error:' — that is what firmware 3.1.7.0 emits.
             if verb not in ("get", "set", "subscribe", "unsubscribe") or len(parts) < 2:
-                respond("error:  cannot parse - '" + line + "'")
+                reply("error:  cannot parse - '" + line + "'")
                 return
             url = parts[1]
             found = spec(url)
@@ -2420,32 +2430,32 @@ simulator:
                 # A well-formed /amp/ path that doesn't resolve is
                 # "object/element does not exist"; anything else is "cannot parse".
                 if url.startswith("/amp/"):
-                    respond("error:  object/element does not exist - '" + url + "'")
+                    reply("error:  object/element does not exist - '" + url + "'")
                 else:
-                    respond("error:  cannot parse - '" + line + "'")
+                    reply("error:  cannot parse - '" + line + "'")
                 return
             kind, default, lkey = found
 
             if verb == "get":
-                respond(render(url, kind, current(url, kind, default)))
+                reply(render(url, kind, current(url, kind, default)))
                 return
 
             if verb == "subscribe":
                 subs = state.get("_subs") or ""
                 if url not in subs.split("|"):
                     state["_subs"] = (subs + "|" + url) if subs else url
-                respond(render(url, kind, current(url, kind, default)))
+                reply(render(url, kind, current(url, kind, default)))
                 return
 
             if verb == "unsubscribe":
                 subs = [s for s in (state.get("_subs") or "").split("|") if s and s != url]
                 state["_subs"] = "|".join(subs)
-                respond("OK")
+                reply("OK")
                 return
 
             # set — a missing value is a parse error.
             if len(parts) < 3:
-                respond("error:  cannot parse - '" + line + "'")
+                reply("error:  cannot parse - '" + line + "'")
                 return
             raw = parts[2].strip()
             if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
@@ -2470,7 +2480,7 @@ simulator:
                 try:
                     num = float(raw)
                 except (TypeError, ValueError):
-                    respond("error:  cannot parse - '" + line + "'")
+                    reply("error:  cannot parse - '" + line + "'")
                     return
                 lim = LIMITS.get(lkey)
                 if lim:
@@ -2484,6 +2494,6 @@ simulator:
             state[url] = value
             subs = (state.get("_subs") or "").split("|")
             if url in subs and value != old:
-                respond(render(url, kind, value))
+                reply(render(url, kind, value))
 
         _run()

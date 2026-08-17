@@ -34,6 +34,7 @@ import importlib.util
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -401,7 +402,7 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.1.0"
+    assert info["version"] == "1.2.0"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.27.0"
@@ -488,7 +489,7 @@ async def test_connect_enumerates_roster_into_two_child_types():
     assert _child(driver, "encoder", TX_APPLE, "name") == "Apple-TV"
     assert _child(driver, "decoder", RX_LOBBY, "name") == "Lobby-Display"
 
-    # An endpoint the CBOX lists as not-yet-attached stays registered, offline.
+    # An endpoint the CBOX has no heartbeat for stays registered, offline.
     assert _child(driver, "decoder", RX_BOARD, "online") is False
     assert _dev(driver, "offline_endpoints") == 1
 
@@ -821,4 +822,264 @@ async def test_object_split_across_reads_is_reassembled():
     await driver.poll()
 
     assert driver.list_children("encoder") == sorted([TX_APPLE, TX_LAPTOP, TX_CABLE])
+    assert _child(driver, "decoder", RX_LOBBY, "source_video") == TX_APPLE
+
+
+# ── What the hardware taught us (2026-08-16, AC-MXNET-CBOX-B) ───────────────
+#
+# Everything below is a regression guard for something the API document got
+# wrong and a real box corrected. Each one shipped green against the old
+# simulator, because the simulator was written from the same document.
+
+@pytest.mark.asyncio
+async def test_presence_is_the_heartbeat_not_the_service_state():
+    """`state` is the streaming service state; `online` is presence.
+
+    The bench encoder sat in `s_attaching` the whole session because nothing
+    was plugged into it, while being perfectly reachable — the driver used to
+    call that offline, which removed the site's only encoder from every source
+    list. Presence is the `online` heartbeat, and its ABSENCE is what marks a
+    stale database record.
+    """
+    driver, _sim = await _make_pair()
+
+    # Online, but attaching rather than serving: present.
+    assert _child(driver, "encoder", TX_CABLE, "service_state") == "s_attaching"
+    assert _child(driver, "encoder", TX_CABLE, "online") is True
+
+    # No heartbeat at all: gone, even though it is still in the database.
+    assert _child(driver, "decoder", RX_BOARD, "online") is False
+    assert _dev(driver, "offline_endpoints") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_heartbeat_far_behind_its_peers_reads_offline():
+    """Presence is relative to the newest heartbeat in the same reply.
+
+    Deliberately not compared against this host's clock: the bench CBOX
+    reports `config get date` eight hours off the epoch it stamps into
+    `online`, so any absolute comparison would call a healthy system dead.
+    """
+    presence = DRV._presence(
+        {
+            "AAA": {"online": 1_786_926_500},
+            "BBB": {"online": 1_786_926_480},            # 20s behind: fine
+            "CCC": {"online": 1_786_926_000},            # 500s behind: gone
+            "DDD": {"state": "s_srv_on"},                # no heartbeat: gone
+        }
+    )
+    assert presence == {"AAA": True, "BBB": True, "CCC": False, "DDD": False}
+
+
+@pytest.mark.asyncio
+async def test_route_all_uses_the_per_stream_commands_not_matrix_aset():
+    """`matrix aset` is acked and ignored when the path is disabled.
+
+    Reproduced on hardware: after `videopathdisable`, an accepted
+    `matrix aset :z` left the route dead for 20s while `videopath` applied in
+    6s. That is exactly the panel's own flow — press Off, then press a source —
+    so `aset` must never be the route path.
+    """
+    driver, _sim = await _make_pair()
+    _FakeTCPTransport.sent_lines = []
+
+    await driver.send_command("route", {"tx": TX_APPLE, "rx": RX_LOBBY, "stream": "all"})
+
+    assert not any("aset" in line for line in _FakeTCPTransport.sent_lines)
+    assert _FakeTCPTransport.sent_lines == [
+        f"config set device {cmd} {TX_APPLE} {RX_LOBBY}"
+        for cmd in ("videopath", "audiopath", "usbpath", "irpath", "rs232path")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_an_unsolicited_av_event_is_not_taken_as_a_command_reply():
+    """The undocumented `source: "mxnet"` channel must not desynchronise replies.
+
+    The driver used to divert only `source: "rs232"`, so an AV event landing
+    mid-request was handed to that request's waiter — and every reply after it
+    was off by one. Here an event is injected while a query is in flight; the
+    query must still receive its OWN answer.
+    """
+    driver, sim = await _make_pair()
+
+    async def interfere():
+        await asyncio.sleep(0)
+        await sim.emit_event("Lobby-Display", "OUT1 HPD 1")
+
+    asyncio.ensure_future(interfere())
+    doc = await driver._request("config get version")
+
+    assert doc is not None
+    assert doc["cmd"] == "config get version"        # its own reply, not the event
+    assert _child(driver, "decoder", RX_LOBBY, "last_event") == "OUT1 HPD 1"
+
+
+@pytest.mark.asyncio
+async def test_a_late_reply_is_not_handed_to_the_next_request():
+    """Replies are matched on the `cmd` echo, which is exact on real firmware.
+
+    The document's examples show a mismatched echo, which is why this used to
+    match by arrival order; the firmware does not do it. Order matching means a
+    reply that arrives after its request timed out gets served to the NEXT
+    request, shifting everything after it.
+    """
+    driver, _sim = await _make_pair()
+    fut = asyncio.get_running_loop().create_future()
+    driver._pending = fut
+    driver._pending_cmd = "config get version"
+
+    await driver.on_data_received(
+        json.dumps({"cmd": "config get timezone", "info": "UTC+0", "code": 0}).encode()
+    )
+    assert not fut.done()                              # stale echo ignored
+
+    await driver.on_data_received(
+        json.dumps({"cmd": "config get version", "info": "4.32", "code": 0}).encode()
+    )
+    assert fut.result()["info"] == "4.32"
+
+
+@pytest.mark.asyncio
+async def test_av_event_fans_out_into_child_state():
+    """The pushed AV-info line carries the fields the poll would fetch."""
+    driver, sim = await _make_pair()
+
+    await sim.emit_event(
+        "Lobby-Display", "OUT1 AV INF 1920X1080p@59Hz,RGB,8Bit,HDR OFF,HDCP ON,PCM"
+    )
+
+    # `@` is normalised to the `/` the polled member uses, so the value does
+    # not flip format as pushes and polls take turns.
+    assert _child(driver, "decoder", RX_LOBBY, "resolution") == "1920X1080p/59Hz"
+    assert _child(driver, "decoder", RX_LOBBY, "chroma") == "RGB"
+    assert _child(driver, "decoder", RX_LOBBY, "color_depth") == "8Bit"
+    assert _child(driver, "decoder", RX_LOBBY, "hdr") is False
+    assert _child(driver, "decoder", RX_LOBBY, "hdcp") == "On"
+    assert _child(driver, "decoder", RX_LOBBY, "audio_format") == "PCM"
+
+
+@pytest.mark.asyncio
+async def test_a_signal_less_av_event_clears_rather_than_parses():
+    """A port with no signal sends the same shape with the members empty."""
+    driver, sim = await _make_pair()
+    await sim.emit_event("Lobby-Display", "OUT1 AV INF 1920X1080p@59Hz,RGB,8Bit,HDR ON,HDCP ON,PCM")
+    await sim.emit_event("Lobby-Display", "OUT1 AV INF @,,,HDR OFF,HDCP OFF,")
+
+    assert _child(driver, "decoder", RX_LOBBY, "resolution") == ""
+    assert _child(driver, "decoder", RX_LOBBY, "chroma") == ""
+    assert _child(driver, "decoder", RX_LOBBY, "hdr") is False
+    assert _child(driver, "decoder", RX_LOBBY, "hdcp") == "Off"
+
+
+@pytest.mark.asyncio
+async def test_hpd_events_land_on_the_right_side_of_the_link():
+    driver, sim = await _make_pair()
+
+    await sim.emit_event("Apple-TV", "IN1 HPD 1")
+    await sim.emit_event("Lobby-Display", "OUT1 HPD 0")
+
+    assert _child(driver, "encoder", TX_APPLE, "source_connected") is True
+    assert _child(driver, "decoder", RX_LOBBY, "display_connected") is False
+
+
+@pytest.mark.asyncio
+async def test_the_two_hdcp_spellings_normalise_to_one():
+    """An encoder says `HDCP0`, a decoder says `HDCP OFF`, same firmware.
+
+    Left raw, two endpoint cards disagree about the same condition and no
+    trigger can compare them. A version string must still pass through intact.
+    """
+    driver, _sim = await _make_pair()
+    await driver.poll()
+
+    # Apple-TV is sending (encoder spells it HDCP1) and Lobby-Display is showing
+    # it (decoder spells it "HDCP ON"). One condition, two spellings, one value.
+    assert _child(driver, "encoder", TX_APPLE, "hdcp") == "On"
+    assert _child(driver, "decoder", RX_LOBBY, "hdcp") == "On"
+    # Cable-Box has no source: the other spelling of the other state.
+    assert _child(driver, "encoder", TX_CABLE, "hdcp") == "Off"
+    assert DRV._hdcp("HDCP 2.2") == "HDCP 2.2"
+    assert DRV._hdcp("") == ""
+
+
+@pytest.mark.asyncio
+async def test_a_commanded_route_outranks_a_lagging_readback():
+    """The CBOX takes ~16s to report a route it acked in 40ms.
+
+    With a 10s poll a readback lands mid-transition, so without this the panel
+    shows the picked source, snaps back for a cycle, then settles — which reads
+    as a failed press.
+    """
+    driver, _sim = await _make_pair()
+    await driver.send_command("route", {"tx": TX_LAPTOP, "rx": RX_LOBBY, "stream": "video"})
+    assert _child(driver, "decoder", RX_LOBBY, "source_video") == TX_LAPTOP
+
+    # The device still reports the OLD source; the commanded value must hold.
+    driver._apply_routes({RX_LOBBY: {"video": "Apple-TV"}})
+    assert _child(driver, "decoder", RX_LOBBY, "source_video") == TX_LAPTOP
+
+    # Once the device agrees, the expectation is dropped and the device is
+    # authoritative again — including for a change made somewhere else.
+    driver._apply_routes({RX_LOBBY: {"video": "Laptop-HDMI"}})
+    driver._apply_routes({RX_LOBBY: {"video": "Apple-TV"}})
+    assert _child(driver, "decoder", RX_LOBBY, "source_video") == TX_APPLE
+
+
+@pytest.mark.asyncio
+async def test_the_settling_guard_expires_so_it_cannot_pin_state_forever():
+    driver, _sim = await _make_pair()
+    await driver.send_command("route", {"tx": TX_LAPTOP, "rx": RX_LOBBY, "stream": "video"})
+
+    driver._route_expect[RX_LOBBY]["source_video"] = (TX_LAPTOP, time.monotonic() - 1)
+    driver._apply_routes({RX_LOBBY: {"video": "Apple-TV"}})
+
+    assert _child(driver, "decoder", RX_LOBBY, "source_video") == TX_APPLE
+    assert RX_LOBBY not in driver._route_expect
+
+
+@pytest.mark.asyncio
+async def test_endpoints_report_the_product_model_not_the_chipset():
+    """`dtype` is `ast152x` for every endpoint; `modelname` is the product."""
+    driver, _sim = await _make_pair()
+
+    assert _child(driver, "encoder", TX_APPLE, "model") == "AC-MXNET-1G-T"
+    assert _child(driver, "decoder", RX_LOBBY, "model") == "AC-MXNET-1G-D"
+    assert _child(driver, "encoder", TX_APPLE, "serial_number")
+
+
+@pytest.mark.asyncio
+async def test_decoder_analog_volume_is_readable():
+    """Shipped as write-only on the document's word; the member is polled."""
+    driver, _sim = await _make_pair()
+    assert _child(driver, "decoder", RX_LOBBY, "audio_volume") == 80
+
+    await driver.send_command("set_volume", {"rx": RX_LOBBY, "level": 42})
+    assert _child(driver, "decoder", RX_LOBBY, "audio_volume") == 42
+
+
+@pytest.mark.asyncio
+async def test_a_rename_moves_the_label_without_re_identifying_the_child():
+    """Renaming in MENTOR must not orphan the bindings pointing at an endpoint.
+
+    Verified on hardware: after `config set device id`, the roster's KEY becomes
+    the new name and the routes reply is keyed and valued by name too — but the
+    `mac` member survives, which is the only thing keeping child identity
+    stable. A driver that keyed children off the roster key would deregister
+    every renamed endpoint and register a brand-new one, silently breaking
+    every UI binding and macro that named it.
+    """
+    driver, sim = await _make_pair()
+    before = driver.list_children("encoder")
+    assert _child(driver, "encoder", TX_APPLE, "name") == "Apple-TV"
+
+    await driver.send_command(
+        "rename_endpoint", {"endpoint": TX_APPLE, "name": "Stage-Player"}
+    )
+    await driver.poll()
+
+    # Same children, same ids -- only the label moved.
+    assert driver.list_children("encoder") == before
+    assert _child(driver, "encoder", TX_APPLE, "name") == "Stage-Player"
+    # And a route reported under the NEW name still resolves to the same child.
     assert _child(driver, "decoder", RX_LOBBY, "source_video") == TX_APPLE

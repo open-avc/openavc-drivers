@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import time
 from typing import Any
 
 from openavc.simulator.tcp_simulator import TCPSimulator
@@ -136,10 +137,21 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
                 "name": name,
                 "kind": kind,
                 "model": model,
+                # `dtype` is the chipset; `modelname` is the product an
+                # integrator recognises. Both are on the wire, and only the
+                # second is worth showing.
+                "product": "AC-MXNET-1G-T" if kind == "encoder" else "AC-MXNET-1G-D",
+                "serial": f"1006{mac[-8:]}",
                 "firmware": firmware,
                 "channel": channel,
+                # An online endpoint with nothing plugged into it sits in
+                # `s_attaching` indefinitely. Cable-Box models that, because it
+                # is the case that reads as "offline" to anyone who mistakes
+                # `state` for presence -- which is the bug this driver shipped.
+                "service_state": "s_attaching" if name == "Cable-Box" else "s_srv_on",
                 "edid": "2",
                 "volume": 100,
+                "analog_volume": 80,
                 "stream": "on",
                 "blackout": "off",
                 "rotate": "0",
@@ -201,6 +213,14 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
     def _online(self, mac: str) -> bool:
         return bool(self.state.get(f"online_{mac}", True))
 
+    def _heartbeat(self) -> int:
+        """A live Unix timestamp, which is what the CBOX puts in `online`.
+
+        Real endpoints refresh this every 10-20s. It is emitted fresh on every
+        read so a driver comparing heartbeats sees them advance.
+        """
+        return int(time.time())
+
     def _ok(self, command: str, info: Any = "") -> bytes:
         return self._frame({"cmd": command, "info": info, "code": 0})
 
@@ -228,15 +248,27 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
                 "version": ep["firmware"],
                 "ipmode": "autoip",
                 "rs232mode": "2",
-                "online": 14147,
-                "state": "s_srv_on" if self._online(mac) else "s_attaching",
+                "modelname": ep["product"],
+                "sn": ep["serial"],
                 "ch": ep["channel"],
             }
+            # Presence is the `online` heartbeat and NOTHING else. A real CBOX
+            # omits the member entirely for an endpoint that is not there, and
+            # keeps a live Unix timestamp for one that is; `state` is the
+            # streaming service state and is present either way (a perfectly
+            # reachable encoder with no source sits in `s_attaching` forever).
+            # This simulator used to have it backwards -- a constant `online`
+            # for everyone and `s_attaching` to mean offline -- which is what
+            # let the driver ship reading presence off the wrong field.
+            if self._online(mac):
+                entry["online"] = self._heartbeat()
+                entry["state"] = ep.get("service_state", "s_srv_on")
             if ep["kind"] == "encoder":
                 entry["is_host"] = 1
                 entry["edid"] = ep["edid"]
                 entry["exaudiovolume"] = str(ep["volume"])
             else:
+                entry["analogvolume"] = str(ep.get("analog_volume", 80))
                 routes = self._routes[mac]
                 entry["stream"] = ep["stream"]
                 entry["blackout"] = ep["blackout"]
@@ -252,7 +284,12 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
                 ):
                     src = routes[stream]
                     entry[wire] = self._eps[src]["channel"] if src else "0000"
-            out[mac] = entry
+            # Keyed by the endpoint's CURRENT id, which is its MAC until it is
+            # renamed in MENTOR and its custom name afterwards. Verified on
+            # hardware: after a rename the key changes but the `mac` member
+            # stays, which is the only reason a rename does not re-identify the
+            # child and orphan every binding pointing at it.
+            out[ep["name"]] = entry
         return out
 
     def _status(self, macs: list[str]) -> dict[str, Any]:
@@ -265,15 +302,18 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
                     "id": ep["name"],
                     "video": "3840X2160p/60Hz" if live else "",
                     "audio": "PCM" if live else "",
-                    "connectedname": "AppleTV" if live else "",
+                    # An encoder never reports a source name; the member is
+                    # simply absent on hardware.
                     "hpd": "HPD1" if live else "HPD0",
                     "hdr": "HDR1" if live else "HDR0",
-                    "hdcp": "HDCP2" if live else "",
+                    # An encoder spells HDCP as a token+digit...
+                    "hdcp": "HDCP1" if live else "HDCP0",
                     "chroma": "YUV422" if live else "",
                     "colordepth": "8Bit" if live else "",
                     "speed": "1G",
                     "light": 0,
                     "profile": 0,
+                    "last_data": f"IN1 HPD {'1' if live else '0'}",
                     "switchip": "192.168.1.50",
                     "switchport": "4",
                 }
@@ -288,15 +328,21 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
                     "connectedname": DISPLAYS.get(mac, ""),
                     "hpd": "HPD1",
                     "hdr": "HDR1" if showing else "HDR0",
-                    "hdcp": "HDCP2" if showing else "",
+                    # ...while a decoder spells the same thing in words, on the
+                    # same firmware. Both spellings are real; the driver
+                    # normalises them so two endpoint cards agree.
+                    "hdcp": "HDCP ON" if showing else "HDCP OFF",
                     "chroma": "YUV422" if showing else "",
                     "colordepth": "8Bit" if showing else "",
                     "speed": "1G",
                     "light": 0,
                     "profile": 0,
+                    "last_data": f"OUT1 HPD {'1' if showing else '0'}",
                     "switchip": "192.168.1.50",
                     "switchport": "9",
                 }
+            if self._online(mac):
+                out[mac]["online"] = self._heartbeat()
         return out
 
     def _routes_reply(self, selectors: str, macs: list[str]) -> dict[str, Any]:
@@ -648,6 +694,45 @@ class AVProEdgeMXNet1GSimulator(TCPSimulator):
         return None
 
     # ── Unsolicited RS-232 feedback ──────────────────────────────────
+
+    def _event_frame(self, mac: str, info: str) -> bytes:
+        """Build an unsolicited AV event frame (empty cmd, source=mxnet).
+
+        Undocumented but real: the CBOX interleaves these into the control
+        connection on a hot-plug or an AV-format change. They are the reason a
+        driver may not treat "empty cmd" as "this must be serial data" — or,
+        worse, hand the frame to whichever request is in flight.
+        """
+        ep = self._eps[mac]
+        return self._frame(
+            {"info": info, "id": ep["name"], "source": "mxnet", "cmd": "", "code": 0, "mac": mac}
+        )
+
+    async def emit_event(self, endpoint: str, info: str) -> None:
+        """Push an AV event as the CBOX would on a hot-plug or format change."""
+        mac = self._by_name(endpoint)
+        if mac is None:
+            return
+        await self.push(self._event_frame(mac, info))
+
+    async def _emit_hotplug(self, mac: str) -> None:
+        """The event burst a real CBOX sends after a hot-plug re-detect."""
+        ep = self._eps[mac]
+        if ep["kind"] == "encoder":
+            live = bool(self.state.get(f"signal_{mac}", False))
+            await self.push(self._event_frame(mac, f"IN1 HPD {'1' if live else '0'}"))
+            return
+        src = self._routes[mac]["video"]
+        showing = bool(src) and bool(self.state.get(f"signal_{src}", False))
+        await self.push(self._event_frame(mac, "OUT1 HPD 1"))
+        await self.push(
+            self._event_frame(
+                mac,
+                "OUT1 AV INF 3840X2160p@60Hz,YUV422,8Bit,HDR ON,HDCP ON,PCM"
+                if showing
+                else "OUT1 AV INF @,,,HDR OFF,HDCP OFF,",
+            )
+        )
 
     def _serial_frame(self, mac: str, payload: str) -> bytes:
         """Build the CBOX's unsolicited serial frame (empty cmd, source=rs232)."""

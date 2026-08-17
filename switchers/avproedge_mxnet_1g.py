@@ -20,27 +20,38 @@ cannot express today:
 
 Protocol
     Telnet-style ASCII on TCP 24 with no login. Every request is answered by a
-    JSON object; a request is one line, and requests are serialized (the CBOX
-    answers in order). Replies carry `code` (0 = OK, -1 = error with an `error`
-    member) and echo `cmd`. The API document does not state a line terminator
+    JSON object; a request is one line. Replies carry `code` (0 = OK, -1 = error
+    with an `error` member) and echo `cmd` byte-for-byte, which is how this
+    driver correlates them. The API document does not state a line terminator
     for either direction, so the driver frames replies by brace-balancing the
     JSON rather than trusting a delimiter, and terminates its own sends with
     CRLF (the API is documented as a PuTTY/Telnet session, where a command is
     submitted with Enter).
 
 Push vs poll
-    Poll. The API document has no subscription, notification or event section:
-    routes, endpoint status and the roster are all request/response. The one
-    exception is RS-232 passthrough — serial bytes arriving at an endpoint's
-    serial port are emitted unsolicited on the control connection as a frame
-    with an empty `cmd` and `"source":"rs232"`. That is async data on the
-    established connection, not a separate push channel, so the driver parses it
-    inline and lands it on the endpoint's `serial_data`.
+    Poll, with unsolicited event frames interleaved on the same connection. The
+    API document has no subscription or notification section and the roster,
+    routes and status are all request/response, but the firmware does emit
+    events: a frame with an EMPTY `cmd` and a `source` member, which is never a
+    reply. Two sources are known — `rs232` (serial bytes arriving at an
+    endpoint's serial port, landed on `serial_data`) and `mxnet` (an endpoint's
+    AV-info line, landed on `last_event`). Only the first is documented; the
+    second was found on hardware. Any empty-`cmd` frame is treated as an event
+    whatever its source, because mistaking one for a reply desynchronises every
+    reply after it.
 
     Three broad queries cover the whole system, so poll cost is flat in the size
     of the install: `config get devicelist` (roster + config), `config get device
     status ALL` (AV status of every endpoint) and `config get device routes vaurs
     ALLRX` (every decoder's five routes).
+
+Hardware notes
+    Verified against an AC-MXNET-CBOX-B (firmware 4.32) with a 1G encoder and
+    decoder. Three things the API document gets wrong, each handled below with
+    the reasoning at its site: `online` is a heartbeat timestamp and absent
+    means gone (see _presence); `matrix aset` is acked and ignored when a path
+    is disabled (see ROUTE_COMMANDS); and the `cmd` echo is exact, not
+    unreliable (see _request).
 
 Source: AC-MXNET-CBOX / -B / -HA API Command List v1.26.1 (AVPro Global Holdings),
 published at https://support.avproglobal.com/portal/en/kb/articles/mxnet-api
@@ -53,6 +64,7 @@ import base64
 import binascii
 import json
 import re
+import time
 from typing import Any
 
 from openavc.drivers.base import BaseDriver
@@ -66,32 +78,46 @@ ROSTER_TIMEOUT_S = 15.0
 MAX_POLL_MISSES = 2
 FULL_REFRESH_EVERY = 6
 
-# `matrix aset :<code>` stream selectors, from the API doc's aset table.
-STREAM_CODES = {
-    "all": "z",
-    "video": "v",
-    "audio": "a",
-    "usb": "u",
-    "infrared": "r",
-    "serial": "s",
-}
+# How far behind the newest heartbeat in the same reply an endpoint may fall
+# before it is called offline. The CBOX refreshes `online` every 10-20s, so this
+# is several missed beats. See _presence() for why it is a relative comparison.
+HEARTBEAT_STALE_S = 90
 
-# The per-stream de-route commands. `matrix aset` has no "unroute" form, so
-# clearing a decoder means calling each stream's own disable command.
-UNROUTE_COMMANDS = {
-    "video": "videopathdisable",
-    "audio": "audiopathdisable",
-    "usb": "usbpathdisable",
-    "infrared": "irpathdisable",
-    "serial": "rs232pathdisable",
-}
+# How long a commanded route outranks the CBOX's own answer. Measured
+# convergence on a CBOX-B is ~16s for all five planes; this is a ceiling, and
+# agreement clears it sooner. See _expect_routes.
+ROUTE_SETTLE_S = 30
 
+# Routing is always done with the per-stream `*path` commands, never with
+# `matrix aset`. `matrix aset :z TX RX` looks like the natural "route
+# everything" call and the API document presents it that way, but on real
+# firmware it is acknowledged with {"info":"OK","code":0} and then IGNORED
+# whenever the destination's path is currently disabled — reproduced
+# deterministically on an AC-MXNET-CBOX-B: after `videopathdisable` the route
+# stayed `none` twenty seconds after an accepted `aset`, while the per-stream
+# `videopath` applied in about six. `aset` does work when the path is already
+# routed, which is what makes the failure so easy to miss.
+#
+# That combination is precisely what a matrix panel produces: press Off on a
+# destination, then press a source, and the destination never comes back. So
+# the five commands below are the only route path, and `aset` is not used.
 ROUTE_COMMANDS = {
     "video": "videopath",
     "audio": "audiopath",
     "usb": "usbpath",
     "infrared": "irpath",
     "serial": "rs232path",
+}
+
+UNROUTE_COMMANDS = {name: cmd + "disable" for name, cmd in ROUTE_COMMANDS.items()}
+
+# The decoder child property each stream's current source lands on.
+ROUTE_PROPERTIES = {
+    "video": "source_video",
+    "audio": "source_audio",
+    "usb": "source_usb",
+    "infrared": "source_infrared",
+    "serial": "source_serial",
 }
 
 # Encoder EDID presets. Indices 1-15 are the same across the 1G encoder family
@@ -118,6 +144,12 @@ EDID_PRESETS = [
 SERIAL_FORMATS = {"base64": "1", "ascii": "2", "hex": "3"}
 
 _RE_MAC = re.compile(r"^[0-9A-Fa-f]{12}$")
+
+# Unsolicited `source: "mxnet"` event lines. The port label is IN<n> on an
+# encoder and OUT<n> on a decoder; only port 1 exists on the 1G endpoints, but
+# the number is captured rather than hard-coded.
+_RE_EVENT_HPD = re.compile(r"^(?:IN|OUT)(\d+)\s+HPD\s+([01])\s*$", re.IGNORECASE)
+_RE_EVENT_AVINF = re.compile(r"^(?:IN|OUT)(\d+)\s+AV\s+INF\s+(.*)$", re.IGNORECASE)
 
 
 def _json_frame(buf: bytes) -> tuple[bytes | None, bytes]:
@@ -184,6 +216,80 @@ def _has_signal(video: Any) -> bool:
     return not text.startswith("0x0")
 
 
+def _hdcp(value: Any) -> str:
+    """Normalise the CBOX's two spellings of the same HDCP state.
+
+    An encoder reports `HDCP0` / `HDCP1` and a decoder reports `HDCP OFF` /
+    `HDCP ON` for the same condition, on the same firmware. Left raw, one
+    endpoint's card reads "HDCP0" and its neighbour's "HDCP OFF", and no
+    trigger can compare them. Anything not recognised passes through, so a
+    version string ("HDCP 2.2") is never mangled into a yes/no.
+    """
+    text = _txt(value)
+    if not text:
+        return ""
+    flat = text.upper().replace(" ", "")
+    if flat in ("HDCP0", "HDCPOFF", "OFF", "0"):
+        return "Off"
+    if flat in ("HDCP1", "HDCPON", "ON", "1"):
+        return "On"
+    return text
+
+
+def _resolution(value: Any) -> str:
+    """Normalise a timing string to the polled form.
+
+    The polled `video` member uses `1920X1080p/59Hz`; the pushed AV-info event
+    uses `1920X1080p@59Hz` for the identical timing. Both feed the same state
+    variable, so a panel would otherwise show the separator flipping as pushes
+    and polls take turns.
+    """
+    text = _txt(value)
+    if not text or text.startswith("@"):
+        return ""
+    return text.replace("@", "/")
+
+
+def _heartbeat(entry: dict[str, Any]) -> int | None:
+    """The endpoint's `online` member, which is a Unix timestamp or absent.
+
+    Absent is the CBOX's way of saying "this is a database record for something
+    that is not here" — it is not zero and not false.
+    """
+    if "online" not in entry:
+        return None
+    try:
+        beat = int(str(entry["online"]).strip())
+    except (TypeError, ValueError):
+        return None
+    return beat if beat > 0 else None
+
+
+def _presence(entries: dict[str, dict[str, Any]]) -> dict[str, bool]:
+    """Decide which endpoints are actually present, from one roster reply.
+
+    `online` is a heartbeat timestamp, and the comparison is made against the
+    NEWEST heartbeat in the same reply rather than against this host's clock.
+    That is deliberate: it needs no agreement between our clock and the CBOX's,
+    which matters because the CBOX's own displayed date can be hours off its
+    timestamps (bench unit reports `config get date` in UTC+8 while its
+    heartbeats are true Unix epoch, with `timezone` set to UTC+0).
+
+    Not `state`: that is the streaming service state (`s_srv_on`,
+    `s_attaching`), and an encoder with no source sits in `s_attaching`
+    indefinitely while being perfectly present.
+    """
+    beats = {mac: _heartbeat(e) for mac, e in entries.items() if isinstance(e, dict)}
+    live = [b for b in beats.values() if b is not None]
+    if not live:
+        return {mac: False for mac in beats}
+    newest = max(live)
+    return {
+        mac: beat is not None and (newest - beat) <= HEARTBEAT_STALE_S
+        for mac, beat in beats.items()
+    }
+
+
 class AVProEdgeMXNet1GDriver(BaseDriver):
     """AVPro Edge MXNet 1G ecosystem, via the AC-MXNET-CBOX control box."""
 
@@ -192,7 +298,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.1.0",
+        "version": "1.2.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.27.0",
         "author": "OpenAVC",
@@ -437,6 +543,13 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                         "help": "A source is connected and sending a valid signal.",
                         "cloud_priority": "high",
                     },
+                    "source_connected": {
+                        "type": "boolean",
+                        "label": "Source Connected",
+                        "help": "Hot-plug detect from the attached source. True with no "
+                        "Signal means the cable is in but the source is not sending.",
+                        "cloud_priority": "high",
+                    },
                     "resolution": {
                         "type": "string",
                         "label": "Input Resolution",
@@ -511,6 +624,29 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                         "label": "Switch Port",
                         "cloud_priority": "low",
                     },
+                    "serial_number": {
+                        "type": "string",
+                        "label": "Serial Number",
+                        "cloud_priority": "low",
+                    },
+                    "service_state": {
+                        "type": "string",
+                        "label": "Service State",
+                        "help": (
+                            "The endpoint's streaming service state as the CBOX reports it "
+                            "(s_srv_on, s_attaching...). This is not presence — an endpoint "
+                            "with no source sits in s_attaching while being perfectly "
+                            "reachable. Use Online for presence."
+                        ),
+                        "cloud_priority": "low",
+                    },
+                    "last_event": {
+                        "type": "string",
+                        "label": "Last Event",
+                        "help": "Most recent unsolicited AV-info line the CBOX sent for "
+                        "this endpoint.",
+                        "cloud_priority": "low",
+                    },
                 },
                 "summary_fields": ["online", "signal_present", "resolution"],
                 "label_field": "name",
@@ -568,6 +704,17 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                     "blackout": {
                         "type": "boolean",
                         "label": "Blackout",
+                        "control": True,
+                        "cloud_priority": "high",
+                    },
+                    "audio_volume": {
+                        "type": "integer",
+                        "label": "Analog Audio Volume",
+                        "help": "Analog audio output level on the decoder.",
+                        "min": 0,
+                        "max": 100,
+                        "step": 1,
+                        "unit": "%",
                         "control": True,
                         "cloud_priority": "high",
                     },
@@ -643,6 +790,29 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                     "switch_port": {
                         "type": "string",
                         "label": "Switch Port",
+                        "cloud_priority": "low",
+                    },
+                    "serial_number": {
+                        "type": "string",
+                        "label": "Serial Number",
+                        "cloud_priority": "low",
+                    },
+                    "service_state": {
+                        "type": "string",
+                        "label": "Service State",
+                        "help": (
+                            "The endpoint's streaming service state as the CBOX reports it "
+                            "(s_srv_on, s_attaching...). This is not presence — an endpoint "
+                            "with no source sits in s_attaching while being perfectly "
+                            "reachable. Use Online for presence."
+                        ),
+                        "cloud_priority": "low",
+                    },
+                    "last_event": {
+                        "type": "string",
+                        "label": "Last Event",
+                        "help": "Most recent unsolicited AV-info line the CBOX sent for "
+                        "this endpoint.",
                         "cloud_priority": "low",
                     },
                 },
@@ -1376,8 +1546,11 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         self._type_by_mac: dict[str, str] = {}
         self._name_by_mac: dict[str, str] = {}
 
+        # decoder MAC -> {route property: (commanded value, deadline)}
+        self._route_expect: dict[str, dict[str, tuple[str, float]]] = {}
         self._request_lock = asyncio.Lock()
         self._pending: asyncio.Future | None = None
+        self._pending_cmd: str | None = None
         self._poll_cycle = 0
         self._poll_misses = 0
         super().__init__(device_id, config, state, events)
@@ -1425,6 +1598,8 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         if pending is not None and not pending.done():
             pending.cancel()
         self._pending = None
+        self._pending_cmd = None
+        self._route_expect.clear()
         self._poll_cycle = 0
         self._poll_misses = 0
 
@@ -1433,10 +1608,24 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
     async def _request(self, line: str, timeout: float | None = None) -> dict[str, Any] | None:
         """Send one API line and await its JSON reply.
 
-        Requests are serialized: the CBOX answers in order, and its `cmd` echo is
-        unreliable for correlation (the published examples show the echo carrying
-        a different endpoint name than the request), so the reply is matched by
-        order, not by echo. Returns the parsed object, or None on timeout.
+        Requests are serialized AND matched by the reply's `cmd` echo, which on
+        real firmware is byte-exact (verified across every query and write this
+        driver sends, and under pipelining). Matching on the echo rather than on
+        arrival order is what makes the driver immune to the two frames that
+        would otherwise be mistaken for a reply:
+
+          * an unsolicited event, which the CBOX interleaves into the same
+            connection (see on_data_received), and
+          * the late reply to a request that already timed out, which would
+            otherwise be handed to the NEXT request and shift every reply after
+            it by one.
+
+        The API document's examples show a reply echoing a different endpoint
+        name than the request, which is why this originally matched by order.
+        Those examples were written against renamed devices; the firmware does
+        not do it.
+
+        Returns the parsed object, or None on timeout.
         """
         if timeout is None:
             timeout = REQUEST_TIMEOUT_S
@@ -1446,6 +1635,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         async with self._request_lock:
             fut: asyncio.Future = asyncio.get_running_loop().create_future()
             self._pending = fut
+            self._pending_cmd = line
             try:
                 await self.transport.send((line + "\r\n").encode("utf-8"))
                 try:
@@ -1456,6 +1646,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             finally:
                 if self._pending is fut:
                     self._pending = None
+                    self._pending_cmd = None
 
     async def _write(self, line: str) -> bool:
         """Send a write command and report whether the CBOX accepted it."""
@@ -1480,14 +1671,91 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         if not isinstance(doc, dict):
             return
 
-        # RS-232 passthrough data arrives unsolicited, with an empty `cmd`.
-        if _txt(doc.get("source")) == "rs232" and not _txt(doc.get("cmd")):
-            self._apply_serial(doc)
+        # An unsolicited event: empty `cmd` plus a `source` naming the channel.
+        # The API document describes only the RS-232 one, but the firmware also
+        # emits AV-info events with source "mxnet" (observed on a route change:
+        # {"info":"OUT1 AV INF @,,,HDR OFF,HDCP ON,","source":"mxnet","cmd":""}).
+        # Anything with an empty cmd is an event, whatever its source — matching
+        # only "rs232" let the mxnet frames be consumed as command replies.
+        if not _txt(doc.get("cmd")) and doc.get("source") is not None:
+            source = _txt(doc.get("source")).lower()
+            if source == "rs232":
+                self._apply_serial(doc)
+            else:
+                self._apply_event(doc)
             return
 
         pending = self._pending
-        if pending is not None and not pending.done():
-            pending.set_result(doc)
+        if pending is None or pending.done():
+            return
+        echo = _txt(doc.get("cmd"))
+        expected = self._pending_cmd
+        if echo and expected is not None and echo != expected:
+            # A reply to something we already gave up on. Handing it to the
+            # current waiter would answer this request with the previous
+            # request's data and desynchronise everything after it.
+            log.debug(
+                f"[{self.device_id}] Ignoring stale reply to {echo!r} "
+                f"while awaiting {expected!r}"
+            )
+            return
+        pending.set_result(doc)
+
+    def _apply_event(self, doc: dict[str, Any]) -> None:
+        """An unsolicited `source: "mxnet"` event, fanned out into child state.
+
+        The API document does not mention this channel at all; the grammar below
+        was read off a CBOX-B. Events land within about a second of the physical
+        change, where a poll can be up to `poll_interval` behind AND the routes
+        table itself lags an accepted route by ~16s, so parsing them is what
+        makes a display's hot-plug and a source's timing feel immediate.
+
+        Three shapes seen, keyed by the endpoint's port label (`IN1` on an
+        encoder, `OUT1` on a decoder):
+
+            IN1 HPD 1
+            OUT1 HPD 0
+            OUT1 AV INF 1920X1080p@59Hz,RGB,8Bit,HDR OFF,HDCP OFF,PCM
+            MODEL NAME AC-MXNET-1G-D
+
+        Polling stays the authority — an event only ever refreshes a field the
+        poll also writes, so an unrecognised or malformed event costs nothing
+        but a stale value until the next cycle. The raw line is always kept on
+        `last_event`, which is also what the polled `last_data` member carries.
+        """
+        mac = self._resolve(_txt(doc.get("mac")) or _txt(doc.get("id")))
+        if mac is None:
+            return
+        payload = _txt(doc.get("info"))
+        if not payload:
+            return
+        ctype = self._type_by_mac[mac]
+        updates: dict[str, Any] = {"last_event": payload}
+
+        hpd = _RE_EVENT_HPD.match(payload)
+        if hpd:
+            connected = hpd.group(2) == "1"
+            updates["display_connected" if ctype == "decoder" else "source_connected"] = connected
+
+        av = _RE_EVENT_AVINF.match(payload)
+        if av:
+            fields = [f.strip() for f in av.group(2).split(",")]
+            # <timing>,<chroma>,<depth>,HDR <x>,HDCP <x>,<audio>. A signal-less
+            # port sends the same shape with the members empty ("@,,,HDR OFF,
+            # HDCP ON,"), which must clear the state rather than be parsed.
+            while len(fields) < 6:
+                fields.append("")
+            timing, chroma, depth, hdr, hdcp, audio = fields[:6]
+            updates["resolution"] = _resolution(timing)
+            updates["chroma"] = chroma
+            updates["color_depth"] = depth
+            updates["hdr"] = hdr.upper().endswith("ON")
+            updates["hdcp"] = _hdcp(hdcp)
+            updates["audio_format"] = audio
+            if ctype == "encoder":
+                updates["signal_present"] = bool(_resolution(timing))
+
+        self.set_children_state_batch([(ctype, mac, updates)])
 
     # ── Roster ───────────────────────────────────────────────────────
 
@@ -1510,6 +1778,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         found: dict[str, set[str]] = {"encoder": set(), "decoder": set()}
         updates: list[tuple[str, str, dict[str, Any]]] = []
         offline = 0
+        present = _presence({k: v for k, v in info.items() if isinstance(v, dict)})
 
         for key, entry in info.items():
             if not isinstance(entry, dict):
@@ -1524,8 +1793,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             # subscribes to one. `is_host` is the CBOX's own discriminator.
             ctype = "encoder" if str(entry.get("is_host", "")) == "1" else "decoder"
             name = _txt(entry.get("id")) or mac
-            # `online` is a heartbeat timestamp; `state` is the service state.
-            online = _txt(entry.get("state")).lower() == "s_srv_on"
+            online = present.get(key, present.get(mac, False))
             if not online:
                 offline += 1
 
@@ -1539,8 +1807,12 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                 "online": online,
                 "mac": mac,
                 "ip": _txt(entry.get("ip")),
-                "model": _txt(entry.get("dtype")),
+                # `modelname` is the product (AC-MXNET-1G-T); `dtype` is the
+                # chipset family (ast152x) and means nothing to an integrator.
+                "model": _txt(entry.get("modelname")) or _txt(entry.get("dtype")),
                 "firmware": _txt(entry.get("version")),
+                "serial_number": _txt(entry.get("sn")),
+                "service_state": _txt(entry.get("state")),
             }
             if ctype == "encoder":
                 common["channel"] = _txt(entry.get("ch"))
@@ -1549,6 +1821,8 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                 if "exaudiovolume" in entry:
                     common["audio_volume"] = self._as_int(entry.get("exaudiovolume"), 0, 100)
             else:
+                if "analogvolume" in entry:
+                    common["audio_volume"] = self._as_int(entry.get("analogvolume"), 0, 100)
                 if "stream" in entry:
                     common["stream"] = _txt(entry.get("stream")).lower() == "on"
                 if "blackout" in entry:
@@ -1631,9 +1905,9 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             ctype = self._type_by_mac[mac]
 
             common: dict[str, Any] = {
-                "resolution": _txt(entry.get("video")),
+                "resolution": _resolution(entry.get("video")),
                 "audio_format": _txt(entry.get("audio")),
-                "hdcp": _txt(entry.get("hdcp")),
+                "hdcp": _hdcp(entry.get("hdcp")),
                 "hdr": _flag(entry.get("hdr"), "HDR"),
                 "chroma": _txt(entry.get("chroma")),
                 "color_depth": _txt(entry.get("colordepth")),
@@ -1641,8 +1915,14 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                 "switch_ip": _txt(entry.get("switchip")),
                 "switch_port": _txt(entry.get("switchport")),
             }
+            if "last_data" in entry:
+                common["last_event"] = _txt(entry.get("last_data"))
             if ctype == "encoder":
                 common["signal_present"] = _has_signal(entry.get("video"))
+                # HPD and a valid timing are different questions: a sleeping
+                # laptop leaves the cable detected with no signal, which is
+                # exactly the case someone is troubleshooting.
+                common["source_connected"] = _flag(entry.get("hpd"), "HPD")
                 common["source_name"] = _txt(entry.get("connectedname"))
             else:
                 common["display_connected"] = _flag(entry.get("hpd"), "HPD")
@@ -1655,8 +1935,12 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
     def _apply_routes(self, info: dict[str, Any]) -> None:
         """`config get device routes vaurs ALLRX` — every decoder's five routes.
 
-        The CBOX answers with source NAMES; state stores the source encoder's
-        child id (its MAC) so a UI binding can hop straight to the encoder.
+        The CBOX answers with the source's id, which is its MAC until somebody
+        renames it in MENTOR and its custom name after that, so each value is
+        resolved back to the child id either way.
+
+        Routes accepted moments ago are held at their commanded value until the
+        CBOX catches up — see _expect_routes for why.
         """
         updates: list[tuple[str, str, dict[str, Any]]] = []
         wire_to_prop = {
@@ -1681,11 +1965,50 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
                     routes[prop] = ""
                     continue
                 routes[prop] = self._resolve(source) or source
+            routes = self._settle_routes(mac, routes)
             if routes:
                 updates.append(("decoder", mac, routes))
 
         if updates:
             self.set_children_state_batch(updates)
+
+    def _expect_routes(self, rx: str, values: dict[str, str]) -> None:
+        """Remember what a just-accepted route command asked for.
+
+        The CBOX acknowledges a route in ~40ms and then takes as long as
+        sixteen seconds to report it — measured on a CBOX-B, with the five
+        planes landing at different moments (video and USB inside six seconds,
+        audio last). With the default ten-second poll, a poll is *likely* to
+        land mid-transition, so without this the panel would show the source
+        the user picked, snap back to the old one (or to blank) for a cycle or
+        two, then finally settle. That reads as a failed press and gets pressed
+        again.
+
+        So a commanded value wins over the device's answer until the device
+        agrees or the window lapses. The window is a ceiling, not a delay:
+        agreement clears it immediately.
+        """
+        deadline = time.monotonic() + ROUTE_SETTLE_S
+        pending = self._route_expect.setdefault(rx, {})
+        for prop, value in values.items():
+            pending[prop] = (value, deadline)
+
+    def _settle_routes(self, rx: str, reported: dict[str, str]) -> dict[str, str]:
+        pending = self._route_expect.get(rx)
+        if not pending:
+            return reported
+        now = time.monotonic()
+        settled = dict(reported)
+        for prop, (want, deadline) in list(pending.items()):
+            if prop not in settled:
+                continue
+            if settled[prop] == want or now >= deadline:
+                pending.pop(prop, None)
+                continue
+            settled[prop] = want
+        if not pending:
+            self._route_expect.pop(rx, None)
+        return settled
 
     def _apply_serial(self, doc: dict[str, Any]) -> None:
         """An endpoint received RS-232 data and the CBOX relayed it to us."""
@@ -1890,9 +2213,17 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             tx = self._child("encoder", params["tx"])
             rx = self._child("decoder", params["rx"])
             stream = str(params.get("stream", "all")).lower()
-            if stream == "all":
-                return await self._write(f"matrix aset :{STREAM_CODES['all']} {tx} {rx}")
-            return await self._write(f"config set device {ROUTE_COMMANDS[stream]} {tx} {rx}")
+            targets = list(ROUTE_COMMANDS) if stream == "all" else [stream]
+            for name in targets:
+                await self._write(f"config set device {ROUTE_COMMANDS[name]} {tx} {rx}")
+            # The routes table lags an accepted route by several seconds
+            # (measured 3.5-7s on the bench), so publish the accepted value now
+            # rather than leaving a panel showing the old source until the next
+            # poll confirms it. _write has already raised if the CBOX refused.
+            commanded = {ROUTE_PROPERTIES[name]: tx for name in targets}
+            self._expect_routes(rx, commanded)
+            self.set_children_state_batch([("decoder", rx, commanded)])
+            return True
 
         if command == "route_off":
             rx = self._child("decoder", params["rx"])
@@ -1900,6 +2231,9 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             targets = list(UNROUTE_COMMANDS) if stream == "all" else [stream]
             for name in targets:
                 await self._write(f"config set device {UNROUTE_COMMANDS[name]} {rx}")
+            commanded = {ROUTE_PROPERTIES[name]: "" for name in targets}
+            self._expect_routes(rx, commanded)
+            self.set_children_state_batch([("decoder", rx, commanded)])
             return True
 
         recalls = {
@@ -1932,9 +2266,10 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
 
         if command == "set_volume":
             rx = self._child("decoder", params["rx"])
-            return await self._write(
-                f"config set device audio volume {int(params['level'])} {rx}"
-            )
+            level = int(params["level"])
+            await self._write(f"config set device audio volume {level} {rx}")
+            self.set_child_state("decoder", rx, "audio_volume", level)
+            return True
 
         if command == "set_audio_delay":
             rx = self._child("decoder", params["rx"])

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 758,
+    "total_devices": 764,
     "shards": null
   },
   "devices": [
@@ -909,6 +909,78 @@
           "id": "avproedge_mxnet_1g",
           "confidence": "untested",
           "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Endpoints covered: AC-MXNET-1G-E / -EV2 / -EWP / -AVDM-E / -DANTE-E encoders and AC-MXNET-1G-D / -DV2 / -AVDM-D / -DANTE-D decoders. The CBOX-HA's high-availability pairing and the MV41V2 multiview companion are configured in MENTOR, not here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-SW12",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_switch",
+          "confidence": "full",
+          "notes": "Validated against an AC-MXNET-SW8P (software V705R002C013): identity, all 12 ports, PoE draw and enable/disable/power-cycle against a live encoder, IGMP membership, MAC table, counters, and system health exercised on hardware. SW12 is the same switch under its former SKU."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-SW24",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_switch",
+          "confidence": "untested",
+          "notes": "Same CLI and the same published command guide; the port roster is read from the switch, so port count is not assumed. Not yet validated on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-SW24P",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_switch",
+          "confidence": "untested",
+          "notes": "Same CLI and the same published command guide; the port roster is read from the switch, so port count is not assumed. Not yet validated on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-SW48",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_switch",
+          "confidence": "untested",
+          "notes": "Same CLI and the same published command guide; the port roster is read from the switch, so port count is not assumed. Not yet validated on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-SW48P",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_switch",
+          "confidence": "untested",
+          "notes": "Same CLI and the same published command guide; the port roster is read from the switch, so port count is not assumed. Not yet validated on this hardware."
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-SW8P",
+      "category": "utility",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_switch",
+          "confidence": "full",
+          "notes": "Validated against an AC-MXNET-SW8P (software V705R002C013): identity, all 12 ports, PoE draw and enable/disable/power-cycle against a live encoder, IGMP membership, MAC table, counters, and system health exercised on hardware. SW12 is the same switch under its former SKU."
         }
       ]
     },

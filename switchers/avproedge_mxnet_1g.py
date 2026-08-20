@@ -67,6 +67,7 @@ import re
 import time
 from typing import Any
 
+from openavc.core.connection_fault import CHILD_NOT_RESPONDING
 from openavc.drivers.base import BaseDriver
 from openavc.transport.frame_parsers import CallableFrameParser
 from openavc.utils.logger import get_logger
@@ -298,9 +299,13 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.3.0",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.28.0",
+        "version": "1.4.0",
+        # Gated on the platform surface this driver actually calls, which is
+        # the newest thing it needs -- currently BaseDriver.child_fault(), the
+        # child fault vocabulary. On an older box that call is an
+        # AttributeError in the middle of a poll, so the gate is what keeps a
+        # working system from being handed a driver that takes it down.
+        "min_platform_version": "0.29.0",
         "author": "OpenAVC",
         "description": (
             "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet "
@@ -1813,7 +1818,24 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
 
             common: dict[str, Any] = {
                 "name": name,
-                "online": online,
+                # Presence, plus WHY when it is missing. The CBOX keeps an
+                # endpoint in its database after it stops answering (only a
+                # ghost disappears entirely, and that endpoint is deregistered
+                # below), so an endpoint here with a stale heartbeat is one the
+                # CBOX still expects and cannot reach -- go and find it.
+                #
+                # `service_state` stays its own property and is NOT read as a
+                # fault: an encoder with no source sits in `s_attaching`
+                # indefinitely while being perfectly present, so mapping stream
+                # states onto a fault code would report a fault on a frame with
+                # nothing wrong with it. Which states are genuinely faults is
+                # not in the API document, and guessing is what put a present
+                # encoder in the offline list in the first place.
+                **(
+                    self.child_fault()
+                    if online
+                    else self.child_fault(CHILD_NOT_RESPONDING)
+                ),
                 "mac": mac,
                 "ip": _txt(entry.get("ip")),
                 # `modelname` is the product (AC-MXNET-1G-T); `dtype` is the

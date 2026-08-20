@@ -42,9 +42,15 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    CHILD_FAULT_CODES as _CHILD_FAULT_CODES,
+    CHILD_NOT_RESPONDING as _CHILD_NOT_RESPONDING,
+    CHILD_SERVICE_FAULT as _CHILD_SERVICE_FAULT,
     CallableFrameParser as _FakeCallableFrameParser,
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    default_child_fault_message as _default_child_fault_message,
+    is_child_fault_code as _is_child_fault_code,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -61,6 +67,15 @@ class _FakeBaseDriver(LifecycleFake):
     unregistered child are skipped, state keys are namespaced)."""
 
     DRIVER_INFO: dict = {}
+
+    # Borrowed rather than re-implemented: _platform_stubs' copy is the one
+    # tests/test_platform_stub_fidelity.py signature-compares against the real
+    # BaseDriver, so a second hand-written version here would be exactly the
+    # drift that job exists to catch.
+    # staticmethod(...) is load-bearing: reading it off the stub class
+    # yields the plain function, which would rebind as an instance
+    # method here and pass `self` where the code goes.
+    child_fault = staticmethod(_StubBaseDriver.child_fault)
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -325,13 +340,20 @@ def _load(name: str, path: Path) -> ModuleType:
     server = ModuleType("openavc")
     server.__path__ = []  # type: ignore[attr-defined]
     sys.modules["openavc"] = server
-    for sub in ("drivers", "transport", "utils"):
+    for sub in ("core", "drivers", "transport", "utils"):
         m = ModuleType(f"openavc.{sub}")
         m.__path__ = []  # type: ignore[attr-defined]
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     sys.modules["openavc.drivers.base"] = base
+    faults = ModuleType("openavc.core.connection_fault")
+    faults.CHILD_NOT_RESPONDING = _CHILD_NOT_RESPONDING
+    faults.CHILD_SERVICE_FAULT = _CHILD_SERVICE_FAULT
+    faults.CHILD_FAULT_CODES = _CHILD_FAULT_CODES
+    faults.default_child_fault_message = _default_child_fault_message
+    faults.is_child_fault_code = _is_child_fault_code
+    sys.modules["openavc.core.connection_fault"] = faults
     tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
     sys.modules["openavc.transport.tcp"] = tcp
@@ -402,14 +424,16 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.3.0"
+    assert info["version"] == "1.4.0"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     # 0.27.0 was the routing: block. 0.28.0 is the combined "All streams"
     # plane: it watches the same property as the Video plane and sends a
     # different stream, which earlier releases refuse as a duplicate and then
     # hand the picker two planes answering to one id.
-    assert info["min_platform_version"] == "0.28.0"
+    # Raised with the child fault vocabulary: this driver calls
+    # BaseDriver.child_fault(), which an older box does not have.
+    assert info["min_platform_version"] == "0.29.0"
     assert info["source_url"].startswith("https://support.avproglobal.com")
     # String-id children (MACs) from a device-enumerated roster.
     for ctype in ("encoder", "decoder"):
@@ -898,6 +922,49 @@ async def test_presence_is_the_heartbeat_not_the_service_state():
     # No heartbeat at all: gone, even though it is still in the database.
     assert _child(driver, "decoder", RX_BOARD, "online") is False
     assert _dev(driver, "offline_endpoints") == 1
+
+
+@pytest.mark.asyncio
+async def test_an_absent_endpoint_says_which_kind_of_trouble_it_is_in():
+    """`online: False` alone cannot tell "carried out of the rack" from
+    "sitting there with a wedged service", and the remedy for the two is
+    nothing alike. The CBOX keeps an endpoint in its database after it stops
+    answering, so one here with a stale heartbeat is one the controller still
+    expects and cannot reach: go and find it."""
+    driver, _sim = await _make_pair()
+
+    assert _child(driver, "decoder", RX_BOARD, "offline_reason") == _CHILD_NOT_RESPONDING
+    detail = _child(driver, "decoder", RX_BOARD, "offline_detail")
+    assert "power" in detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_a_present_endpoint_claims_no_fault_whatever_its_service_state():
+    """The encoder that started all of this. It sits in `s_attaching`
+    indefinitely with nothing plugged into it, and it is not faulted --
+    reading stream states as faults would put a fault code on a frame with
+    nothing wrong with it, and which states genuinely mean trouble is not in
+    the API document."""
+    driver, _sim = await _make_pair()
+
+    assert _child(driver, "encoder", TX_CABLE, "service_state") == "s_attaching"
+    assert _child(driver, "encoder", TX_CABLE, "offline_reason") == ""
+    assert _child(driver, "encoder", TX_CABLE, "offline_detail") == ""
+
+
+@pytest.mark.asyncio
+async def test_a_returning_endpoint_clears_its_fault():
+    """A fault nothing ever clears makes one transient outage look permanent
+    for as long as the system stays up."""
+    driver, sim = await _make_pair()
+    assert _child(driver, "decoder", RX_BOARD, "offline_reason") == _CHILD_NOT_RESPONDING
+
+    sim.set_state(f"online_{RX_BOARD}", True)
+    await driver.poll()
+
+    assert _child(driver, "decoder", RX_BOARD, "online") is True
+    assert _child(driver, "decoder", RX_BOARD, "offline_reason") == ""
+    assert _child(driver, "decoder", RX_BOARD, "offline_detail") == ""
 
 
 @pytest.mark.asyncio

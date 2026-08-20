@@ -62,6 +62,11 @@ from typing import Any, Awaitable, Callable
 __all__ = [
     "STRICT_DRIVER_STATE_ENV",
     "CommandParamError",
+    "CHILD_FAULT_CODES",
+    "CHILD_RESERVED_PROPS",
+    "CHILD_RESERVED_PROP_SCHEMA",
+    "CHILD_NOT_RESPONDING",
+    "CHILD_SERVICE_FAULT",
     "ConnectionFaultError",
     "DeviceSettingValueError",
     "UndeclaredStateError",
@@ -133,6 +138,50 @@ DRIVER_FAULT_CODES = frozenset({
     "invalid_config",
     "transport_disconnected",
 })
+
+
+# The child-entity fault vocabulary, kept in step with the platform's
+# CHILD_FAULT_CODES. A sub-unit gets more than a boolean: `not_responding` is
+# absence (go find it), `service_fault` is present-but-wedged (power-cycle it).
+# What the platform injects on every child, on top of whatever the type
+# declares. Mirrors openavc/drivers/spec.py CHILD_RESERVED_PROP_SCHEMA; the
+# fidelity job compares both the names and the resulting effective schema.
+CHILD_RESERVED_PROP_SCHEMA: dict[str, dict[str, str]] = {
+    "online": {"type": "boolean", "label": "Online"},
+    "label": {"type": "string", "label": "Label"},
+    "offline_reason": {"type": "string", "label": "Fault"},
+    "offline_detail": {"type": "string", "label": "Fault Detail"},
+}
+
+CHILD_RESERVED_PROPS: tuple[str, ...] = tuple(CHILD_RESERVED_PROP_SCHEMA)
+
+CHILD_NOT_RESPONDING = "not_responding"
+CHILD_SERVICE_FAULT = "service_fault"
+
+CHILD_FAULT_CODES = frozenset({
+    CHILD_NOT_RESPONDING,
+    CHILD_SERVICE_FAULT,
+})
+
+CHILD_FAULT_MESSAGES = {
+    CHILD_NOT_RESPONDING: (
+        "Not answering. Check that it has power and a network connection."
+    ),
+    CHILD_SERVICE_FAULT: (
+        "Reachable, but not running. Power-cycle it, or restart it from the "
+        "controller."
+    ),
+}
+
+
+def default_child_fault_message(code: str) -> str:
+    """Stand-in for the platform's child-fault sentence lookup."""
+    return CHILD_FAULT_MESSAGES.get(code, "")
+
+
+def is_child_fault_code(code: str) -> bool:
+    """Stand-in for the platform's child-fault code check."""
+    return code in CHILD_FAULT_CODES
 
 
 class ConnectionFaultError(ConnectionError):
@@ -386,7 +435,10 @@ class StubBaseDriver:
     #: undeclared-state check because a driver never declares it.
     _PLATFORM_STATE_PROPS: frozenset[str] = frozenset({"connected"})
 
-    _CHILD_RESERVED_PROPS: tuple[str, ...] = ("online", "label")
+    _CHILD_RESERVED_PROPS: tuple[str, ...] = CHILD_RESERVED_PROPS
+    _CHILD_RESERVED_PROP_SCHEMA: dict[str, dict[str, Any]] = (
+        CHILD_RESERVED_PROP_SCHEMA
+    )
 
     def __init__(self, device_id: str, config: dict[str, Any],
                  state: Any, events: Any) -> None:
@@ -517,8 +569,8 @@ class StubBaseDriver:
             declared = self._child_schemas.get((child_type, local_id))
         declared = dict(declared if declared is not None
                         else type_def.get("state_variables", {}))
-        declared.setdefault("online", {"type": "boolean"})
-        declared.setdefault("label", {"type": "string"})
+        for _prop, _def in CHILD_RESERVED_PROP_SCHEMA.items():
+            declared.setdefault(_prop, dict(_def))
         return declared
 
     def _format_child_id(self, child_type: str, local_id: int | str) -> str:
@@ -757,6 +809,28 @@ class StubBaseDriver:
             value,
             source=f"device.{self.device_id}",
         )
+
+    @staticmethod
+    def child_fault(code: str = "", message: str = "") -> dict[str, Any]:
+        """Stand-in for the platform's child-fault fragment builder.
+
+        Returns the three reserved keys to merge into whatever the driver is
+        already writing for that child. `online` goes down with any code --
+        the coupling is load-bearing, so a stub that left it alone would let a
+        driver ship a wedged endpoint drawing green.
+        """
+        if not code:
+            return {"online": True, "offline_reason": "", "offline_detail": ""}
+        if not is_child_fault_code(code):
+            raise ValueError(
+                f"{code!r} is not a child fault code (expected one of "
+                f"{', '.join(sorted(CHILD_FAULT_CODES))})"
+            )
+        return {
+            "online": False,
+            "offline_reason": code,
+            "offline_detail": message or default_child_fault_message(code),
+        }
 
     def set_child_state_batch(
         self, child_type: str, local_id: int | str, updates: dict[str, Any]
@@ -1014,6 +1088,15 @@ def _default_tree() -> dict[str, dict[str, Any]]:
             "DeviceSettingValueError": DeviceSettingValueError,
             "UndeclaredStateError": UndeclaredStateError,
             "ConnectionFaultError": ConnectionFaultError,
+        },
+        "openavc.core": {},
+        "openavc.core.connection_fault": {
+            "CHILD_FAULT_CODES": CHILD_FAULT_CODES,
+            "CHILD_NOT_RESPONDING": CHILD_NOT_RESPONDING,
+            "CHILD_SERVICE_FAULT": CHILD_SERVICE_FAULT,
+            "ConnectionFaultError": ConnectionFaultError,
+            "default_child_fault_message": default_child_fault_message,
+            "is_child_fault_code": is_child_fault_code,
         },
         "openavc.transport": {},
         "openavc.transport.frame_parsers": {

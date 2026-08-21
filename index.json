@@ -4582,7 +4582,7 @@
       "name": "Poly Studio (VideoOS)",
       "manufacturer": "Poly",
       "category": "video",
-      "version": "1.3.2",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Poly (HP) Studio X30, X50, X70, E70, and G7500 video collaboration bars via the public VideoOS REST API. Audio / video mute, volume, camera presets and direction nudges, hangup, reboot \u2014 everything needed to wire Poly bars into a touch panel.",
@@ -4590,8 +4590,8 @@
       "file": "video/poly_studio.py",
       "format": "python",
       "files": {
-        "video/poly_studio.py": "4671505de1b04ab99ccc7793011954664ca85e84f966b01811704e99b5509e80",
-        "video/poly_studio_sim.py": "6dff3007ceabf7d325e4a35b4c38699b61485a610515d29d6c4ce28725646fd6"
+        "video/poly_studio.py": "e30588251f7c330328a6fc1c49d335a615d4c56abff360541a1bf89b44be93b6",
+        "video/poly_studio_sim.py": "7db214b521345bd9831342241f16616cd0fb9de9b2132b4e869f21461a62a9a2"
       },
       "ports": [
         443

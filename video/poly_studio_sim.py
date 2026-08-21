@@ -13,13 +13,13 @@ the OS layer's problem, not the protocol's). Implements:
     or return HTTP 401.
   - ``GET / POST /rest/audio/muted`` — bare boolean toggling the
     microphone mute state.
-  - ``GET / POST /rest/audio/volume`` — bare integer in Poly's 0-50
-    speaker scale.
-  - ``GET / POST /rest/video/local/mute`` — bare boolean privacy
+  - ``GET / POST /rest/audio/volume`` — bare integer speaker volume.
+    The reference guide documents no range for it.
+  - ``GET / POST /rest/video/local/mute`` — object-shaped privacy
     mute.
   - ``GET /rest/cameras/near/all`` — minimal payload reporting one
     near camera.
-  - ``POST /rest/cameras/near/SELECTED_PEOPLE`` — accepts moveStart
+  - ``POST /rest/cameras/near/selectedpeople`` — accepts moveStart
     / moveStop with a direction.
   - ``POST /rest/cameras/near/presets/<index>`` — accepts ``store``
     and ``activate`` actions.
@@ -134,17 +134,30 @@ class PolyStudioSimulator(HTTPSimulator):
     def _password(self) -> str:
         return str(self.config.get("password", "") or "")
 
-    # ── Override the framework dispatcher to handle cookies ──
+    # ── The framework's override point ──
+    #
+    # ``respond_http``, NOT ``handle_request``: this device authenticates with a
+    # session COOKIE, so the handler needs the aiohttp request to read one and
+    # must return a ``web.Response`` to set one. ``handle_request``'s
+    # ``(status, body)`` tuple can carry neither. Overriding a name the
+    # framework does not call is how this simulator answered 404 to every
+    # request, login included, while looking complete.
 
-    async def _handle(self, request: web.Request) -> web.Response:
-        method = request.method
-        path = "/" + request.match_info.get("path", "")
-        body_text = await request.text()
-        self.log_protocol("in", f"{method} {path} | {body_text[:200]}")
-
-        delay = self._delays.get("command_response") or 0
-        if delay > 0:
-            await asyncio.sleep(delay)
+    async def respond_http(
+        self,
+        request: web.Request,
+        method: str,
+        path: str,
+        headers: dict[str, str],
+        body: str,
+    ) -> web.Response:
+        # The framework's preamble has already logged the request and applied
+        # the response delay (``_response_delay`` reads the same
+        # ``command_response`` entry), so neither is repeated here.
+        # It appends any query string to the path; this device's API takes
+        # none, and matching below is on the path alone.
+        path = path.split("?")[0]
+        body_text = body
 
         # Reflect ``incoming_call`` error-mode -> active-call list.
         if (
@@ -265,20 +278,38 @@ class PolyStudioSimulator(HTTPSimulator):
                     return web.json_response(
                         {"error": "Bad value"}, status=400
                     )
-                self.set_state("volume", max(0, min(50, value)))
+                # No range is documented; the guide's own /rest/audio
+                # example reports 62, so 50 was never the ceiling.
+                self.set_state("volume", max(0, min(100, value)))
                 return web.Response(status=200)
 
-        # Video / privacy mute.
+        # Video / privacy mute. Unlike /rest/audio/muted, BOTH directions
+        # here are objects, not bare booleans: GET answers {"result": <bool>}
+        # and POST takes {"mute": <bool>}. The bare-boolean form this used to
+        # serve agreed with the driver and with the driver's test double, and
+        # all three disagreed with the device.
         if path == "/rest/video/local/mute":
             if method == "GET":
-                return _bool_response(
-                    bool(self.state.get("video_mute", False))
+                return web.json_response(
+                    {"result": bool(self.state.get("video_mute", False))},
+                    status=200,
                 )
             if method == "POST":
-                self.set_state(
-                    "video_mute", _parse_bool_body(body_text)
+                try:
+                    payload = json.loads(body_text) if body_text else {}
+                except json.JSONDecodeError:
+                    return web.json_response(
+                        {"error": "Invalid JSON"}, status=400
+                    )
+                if not isinstance(payload, dict) or "mute" not in payload:
+                    return web.json_response(
+                        {"success": False, "reason": "mute is required"},
+                        status=400,
+                    )
+                self.set_state("video_mute", bool(payload.get("mute")))
+                return web.json_response(
+                    {"success": True, "reason": ""}, status=200
                 )
-                return web.Response(status=200)
 
         # Cameras.
         if path == "/rest/cameras/near/all" and method == "GET":
@@ -436,8 +467,11 @@ class PolyStudioSimulator(HTTPSimulator):
         await asyncio.sleep(0.5)
         self.set_state("rebooting", False)
 
-    # The framework's abstract handle_request must exist; everything
-    # is dispatched through the overridden _handle above.
+    # ``HTTPSimulator`` declares this abstract, so it has to exist. Nothing
+    # calls it: ``respond_http`` above is overridden, and that is what the
+    # framework dispatches to. It RAISES rather than returning a 404, because
+    # a 404 here is indistinguishable from a path this device really does not
+    # serve -- which is exactly how the dead dispatcher stayed hidden.
     def handle_request(
         self,
         method: str,
@@ -445,7 +479,9 @@ class PolyStudioSimulator(HTTPSimulator):
         headers: dict[str, str],
         body: str,
     ) -> tuple[int, dict | str]:
-        return (404, {"error": "Should be unreachable"})
+        raise NotImplementedError(
+            "PolyStudioSimulator dispatches through respond_http()"
+        )
 
 
 def _bool_response(value: bool) -> web.Response:

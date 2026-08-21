@@ -5,8 +5,16 @@ layer (a faithful ``HTTPClientTransport`` stub backed by ``httpx.MockTransport``
 to an in-test emulation of the documented VideoOS REST device — the driver logs
 in over ``/rest/session``, replays the session cookie, polls, and the emulated
 bar mutates / reports back. The emulation mirrors the response shapes in the
-Poly VideoOS REST API Reference Guide (bare-boolean mute endpoints, bare-int
-volume, ``/rest/system`` envelope with ``systemName``, 403 on a bad login).
+Poly VideoOS REST API Reference Guide: ``/rest/audio/muted`` is a bare boolean
+both ways, ``/rest/audio/volume`` a bare integer, ``/rest/video/local/mute`` an
+OBJECT both ways (``{"result": <bool>}`` out, ``{"mute": <bool>}`` in), the
+``/rest/system`` envelope carries ``systemName``, and a bad login is a 403.
+
+That video-mute distinction is the one this file previously got wrong. It
+emulated a bare boolean, exactly as the driver sent one and the simulator
+served one, so all three agreed with each other and none of them agreed with
+the device -- and no test could see it. Endpoint shapes here are only worth
+what the guide says, so each one below cites it.
 
 Covers the v1.3.0 adoption + bug-fixes:
   - poll no longer swallows a transport failure -> an unreachable bar now
@@ -265,6 +273,10 @@ class _PolyDevice:
         self.volume = 25
         self.system_name = "Boardroom X50"
         self.calls: list[dict] = []
+        # Every request the driver made, as (method, path, body). Endpoints
+        # with no observable side effect -- a camera move -- can only be
+        # asserted on the wire.
+        self.requests: list[tuple[str, str, str]] = []
 
     def _bool_resp(self, value: bool) -> httpx.Response:
         return httpx.Response(
@@ -279,6 +291,7 @@ class _PolyDevice:
         method = request.method
         path = request.url.path
         body = request.content.decode() if request.content else ""
+        self.requests.append((method, path, body))
 
         # /rest/session — the only unauthenticated path.
         if path == "/rest/session":
@@ -321,20 +334,36 @@ class _PolyDevice:
                 self.audio_mute = _truthy(body)
                 return httpx.Response(200)
         if path == "/rest/audio/volume":
+            # Table 2-8 / 2-9: bare <integer> both ways, no range documented.
             if method == "GET":
                 return httpx.Response(200, json=self.volume)
             if method == "POST":
                 try:
-                    self.volume = max(0, min(50, int(json.loads(body or "0"))))
+                    self.volume = max(0, min(100, int(json.loads(body or "0"))))
                 except (ValueError, json.JSONDecodeError):
                     pass
                 return httpx.Response(200)
         if path == "/rest/video/local/mute":
+            # Table 2-96: GET answers {"result": <boolean>}.
+            # Table 2-97: POST takes {"mute": <boolean>} and answers
+            # {"success": ..., "reason": ...}. NOT a bare boolean either way.
             if method == "GET":
-                return self._bool_resp(self.video_mute)
+                return httpx.Response(200, json={"result": self.video_mute})
             if method == "POST":
-                self.video_mute = _truthy(body)
-                return httpx.Response(200)
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    return httpx.Response(400, json={"success": False})
+                if not isinstance(payload, dict) or "mute" not in payload:
+                    # A bare boolean lands here, which is what makes the
+                    # regression test below fail against the old driver.
+                    return httpx.Response(
+                        400, json={"success": False, "reason": "mute required"}
+                    )
+                self.video_mute = bool(payload["mute"])
+                return httpx.Response(
+                    200, json={"success": True, "reason": ""}
+                )
         if path == "/rest/conferences" and method == "GET":
             return httpx.Response(200, json=self.calls)
         if path.startswith("/rest/conferences/") and method == "DELETE":
@@ -410,7 +439,7 @@ def _make_driver(device: _PolyDevice, **cfg):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.3.2"
+    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.4.0"
     assert DRV.PolyStudioDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -544,6 +573,104 @@ def test_hangup_clears_active_calls():
             assert driver.get_state("active_call_count") == 0
         finally:
             await driver.disconnect()
+
+    asyncio.run(go())
+
+
+# ── Shapes the reference guide dictates ─────────────────────────────────────
+#
+# Each of these failed against the driver as it stood, because the driver, the
+# simulator and this file's device emulation all shared one wrong assumption.
+
+def test_video_mute_sends_the_documented_object_body():
+    """Table 2-97: POST /rest/video/local/mute takes {"mute": <boolean>}.
+
+    The driver used to send a bare ``true``. The emulation answers 400 to a
+    body with no ``mute`` key, exactly as a device rejecting the wrong shape
+    would, so a bare boolean leaves the bar unmuted."""
+    async def go():
+        dev = _PolyDevice()
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            await driver.send_command("mute_video")
+            assert dev.video_mute is True, (
+                "privacy mute never reached the device -- wrong body shape"
+            )
+            await driver.send_command("unmute_video")
+            assert dev.video_mute is False
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_video_mute_state_reads_the_result_envelope():
+    """Table 2-96: GET /rest/video/local/mute answers {"result": <boolean>}.
+
+    Read as a bare boolean this can never be true: json_data is a dict, so the
+    text fallback compares '{"result": true}' against 'true' and never
+    matches. A privacy-muted bar reported itself unmuted."""
+    async def go():
+        dev = _PolyDevice()
+        dev.video_mute = True
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            assert driver.get_state("video_mute") is True
+            dev.video_mute = False
+            await driver.poll()
+            assert driver.get_state("video_mute") is False
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_volume_above_fifty_is_accepted():
+    """The guide states no range for /rest/audio/volume, and its own
+    /rest/audio example reports "volume": 62. The driver clamped to 50, so a
+    valid level could neither be set nor stepped up to."""
+    async def go():
+        dev = _PolyDevice()
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            await driver.send_command("set_volume", {"value": 62})
+            assert dev.volume == 62
+            assert driver.get_state("volume") == 62
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_camera_move_uses_the_documented_endpoint():
+    """Table 2-21: POST /rest/cameras/near/selectedpeople "performs the move
+    operation for the selected near people camera source", with moveStart /
+    moveStop and a MOVE_* direction. The uppercase SELECTED_PEOPLE token the
+    driver used is a sourceID, documented only for the position API."""
+    async def go():
+        dev = _PolyDevice()
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            await driver.send_command(
+                "camera_move", {"direction": "left", "duration_ms": 60}
+            )
+        finally:
+            await driver.disconnect()
+        moves = [
+            (m, pth, bod) for (m, pth, bod) in dev.requests
+            if pth.startswith("/rest/cameras/")
+        ]
+        assert moves, "camera move issued no request"
+        assert all(pth == "/rest/cameras/near/selectedpeople"
+                   for (_, pth, _) in moves), moves
+        actions = [json.loads(bod).get("action") for (_, _, bod) in moves]
+        assert actions == ["moveStart", "moveStop"], actions
+        directions = {json.loads(bod).get("direction") for (_, _, bod) in moves}
+        assert directions == {"MOVE_LEFT"}, directions
 
     asyncio.run(go())
 

@@ -37,24 +37,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-# --- Platform gate: skip the whole module unless openavc is importable ---
-
-try:
-    # One import covers both halves now: the driver sims import
-    # ``openavc.simulator.tcp_simulator``, which ships inside the same package
-    # the install exposes. This used to need the checkout root added to
-    # ``sys.path`` by hand, because ``simulator`` was a second top-level package
-    # that no install carried.
-    import openavc  # noqa: F401  (real platform; not the conftest stub)
-
-    from openavc.core.event_bus import EventBus
-    from openavc.core.state_store import StateStore
-except ModuleNotFoundError:
-    pytest.skip(
-        "connect-lifecycle smoke requires the openavc platform "
-        "(run from the workspace with openavc installed)",
-        allow_module_level=True,
-    )
 
 
 # --- Per-driver config the simulator expects (nothing here = generic path) ---
@@ -124,6 +106,31 @@ def _discover() -> list[tuple[str, str, int]]:
 
 
 _CASES = _discover()
+
+
+# --- Platform gate: skip the whole module unless openavc is importable ---
+
+try:
+    # One import covers both halves now: the driver sims import
+    # ``openavc.simulator.tcp_simulator``, which ships inside the same package
+    # the install exposes. This used to need the checkout root added to
+    # ``sys.path`` by hand, because ``simulator`` was a second top-level package
+    # that no install carried.
+    import openavc  # noqa: F401  (real platform; not the conftest stub)
+
+    from openavc.core.event_bus import EventBus
+    from openavc.core.state_store import StateStore
+except ModuleNotFoundError:
+    # Name the number. A sweep covering zero drivers reads exactly like one
+    # covering forty otherwise -- which is how a genuinely broken driver sat
+    # green in this repo's isolated CI (stdlib + pyyaml + pydantic, no
+    # platform) for as long as anyone cared to look.
+    pytest.skip(
+        f"connect-lifecycle smoke SKIPPED ALL {len(_CASES)} driver(s): "
+        "requires the openavc platform (run from the workspace with openavc "
+        "installed). NO connect/disconnect coverage ran.",
+        allow_module_level=True,
+    )
 
 
 def _load(name: str, path: Path):

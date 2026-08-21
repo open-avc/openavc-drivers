@@ -86,7 +86,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.3.2",
+        "version": "1.4.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -269,9 +269,11 @@ class PolyStudioDriver(BaseDriver):
                         "type": "integer",
                         "required": True,
                         "min": 0,
-                        "max": 50,
+                        "max": 100,
                         "help": (
-                            "Speaker volume on Poly's 0-50 scale."
+                            "Speaker volume. The REST API takes a bare "
+                            "integer and the reference guide states no "
+                            "range; its own /rest/audio example reports 62."
                         ),
                     },
                 },
@@ -455,9 +457,11 @@ class PolyStudioDriver(BaseDriver):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
     async def disconnect(self) -> None:
-        # Politely end the session — Poly's /rest/session DELETE ends it
-        # server-side too. Must happen while the link is still open; failure
-        # here is benign on a torn-down link, so swallow.
+        # Politely end the session. NOT IN the 4.4.0 reference guide: its
+        # Session section documents POST only, so this is best-effort, kept
+        # because absence from the guide is not absence from the device.
+        # Must happen while the link is still open; failure here is benign on
+        # a torn-down link, so swallow.
         if self._authed and self._http:
             try:
                 await self._http.delete("/rest/session")
@@ -527,13 +531,17 @@ class PolyStudioDriver(BaseDriver):
             await self._http.post("/rest/audio/muted", body=False)
             self.set_state("audio_mute", False)
         elif command == "mute_video":
-            await self._http.post("/rest/video/local/mute", body=True)
+            await self._http.post(
+                "/rest/video/local/mute", body={"mute": True}
+            )
             self.set_state("video_mute", True)
         elif command == "unmute_video":
-            await self._http.post("/rest/video/local/mute", body=False)
+            await self._http.post(
+                "/rest/video/local/mute", body={"mute": False}
+            )
             self.set_state("video_mute", False)
         elif command == "set_volume":
-            value = max(0, min(50, int(params.get("value", 0))))
+            value = max(0, min(100, int(params.get("value", 0))))
             await self._http.post("/rest/audio/volume", body=value)
             self.set_state("volume", value)
         elif command == "volume_up":
@@ -579,7 +587,7 @@ class PolyStudioDriver(BaseDriver):
             current = int(resp.text.strip())
         except ValueError:
             current = self.get_state("volume") or 25
-        target = max(0, min(50, current + delta))
+        target = max(0, min(100, current + delta))
         await self._http.post("/rest/audio/volume", body=target)
         self.set_state("volume", target)
 
@@ -593,9 +601,12 @@ class PolyStudioDriver(BaseDriver):
                 f"{direction!r}"
             )
             return
-        # Use the SELECTED_PEOPLE source so the move applies to
-        # whichever camera is currently active.
-        path = "/rest/cameras/near/SELECTED_PEOPLE"
+        # The reference guide gives this operation its own endpoint --
+        # "performs the move operation for the selected near people camera
+        # source" -- so the move applies to whichever camera is active. The
+        # uppercase SELECTED_PEOPLE token is a sourceID, and is documented
+        # only for /rest/cameras/near/position/<sourceID>.
+        path = "/rest/cameras/near/selectedpeople"
         await self._http.post(
             path,
             body={"action": "moveStart", "direction": api_direction},
@@ -659,11 +670,14 @@ class PolyStudioDriver(BaseDriver):
             except ValueError:
                 pass
 
+        # Unlike /rest/audio/muted, this one answers with an OBJECT --
+        # {"result": <boolean>} -- so it does NOT go through _parse_bool.
+        # Reading it as a bare boolean made video_mute permanently False:
+        # json_data is a dict, so the fallback compared the whole JSON text
+        # against "true" and never matched.
         video = await self._http.get("/rest/video/local/mute")
-        if video.ok:
-            self.set_state(
-                "video_mute", _parse_bool(video.text, video.json_data)
-            )
+        if video.ok and isinstance(video.json_data, dict):
+            self.set_state("video_mute", bool(video.json_data.get("result")))
 
         confs = await self._http.get("/rest/conferences")
         if confs.ok:
@@ -678,9 +692,13 @@ class PolyStudioDriver(BaseDriver):
             self.set_state("in_call", count > 0)
 
         # System info: GET /rest/system returns the device envelope
-        # ({systemName, model, serialNumber, softwareVersion, ...}). The
-        # system_name state var was declared but never populated — read it
-        # here so the card shows the bar's configured name.
+        # ({systemName, model, serialNumber, softwareVersion, ...}), which is
+        # what fills the system_name state var.
+        # NOT IN the VideoOS 4.4.0 reference guide -- it lists no bare
+        # /rest/system table and the word "systemName" appears nowhere in it.
+        # Kept because absence from the guide is not absence from the device,
+        # and this is best-effort: a 404 leaves the name unset and nothing
+        # else changes. Do not build anything on it that has to work.
         system = await self._http.get("/rest/system")
         if system.ok and isinstance(system.json_data, dict):
             name = system.json_data.get("systemName")
@@ -782,10 +800,13 @@ class PolyStudioDriver(BaseDriver):
 
 
 def _parse_bool(text: str, json_data: Any) -> bool:
-    """The /audio/muted and /video/local/mute endpoints return a bare
-    JSON boolean. httpx parses it as json_data when the content type
-    advertises JSON; some firmware versions return text/plain instead.
-    Accept both."""
+    """The /audio/muted endpoint returns a bare JSON boolean. httpx parses it
+    as json_data when the content type advertises JSON; some firmware versions
+    return text/plain instead. Accept both.
+
+    NOT for /video/local/mute, which answers {"result": <boolean>}: a dict
+    fails the isinstance check here and the text fallback then compares the
+    whole JSON body against "true", so it would read False forever."""
     if isinstance(json_data, bool):
         return json_data
     return text.strip().lower() == "true"

@@ -33,6 +33,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    StubBaseDriver as _StubBase,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -44,7 +45,7 @@ SIM_PATH = REPO_ROOT / "switchers" / "atlona_ome_ms_sim.py"
 
 # ── Platform stand-ins ──────────────────────────────────────────────────────
 
-class _FakeBaseDriver(LifecycleFake):
+class _FakeBaseDriver(LifecycleFake, _StubBase):
     """Functional stand-in for the platform BaseDriver surface this driver
     uses: the hook-driven connect()/disconnect() lifecycle and the liveness
     watchdog loop (mirrors base.py)."""
@@ -52,12 +53,11 @@ class _FakeBaseDriver(LifecycleFake):
     DRIVER_INFO: dict = {}
 
     def __init__(self, device_id, config, state, events) -> None:
-        self.device_id = device_id
-        self.config = config
-        self.state = state
-        self.events = events
-        self.transport = None
-        self._connected = False
+        # The checked stub sets up the child-entity surface this driver now
+        # uses (register_child, set_child_state and the schema validation
+        # behind them). Borrowing it whole beats re-typing it here, where the
+        # platform-fidelity job could not see the copy.
+        _StubBase.__init__(self, device_id, config, state, events)
         self._last_transport_error = ""
         self._last_fault = None
         self.disconnect_calls = 0
@@ -65,7 +65,6 @@ class _FakeBaseDriver(LifecycleFake):
         self._health_task = None
         self._health_failures = 0
         self._bg_tasks: set = set()
-
     def set_state(self, key, value) -> None:
         self.state.set(f"device.{self.device_id}.{key}", value)
 
@@ -294,7 +293,7 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.AtlonaOmeMsDriver.DRIVER_INFO
-    assert info["version"] == "1.3.3"
+    assert info["version"] == "1.4.0"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -345,8 +344,12 @@ def test_connect_poll_populates_state():
             assert driver.get_state("model") == "AT-OME-MS52W"
             assert driver.get_state("volume") == sim._state["volume"]
             assert driver.get_state("matrix_mode") == sim._state["matrix_mode"]
-            assert driver.get_state("route_0") == sim._state["route_0"]
-            assert driver.get_state("route_1") == sim._state["route_1"]
+            # Routing lives on the output children now, which is what lets
+            # the Matrix picker see this switcher at all — the flat route_N
+            # keys it used to write were invisible to it.
+            assert driver.list_children("output") == [0, 1]
+            assert driver.get_child_state("output", 0)["input"] == sim._state["route_0"]
+            assert driver.get_child_state("output", 1)["input"] == sim._state["route_1"]
         finally:
             await driver.disconnect()
 

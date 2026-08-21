@@ -114,18 +114,35 @@ def _build_state_vars() -> dict[str, dict[str, Any]]:
         },
         "usb_route": {"type": "integer", "label": "USB Active Input"},
     }
-    for o in range(OUTPUT_MIN, OUTPUT_MAX + 1):
-        label = "HDBaseT" if o == 0 else "HDMI"
-        out[f"route_{o}"] = {
-            "type": "integer",
-            "label": f"Output {o} ({label}) — Source",
-        }
     for i in range(INPUT_MIN, INPUT_MAX + 1):
         out[f"input_signal_{i}"] = {
             "type": "boolean",
             "label": f"Input {i} — Signal",
         }
     return out
+
+
+def _output_state_vars() -> dict[str, dict[str, Any]]:
+    """What each output reports. ``input`` is the routed source, spelled the
+    way the AT-OME-PS62 spells it — same manufacturer, same product family,
+    and the property a matrix reads to know what is on a destination."""
+    return {
+        "input": {
+            "type": "integer",
+            "label": "Routed Input",
+            "help": (
+                "Input (0-4) currently routed to this output. "
+                "0=USB-C, 1=DisplayPort, 2=HDMI, 3=HDMI, 4=BYOD."
+            ),
+            "cloud_priority": "high",
+        },
+    }
+
+
+#: Output 0 is the HDBaseT port, output 1 the HDMI one — the device's own
+#: numbering, kept rather than renumbered to 1/2. A panel built against the
+#: protocol manual and a panel built against this driver have to agree.
+OUTPUT_LABELS = {0: "HDBaseT", 1: "HDMI"}
 
 
 class AtlonaOmeMsDriver(BaseDriver):
@@ -136,7 +153,7 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.3.3",
+        "version": "1.4.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -254,6 +271,19 @@ class AtlonaOmeMsDriver(BaseDriver):
             },
         },
         "state_variables": _build_state_vars(),
+        "child_entity_types": {
+            "output": {
+                "label": "Output",
+                "label_plural": "Outputs",
+                "id_format": {
+                    "type": "integer",
+                    "min": OUTPUT_MIN,
+                    "max": OUTPUT_MAX,
+                },
+                "state_variables": _output_state_vars(),
+                "summary_fields": ["input"],
+            },
+        },
         "commands": {
             "route": {
                 "label": "Route Input to Output",
@@ -266,10 +296,10 @@ class AtlonaOmeMsDriver(BaseDriver):
                         "help": "0=USB-C, 1=DisplayPort, 2=HDMI, 3=HDMI, 4=BYOD.",
                     },
                     "output": {
-                        "type": "integer",
+                        "type": "child_id",
+                        "child_type": "output",
                         "required": True,
-                        "min": OUTPUT_MIN,
-                        "max": OUTPUT_MAX,
+                        "label": "Output",
                         "help": "0=HDBaseT, 1=HDMI.",
                     },
                 },
@@ -283,7 +313,7 @@ class AtlonaOmeMsDriver(BaseDriver):
             "query_routing": {
                 "label": "Query Routing",
                 "params": {},
-                "help": "Refresh route_0 and route_1 from the matrix.",
+                "help": "Refresh what is routed to each output from the matrix.",
             },
             "set_active_input": {
                 "label": "Set Active Input (single-input mode)",
@@ -608,6 +638,8 @@ class AtlonaOmeMsDriver(BaseDriver):
             ) from e
 
     async def _initial_sync(self) -> None:
+        # Before the first query, so the roster exists when its answer lands.
+        self._register_outputs()
         try:
             await self.poll()
         except (ConnectionError, OSError):
@@ -764,6 +796,14 @@ class AtlonaOmeMsDriver(BaseDriver):
         finally:
             self._probe_future = None
 
+    def _register_outputs(self) -> None:
+        """Register the two outputs. Idempotent — ``register_child`` is a
+        no-op for one that already exists, so calling it from the connect
+        path costs nothing on a reconnect and guarantees the roster is there
+        before the first ``Display:Matrix:Get`` answers."""
+        for out in range(OUTPUT_MIN, OUTPUT_MAX + 1):
+            self.register_child("output", out)
+
     async def poll(self) -> None:
         if not self.transport or not self.transport.connected:
             return
@@ -899,7 +939,7 @@ class AtlonaOmeMsDriver(BaseDriver):
                 except ValueError:
                     return
                 if OUTPUT_MIN <= out <= OUTPUT_MAX:
-                    self.set_state(f"route_{out}", inp)
+                    self.set_child_state("output", out, "input", inp)
             return
 
         # ── Display:Minimal:Get / Set → {"state": bool} or {"success": ...} ──
@@ -982,7 +1022,7 @@ class AtlonaOmeMsDriver(BaseDriver):
         if m:
             inp, out = int(m.group(1)), int(m.group(2))
             if OUTPUT_MIN <= out <= OUTPUT_MAX:
-                self.set_state(f"route_{out}", inp)
+                self.set_child_state("output", out, "input", inp)
             return
 
         # display:input:set <input>

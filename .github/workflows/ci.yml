@@ -67,7 +67,7 @@ jobs:
   # (Their parse / dropped-coroutine checks are stdlib-only and run in the job
   # above, where a contributor will actually see them.)
   stub-fidelity:
-    name: Platform stubs match the platform
+    name: Platform stubs and driver lifecycle match the platform
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,11 +89,11 @@ jobs:
       - name: Install the platform's runtime dependencies
         run: pip install -e "$RUNNER_TEMP/openavc"
 
-      - name: Pin the platform stubs and the guides against the platform
+      - name: Pin the stubs, the guides and the driver lifecycle against the platform
         env:
-          # The editable install exposes `server` but not the in-tree
-          # `simulator` package, which the simulator stand-ins are compared
-          # against; PYTHONPATH resolves both from the same checkout.
+          # PYTHONPATH resolves the platform from the same checkout the probe
+          # points at, so a module the editable install does not expose is still
+          # importable here.
           PYTHONPATH: ${{ runner.temp }}/openavc
           OPENAVC_PLATFORM_ROOT: ${{ runner.temp }}/openavc
           OPENAVC_REQUIRE_PLATFORM: "1"
@@ -101,4 +101,5 @@ jobs:
         run: |
           python -m pytest \
             tests/test_platform_stub_fidelity.py \
-            tests/test_doc_python_examples.py -v
+            tests/test_doc_python_examples.py \
+            tests/test_connect_lifecycle.py -v

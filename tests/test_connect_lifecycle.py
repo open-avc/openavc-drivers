@@ -53,6 +53,17 @@ _CONFIG: dict[str, dict] = {
     "tvone_coriomatrix": {"password": "adminpw"},
     "tvone_coriomaster": {"password": "adminpw"},
     "crestron_nvx": {"password": "smokepw"},
+    # Reached over SSH on real hardware (its default_config says so), but the
+    # SSH transport shells out to the OS client and no simulator here speaks the
+    # protocol. The device serves the SAME CLI over telnet on 23, which is what
+    # this sim emulates and what the driver's own "transports" list allows, so
+    # the sweep drives the plain-text half. Credentials are needed because that
+    # CLI has a login handshake; the sim accepts anything but "invalid".
+    "avproedge_mxnet_switch": {
+        "transport": "tcp",
+        "username": "admin",
+        "password": "admin",
+    },
     "dante_ddm": {
         "api_key": "smoke",
         "verify_ssl": False,
@@ -125,10 +136,29 @@ except ModuleNotFoundError:
     # covering forty otherwise -- which is how a genuinely broken driver sat
     # green in this repo's isolated CI (stdlib + pyyaml + pydantic, no
     # platform) for as long as anyone cared to look.
+    #
+    # And when a run PROMISED the platform, saying the number is not enough:
+    # the CI job that installs the platform to get this coverage would still
+    # report green having run none of it, which is the same false green one
+    # level up. Same carve-out, same env var, same helper as
+    # ``test_platform_stub_fidelity.py`` -- two files answering "is the
+    # platform here" differently is how they would come to disagree.
+    from _platform_probe import (  # noqa: E402
+        REQUIRE_PLATFORM_ENV,
+        platform_required,
+    )
+
+    if platform_required():
+        raise AssertionError(
+            f"{REQUIRE_PLATFORM_ENV}=1 promised the openavc platform, but it is "
+            f"not importable, so ALL {len(_CASES)} driver(s) would have been "
+            "skipped and no connect/disconnect coverage would have run."
+        )
     pytest.skip(
         f"connect-lifecycle smoke SKIPPED ALL {len(_CASES)} driver(s): "
         "requires the openavc platform (run from the workspace with openavc "
-        "installed). NO connect/disconnect coverage ran.",
+        f"installed). NO connect/disconnect coverage ran. Set "
+        f"{REQUIRE_PLATFORM_ENV}=1 to make its absence a failure.",
         allow_module_level=True,
     )
 

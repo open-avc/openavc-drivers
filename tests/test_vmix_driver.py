@@ -311,8 +311,28 @@ def test_discovery_probe_matches_the_greeting_vmix_sends():
     probe = VMixDriver.DRIVER_INFO["discovery"]["tcp_probe"]
     greeting = "VERSION OK 29.0.0.49"
     assert re.search(probe["expect_regex"], greeting)
-    extract = probe["extract"]["firmware_version"]
+    extract = probe["extract"]["firmware"]
     assert re.search(extract["regex"], greeting).group(extract["group"]) == "29.0.0.49"
+
+
+def test_discovery_extracts_only_names_the_scan_will_keep():
+    """A probe may extract anything; the scan keeps only these names.
+
+    Everything else is recorded in the evidence and then dropped, so the
+    device card shows a vMix with no version and nobody finds out. This
+    driver shipped `firmware_version` and lost the value that way.
+    """
+    # openavc/discovery/result.py, _PROBE_DEVICE_INFO_KEYS.
+    reserved = {
+        "mac", "hostname", "manufacturer", "model", "device_name",
+        "firmware", "serial_number", "category",
+    }
+    probe = VMixDriver.DRIVER_INFO["discovery"]["tcp_probe"]
+    for field in probe.get("extract", {}):
+        assert field in reserved, (
+            f"discovery extract '{field}' is not a name the scan lifts onto "
+            f"the device record; use one of {sorted(reserved)}"
+        )
 
 
 # --- Integration scenario runner ---

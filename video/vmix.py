@@ -161,7 +161,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.0.0",
+        "version": "2.0.1",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -185,9 +185,14 @@ class VMixDriver(BaseDriver):
                 "port": 8099,
                 "expect_regex": r"^VERSION OK \d+\.\d+",
                 "timeout_ms": 2000,
+                # The key has to be "firmware": that is one of the reserved
+                # names the scan lifts off a probe onto the device record, and
+                # anything else is captured into the evidence and then dropped,
+                # so the card shows a vMix with no version.
                 "extract": {
-                    "firmware_version": {"regex": r"^VERSION OK (\S+)", "group": 1},
+                    "firmware": {"regex": r"^VERSION OK (\S+)", "group": 1},
                 },
+                "extract_manufacturer": "StudioCoast",
             },
             "port_open": [8099],
             "manufacturer_alias": ["vmix", "studiocoast"],

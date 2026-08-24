@@ -284,14 +284,25 @@ def test_actions_reference_real_commands():
             )
 
 
-def test_every_input_param_has_options_state():
-    """Input arguments are pickers, not free text."""
+def test_every_input_param_is_a_picker():
+    """Input arguments are pickers, not free text.
+
+    Two forms count: the live input_list dropdown most commands use, and the
+    child picker the title commands need so the field name can cascade off it.
+    """
     for name, spec in VMixDriver.DRIVER_INFO["commands"].items():
         params = spec.get("params") or {}
-        if "input" in params:
-            assert params["input"].get("options_state") == "input_list", (
-                f"{name}.input should offer the live input list"
-            )
+        if "input" not in params:
+            continue
+        param = params["input"]
+        picks_from_list = param.get("options_state") == "input_list"
+        picks_a_child = (
+            param.get("type") == "child_id" and param.get("child_type") == "input"
+        )
+        assert picks_from_list or picks_a_child, (
+            f"{name}.input is free text; it should offer the live input list "
+            f"or pick an input child"
+        )
 
 
 def test_activator_maps_only_write_declared_state():
@@ -891,4 +902,224 @@ def test_disconnect():
     async def s(d, state, sim):
         await d.disconnect()
         assert state.get(DEV + "connected") is False
+    _scenario(s)
+
+
+# --- Mixes ---
+
+
+def test_mix_number_converts_to_the_zero_based_wire_argument():
+    """vMix's mix 2 travels as Mix=1, and the main mix sends nothing.
+
+    Measured on vMix 29: ActiveInput Input=1&Mix=1 moved <mix number="2">
+    while Mix=0 moved the main program.
+    """
+    to_wire = _driver_mod.mix_to_wire
+    assert to_wire(1) is None          # main mix — no argument at all
+    assert to_wire("1") is None
+    assert to_wire(2) == "1"
+    assert to_wire(3) == "2"
+    assert to_wire("") is None
+    assert to_wire("not a number") is None
+
+
+def test_mix_param_is_offered_only_where_it_works():
+    """Two commands look like they take Mix and do not."""
+    commands = VMixDriver.DRIVER_INFO["commands"]
+    for name in ("cut", "fade", "transition", "stinger", "preview_input",
+                 "active_input", "overlay_input", "overlay_input_in"):
+        assert "mix" in commands[name]["params"], f"{name} should offer mix"
+    # Hardware-measured: both moved the main mix whatever Mix was set to.
+    for name in ("cut_direct", "quick_play"):
+        assert "mix" not in commands[name]["params"], (
+            f"{name} does not honour Mix on the device; offering it would be a "
+            f"control that silently acts on the wrong mix"
+        )
+
+
+def test_mix_command_sends_the_converted_argument():
+    sent = []
+
+    async def s(d, state, sim):
+        async def spy(function, query=""):
+            sent.append((function, query))
+            return "FUNCTION OK Completed"
+
+        d._send_function = spy
+        await d.send_command("cut", {"input": "2", "mix": "2"})
+        await d.send_command("cut", {"input": "2", "mix": "1"})
+        await d.send_command("cut", {"input": "2"})
+        assert sent[0] == ("Cut", "Input=2&Mix=1")   # vMix mix 2 -> wire 1
+        assert sent[1] == ("Cut", "Input=2")         # main mix -> no argument
+        assert sent[2] == ("Cut", "Input=2")
+    _scenario(s)
+
+
+def test_mixes_appear_as_children_with_vmix_numbering():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "mix.2.active") == 0
+        assert state.get(DEV + "mix.3.active") == 0
+        # There is no mix.1: the main mix is the device's own active/preview.
+        assert not state.has(DEV + "mix.1.active")
+    _scenario(s)
+
+
+def test_mix_list_picker_offers_main_plus_the_real_mixes():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        entries = json.loads(state.get(DEV + "mix_list"))
+        assert entries[0] == {"value": "1", "label": "Main"}
+        assert {"value": "2", "label": "Mix 2"} in entries
+        assert [e["value"] for e in entries] == ["1", "2", "3"]
+    _scenario(s)
+
+
+def test_switching_on_a_mix_leaves_the_main_mix_alone():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        main_before = state.get(DEV + "active")
+        await d.send_command("active_input", {"input": "3", "mix": "2"})
+        await _settle()
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "mix.2.active") == 3
+        assert state.get(DEV + "active") == main_before
+        assert state.get(DEV + "mix.3.active") == 0
+    _scenario(s)
+
+
+def test_a_mix_that_leaves_the_production_is_deregistered():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.has(DEV + "mix.3.active")
+        removed = sim._mixes.pop(3)
+        try:
+            await d.poll()
+            await _settle()
+            assert not state.has(DEV + "mix.3.active")
+            assert state.has(DEV + "mix.2.active")
+        finally:
+            sim._mixes[3] = removed
+    _scenario(s)
+
+
+# --- Title text fields ---
+
+
+def test_title_fields_become_state_on_the_input():
+    """A title's text is readable, not just writable."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        # Input 4 is the Lower Third in the simulated production.
+        assert state.get(DEV + "input.4.Headline") == "Welcome"
+        assert state.get(DEV + "input.4.Description") == "Room 101"
+    _scenario(s)
+
+
+def test_a_field_named_like_a_built_in_property_does_not_clobber_it():
+    """The title's own "title" field must not overwrite the input's title."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "input.4.title") == "Lower Third"
+    _scenario(s)
+
+
+def test_set_text_field_picker_cascades_off_the_chosen_input():
+    """Picking the title populates the field list from that title."""
+    params = VMixDriver.DRIVER_INFO["commands"]["set_text"]["params"]
+    assert params["input"]["type"] == "child_id"
+    assert params["input"]["child_type"] == "input"
+    assert params["selected_name"]["options_from"] == {
+        "param": "input", "source": "child_schema",
+    }
+    # Free text still allowed: a GT title's "Headline.Text" is never reported.
+    assert params["selected_name"]["type"] == "string"
+
+
+def test_set_text_round_trip():
+    async def s(d, state, sim):
+        await d.send_command(
+            "set_text", {"input": "4", "selected_name": "Headline", "value": "On Now"}
+        )
+        await _settle()
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "input.4.Headline") == "On Now"
+    _scenario(s)
+
+
+def test_a_title_swapped_for_another_replaces_its_fields():
+    """Field names change only when the title is swapped, and the child's
+    schema can only move by re-registering."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.has(DEV + "input.4.Headline")
+
+        entry = next(e for e in sim._INPUTS if e["number"] == 4)
+        original = entry["texts"]
+        entry["texts"] = [("Caption", "Different title")]
+        try:
+            await d.poll()
+            await _settle()
+            assert state.get(DEV + "input.4.Caption") == "Different title"
+            assert not state.has(DEV + "input.4.Headline")
+        finally:
+            entry["texts"] = original
+    _scenario(s)
+
+
+def test_retyping_a_field_does_not_churn_the_child():
+    """Only a NAME change may re-register; a value change must not."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        registered = []
+        original = d.register_child
+
+        def spy(child_type, local_id, *a, **kw):
+            registered.append((child_type, local_id))
+            return original(child_type, local_id, *a, **kw)
+
+        d.register_child = spy
+        entry = next(e for e in sim._INPUTS if e["number"] == 4)
+        entry["texts"] = [(n, "changed") for n, _v in entry["texts"]]
+        await d.poll()
+        await _settle()
+        assert ("input", 4) not in registered
+        assert state.get(DEV + "input.4.Headline") == "changed"
+    _scenario(s)
+
+
+def test_an_input_with_no_title_has_no_text_variables():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert not state.has(DEV + "input.1.Headline")
+    _scenario(s)
+
+
+def test_the_field_picker_offers_only_the_titles_fields():
+    """`control` scopes both the value picker and the Set Text cascade, so a
+    title must not offer its fader as somewhere to write a headline."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        # Input 4 is the title in the simulated production.
+        title_schema = d._effective_child_schema("input", 4)
+        offered = {n for n, v in title_schema.items() if v.get("control")}
+        assert "Headline" in offered and "Description" in offered
+        assert not offered & {"muted", "volume", "balance"}
+
+        # An ordinary audio input keeps its value-picker flags.
+        audio_schema = d._effective_child_schema("input", 2)
+        audio_offered = {n for n, v in audio_schema.items() if v.get("control")}
+        assert {"muted", "volume", "balance"} <= audio_offered
     _scenario(s)

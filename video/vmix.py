@@ -82,6 +82,128 @@ MIXABLE_BUSSES = ["A", "B", "C", "D", "E", "F", "G"]
 MUTABLE_BUSSES = ["A", "B"]
 
 
+# The Mix parameter, and the one number in this driver that is off by one.
+#
+# vMix numbers its mixes the way its own window does: the main mix is 1, and
+# the input called "Mix2" is mix 2. The Mix argument on the wire counts from
+# zero off the main mix, so mix 2 travels as Mix=1. Measured on vMix 29:
+# ActiveInput Input=1&Mix=1 moved <mix number="2">, and Mix=0 moved the main
+# program. Everything a user sees here -- the picker, the child ids, the state
+# keys -- is vMix's number; the subtraction happens once, on the way out.
+#
+# Which commands accept it is NOT guesswork either. The vendor's function table
+# names Mix on five of them, and the transition effects it omits entirely were
+# measured accepting it (Cut, Fade, CubeZoom and Merge each moved a sub-mix and
+# left the main mix alone). Two that look like they should take it do not:
+# CutDirect and QuickPlay both moved the main mix whatever Mix was set to, and
+# the vendor's table agrees, so neither offers the parameter.
+MAIN_MIX = 1
+
+MIX_PARAM = {
+    "type": "string",
+    "options_state": "mix_list",
+    "help": "Which mix to act on. Leave blank for the main mix.",
+}
+
+
+def mix_to_wire(mix: Any) -> str | None:
+    """Turn vMix's mix number into the Mix argument, or None for the main mix.
+
+    Returns None for the main mix so the argument is left off entirely, which
+    is what every command in this driver did before mixes existed.
+    """
+    try:
+        number = int(str(mix).strip())
+    except (TypeError, ValueError):
+        return None
+    if number <= MAIN_MIX:
+        return None
+    return str(number - 1)
+
+
+# What every input publishes. Held out here because an input that carries a
+# title gets a per-instance schema built from this plus one variable per text
+# field, and the per-child schema REPLACES the type-level one rather than
+# merging with it -- so the shared half has to be something both can name.
+INPUT_STATE_VARIABLES: dict[str, dict[str, Any]] = {
+    "title": {"type": "string", "label": "Title"},
+    "short_title": {"type": "string", "label": "Short Title"},
+    "key": {
+        "type": "string", "label": "Key",
+        "help": (
+            "vMix's own GUID for this input. Survives inputs "
+            "being reordered, which the number does not."
+        ),
+    },
+    "type": {"type": "string", "label": "Type"},
+    "state": {"type": "string", "label": "State"},
+    "playing": {"type": "boolean", "label": "Playing"},
+    "loop": {"type": "boolean", "label": "Loop"},
+    "position": {"type": "integer", "label": "Position", "unit": "ms"},
+    "duration": {"type": "integer", "label": "Duration", "unit": "ms"},
+    "selected_index": {"type": "integer", "label": "Selected Index"},
+    "tally": {
+        "type": "integer",
+        "label": "Tally",
+        "min": 0,
+        "max": 2,
+        "cloud_priority": "high",
+        "help": "0 = safe, 1 = program, 2 = preview.",
+    },
+    # Audio. Only inputs that carry audio report these at all,
+    # so on a Colour or Blank input they stay unset.
+    "muted": {
+        "type": "boolean", "label": "Muted",
+        "control": True, "cloud_priority": "high",
+    },
+    "volume": {
+        "type": "number", "label": "Volume",
+        "min": 0, "max": 100, "step": 1, "unit": "%",
+        "control": True, "cloud_priority": "low",
+        "help": (
+            "Fader position, the same scale set_volume takes. "
+            "vMix reports amplitude internally; this is converted."
+        ),
+    },
+    "balance": {
+        "type": "number", "label": "Balance",
+        "min": -1, "max": 1, "step": 0.1, "control": True,
+    },
+    "gain_db": {
+        "type": "number", "label": "Gain",
+        "min": 0, "max": 24, "step": 1, "unit": "dB",
+    },
+    "solo": {"type": "boolean", "label": "Solo"},
+    "solo_pfl": {"type": "boolean", "label": "Solo PFL"},
+    "audio_busses": {
+        "type": "string", "label": "Audio Busses",
+        "help": "Which busses this input feeds, e.g. \"M,A\".",
+    },
+    "headphones_volume": {
+        "type": "number", "label": "Headphones Volume",
+        "min": 0, "max": 100, "step": 1, "unit": "%",
+        "cloud_priority": "low",
+    },
+}
+
+# A title's text fields arrive as <text index name> children of the input and
+# are named by whoever built the title, so one could collide with a variable
+# above. The static half wins and the collision is logged: a field that loses
+# is still settable, it just has to be typed rather than picked.
+# The input variables flagged `control` for the UI Builder's value picker.
+# Named here so a title input can stand them down — see _input_schema.
+_AUDIO_CONTROL_VARS = ("muted", "volume", "balance")
+
+TEXT_FIELD_VAR = {
+    "type": "string", "label": "Text", "control": True,
+    "help": (
+        "Current text of this title field. Settable with Set Text. vMix has no "
+        "activator for title text, so this follows the state poll rather than "
+        "updating the instant somebody retypes it in the vMix window."
+    ),
+}
+
+
 def _parse_vmix_frame(buffer: bytes) -> tuple[bytes | None, bytes]:
     """
     Parse vMix TCP frames from a byte buffer.
@@ -161,7 +283,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.0.1",
+        "version": "2.1.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -306,6 +428,15 @@ class VMixDriver(BaseDriver):
                     "the input dropdowns on this driver's commands."
                 ),
             },
+            "mix_list": {
+                "type": "string",
+                "label": "Mix List",
+                "help": (
+                    "JSON list of the mixes this production has, rebuilt on "
+                    "every state poll. Feeds the Mix dropdowns. Value is "
+                    "vMix's own mix number, main being 1."
+                ),
+            },
             "version": {"type": "string", "label": "vMix Version"},
             "edition": {"type": "string", "label": "vMix Edition"},
             "last_error": {
@@ -369,73 +500,51 @@ class VMixDriver(BaseDriver):
         # arrive first), and an input removed in vMix is deregistered so its
         # state doesn't linger. Declared with no id padding, so every key keeps
         # the shape it has always had: device.<id>.input.<number>.<prop>.
+        # A production's inputs are discovered at runtime and change while the
+        # show is live, which is what child entities are for: the roster is
+        # registered from the XML state (and from the tally string, which can
+        # arrive first), and an input removed in vMix is deregistered so its
+        # state doesn't linger. Declared with no id padding, so every key keeps
+        # the shape it has always had: device.<id>.input.<number>.<prop>.
+        #
+        # The type is dynamic because a title input publishes one state
+        # variable per text field it contains, and only the device knows what
+        # those are called. An input with no title fields gets the plain set.
         "child_entity_types": {
             "input": {
                 "label": "Input",
                 "label_plural": "Inputs",
+                "dynamic": True,
                 "id_format": {"type": "integer", "min": 1, "max": 1000},
-                "state_variables": {
-                    "title": {"type": "string", "label": "Title"},
-                    "short_title": {"type": "string", "label": "Short Title"},
-                    "key": {
-                        "type": "string", "label": "Key",
-                        "help": (
-                            "vMix's own GUID for this input. Survives inputs "
-                            "being reordered, which the number does not."
-                        ),
-                    },
-                    "type": {"type": "string", "label": "Type"},
-                    "state": {"type": "string", "label": "State"},
-                    "playing": {"type": "boolean", "label": "Playing"},
-                    "loop": {"type": "boolean", "label": "Loop"},
-                    "position": {"type": "integer", "label": "Position", "unit": "ms"},
-                    "duration": {"type": "integer", "label": "Duration", "unit": "ms"},
-                    "selected_index": {"type": "integer", "label": "Selected Index"},
-                    "tally": {
-                        "type": "integer",
-                        "label": "Tally",
-                        "min": 0,
-                        "max": 2,
-                        "cloud_priority": "high",
-                        "help": "0 = safe, 1 = program, 2 = preview.",
-                    },
-                    # Audio. Only inputs that carry audio report these at all,
-                    # so on a Colour or Blank input they stay unset.
-                    "muted": {
-                        "type": "boolean", "label": "Muted",
-                        "control": True, "cloud_priority": "high",
-                    },
-                    "volume": {
-                        "type": "number", "label": "Volume",
-                        "min": 0, "max": 100, "step": 1, "unit": "%",
-                        "control": True, "cloud_priority": "low",
-                        "help": (
-                            "Fader position, the same scale set_volume takes. "
-                            "vMix reports amplitude internally; this is converted."
-                        ),
-                    },
-                    "balance": {
-                        "type": "number", "label": "Balance",
-                        "min": -1, "max": 1, "step": 0.1, "control": True,
-                    },
-                    "gain_db": {
-                        "type": "number", "label": "Gain",
-                        "min": 0, "max": 24, "step": 1, "unit": "dB",
-                    },
-                    "solo": {"type": "boolean", "label": "Solo"},
-                    "solo_pfl": {"type": "boolean", "label": "Solo PFL"},
-                    "audio_busses": {
-                        "type": "string", "label": "Audio Busses",
-                        "help": "Which busses this input feeds, e.g. \"M,A\".",
-                    },
-                    "headphones_volume": {
-                        "type": "number", "label": "Headphones Volume",
-                        "min": 0, "max": 100, "step": 1, "unit": "%",
-                        "cloud_priority": "low",
-                    },
-                },
+                "state_variables": INPUT_STATE_VARIABLES,
                 "summary_fields": ["title", "type", "tally"],
                 "label_field": "title",
+            },
+            # vMix's extra mixes, each a whole second switcher with its own
+            # program and preview. They appear only once the production has
+            # Mix inputs, and there can be a lot of them, so they are a roster
+            # rather than a fixed block of state variables.
+            #
+            # The id is vMix's OWN mix number, the one its window shows: mix 2
+            # is the input called "Mix2". The Mix parameter on the wire counts
+            # from zero off the main mix, so mix 2 is Mix=1 -- see MIX_PARAM
+            # below. Publishing the wire number here would mean the number on
+            # the device page and the number in vMix disagreed.
+            "mix": {
+                "label": "Mix",
+                "label_plural": "Mixes",
+                "id_format": {"type": "integer", "min": 2, "max": 64},
+                "state_variables": {
+                    "active": {
+                        "type": "integer", "label": "Program Input",
+                        "cloud_priority": "high", "control": True,
+                    },
+                    "preview": {
+                        "type": "integer", "label": "Preview Input",
+                        "cloud_priority": "high", "control": True,
+                    },
+                },
+                "summary_fields": ["active", "preview"],
             },
         },
         # Quick Action strip: the daily production surface. The record /
@@ -467,7 +576,10 @@ class VMixDriver(BaseDriver):
             # --- Transitions ---
             "cut": {
                 "label": "Cut",
-                "params": {"input": {"type": "string", "options_state": "input_list", "help": "Input number or name (optional, omit for current preview)"}},
+                "params": {
+                    "input": {"type": "string", "options_state": "input_list", "help": "Input number or name (optional, omit for current preview)"},
+                    "mix": MIX_PARAM,
+                },
                 "help": "Instant cut transition to the specified input or current preview.",
             },
             "fade": {
@@ -475,6 +587,7 @@ class VMixDriver(BaseDriver):
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "help": "Input number or name (optional)"},
                     "duration": {"type": "integer", "min": 0, "max": 60000, "help": "Fade duration in milliseconds"},
+                    "mix": MIX_PARAM,
                 },
                 "help": "Fade transition to the specified input.",
             },
@@ -497,6 +610,7 @@ class VMixDriver(BaseDriver):
                     },
                     "input": {"type": "string", "options_state": "input_list", "help": "Input number or name"},
                     "duration": {"type": "integer", "min": 0, "max": 60000, "help": "Duration in milliseconds"},
+                    "mix": MIX_PARAM,
                 },
                 "help": "Transition to an input using a named effect.",
             },
@@ -512,6 +626,7 @@ class VMixDriver(BaseDriver):
                 "params": {
                     "number": {"type": "integer", "required": True, "min": 1, "max": 8, "help": "Stinger 1-8"},
                     "input": {"type": "string", "options_state": "input_list", "help": "Input number or name"},
+                    "mix": MIX_PARAM,
                 },
                 "help": "Play a stinger transition to an input.",
             },
@@ -528,12 +643,18 @@ class VMixDriver(BaseDriver):
             # --- Input Switching ---
             "preview_input": {
                 "label": "Preview Input",
-                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
+                "params": {
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
+                    "mix": MIX_PARAM,
+                },
                 "help": "Send an input to preview.",
             },
             "active_input": {
                 "label": "Active Input",
-                "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
+                "params": {
+                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
+                    "mix": MIX_PARAM,
+                },
                 "help": "Send an input directly to program output.",
             },
             "preview_input_next": {
@@ -688,6 +809,7 @@ class VMixDriver(BaseDriver):
                 "params": {
                     "channel": {"type": "integer", "required": True, "min": 1, "max": OVERLAY_CHANNELS, "help": "Overlay channel 1-8"},
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
+                    "mix": MIX_PARAM,
                 },
                 "help": "Toggle an overlay channel on or off with the given input.",
             },
@@ -696,6 +818,7 @@ class VMixDriver(BaseDriver):
                 "params": {
                     "channel": {"type": "integer", "required": True, "min": 1, "max": OVERLAY_CHANNELS, "help": "Overlay channel 1-8"},
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
+                    "mix": MIX_PARAM,
                 },
                 "help": "Transition an overlay channel in with the given input.",
             },
@@ -766,11 +889,26 @@ class VMixDriver(BaseDriver):
                 "help": "Save a still image of an input.",
             },
             # --- Titles / Text ---
+            # These two pick the input as a CHILD rather than off input_list,
+            # because that is what lets the field name cascade: picking the
+            # title populates the name dropdown from that title's own fields,
+            # which the driver discovered from the device. The name stays a
+            # string rather than an enum so a field vMix has not reported --
+            # a GT title's "Headline.Text", say -- can still be typed.
             "set_text": {
                 "label": "Set Text",
                 "params": {
-                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Title input number or name"},
-                    "selected_name": {"type": "string", "help": "Text field name (e.g. Headline, or Headline.Text for GT titles)"},
+                    "input": {"type": "child_id", "child_type": "input", "required": True, "label": "Title Input"},
+                    "selected_name": {
+                        "type": "string",
+                        "label": "Field",
+                        "options_from": {"param": "input", "source": "child_schema"},
+                        "help": "Text field to set. Pick one the title reports, or type a name (e.g. Headline.Text on a GT title).",
+                    },
+                    # Title text is the one thing on this driver that is poll-only:
+                    # vMix has no activator for a text field, so a change made in
+                    # the vMix window shows up on the next state read rather than
+                    # immediately. Writing it from here is instant either way.
                     "value": {"type": "string", "required": True, "trim": False, "help": "Text to display"},
                 },
                 "help": "Set a text field in a title input.",
@@ -778,8 +916,13 @@ class VMixDriver(BaseDriver):
             "set_image": {
                 "label": "Set Image",
                 "params": {
-                    "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Title input number or name"},
-                    "selected_name": {"type": "string", "help": "Image field name (e.g. MyImage.Source)"},
+                    "input": {"type": "child_id", "child_type": "input", "required": True, "label": "Title Input"},
+                    "selected_name": {
+                        "type": "string",
+                        "label": "Field",
+                        "options_from": {"param": "input", "source": "child_schema"},
+                        "help": "Image field to set (e.g. MyImage.Source).",
+                    },
                     "value": {"type": "string", "required": True, "help": "Image filename, or empty to clear"},
                 },
                 "help": "Set an image field in a title input.",
@@ -992,18 +1135,18 @@ class VMixDriver(BaseDriver):
     #           several values comma-joined into one argument.
     _COMMANDS: dict[str, dict[str, Any]] = {
         # Transitions
-        "cut": {"fn": "Cut", "args": {"input": "Input"}},
-        "fade": {"fn": "Fade", "args": {"input": "Input", "duration": "Duration"}},
+        "cut": {"fn": "Cut", "args": {"input": "Input", "mix": "Mix"}},
+        "fade": {"fn": "Fade", "args": {"input": "Input", "duration": "Duration", "mix": "Mix"}},
         "cut_direct": {"fn": "CutDirect", "args": {"input": "Input"}},
         "fade_to_black": {"fn": "FadeToBlack", "args": {}},
-        "transition": {"fn": "{effect}", "args": {"input": "Input", "duration": "Duration"}},
+        "transition": {"fn": "{effect}", "args": {"input": "Input", "duration": "Duration", "mix": "Mix"}},
         "transition_button": {"fn": "Transition{number}", "args": {}},
-        "stinger": {"fn": "Stinger{number}", "args": {"input": "Input"}},
+        "stinger": {"fn": "Stinger{number}", "args": {"input": "Input", "mix": "Mix"}},
         "set_fader": {"fn": "SetFader", "args": {"position": "Value"}},
         "quick_play": {"fn": "QuickPlay", "args": {"input": "Input"}},
         # Input switching
-        "preview_input": {"fn": "PreviewInput", "args": {"input": "Input"}},
-        "active_input": {"fn": "ActiveInput", "args": {"input": "Input"}},
+        "preview_input": {"fn": "PreviewInput", "args": {"input": "Input", "mix": "Mix"}},
+        "active_input": {"fn": "ActiveInput", "args": {"input": "Input", "mix": "Mix"}},
         "preview_input_next": {"fn": "PreviewInputNext", "args": {}},
         "preview_input_previous": {"fn": "PreviewInputPrevious", "args": {}},
         # Audio
@@ -1035,8 +1178,8 @@ class VMixDriver(BaseDriver):
         },
         "set_headphones_volume": {"fn": "SetHeadphonesVolume", "args": {"value": "Value"}},
         # Overlays
-        "overlay_input": {"fn": "OverlayInput{channel}", "args": {"input": "Input"}},
-        "overlay_input_in": {"fn": "OverlayInput{channel}In", "args": {"input": "Input"}},
+        "overlay_input": {"fn": "OverlayInput{channel}", "args": {"input": "Input", "mix": "Mix"}},
+        "overlay_input_in": {"fn": "OverlayInput{channel}In", "args": {"input": "Input", "mix": "Mix"}},
         "overlay_input_out": {"fn": "OverlayInput{channel}Out", "args": {}},
         "overlay_input_off": {"fn": "OverlayInput{channel}Off", "args": {}},
         "overlay_input_zoom": {"fn": "OverlayInput{channel}Zoom", "args": {}},
@@ -1148,8 +1291,13 @@ class VMixDriver(BaseDriver):
         # Input numbers seen in the last XML state — lets the next parse
         # deregister inputs removed from the production.
         self._known_inputs: set[str] = set()
+        # Mix numbers seen in the last XML state, same idea.
+        self._known_mixes: set[int] = set()
+        # The title-field names each input last reported, so a poll can tell a
+        # title being retyped (values move) from one being swapped (names do).
+        self._input_text_fields: dict[int, tuple[str, ...]] = {}
 
-    def _ensure_input(self, num: str) -> bool:
+    def _ensure_input(self, num: str, text_fields: list[str] | None = None) -> bool:
         """Register input ``num`` as a child if it isn't already.
 
         Both the tally string and the XML state name inputs, and either can
@@ -1157,21 +1305,77 @@ class VMixDriver(BaseDriver):
         False for a number outside the declared id range (a production with
         more than 1000 inputs, or a malformed reply) — the caller skips it
         rather than letting a bad number abort the whole parse.
+
+        ``text_fields`` names the title fields this input carries. They become
+        state variables of their own on this child, which is what puts them in
+        the Set Text field picker. A per-child schema can only be replaced by
+        re-registering, so an input whose field NAMES change is deregistered
+        first; changing field VALUES does not disturb anything.
         """
         try:
             local_id = int(num)
         except (TypeError, ValueError):
             return False
+
+        wanted = tuple(text_fields or ())
         if self.is_child_registered("input", local_id):
-            return True
+            if text_fields is None or self._input_text_fields.get(local_id, ()) == wanted:
+                return True
+            # The title changed shape. Nothing else can move a child's schema.
+            self.deregister_child("input", local_id)
+
         try:
             # Balance would otherwise start at its declared minimum, which is
             # hard left. Centre is the honest starting point, and an input
             # that carries no audio at all keeps it — vMix reports balance
             # only for inputs that have some.
-            self.register_child("input", local_id, initial_state={"balance": 0.0})
+            self.register_child(
+                "input", local_id,
+                initial_state={"balance": 0.0},
+                schema=self._input_schema(wanted),
+            )
         except ValueError as exc:
             log.warning(f"[{self.device_id}] Skipping input {num}: {exc}")
+            return False
+        self._input_text_fields[local_id] = wanted
+        return True
+
+    def _input_schema(self, text_fields: tuple[str, ...]) -> dict[str, Any]:
+        """The state variables one input publishes, title fields included."""
+        schema = dict(INPUT_STATE_VARIABLES)
+        for name in text_fields:
+            if name in schema:
+                log.warning(
+                    f"[{self.device_id}] Title field {name!r} shares its name "
+                    f"with a built-in input property; it can still be set by "
+                    f"typing the name, but it is not in the picker"
+                )
+                continue
+            schema[name] = dict(TEXT_FIELD_VAR)
+
+        if text_fields:
+            # `control` does double duty in the platform: it orders the UI
+            # Builder's value picker AND it scopes the field cascade on Set
+            # Text. On a title that means the fader and mute would be offered
+            # as text fields to write a headline into. An input carrying title
+            # fields is a title, and nobody binds a panel fader to a title's
+            # volume, so the audio half stands down here and the cascade
+            # offers exactly the fields the title has.
+            for name in _AUDIO_CONTROL_VARS:
+                if name in schema and schema[name].get("control"):
+                    var = dict(schema[name])
+                    var.pop("control", None)
+                    schema[name] = var
+        return schema
+
+    def _ensure_mix(self, number: int) -> bool:
+        """Register one of vMix's extra mixes as a child."""
+        if self.is_child_registered("mix", number):
+            return True
+        try:
+            self.register_child("mix", number)
+        except ValueError as exc:
+            log.warning(f"[{self.device_id}] Skipping mix {number}: {exc}")
             return False
         return True
 
@@ -1293,6 +1497,14 @@ class VMixDriver(BaseDriver):
                 continue
             value = params.get(name)
             if value is None or value == "":
+                continue
+            if name == "mix":
+                # vMix's mix number in, the wire's zero-based one out. The main
+                # mix sends no argument at all.
+                wire = mix_to_wire(value)
+                if wire is None:
+                    continue
+                parts.append(f"{key}={wire}")
                 continue
             parts.append(f"{key}={self._encode(value)}")
 
@@ -1568,6 +1780,7 @@ class VMixDriver(BaseDriver):
                     pass
 
         self._parse_inputs(root)
+        self._parse_mixes(root)
         self._parse_overlays(root)
         self._parse_transitions(root)
         self._parse_audio(root)
@@ -1591,7 +1804,17 @@ class VMixDriver(BaseDriver):
                 {"value": num, "label": f"{num}: {title}" if title else num}
             )
 
-            if not self._ensure_input(num):
+            # A title input carries its text fields as children of the input:
+            # <text index="0" name="Headline">Hello</text>. The name is what
+            # SetText's SelectedName wants, so each becomes a state variable
+            # on this child and the value is published under it.
+            texts: dict[str, str] = {}
+            for text_el in inp.findall("text"):
+                field = (text_el.get("name") or "").strip()
+                if field:
+                    texts[field] = text_el.text or ""
+
+            if not self._ensure_input(num, sorted(texts)):
                 continue
 
             updates: dict[str, Any] = {
@@ -1640,6 +1863,12 @@ class VMixDriver(BaseDriver):
             if inp.get("audiobusses") is not None:
                 updates["audio_busses"] = inp.get("audiobusses", "")
 
+            for field, text_value in texts.items():
+                # A field whose name collided with a built-in property has no
+                # variable of its own; _input_schema already said so.
+                if field not in INPUT_STATE_VARIABLES:
+                    updates[field] = text_value
+
             self.set_child_state_batch("input", int(num), updates)
 
         self.set_state("input_count", input_count)
@@ -1656,7 +1885,51 @@ class VMixDriver(BaseDriver):
                 self.deregister_child("input", int(gone))
             except ValueError:
                 pass
+            else:
+                self._input_text_fields.pop(int(gone), None)
         self._known_inputs = seen
+
+    def _parse_mixes(self, root: ET.Element) -> None:
+        """Register vMix's extra mixes and rebuild the Mix picker.
+
+        A <mix> block exists only for a mix the production actually has, so
+        this roster is empty on the ordinary single-mix system. The main mix
+        has no block of its own — it is the document's own active/preview —
+        so it is added to the picker by hand rather than found here.
+        """
+        seen: set[int] = set()
+        options: list[dict[str, str]] = [
+            {"value": str(MAIN_MIX), "label": "Main"}
+        ]
+
+        for mix in root.findall("mix"):
+            raw = mix.get("number", "")
+            if not raw.isdigit():
+                continue
+            number = int(raw)
+            seen.add(number)
+            options.append({"value": raw, "label": f"Mix {raw}"})
+            if not self._ensure_mix(number):
+                continue
+            updates: dict[str, Any] = {}
+            for element, prop in (("active", "active"), ("preview", "preview")):
+                found = mix.find(element)
+                if found is not None and found.text:
+                    try:
+                        updates[prop] = int(found.text.strip())
+                    except ValueError:
+                        pass
+            if updates:
+                self.set_child_state_batch("mix", number, updates)
+
+        for gone in self._known_mixes - seen:
+            try:
+                self.deregister_child("mix", gone)
+            except ValueError:
+                pass
+        self._known_mixes = seen
+
+        self.set_state("mix_list", json.dumps(options))
 
     def _parse_overlays(self, root: ET.Element) -> None:
         overlays = root.find("overlays")

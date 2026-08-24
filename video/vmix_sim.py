@@ -133,11 +133,24 @@ class VmixSimulator(TCPSimulator):
         {"number": 3, "title": "Slides", "type": "PowerPoint",
          "key": "4a627879-4363-41da-babe-1e6dc1062572", "audio": True},
         {"number": 4, "title": "Lower Third", "type": "Title",
-         "key": "6169b34b-296f-4a84-8b32-edd590f8df9b", "audio": False},
+         "key": "6169b34b-296f-4a84-8b32-edd590f8df9b", "audio": False,
+         # A title carries its text fields as <text> children. "Headline"
+         # deliberately sits beside a field called "title", which collides
+         # with the input property of the same name — the case where the
+         # picker has to drop one and say so.
+         "texts": [("Headline", "Welcome"), ("Description", "Room 101"),
+                   ("title", "collides with the input property")]},
     ]
 
     def __init__(self, device_id: str, config: dict | None = None):
         super().__init__(device_id, config)
+        # A per-instance copy of the production. _INPUTS is a class attribute
+        # and the simulator mutates it (renaming an input, retyping a title),
+        # so without this one simulator's edits would follow the next one.
+        self._INPUTS = [
+            dict(entry, texts=list(entry.get("texts", ())))
+            for entry in type(self)._INPUTS
+        ]
         self._tally_subscribers: set[str] = set()
         self._acts_subscribers: set[str] = set()
         # Per-input audio. Volume is held as the FADER position, the scale
@@ -151,6 +164,13 @@ class VmixSimulator(TCPSimulator):
         }
         self._overlays: dict[int, int] = {
             ch: 0 for ch in range(1, _ADDRESSABLE_OVERLAYS + 1)
+        }
+        # vMix's extra mixes, keyed by vMix's own number (the main mix is 1
+        # and lives in the document's top-level active/preview, not here).
+        # Two of them, so a test can tell "the right mix" from "a mix".
+        self._mixes: dict[int, dict[str, int]] = {
+            2: {"active": 0, "preview": 0},
+            3: {"active": 0, "preview": 0},
         }
 
     async def on_client_connected(self, client_id: str) -> bytes | None:
@@ -222,10 +242,44 @@ class VmixSimulator(TCPSimulator):
             return f"FUNCTION ER {result}\r\n".encode("utf-8")
         return b"FUNCTION OK Completed\r\n"
 
+    # The vendor's table names Mix on five functions; the transition effects
+    # it omits were measured taking it too. CutDirect and QuickPlay look like
+    # they should and do not.
+    _MIX_AWARE = {"Cut", "CutDirect", "PreviewInput", "ActiveInput"} | _TRANSITION_EFFECTS
+    _MIX_DEAF = {"CutDirect", "QuickPlay"}
+
+    def _target_mix(self, params: dict) -> int | None:
+        """Which mix a command acts on, as vMix's own number.
+
+        The wire argument counts from zero off the main mix, so Mix=1 is
+        vMix's mix 2. Returns None for the main mix.
+        """
+        raw = params.get("Mix")
+        if raw in (None, ""):
+            return None
+        try:
+            wire = int(raw)
+        except (TypeError, ValueError):
+            return None
+        return None if wire <= 0 else wire + 1
+
     def _execute_function(self, func_name: str, params: dict) -> bool | str:
         """Apply a vMix function. Returns True, or an error message string."""
         input_num = self._resolve_input(params.get("Input"))
         value = params.get("Value")
+
+        mix = self._target_mix(params)
+        if mix is not None and func_name not in self._MIX_DEAF:
+            if mix not in self._mixes:
+                return f"Mix {mix} does not exist"
+            if func_name in self._MIX_AWARE or func_name.startswith("Stinger"):
+                if not self._input_exists(input_num):
+                    return f"Input {input_num} does not exist"
+                if func_name == "PreviewInput":
+                    self._mixes[mix]["preview"] = input_num
+                else:
+                    self._mixes[mix]["active"] = input_num
+                return True
 
         # ── Transitions ──
         if func_name in ("Cut", "CutDirect") or func_name in _TRANSITION_EFFECTS:
@@ -394,6 +448,20 @@ class VmixSimulator(TCPSimulator):
                 return True
 
         # ── Titles ──
+        if func_name == "SetText":
+            entry = self._input_entry(input_num)
+            if entry is None:
+                return f"Input {input_num} does not exist"
+            field = params.get("SelectedName")
+            texts = entry.get("texts")
+            if not texts:
+                return f"Input {input_num} has no text fields"
+            for i, (name, _old) in enumerate(texts):
+                if name == field:
+                    texts[i] = (name, value or "")
+                    return True
+            return f"No text field named {field}"
+
         if func_name == "SetInputName":
             entry = self._input_entry(input_num)
             if entry is None:
@@ -604,7 +672,13 @@ class VmixSimulator(TCPSimulator):
                 inp.set("meterF1", "0")
                 inp.set("meterF2", "0")
                 inp.set("gainDb", str(audio["gain_db"]))
-            inp.text = entry["title"]
+            for index, (name, value) in enumerate(entry.get("texts", ())):
+                text_el = ET.SubElement(inp, "text")
+                text_el.set("index", str(index))
+                text_el.set("name", name)
+                text_el.text = value
+            if not entry.get("texts"):
+                inp.text = entry["title"]
 
         overlays_el = ET.SubElement(root, "overlays")
         for channel in range(1, _XML_OVERLAY_SLOTS + 1):
@@ -636,6 +710,12 @@ class VmixSimulator(TCPSimulator):
             ("fullscreen", "fullscreen"),
         ):
             ET.SubElement(root, element).text = str(self.state.get(key, False))
+
+        for number in sorted(self._mixes):
+            mix_el = ET.SubElement(root, "mix")
+            mix_el.set("number", str(number))
+            ET.SubElement(mix_el, "preview").text = str(self._mixes[number]["preview"])
+            ET.SubElement(mix_el, "active").text = str(self._mixes[number]["active"])
 
         audio_el = ET.SubElement(root, "audio")
         master = ET.SubElement(audio_el, "master")

@@ -1,28 +1,59 @@
 """
 vMix Video Production Software — Simulator
 
-Full-featured vMix TCP API simulator with:
-  - FUNCTION command handling (Cut, Fade, PreviewInput, etc.)
-  - XML state query with length-prefixed response
-  - TALLY subscription with real-time push updates
-  - ACTS subscription acknowledgment
-  - Recording, streaming, external output, fade-to-black state
-  - Input tracking (program, preview, per-input tally)
-  - Overlay channel management
-  - Audio state tracking
-  - Controls schema for Simulator UI
+Models the vMix TCP API on port 8099:
+  - VERSION greeting sent the moment a client connects, before anything is asked
+  - FUNCTION command handling (Cut, Fade, PreviewInput, OverlayInput3In, ...)
+  - XML state query with a length-prefixed response
+  - XMLTEXT XPath lookups
+  - TALLY subscription with push on every tally change
+  - ACTS subscription with push on overlay, recording, fade-to-black and audio
+  - Controls schema for the Simulator UI
 
-Protocol: TCP text on port 8099.
-  Commands:  FUNCTION <name> <params>\r\n
-  Responses: FUNCTION OK\r\n  or  FUNCTION <n> ER <msg>\r\n
-  XML query: XML\r\n -> XML <length>\r\n<xml_body>
-  Tally sub: SUBSCRIBE TALLY\r\n -> TALLY OK <tally_string>\r\n (push)
+Three details here are modelled the way vMix 29 actually behaves rather than the
+way its documentation reads, because each one hid a bug in this driver:
+
+1. version, edition, active and preview are child ELEMENTS of <vmix>. The root
+   carries no attributes at all. A simulator that wrote them as attributes
+   agreed with a driver that read them as attributes, and both were wrong.
+2. An unknown FUNCTION name is answered "FUNCTION OK Completed", exactly like a
+   real one. vMix never reports a bad function name over TCP, which is how six
+   commands in this driver sat dead and green for months. The simulator keeps
+   that behaviour on purpose — a simulator that rejected unknown names would
+   make this driver's tests pass where the device would not. What guards the
+   names instead is tests/test_vmix_driver.py, which checks every function the
+   driver can emit against the vendor's published function list.
+3. Only inputs that carry audio report any audio attributes. Input 1 here is a
+   Colour input with none, which is the case that reads as "muted, volume 0" to
+   anyone who assumes the attributes are always present.
 """
 
 import asyncio
 import xml.etree.ElementTree as ET
+from urllib.parse import unquote_plus
 
 from openavc.simulator.tcp_simulator import TCPSimulator
+
+# vMix lists sixteen overlay channels in its XML but only addresses eight.
+_XML_OVERLAY_SLOTS = 16
+_ADDRESSABLE_OVERLAYS = 8
+
+_TRANSITION_EFFECTS = {
+    "Fade", "Zoom", "Wipe", "Slide", "Fly", "CrossZoom", "FlyRotate", "Cube",
+    "CubeZoom", "VerticalWipe", "VerticalSlide", "Merge", "WipeReverse",
+    "SlideReverse", "VerticalWipeReverse", "VerticalSlideReverse",
+}
+
+
+def fader_to_amplitude(fader: float) -> float:
+    """What vMix reports for a fader position.
+
+    vMix takes the fader position on every write and reports the resulting
+    linear amplitude everywhere else. Measured against vMix 29 at
+    0/10/25/50/75/90/100 and exact at each: writing 50 reads back 6.25.
+    """
+    fader = max(0.0, min(float(fader), 100.0))
+    return round((fader / 100.0) ** 4 * 100.0, 6)
 
 
 class VmixSimulator(TCPSimulator):
@@ -40,9 +71,16 @@ class VmixSimulator(TCPSimulator):
             "recording": False,
             "streaming": False,
             "external": False,
-            "fadeToBlack": False,
+            "multicorder": False,
+            "fullscreen": False,
+            "playlist": False,
+            "fade_to_black": False,
             "input_count": 4,
-            "version": "27.0.0.48",
+            "version": "29.0.0.49",
+            "edition": "4K",
+            "master_volume": 100,
+            "master_muted": False,
+            "headphones_volume": 100,
         },
         "delays": {
             "command_response": 0.02,
@@ -68,55 +106,57 @@ class VmixSimulator(TCPSimulator):
                 "options": ["1", "2", "3", "4"],
                 "labels": {"1": "Input 1", "2": "Input 2", "3": "Input 3", "4": "Input 4"},
             },
+            {"type": "toggle", "key": "recording", "label": "Recording"},
+            {"type": "toggle", "key": "streaming", "label": "Streaming"},
+            {"type": "toggle", "key": "external", "label": "External Output"},
+            {"type": "toggle", "key": "fade_to_black", "label": "Fade to Black"},
+            {"type": "toggle", "key": "master_muted", "label": "Master Muted"},
             {
-                "type": "toggle",
-                "key": "recording",
-                "label": "Recording",
-            },
-            {
-                "type": "toggle",
-                "key": "streaming",
-                "label": "Streaming",
-            },
-            {
-                "type": "toggle",
-                "key": "external",
-                "label": "External Output",
-            },
-            {
-                "type": "toggle",
-                "key": "fadeToBlack",
-                "label": "Fade to Black",
+                "type": "slider",
+                "key": "master_volume",
+                "label": "Master Volume",
+                "min": 0,
+                "max": 100,
+                "unit": "%",
             },
         ],
     }
 
-    # Input names for the simulated production
-    _INPUT_NAMES = {
-        1: "Camera 1",
-        2: "Camera 2",
-        3: "Slides",
-        4: "Lower Third",
-    }
+    # The simulated production. Input 1 deliberately carries no audio at all:
+    # that is the case a driver gets wrong when it assumes every input reports
+    # a volume and a mute.
+    _INPUTS = [
+        {"number": 1, "title": "Colour", "type": "Colour",
+         "key": "3fa81c6c-3f46-4c4e-b8b2-d8555006ab1c", "audio": False},
+        {"number": 2, "title": "Camera 2", "type": "Capture",
+         "key": "be15de8a-8d3e-41a6-b82f-cfb54bee6f8f", "audio": True},
+        {"number": 3, "title": "Slides", "type": "PowerPoint",
+         "key": "4a627879-4363-41da-babe-1e6dc1062572", "audio": True},
+        {"number": 4, "title": "Lower Third", "type": "Title",
+         "key": "6169b34b-296f-4a84-8b32-edd590f8df9b", "audio": False},
+    ]
 
     def __init__(self, device_id: str, config: dict | None = None):
         super().__init__(device_id, config)
         self._tally_subscribers: set[str] = set()
         self._acts_subscribers: set[str] = set()
-        # Per-input audio state
-        self._input_audio: dict[int, dict] = {}
-        for i in range(1, 5):
-            self._input_audio[i] = {
-                "muted": False,
-                "volume": 100,
-                "solo": False,
+        # Per-input audio. Volume is held as the FADER position, the scale
+        # every write uses; the XML emits the amplitude vMix would report.
+        self._input_audio: dict[int, dict] = {
+            inp["number"]: {
+                "muted": False, "volume": 100.0, "balance": 0.0, "gain_db": 0.0,
+                "solo": False, "solo_pfl": False, "busses": "M",
             }
-        self._master_audio = True
-        self._master_volume = 100
-        # Overlay state: channel -> input number (0 = off)
-        self._overlays: dict[int, int] = {1: 0, 2: 0, 3: 0, 4: 0}
-        # Error counter for generating error responses
-        self._error_counter = 0
+            for inp in self._INPUTS if inp["audio"]
+        }
+        self._overlays: dict[int, int] = {
+            ch: 0 for ch in range(1, _ADDRESSABLE_OVERLAYS + 1)
+        }
+
+    async def on_client_connected(self, client_id: str) -> bytes | None:
+        """vMix announces its version before the client asks anything."""
+        version = self.state.get("version", "29.0.0.49")
+        return f"VERSION OK {version}\r\n".encode("utf-8")
 
     def handle_command(self, data: bytes) -> bytes | None:
         """Parse a vMix TCP command and return the response."""
@@ -124,26 +164,31 @@ class VmixSimulator(TCPSimulator):
         if not text:
             return None
 
-        # XML state request
         if text == "XML":
             return self._build_xml_response()
 
-        # Subscription commands
+        if text.startswith("XMLTEXT"):
+            return self._handle_xmltext(text)
+
         if text.startswith("SUBSCRIBE"):
             return self._handle_subscribe(text)
+
         if text.startswith("UNSUBSCRIBE"):
             return self._handle_unsubscribe(text)
 
-        # FUNCTION commands
         if text.startswith("FUNCTION"):
             return self._handle_function(text)
 
-        # VERSION query
         if text == "VERSION":
-            version = self.state.get("version", "27.0.0.48")
+            version = self.state.get("version", "29.0.0.49")
             return f"VERSION OK {version}\r\n".encode("utf-8")
 
-        return None
+        if text == "QUIT":
+            return b"QUIT OK\r\n"
+
+        # vMix names the command back when it doesn't know it.
+        command = text.split(" ", 1)[0]
+        return f"{command} ER Unknown Command\r\n".encode("utf-8")
 
     # ── FUNCTION command handling ──
 
@@ -151,287 +196,256 @@ class VmixSimulator(TCPSimulator):
         """
         Parse and execute a FUNCTION command.
 
-        Format: FUNCTION <FunctionName> <Param1=Value1&Param2=Value2>
-        Response: FUNCTION OK\r\n  or  FUNCTION 0 ER <message>\r\n
+        Format:   FUNCTION <FunctionName> [Param=Value&Param2=Value2]
+        Response: FUNCTION OK Completed  or  FUNCTION ER <message>
+
+        A function this simulator does not implement still answers OK, because
+        that is what vMix does — see the module docstring.
         """
         parts = text.split(" ", 2)
         if len(parts) < 2:
-            return b"FUNCTION 0 ER Invalid command\r\n"
+            return b"FUNCTION ER Invalid command\r\n"
 
         func_name = parts[1]
         query_str = parts[2] if len(parts) > 2 else ""
 
-        # Parse query parameters (Key=Value&Key2=Value2)
         params = {}
         if query_str:
             for pair in query_str.split("&"):
                 if "=" in pair:
                     key, value = pair.split("=", 1)
-                    params[key] = value
+                    # The driver percent-encodes every value, as vMix requires.
+                    params[key] = unquote_plus(value)
 
         result = self._execute_function(func_name, params)
-        if result is True:
-            return b"FUNCTION OK\r\n"
-        elif isinstance(result, str):
-            # Error message
-            self._error_counter += 1
-            return f"FUNCTION {self._error_counter} ER {result}\r\n".encode("utf-8")
-        else:
-            return b"FUNCTION OK\r\n"
+        if isinstance(result, str):
+            return f"FUNCTION ER {result}\r\n".encode("utf-8")
+        return b"FUNCTION OK Completed\r\n"
 
     def _execute_function(self, func_name: str, params: dict) -> bool | str:
-        """
-        Execute a vMix function. Returns True on success, or an error message string.
-        Updates simulator state as appropriate.
-        """
+        """Apply a vMix function. Returns True, or an error message string."""
         input_num = self._resolve_input(params.get("Input"))
-        input_count = self.state.get("input_count", 4)
+        value = params.get("Value")
 
         # ── Transitions ──
-
-        if func_name == "Cut":
-            # Cut to specified input (or current preview if no input given)
+        if func_name in ("Cut", "CutDirect") or func_name in _TRANSITION_EFFECTS:
             target = input_num if input_num else self.state.get("preview", 1)
-            if target < 1 or target > input_count:
+            if not self._input_exists(target):
                 return f"Input {target} does not exist"
             old_active = self.state.get("active", 1)
             self.set_state("active", target)
-            # Move old program to preview
-            self.set_state("preview", old_active)
+            if func_name != "CutDirect":
+                self.set_state("preview", old_active)
             self._push_tally()
+            self._push_act("Input", target, 1)
+            self._push_act("InputPreview", self.state.get("preview", 1), 1)
             return True
 
-        if func_name == "Fade":
-            target = input_num if input_num else self.state.get("preview", 1)
-            if target < 1 or target > input_count:
-                return f"Input {target} does not exist"
-            old_active = self.state.get("active", 1)
-            self.set_state("active", target)
-            self.set_state("preview", old_active)
-            self._push_tally()
-            return True
+        if func_name.startswith("Transition") and func_name[10:].isdigit():
+            return self._execute_function("Cut", params)
 
-        if func_name == "CutDirect":
-            if not input_num:
-                return "Input parameter required"
-            if input_num < 1 or input_num > input_count:
-                return f"Input {input_num} does not exist"
-            self.set_state("active", input_num)
-            self._push_tally()
-            return True
+        if func_name.startswith("Stinger") and func_name[7:].isdigit():
+            return self._execute_function("Cut", params)
 
         if func_name == "FadeToBlack":
-            current = self.state.get("fadeToBlack", False)
-            self.set_state("fadeToBlack", not current)
-            return True
-
-        if func_name in ("Transition", "Stinger"):
-            target = input_num if input_num else self.state.get("preview", 1)
-            if target < 1 or target > input_count:
-                return f"Input {target} does not exist"
-            old_active = self.state.get("active", 1)
-            self.set_state("active", target)
-            self.set_state("preview", old_active)
-            self._push_tally()
+            new = not self.state.get("fade_to_black", False)
+            self.set_state("fade_to_black", new)
+            self._push_act("FadeToBlack", None, 1 if new else 0)
             return True
 
         if func_name == "SetFader":
-            # T-bar position — just acknowledge
             return True
 
-        # ── Input Switching ──
-
-        if func_name == "PreviewInput":
-            if not input_num:
-                return "Input parameter required"
-            if input_num < 1 or input_num > input_count:
+        # ── Input switching ──
+        if func_name in ("PreviewInput", "QuickPlay", "ActiveInput"):
+            if not self._input_exists(input_num):
                 return f"Input {input_num} does not exist"
-            self.set_state("preview", input_num)
+            if func_name == "PreviewInput":
+                self.set_state("preview", input_num)
+                self._push_act("InputPreview", input_num, 1)
+            else:
+                self.set_state("active", input_num)
+                self._push_act("Input", input_num, 1)
             self._push_tally()
             return True
 
-        if func_name == "ActiveInput":
-            if not input_num:
-                return "Input parameter required"
-            if input_num < 1 or input_num > input_count:
-                return f"Input {input_num} does not exist"
-            self.set_state("active", input_num)
-            self._push_tally()
-            return True
-
-        if func_name == "PreviewInputNext":
+        if func_name in ("PreviewInputNext", "PreviewInputPrevious"):
+            count = len(self._INPUTS)
+            step = 1 if func_name.endswith("Next") else -1
             current = self.state.get("preview", 1)
-            next_input = current + 1 if current < input_count else 1
-            self.set_state("preview", next_input)
+            self.set_state("preview", ((current - 1 + step) % count) + 1)
             self._push_tally()
-            return True
-
-        if func_name == "PreviewInputPrevious":
-            current = self.state.get("preview", 1)
-            prev_input = current - 1 if current > 1 else input_count
-            self.set_state("preview", prev_input)
-            self._push_tally()
-            return True
-
-        # ── Audio ──
-
-        if func_name == "Audio":
-            if input_num and input_num in self._input_audio:
-                self._input_audio[input_num]["muted"] = not self._input_audio[input_num]["muted"]
-            return True
-
-        if func_name == "AudioOn":
-            if input_num and input_num in self._input_audio:
-                self._input_audio[input_num]["muted"] = False
-            return True
-
-        if func_name == "AudioOff":
-            if input_num and input_num in self._input_audio:
-                self._input_audio[input_num]["muted"] = True
-            return True
-
-        if func_name == "SetVolume":
-            if input_num and input_num in self._input_audio:
-                try:
-                    vol = int(params.get("Value", 100))
-                    self._input_audio[input_num]["volume"] = max(0, min(100, vol))
-                except ValueError:
-                    pass
-            return True
-
-        if func_name == "SetVolumeFade":
-            # Fade to volume — just set it immediately in the simulator
-            if input_num and input_num in self._input_audio:
-                try:
-                    vol = int(params.get("Value", 100))
-                    self._input_audio[input_num]["volume"] = max(0, min(100, vol))
-                except ValueError:
-                    pass
-            return True
-
-        if func_name == "SetGain":
-            # Acknowledge gain changes
-            return True
-
-        if func_name == "SetBalance":
-            # Acknowledge balance changes
-            return True
-
-        if func_name == "Solo":
-            if input_num and input_num in self._input_audio:
-                self._input_audio[input_num]["solo"] = not self._input_audio[input_num]["solo"]
-            return True
-
-        # Bus audio commands (BusAAudio, BusBAudioOn, etc.)
-        if func_name.startswith("Bus") and "Audio" in func_name:
-            return True
-
-        if func_name.startswith("SetBus") and "Volume" in func_name:
-            return True
-
-        if func_name == "MasterAudio":
-            self._master_audio = not self._master_audio
-            return True
-
-        if func_name == "MasterAudioOn":
-            self._master_audio = True
-            return True
-
-        if func_name == "MasterAudioOff":
-            self._master_audio = False
-            return True
-
-        if func_name == "SetMasterVolume":
-            try:
-                vol = int(params.get("Value", 100))
-                self._master_volume = max(0, min(100, vol))
-            except ValueError:
-                pass
             return True
 
         # ── Overlays ──
+        if func_name.startswith("OverlayInput"):
+            return self._execute_overlay(func_name, input_num)
 
-        if func_name == "OverlayInput":
-            channel = self._resolve_int(params.get("Value"))
-            if channel and 1 <= channel <= 4 and input_num:
-                if self._overlays.get(channel) == input_num:
-                    self._overlays[channel] = 0  # Toggle off
-                else:
-                    self._overlays[channel] = input_num
+        # ── Audio ──
+        if func_name in ("Audio", "AudioOn", "AudioOff"):
+            audio = self._input_audio.get(input_num)
+            if audio is None:
+                return f"Input {input_num} has no audio"
+            audio["muted"] = (
+                not audio["muted"] if func_name == "Audio" else func_name == "AudioOff"
+            )
+            self._push_act("InputAudio", input_num, 0 if audio["muted"] else 1)
             return True
 
-        if func_name == "OverlayInputIn":
-            channel = self._resolve_int(params.get("Value"))
-            if channel and 1 <= channel <= 4 and input_num:
-                self._overlays[channel] = input_num
+        if func_name in ("SetVolume", "SetVolumeFade"):
+            audio = self._input_audio.get(input_num)
+            if audio is None:
+                return f"Input {input_num} has no audio"
+            raw = (value or "").split(",")[0] if func_name == "SetVolumeFade" else value
+            if func_name == "SetVolumeFade" and "," not in (value or ""):
+                # vMix wants "volume,milliseconds" in one Value and rejects
+                # anything else outright.
+                return "Value must be Volume,Milliseconds"
+            level = self._as_float(raw)
+            if level is None:
+                return "Invalid volume"
+            audio["volume"] = max(0.0, min(level, 100.0))
+            self._push_act("InputVolume", input_num, fader_to_amplitude(audio["volume"]) / 100.0)
             return True
 
-        if func_name == "OverlayInputOut":
-            channel = self._resolve_int(params.get("Value"))
-            if channel and 1 <= channel <= 4:
-                self._overlays[channel] = 0
+        if func_name in ("SetGain", "SetBalance"):
+            audio = self._input_audio.get(input_num)
+            if audio is None:
+                return f"Input {input_num} has no audio"
+            level = self._as_float(value)
+            if level is None:
+                return "Invalid value"
+            if func_name == "SetGain":
+                audio["gain_db"] = max(0.0, min(level, 24.0))
+            else:
+                audio["balance"] = max(-1.0, min(level, 1.0))
             return True
 
-        if func_name == "OverlayInputOff":
-            channel = self._resolve_int(params.get("Value"))
-            if channel and 1 <= channel <= 4:
-                self._overlays[channel] = 0
+        if func_name in ("Solo", "SoloOn", "SoloOff"):
+            audio = self._input_audio.get(input_num)
+            if audio is None:
+                return f"Input {input_num} has no audio"
+            audio["solo"] = (
+                not audio["solo"] if func_name == "Solo" else func_name == "SoloOn"
+            )
+            self._push_act("InputSolo", input_num, 1 if audio["solo"] else 0)
             return True
 
-        if func_name == "OverlayInputAllOff":
-            for ch in self._overlays:
-                self._overlays[ch] = 0
+        if func_name == "SoloAllOff":
+            for audio in self._input_audio.values():
+                audio["solo"] = False
             return True
 
-        # ── Recording / Streaming / External ──
-
-        if func_name == "StartRecording":
-            self.set_state("recording", True)
+        if func_name in ("AudioBusOn", "AudioBusOff"):
+            audio = self._input_audio.get(input_num)
+            if audio is None:
+                return f"Input {input_num} has no audio"
+            busses = [b for b in audio["busses"].split(",") if b]
+            bus = (value or "").upper()
+            if func_name == "AudioBusOn" and bus not in busses:
+                busses.append(bus)
+            elif func_name == "AudioBusOff" and bus in busses:
+                busses.remove(bus)
+            audio["busses"] = ",".join(busses)
             return True
 
-        if func_name == "StopRecording":
-            self.set_state("recording", False)
+        if func_name in ("MasterAudio", "MasterAudioOn", "MasterAudioOff"):
+            muted = self.state.get("master_muted", False)
+            new = not muted if func_name == "MasterAudio" else func_name == "MasterAudioOff"
+            self.set_state("master_muted", new)
+            self._push_act("MasterAudio", None, 0 if new else 1)
             return True
 
-        if func_name == "StartStreaming":
-            self.set_state("streaming", True)
+        if func_name in ("SetMasterVolume", "SetMasterVolumeFade"):
+            raw = (value or "").split(",")[0]
+            if func_name == "SetMasterVolumeFade" and "," not in (value or ""):
+                return "Value must be Volume,Milliseconds"
+            level = self._as_float(raw)
+            if level is None:
+                return "Invalid volume"
+            level = max(0.0, min(level, 100.0))
+            self.set_state("master_volume", level)
+            self._push_act("MasterVolume", None, fader_to_amplitude(level) / 100.0)
             return True
 
-        if func_name == "StopStreaming":
-            self.set_state("streaming", False)
+        if func_name == "SetHeadphonesVolume":
+            level = self._as_float(value)
+            if level is None:
+                return "Invalid volume"
+            level = max(0.0, min(level, 100.0))
+            self.set_state("headphones_volume", level)
+            self._push_act("MasterHeadphones", None, fader_to_amplitude(level) / 100.0)
             return True
 
-        if func_name == "StartExternal":
-            self.set_state("external", True)
-            return True
-
-        if func_name == "StopExternal":
-            self.set_state("external", False)
-            return True
-
-        # ── Snapshot / Titles / Countdown / Playback / Replay / PTZ ──
-        # These are all fire-and-forget commands in vMix. Accept them silently.
-
-        if func_name in (
-            "Snapshot", "SnapshotInput",
-            "SetText", "SetImage", "SetCountdown",
-            "StartCountdown", "StopCountdown",
-            "Play", "Pause", "PlayPause", "Restart",
-            "LoopOn", "LoopOff", "SetPosition", "SetRate",
-            "ReplayPlay", "ReplayPause",
-            "ReplayMarkIn", "ReplayMarkOut", "ReplayMarkInOut",
-            "ReplayLive", "ReplayRecorded", "ReplaySetSpeed",
-            "ReplayPlayLastEvent",
-            "PTZMoveUp", "PTZMoveDown", "PTZMoveLeft", "PTZMoveRight",
-            "PTZMoveStop", "PTZZoomIn", "PTZZoomOut", "PTZZoomStop",
-            "PTZHome", "PTZFocusAuto",
-            "AddInput", "RemoveInput", "SetInputName",
-            "SelectIndex", "NextItem", "PreviousItem",
-            "BrowserNavigate", "ScriptStart", "ScriptStop",
+        # ── Recording / streaming / outputs ──
+        for prefix, key, activator in (
+            ("Recording", "recording", "Recording"),
+            ("Streaming", "streaming", "Streaming"),
+            ("External", "external", "External"),
+            ("MultiCorder", "multicorder", "MultiCorder"),
         ):
+            if func_name == f"Start{prefix}":
+                self.set_state(key, True)
+                self._push_act(activator, None, 1)
+                return True
+            if func_name == f"Stop{prefix}":
+                self.set_state(key, False)
+                self._push_act(activator, None, 0)
+                return True
+
+        # ── Titles ──
+        if func_name == "SetInputName":
+            entry = self._input_entry(input_num)
+            if entry is None:
+                return f"Input {input_num} does not exist"
+            entry["title"] = value or ""
             return True
 
-        # Unknown function — still return OK (vMix is permissive)
+        # Everything else is accepted the way vMix accepts it, including
+        # function names that do not exist. See the module docstring.
+        return True
+
+    def _execute_overlay(self, func_name: str, input_num: int | None) -> bool | str:
+        """Handle the OverlayInput<N>[In|Out|Off|Zoom] family."""
+        if func_name == "OverlayInputAllOff":
+            for channel in self._overlays:
+                if self._overlays[channel]:
+                    self._overlays[channel] = 0
+                    self._push_act("Overlay", channel, 0, extra=0)
+            self._push_tally()
+            return True
+
+        suffix = func_name[len("OverlayInput"):]
+        digits = ""
+        for ch in suffix:
+            if not ch.isdigit():
+                break
+            digits += ch
+        if not digits:
+            return True
+        channel = int(digits)
+        if channel not in self._overlays:
+            return True
+        action = suffix[len(digits):]
+
+        if action in ("Off", "Out"):
+            showing = self._overlays[channel]
+            self._overlays[channel] = 0
+            self._push_act("Overlay", channel, 0, extra=showing or 1)
+        elif action == "Zoom":
+            return True
+        else:  # "" (toggle) or "In"
+            if input_num is None:
+                return "No Input specified"
+            if not self._input_exists(input_num):
+                return f"Input {input_num} does not exist"
+            if action == "" and self._overlays[channel] == input_num:
+                self._overlays[channel] = 0
+                self._push_act("Overlay", channel, 0, extra=input_num)
+            else:
+                self._overlays[channel] = input_num
+                self._push_act("Overlay", channel, 1, extra=input_num)
+        self._push_tally()
         return True
 
     # ── Subscriptions ──
@@ -440,23 +454,24 @@ class VmixSimulator(TCPSimulator):
         """Handle SUBSCRIBE commands."""
         parts = text.split()
         if len(parts) < 2:
-            return b"SUBSCRIBE OK\r\n"
+            return b"SUBSCRIBE ER Invalid command\r\n"
 
         topic = parts[1].upper()
 
         if topic == "TALLY":
-            # Store that this connection wants tally pushes.
-            # Since TCPSimulator broadcasts via push(), we just
-            # need to track that at least one client is subscribed.
             self._tally_subscribers.add("active")
             tally_str = self._build_tally_string()
-            return f"SUBSCRIBE OK TALLY\r\nTALLY OK {tally_str}\r\n".encode("utf-8")
+            return (
+                f"SUBSCRIBE OK TALLY Subscribed\r\nTALLY OK {tally_str}\r\n"
+            ).encode("utf-8")
 
         if topic == "ACTS":
+            # vMix sends no snapshot on subscribe: events start at the next
+            # change, which is why the driver still seeds itself from XML.
             self._acts_subscribers.add("active")
-            return b"SUBSCRIBE OK ACTS\r\n"
+            return b"SUBSCRIBE OK ACTS Subscribed\r\n"
 
-        return b"SUBSCRIBE OK\r\n"
+        return b"SUBSCRIBE ER Invalid Command\r\n"
 
     def _handle_unsubscribe(self, text: str) -> bytes:
         """Handle UNSUBSCRIBE commands."""
@@ -465,9 +480,11 @@ class VmixSimulator(TCPSimulator):
             topic = parts[1].upper()
             if topic == "TALLY":
                 self._tally_subscribers.discard("active")
-            elif topic == "ACTS":
+                return b"UNSUBSCRIBE OK TALLY\r\n"
+            if topic == "ACTS":
                 self._acts_subscribers.discard("active")
-        return b"UNSUBSCRIBE OK\r\n"
+                return b"UNSUBSCRIBE OK ACTS\r\n"
+        return b"UNSUBSCRIBE ER Invalid Command\r\n"
 
     # ── Tally ──
 
@@ -477,13 +494,17 @@ class VmixSimulator(TCPSimulator):
         0 = safe (not in program or preview)
         1 = program (live)
         2 = preview
+
+        An input showing on an overlay is live too, which is why the first "1"
+        in this string is not reliably the program input.
         """
         active = self.state.get("active", 1)
         preview = self.state.get("preview", 2)
-        input_count = self.state.get("input_count", 4)
+        on_overlay = {num for num in self._overlays.values() if num}
         chars = []
-        for i in range(1, input_count + 1):
-            if i == active:
+        for inp in self._INPUTS:
+            i = inp["number"]
+            if i == active or i in on_overlay:
                 chars.append("1")
             elif i == preview:
                 chars.append("2")
@@ -495,9 +516,28 @@ class VmixSimulator(TCPSimulator):
         """Push a tally update to all subscribed clients."""
         if not self._tally_subscribers:
             return
-        tally_str = self._build_tally_string()
-        msg = f"TALLY OK {tally_str}\r\n".encode("utf-8")
+        msg = f"TALLY OK {self._build_tally_string()}\r\n".encode("utf-8")
         asyncio.ensure_future(self.push(msg))
+
+    def _push_act(
+        self, name: str, input_num: int | None, value, *, extra: int | None = None
+    ) -> None:
+        """Push one activator event.
+
+        Global activators are "ACTS OK <Name> <value>"; input-scoped ones carry
+        the input number in the middle. Overlays are the odd one out: the middle
+        token is the input assigned to the channel and the name carries the
+        channel, so they pass ``extra``.
+        """
+        if not self._acts_subscribers:
+            return
+        if name == "Overlay":
+            line = f"ACTS OK Overlay{input_num} {extra} {value}"
+        elif input_num is None:
+            line = f"ACTS OK {name} {value}"
+        else:
+            line = f"ACTS OK {name} {input_num} {value}"
+        asyncio.ensure_future(self.push(f"{line}\r\n".encode("utf-8")))
 
     # ── XML state response ──
 
@@ -506,98 +546,143 @@ class VmixSimulator(TCPSimulator):
         Build the XML state response.
 
         Format: XML <length>\r\n<xml_body>
-        The driver parses this with a custom frame parser that reads
-        the length header, then consumes that many bytes of XML body.
+
+        vMix counts the trailing CRLF in the length, so the body it promises is
+        two bytes longer than the document itself. A driver that frames on the
+        length alone must tolerate that trailer.
         """
-        xml_body = self._build_xml_body()
-        xml_bytes = xml_body.encode("utf-8")
-        header = f"XML {len(xml_bytes)}\r\n".encode("utf-8")
-        return header + xml_bytes
+        xml_body = self._build_xml_body().encode("utf-8") + b"\r\n"
+        header = f"XML {len(xml_body)}\r\n".encode("utf-8")
+        return header + xml_body
+
+    def _handle_xmltext(self, text: str) -> bytes:
+        """Answer the handful of XPath lookups worth simulating."""
+        parts = text.split(" ", 1)
+        path = parts[1].strip() if len(parts) > 1 else ""
+        answers = {
+            "vmix/version": str(self.state.get("version", "29.0.0.49")),
+            "vmix/edition": str(self.state.get("edition", "4K")),
+            "vmix/active": str(self.state.get("active", 1)),
+            "vmix/preview": str(self.state.get("preview", 2)),
+        }
+        if path in answers:
+            return f"XMLTEXT OK {answers[path]}\r\n".encode("utf-8")
+        return b"XMLTEXT ER XML Entry Not Found\r\n"
 
     def _build_xml_body(self) -> str:
         """
         Build the vMix XML state document.
 
-        The driver parses these elements:
-          - <vmix> root: version, active, preview attributes
-          - <recording>, <streaming>, <external>, <fadeToBlack> text elements
-          - <inputs> with <input> children (number, title, type, state, muted, loop, position, duration)
-          - <overlays> with <overlay> children (number attribute, text = input number)
-          - <transitions> with <transition> children (number, effect, duration)
+        Shape matters here: version, edition, active, preview and the status
+        booleans are child ELEMENTS. The <vmix> root has no attributes.
         """
-        active = self.state.get("active", 1)
-        preview = self.state.get("preview", 2)
-        version = self.state.get("version", "27.0.0.48")
-        recording = self.state.get("recording", False)
-        streaming = self.state.get("streaming", False)
-        external = self.state.get("external", False)
-        ftb = self.state.get("fadeToBlack", False)
-        input_count = self.state.get("input_count", 4)
-
         root = ET.Element("vmix")
-        root.set("version", version)
-        root.set("active", str(active))
-        root.set("preview", str(preview))
+        ET.SubElement(root, "version").text = str(self.state.get("version", "29.0.0.49"))
+        ET.SubElement(root, "edition").text = str(self.state.get("edition", "4K"))
 
-        # Recording / streaming / external / FTB
-        ET.SubElement(root, "recording").text = str(recording)
-        ET.SubElement(root, "streaming").text = str(streaming)
-        ET.SubElement(root, "external").text = str(external)
-        ET.SubElement(root, "fadeToBlack").text = str(ftb)
-
-        # Inputs
         inputs_el = ET.SubElement(root, "inputs")
-        for i in range(1, input_count + 1):
+        for entry in self._INPUTS:
+            number = entry["number"]
             inp = ET.SubElement(inputs_el, "input")
-            inp.set("number", str(i))
-            inp.set("title", self._INPUT_NAMES.get(i, f"Input {i}"))
-            inp.set("type", "Capture" if i <= 2 else "Image")
-            inp.set("state", "Running")
-            audio = self._input_audio.get(i, {})
-            inp.set("muted", str(audio.get("muted", False)))
-            inp.set("loop", "False")
+            inp.set("key", entry["key"])
+            inp.set("number", str(number))
+            inp.set("type", entry["type"])
+            inp.set("title", entry["title"])
+            inp.set("shortTitle", entry["title"])
+            inp.set("state", "Running" if number == self.state.get("active") else "Paused")
             inp.set("position", "0")
             inp.set("duration", "0")
+            inp.set("loop", "False")
+            audio = self._input_audio.get(number)
+            if audio is not None:
+                inp.set("muted", str(audio["muted"]))
+                inp.set("volume", str(fader_to_amplitude(audio["volume"])))
+                inp.set("balance", str(audio["balance"]))
+                inp.set("solo", str(audio["solo"]))
+                inp.set("soloPFL", str(audio["solo_pfl"]))
+                inp.set("audiobusses", audio["busses"])
+                inp.set("meterF1", "0")
+                inp.set("meterF2", "0")
+                inp.set("gainDb", str(audio["gain_db"]))
+            inp.text = entry["title"]
 
-        # Overlays
         overlays_el = ET.SubElement(root, "overlays")
-        for ch in range(1, 5):
+        for channel in range(1, _XML_OVERLAY_SLOTS + 1):
             ov = ET.SubElement(overlays_el, "overlay")
-            ov.set("number", str(ch))
-            ov_input = self._overlays.get(ch, 0)
-            ov.text = str(ov_input) if ov_input else ""
+            ov.set("number", str(channel))
+            showing = self._overlays.get(channel, 0)
+            if showing:
+                ov.text = str(showing)
 
-        # Transitions (4 default slots)
+        ET.SubElement(root, "preview").text = str(self.state.get("preview", 2))
+        ET.SubElement(root, "active").text = str(self.state.get("active", 1))
+        ET.SubElement(root, "fadeToBlack").text = str(
+            self.state.get("fade_to_black", False)
+        )
+
         transitions_el = ET.SubElement(root, "transitions")
-        for t_num, effect in enumerate(["Fade", "Merge", "Wipe", "CubeZoom"], start=1):
+        for number, effect in enumerate(["Fade", "Merge", "Wipe", "CubeZoom"], start=1):
             trans = ET.SubElement(transitions_el, "transition")
-            trans.set("number", str(t_num))
+            trans.set("number", str(number))
             trans.set("effect", effect)
-            trans.set("duration", "1000")
+            trans.set("duration", "500" if number == 1 else "1000")
 
-        return ET.tostring(root, encoding="unicode", xml_declaration=True)
+        for element, key in (
+            ("recording", "recording"),
+            ("external", "external"),
+            ("streaming", "streaming"),
+            ("playList", "playlist"),
+            ("multiCorder", "multicorder"),
+            ("fullscreen", "fullscreen"),
+        ):
+            ET.SubElement(root, element).text = str(self.state.get(key, False))
+
+        audio_el = ET.SubElement(root, "audio")
+        master = ET.SubElement(audio_el, "master")
+        master.set("volume", str(fader_to_amplitude(self.state.get("master_volume", 100))))
+        master.set("muted", str(self.state.get("master_muted", False)))
+        master.set("meterF1", "0")
+        master.set("meterF2", "0")
+        master.set(
+            "headphonesVolume",
+            str(fader_to_amplitude(self.state.get("headphones_volume", 100))),
+        )
+
+        return ET.tostring(root, encoding="unicode")
 
     # ── Helpers ──
 
+    def _input_entry(self, number: int | None) -> dict | None:
+        for entry in self._INPUTS:
+            if entry["number"] == number:
+                return entry
+        return None
+
+    def _input_exists(self, number: int | None) -> bool:
+        return self._input_entry(number) is not None
+
     def _resolve_input(self, value: str | None) -> int | None:
-        """Convert an input parameter to an integer, or None if not provided."""
+        """Convert an Input parameter to a number, resolving titles too."""
         if value is None or value == "":
             return None
-        try:
-            return int(value)
-        except ValueError:
-            # Try matching by name
-            for num, name in self._INPUT_NAMES.items():
-                if name.lower() == value.lower():
-                    return num
-            return None
+        number = self._resolve_int(value)
+        if number is not None:
+            return number
+        for entry in self._INPUTS:
+            if entry["title"].lower() == value.lower() or entry["key"] == value:
+                return entry["number"]
+        return None
 
     @staticmethod
     def _resolve_int(value: str | None) -> int | None:
-        """Convert a string to int, or None."""
-        if value is None or value == "":
-            return None
         try:
             return int(value)
-        except ValueError:
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _as_float(value: str | None) -> float | None:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
             return None

@@ -8062,8 +8062,8 @@
       "drivers": [
         {
           "id": "vmix",
-          "confidence": "untested",
-          "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
+          "confidence": "full",
+          "notes": "Verified against vMix 29 (29.0.0.49). Any vMix edition; the TCP API is enabled by default. Bus and Mix features beyond the master bus need a 4K or Pro edition."
         }
       ]
     },

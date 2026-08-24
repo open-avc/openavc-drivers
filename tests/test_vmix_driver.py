@@ -1,8 +1,8 @@
-"""Integration tests for the vMix driver against its TCP simulator.
+"""Integration tests for the vMix driver against its simulator.
 
-Lives next to the driver (``video/vmix.py``): it loads the driver plus a
-standalone vMix TCP simulator (``tests/vmix_simulator.py``) and exercises the
-real connect -> command -> state path, plus the frame parser directly.
+Lives next to the driver (``video/vmix.py``): it loads the driver plus the
+shipped simulator (``video/vmix_sim.py``) and exercises the real connect ->
+command -> state path, plus the frame parser directly.
 
 This drives the actual platform runtime (StateStore, EventBus, BaseDriver,
 TCPTransport), so it needs ``openavc`` importable. ``vmix.py`` also imports
@@ -15,12 +15,23 @@ this module imports the real platform normally.
 
 Integration tests use ``asyncio.run()`` in a sync test, matching the
 chazy/darwin driver tests (this repo has no pytest-asyncio).
+
+One test here does not use the simulator at all, and it is the important one.
+``test_every_function_name_is_real`` checks every shortcut function the driver
+can put on the wire against the vendor's published function list. vMix answers
+"FUNCTION OK Completed" for a function name it has never heard of, so no
+simulator and no round-trip test can catch a misspelled one — six commands in
+this driver were dead for months while every gate stayed green. The simulator
+reproduces that forgiving behaviour on purpose, so the name check has to be a
+separate, static one.
 """
 
 from __future__ import annotations
 
 import asyncio
 import importlib.util
+import json
+import re
 from pathlib import Path
 
 import pytest
@@ -41,7 +52,7 @@ try:
     from openavc.core.state_store import StateStore
     # vmix.py imports openavc.* at module load, so this also requires the platform.
     _driver_mod = _load_module("_vmix_driver", REPO_ROOT / "video" / "vmix.py")
-    _sim_mod = _load_module("_vmix_simulator", TESTS_DIR / "vmix_simulator.py")
+    _sim_mod = _load_module("_vmix_simulator", REPO_ROOT / "video" / "vmix_sim.py")
 except ModuleNotFoundError:
     pytest.skip(
         "vMix integration test requires the openavc platform "
@@ -52,7 +63,9 @@ except ModuleNotFoundError:
 _parse_vmix_frame = _driver_mod._parse_vmix_frame
 _XML_BODY_PREFIX = _driver_mod._XML_BODY_PREFIX
 VMixDriver = _driver_mod.VMixDriver
-VMixSimulator = _sim_mod.VMixSimulator
+VmixSimulator = _sim_mod.VmixSimulator
+
+DEV = "device.vmix_test."
 
 
 # --- Frame parser unit tests ---
@@ -96,6 +109,25 @@ def test_parse_xml_response():
     assert remaining == b""
 
 
+def test_parse_xml_length_includes_the_trailing_crlf():
+    """vMix counts the CRLF it appends in the length it announces.
+
+    Measured on vMix 29: a 1888-byte document is announced as "XML 1890". The
+    body therefore arrives with a trailer, and the parser must consume exactly
+    what was promised or every frame after it is offset by two bytes.
+    """
+    document = b"<vmix><version>29.0.0.49</version></vmix>"
+    payload = document + b"\r\n"
+    buffer = f"XML {len(payload)}\r\n".encode() + payload + b"TALLY OK 12\r\n"
+
+    msg, remaining = _parse_vmix_frame(buffer)
+    assert msg[len(_XML_BODY_PREFIX):] == payload
+    # The next frame must still line up.
+    msg2, remaining = _parse_vmix_frame(remaining)
+    assert msg2 == b"TALLY OK 12"
+    assert remaining == b""
+
+
 def test_parse_incomplete_xml():
     """Incomplete XML body — parser waits for more data."""
     xml_body = b"<vmix><recording>True</recording></vmix>"
@@ -133,6 +165,156 @@ def test_parse_mixed_messages():
     assert remaining == b""
 
 
+# --- The volume scale ---
+
+
+def test_fader_and_amplitude_are_a_fourth_power_apart():
+    """The write scale and the read scale differ, and by exactly this much.
+
+    Measured against vMix 29: writing 50 reads back 6.25, 75 reads back
+    31.64063, 90 reads back 65.60999.
+    """
+    to_fader = _driver_mod.amplitude_to_fader
+    assert to_fader(0) == 0.0
+    assert to_fader(0.390625) == 25.0
+    assert to_fader(6.25) == 50.0
+    assert to_fader(31.64063) == 75.0
+    assert to_fader(65.60999) == 90.0
+    assert to_fader(100) == 100.0
+
+
+def test_fader_conversion_round_trips_with_the_simulator():
+    """What the simulator reports for a fader position converts back to it."""
+    to_amp = _sim_mod.fader_to_amplitude
+    to_fader = _driver_mod.amplitude_to_fader
+    for fader in (0, 10, 25, 50, 75, 90, 100):
+        assert to_fader(to_amp(fader)) == float(fader)
+
+
+def test_unit_scale_activator_values_convert_too():
+    """ACTS reports the same amplitude as a 0-1 float."""
+    assert _driver_mod.unit_to_fader(0.0625) == 50.0
+    assert _driver_mod.unit_to_fader(1) == 100.0
+    assert _driver_mod.unit_to_fader(0) == 0.0
+
+
+# --- Static contract checks (no simulator: see the module docstring) ---
+
+
+def test_every_function_name_is_real():
+    """Every shortcut function this driver can emit exists in vMix.
+
+    This is the check nothing else can do. vMix answers OK for any function
+    name at all over TCP, so a typo reaches the panel as a button that reports
+    success and does nothing.
+    """
+    fixture = json.loads(
+        (TESTS_DIR / "fixtures" / "vmix_shortcut_functions.json").read_text()
+    )
+    known = set(fixture["documented"]) | set(fixture["verified_live"])
+
+    # Fill each {placeholder} with every value the command's own parameter
+    # allows, because the channel, bus, number and effect are part of the
+    # function name. Reading the declared bounds rather than a fixed range is
+    # the point: a command that offers a channel vMix has no function for is
+    # exactly the bug this test exists to catch, and widening the bound is how
+    # someone would reintroduce it.
+    def allowed(command, param):
+        spec = VMixDriver.DRIVER_INFO["commands"][command]["params"][param]
+        if spec.get("values"):
+            return [str(v) for v in spec["values"]]
+        return [str(n) for n in range(int(spec["min"]), int(spec["max"]) + 1)]
+
+    missing = []
+    for command, spec in VMixDriver._COMMANDS.items():
+        candidates = [spec["fn"]]
+        for param in ("channel", "number", "bus", "effect"):
+            token = "{" + param + "}"
+            if any(token in c for c in candidates):
+                values = allowed(command, param)
+                candidates = [c.replace(token, v) for c in candidates for v in values]
+        for name in candidates:
+            if name not in known:
+                missing.append((command, name))
+
+    assert not missing, (
+        "these commands would send a function vMix does not have, and vMix "
+        f"would answer OK anyway: {missing}"
+    )
+
+
+def test_stinger_number_bound_matches_the_functions_that_exist():
+    """The stinger parameter must not offer a number with no function behind it."""
+    fixture = json.loads(
+        (TESTS_DIR / "fixtures" / "vmix_shortcut_functions.json").read_text()
+    )
+    known = set(fixture["documented"]) | set(fixture["verified_live"])
+    bound = VMixDriver.DRIVER_INFO["commands"]["stinger"]["params"]["number"]
+    assert f"Stinger{bound['max']}" in known
+    assert f"Stinger{bound['max'] + 1}" not in known
+
+
+def test_every_declared_command_is_dispatchable():
+    """A declared command with nowhere to go returns success and does nothing."""
+    declared = set(VMixDriver.DRIVER_INFO["commands"])
+    handled = set(VMixDriver._COMMANDS) | {"raw_function"}
+    assert declared == handled
+
+
+def test_overlay_state_is_declared_for_every_addressable_channel():
+    """vMix lists sixteen overlays but addresses eight; publish exactly eight."""
+    declared = {
+        k for k in VMixDriver.DRIVER_INFO["state_variables"] if k.startswith("overlay.")
+    }
+    assert declared == {
+        f"overlay.{n}" for n in range(1, _driver_mod.OVERLAY_CHANNELS + 1)
+    }
+
+
+def test_actions_reference_real_commands():
+    """Every quick action names a command that exists."""
+    commands = set(VMixDriver.DRIVER_INFO["commands"])
+    for action in VMixDriver.DRIVER_INFO["actions"]:
+        assert action["id"] in commands, f"action {action['id']} has no command"
+        key = action.get("visible_when", {}).get("key", "")
+        if key:
+            prop = key.replace("device.$id.", "")
+            assert prop in VMixDriver.DRIVER_INFO["state_variables"], (
+                f"action {action['id']} keys off undeclared state {prop}"
+            )
+
+
+def test_every_input_param_has_options_state():
+    """Input arguments are pickers, not free text."""
+    for name, spec in VMixDriver.DRIVER_INFO["commands"].items():
+        params = spec.get("params") or {}
+        if "input" in params:
+            assert params["input"].get("options_state") == "input_list", (
+                f"{name}.input should offer the live input list"
+            )
+
+
+def test_activator_maps_only_write_declared_state():
+    """Every activator this driver maps writes a state variable it declares."""
+    declared = set(VMixDriver.DRIVER_INFO["state_variables"])
+    for _name, (key, _kind) in VMixDriver._GLOBAL_ACTS.items():
+        assert key in declared, f"activator writes undeclared state {key}"
+    child = set(
+        VMixDriver.DRIVER_INFO["child_entity_types"]["input"]["state_variables"]
+    )
+    for _name, (prop, _kind) in VMixDriver._INPUT_ACTS.items():
+        assert prop in child, f"activator writes undeclared child state {prop}"
+
+
+def test_discovery_probe_matches_the_greeting_vmix_sends():
+    """The discovery fingerprint has to match what vMix actually says."""
+    probe = VMixDriver.DRIVER_INFO["discovery"]["tcp_probe"]
+    greeting = "VERSION OK 29.0.0.49"
+    assert re.search(probe["expect_regex"], greeting)
+    extract = probe["extract"]["firmware_version"]
+    assert re.search(extract["regex"], greeting).group(extract["group"]) == "29.0.0.49"
+
+
 # --- Integration scenario runner ---
 #
 # This repo's test suite has no pytest-asyncio, so async work runs via
@@ -141,11 +323,11 @@ def test_parse_mixed_messages():
 # both down after.
 
 
-async def _run_scenario(scenario):
+async def _run_scenario(scenario, *, subscribe_acts=True, poll_interval=0):
     """Start a sim, connect a driver, run ``await scenario(driver, state, sim)``,
     then tear everything down. Returns whatever the scenario returns."""
-    sim = VMixSimulator(port=18099)
-    await sim.start()
+    sim = VmixSimulator("vmix_sim")
+    await sim.start(18099)
     state = StateStore()
     events = EventBus()
     state.set_event_bus(events)
@@ -154,15 +336,15 @@ async def _run_scenario(scenario):
         config={
             "host": "127.0.0.1",
             "port": 18099,
-            "poll_interval": 0,
+            "poll_interval": poll_interval,
             "subscribe_tally": True,
-            "subscribe_acts": False,
+            "subscribe_acts": subscribe_acts,
         },
         state=state,
         events=events,
     )
     await d.connect()
-    await asyncio.sleep(0.1)  # Let tally subscription arrive
+    await asyncio.sleep(0.2)  # greeting + subscriptions
     try:
         return await scenario(d, state, sim)
     finally:
@@ -173,9 +355,13 @@ async def _run_scenario(scenario):
         await sim.stop()
 
 
-def _scenario(scenario):
+def _scenario(scenario, **kwargs):
     """Run an async scenario(driver, state, sim) to completion as a sync test."""
-    asyncio.run(_run_scenario(scenario))
+    asyncio.run(_run_scenario(scenario, **kwargs))
+
+
+async def _settle(seconds=0.35):
+    await asyncio.sleep(seconds)
 
 
 # --- Integration tests ---
@@ -184,268 +370,505 @@ def _scenario(scenario):
 def test_connect():
     """Driver connects and receives initial tally."""
     async def s(d, state, sim):
-        assert state.get("device.vmix_test.connected") is True
+        assert state.get(DEV + "connected") is True
+    _scenario(s)
+
+
+def test_greeting_publishes_the_version():
+    """vMix announces its version on connect, before anything is asked."""
+    async def s(d, state, sim):
+        assert state.get(DEV + "version") == "29.0.0.49"
     _scenario(s)
 
 
 def test_initial_tally():
-    """After connect, tally subscription provides active/preview."""
+    """After connect, tally subscription provides per-input tally."""
     async def s(d, state, sim):
-        # Simulator starts with active=1, preview=2
-        assert state.get("device.vmix_test.active") == 1
-        assert state.get("device.vmix_test.preview") == 2
+        assert state.get(DEV + "input.1.tally") == 1
+        assert state.get(DEV + "input.2.tally") == 2
     _scenario(s)
+
+
+def test_xml_poll_reads_elements_not_attributes():
+    """active, preview, version and edition are child elements of <vmix>.
+
+    The <vmix> root carries no attributes at all, so a driver reading them as
+    attributes silently leaves program and preview at zero. That is exactly
+    what happened here, and only showed up with the tally subscription off.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "active") == 1
+        assert state.get(DEV + "preview") == 2
+        assert state.get(DEV + "version") == "29.0.0.49"
+        assert state.get(DEV + "edition") == "4K"
+    _scenario(s, subscribe_acts=False)
+
+
+def test_program_and_preview_arrive_without_any_subscription():
+    """With both subscriptions off, the poll alone must still answer."""
+    async def s(d, state, sim):
+        sim.set_state("active", 3)
+        sim.set_state("preview", 4)
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "active") == 3
+        assert state.get(DEV + "preview") == 4
+    asyncio.run(_run_scenario_no_subs(s))
+
+
+async def _run_scenario_no_subs(scenario):
+    sim = VmixSimulator("vmix_sim")
+    await sim.start(18099)
+    state = StateStore()
+    events = EventBus()
+    state.set_event_bus(events)
+    d = VMixDriver(
+        device_id="vmix_test",
+        config={"host": "127.0.0.1", "port": 18099, "poll_interval": 0,
+                "subscribe_tally": False, "subscribe_acts": False},
+        state=state, events=events,
+    )
+    await d.connect()
+    await asyncio.sleep(0.2)
+    try:
+        return await scenario(d, state, sim)
+    finally:
+        try:
+            await d.disconnect()
+        except Exception:
+            pass
+        await sim.stop()
 
 
 def test_cut():
-    """Cut swaps active and preview."""
+    """Cut switches program."""
     async def s(d, state, sim):
-        await d.send_command("cut")
-        await asyncio.sleep(0.15)
-        # After cut: active becomes 2, preview becomes 1
-        assert state.get("device.vmix_test.active") == 2
-        assert state.get("device.vmix_test.preview") == 1
+        await d.send_command("cut", {"input": "3"})
+        await _settle()
+        assert sim.state.get("active") == 3
+        assert state.get(DEV + "active") == 3
     _scenario(s)
 
 
-def test_fade():
-    """Fade swaps active and preview."""
+def test_cut_direct_leaves_preview_alone():
     async def s(d, state, sim):
-        await d.send_command("fade")
-        await asyncio.sleep(0.15)
-        assert state.get("device.vmix_test.active") == 2
-        assert state.get("device.vmix_test.preview") == 1
+        before = sim.state.get("preview")
+        await d.send_command("cut_direct", {"input": "3"})
+        await _settle()
+        assert sim.state.get("active") == 3
+        assert sim.state.get("preview") == before
+    _scenario(s)
+
+
+def test_transition_sends_the_effect_as_the_function():
+    """A named transition is its own function; there is no "Transition" one."""
+    sent = []
+
+    async def s(d, state, sim):
+        original = d._send_function
+
+        async def spy(function, query=""):
+            sent.append((function, query))
+            return await original(function, query)
+
+        d._send_function = spy
+        await d.send_command("transition", {"effect": "CubeZoom", "input": "3", "duration": 750})
+        await _settle()
+        assert sent[-1][0] == "CubeZoom"
+        assert "Input=3" in sent[-1][1]
+        assert "Duration=750" in sent[-1][1]
+        assert sim.state.get("active") == 3
+    _scenario(s)
+
+
+def test_transition_button_and_stinger_bake_the_number_into_the_name():
+    sent = []
+
+    async def s(d, state, sim):
+        async def spy(function, query=""):
+            sent.append((function, query))
+            return "FUNCTION OK Completed"
+
+        d._send_function = spy
+        await d.send_command("transition_button", {"number": 2})
+        await d.send_command("stinger", {"number": 3, "input": "2"})
+        assert sent[0] == ("Transition2", "")
+        assert sent[1] == ("Stinger3", "Input=2")
     _scenario(s)
 
 
 def test_preview_input():
-    """Preview input changes preview."""
     async def s(d, state, sim):
-        await d.send_command("preview_input", {"input": "3"})
-        await asyncio.sleep(0.15)
-        assert state.get("device.vmix_test.preview") == 3
+        await d.send_command("preview_input", {"input": "4"})
+        await _settle()
+        assert sim.state.get("preview") == 4
+        assert state.get(DEV + "input.4.tally") == 2
     _scenario(s)
 
 
-def test_tally_subscription():
-    """Tally updates push after input change."""
+def test_overlay_round_trip():
+    """The channel goes in the function name, and the state follows."""
     async def s(d, state, sim):
-        await d.send_command("cut_direct", {"input": "3"})
-        await asyncio.sleep(0.15)
-        assert state.get("device.vmix_test.active") == 3
-        assert state.get("device.vmix_test.input.3.tally") == 1
+        await d.send_command("overlay_input", {"channel": 3, "input": "2"})
+        await _settle()
+        assert sim._overlays[3] == 2
+        assert state.get(DEV + "overlay.3") == 2
+
+        await d.send_command("overlay_input_off", {"channel": 3})
+        await _settle()
+        assert sim._overlays[3] == 0
+        assert state.get(DEV + "overlay.3") == 0
     _scenario(s)
 
 
-def test_recording():
-    """Start and stop recording via XML poll."""
-    async def s(d, state, sim):
-        await d.send_command("start_recording")
-        await asyncio.sleep(0.1)
-        await d.poll()
-        await asyncio.sleep(0.2)
-        assert state.get("device.vmix_test.recording") is True
+def test_overlay_command_names_carry_the_channel():
+    """Guards the exact bug that shipped: OverlayInput instead of OverlayInput3."""
+    sent = []
 
-        await d.send_command("stop_recording")
-        await asyncio.sleep(0.1)
-        await d.poll()
-        await asyncio.sleep(0.2)
-        assert state.get("device.vmix_test.recording") is False
+    async def s(d, state, sim):
+        async def spy(function, query=""):
+            sent.append(function)
+            return "FUNCTION OK Completed"
+
+        d._send_function = spy
+        await d.send_command("overlay_input", {"channel": 3, "input": "2"})
+        await d.send_command("overlay_input_in", {"channel": 1, "input": "2"})
+        await d.send_command("overlay_input_out", {"channel": 2})
+        await d.send_command("overlay_input_off", {"channel": 8})
+        await d.send_command("overlay_input_zoom", {"channel": 4})
+        assert sent == [
+            "OverlayInput3", "OverlayInput1In", "OverlayInput2Out",
+            "OverlayInput8Off", "OverlayInput4Zoom",
+        ]
     _scenario(s)
 
 
-def test_streaming():
-    """Start and stop streaming."""
-    async def s(d, state, sim):
-        await d.send_command("start_streaming")
-        await asyncio.sleep(0.1)
-        await d.poll()
-        await asyncio.sleep(0.2)
-        assert state.get("device.vmix_test.streaming") is True
-
-        await d.send_command("stop_streaming")
-        await asyncio.sleep(0.1)
-        await d.poll()
-        await asyncio.sleep(0.2)
-        assert state.get("device.vmix_test.streaming") is False
-    _scenario(s)
-
-
-def test_set_volume():
-    """Set volume on an input."""
-    async def s(d, state, sim):
-        result = await d.send_command("set_volume", {"input": "1", "value": 50})
-        assert result == "FUNCTION OK"
-        # Volume update is in simulator state, verify via XML poll
-        await d.poll()
-        await asyncio.sleep(0.2)
-        # The XML poll doesn't include volume in our simple XML, but the command succeeded
-        assert sim.inputs[0]["volume"] == 50
-    _scenario(s)
-
-
-def test_overlay():
-    """Overlay input in/out."""
-    async def s(d, state, sim):
-        await d.send_command("overlay_input_in", {"input": "3", "value": 1})
-        await asyncio.sleep(0.1)
-        assert sim.overlays["1"] == 3
-
-        await d.send_command("overlay_input_off", {"value": 1})
-        await asyncio.sleep(0.1)
-        assert sim.overlays["1"] == 0
-    _scenario(s)
-
-
-def test_xml_poll():
-    """XML poll retrieves full state."""
+def test_overlay_beyond_the_addressable_range_is_ignored():
+    """The XML lists sixteen; only the eight vMix can drive get published."""
     async def s(d, state, sim):
         await d.poll()
-        await asyncio.sleep(0.3)
-        assert state.get("device.vmix_test.version") == "29.0.0.1"
-        assert state.get("device.vmix_test.input_count") == 4
-        assert state.get("device.vmix_test.input.1.title") == "Camera 1"
-        assert state.get("device.vmix_test.input.4.type") == "Video"
+        await _settle()
+        assert state.get(DEV + "overlay.8") == 0
+        assert not state.has(DEV + "overlay.9")
+        assert not state.has(DEV + "overlay.16")
     _scenario(s)
 
 
-def test_set_text():
-    """SetText command sends correctly."""
+def test_recording_and_streaming():
     async def s(d, state, sim):
-        result = await d.send_command("set_text", {
-            "input": "1",
-            "selectedName": "Title",
-            "value": "Hello World",
-        })
-        assert result == "FUNCTION OK"
-    _scenario(s)
+        await d.send_command("start_recording", {})
+        await _settle()
+        assert sim.state.get("recording") is True
+        assert state.get(DEV + "recording") is True
 
+        await d.send_command("stop_recording", {})
+        await _settle()
+        assert state.get(DEV + "recording") is False
 
-def test_raw_function():
-    """raw_function sends arbitrary vMix function."""
-    async def s(d, state, sim):
-        result = await d.send_command("raw_function", {
-            "function": "PreviewInput",
-            "query": "Input=4",
-        })
-        assert result == "FUNCTION OK"
-        await asyncio.sleep(0.15)
-        assert state.get("device.vmix_test.preview") == 4
-    _scenario(s)
-
-
-def test_disconnect():
-    """Disconnect cleans up state."""
-    async def s(d, state, sim):
-        await d.disconnect()
-        assert state.get("device.vmix_test.connected") is False
+        await d.send_command("start_streaming", {})
+        await _settle()
+        assert state.get(DEV + "streaming") is True
     _scenario(s)
 
 
 def test_fade_to_black():
-    """Fade to black toggle."""
     async def s(d, state, sim):
-        await d.send_command("fade_to_black")
-        await asyncio.sleep(0.1)
-        await d.poll()
-        await asyncio.sleep(0.2)
-        assert state.get("device.vmix_test.fadeToBlack") is True
+        await d.send_command("fade_to_black", {})
+        await _settle()
+        assert sim.state.get("fade_to_black") is True
+        assert state.get(DEV + "fade_to_black") is True
     _scenario(s)
 
 
-# --- Input list (options_state picker feed) + pruning ---
+def test_set_volume_publishes_the_fader_position_it_was_given():
+    """Write 50, read 50 — not the 6.25 amplitude vMix reports internally."""
+    async def s(d, state, sim):
+        await d.send_command("set_volume", {"input": "2", "value": 50})
+        await _settle()
+        assert sim._input_audio[2]["volume"] == 50.0
+        assert state.get(DEV + "input.2.volume") == 50.0
+        await d.poll()
+        await _settle()
+        # And the poll, which reads the amplitude, agrees with the push.
+        assert state.get(DEV + "input.2.volume") == 50.0
+    _scenario(s)
+
+
+def test_set_volume_fade_joins_its_two_values():
+    """vMix wants "volume,milliseconds" in one Value and rejects anything else."""
+    sent = []
+
+    async def s(d, state, sim):
+        original = d._send_function
+
+        async def spy(function, query=""):
+            sent.append((function, query))
+            return await original(function, query)
+
+        d._send_function = spy
+        await d.send_command("set_volume_fade", {"input": "2", "value": 25, "duration": 1000})
+        await _settle()
+        assert sent[-1] == ("SetVolumeFade", "Input=2&Value=25%2C1000")
+        assert sim._input_audio[2]["volume"] == 25.0
+    _scenario(s)
+
+
+def test_audio_mute_state():
+    async def s(d, state, sim):
+        await d.send_command("audio_off", {"input": "2"})
+        await _settle()
+        assert state.get(DEV + "input.2.muted") is True
+        await d.send_command("audio_on", {"input": "2"})
+        await _settle()
+        assert state.get(DEV + "input.2.muted") is False
+    _scenario(s)
+
+
+def test_master_audio_activator_is_the_inverse_of_muted():
+    """The vMix audio button reads "on" when the bus is audible."""
+    async def s(d, state, sim):
+        await d.send_command("master_audio_off", {})
+        await _settle()
+        assert sim.state.get("master_muted") is True
+        assert state.get(DEV + "master_muted") is True
+        await d.send_command("master_audio_on", {})
+        await _settle()
+        assert state.get(DEV + "master_muted") is False
+    _scenario(s)
+
+
+def test_master_volume_round_trip():
+    async def s(d, state, sim):
+        await d.send_command("set_master_volume", {"value": 75})
+        await _settle()
+        assert state.get(DEV + "master_volume") == 75.0
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "master_volume") == 75.0
+    _scenario(s)
+
+
+def test_an_input_with_no_audio_reports_none():
+    """A Colour input has no audio attributes at all, and must not fake them."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        # Input 1 is a Colour input in the simulated production.
+        assert state.get(DEV + "input.1.audio_busses") in (None, "")
+        assert state.get(DEV + "input.2.audio_busses") == "M"
+        # Balance starts centred rather than at its declared minimum.
+        assert state.get(DEV + "input.1.balance") == 0.0
+    _scenario(s)
+
+
+def test_values_are_percent_encoded():
+    """A raw & truncates the value and a raw + arrives as a space."""
+    sent = []
+
+    async def s(d, state, sim):
+        async def spy(function, query=""):
+            sent.append(query)
+            return "FUNCTION OK Completed"
+
+        d._send_function = spy
+        await d.send_command("set_text", {"input": "4", "selected_name": "Headline", "value": "A&B +C"})
+        assert sent[-1] == "Input=4&SelectedName=Headline&Value=A%26B%20%2BC"
+    _scenario(s)
+
+
+def test_browser_navigate_survives_a_real_url():
+    """A URL is mostly reserved characters; unencoded it loses everything
+    after the first ampersand."""
+    sent = []
+
+    async def s(d, state, sim):
+        async def spy(function, query=""):
+            sent.append(query)
+            return "FUNCTION OK Completed"
+
+        d._send_function = spy
+        url = "https://example.com/live?room=2&mode=full"
+        await d.send_command("browser_navigate", {"input": "3", "value": url})
+        from urllib.parse import parse_qs
+        assert parse_qs(sent[-1])["Value"] == [url]
+    _scenario(s)
+
+
+def test_raw_function_passes_the_query_through_untouched():
+    """The escape hatch sends what the user typed, already encoded."""
+    sent = []
+
+    async def s(d, state, sim):
+        async def spy(function, query=""):
+            sent.append((function, query))
+            return "FUNCTION OK Completed"
+
+        d._send_function = spy
+        await d.send_command("raw_function", {"function": "SetText", "query": "Input=1&Value=Hi%20there"})
+        assert sent[-1] == ("SetText", "Input=1&Value=Hi%20there")
+    _scenario(s)
+
+
+def test_set_text():
+    async def s(d, state, sim):
+        result = await d.send_command(
+            "set_text", {"input": "4", "selected_name": "Headline", "value": "Hello world"}
+        )
+        assert "OK" in result
+    _scenario(s)
 
 
 def test_input_list_published():
-    """The XML poll publishes input_list as a JSON {value,label} list."""
-    import json
-
+    """The picker list is rebuilt from the production on every poll."""
     async def s(d, state, sim):
         await d.poll()
-        await asyncio.sleep(0.3)
-        raw = state.get("device.vmix_test.input_list")
-        assert isinstance(raw, str) and raw
-        options = json.loads(raw)
-        assert [o["value"] for o in options] == ["1", "2", "3", "4"]
-        assert options[0]["label"] == "1: Camera 1"
-        assert options[2]["label"] == "3: Slides"
+        await _settle()
+        entries = json.loads(state.get(DEV + "input_list"))
+        assert entries[0] == {"value": "1", "label": "1: Colour"}
+        assert len(entries) == 4
+        assert state.get(DEV + "input_count") == 4
     _scenario(s)
 
 
 def test_input_removed_prunes_state():
-    """An input removed from the production leaves the picker AND its
-    per-input state keys are deleted (not left stale)."""
-    import json
-
+    """An input that leaves the production takes its state with it."""
     async def s(d, state, sim):
         await d.poll()
-        await asyncio.sleep(0.3)
-        assert state.get("device.vmix_test.input.4.title") == "Video Clip"
+        await _settle()
+        assert state.has(DEV + "input.4.title")
 
-        # Operator deletes input 4 in vMix
-        sim.inputs = [i for i in sim.inputs if i["number"] != "4"]
-        await d.poll()
-        await asyncio.sleep(0.3)
-
-        options = json.loads(state.get("device.vmix_test.input_list"))
-        assert [o["value"] for o in options] == ["1", "2", "3"]
-        assert state.get("device.vmix_test.input_count") == 3
-        # Deregistering the child clears every key under it, including the
-        # platform-managed online/label pair.
-        for prop in ("title", "type", "state", "muted", "loop",
-                     "position", "duration", "tally", "online", "label"):
-            key = f"device.vmix_test.input.4.{prop}"
-            assert state.get(key) is None
-        assert 4 not in d.list_children("input")
+        removed = sim._INPUTS.pop()
+        try:
+            await d.poll()
+            await _settle()
+            assert not state.has(DEV + "input.4.title")
+            entries = json.loads(state.get(DEV + "input_list"))
+            assert [e["value"] for e in entries] == ["1", "2", "3"]
+        finally:
+            sim._INPUTS.append(removed)
     _scenario(s)
 
 
 def test_input_added_appears_in_list():
-    """An input added mid-show appears in the picker on the next poll."""
-    import json
-
     async def s(d, state, sim):
-        sim.inputs.append({
-            "number": "5", "title": "Late Guest", "type": "Capture",
-            "state": "Running", "muted": False, "loop": False,
-            "position": 0, "duration": 0, "volume": 100,
-        })
         await d.poll()
-        await asyncio.sleep(0.3)
-        options = json.loads(state.get("device.vmix_test.input_list"))
-        assert {"value": "5", "label": "5: Late Guest"} in options
+        await _settle()
+        sim._INPUTS.append(
+            {"number": 5, "title": "VT Roll", "type": "Video", "key": "new-key", "audio": True}
+        )
+        sim._input_audio[5] = {
+            "muted": False, "volume": 100.0, "balance": 0.0, "gain_db": 0.0,
+            "solo": False, "solo_pfl": False, "busses": "M",
+        }
+        try:
+            await d.poll()
+            await _settle()
+            entries = json.loads(state.get(DEV + "input_list"))
+            assert {"value": "5", "label": "5: VT Roll"} in entries
+            assert state.get(DEV + "input.5.title") == "VT Roll"
+        finally:
+            sim._INPUTS.pop()
+            sim._input_audio.pop(5, None)
     _scenario(s)
 
 
-# --- Quick actions + picker metadata integrity (static) ---
+def test_input_key_and_short_title_are_published():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "input.2.key") == "be15de8a-8d3e-41a6-b82f-cfb54bee6f8f"
+        assert state.get(DEV + "input.2.short_title") == "Camera 2"
+    _scenario(s)
 
 
-def test_actions_reference_real_commands():
-    """Every declared quick action promotes an existing command and uses
-    only state vars the driver declares in its visible_when keys."""
-    info = VMixDriver.DRIVER_INFO
-    commands = info["commands"]
-    state_vars = info["state_variables"]
-    actions = info["actions"]
-    assert actions, "driver declares a quick-action strip"
-    for entry in actions:
-        assert entry["id"] in commands, entry["id"]
-        assert entry["kind"] == "command"
-        vw = entry.get("visible_when")
-        if vw:
-            key = vw["key"]
-            assert key.startswith("device.$id.")
-            assert key.split("device.$id.")[1] in state_vars, key
+def test_transitions_published():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "transition.1.effect") == "Fade"
+        assert state.get(DEV + "transition.1.duration") == 500
+        assert state.get(DEV + "transition.4.effect") == "CubeZoom"
+    _scenario(s)
 
 
-def test_every_input_param_has_options_state():
-    """Every command param named 'input' offers the live input picker."""
-    info = VMixDriver.DRIVER_INFO
-    missing = [
-        cmd_id
-        for cmd_id, cmd in info["commands"].items()
-        if "input" in cmd.get("params", {})
-        and cmd["params"]["input"].get("options_state") != "input_list"
-    ]
-    assert missing == [], f"input params without options_state: {missing}"
-    assert "input_list" in info["state_variables"]
+def test_acts_push_updates_state_without_a_poll():
+    """The activators are the whole point: state moves with no poll at all."""
+    async def s(d, state, sim):
+        # Nothing has been polled; drive the simulator directly so the only
+        # path to the driver is the push channel.
+        sim._execute_function("FadeToBlack", {})
+        await _settle()
+        assert state.get(DEV + "fade_to_black") is True
+
+        sim._execute_function("OverlayInput2", {"Input": "3"})
+        await _settle()
+        assert state.get(DEV + "overlay.2") == 3
+
+        sim._execute_function("StartRecording", {})
+        await _settle()
+        assert state.get(DEV + "recording") is True
+
+        sim._execute_function("SetVolume", {"Input": "2", "Value": "75"})
+        await _settle()
+        assert state.get(DEV + "input.2.volume") == 75.0
+    _scenario(s)
+
+
+def test_tally_defers_to_the_activators_for_program():
+    """An overlay puts its input into program too, so the first "1" in the
+    tally string is not reliably the program input."""
+    async def s(d, state, sim):
+        sim._execute_function("PreviewInput", {"Input": "4"})
+        await _settle()
+        assert state.get(DEV + "preview") == 4
+        # Input 1 is program; put input 3 on an overlay, which makes it live
+        # as well, so the tally string now starts "1" for two inputs.
+        sim._execute_function("OverlayInput1", {"Input": "3"})
+        await _settle()
+        assert state.get(DEV + "input.3.tally") == 1
+        # Program is still input 1, which only the activator knows.
+        assert state.get(DEV + "active") == 1
+    _scenario(s)
+
+
+def test_tally_drives_program_when_the_activators_are_off():
+    async def s(d, state, sim):
+        sim._execute_function("Cut", {"Input": "3"})
+        await _settle()
+        assert state.get(DEV + "active") == 3
+    _scenario(s, subscribe_acts=False)
+
+
+def test_a_rejected_command_lands_in_last_error():
+    """vMix answers OK for a function it doesn't know, so an ER is always real."""
+    async def s(d, state, sim):
+        # Input 1 has no audio, which the simulator refuses the way vMix does.
+        await d.send_command("set_volume", {"input": "1", "value": 50})
+        await _settle()
+        assert "SetVolume" in state.get(DEV + "last_error")
+    _scenario(s)
+
+
+def test_a_late_reply_cannot_answer_the_next_command():
+    """A timed-out reply left queued makes every answer after it belong to the
+    question before."""
+    async def s(d, state, sim):
+        d._cmd_response.put_nowait("FUNCTION OK Stale")
+        result = await d.send_command("cut", {"input": "2"})
+        assert result != "FUNCTION OK Stale"
+    _scenario(s)
+
+
+def test_liveness_probe_answers():
+    async def s(d, state, sim):
+        await asyncio.wait_for(d._liveness_probe(), timeout=3)
+    _scenario(s)
+
+
+def test_disconnect():
+    async def s(d, state, sim):
+        await d.disconnect()
+        assert state.get(DEV + "connected") is False
+    _scenario(s)

@@ -5709,7 +5709,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "1.5.1",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
@@ -5717,13 +5717,14 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "474122e6dd7e2cb510b02311375e5561bdfe87579ffd3d4bfd5d66ae76d9555a",
-        "video/vmix_sim.py": "d54ea756ba7aad785553d34bb172474013d031b8450ebfc5b258a4d86260067e"
+        "video/vmix.py": "40d0f1d2efa865abfd70d6b659c67797b6d74f105c10988c18b63c92f50ba501",
+        "video/vmix_sim.py": "c45dde63617a8367a2cae3af1368bf311b749c0ba071240324230d95df50d001"
       },
       "ports": [
         8099
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.25.0",
       "tags": [
         "video-production",
@@ -5732,8 +5733,8 @@
         "software"
       ],
       "help": {
-        "overview": "Full control of vMix video production software. Supports input switching, transitions, audio mixing, overlays, recording/streaming, titles, replay, and PTZ cameras.",
-        "setup": "1. Open vMix and go to Settings > Web Controller\n2. Ensure the TCP API is enabled (default port 8099)\n3. Enter the vMix PC's IP address and port below\n4. Tally subscription is enabled by default for real-time program/preview tracking"
+        "overview": "Full control of vMix video production software. Supports input switching, transitions, audio mixing, overlays, recording/streaming, titles, replay, and PTZ cameras. Program, preview, tally, overlays, recording and audio update the moment they change in vMix rather than waiting for the next poll.",
+        "setup": "1. Open vMix and go to Settings > Web Controller\n2. Ensure the TCP API is enabled (default port 8099)\n3. Enter the vMix PC's IP address and port below\n4. Leave both subscriptions on for live tally and live recording/overlay/audio state"
       },
       "compatible_models": [
         {
@@ -5741,11 +5742,22 @@
           "models": [
             "vMix"
           ],
-          "confidence": "untested",
-          "notes": "Any vMix edition. Requires TCP API enabled in vMix settings."
+          "confidence": "full",
+          "notes": "Verified against vMix 29 (29.0.0.49). Any vMix edition; the TCP API is enabled by default. Bus and Mix features beyond the master bus need a 4K or Pro edition."
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 8099,
+          "expect_regex": "^VERSION OK \\d+\\.\\d+",
+          "timeout_ms": 2000,
+          "extract": {
+            "firmware_version": {
+              "regex": "^VERSION OK (\\S+)",
+              "group": 1
+            }
+          }
+        },
         "port_open": [
           8099
         ],

@@ -147,6 +147,21 @@ _SOURCE_DISPLAY = {"Output": "Program"}
 DEFAULT_SRT_PORT = 10000
 
 
+# How long a command waits before asking for a fresh XML state document.
+#
+# This is a COALESCING window, not a settle time. vMix applies a command before
+# it answers, measured on vMix 29.0.0.49: SetOutput3 and Start/StopSRTOutput
+# were each visible in the very first XML read after "FUNCTION OK", 3-8 ms
+# later, which is the round trip. So the wait buys nothing from vMix -- it is
+# there so a macro re-pointing three outputs in a row costs one read instead of
+# three.
+#
+# The refresh is an EARLY read, not the only one: the periodic poll still runs
+# and still corrects anything this missed. A command vMix happens to apply more
+# slowly than this window is therefore no worse off than it was before.
+XML_REFRESH_COALESCE = 0.15
+
+
 def srt_output_to_wire(output: Any) -> str | None:
     """Turn vMix's output number into the SRT functions' Value argument.
 
@@ -375,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.2.0",
+        "version": "2.2.1",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -1484,21 +1499,27 @@ class VMixDriver(BaseDriver):
         # Outputs / SRT. The output number is baked into the SetOutput function
         # name (there is no generic SetOutput taking it as an argument), and it
         # travels zero-based as a Value on the three SRT functions.
+        #
+        # All four carry "refresh": what they change is reported by the XML
+        # document and by nothing else, so without it a re-pointed output kept
+        # its old name on every panel until the next poll -- up to half a
+        # minute after the picture had already changed. See _schedule_state_refresh.
         "set_output_source": {
             "fn": "SetOutput{output}",
             "args": {"source": "Value", "input": "Input", "mix": "Mix"},
+            "refresh": True,
         },
         "start_srt_output": {
             "fn": "StartSRTOutput", "args": {"output": "Value"},
-            "zero_based": ("output",),
+            "zero_based": ("output",), "refresh": True,
         },
         "stop_srt_output": {
             "fn": "StopSRTOutput", "args": {"output": "Value"},
-            "zero_based": ("output",),
+            "zero_based": ("output",), "refresh": True,
         },
         "toggle_srt_output": {
             "fn": "StartStopSRTOutput", "args": {"output": "Value"},
-            "zero_based": ("output",),
+            "zero_based": ("output",), "refresh": True,
         },
         "snapshot": {"fn": "Snapshot", "args": {"value": "Value"}},
         "snapshot_input": {"fn": "SnapshotInput", "args": {"input": "Input", "value": "Value"}},
@@ -1506,10 +1527,12 @@ class VMixDriver(BaseDriver):
         "set_text": {
             "fn": "SetText",
             "args": {"input": "Input", "selected_name": "SelectedName", "value": "Value"},
+            "refresh": True,
         },
         "set_image": {
             "fn": "SetImage",
             "args": {"input": "Input", "selected_name": "SelectedName", "value": "Value"},
+            "refresh": True,
         },
         "set_countdown": {"fn": "SetCountdown", "args": {"input": "Input", "value": "Value"}},
         "start_countdown": {"fn": "StartCountdown", "args": {"input": "Input"}},
@@ -1519,13 +1542,16 @@ class VMixDriver(BaseDriver):
         "pause": {"fn": "Pause", "args": {"input": "Input"}},
         "play_pause": {"fn": "PlayPause", "args": {"input": "Input"}},
         "restart": {"fn": "Restart", "args": {"input": "Input"}},
-        "loop_on": {"fn": "LoopOn", "args": {"input": "Input"}},
-        "loop_off": {"fn": "LoopOff", "args": {"input": "Input"}},
+        "loop_on": {"fn": "LoopOn", "args": {"input": "Input"}, "refresh": True},
+        "loop_off": {"fn": "LoopOff", "args": {"input": "Input"}, "refresh": True},
         "set_position": {"fn": "SetPosition", "args": {"input": "Input", "position": "Value"}},
         "set_rate": {"fn": "SetRate", "args": {"input": "Input", "value": "Value"}},
-        "select_index": {"fn": "SelectIndex", "args": {"input": "Input", "index": "Value"}},
-        "next_item": {"fn": "NextItem", "args": {"input": "Input"}},
-        "previous_item": {"fn": "PreviousItem", "args": {"input": "Input"}},
+        "select_index": {
+            "fn": "SelectIndex", "args": {"input": "Input", "index": "Value"},
+            "refresh": True,
+        },
+        "next_item": {"fn": "NextItem", "args": {"input": "Input"}, "refresh": True},
+        "previous_item": {"fn": "PreviousItem", "args": {"input": "Input"}, "refresh": True},
         # Replay
         "replay_play": {"fn": "ReplayPlay", "args": {}},
         "replay_pause": {"fn": "ReplayPause", "args": {}},
@@ -1548,9 +1574,12 @@ class VMixDriver(BaseDriver):
         "ptz_home": {"fn": "PTZHome", "args": {"input": "Input"}},
         "ptz_focus_auto": {"fn": "PTZFocusAuto", "args": {"input": "Input"}},
         # Input management
-        "add_input": {"fn": "AddInput", "args": {"value": "Value"}},
-        "remove_input": {"fn": "RemoveInput", "args": {"input": "Input"}},
-        "set_input_name": {"fn": "SetInputName", "args": {"input": "Input", "value": "Value"}},
+        "add_input": {"fn": "AddInput", "args": {"value": "Value"}, "refresh": True},
+        "remove_input": {"fn": "RemoveInput", "args": {"input": "Input"}, "refresh": True},
+        "set_input_name": {
+            "fn": "SetInputName", "args": {"input": "Input", "value": "Value"},
+            "refresh": True,
+        },
         "browser_navigate": {"fn": "BrowserNavigate", "args": {"input": "Input", "value": "Value"}},
         "script_start": {"fn": "ScriptStart", "args": {"value": "Value"}},
         "script_stop": {"fn": "ScriptStop", "args": {"value": "Value"}},
@@ -1595,6 +1624,10 @@ class VMixDriver(BaseDriver):
         self._probe_response: asyncio.Queue[str] = asyncio.Queue()
         self._tally_subscribed = False
         self._acts_subscribed = False
+        # Pending early XML re-read after a command whose effect only that
+        # document reports. See _schedule_state_refresh.
+        self._refresh_task: Optional[asyncio.Task] = None
+        self._refresh_wanted = False
         # Input numbers seen in the last XML state — lets the next parse
         # deregister inputs removed from the production.
         self._known_inputs: set[str] = set()
@@ -1750,6 +1783,10 @@ class VMixDriver(BaseDriver):
         # answer the next session's first command.
         self._tally_subscribed = False
         self._acts_subscribed = False
+        if self._refresh_task is not None and not self._refresh_task.done():
+            self._refresh_task.cancel()
+        self._refresh_task = None
+        self._refresh_wanted = False
         self._drain(self._cmd_response)
         self._drain(self._probe_response)
 
@@ -1812,7 +1849,12 @@ class VMixDriver(BaseDriver):
             return None
 
         function, query = self._build_request(command, spec, params)
-        return await self._send_function(function, query)
+        response = await self._send_function(function, query)
+        # A command vMix refused, or never answered, changed nothing worth
+        # re-reading -- and a timeout means the link is in trouble already.
+        if spec.get("refresh") and str(response).startswith("FUNCTION OK"):
+            self._schedule_state_refresh()
+        return response
 
     def _build_request(
         self, command: str, spec: dict[str, Any], params: dict[str, Any]
@@ -1911,6 +1953,45 @@ class VMixDriver(BaseDriver):
             self.set_state(self.LAST_ERROR_PROPERTY, f"{function}: {message}")
             log.warning(f"[{self.device_id}] {function} rejected: {message}")
         return response
+
+    def _schedule_state_refresh(self) -> None:
+        """Re-read the XML state document shortly, after a command that changed
+        something only that document reports.
+
+        vMix pushes tally and the activators the instant they change, and a
+        command whose effect lands in one of those needs nothing from here. The
+        rest -- what each numbered output is carrying, whether SRT is running on
+        it, an input's title or its selected item -- appear in the XML and
+        nowhere else, so before this the panel kept showing the old answer until
+        the next poll came round, up to the whole poll interval after the
+        picture had already changed.
+
+        Repeated calls coalesce: the burst a macro makes costs one extra read,
+        not one per step.
+        """
+        self._refresh_wanted = True
+        if self._refresh_task is None or self._refresh_task.done():
+            self._refresh_task = asyncio.create_task(self._state_refresh())
+
+    async def _state_refresh(self) -> None:
+        """Wait out the coalescing window, then poll -- again if more arrived."""
+        try:
+            while self._refresh_wanted:
+                await asyncio.sleep(XML_REFRESH_COALESCE)
+                # Everything vMix has already acknowledged is guaranteed to be
+                # in the document about to be asked for: one socket, in order,
+                # and vMix applies a command before it answers. So the flag
+                # clears HERE rather than at the top of the loop -- a whole
+                # burst inside the window costs one read, and only a command
+                # landing after this point earns another.
+                self._refresh_wanted = False
+                await self.poll()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            # An early read is a courtesy; the periodic poll is the guarantee.
+            # Nothing here is worth taking the device down for.
+            log.debug(f"[{self.device_id}] State refresh failed: {exc}")
 
     async def _subscribe(self, channel: str) -> None:
         """Subscribe to a push channel (TALLY or ACTS)."""

@@ -1292,6 +1292,144 @@ def test_stopping_an_srt_output_withdraws_its_stream_and_keeps_its_port():
     _scenario(s, config=_SRT_PORTS)
 
 
+def _count_xml_reads(sim):
+    """Wrap the simulator's XML responder so a test can count the reads.
+
+    The driver's own poll is the only other caller, and every scenario here
+    runs with polling off, so a read counted inside one of these tests came
+    from a command.
+    """
+    calls = []
+    original = sim._build_xml_response
+
+    def counted():
+        calls.append(1)
+        return original()
+
+    sim._build_xml_response = counted
+    return calls
+
+
+def test_repointing_an_output_renames_it_without_waiting_for_the_poll():
+    """The picture changes at once; before this the NAME did not.
+
+    vMix pushes tally and the activators, and the output source is in neither,
+    so the only thing that ever noticed a re-point was the periodic XML read --
+    up to a whole poll interval later, with every panel still showing the old
+    name over the new picture. Note what this scenario does NOT do: call poll().
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.name") == "vMix Output 2 - Program"
+
+        await d.send_command("set_output_source", {"output": 2, "source": "Preview"})
+        await _settle()
+        assert state.get(DEV + "output.2.source") == "Preview"
+        assert state.get(DEV + "output.2.name") == "vMix Output 2 - Preview"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_starting_srt_publishes_the_stream_without_waiting_for_the_poll():
+    """Same defect one door along: a tile should appear when SRT starts.
+
+    "Starting it again brings it back with no trip into vMix" is only true if
+    the driver notices before the poll does.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+
+        await d.send_command("stop_srt_output", {"output": 2})
+        await _settle()
+        assert state.get(DEV + "output.2.srt") is False
+        assert state.get(DEV + "output.2.preview_url") == ""
+
+        await d.send_command("start_srt_output", {"output": 2})
+        await _settle()
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_a_command_the_activators_already_push_asks_for_no_xml():
+    """A re-read per command would be a full state document per button press.
+
+    Tally and the activators carry a cut the instant it happens, so the only
+    commands that earn a read are the ones nothing pushes.
+    """
+    async def s(d, state, sim):
+        reads = _count_xml_reads(sim)
+        await d.send_command("cut", {"input": "2"})
+        await _settle()
+        assert reads == []
+    _scenario(s)
+
+
+def test_a_burst_of_output_commands_costs_one_read_not_one_each():
+    """A macro re-points three outputs. That is one question, asked once."""
+    async def s(d, state, sim):
+        reads = _count_xml_reads(sim)
+        for output in (2, 3, 4):
+            await d.send_command(
+                "set_output_source", {"output": output, "source": "Preview"}
+            )
+        await _settle()
+        assert len(reads) == 1, f"{len(reads)} XML reads for three commands"
+        for output in (2, 3, 4):
+            assert state.get(DEV + f"output.{output}.source") == "Preview"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_a_command_vmix_refused_asks_for_no_xml():
+    """Nothing changed, so there is nothing to re-read."""
+    async def s(d, state, sim):
+        reads = _count_xml_reads(sim)
+        # Input 1 has no audio; the simulator refuses it the way vMix does.
+        # set_volume is not a refreshing command, so this also needs one that is.
+        await d.send_command("set_output_source", {"output": 2, "source": "Nonsense"})
+        await _settle()
+        assert reads == []
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_a_disconnect_does_not_leave_a_re_read_pending():
+    """The refresh task is the driver's own; teardown owns cancelling it."""
+    async def s(d, state, sim):
+        await d.send_command("set_output_source", {"output": 2, "source": "Preview"})
+        assert d._refresh_task is not None
+        await d._close_session()
+        assert d._refresh_task is None
+        assert d._refresh_wanted is False
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_only_commands_the_xml_alone_reports_ask_for_a_re_read():
+    """The marker is a claim about vMix's push channels; hold it to that.
+
+    Anything an activator carries must not be marked, or every audio fader
+    move drags a full state document behind it.
+    """
+    pushed = {
+        "cut", "fade", "cut_direct", "fade_to_black", "preview_input",
+        "active_input", "set_volume", "set_master_volume", "audio_on",
+        "audio_off", "master_audio", "solo", "start_recording",
+        "stop_recording", "start_streaming", "stop_streaming",
+        "start_external", "stop_external", "start_multicorder",
+        "stop_multicorder", "play", "pause", "play_pause",
+        "overlay_input", "overlay_input_in", "overlay_input_out",
+    }
+    refreshing = {
+        name for name, spec in VMixDriver._COMMANDS.items() if spec.get("refresh")
+    }
+    assert not (refreshing & pushed), sorted(refreshing & pushed)
+    # And the four this was built for are in it.
+    assert {
+        "set_output_source", "start_srt_output", "stop_srt_output",
+        "toggle_srt_output",
+    } <= refreshing
+
+
 def test_repointing_an_output_renames_it_for_the_picker():
     """One output is one picture, so the label has to follow it."""
     async def s(d, state, sim):

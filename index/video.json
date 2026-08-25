@@ -333,16 +333,16 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, and PTZ.",
+      "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
       "source_url": "https://www.vmix.com/help29/TCPAPI.html",
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "e2049bf8df1ea2e0815b1b0d9d17d5deb9d559778242da9788982bb2f5e722d1",
-        "video/vmix_sim.py": "ae5789ff6b3d807c87acb07f73f97105bd30978cfeaa2302d30ec6462946885c"
+        "video/vmix.py": "43fc0a7307d2268d8e33af44052377f7781cfec129c6a5fa345dae26daeced89",
+        "video/vmix_sim.py": "c47de04bfed41ec6c776326cf386efc4b879211cb5de492c24fcd34bd87905ac"
       },
       "ports": [
         8099
@@ -357,8 +357,8 @@
         "software"
       ],
       "help": {
-        "overview": "Full control of vMix video production software. Supports input switching, transitions, audio mixing, overlays, recording/streaming, titles, replay, and PTZ cameras. Program, preview, tally, overlays, recording and audio update the moment they change in vMix rather than waiting for the next poll.",
-        "setup": "1. Open vMix and go to Settings > Web Controller\n2. Ensure the TCP API is enabled (default port 8099)\n3. Enter the vMix PC's IP address and port below\n4. Leave both subscriptions on for live tally and live recording/overlay/audio state"
+        "overview": "Full control of vMix video production software. Supports input switching, transitions, audio mixing, overlays, recording/streaming, titles, replay, and PTZ cameras. Program, preview, tally, overlays, recording and audio update the moment they change in vMix rather than waiting for the next poll. A numbered output running SRT is offered to the Video Panel plugin as a viewable stream, so program or preview can be shown on a touch panel.",
+        "setup": "1. Open vMix and go to Settings > Web Controller\n2. Ensure the TCP API is enabled (default port 8099)\n3. Enter the vMix PC's IP address and port below\n4. Leave both subscriptions on for live tally and live recording/overlay/audio state\n\nTo show a vMix output on a panel, set up SRT on it in vMix: Settings > Outputs, click the cog beside the output, set the port, then tick Enable SRT with Type set to Listener. Set the port BEFORE you tick Enable SRT -- the field is locked while the output is running. Each output needs its own port (they all offer 10000, so change every one after the first), and the same number goes in the SRT Port field below. vMix reports that SRT is on but never which port it is on, so this is the one number OpenAVC cannot read for itself."
       },
       "compatible_models": [
         {

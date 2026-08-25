@@ -29,6 +29,13 @@ is only a periodic reseed (it also carries the things ACTS never sends -- input
 titles, types, the transition slots). ACTS sends no snapshot when you subscribe,
 which is why the poll still runs.
 
+Two numbers in this driver are off by one on the wire, and they are not the same
+one. The Mix argument counts from zero off the main mix (see MAIN_MIX below).
+The SRT output number counts from zero off Output 1 -- the vendor's own wording
+is "optional output number starting from 0" -- so Output 2 is Value=1. Both
+conversions happen once, on the way out; everything a user sees is vMix's own
+number, the one its window shows.
+
 A note on volume, because the vendor doc is misleading and the trap is silent.
 Every write function ("SetVolume", "SetMasterVolume") takes the FADER position
 0-100 -- the position of the slider in the vMix audio mixer. Every value vMix
@@ -104,6 +111,68 @@ MIX_PARAM = {
     "options_state": "mix_list",
     "help": "Which mix to act on. Leave blank for the main mix.",
 }
+
+
+# The numbered outputs, and the second off-by-one in this driver.
+#
+# vMix has up to four numbered outputs (2-4 on the 4K and Pro editions, one on
+# the lower ones). Only 2, 3 and 4 can be re-pointed over the API: the function
+# table has SetOutput2/3/4 and no SetOutput1, so Output 1 carries whatever it
+# was set to in the vMix window and nothing here can move it. Asking for
+# "SetOutput1" would be answered OK and do nothing, which is this device's
+# signature failure, so the command's bound starts at 2 and the platform
+# enforces it at dispatch.
+#
+# The SRT functions are the opposite shape: they take EVERY output, as a Value
+# the vendor documents as "optional output number starting from 0. Leave blank
+# to control Output 1 only." So Output 2 travels as Value=1 -- measured on the
+# bench, where StopSRTOutput Value=1 killed a pull from Output 2 and
+# StartSRTOutput Value=1 brought it straight back.
+MAX_OUTPUTS = 4
+FIRST_SETTABLE_OUTPUT = 2
+
+# What a numbered output can be pointed at. The same six the vendor lists for
+# SetOutput2/3/4, and the same six vMix's own Outputs dialog offers.
+OUTPUT_SOURCES = ["Output", "Preview", "MultiView", "Replay", "Mix", "Input"]
+
+# vMix calls its program feed "Output"; every AV integrator calls it Program.
+# The device's own word is what the `source` state variable stores -- it has to
+# match what they see in the vMix window -- and this is only the display name
+# the stream picker reads.
+_SOURCE_DISPLAY = {"Output": "Program"}
+
+# vMix offers 10000 for an SRT output the first time you enable one, so it is
+# the right guess for any single output. It cannot be right for two at once,
+# which is what _output_srt_port's collision check is for.
+DEFAULT_SRT_PORT = 10000
+
+
+def srt_output_to_wire(output: Any) -> str | None:
+    """Turn vMix's output number into the SRT functions' Value argument.
+
+    Zero-based off Output 1, per the vendor's function table. Returns None for
+    anything that is not one of the outputs vMix has, so a bad value is refused
+    rather than sent as some other output's number.
+    """
+    try:
+        number = int(str(output).strip())
+    except (TypeError, ValueError):
+        return None
+    if not 1 <= number <= MAX_OUTPUTS:
+        return None
+    return str(number - 1)
+
+
+def output_display_name(number: int, source: str) -> str:
+    """What the stream picker calls this output.
+
+    The Video Panel plugin labels a discovered source from the child's own
+    `label` (the user's, if they set one) or `name`, with no device prefix of
+    its own -- so this carries enough to tell one vMix output from another in a
+    list that also holds cameras and encoders.
+    """
+    word = _SOURCE_DISPLAY.get(source, source)
+    return f"vMix Output {number} - {word}" if word else f"vMix Output {number}"
 
 
 def mix_to_wire(mix: Any) -> str | None:
@@ -283,14 +352,15 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.1.0",
+        "version": "2.2.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
             "Supports transitions, input switching, audio, overlays, "
-            "recording, streaming, titles, replay, and PTZ."
+            "recording, streaming, titles, replay, PTZ, and the numbered "
+            "outputs including their SRT streams."
         ),
         "source_url": "https://www.vmix.com/help29/TCPAPI.html",
         "tags": ["video-production", "streaming", "switcher", "software"],
@@ -339,14 +409,26 @@ class VMixDriver(BaseDriver):
                 "recording/streaming, titles, replay, and PTZ cameras. "
                 "Program, preview, tally, overlays, recording and audio "
                 "update the moment they change in vMix rather than waiting "
-                "for the next poll."
+                "for the next poll. A numbered output running SRT is offered "
+                "to the Video Panel plugin as a viewable stream, so program "
+                "or preview can be shown on a touch panel."
             ),
             "setup": (
                 "1. Open vMix and go to Settings > Web Controller\n"
                 "2. Ensure the TCP API is enabled (default port 8099)\n"
                 "3. Enter the vMix PC's IP address and port below\n"
                 "4. Leave both subscriptions on for live tally and live "
-                "recording/overlay/audio state"
+                "recording/overlay/audio state\n"
+                "\n"
+                "To show a vMix output on a panel, set up SRT on it in vMix: "
+                "Settings > Outputs, click the cog beside the output, set the "
+                "port, then tick Enable SRT with Type set to Listener. Set the "
+                "port BEFORE you tick Enable SRT -- the field is locked while "
+                "the output is running. Each output needs its own port (they "
+                "all offer 10000, so change every one after the first), and "
+                "the same number goes in the SRT Port field below. vMix "
+                "reports that SRT is on but never which port it is on, so "
+                "this is the one number OpenAVC cannot read for itself."
             ),
         },
         "default_config": {
@@ -355,6 +437,7 @@ class VMixDriver(BaseDriver):
             "poll_interval": 30,
             "subscribe_tally": True,
             "subscribe_acts": True,
+            **{f"srt_port_{n}": DEFAULT_SRT_PORT for n in range(1, MAX_OUTPUTS + 1)},
         },
         "config_schema": {
             "host": {
@@ -394,6 +477,29 @@ class VMixDriver(BaseDriver):
                     "Real-time overlay, recording, streaming, fade-to-black and "
                     "audio state. Turn off only if the event volume is a problem."
                 ),
+            },
+            # One port per output, because vMix will not tell us. Its state
+            # document says an output HAS SRT running and never says where --
+            # checked, there is nothing else in the document either -- so the
+            # number the user read off the Outputs dialog is the only source.
+            # Every output defaults to 10000 because that is what vMix offers
+            # each of them; two outputs cannot both keep it, and the driver
+            # says so rather than publishing one right stream and one wrong one.
+            **{
+                f"srt_port_{n}": {
+                    "type": "integer",
+                    "default": DEFAULT_SRT_PORT,
+                    "min": 0,
+                    "max": 65535,
+                    "label": f"Output {n} SRT Port",
+                    "description": (
+                        f"The SRT port set on Output {n} in vMix "
+                        f"(Settings > Outputs > cog). 0 if this output has no "
+                        f"SRT stream. Only used once vMix reports SRT running "
+                        f"on it."
+                    ),
+                }
+                for n in range(1, MAX_OUTPUTS + 1)
             },
         },
         "state_variables": {
@@ -441,7 +547,11 @@ class VMixDriver(BaseDriver):
             "edition": {"type": "string", "label": "vMix Edition"},
             "last_error": {
                 "type": "string", "label": "Last Error",
-                "help": "The most recent error message vMix returned for a command.",
+                "help": (
+                    "The most recent error message vMix returned for a "
+                    "command, or a configuration problem this driver spotted "
+                    "-- two outputs sharing one SRT port, say."
+                ),
             },
             # Master audio. Volume is the fader position, matching what
             # set_master_volume writes — see the module docstring.
@@ -545,6 +655,65 @@ class VMixDriver(BaseDriver):
                     },
                 },
                 "summary_fields": ["active", "preview"],
+            },
+            # vMix's numbered outputs. Each one is a picture -- program,
+            # preview, the multiview, a mix or a single input -- and an SRT
+            # output on top of it is how that picture gets onto a panel.
+            #
+            # The roster comes from the XML rather than being a fixed block of
+            # four, because how many outputs exist is an edition question (one
+            # on the lower editions, up to four on 4K and Pro) and a device
+            # page listing outputs that cannot exist is a lie.
+            "output": {
+                "label": "Output",
+                "label_plural": "Outputs",
+                "id_format": {"type": "integer", "min": 1, "max": MAX_OUTPUTS},
+                "state_variables": {
+                    "name": {
+                        "type": "string", "label": "Name",
+                        "help": (
+                            "What the stream picker calls this output. Follows "
+                            "what the output is carrying."
+                        ),
+                    },
+                    "source": {
+                        "type": "string", "label": "Showing",
+                        "cloud_priority": "high",
+                        "help": (
+                            "What this output is pointed at, in vMix's own "
+                            "words: Output (the program feed), Preview, "
+                            "MultiView, Replay, Mix or Input."
+                        ),
+                    },
+                    "srt": {
+                        "type": "boolean", "label": "SRT Running",
+                        "cloud_priority": "high",
+                        "help": (
+                            "Whether this output's SRT stream is running right "
+                            "now. It is runtime state, not configuration: "
+                            "stopping an output clears this and keeps its "
+                            "port, so false means enabled-but-stopped as well "
+                            "as never-set-up."
+                        ),
+                    },
+                    # The generic preview-source convention. The Video Panel
+                    # plugin reads these two and lists the output as a stream
+                    # with nothing typed; see openavc-api-reference.md.
+                    "preview_url": {
+                        "type": "string", "label": "Preview Source URL",
+                        "cloud_priority": "low",
+                        "help": (
+                            "srt://<vMix host>:<port> while SRT is running and "
+                            "this output's port is configured. Empty otherwise."
+                        ),
+                    },
+                    "preview_format": {
+                        "type": "string", "label": "Preview Type",
+                        "cloud_priority": "low",
+                    },
+                },
+                "summary_fields": ["source", "srt", "preview_url"],
+                "label_field": "name",
             },
         },
         # Quick Action strip: the daily production surface. The record /
@@ -875,6 +1044,78 @@ class VMixDriver(BaseDriver):
                 "label": "Stop MultiCorder", "params": {},
                 "help": "Stop MultiCorder recording.",
             },
+            # --- Outputs / SRT ---
+            "set_output_source": {
+                "label": "Set Output Source",
+                "params": {
+                    "output": {
+                        "type": "integer", "required": True,
+                        "min": FIRST_SETTABLE_OUTPUT, "max": MAX_OUTPUTS,
+                        "label": "Output",
+                        "help": (
+                            "Which numbered output to re-point. Output 1 is "
+                            "not settable over the API -- vMix has no "
+                            "SetOutput1 -- so it keeps whatever the vMix "
+                            "window gave it."
+                        ),
+                    },
+                    "source": {
+                        "type": "enum", "required": True, "values": OUTPUT_SOURCES,
+                        "help": "What this output should carry.",
+                    },
+                    "input": {
+                        "type": "string", "options_state": "input_list",
+                        "help": "Which input, when the source is Input.",
+                    },
+                    "mix": {
+                        "type": "string", "options_state": "mix_list",
+                        "help": "Which mix, when the source is Mix.",
+                    },
+                },
+                "help": (
+                    "Point a numbered output at the program feed, preview, the "
+                    "multiview, a mix or one input. One output is one picture, "
+                    "so this changes it for everybody watching that output's "
+                    "SRT stream, not just one panel."
+                ),
+            },
+            "start_srt_output": {
+                "label": "Start SRT Output",
+                "params": {
+                    "output": {
+                        "type": "integer", "required": True,
+                        "min": 1, "max": MAX_OUTPUTS, "label": "Output",
+                    },
+                },
+                "help": (
+                    "Start the SRT stream on an output that has SRT set up in "
+                    "vMix. Does nothing on an output that has never been set "
+                    "up -- there is no way to configure one from here."
+                ),
+            },
+            "stop_srt_output": {
+                "label": "Stop SRT Output",
+                "params": {
+                    "output": {
+                        "type": "integer", "required": True,
+                        "min": 1, "max": MAX_OUTPUTS, "label": "Output",
+                    },
+                },
+                "help": (
+                    "Stop an output's SRT stream. Its port survives, so "
+                    "starting it again needs no trip back into vMix."
+                ),
+            },
+            "toggle_srt_output": {
+                "label": "Toggle SRT Output",
+                "params": {
+                    "output": {
+                        "type": "integer", "required": True,
+                        "min": 1, "max": MAX_OUTPUTS, "label": "Output",
+                    },
+                },
+                "help": "Start an output's SRT stream if stopped, stop it if running.",
+            },
             "snapshot": {
                 "label": "Snapshot",
                 "params": {"value": {"type": "string", "help": "Filename (optional)"}},
@@ -1193,6 +1434,25 @@ class VMixDriver(BaseDriver):
         "stop_external": {"fn": "StopExternal", "args": {}},
         "start_multicorder": {"fn": "StartMultiCorder", "args": {}},
         "stop_multicorder": {"fn": "StopMultiCorder", "args": {}},
+        # Outputs / SRT. The output number is baked into the SetOutput function
+        # name (there is no generic SetOutput taking it as an argument), and it
+        # travels zero-based as a Value on the three SRT functions.
+        "set_output_source": {
+            "fn": "SetOutput{output}",
+            "args": {"source": "Value", "input": "Input", "mix": "Mix"},
+        },
+        "start_srt_output": {
+            "fn": "StartSRTOutput", "args": {"output": "Value"},
+            "zero_based": ("output",),
+        },
+        "stop_srt_output": {
+            "fn": "StopSRTOutput", "args": {"output": "Value"},
+            "zero_based": ("output",),
+        },
+        "toggle_srt_output": {
+            "fn": "StartStopSRTOutput", "args": {"output": "Value"},
+            "zero_based": ("output",),
+        },
         "snapshot": {"fn": "Snapshot", "args": {"value": "Value"}},
         "snapshot_input": {"fn": "SnapshotInput", "args": {"input": "Input", "value": "Value"}},
         # Titles
@@ -1293,6 +1553,9 @@ class VMixDriver(BaseDriver):
         self._known_inputs: set[str] = set()
         # Mix numbers seen in the last XML state, same idea.
         self._known_mixes: set[int] = set()
+        # Numbered outputs seen in the last XML state, same idea again: how
+        # many exist is an edition question, and one removed should not linger.
+        self._known_outputs: set[int] = set()
         # The title-field names each input last reported, so a poll can tell a
         # title being retyped (values move) from one being swapped (names do).
         self._input_text_fields: dict[int, tuple[str, ...]] = {}
@@ -1378,6 +1641,31 @@ class VMixDriver(BaseDriver):
             log.warning(f"[{self.device_id}] Skipping mix {number}: {exc}")
             return False
         return True
+
+    def _ensure_output(self, number: int) -> bool:
+        """Register one of vMix's numbered outputs as a child."""
+        if self.is_child_registered("output", number):
+            return True
+        try:
+            self.register_child("output", number)
+        except ValueError as exc:
+            log.warning(f"[{self.device_id}] Skipping output {number}: {exc}")
+            return False
+        return True
+
+    def _output_srt_port(self, number: int) -> int:
+        """The SRT port configured for one output, or 0 if there isn't one.
+
+        vMix says an output has SRT running and never says on which port, so
+        this is the number the user copied out of the Outputs dialog. Anything
+        that isn't a usable port reads as "not configured", which publishes no
+        stream rather than a wrong one.
+        """
+        try:
+            port = int(self.config.get(f"srt_port_{number}", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+        return port if 1 <= port <= 65535 else 0
 
     def _create_frame_parser(self) -> Optional[FrameParser]:
         """Use callable parser for vMix mixed-mode framing."""
@@ -1482,7 +1770,7 @@ class VMixDriver(BaseDriver):
         function = spec["fn"]
         consumed: set[str] = set()
         if "{" in function:
-            for name in ("channel", "number", "bus", "effect"):
+            for name in ("channel", "number", "bus", "effect", "output"):
                 token = "{" + name + "}"
                 if token not in function:
                     continue
@@ -1491,12 +1779,24 @@ class VMixDriver(BaseDriver):
                 function = function.replace(token, str(params[name]))
                 consumed.add(name)
 
+        zero_based = spec.get("zero_based", ())
         parts: list[str] = []
         for name, key in spec["args"].items():
             if name in consumed:
                 continue
             value = params.get(name)
             if value is None or value == "":
+                continue
+            if name in zero_based:
+                # The SRT output number, which the vendor documents as
+                # "starting from 0". Refuse an out-of-range one rather than
+                # send it as some other output's number.
+                wire = srt_output_to_wire(value)
+                if wire is None:
+                    raise ValueError(
+                        f"{command}: output must be 1-{MAX_OUTPUTS}, got {value!r}"
+                    )
+                parts.append(f"{key}={wire}")
                 continue
             if name == "mix":
                 # vMix's mix number in, the wire's zero-based one out. The main
@@ -1781,6 +2081,7 @@ class VMixDriver(BaseDriver):
 
         self._parse_inputs(root)
         self._parse_mixes(root)
+        self._parse_outputs(root)
         self._parse_overlays(root)
         self._parse_transitions(root)
         self._parse_audio(root)
@@ -1930,6 +2231,105 @@ class VMixDriver(BaseDriver):
         self._known_mixes = seen
 
         self.set_state("mix_list", json.dumps(options))
+
+    def _parse_outputs(self, root: ET.Element) -> None:
+        """Register vMix's numbered outputs and derive their preview streams.
+
+        Each output reports what it is carrying and, when SRT is live on it, an
+        ``srt="True"`` attribute. That attribute is the only thing vMix says
+        about SRT -- there is no port anywhere in this document -- so the URL is
+        built from the port the user configured for that output.
+
+        Two outputs cannot share a port (vMix could not bind it twice), so if
+        the configuration says they do, one of the two numbers is stale. Rather
+        than publish one right stream and one wrong one, both go quiet and the
+        driver says which outputs and which port.
+        """
+        found: dict[int, ET.Element] = {}
+        for out in self._output_elements(root):
+            raw = out.get("number", "")
+            if not raw.isdigit():
+                continue
+            number = int(raw)
+            if not 1 <= number <= MAX_OUTPUTS:
+                continue
+            found[number] = out
+
+        # Which SRT ports are claimed by more than one running output.
+        ports: dict[int, list[int]] = {}
+        for number, out in found.items():
+            if out.get("srt", "").strip().lower() != "true":
+                continue
+            port = self._output_srt_port(number)
+            if port:
+                ports.setdefault(port, []).append(number)
+        clashing = {
+            number
+            for port, numbers in ports.items()
+            if len(numbers) > 1
+            for number in numbers
+        }
+        for port, numbers in sorted(ports.items()):
+            if len(numbers) > 1:
+                message = (
+                    f"Outputs {', '.join(str(n) for n in sorted(numbers))} are "
+                    f"configured for the same SRT port ({port}), which vMix "
+                    f"cannot do. Set each output's SRT Port to the number "
+                    f"shown beside it in vMix: Settings > Outputs."
+                )
+                self.set_state(self.LAST_ERROR_PROPERTY, message)
+                log.warning(f"[{self.device_id}] {message}")
+
+        for number, out in sorted(found.items()):
+            if not self._ensure_output(number):
+                continue
+            source = (out.get("source") or "").strip()
+            srt = out.get("srt", "").strip().lower() == "true"
+            port = self._output_srt_port(number) if srt else 0
+            host = str(self.config.get("host", "")).strip()
+            url = (
+                f"srt://{host}:{port}"
+                if srt and port and host and number not in clashing
+                else ""
+            )
+            self.set_child_state_batch("output", number, {
+                "name": output_display_name(number, source),
+                "source": source,
+                "srt": srt,
+                # The generic preview-source convention: an empty URL means
+                # "no stream right now", and the format goes with it so a
+                # consumer never sees a format pointing at nothing.
+                "preview_url": url,
+                "preview_format": "srt" if url else "",
+            })
+
+        for gone in self._known_outputs - set(found):
+            try:
+                self.deregister_child("output", gone)
+            except ValueError:
+                pass
+        self._known_outputs = set(found)
+
+    @staticmethod
+    def _output_elements(root: ET.Element) -> list[ET.Element]:
+        """The numbered-output elements, wherever vMix puts them.
+
+        Read from an <outputs> container when there is one and off the root
+        when there is not, because both readings of the measured document are
+        consistent with it and neither costs anything. Entries that name a
+        different kind of output (an External or Fullscreen feed, which the
+        API re-points with their own functions) are left alone -- their numbers
+        would collide with the numbered outputs' own.
+        """
+        container = root.find("outputs")
+        elements = (
+            container.findall("output") if container is not None
+            else root.findall("output")
+        )
+        return [
+            el for el in elements
+            if (el.get("type") or "output").strip().lower() == "output"
+        ]
 
     def _parse_overlays(self, root: ET.Element) -> None:
         overlays = root.find("overlays")

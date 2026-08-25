@@ -228,7 +228,7 @@ def test_every_function_name_is_real():
     missing = []
     for command, spec in VMixDriver._COMMANDS.items():
         candidates = [spec["fn"]]
-        for param in ("channel", "number", "bus", "effect"):
+        for param in ("channel", "number", "bus", "effect", "output"):
             token = "{" + param + "}"
             if any(token in c for c in candidates):
                 values = allowed(command, param)
@@ -354,9 +354,15 @@ def test_discovery_extracts_only_names_the_scan_will_keep():
 # both down after.
 
 
-async def _run_scenario(scenario, *, subscribe_acts=True, poll_interval=0):
+async def _run_scenario(scenario, *, subscribe_acts=True, poll_interval=0, config=None):
     """Start a sim, connect a driver, run ``await scenario(driver, state, sim)``,
-    then tear everything down. Returns whatever the scenario returns."""
+    then tear everything down. Returns whatever the scenario returns.
+
+    ``config`` merges extra device-config fields in. The driver is built here
+    from a bare dict rather than through the platform's config resolution, so
+    anything with a `default_config` entry — the per-output SRT ports — has to
+    be passed explicitly by a test that depends on it.
+    """
     sim = VmixSimulator("vmix_sim")
     await sim.start(18099)
     state = StateStore()
@@ -370,6 +376,7 @@ async def _run_scenario(scenario, *, subscribe_acts=True, poll_interval=0):
             "poll_interval": poll_interval,
             "subscribe_tally": True,
             "subscribe_acts": subscribe_acts,
+            **(config or {}),
         },
         state=state,
         events=events,
@@ -1123,3 +1130,244 @@ def test_the_field_picker_offers_only_the_titles_fields():
         audio_offered = {n for n, v in audio_schema.items() if v.get("control")}
         assert {"muted", "volume", "balance"} <= audio_offered
     _scenario(s)
+
+
+# --- Numbered outputs and their SRT streams ---
+
+# Two SRT outputs on distinct ports, which is the only configuration vMix can
+# actually run: 10000 is what it offers every output, so the second one has to
+# be changed. Matches the bench machine (Output 2 = 10000, Output 3 = 10001).
+_SRT_PORTS = {"srt_port_1": 0, "srt_port_2": 10000, "srt_port_3": 10001, "srt_port_4": 0}
+
+
+def test_output_1_is_not_offered_to_the_source_command():
+    """vMix has no SetOutput1, so offering output 1 would be a dead control.
+
+    The function-name guard cannot catch this on its own: it expands the
+    declared bound, so widening the bound to 1 is what would let SetOutput1
+    through, and vMix would answer OK and change nothing.
+    """
+    fixture = json.loads(
+        (TESTS_DIR / "fixtures" / "vmix_shortcut_functions.json").read_text()
+    )
+    known = set(fixture["documented"]) | set(fixture["verified_live"])
+    bound = VMixDriver.DRIVER_INFO["commands"]["set_output_source"]["params"]["output"]
+    assert bound["min"] == 2
+    assert "SetOutput1" not in known
+    assert f"SetOutput{bound['max']}" in known
+    assert f"SetOutput{bound['max'] + 1}" not in known
+
+
+def test_the_srt_functions_take_every_output_including_the_first():
+    """Unlike SetOutput, the SRT functions reach output 1 — as Value=0."""
+    for command in ("start_srt_output", "stop_srt_output", "toggle_srt_output"):
+        bound = VMixDriver.DRIVER_INFO["commands"][command]["params"]["output"]
+        assert bound["min"] == 1
+        assert bound["max"] == _driver_mod.MAX_OUTPUTS
+
+
+def test_srt_output_number_is_zero_based_on_the_wire():
+    """The vendor's wording: "output number starting from 0"."""
+    assert _driver_mod.srt_output_to_wire(1) == "0"
+    assert _driver_mod.srt_output_to_wire(2) == "1"
+    assert _driver_mod.srt_output_to_wire(4) == "3"
+    # Bench-measured: StopSRTOutput Value=1 killed a pull from Output 2.
+    d = VMixDriver.__new__(VMixDriver)
+    spec = VMixDriver._COMMANDS["stop_srt_output"]
+    assert d._build_request("stop_srt_output", spec, {"output": 2}) == (
+        "StopSRTOutput", "Value=1"
+    )
+
+
+def test_an_output_number_that_does_not_exist_is_refused_not_shifted():
+    """Out of range must refuse, never travel as some other output's number."""
+    assert _driver_mod.srt_output_to_wire(0) is None
+    assert _driver_mod.srt_output_to_wire(5) is None
+    assert _driver_mod.srt_output_to_wire("nope") is None
+    d = VMixDriver.__new__(VMixDriver)
+    spec = VMixDriver._COMMANDS["start_srt_output"]
+    for bad in (0, 5, "nope"):
+        with pytest.raises(ValueError):
+            d._build_request("start_srt_output", spec, {"output": bad})
+
+
+def test_set_output_source_bakes_the_number_into_the_function_name():
+    d = VMixDriver.__new__(VMixDriver)
+    spec = VMixDriver._COMMANDS["set_output_source"]
+    assert d._build_request(
+        "set_output_source", spec, {"output": 2, "source": "Preview"}
+    ) == ("SetOutput2", "Value=Preview")
+    # A Mix source still converts through the mix off-by-one, which is a
+    # different one from the SRT output's.
+    assert d._build_request(
+        "set_output_source", spec, {"output": 4, "source": "Mix", "mix": "2"}
+    ) == ("SetOutput4", "Value=Mix&Mix=1")
+
+
+def test_outputs_appear_as_children_carrying_what_they_show():
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.1.source") == "Output"
+        assert state.get(DEV + "output.3.source") == "Preview"
+        assert state.get(DEV + "output.4.source") == "MultiView"
+        # The picker's label says which picture it is, because the Video Panel
+        # plugin shows the child's own name and nothing else.
+        assert state.get(DEV + "output.1.name") == "vMix Output 1 - Program"
+        assert state.get(DEV + "output.3.name") == "vMix Output 3 - Preview"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_a_running_srt_output_publishes_the_preview_convention():
+    """The two keys the Video Panel plugin reads, and nothing else needed."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.srt") is True
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+        assert state.get(DEV + "output.2.preview_format") == "srt"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_an_output_with_no_srt_running_offers_no_stream():
+    """Empty URL AND empty format: a format pointing at nothing is worse."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.4.srt") is False
+        assert state.get(DEV + "output.4.preview_url") == ""
+        assert state.get(DEV + "output.4.preview_format") == ""
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_a_stopped_srt_output_is_indistinguishable_until_you_start_it():
+    """Output 3 is set up and stopped; output 1 was never set up.
+
+    In the state document they are identical — no srt attribute either way —
+    and that is the whole reason the driver cannot tell "go and enable SRT" from
+    "I will just start it for you" by reading. StartSRTOutput separates them,
+    and vMix answers OK for both.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.1.srt") is False
+        assert state.get(DEV + "output.3.srt") is False
+
+        assert await d.send_command("start_srt_output", {"output": 1}) == (
+            "FUNCTION OK Completed"
+        )
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.1.srt") is False
+        assert state.get(DEV + "output.1.preview_url") == ""
+
+        assert await d.send_command("start_srt_output", {"output": 3}) == (
+            "FUNCTION OK Completed"
+        )
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.3.srt") is True
+        assert state.get(DEV + "output.3.preview_url") == "srt://127.0.0.1:10001"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_stopping_an_srt_output_withdraws_its_stream_and_keeps_its_port():
+    """Bench-measured: start after stop needed no reconfiguration in vMix."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+
+        await d.send_command("stop_srt_output", {"output": 2})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.srt") is False
+        assert state.get(DEV + "output.2.preview_url") == ""
+
+        await d.send_command("start_srt_output", {"output": 2})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_repointing_an_output_renames_it_for_the_picker():
+    """One output is one picture, so the label has to follow it."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.name") == "vMix Output 2 - Program"
+
+        await d.send_command("set_output_source", {"output": 2, "source": "Preview"})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.source") == "Preview"
+        assert state.get(DEV + "output.2.name") == "vMix Output 2 - Preview"
+        # The stream itself is untouched: same output, same port, new picture.
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_an_output_with_no_port_configured_publishes_no_stream():
+    """vMix says SRT is on and never says where. No number, no guess.
+
+    A guess would be a tile that connects to whatever else is on 10000.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.srt") is True
+        assert state.get(DEV + "output.2.preview_url") == ""
+        assert state.get(DEV + "output.2.preview_format") == ""
+    _scenario(s, config={**_SRT_PORTS, "srt_port_2": 0})
+
+
+def test_two_outputs_on_one_configured_port_publish_nothing_and_say_why():
+    """vMix cannot bind one port twice, so one of the two numbers is stale.
+
+    Publishing both would give one right tile and one that silently shows the
+    other output's picture, which is the failure nobody would ever diagnose.
+    """
+    async def s(d, state, sim):
+        await d.send_command("start_srt_output", {"output": 3})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.srt") is True
+        assert state.get(DEV + "output.3.srt") is True
+        assert state.get(DEV + "output.2.preview_url") == ""
+        assert state.get(DEV + "output.3.preview_url") == ""
+        error = state.get(DEV + "last_error")
+        assert "10000" in error and "2, 3" in error
+        assert "Settings > Outputs" in error
+    _scenario(s, config={**_SRT_PORTS, "srt_port_3": 10000})
+
+
+def test_an_output_the_edition_does_not_have_is_not_invented():
+    """Lower editions have one output; a device page listing four would lie."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.has(DEV + "output.4.source")
+        original = _sim_mod._OUTPUTS
+        _sim_mod._OUTPUTS = 1
+        try:
+            await d.poll()
+            await _settle()
+            assert state.has(DEV + "output.1.source")
+            assert not state.has(DEV + "output.2.source")
+            assert not state.has(DEV + "output.4.source")
+        finally:
+            _sim_mod._OUTPUTS = original
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_the_preview_keys_are_declared_on_the_output_child():
+    """The convention is two state variables; an undeclared one is dropped."""
+    schema = VMixDriver.DRIVER_INFO["child_entity_types"]["output"]["state_variables"]
+    assert schema["preview_url"]["type"] == "string"
+    assert schema["preview_format"]["type"] == "string"
+    # The picker reads `label` then `name`; without `name` every vMix output
+    # in the dropdown would fall back to its raw state-key slug.
+    assert VMixDriver.DRIVER_INFO["child_entity_types"]["output"]["label_field"] == "name"
+    assert "name" in schema

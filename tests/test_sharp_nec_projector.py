@@ -33,7 +33,6 @@ from _platform_stubs import (
     StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
-    StubTCPSimulator as _FakeTCPSimulator,
     install_stubs,
     load_module,
 )

@@ -26,6 +26,14 @@ way its documentation reads, because each one hid a bug in this driver:
 3. Only inputs that carry audio report any audio attributes. Input 1 here is a
    Colour input with none, which is the case that reads as "muted, volume 0" to
    anyone who assumes the attributes are always present.
+
+The numbered outputs model one more awkward case on purpose. An output reports
+srt="True" only while its SRT stream is RUNNING, and reports nothing at all
+otherwise -- so an output that has SRT set up and stopped looks exactly like one
+that has never been set up. Output 3 here is the first of those and output 1 the
+second, which is the pair anything reading this document has to get right:
+StartSRTOutput brings output 3 back and does nothing at all to output 1, and
+both answer OK.
 """
 
 import asyncio
@@ -37,6 +45,23 @@ from openavc.simulator.tcp_simulator import TCPSimulator
 # vMix lists sixteen overlay channels in its XML but only addresses eight.
 _XML_OVERLAY_SLOTS = 16
 _ADDRESSABLE_OVERLAYS = 8
+
+# The six pictures a numbered output can carry, per the vendor's SetOutput2/3/4
+# row. There is no SetOutput1, so output 1 is read-only from the API's side.
+_OUTPUT_SOURCES = {"Output", "Preview", "MultiView", "Replay", "Mix", "Input"}
+
+# How many numbered outputs this simulated vMix has. Four is the 4K/Pro shape.
+_OUTPUTS = 4
+
+# Which outputs have SRT SET UP in the Outputs dialog. Nothing over the API can
+# change this -- there is no function to configure an SRT output, only to start
+# and stop one -- so it is a fact about the simulated machine, not state.
+#
+# Output 3 is the case worth having: set up, currently stopped. In the state
+# document it is byte-identical to output 1, which was never set up at all, and
+# telling them apart is not possible from there. StartSRTOutput separates them,
+# and both answer OK.
+_SRT_CONFIGURED = {2, 3}
 
 _TRANSITION_EFFECTS = {
     "Fade", "Zoom", "Wipe", "Slide", "Fly", "CrossZoom", "FlyRotate", "Cube",
@@ -81,6 +106,16 @@ class VmixSimulator(TCPSimulator):
             "master_volume": 100,
             "master_muted": False,
             "headphones_volume": 100,
+            # The numbered outputs. `_srt` is the running half -- the only half
+            # vMix reports -- so output 3 reads False while still being set up.
+            "output_1_source": "Output",
+            "output_1_srt": False,
+            "output_2_source": "Output",
+            "output_2_srt": True,
+            "output_3_source": "Preview",
+            "output_3_srt": False,
+            "output_4_source": "MultiView",
+            "output_4_srt": False,
         },
         "delays": {
             "command_response": 0.02,
@@ -106,6 +141,14 @@ class VmixSimulator(TCPSimulator):
                 "options": ["1", "2", "3", "4"],
                 "labels": {"1": "Input 1", "2": "Input 2", "3": "Input 3", "4": "Input 4"},
             },
+            {
+                "type": "select",
+                "key": "output_2_source",
+                "label": "Output 2 Showing",
+                "options": ["Output", "Preview", "MultiView", "Replay", "Mix", "Input"],
+            },
+            {"type": "toggle", "key": "output_2_srt", "label": "Output 2 SRT Running"},
+            {"type": "toggle", "key": "output_3_srt", "label": "Output 3 SRT Running"},
             {"type": "toggle", "key": "recording", "label": "Recording"},
             {"type": "toggle", "key": "streaming", "label": "Streaming"},
             {"type": "toggle", "key": "external", "label": "External Output"},
@@ -447,6 +490,40 @@ class VmixSimulator(TCPSimulator):
                 self._push_act(activator, None, 0)
                 return True
 
+        # ── Numbered outputs and their SRT streams ──
+        if func_name.startswith("SetOutput") and func_name[len("SetOutput"):].isdigit():
+            number = int(func_name[len("SetOutput"):])
+            # vMix has no SetOutput1, so on the real device that name is an
+            # unknown function: answered OK, does nothing. Keep that.
+            if not 2 <= number <= _OUTPUTS:
+                return True
+            if value not in _OUTPUT_SOURCES:
+                return f"Invalid output source {value}"
+            self.set_state(f"output_{number}_source", value)
+            return True
+
+        if func_name in ("StartSRTOutput", "StopSRTOutput", "StartStopSRTOutput"):
+            # "Optional output number starting from 0. Leave blank to control
+            # Output 1 only." So a blank Value is output 1, not all of them.
+            wire = self._resolve_int(value) if value not in (None, "") else 0
+            number = (wire or 0) + 1
+            if not 1 <= number <= _OUTPUTS:
+                return True
+            # An output nobody set up in the Outputs dialog has nothing to
+            # start. vMix still answers OK; there is no way to tell from here.
+            if number not in _SRT_CONFIGURED:
+                return True
+            key = f"output_{number}_srt"
+            running = bool(self.state.get(key, False))
+            if func_name == "StartSRTOutput":
+                running = True
+            elif func_name == "StopSRTOutput":
+                running = False
+            else:
+                running = not running
+            self.set_state(key, running)
+            return True
+
         # ── Titles ──
         if func_name == "SetText":
             entry = self._input_entry(input_num)
@@ -710,6 +787,20 @@ class VmixSimulator(TCPSimulator):
             ("fullscreen", "fullscreen"),
         ):
             ET.SubElement(root, element).text = str(self.state.get(key, False))
+
+        # The numbered outputs. srt is present ONLY while the stream runs --
+        # an output that is set up and stopped carries no attribute at all,
+        # which is exactly what makes it indistinguishable from one that was
+        # never set up. The port is nowhere in this document, by design: vMix
+        # does not report it.
+        outputs_el = ET.SubElement(root, "outputs")
+        for number in range(1, _OUTPUTS + 1):
+            out = ET.SubElement(outputs_el, "output")
+            out.set("type", "output")
+            out.set("number", str(number))
+            out.set("source", str(self.state.get(f"output_{number}_source", "Output")))
+            if self.state.get(f"output_{number}_srt", False):
+                out.set("srt", "True")
 
         for number in sorted(self._mixes):
             mix_el = ET.SubElement(root, "mix")

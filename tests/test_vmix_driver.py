@@ -1500,6 +1500,92 @@ def test_an_output_the_edition_does_not_have_is_not_invented():
     _scenario(s, config=_SRT_PORTS)
 
 
+def test_an_srt_output_with_no_port_says_what_is_missing_and_where():
+    """The dead end this convention exists for.
+
+    SRT is running, so there IS a stream -- and vMix will not say on which
+    port, so the driver cannot build a URL. Before this the output simply
+    vanished from the picker with nothing anywhere to say why.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.srt") is True
+        assert state.get(DEV + "output.2.preview_url") == ""
+        assert state.get(DEV + "output.2.preview_status") == "needs_setup"
+        assert state.get(DEV + "output.2.preview_setup_field") == "srt_port_2"
+        detail = state.get(DEV + "output.2.preview_status_detail")
+        assert "Settings > Outputs" in detail
+        assert "port" in detail.lower()
+    _scenario(s, config={**_SRT_PORTS, "srt_port_2": 0})
+
+
+def test_an_output_with_a_stream_claims_nothing():
+    """Ready is the empty answer. A status on a working output is noise."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+        assert state.get(DEV + "output.2.preview_status") == ""
+        assert state.get(DEV + "output.2.preview_setup_field") == ""
+        assert state.get(DEV + "output.2.preview_status_detail") == ""
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_an_output_with_srt_off_says_so_rather_than_going_quiet():
+    """"Nothing in the picker" and "SRT is off" look identical without this.
+
+    Output 1 in the simulator has SRT stopped, and vMix cannot tell a stopped
+    output from one nobody ever set up -- so the sentence has to cover both.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.1.preview_status") == "unavailable"
+        assert state.get(DEV + "output.1.preview_setup_field") == ""
+        detail = state.get(DEV + "output.1.preview_status_detail")
+        assert "Enable SRT" in detail
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_two_outputs_on_one_port_each_ask_for_their_own_number():
+    """The clash already refused to publish a stream; now it offers the fix."""
+    async def s(d, state, sim):
+        await d.send_command("start_srt_output", {"output": 3})
+        await _settle()
+        for number, other in ((2, "Output 3"), (3, "Output 2")):
+            assert state.get(DEV + f"output.{number}.preview_status") == "needs_setup"
+            assert state.get(DEV + f"output.{number}.preview_setup_field") == (
+                f"srt_port_{number}"
+            )
+            assert other in state.get(DEV + f"output.{number}.preview_status_detail")
+    _scenario(s, config={**_SRT_PORTS, "srt_port_3": 10000})
+
+
+def test_the_status_follows_the_port_being_filled_in():
+    """What the picker's inline field is for: type the number, get a stream."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.preview_status") == "needs_setup"
+
+        # What a config edit does to a running driver.
+        d.config["srt_port_2"] = 10000
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.2.preview_status") == ""
+        assert state.get(DEV + "output.2.preview_url") == "srt://127.0.0.1:10000"
+    _scenario(s, config={**_SRT_PORTS, "srt_port_2": 0})
+
+
+def test_the_status_keys_are_declared_on_the_output_child():
+    """Undeclared child state is state the device page will not draw."""
+    outputs = VMixDriver.DRIVER_INFO["child_entity_types"]["output"]["state_variables"]
+    for key in ("preview_status", "preview_setup_field", "preview_status_detail"):
+        assert key in outputs, key
+        assert outputs[key]["type"] == "string"
+
+
 def test_the_preview_keys_are_declared_on_the_output_child():
     """The convention is two state variables; an undeclared one is dropped."""
     schema = VMixDriver.DRIVER_INFO["child_entity_types"]["output"]["state_variables"]

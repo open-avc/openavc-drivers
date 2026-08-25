@@ -390,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.2.1",
+        "version": "2.3.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -764,6 +764,35 @@ class VMixDriver(BaseDriver):
                     "preview_format": {
                         "type": "string", "label": "Preview Type",
                         "cloud_priority": "low",
+                    },
+                    # The rest of that convention: why there is no stream, and
+                    # what would give us one. This is the whole reason a vMix
+                    # output can be offered at all -- vMix reports that SRT is
+                    # running and never which port, so the stream picker has to
+                    # be able to ask for the one number nobody can read.
+                    "preview_status": {
+                        "type": "string", "label": "Preview Status",
+                        "cloud_priority": "low",
+                        "help": (
+                            "Empty while there is a stream to show. "
+                            "needs_setup when SRT is running and its port is "
+                            "still unknown. unavailable when SRT is not "
+                            "running on this output."
+                        ),
+                    },
+                    "preview_setup_field": {
+                        "type": "string", "label": "Preview Setup Field",
+                        "cloud_priority": "low",
+                        "help": (
+                            "The device setting that would give this output a "
+                            "stream: its SRT Port. Empty when nothing is "
+                            "missing."
+                        ),
+                    },
+                    "preview_status_detail": {
+                        "type": "string", "label": "Preview Status Detail",
+                        "cloud_priority": "low",
+                        "help": "What to do about it, in one sentence.",
                     },
                 },
                 "summary_fields": ["name", "srt", "preview_url"],
@@ -2432,6 +2461,9 @@ class VMixDriver(BaseDriver):
                 if srt and port and host and number not in clashing
                 else ""
             )
+            status, setup_field, status_detail = self._preview_status(
+                number, srt, port, number in clashing, ports
+            )
             self.set_child_state_batch("output", number, {
                 "name": output_display_name(number, source, detail),
                 "source": source,
@@ -2443,6 +2475,11 @@ class VMixDriver(BaseDriver):
                 # consumer never sees a format pointing at nothing.
                 "preview_url": url,
                 "preview_format": "srt" if url else "",
+                # ...and the rest of it, which is what turns an empty picker
+                # into one that says what is missing.
+                "preview_status": status,
+                "preview_setup_field": setup_field,
+                "preview_status_detail": status_detail,
             })
 
         for gone in self._known_outputs - set(found):
@@ -2451,6 +2488,61 @@ class VMixDriver(BaseDriver):
             except ValueError:
                 pass
         self._known_outputs = set(found)
+
+    def _preview_status(
+        self,
+        number: int,
+        srt: bool,
+        port: int,
+        clashing: bool,
+        ports: dict[int, list[int]],
+    ) -> tuple[str, str, str]:
+        """Why this output has no stream, and what would give it one.
+
+        An output with a stream says nothing -- an empty status is the whole
+        of "ready". The other three answers exist because vMix reports that
+        SRT is running and never says on which port, so an output can be one
+        number away from working with nothing on screen to say so.
+
+        The field named is a DEVICE setting even though this is a child: a
+        driver's configuration lives on the device, and the SRT port is only
+        ever entered by hand. Naming it is what lets a stream picker ask for
+        it where the person is already looking.
+        """
+        field = f"srt_port_{number}"
+        if not srt:
+            return (
+                "unavailable",
+                "",
+                f"SRT is not running on Output {number}. In vMix, open "
+                f"Settings > Outputs, set an SRT Port, then tick Enable SRT.",
+            )
+        if clashing:
+            others = sorted(n for n in ports.get(port, []) if n != number)
+            names = ", ".join(f"Output {n}" for n in others)
+            return (
+                "needs_setup",
+                field,
+                f"Output {number} and {names} are both set to SRT port "
+                f"{port}, which vMix cannot do. Give each one the port shown "
+                f"beside it in vMix: Settings > Outputs.",
+            )
+        if not port:
+            return (
+                "needs_setup",
+                field,
+                f"SRT is running on Output {number}, but vMix does not report "
+                f"which port. Enter the SRT Port shown beside it in vMix: "
+                f"Settings > Outputs.",
+            )
+        if not str(self.config.get("host", "")).strip():
+            return (
+                "unavailable",
+                "",
+                "This vMix has no address configured, so there is nothing to "
+                "connect a stream to.",
+            )
+        return "", "", ""
 
     def _output_detail(
         self, source: str, out: ET.Element

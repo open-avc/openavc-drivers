@@ -5709,7 +5709,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.2.1",
+      "version": "2.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
@@ -5717,7 +5717,7 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "5a6c6544bac3f85ee532cc95601183e76db1947da6b48bc4c20c94ae11d15700",
+        "video/vmix.py": "74b043909cdeb505b169c393ee29c28aa25911d67de04dcf4b47528a9131befe",
         "video/vmix_sim.py": "825c876a8ef02d87b5ffc3d19251b4e9a9f4505c58d1b8f33ab45414d00e2035"
       },
       "ports": [

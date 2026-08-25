@@ -1371,3 +1371,109 @@ def test_the_preview_keys_are_declared_on_the_output_child():
     # in the dropdown would fall back to its raw state-key slug.
     assert VMixDriver.DRIVER_INFO["child_entity_types"]["output"]["label_field"] == "name"
     assert "name" in schema
+
+
+# --- What the bench taught us about the outputs block (vMix 29.0.0.49) ---
+
+
+def test_the_fullscreen_feeds_share_the_number_space_and_are_not_outputs():
+    """vMix lists its Fullscreen feeds in <outputs>, numbered from 1 too.
+
+    Measured: four numbered outputs come back as SIX <output> elements, two of
+    them type="fullscreen" numbered 1 and 2. Reading them all would attribute a
+    Fullscreen feed's state to Output 1, and nothing downstream could tell.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        # The simulator emits both kinds; the driver must land on the real one.
+        assert state.get(DEV + "output.1.source") == "Output"
+        assert state.get(DEV + "output.2.srt") is True
+        raw = sim._build_xml_body()
+        root = __import__("xml.etree.ElementTree", fromlist=["ElementTree"]).fromstring(raw)
+        kinds = [el.get("type") for el in root.find("outputs").findall("output")]
+        assert kinds.count("fullscreen") == 2, "the awkward case must stay modelled"
+        assert kinds.count("output") == 4
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_a_reported_mix_number_is_the_wire_number_and_converts_back():
+    """The one place vMix REPORTS a mix, and it is zero-based.
+
+    Measured on vMix 29 by sending Mix=0..3 and reading each back unchanged:
+    the attribute echoes the wire value, so mix="0" is the main mix. Publishing
+    it straight would put "Mix 1" on the same device page as a mix.2 child.
+    """
+    assert _driver_mod.wire_to_mix("0") == 1
+    assert _driver_mod.wire_to_mix("1") == 2
+    assert _driver_mod.wire_to_mix("3") == 4
+    assert _driver_mod.wire_to_mix("nope") is None
+    # And it is exactly the inverse of what the command sends.
+    assert _driver_mod.mix_to_wire(2) == "1"
+    assert _driver_mod.wire_to_mix(_driver_mod.mix_to_wire(2)) == 2
+
+
+def test_an_output_showing_a_mix_publishes_vmix_numbering():
+    async def s(d, state, sim):
+        await d.send_command("set_output_source", {"output": 4, "source": "Mix", "mix": "2"})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.4.source") == "Mix"
+        assert state.get(DEV + "output.4.source_mix") == 2
+        assert state.get(DEV + "output.4.name") == "vMix Output 4 - Mix 2"
+        # The main mix is 1 here and 0 on the wire, and an omitted Mix
+        # argument means the main mix — measured: vMix reports mix="0".
+        await d.send_command("set_output_source", {"output": 4, "source": "Mix", "mix": "1"})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.4.source_mix") == 1
+        assert state.get(DEV + "output.4.name") == "vMix Output 4 - Mix 1"
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_an_output_showing_an_input_names_it():
+    """vMix reports inputNumber; a bare "Input" is the least useful label."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        await d.send_command("set_output_source", {"output": 4, "source": "Input", "input": "2"})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.4.source") == "Input"
+        assert state.get(DEV + "output.4.source_input") == 2
+        # Input 2 is "Camera 2" in the simulated production.
+        assert state.get(DEV + "output.4.name") == "vMix Output 4 - Camera 2"
+        # An input the poll has no title for still says which one.
+        assert _driver_mod.output_display_name(4, "Input", "Input 9") == (
+            "vMix Output 4 - Input 9"
+        )
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_a_source_with_no_which_reports_zero_for_both():
+    """Only two of the six sources have a "which"; the rest must not claim one."""
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.3.source") == "Preview"
+        assert state.get(DEV + "output.3.source_input") == 0
+        assert state.get(DEV + "output.3.source_mix") == 0
+    _scenario(s, config=_SRT_PORTS)
+
+
+def test_an_input_source_with_no_input_lands_on_preview():
+    """Measured on vMix 29, and it follows from the vendor's own rule.
+
+    The Input parameter defaults to 0 and 0 means preview, so asking for
+    Value=Input with no input does not fail — it quietly shows preview. The
+    command's help says so; this pins the behaviour the help describes.
+    """
+    async def s(d, state, sim):
+        await d.poll()
+        await _settle()
+        await d.send_command("set_output_source", {"output": 4, "source": "Input"})
+        await d.poll()
+        await _settle()
+        assert state.get(DEV + "output.4.source") == "Preview"
+        assert state.get(DEV + "output.4.source_input") == 0
+    _scenario(s, config=_SRT_PORTS)

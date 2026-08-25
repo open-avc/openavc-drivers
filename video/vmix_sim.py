@@ -499,7 +499,26 @@ class VmixSimulator(TCPSimulator):
                 return True
             if value not in _OUTPUT_SOURCES:
                 return f"Invalid output source {value}"
+            # Value=Input with no Input lands on PREVIEW, measured on vMix 29.
+            # It follows from the vendor's own rule that the Input parameter
+            # defaults to 0 and 0 means preview, but it reads as a bug unless
+            # you know that, so it is modelled rather than left to surprise.
+            if value == "Input" and not input_num:
+                self.set_state(f"output_{number}_source", "Preview")
+                self.set_state(f"output_{number}_input", 0)
+                return True
             self.set_state(f"output_{number}_source", value)
+            # Two of the six sources say WHICH, and vMix records what it was
+            # handed. The mix is kept as the WIRE number it arrived as --
+            # measured on vMix 29, Mix=0..3 each read back unchanged -- so
+            # mix="0" is the main mix, not mix 1. An omitted Mix is 0 too.
+            self.set_state(
+                f"output_{number}_input", input_num if value == "Input" else 0
+            )
+            self.set_state(
+                f"output_{number}_mix",
+                (self._resolve_int(params.get("Mix")) or 0) if value == "Mix" else None,
+            )
             return True
 
         if func_name in ("StartSRTOutput", "StopSRTOutput", "StartStopSRTOutput"):
@@ -794,11 +813,24 @@ class VmixSimulator(TCPSimulator):
         # never set up. The port is nowhere in this document, by design: vMix
         # does not report it.
         outputs_el = ET.SubElement(root, "outputs")
+        # The Fullscreen feeds share this container AND the number space --
+        # vMix 29 lists two of them, numbered from 1, so a reader that does not
+        # filter on type attributes a Fullscreen feed's state to Output 1.
+        for number in (1, 2):
+            fs = ET.SubElement(outputs_el, "output")
+            fs.set("type", "fullscreen")
+            fs.set("number", str(number))
+            fs.set("source", "Output")
         for number in range(1, _OUTPUTS + 1):
             out = ET.SubElement(outputs_el, "output")
             out.set("type", "output")
             out.set("number", str(number))
-            out.set("source", str(self.state.get(f"output_{number}_source", "Output")))
+            source = str(self.state.get(f"output_{number}_source", "Output"))
+            out.set("source", source)
+            if source == "Input" and self.state.get(f"output_{number}_input"):
+                out.set("inputNumber", str(self.state.get(f"output_{number}_input")))
+            if source == "Mix" and self.state.get(f"output_{number}_mix") is not None:
+                out.set("mix", str(self.state.get(f"output_{number}_mix")))
             if self.state.get(f"output_{number}_srt", False):
                 out.set("srt", "True")
 

@@ -163,15 +163,21 @@ def srt_output_to_wire(output: Any) -> str | None:
     return str(number - 1)
 
 
-def output_display_name(number: int, source: str) -> str:
+def output_display_name(number: int, source: str, detail: str = "") -> str:
     """What the stream picker calls this output.
 
     The Video Panel plugin labels a discovered source from the child's own
     `label` (the user's, if they set one) or `name`, with no device prefix of
     its own -- so this carries enough to tell one vMix output from another in a
     list that also holds cameras and encoders.
+
+    ``detail`` REPLACES the source word for the two sources that have a which:
+    an output showing input 2 reads "Camera 2" rather than "Input Camera 2",
+    and one showing a mix reads "Mix 2". A bare "Input" would be the least
+    useful thing in a picker -- which input is the only question worth
+    answering there.
     """
-    word = _SOURCE_DISPLAY.get(source, source)
+    word = detail or _SOURCE_DISPLAY.get(source, source)
     return f"vMix Output {number} - {word}" if word else f"vMix Output {number}"
 
 
@@ -188,6 +194,23 @@ def mix_to_wire(mix: Any) -> str | None:
     if number <= MAIN_MIX:
         return None
     return str(number - 1)
+
+
+def wire_to_mix(raw: Any) -> int | None:
+    """The inverse, for the one place vMix REPORTS a mix number.
+
+    An output pointed at a mix carries the mix as an attribute, and it is the
+    wire's zero-based number rather than vMix's own -- measured on vMix 29 by
+    setting Mix=0..3 and reading each back unchanged, so mix="0" is the main
+    mix. Everything this driver publishes is vMix's number, so it converts
+    back here; reading the attribute straight would label vMix's Mix 2 as
+    "Mix 1" on the same page as a mix.2 child.
+    """
+    try:
+        wire = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return wire + MAIN_MIX if wire >= 0 else None
 
 
 # What every input publishes. Held out here because an input that carries a
@@ -685,6 +708,22 @@ class VMixDriver(BaseDriver):
                             "MultiView, Replay, Mix or Input."
                         ),
                     },
+                    # The two sources that need saying WHICH. vMix reports each
+                    # as its own attribute, neither of which is in the vendor's
+                    # example document -- both measured on vMix 29.
+                    "source_input": {
+                        "type": "integer", "label": "Showing Input",
+                        "help": (
+                            "Which input, when Showing is Input. 0 otherwise."
+                        ),
+                    },
+                    "source_mix": {
+                        "type": "integer", "label": "Showing Mix",
+                        "help": (
+                            "Which mix, when Showing is Mix, as vMix's own "
+                            "number (the main mix is 1). 0 otherwise."
+                        ),
+                    },
                     "srt": {
                         "type": "boolean", "label": "SRT Running",
                         "cloud_priority": "high",
@@ -712,7 +751,7 @@ class VMixDriver(BaseDriver):
                         "cloud_priority": "low",
                     },
                 },
-                "summary_fields": ["source", "srt", "preview_url"],
+                "summary_fields": ["name", "srt", "preview_url"],
                 "label_field": "name",
             },
         },
@@ -1065,11 +1104,19 @@ class VMixDriver(BaseDriver):
                     },
                     "input": {
                         "type": "string", "options_state": "input_list",
-                        "help": "Which input, when the source is Input.",
+                        "help": (
+                            "Which input, when the source is Input. Leaving "
+                            "it blank puts the output on Preview, because "
+                            "vMix reads a missing input as 0 and 0 is "
+                            "preview -- measured, not a guess."
+                        ),
                     },
                     "mix": {
                         "type": "string", "options_state": "mix_list",
-                        "help": "Which mix, when the source is Mix.",
+                        "help": (
+                            "Which mix, when the source is Mix. Blank is the "
+                            "main mix."
+                        ),
                     },
                 },
                 "help": (
@@ -1556,6 +1603,10 @@ class VMixDriver(BaseDriver):
         # Numbered outputs seen in the last XML state, same idea again: how
         # many exist is an edition question, and one removed should not linger.
         self._known_outputs: set[int] = set()
+        # Input titles from the last XML state, so an output pointed at an
+        # input can be named after it. _parse_inputs fills this and
+        # _parse_outputs reads it, in that order within one document.
+        self._input_titles: dict[int, str] = {}
         # The title-field names each input last reported, so a poll can tell a
         # title being retyped (values move) from one being swapped (names do).
         self._input_text_fields: dict[int, tuple[str, ...]] = {}
@@ -2094,6 +2145,7 @@ class VMixDriver(BaseDriver):
         input_count = 0
         input_options: list[dict[str, str]] = []
         seen: set[str] = set()
+        titles: dict[int, str] = {}
 
         for inp in inputs.findall("input"):
             input_count += 1
@@ -2101,6 +2153,8 @@ class VMixDriver(BaseDriver):
             title = inp.get("title", "")
 
             seen.add(num)
+            if num.isdigit() and title:
+                titles[int(num)] = title
             input_options.append(
                 {"value": num, "label": f"{num}: {title}" if title else num}
             )
@@ -2171,6 +2225,10 @@ class VMixDriver(BaseDriver):
                     updates[field] = text_value
 
             self.set_child_state_batch("input", int(num), updates)
+
+        # Read by _parse_outputs later in this same document, to name an
+        # output after the input it is showing.
+        self._input_titles = titles
 
         self.set_state("input_count", input_count)
         # The command dropdowns read this JSON list (options_state).
@@ -2284,6 +2342,7 @@ class VMixDriver(BaseDriver):
             if not self._ensure_output(number):
                 continue
             source = (out.get("source") or "").strip()
+            source_input, source_mix, detail = self._output_detail(source, out)
             srt = out.get("srt", "").strip().lower() == "true"
             port = self._output_srt_port(number) if srt else 0
             host = str(self.config.get("host", "")).strip()
@@ -2293,8 +2352,10 @@ class VMixDriver(BaseDriver):
                 else ""
             )
             self.set_child_state_batch("output", number, {
-                "name": output_display_name(number, source),
+                "name": output_display_name(number, source, detail),
                 "source": source,
+                "source_input": source_input,
+                "source_mix": source_mix,
                 "srt": srt,
                 # The generic preview-source convention: an empty URL means
                 # "no stream right now", and the format goes with it so a
@@ -2310,24 +2371,49 @@ class VMixDriver(BaseDriver):
                 pass
         self._known_outputs = set(found)
 
+    def _output_detail(
+        self, source: str, out: ET.Element
+    ) -> tuple[int, int, str]:
+        """Which input or mix an output is showing, and how to say it.
+
+        Only two of the six sources have a "which", and vMix names each with
+        its own attribute -- inputNumber and mix. Neither is in the vendor's
+        example document; both were measured on vMix 29.
+
+        The mix attribute is the WIRE number, zero-based, so it converts back
+        to vMix's own (see wire_to_mix). The input attribute is the input's
+        real number and needs no conversion; the title is used where the poll
+        has seen one, because "Output 4 - Camera 2" is worth more in a picker
+        than "Output 4 - Input 2".
+        """
+        if source == "Input":
+            try:
+                number = int((out.get("inputNumber") or "").strip())
+            except (TypeError, ValueError):
+                return 0, 0, ""
+            title = self._input_titles.get(number, "")
+            return number, 0, title or f"Input {number}"
+        if source == "Mix":
+            mix = wire_to_mix(out.get("mix"))
+            if mix is None:
+                return 0, 0, ""
+            return 0, mix, f"Mix {mix}"
+        return 0, 0, ""
+
     @staticmethod
     def _output_elements(root: ET.Element) -> list[ET.Element]:
-        """The numbered-output elements, wherever vMix puts them.
+        """The numbered outputs, which are not the only thing in <outputs>.
 
-        Read from an <outputs> container when there is one and off the root
-        when there is not, because both readings of the measured document are
-        consistent with it and neither costs anything. Entries that name a
-        different kind of output (an External or Fullscreen feed, which the
-        API re-points with their own functions) are left alone -- their numbers
-        would collide with the numbered outputs' own.
+        vMix 29 lists its Fullscreen feeds in the same container and numbers
+        them from 1 as well, so a document with four numbered outputs holds six
+        <output> elements and two of the numbers appear twice. Reading them all
+        would silently attribute a Fullscreen feed's state to Output 1.
         """
         container = root.find("outputs")
-        elements = (
-            container.findall("output") if container is not None
-            else root.findall("output")
-        )
+        if container is None:
+            return []
         return [
-            el for el in elements
+            el for el in container.findall("output")
             if (el.get("type") or "output").strip().lower() == "output"
         ]
 

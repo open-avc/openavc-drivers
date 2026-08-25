@@ -169,7 +169,7 @@ def output_display_name(number: int, source: str, detail: str = "") -> str:
     The Video Panel plugin labels a discovered source from the child's own
     `label` (the user's, if they set one) or `name`, with no device prefix of
     its own -- so this carries enough to tell one vMix output from another in a
-    list that also holds cameras and encoders.
+    list that also holds every other source a driver has published.
 
     ``detail`` REPLACES the source word for the two sources that have a which:
     an output showing input 2 reads "Camera 2" rather than "Input Camera 2",

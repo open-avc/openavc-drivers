@@ -390,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.3.0",
+        "version": "2.3.1",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -523,12 +523,21 @@ class VMixDriver(BaseDriver):
             # Every output defaults to 10000 because that is what vMix offers
             # each of them; two outputs cannot both keep it, and the driver
             # says so rather than publishing one right stream and one wrong one.
+            #
+            # ADVANCED, all four. Adding a vMix is something you do to control
+            # it; enabling SRT on an output comes later, when you want a
+            # picture on a panel. So at the moment this form is on screen the
+            # question has no answer, and four ports asked up front are four
+            # fields somebody skims past. The stream picker asks for the one
+            # that is actually missing, at the moment it is missing, and writes
+            # it back here -- these stay for anyone who already knows.
             **{
                 f"srt_port_{n}": {
                     "type": "integer",
                     "default": DEFAULT_SRT_PORT,
                     "min": 0,
                     "max": 65535,
+                    "advanced": True,
                     "label": f"Output {n} SRT Port",
                     "description": (
                         f"The SRT port set on Output {n} in vMix "

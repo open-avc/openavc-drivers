@@ -611,7 +611,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         # Computed by build_index.py, not chosen: the `web_ui` field below
         # carries a 0.24.0 floor. Well behind the current release, so this
@@ -743,11 +743,17 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
                 "address first."
             ),
         },
+        # Must agree with config_schema below. These two are read by different
+        # callers -- this block by get_driver_default_config (so it is what a
+        # one-click install and the runtime actually get), config_schema by the
+        # Add Device form -- and nothing checks that they match, so a change to
+        # one and not the other silently ships a driver whose form disagrees
+        # with what it does.
         "default_config": {
             "host": "",
-            "port": 22,
+            "port": 23,
             "username": "admin",
-            "transport": "ssh",
+            "transport": "tcp",
             "ssh_auth_method": "password",
             "poll_interval": 15,
             "detail_poll_interval": 60,

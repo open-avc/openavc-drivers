@@ -626,3 +626,47 @@ async def test_an_undeliverable_restore_says_the_port_is_still_dark():
     assert "power inline enable" in message
     # The cut DID happen; saying "failed to send command" would be false.
     assert ["no power inline enable"] in calls
+
+
+def test_the_two_default_blocks_do_not_contradict_each_other():
+    """`default_config` and `config_schema` are read by different callers.
+
+    `get_driver_default_config` reads `default_config`, so that block is what a
+    one-click install from discovery and the runtime actually get.
+    `config_schema[field]["default"]` is what the Add Device form shows. Nothing
+    in the platform checks that they agree, and on 2026-08-27 they did not: the
+    schema was moved to telnet on port 23 while `default_config` stayed on ssh
+    port 22, so the form advertised one thing and every install did another.
+    """
+    info = Driver.DRIVER_INFO
+    defaults = info["default_config"]
+    schema = info["config_schema"]
+    disagreements = []
+    for key, spec in schema.items():
+        if not isinstance(spec, dict) or "default" not in spec:
+            continue
+        if key not in defaults:
+            continue
+        if defaults[key] != spec["default"]:
+            disagreements.append(
+                f"{key}: default_config={defaults[key]!r} "
+                f"config_schema={spec['default']!r}")
+    assert not disagreements, (
+        "These fields declare two different defaults:\n  "
+        + "\n  ".join(disagreements))
+
+
+def test_the_shipped_default_actually_connects_without_editing():
+    """Whatever the default is, it has to be a transport/port pair that works.
+
+    The switch's SSH server offers only hmac-sha1, which current OpenSSH
+    refuses, so ssh-on-22 cannot be the shipped default until the platform's
+    legacy-algorithm support is in a release people are running.
+    """
+    defaults = Driver.DRIVER_INFO["default_config"]
+    assert (defaults["transport"], defaults["port"]) in {("tcp", 23), ("ssh", 22)}
+    assert defaults["transport"] == "tcp", (
+        "telnet is the default until the SSH compat fix ships in a release "
+        "(backlog 27) -- otherwise a one-click install fails for everyone on "
+        "an older platform"
+    )

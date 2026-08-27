@@ -66,7 +66,7 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: 1.0.1
+version: "1.0.2"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -170,7 +170,7 @@ default_config:
   port: 4321
   poll_interval: 60
   inter_command_delay: 0.01
-  channel_count: 4
+  channel_count: "4"
   enable_meters: false
   tcp_keepalive: true
 

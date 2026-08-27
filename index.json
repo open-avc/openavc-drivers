@@ -1101,7 +1101,7 @@
       "name": "AVPro Edge MXnet Network Switch",
       "manufacturer": "AVPro Edge",
       "category": "utility",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control an AVPro Edge MXnet network switch over its CLI: per-port PoE power-cycling and draw, link state and error counters, IGMP/multicast group membership per port, the endpoint attached to each port, and system health (temperature, CPU, memory, PoE budget). Each physical port is a child entity. This is the switch that carries an MXnet system; video routing lives in the MXnet Control Box driver.",
@@ -1109,7 +1109,7 @@
       "file": "utility/avproedge_mxnet_switch.py",
       "format": "python",
       "files": {
-        "utility/avproedge_mxnet_switch.py": "095e5d95344c4b5c91c6854acfbb75b686a5a989ab5e2919b807a1caa6740982",
+        "utility/avproedge_mxnet_switch.py": "6d002bb86e7a2502989af2c6c32ad5cb773529bef93d9b02d52c3dfc437d9acd",
         "utility/avproedge_mxnet_switch_sim.py": "80ab22787a9ea7a2bcb01f4bc7023616b0ed39cb4aa969583a8e053e97d8025f"
       },
       "ports": [
@@ -3417,7 +3417,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -3425,7 +3425,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "c9b7a7e656577dd49badd1448b8322c0de5daa1179e36bd00053b42134430e21"
+        "audio/lea_connect.avcdriver": "9a6ab26b95cae3887019ff3ff3b2e01b219f460faee47d1e1cb1d3e9c7db82ea"
       },
       "ports": [
         4321

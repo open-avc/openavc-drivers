@@ -67,9 +67,9 @@ id: avproedge_acmx
 name: AVPro Edge AC-MX Matrix
 manufacturer: AVPro Edge
 category: switcher
-version: 2.1.0
+version: 2.2.0
 author: OpenAVC
-min_platform_version: "0.27.0"
+min_platform_version: "0.32.0"
 description: >
   Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up
   to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every
@@ -1162,7 +1162,15 @@ responses:
     child_set:
       - { type: output, id: "$1", state: { input: "$2" } }
 
+  # Only while the ex-audio ports are actually taking from this table. The
+  # unit answers "OUT1 AS IN4" in every mode, but in Bind to Output the audio
+  # follows the output's own video and in Bind to Input the port number IS the
+  # input -- so outside Matrix mode the stored assignment describes nothing
+  # anybody can hear, and publishing it had panels naming a source the video
+  # was not on. MEASURED: the table survives a mode change, so it is stale
+  # rather than reset, and the mode arrives in the same GET STA dump.
   - match: '(?i:^OUT0*([1-9]\d*)\s+AS\s+IN0*([1-9]\d*)\s*$)'
+    only_when: { key: examx_mode, operator: equals, value: 2 }
     child_set:
       - { type: output, id: "$1", state: { audio_input: "$2" } }
 

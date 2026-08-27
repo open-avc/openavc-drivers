@@ -956,7 +956,7 @@
       "name": "AVPro Edge AC-MX Matrix",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed video and extracted-audio source, sync and HPD status, scaling mode, stream enable and the full balanced-audio chain; every input a child tracking signal presence, assigned EDID, port power and detected video format. Also covers the extracted-audio matrix mode, front-panel lock, LCD timeout, fan speed, IR code setup and the unit's network configuration.\n",
@@ -964,7 +964,7 @@
       "file": "switchers/avproedge_acmx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/avproedge_acmx.avcdriver": "fa5146087af71168898d970d0aa0ec8e3b4f3754e85871af2f67cb64070fd096"
+        "switchers/avproedge_acmx.avcdriver": "da1f1cc9206bbb03d347bca659542d97c96eda44a56c25aeb4e86ae0ec52c417"
       },
       "ports": [
         23
@@ -974,7 +974,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.32.0",
       "tags": [
         "matrix-switcher",
         "hdmi",

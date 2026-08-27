@@ -46,6 +46,11 @@ _HOSTNAME = "switch"
 _DECODER_MAC = "18-8a-6a-00-00-12"
 _ENCODER_MAC = "18-8a-6a-00-00-11"
 _LAPTOP_MAC = "aa-bb-cc-00-00-21"
+# Whatever the switch is uplinked to. A real AV switch is rarely an island, and
+# the port carrying the rest of the building learns every MAC on it -- which is
+# how a "power-cycle this port" lands on the switch's own path back to OpenAVC.
+_UPLINK_MACS = ["aa-bb-cc-00-00-31", "aa-bb-cc-00-00-32",
+                "aa-bb-cc-00-00-33", "aa-bb-cc-00-00-34"]
 _AV_GROUPS = ["225.1.0.0", "225.1.0.1", "225.2.0.20", "225.3.0.20",
               "225.4.0.20", "225.7.0.20"]
 
@@ -84,6 +89,12 @@ def _seed_ports() -> dict[str, dict]:
         link=True, speed="a-1G", duplex="a-FULL", macs=[_LAPTOP_MAC],
         groups=["239.255.255.250"], rx_packets=3546, rx_bytes=443035,
         tx_packets=844, tx_bytes=148159, rx_rate=900, tx_rate=400)
+    # The uplink: linked, drawing no PoE (the far end powers itself), and
+    # carrying everything that is not on this switch.
+    ports["1/0/7"].update(
+        link=True, speed="a-1G", duplex="a-FULL", macs=list(_UPLINK_MACS),
+        alias="uplink", rx_packets=891244, rx_bytes=402118755,
+        tx_packets=774310, tx_bytes=98221043, rx_rate=44120, tx_rate=21008)
     return ports
 
 

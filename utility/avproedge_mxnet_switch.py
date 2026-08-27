@@ -73,8 +73,14 @@ import asyncio
 import re
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, CommandParamError
 from openavc.utils.logger import get_logger
+
+try:  # platform 0.32.0+
+    from openavc.drivers.base import CommandPartialError
+except ImportError:  # older platform: no partial-failure branch to reach
+    class CommandPartialError(RuntimeError):  # type: ignore[no-redef]
+        """Fallback so this driver still loads on an older platform."""
 
 log = get_logger(__name__)
 
@@ -424,6 +430,21 @@ def parse_igmp_groups(text: str) -> list[dict[str, str]]:
     return rows
 
 
+def _force_param() -> dict[str, Any]:
+    """Opt-out for the uplink guard below.
+
+    Not a hidden setting: somebody who really does want to drop power to a
+    port with a switch behind it should be able to, having been told what is
+    behind it.
+    """
+    return {
+        "type": "boolean", "default": False, "label": "Force",
+        "help": "Cut power even if the port looks like an uplink rather than "
+                "an endpoint. Read the refusal first -- it names what is "
+                "behind the port.",
+    }
+
+
 def parse_mac_table(text: str) -> dict[str, list[str]]:
     """``show mac-address-table`` -> {iface: [mac, ...]}.
 
@@ -590,7 +611,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "author": "OpenAVC",
         # Computed by build_index.py, not chosen: the `web_ui` field below
         # carries a 0.24.0 floor. Well behind the current release, so this
@@ -1377,9 +1398,57 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
             raise ValueError(f"Port {cid} is not a known interface")
         return iface
 
+    async def _devices_behind(self, iface: str) -> list[str]:
+        """MACs the switch has learned on one port, read fresh.
+
+        Child state carries this too, but it is only as new as the last detail
+        poll, and the whole point of the check below is to be right at the
+        moment power is about to be cut.
+        """
+        resp = await self._send_request("show mac-address-table")
+        return parse_mac_table(resp or "").get(iface, [])
+
+    async def _refuse_if_uplink(
+        self, iface: str, params: dict[str, Any], what: str,
+    ) -> None:
+        """Stop a power/link cut on the port carrying everything else.
+
+        An MXnet endpoint is one device on one port, so a port with several
+        MACs behind it has a switch, a control box, or the building LAN on the
+        far side -- and cutting THAT is how a command severs the path its own
+        driver is talking over. When it is a PoE cycle, the restore is then
+        undeliverable and the port stays dark.
+
+        Observed on real hardware 2026-08-27: the uplink port had 27 MACs
+        learned on it against exactly one on each endpoint port, so the two
+        cases are not close together and this does not need to be a fine
+        judgement. Fails OPEN -- if the table cannot be read the command still
+        runs, because a driver that refuses whenever a parse is unfamiliar is
+        worse than the hazard it is guarding.
+        """
+        if params.get("force"):
+            return
+        try:
+            macs = await self._devices_behind(iface)
+        except Exception as exc:  # noqa: BLE001 - see "fails OPEN" above
+            log.warning("[%s] Could not read the MAC table before %s on %s: %s",
+                        self.device_id, what, iface, exc)
+            return
+        if len(macs) < 2:
+            return
+        raise CommandParamError(
+            f"Ethernet{iface} has {len(macs)} devices behind it, so it is an "
+            f"uplink rather than an endpoint port. {what} there can cut this "
+            f"switch's own path back to OpenAVC, and nothing would be able to "
+            f"undo it remotely. Pick the port the endpoint is actually on, or "
+            f"set Force to do it anyway."
+        )
+
     async def _port_command(self, command: str, params: dict[str, Any]) -> str:
         iface = self._iface_for(params)
         spec = _PORT_COMMANDS[command]
+        if cuts := spec.get("cuts"):
+            await self._refuse_if_uplink(iface, params, cuts)
         if derive := spec.get("derive"):
             params.update(derive(params))
         lines = [line.format(**params) for line in spec["lines"]]
@@ -1402,6 +1471,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         cid = int(params["port"])
         off_seconds = max(1, min(60, _to_int(
             self.config.get("poe_cycle_seconds", 4), 4)))
+        await self._refuse_if_uplink(iface, params, "Power-cycling PoE")
         await self._interface_config(iface, ["no power inline enable"])
         self.set_child_state_batch("port", cid, {
             "poe_admin": "disabled", "poe_status": "off", "poe_power_w": 0.0,
@@ -1411,8 +1481,24 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         finally:
             # Restore power even if the wait is cancelled — leaving an endpoint
             # dark because a task was torn down would be the worst outcome here.
-            await self._interface_config(iface, ["power inline enable"])
-            self.set_child_state_batch("port", cid, {"poe_admin": "enabled"})
+            #
+            # The restore can also fail to ARRIVE, which is the case this block
+            # used to get wrong: cut the port the control session runs over and
+            # there is no longer a path to send it down. Reporting that as a
+            # plain command failure reads as "nothing happened" to somebody who
+            # just watched the endpoint go dark, so it says what was left and
+            # where instead.
+            try:
+                await self._interface_config(iface, ["power inline enable"])
+                self.set_child_state_batch("port", cid, {"poe_admin": "enabled"})
+            except Exception as restore_exc:
+                raise CommandPartialError(
+                    f"PoE was cut on Ethernet{iface} and the command to "
+                    f"restore it could not be delivered ({restore_exc}). That "
+                    f"port is most likely still disabled and whatever it powers "
+                    f"is still off. Reach the switch another way and run "
+                    f"'power inline enable' on Ethernet{iface}."
+                ) from restore_exc
         return f"PoE power-cycled on {iface} ({off_seconds}s off)"
 
     async def _save_config(self) -> str:
@@ -1483,6 +1569,7 @@ _PORT_COMMANDS: dict[str, dict[str, Any]] = {
         "optimistic": lambda p: {"poe_admin": "enabled"},
     },
     "poe_disable_port": {
+        "cuts": "Cutting PoE",
         "lines": ["no power inline enable"],
         "optimistic": lambda p: {"poe_admin": "disabled", "poe_status": "off",
                                  "poe_power_w": 0.0},
@@ -1492,6 +1579,7 @@ _PORT_COMMANDS: dict[str, dict[str, Any]] = {
         "optimistic": lambda p: {"admin_status": "enabled"},
     },
     "port_disable": {
+        "cuts": "Shutting down a port",
         "lines": ["shutdown"],
         "optimistic": lambda p: {"admin_status": "disabled",
                                  "link_status": "down"},
@@ -1523,9 +1611,11 @@ def _build_commands() -> dict[str, dict[str, Any]]:
     return {
         "poe_cycle_port": {
             "label": "Power-Cycle PoE Port",
-            "params": {"port": _port_param()},
+            "params": {"port": _port_param(), "force": _force_param()},
             "help": "Cut PoE on the port and restore it, to reboot a frozen "
-                    "encoder, decoder, or other powered device.",
+                    "encoder, decoder, or other powered device. Refuses on a "
+                    "port with several devices behind it, which is an uplink "
+                    "rather than an endpoint.",
         },
         "poe_enable_port": {
             "label": "Enable PoE on Port",
@@ -1534,8 +1624,10 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         },
         "poe_disable_port": {
             "label": "Disable PoE on Port",
-            "params": {"port": _port_param()},
-            "help": "Turn PoE off for the port. The attached device loses power.",
+            "params": {"port": _port_param(), "force": _force_param()},
+            "help": "Turn PoE off for the port. The attached device loses "
+                    "power. Refuses on a port with several devices behind it, "
+                    "which is an uplink rather than an endpoint.",
         },
         "set_poe_priority": {
             "label": "Set PoE Priority",
@@ -1564,7 +1656,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         },
         "port_disable": {
             "label": "Disable Port",
-            "params": {"port": _port_param()},
+            "params": {"port": _port_param(), "force": _force_param()},
             "help": "Shut the port down. Traffic and PoE both stop.",
         },
         "set_port_description": {

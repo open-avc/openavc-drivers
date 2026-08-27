@@ -12,7 +12,7 @@
       "name": "AVPro Edge MXnet Network Switch",
       "manufacturer": "AVPro Edge",
       "category": "utility",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control an AVPro Edge MXnet network switch over its CLI: per-port PoE power-cycling and draw, link state and error counters, IGMP/multicast group membership per port, the endpoint attached to each port, and system health (temperature, CPU, memory, PoE budget). Each physical port is a child entity. This is the switch that carries an MXnet system; video routing lives in the MXnet Control Box driver.",
@@ -20,8 +20,8 @@
       "file": "utility/avproedge_mxnet_switch.py",
       "format": "python",
       "files": {
-        "utility/avproedge_mxnet_switch.py": "07bab9de59f45d384e58f67be7027a8222144cce485200b07714815f24841f18",
-        "utility/avproedge_mxnet_switch_sim.py": "60c6ce8cb56f5a7b0350a08ac68a40ad52673a82d89fdbc0a1d4eedb7ddf2d15"
+        "utility/avproedge_mxnet_switch.py": "095e5d95344c4b5c91c6854acfbb75b686a5a989ab5e2919b807a1caa6740982",
+        "utility/avproedge_mxnet_switch_sim.py": "80ab22787a9ea7a2bcb01f4bc7023616b0ed39cb4aa969583a8e053e97d8025f"
       },
       "ports": [
         22,

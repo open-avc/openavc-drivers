@@ -34,7 +34,13 @@ from pathlib import Path
 import pytest
 
 from _lifecycle_fake import LifecycleFake
-from _platform_stubs import StubBaseDriver, StubEvents, StubState, install_stubs
+from _platform_stubs import (
+    CommandParamError,
+    StubBaseDriver,
+    StubEvents,
+    StubState,
+    install_stubs,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DRIVER_PATH = REPO_ROOT / "utility" / "avproedge_mxnet_switch.py"
@@ -373,7 +379,8 @@ async def test_poll_registers_every_port_as_a_child():
     ports = driver.list_children("port")
     assert len(ports) == 12
     assert state.data["device.sw1.port_count"] == 12
-    assert state.data["device.sw1.ports_up"] == 3
+    # 1/0/1 decoder, 1/0/3 encoder, 1/0/5 control PC, 1/0/7 uplink.
+    assert state.data["device.sw1.ports_up"] == 4
     assert state.data["device.sw1.poe_ports_delivering"] == 2
     # PoE budget came from the global query in the same poll.
     assert state.data["device.sw1.poe_budget_w"] == 125.0
@@ -512,3 +519,110 @@ async def test_save_config_and_reboot_answer_their_prompts():
     driver, _sim, _state = await _connected_pair()
     assert "OK" in await driver.send_command("save_config", {})
     assert "Reboot requested" in await driver.send_command("reboot", {})
+
+
+# ── cutting power to the port you are talking through ────────────────────────
+#
+# poe_cycle_port restores power from a finally block so a cancelled wait cannot
+# leave an endpoint dark. That protects against task teardown, not against the
+# case that actually happened on hardware: cut the port the control session
+# runs over and the restore has nowhere to go. It left Ethernet1/0/1 disabled
+# and reported a plain command failure while the endpoint visibly cycled.
+#
+# An MXnet endpoint is one device on one port, so several MACs behind a port
+# means a switch, a control box or the building LAN is on the far side. On the
+# bench the uplink carried 27 MACs against exactly one per endpoint port, so
+# this is not a fine judgement.
+
+@pytest.mark.asyncio
+async def test_cycling_an_endpoint_port_is_not_obstructed():
+    """The guard must stay out of the way of the thing people actually do."""
+    driver, _sim, _state = await _connected_pair()
+    await driver.poll()
+    result = await driver.send_command("poe_cycle_port", {"port": 10003})
+    assert "power-cycled" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_cycling_the_uplink_is_refused_and_says_what_is_behind_it():
+    driver, _sim, _state = await _connected_pair()
+    await driver.poll()
+    with pytest.raises(CommandParamError) as caught:
+        await driver.send_command("poe_cycle_port", {"port": 10007})
+    message = str(caught.value)
+    assert "4 devices" in message
+    assert "uplink" in message.lower()
+    # It has to name the way out, or it is just an obstacle.
+    assert "force" in message.lower()
+
+
+@pytest.mark.asyncio
+async def test_the_uplink_can_still_be_cut_deliberately():
+    driver, _sim, _state = await _connected_pair()
+    await driver.poll()
+    result = await driver.send_command(
+        "poe_cycle_port", {"port": 10007, "force": True})
+    assert "power-cycled" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_disabling_poe_on_the_uplink_is_refused_too():
+    """poe_disable_port has the same hazard with no restore at all."""
+    driver, _sim, _state = await _connected_pair()
+    await driver.poll()
+    with pytest.raises(CommandParamError):
+        await driver.send_command("poe_disable_port", {"port": 10007})
+
+
+@pytest.mark.asyncio
+async def test_shutting_down_the_uplink_is_refused_too():
+    """`shutdown` drops the link even where PoE never powered anything."""
+    driver, _sim, _state = await _connected_pair()
+    await driver.poll()
+    with pytest.raises(CommandParamError):
+        await driver.send_command("port_disable", {"port": 10007})
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_mac_table_does_not_block_the_command():
+    """Fails OPEN. A driver that refuses whenever a parse looks unfamiliar is
+    worse than the hazard: it breaks a working feature on every firmware whose
+    table is formatted a little differently."""
+    driver, _sim, _state = await _connected_pair()
+    await driver.poll()
+
+    async def _explode(_wire, *a, **k):
+        raise RuntimeError("unfamiliar output")
+
+    driver._send_request = _explode  # type: ignore[method-assign]
+    # The guard swallows it and lets the command through; the read itself is
+    # deliberately left to raise, so the swallow has exactly one home.
+    await driver._refuse_if_uplink("1/0/7", {}, "Power-cycling PoE")
+
+
+@pytest.mark.asyncio
+async def test_an_undeliverable_restore_says_the_port_is_still_dark():
+    """The message has to name the port and the state it was left in -- the
+    operator has to go and re-enable it by hand."""
+    driver, _sim, _state = await _connected_pair()
+    await driver.poll()
+
+    calls: list[list[str]] = []
+    original = driver._interface_config
+
+    async def _cut_then_die(iface, lines):
+        calls.append(list(lines))
+        if lines == ["power inline enable"]:
+            raise ConnectionError("the path this ran over is gone")
+        return await original(iface, lines)
+
+    driver._interface_config = _cut_then_die  # type: ignore[method-assign]
+
+    with pytest.raises(driver_mod.CommandPartialError) as caught:
+        await driver.send_command("poe_cycle_port", {"port": 10003})
+
+    message = str(caught.value)
+    assert "1/0/3" in message
+    assert "power inline enable" in message
+    # The cut DID happen; saying "failed to send command" would be false.
+    assert ["no power inline enable"] in calls

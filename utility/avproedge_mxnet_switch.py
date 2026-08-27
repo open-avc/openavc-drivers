@@ -24,11 +24,16 @@ switch's own MAC table, and system health.
 Transport / protocol:
 
 * The CLI is a DCN-family managed-switch CLI (AVPro's published command guide
-  carries ``Author: dcn``). It is reached over **SSH** (``transport: ssh``)
-  using the platform SSH transport, which shells out to the OS OpenSSH client;
-  the factory config ships ``ssh-server enable``, so SSH works out of the box
-  on an untouched switch. **Telnet** (``transport: tcp``, port 23) reaches the
-  same CLI and is what the bundled simulator speaks.
+  carries ``Author: dcn``). **Telnet** (``transport: tcp``, port 23) is the
+  default: it reaches the CLI on every switch out of the box and is what the
+  bundled simulator speaks. **SSH** (``transport: ssh``, port 22) reaches the
+  same CLI through the platform SSH transport, which shells out to the OS
+  OpenSSH client -- but the switch's SSH server offers only ``hmac-sha1`` as
+  its MAC algorithm, and OpenSSH 8.8+ dropped that from its defaults, so the
+  handshake fails with ``no matching MAC found`` on any current client even
+  though ``ssh-server enable`` ships on. KEX, host key and ciphers all
+  negotiate fine; the MAC list is the whole problem. Until the platform SSH
+  transport offers a legacy-algorithm opt-in, telnet is the working path.
 * Strictly request/response. The switch echoes each command, prints the
   response, then re-prints its prompt (``switch#``, ``switch(config)#``,
   ``switch(config-if-ethernet1/0/2)#``). The prompt is the end-of-response
@@ -585,7 +590,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         # Computed by build_index.py, not chosen: the `web_ui` field below
         # carries a 0.24.0 floor. Well behind the current release, so this
@@ -707,12 +712,14 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
                 "and give the switch one of its own."
             ),
             "connection": (
-                "Check the IP address, the username (default 'admin') and the "
-                "password (default 'admin'). A factory switch has no default "
-                "gateway configured, so it can only be reached from a computer "
-                "on the same subnet as the switch — 192.168.1.x out of the "
-                "box. If your network uses a different range, connect to the "
-                "switch directly to change its address first."
+                "Check that Connection and Port agree: 'tcp' needs port 23, "
+                "'ssh' needs port 22. Then check the IP address, the username "
+                "(default 'admin') and the password (default 'admin'). A "
+                "factory switch has no default gateway configured, so it can "
+                "only be reached from a computer on the same subnet as the "
+                "switch — 192.168.1.x out of the box. If your network uses a "
+                "different range, connect to the switch directly to change its "
+                "address first."
             ),
         },
         "default_config": {
@@ -732,15 +739,21 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
             "host": {"type": "string", "required": True, "label": "IP Address",
                      "description": "Factory default is 192.168.1.238."},
             "transport": {
-                "type": "enum", "values": ["ssh", "tcp"], "default": "ssh",
+                "type": "enum", "values": ["ssh", "tcp"], "default": "tcp",
                 "label": "Connection",
-                "description": "ssh = secure CLI (recommended, enabled from "
-                               "the factory). tcp = telnet (plaintext).",
+                "description": "tcp = telnet on port 23 (default: works with "
+                               "every switch out of the box). ssh = encrypted "
+                               "CLI on port 22; the switch's SSH server offers "
+                               "only the hmac-sha1 MAC, which OpenSSH 8.8 and "
+                               "newer refuse by default, so ssh fails to "
+                               "negotiate on most current systems. Remember to "
+                               "change Port to match.",
             },
             "port": {
-                "type": "integer", "default": 22, "min": 1, "max": 65535,
+                "type": "integer", "default": 23, "min": 1, "max": 65535,
                 "label": "Port",
-                "description": "22 for SSH, 23 for telnet.",
+                "description": "23 for telnet, 22 for SSH. Must match the "
+                               "Connection setting above.",
             },
             "username": {"type": "string", "default": "admin",
                          "label": "Username",

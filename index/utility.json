@@ -12,7 +12,7 @@
       "name": "AVPro Edge MXnet Network Switch",
       "manufacturer": "AVPro Edge",
       "category": "utility",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control an AVPro Edge MXnet network switch over its CLI: per-port PoE power-cycling and draw, link state and error counters, IGMP/multicast group membership per port, the endpoint attached to each port, and system health (temperature, CPU, memory, PoE budget). Each physical port is a child entity. This is the switch that carries an MXnet system; video routing lives in the MXnet Control Box driver.",
@@ -20,7 +20,7 @@
       "file": "utility/avproedge_mxnet_switch.py",
       "format": "python",
       "files": {
-        "utility/avproedge_mxnet_switch.py": "896aa8c811a6e3c195adbe14e151eefe11e053158b7bceba4183ba5621335674",
+        "utility/avproedge_mxnet_switch.py": "07bab9de59f45d384e58f67be7027a8222144cce485200b07714815f24841f18",
         "utility/avproedge_mxnet_switch_sim.py": "60c6ce8cb56f5a7b0350a08ac68a40ad52673a82d89fdbc0a1d4eedb7ddf2d15"
       },
       "ports": [
@@ -45,7 +45,7 @@
       "help": {
         "overview": "Controls an AVPro Edge MXnet network switch. Add it as one device; every physical port appears as a child entity under the Child Entities tab with its link state, PoE draw, error counters, and the multicast groups joined on it.\n\nThis is the switch, not the matrix. Video routing in an MXnet system is done by the MXnet Control Box \u2014 add that separately with the MXnet 1G driver, where encoders and decoders appear as children. Use this driver to see why a route that should work doesn't: a port that is down, an endpoint drawing no PoE, or a decoder that never joined its stream's multicast group.",
         "setup": "1. Reach the switch. A factory switch answers on 192.168.1.238 with a 255.255.255.0 mask and no default gateway, so your computer has to be on that same subnet to reach it the first time. If your network uses a different range, connect a computer directly to one of the switch's ports, give it an address like 192.168.1.50, and change the switch's address from there.\n2. Log in. The default username and password are both 'admin'. SSH is already enabled from the factory.\n3. Add it here: enter the switch IP, leave Connection on 'ssh' and the port on 22, and enter the username and password.\n4. Ports, PoE status, and attached endpoints are discovered automatically once it connects.\n\nNote: 192.168.1.238 is a common address for other equipment to hold. If the switch is unreachable after you connect it to your network, check that nothing else is using that address, and give the switch one of its own.",
-        "connection": "Check the IP address, the username (default 'admin') and the password (default 'admin'). A factory switch has no default gateway configured, so it can only be reached from a computer on the same subnet as the switch \u2014 192.168.1.x out of the box. If your network uses a different range, connect to the switch directly to change its address first."
+        "connection": "Check that Connection and Port agree: 'tcp' needs port 23, 'ssh' needs port 22. Then check the IP address, the username (default 'admin') and the password (default 'admin'). A factory switch has no default gateway configured, so it can only be reached from a computer on the same subnet as the switch \u2014 192.168.1.x out of the box. If your network uses a different range, connect to the switch directly to change its address first."
       },
       "compatible_models": [
         {

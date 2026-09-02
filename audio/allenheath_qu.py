@@ -644,7 +644,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.3",
+        "version": "1.1.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -701,8 +701,9 @@ class AllenHeathQuDriver(BaseDriver):
                     "console reports its model over the All-Call SysEx, so the "
                     "driver registers the right channel set automatically. Not "
                     "yet tested on this hardware. Qu allows only one TCP MIDI "
-                    "connection at a time. The newer Qu-5/6/7 consoles use a "
-                    "different protocol and are not covered."
+                    "connection at a time. The newer Qu-5, Qu-6 and Qu-7 speak "
+                    "a different protocol and are covered by the separate "
+                    "Allen & Heath Qu-5/6/7 driver, not this one."
                 ),
             },
         ],

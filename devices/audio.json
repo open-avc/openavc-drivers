@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 144,
+    "total_devices": 150,
     "shards": null,
     "category": "audio"
   },
@@ -171,7 +171,7 @@
         {
           "id": "allenheath_qu",
           "confidence": "untested",
-          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5, Qu-6 and Qu-7 speak a different protocol and are covered by the separate Allen & Heath Qu-5/6/7 driver, not this one."
         }
       ]
     },
@@ -183,7 +183,79 @@
         {
           "id": "allenheath_qu",
           "confidence": "untested",
-          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5, Qu-6 and Qu-7 speak a different protocol and are covered by the separate Allen & Heath Qu-5/6/7 driver, not this one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-5",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu567",
+          "confidence": "full",
+          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, and mute / level round-trips confirmed by reading the console back."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-5D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu567",
+          "confidence": "full",
+          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, and mute / level round-trips confirmed by reading the console back."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-6",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu567",
+          "confidence": "untested",
+          "notes": "All three models share the same processing and the same MIDI surface -- 38 inputs to mix, 12 mix buses, 4 matrices, 6 stereo FX engines -- and differ only in local I/O and fader count, which MIDI does not address. The roster probe adapts to the console either way. Requires console firmware V1.1 or later."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-6D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu567",
+          "confidence": "untested",
+          "notes": "All three models share the same processing and the same MIDI surface -- 38 inputs to mix, 12 mix buses, 4 matrices, 6 stereo FX engines -- and differ only in local I/O and fader count, which MIDI does not address. The roster probe adapts to the console either way. Requires console firmware V1.1 or later."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-7",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu567",
+          "confidence": "untested",
+          "notes": "All three models share the same processing and the same MIDI surface -- 38 inputs to mix, 12 mix buses, 4 matrices, 6 stereo FX engines -- and differ only in local I/O and fader count, which MIDI does not address. The roster probe adapts to the console either way. Requires console firmware V1.1 or later."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Allen & Heath",
+      "model": "Qu-7D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "allenheath_qu567",
+          "confidence": "untested",
+          "notes": "All three models share the same processing and the same MIDI surface -- 38 inputs to mix, 12 mix buses, 4 matrices, 6 stereo FX engines -- and differ only in local I/O and fader count, which MIDI does not address. The roster probe adapts to the console either way. Requires console firmware V1.1 or later."
         }
       ]
     },
@@ -195,7 +267,7 @@
         {
           "id": "allenheath_qu",
           "confidence": "untested",
-          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5, Qu-6 and Qu-7 speak a different protocol and are covered by the separate Allen & Heath Qu-5/6/7 driver, not this one."
         }
       ]
     },
@@ -207,7 +279,7 @@
         {
           "id": "allenheath_qu",
           "confidence": "untested",
-          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5, Qu-6 and Qu-7 speak a different protocol and are covered by the separate Allen & Heath Qu-5/6/7 driver, not this one."
         }
       ]
     },

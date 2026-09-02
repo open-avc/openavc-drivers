@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 94,
+    "total_drivers": 95,
     "shards": null
   },
   "drivers": [
@@ -145,7 +145,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -153,7 +153,7 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "c7aafdc2936593e898334bdb9f2692bd1c4b804868cad6ad57fc71179413e5b2",
+        "audio/allenheath_qu.py": "263be5f9214d0fd5491f0c5d23817e3983a677edc527b4187f87f121bedf96c2",
         "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
@@ -195,10 +195,89 @@
             "Qu-SB"
           ],
           "confidence": "untested",
-          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5/6/7 consoles use a different protocol and are not covered."
+          "notes": "Same MIDI protocol and command surface as the Qu-16; the console reports its model over the All-Call SysEx, so the driver registers the right channel set automatically. Not yet tested on this hardware. Qu allows only one TCP MIDI connection at a time. The newer Qu-5, Qu-6 and Qu-7 speak a different protocol and are covered by the separate Allen & Heath Qu-5/6/7 driver, not this one."
         }
       ],
       "discovery": {
+        "oui": [
+          "00:04:c4"
+        ],
+        "port_open": [
+          51325
+        ],
+        "manufacturer_alias": [
+          "allen & heath",
+          "allen and heath",
+          "a&h",
+          "allen-heath",
+          "audiotonix"
+        ]
+      }
+    },
+    {
+      "id": "allenheath_qu567",
+      "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
+      "manufacturer": "Allen & Heath",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, Qu-7 and the Dante -5D/-6D/-7D variants) via MIDI over TCP/IP on port 51325. On connect the driver probes the console and registers exactly the channels it really has, so any model and any mix-bus configuration comes up correct with nothing to declare. Every input, stereo input, mix, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / dB / pan state. Mute, fader (position or dB), 1 dB nudges, pan and balance, aux and FX sends, mix assignments, scene recall (1-300) and Soft Key triggers -- with every write confirmed by reading the console back, and a Get-probe watchdog that flips the device offline if the console vanishes.",
+      "source_url": "https://www.allen-heath.com/content/uploads/2025/06/Qu567_MIDI_Protocol_Iss2.pdf",
+      "file": "audio/allenheath_qu567.py",
+      "format": "python",
+      "files": {
+        "audio/allenheath_qu567.py": "1187a0ec8e96ef371583e8106524d398183a2b19e17ee44d0cac3b26837921fe",
+        "audio/allenheath_qu567_discovery.py": "547d7bb01f8ddc77e7852f5dea04d219b22c74566a2793cac2115c2527e2d4d2",
+        "audio/allenheath_qu567_sim.py": "c1dc8d6a6d28847f6259b73311a08d8063fa4dfc10252ce444f72fbc2311b680"
+      },
+      "ports": [
+        51325
+      ],
+      "protocols": [
+        "midi-over-tcp"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "mixer",
+        "console",
+        "midi",
+        "nrpn",
+        "allen-heath",
+        "qu"
+      ],
+      "help": {
+        "overview": "Controls an Allen & Heath Qu-5, Qu-6 or Qu-7 over the network using MIDI over TCP/IP. On connect the driver asks the console which channels it has and lists each one as a child entity with live mute, level and pan state -- bind child state (e.g. device.<id>.input.in05.mute) to panel elements and drive mutes, faders, aux sends and scene recall from macros and buttons. Levels are published both as a fader position and in dB.",
+        "setup": "1. Connect the Qu to the same network as the OpenAVC server. On a Qu-5D/6D/7D you can use the Dante port instead if Control Network Bridge is on.\n2. On the console, go to SETUP > Network and note the IP address.\n3. Go to UTILITY > General > MIDI and note the MIDI Channel and the NRPN Fader Law.\n4. Enter the IP address, matching MIDI channel and matching fader law here. The default port (51325) is correct.\n5. Save. Within a second or two the channels appear under the device with live state. Rename them in the project as you like -- the Qu MIDI protocol does not expose channel names, and a name you set is never overwritten.\n\nNotes:\n  * The console allows only ONE MIDI-over-TCP client at a time. Close Qu-Pad, QuMixPad or another control system before connecting, or they will keep OpenAVC out.\n  * Requires console firmware V1.1 or later.\n  * If you reconfigure the console's mix buses, run the Re-detect Channels action so the channel list follows.\n  * This driver is for the Qu-5/6/7 only. The original Qu-16, Qu-24, Qu-32, Qu-Pac and Qu-SB use a different protocol -- use the Allen & Heath Qu Digital Mixer driver for those."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "Qu-5",
+            "Qu-5D"
+          ],
+          "confidence": "full",
+          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, and mute / level round-trips confirmed by reading the console back."
+        },
+        {
+          "manufacturer": "Allen & Heath",
+          "models": [
+            "Qu-6",
+            "Qu-6D",
+            "Qu-7",
+            "Qu-7D"
+          ],
+          "confidence": "untested",
+          "notes": "All three models share the same processing and the same MIDI surface -- 38 inputs to mix, 12 mix buses, 4 matrices, 6 stereo FX engines -- and differ only in local I/O and fader count, which MIDI does not address. The roster probe adapts to the console either way. Requires console firmware V1.1 or later."
+        }
+      ],
+      "discovery": {
+        "python": {
+          "file": "allenheath_qu567_discovery.py"
+        },
         "oui": [
           "00:04:c4"
         ],

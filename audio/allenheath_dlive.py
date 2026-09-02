@@ -962,7 +962,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.3",
+        "version": "2.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "
@@ -992,7 +992,14 @@ class AllenHeathDLiveDriver(BaseDriver):
             # Same situation as allenheath_avantis: hint-only via the
             # Audiotonix Group OUI + TCP control port + manufacturer alias.
             "oui": ["00:04:c4"],
-            "port_open": [51325],
+            # 51325 is shared with every other Allen & Heath console, so on its
+            # own it separates nothing. The Surface's control port (51328) and
+            # the two TLS ports are dLive's alone -- the Avantis protocol
+            # document says "Clients should be configured to use TCP port
+            # 51325" and names no other. The matcher leads with the narrowest
+            # signal, so a dLive Surface on the network ranks this driver first
+            # instead of tying with Avantis on the shared port.
+            "port_open": [51325, 51328, 51327, 51329],
             "manufacturer_alias": [
                 "allen & heath", "allen and heath", "a&h",
                 "allen-heath", "audiotonix",

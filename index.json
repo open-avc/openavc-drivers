@@ -74,7 +74,7 @@
       "name": "Allen & Heath dLive Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.0.3",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath dLive digital mixing systems (MixRack + Surface) via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, main, DCA, mute group and UFX send/return is a child entity with live mute / fader / name / colour state, and all 128 preamp sockets are children with live gain / pad / 48V state \u2014 the console's own channel names become the labels in OpenAVC. Send levels and assigns, per-channel HPF, Scene Recall (MixRack, 1-500), Cue List Recall (Surface, 1-2000), MMC transport and UFX global key / scale, with bidirectional state from console-side moves and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -82,7 +82,7 @@
       "file": "audio/allenheath_dlive.py",
       "format": "python",
       "files": {
-        "audio/allenheath_dlive.py": "2ce407ffb840217e999d1f5f33b03be0571f1323183ffcab6d7881137378df37",
+        "audio/allenheath_dlive.py": "7c8176a855f768b162ae5e389c2df3282162c4015898f5926ee4b524661cdebe",
         "audio/allenheath_dlive_sim.py": "e72466efbac7b258b8ca402c879f8b49d018357f370a00516d424acfb76b651d"
       },
       "ports": [
@@ -129,7 +129,10 @@
           "00:04:c4"
         ],
         "port_open": [
-          51325
+          51325,
+          51328,
+          51327,
+          51329
         ],
         "manufacturer_alias": [
           "allen & heath",

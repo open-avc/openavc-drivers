@@ -53,7 +53,6 @@ from _vendor.avcdriver_semantic import (  # noqa: E402
     validate_driver_definition,
 )
 from _vendor.python_info import (  # noqa: E402
-    UNEVALUATED_KEY,
     ExtractError,
     extract_python_driver_info_full,
     python_driver_info_issues,

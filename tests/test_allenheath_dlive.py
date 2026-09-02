@@ -330,7 +330,7 @@ async def _make_pair(config=None, sim_config=None):
 
 def test_metadata_shape():
     info = dl.AllenHeathDLiveDriver.DRIVER_INFO
-    assert info["version"] == "2.0.3"
+    assert info["version"] == "2.1.0"
     assert info["min_platform_version"] == "0.25.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:
@@ -368,6 +368,18 @@ def test_command_method_parity():
         assert method is not None, f"missing cmd_{cid}"
         accepted = set(inspect.signature(method).parameters) - {"self"}
         assert set(cdef.get("params", {})) == accepted, cid
+
+
+def test_the_port_hints_include_the_ones_avantis_does_not_have():
+    """51325 is shared with every other Allen & Heath console, so on its own it
+    separates nothing -- all five drivers hint on it and a scan ties. The
+    Surface's control port and the two TLS ports are dLive's alone (the Avantis
+    protocol document names 51325 and nothing else), and the matcher leads with
+    the narrowest signal, so those are what let a dLive rank first."""
+    ports = set(dl.AllenHeathDLiveDriver.DRIVER_INFO["discovery"]["port_open"])
+    assert 51325 in ports, "the shared control port is still a hint"
+    # Surface plain, MixRack TLS, Surface TLS — none of them Avantis ports.
+    assert {51328, 51327, 51329} <= ports
 
 
 # ── Address tables / codecs (byte-exact vs the V2.0 reference tables) ───────

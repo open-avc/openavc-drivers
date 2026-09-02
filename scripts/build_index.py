@@ -432,7 +432,13 @@ _KNOWN_PROBE_KEYS: frozenset[str] = frozenset({
     "port", "send_hex", "send_ascii",
     "expect", "expect_regex", "expect_hex",
     "cross_vendor", "timeout_ms", "tls", "cert_subject",
-    "extract", "extract_manufacturer",
+    "extract", "extract_manufacturer", "then",
+})
+
+# Keys inside a probe's `then:` follow-up step.
+_KNOWN_FOLLOW_UP_KEYS: frozenset[str] = frozenset({
+    "send_hex", "send_ascii", "expect_silence",
+    "expect", "expect_regex", "expect_hex", "timeout_ms",
 })
 
 
@@ -682,6 +688,69 @@ def _validate_probe_block(file: str, kind: str, raw: Any) -> list[str]:
             errors.append(
                 f"{file}: discovery.{where}.extract_manufacturer collides with "
                 "extract.manufacturer — pick one"
+            )
+
+    errors.extend(_validate_follow_up_block(file, where, kind, raw.get("then")))
+
+    return errors
+
+
+def _validate_follow_up_block(
+    file: Any, where: str, kind: str, raw: Any,
+) -> list[str]:
+    """Return validation errors for a probe's ``then:`` follow-up step.
+
+    Mirrors openavc/discovery/hints.py ``_parse_follow_up``. The runtime is the
+    authority; this copy exists so the catalog refuses a block the platform
+    would reject at load rather than shipping a driver that silently never
+    matches.
+    """
+    if raw is None:
+        return []
+    at = f"discovery.{where}.then"
+    if kind != "tcp":
+        return [f"{file}: {at} is only valid on a tcp_probe"]
+    if not isinstance(raw, dict):
+        return [f"{file}: {at} must be a mapping"]
+
+    errors: list[str] = []
+    unknown = set(raw.keys()) - _KNOWN_FOLLOW_UP_KEYS
+    if unknown:
+        errors.append(f"{file}: {at} has unknown keys: {sorted(unknown)}")
+
+    has_send = any(raw.get(k) is not None for k in ("send_hex", "send_ascii"))
+    if not has_send:
+        errors.append(
+            f"{file}: {at} must declare send_ascii or send_hex "
+            "(a follow-up step has to ask something)"
+        )
+    if raw.get("send_hex") is not None and raw.get("send_ascii") is not None:
+        errors.append(f"{file}: {at} declares both send_hex and send_ascii — pick one")
+
+    silence = raw.get("expect_silence")
+    if silence is not None and not isinstance(silence, bool):
+        errors.append(f"{file}: {at}.expect_silence must be a bool")
+    has_match = any(
+        raw.get(k) is not None for k in ("expect", "expect_regex", "expect_hex")
+    )
+    if silence and has_match:
+        errors.append(
+            f"{file}: {at} declares both expect_silence and a matcher — a step "
+            "that expects no answer cannot also match one"
+        )
+    if not silence and not has_match:
+        errors.append(
+            f"{file}: {at} declares no expectation — add expect_silence: true, "
+            "or expect / expect_regex / expect_hex"
+        )
+
+    timeout = raw.get("timeout_ms")
+    if timeout is not None:
+        if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout < 1:
+            errors.append(f"{file}: {at}.timeout_ms must be a positive integer")
+        elif timeout > _MAX_PROBE_TIMEOUT_MS:
+            errors.append(
+                f"{file}: {at}.timeout_ms must not exceed {_MAX_PROBE_TIMEOUT_MS} ms"
             )
 
     return errors
@@ -1206,8 +1275,17 @@ def _ssdp_has_description_filters(discovery: dict[str, Any]) -> bool:
     return False
 
 
+def _probe_has_follow_up(discovery: dict[str, Any]) -> bool:
+    probe = discovery.get("tcp_probe")
+    return isinstance(probe, dict) and probe.get("then") is not None
+
+
 _DISCOVERY_FEATURE_GATES: tuple[tuple[Any, str], ...] = (
     (_ssdp_has_description_filters, "0.23.0"),
+    # A `then:` step needs the 0.32.0 probe runner. An older platform rejects
+    # the `requires` key and skips this driver's hints rather than mis-reading
+    # the probe as a plain one-shot — which would match every SQ as well.
+    (_probe_has_follow_up, "0.32.0"),
 )
 
 

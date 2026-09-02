@@ -2407,6 +2407,39 @@ DEFS = {
                 'type': 'string',
                 'min_len': 1,
             },
+            'then': {
+                'type': 'object',
+                # Deliberately no `since`: that would raise the DRIVER's
+                # min_platform_version and make it uninstallable on every
+                # older platform for the sake of a discovery hint. Discovery
+                # features gate through the catalog's `requires:` key instead,
+                # which makes an old parser skip just the block -- the same
+                # way cert_subject does. The version lives in the doc string.
+                'doc': (
+                    'A second exchange on the same connection, run only after '
+                    'the first one matched. Exists for identification by '
+                    'ABSENCE: where one model\'s parameter set is a strict '
+                    'subset of a bigger sibling\'s, nothing the small one '
+                    'answers is unique to it, and the only discriminator is a '
+                    'question the BIG one answers and the small one does not. '
+                    'Declare send_ascii/send_hex plus either expect_silence: '
+                    'true (this device must NOT answer) or a matcher '
+                    '(expect / expect_regex / expect_hex) for a second '
+                    'positive step. tcp_probe only -- a UDP probe has no '
+                    'connection to reuse. Optional timeout_ms; a silence step '
+                    'spends the whole window proving the negative, so keep it '
+                    'short. Platform >= 0.32.0.'
+                ),
+                'fields': {
+                    'send_ascii': {'type': 'string'},
+                    'send_hex': {'type': 'string'},
+                    'expect_silence': {'type': 'boolean'},
+                    'expect': {'type': 'string'},
+                    'expect_regex': {'type': 'string'},
+                    'expect_hex': {'type': 'string'},
+                    'timeout_ms': {'type': 'integer', 'min': 1, 'max': 10000},
+                },
+            },
         },
         'required': ('port',),
         'extra': False,

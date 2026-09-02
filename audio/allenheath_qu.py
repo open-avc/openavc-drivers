@@ -644,7 +644,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.1.4",
+        "version": "1.2.0",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -670,9 +670,28 @@ class AllenHeathQuDriver(BaseDriver):
         "ports": [51325],
         "transport": "tcp",
         "discovery": {
-            # Same AHNet situation as the SQ / Avantis / dLive drivers — the
-            # UDP announce wire format isn't public. Hint-only via the
-            # Audiotonix OUI + control port + manufacturer alias.
+            # The All-Call this driver already uses to identify a console is
+            # also the fingerprint: only the original Qu family answers it.
+            # The reply header carries the Qu model byte (0x50 0x11), where
+            # Avantis and dLive use 0x50 0x10, and a Qu-5/6/7 ignores the
+            # message entirely (measured — zero bytes back). The bytes are the
+            # ones this driver sends on every connect, verified against a real
+            # Qu-16.
+            #
+            # The reply also carries a BoxID naming the exact model, but the
+            # extract mechanism captures raw bytes rather than mapping them to
+            # a name, so the model is left to the driver's own identify on
+            # connect, which already does it.
+            #
+            # The AHNet UDP 51320 announce would be the obvious passive signal,
+            # but its wire format is not published and reverse-engineering it
+            # is out of bounds — hence an active probe.
+            "tcp_probe": {
+                "port": 51325,
+                "send_hex": "F0 00 00 1A 50 11 01 00 7F 10 01 F7",
+                "expect_hex": "F0 00 00 1A 50 11 01 00",
+                "timeout_ms": 2000,
+            },
             "oui": ["00:04:c4"],
             "port_open": [51325],
             "manufacturer_alias": [

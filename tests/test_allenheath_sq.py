@@ -321,9 +321,27 @@ async def _make_pair(config=None):
 
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
+
+def test_the_discovery_probe_asks_for_an_address_only_an_sq_has():
+    """Ip40's mute. The SQ is the only Allen & Heath console with 48 inputs:
+    a Qu-5/6/7 shares this protocol but stops at 32 plus ST1/ST2/USB and is
+    silent here, and the other families do not implement the NRPN Get at all.
+    Pinned because the whole fingerprint is that one address — a typo in it
+    would leave the probe matching nothing, which looks exactly like an absent
+    device."""
+    probe = sq.AllenHeathSQDriver.DRIVER_INFO["discovery"]["tcp_probe"]
+    assert probe["port"] == 51325
+    # Get: BN 63 <MSB> BN 62 <LSB> BN 60 7F, on MIDI channel 1.
+    assert probe["send_hex"].split() == [
+        "B0", "63", "00", "B0", "62", "27", "B0", "60", "7F"]
+    # 0x27 is input 40 — the address under test.
+    assert sq.mute_input(40) == (0x00, 0x27)
+    # The reply echoes the parameter number back.
+    assert probe["expect_hex"].split() == ["B0", "63", "00", "B0", "62", "27"]
+
 def test_metadata_shape():
     info = sq.AllenHeathSQDriver.DRIVER_INFO
-    assert info["version"] == "2.0.3"
+    assert info["version"] == "2.1.0"
     assert info["min_platform_version"] == "0.25.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:

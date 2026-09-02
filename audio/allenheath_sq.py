@@ -746,7 +746,7 @@ class AllenHeathSQDriver(BaseDriver):
         "name": "Allen & Heath SQ Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.0.3",
+        "version": "2.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing "
@@ -766,10 +766,23 @@ class AllenHeathSQDriver(BaseDriver):
         "ports": [51325],
         "transport": "tcp",
         "discovery": {
-            # Same AHNet situation as allenheath_avantis / dlive — UDP
-            # 51320 announce protocol exists but wire format isn't
-            # public. Hint-only via Audiotonix OUI + control port +
-            # manufacturer alias.
+            # The SQ is the only Allen & Heath console with 48 inputs, so a Get
+            # for Ip40's mute is a fingerprint no sibling can answer: a
+            # Qu-5/6/7 shares this protocol but stops at 32 inputs plus
+            # ST1/ST2/USB and is silent here (measured on a Qu-5), and the
+            # original Qu / Avantis / dLive do not implement the NRPN Get at
+            # all. OUI + port alone put all four A&H drivers on an equal
+            # footing and identified nothing.
+            #
+            # The AHNet UDP 51320 announce would be the obvious passive signal,
+            # but its wire format is not published and reverse-engineering it
+            # is out of bounds — hence an active probe.
+            "tcp_probe": {
+                "port": 51325,
+                "send_hex": "B0 63 00 B0 62 27 B0 60 7F",
+                "expect_hex": "B0 63 00 B0 62 27",
+                "timeout_ms": 2000,
+            },
             "oui": ["00:04:c4"],
             "port_open": [51325],
             "manufacturer_alias": [

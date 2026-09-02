@@ -90,6 +90,15 @@ Scope notes:
     - The console has no channel-name access, so children carry positional
       labels ("Input 1") that the user renames in the project. A label the
       user sets is never overwritten.
+    - **Discovery identifies this console by what it does NOT answer.** Every
+      console of this protocol generation answers a Get for the LR master
+      mute, the SQ family included, and the Qu's address map is a subset of
+      the SQ's -- so no question identifies a Qu positively. The declared
+      probe asks the shared question, then asks for Ip40 (which an SQ has and
+      a Qu does not) and requires silence. It is declarative rather than a
+      Python companion on purpose: a companion only runs from an installed
+      driver, and discovery exists to find gear nobody has installed a driver
+      for yet.
     - Only ONE MIDI-over-TCP client at a time. The console accepts a second
       TCP connection and then immediately drops it (measured), so Qu-Pad or
       another control system holding the slot will keep OpenAVC out, and
@@ -809,7 +818,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "
@@ -838,15 +847,25 @@ class AllenHeathQu567Driver(BaseDriver):
         "ports": [51325],
         "transport": "tcp",
         "discovery": {
-            # Identifying this console needs an ABSENCE, which a declarative
-            # probe cannot express, so the fingerprint is a Python companion.
-            # Every Allen & Heath console of this protocol generation answers a
-            # Get for the LR master mute -- the SQ family included, because the
-            # SQ shares the protocol deliberately -- and the Qu's parameter map
-            # is a subset of the SQ's, so nothing a Qu has identifies it
-            # positively. What separates them is that an SQ also answers for
-            # Ip40 and a Qu is silent there. See the companion for the detail.
-            "python": {"file": "allenheath_qu567_discovery.py"},
+            # Identifying this console needs an ABSENCE. Every Allen & Heath
+            # console of this protocol generation answers a Get for the LR
+            # master mute -- the SQ family included, because the SQ shares the
+            # protocol deliberately -- and the Qu's parameter map is a SUBSET
+            # of the SQ's, so nothing a Qu has identifies it positively. What
+            # separates them is Ip40: an SQ has 48 inputs and answers, a Qu-5
+            # has 32 plus ST1/ST2/USB and stays silent. Both halves measured on
+            # a real Qu-5.
+            "tcp_probe": {
+                "port": 51325,
+                "send_hex": "B0 63 00 B0 62 44 B0 60 7F",
+                "expect_hex": "B0 63 00 B0 62 44",
+                "timeout_ms": 2000,
+                "then": {
+                    "send_hex": "B0 63 00 B0 62 27 B0 60 7F",
+                    "expect_silence": True,
+                    "timeout_ms": 600,
+                },
+            },
             "oui": ["00:04:c4"],
             "port_open": [51325],
             "manufacturer_alias": [

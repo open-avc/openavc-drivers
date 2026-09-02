@@ -232,6 +232,35 @@ def test_addressing():
     assert (qu.group_ch(1), qu.matrix_ch(1), qu.LR_CH) == (0x68, 0x6C, 0x67)
 
 
+# ── Discovery fingerprint ──
+
+def test_the_discovery_probe_is_the_all_call_this_driver_already_sends():
+    """Only the original Qu family answers the All-Call. The reply header
+    carries the Qu model byte (50 11) where Avantis and dLive use 50 10, and a
+    Qu-5/6/7 ignores the message entirely (measured on a real Qu-5). Pinned to
+    the driver's own constants so the probe cannot drift from the bytes the
+    driver is known to work with -- a probe that matches nothing looks exactly
+    like an absent device."""
+    probe = qu.AllenHeathQuDriver.DRIVER_INFO["discovery"]["tcp_probe"]
+    assert probe["port"] == 51325
+    sent = bytes.fromhex(probe["send_hex"].replace(" ", ""))
+    assert sent[0] == 0xF0 and sent[-1] == 0xF7
+    assert sent[1:4] == qu.SYSEX_MANUFACTURER
+    assert sent[4] == qu.SYSEX_MODEL
+    assert sent[5:8] == qu.SYSEX_VER
+    assert sent[8] == qu.SYSEX_ALL_CALL_CH
+    assert sent[9] == qu.SX_SYSTEM_STATE_REQ
+
+    # The matcher is the header up to (not including) the console's own MIDI
+    # channel, which varies per desk.
+    expect = bytes.fromhex(probe["expect_hex"].replace(" ", ""))
+    assert expect == (bytes([0xF0]) + qu.SYSEX_MANUFACTURER
+                      + bytes([qu.SYSEX_MODEL]) + qu.SYSEX_VER)
+    # ...and those two bytes are what separate it from Avantis / dLive, which
+    # use 0x50 0x10 where the Qu uses 0x50 0x11.
+    assert expect[4:6] == bytes([0x50, 0x11])
+
+
 # ── Command <-> handler parity ──
 
 def test_command_handler_parity():

@@ -146,7 +146,7 @@
       "name": "Allen & Heath Qu Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.1.4",
+      "version": "1.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Allen & Heath Qu family (Qu-16, Qu-24, Qu-32, Qu-Pac, Qu-SB) via MIDI over TCP/IP on port 51325. Auto-identifies the model on connect and registers every input, stereo input, mix, group, matrix, DCA, mute group and FX send/return as a child entity with live mute / fader / pan state and its real channel name. Mute / fader / pan / send / assign / pre-post control, DCA and mute-group masters, PAFL, local preamp gain and 48V, scene recall (1-100), MMC transport, channel naming and remote shutdown, with bidirectional state from console-side moves.",
@@ -154,7 +154,7 @@
       "file": "audio/allenheath_qu.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu.py": "263be5f9214d0fd5491f0c5d23817e3983a677edc527b4187f87f121bedf96c2",
+        "audio/allenheath_qu.py": "25e080c612e41e2e6e8e42259bd0eb70020eded1d384633e0b7d89b107b9ff59",
         "audio/allenheath_qu_sim.py": "3b6f63570ac8795032c379b79c4c91eb48019cde79ef69816bc99c4388b9d004"
       },
       "ports": [
@@ -200,6 +200,12 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 51325,
+          "send_hex": "F0 00 00 1A 50 11 01 00 7F 10 01 F7",
+          "expect_hex": "F0 00 00 1A 50 11 01 00",
+          "timeout_ms": 2000
+        },
         "oui": [
           "00:04:c4"
         ],
@@ -220,7 +226,7 @@
       "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, Qu-7 and the Dante -5D/-6D/-7D variants) via MIDI over TCP/IP on port 51325. On connect the driver probes the console and registers exactly the channels it really has, so any model and any mix-bus configuration comes up correct with nothing to declare. Every input, stereo input, mix, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / dB / pan state. Mute, fader (position or dB), 1 dB nudges, pan and balance, aux and FX sends, mix assignments, scene recall (1-300) and Soft Key triggers -- with every write confirmed by reading the console back, and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -228,8 +234,7 @@
       "file": "audio/allenheath_qu567.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu567.py": "896c7c03d809d693164ba8f0ed664a062b97acc47ab7b0b74677618495e77868",
-        "audio/allenheath_qu567_discovery.py": "547d7bb01f8ddc77e7852f5dea04d219b22c74566a2793cac2115c2527e2d4d2",
+        "audio/allenheath_qu567.py": "1815bfdf5a45221d1efddf8990d96dbfb33afdec1c0820b10e985f3e834ab611",
         "audio/allenheath_qu567_sim.py": "c1dc8d6a6d28847f6259b73311a08d8063fa4dfc10252ce444f72fbc2311b680"
       },
       "ports": [
@@ -276,8 +281,17 @@
         }
       ],
       "discovery": {
-        "python": {
-          "file": "allenheath_qu567_discovery.py"
+        "requires": "0.32.0",
+        "tcp_probe": {
+          "port": 51325,
+          "send_hex": "B0 63 00 B0 62 44 B0 60 7F",
+          "expect_hex": "B0 63 00 B0 62 44",
+          "timeout_ms": 2000,
+          "then": {
+            "send_hex": "B0 63 00 B0 62 27 B0 60 7F",
+            "expect_silence": true,
+            "timeout_ms": 600
+          }
         },
         "oui": [
           "00:04:c4"
@@ -299,7 +313,7 @@
       "name": "Allen & Heath SQ Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "2.0.3",
+      "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Allen & Heath SQ-5, SQ-6 and SQ-7 digital mixing consoles via MIDI over TCP/IP on port 51325. Every input, group, aux, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / pan state and a channel picker on its commands. Scene recall (1-300), 1 dB nudges, SoftKey triggers, master balances, and bidirectional state \u2014 console-side moves push back into OpenAVC, and a Get-probe watchdog flips the device offline if the console vanishes.",
@@ -307,7 +321,7 @@
       "file": "audio/allenheath_sq.py",
       "format": "python",
       "files": {
-        "audio/allenheath_sq.py": "3e5c3052f6ef6f42cf8b539d750203f46750dd0e29862b048e26e42d1472f662",
+        "audio/allenheath_sq.py": "d741f6fd68ae7c458833eb1cac8033e3b609d714061dd5274d1abab560e60570",
         "audio/allenheath_sq_sim.py": "c0205512893a529ab9e1df86c1bdee0c9fda30e14d5274a3fecbe9a01edb7d22"
       },
       "ports": [
@@ -342,6 +356,12 @@
         }
       ],
       "discovery": {
+        "tcp_probe": {
+          "port": 51325,
+          "send_hex": "B0 63 00 B0 62 27 B0 60 7F",
+          "expect_hex": "B0 63 00 B0 62 27",
+          "timeout_ms": 2000
+        },
         "oui": [
           "00:04:c4"
         ],

@@ -219,7 +219,7 @@
       "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
       "manufacturer": "Allen & Heath",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, Qu-7 and the Dante -5D/-6D/-7D variants) via MIDI over TCP/IP on port 51325. On connect the driver probes the console and registers exactly the channels it really has, so any model and any mix-bus configuration comes up correct with nothing to declare. Every input, stereo input, mix, matrix, FX send/return, DCA and mute group is a child entity with live mute / level / dB / pan state. Mute, fader (position or dB), 1 dB nudges, pan and balance, aux and FX sends, mix assignments, scene recall (1-300) and Soft Key triggers -- with every write confirmed by reading the console back, and a Get-probe watchdog that flips the device offline if the console vanishes.",
@@ -227,7 +227,7 @@
       "file": "audio/allenheath_qu567.py",
       "format": "python",
       "files": {
-        "audio/allenheath_qu567.py": "1187a0ec8e96ef371583e8106524d398183a2b19e17ee44d0cac3b26837921fe",
+        "audio/allenheath_qu567.py": "896c7c03d809d693164ba8f0ed664a062b97acc47ab7b0b74677618495e77868",
         "audio/allenheath_qu567_discovery.py": "547d7bb01f8ddc77e7852f5dea04d219b22c74566a2793cac2115c2527e2d4d2",
         "audio/allenheath_qu567_sim.py": "c1dc8d6a6d28847f6259b73311a08d8063fa4dfc10252ce444f72fbc2311b680"
       },
@@ -260,7 +260,7 @@
             "Qu-5D"
           ],
           "confidence": "full",
-          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, and mute / level round-trips confirmed by reading the console back."
+          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, mute / level round-trips confirmed by reading the console back, and surface moves on the desk arriving as live state."
         },
         {
           "manufacturer": "Allen & Heath",

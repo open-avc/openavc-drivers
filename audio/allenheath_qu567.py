@@ -42,14 +42,17 @@ What makes this driver first-class
   force a typed ``no_response`` fault and a reconnect.
 
 Push vs poll:
-    Hybrid, weighted to poll. Per the protocol document a console-side move
-    transmits the matching NRPN, which the driver fans into child state; the
-    inbound parser handles that whenever it happens. It is deliberately not
-    *relied* upon: it could not be verified on the bench desk (no physical
-    access to the surface), and unlike the older Qu this generation sends
-    nothing at all unprompted -- no Active Sense, no idle chatter. So the
-    Get sweep on connect plus a periodic re-sweep are the guaranteed source
-    of truth, and push is treated as an accelerator.
+    Hybrid. A console-side move transmits the matching NRPN and the driver
+    fans it into child state -- verified on a Qu-5 by moving faders and mute
+    keys on the surface: input sends, the LR master and channel mutes all
+    arrived correctly addressed, under 100 ms, decoding to the right channel
+    and the right dB. The console streams a moving fader at roughly 100
+    updates a second, one per 64-count step.
+
+    Polling is still the backstop rather than an afterthought, because this
+    generation sends NOTHING unprompted -- no Active Sense, no idle chatter --
+    so a missed window has nothing to correct it. The Get sweep on connect and
+    the periodic re-sweep close that gap; push keeps state live between them.
 
 Format choice:
     Python rather than YAML because the wire format is binary (MIDI bytes,
@@ -806,7 +809,7 @@ class AllenHeathQu567Driver(BaseDriver):
         "name": "Allen & Heath Qu-5/6/7 Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls the current Allen & Heath Qu generation (Qu-5, Qu-6, "
@@ -860,8 +863,9 @@ class AllenHeathQu567Driver(BaseDriver):
                 "notes": (
                     "Verified end-to-end against a real Qu-5: the whole "
                     "parameter map swept address by address, channel roster "
-                    "discovery, and mute / level round-trips confirmed by "
-                    "reading the console back."
+                    "discovery, mute / level round-trips confirmed by reading "
+                    "the console back, and surface moves on the desk arriving "
+                    "as live state."
                 ),
             },
             {

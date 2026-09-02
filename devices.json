@@ -218,7 +218,7 @@
         {
           "id": "allenheath_qu567",
           "confidence": "full",
-          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, and mute / level round-trips confirmed by reading the console back."
+          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, mute / level round-trips confirmed by reading the console back, and surface moves on the desk arriving as live state."
         }
       ]
     },
@@ -230,7 +230,7 @@
         {
           "id": "allenheath_qu567",
           "confidence": "full",
-          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, and mute / level round-trips confirmed by reading the console back."
+          "notes": "Verified end-to-end against a real Qu-5: the whole parameter map swept address by address, channel roster discovery, mute / level round-trips confirmed by reading the console back, and surface moves on the desk arriving as live state."
         }
       ]
     },

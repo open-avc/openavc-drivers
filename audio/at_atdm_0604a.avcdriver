@@ -103,9 +103,9 @@ id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 2.2.0
+version: 2.3.0
 author: OpenAVC
-min_platform_version: "0.27.0"
+min_platform_version: "0.33.0"
 description: >
   Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with
   real-time multicast push updates. Inputs and outputs are child entities
@@ -575,6 +575,10 @@ child_entity_types:
     instances:
       count: 7
       label: "Extension {id}"
+      # Slots, not channels: nothing is in one until g_link_extstatus names
+      # something, so they register empty rather than in service. Without this
+      # a standalone mixer shows seven online extensions it does not have.
+      presence: reported
 
 state_variables:
   firmware_version:
@@ -1550,7 +1554,9 @@ responses:
   # ── AT-LINK chain contents ──
   # One slot per answer: extension number, quoted device name, serial,
   # firmware. Doubled quotes inside the name are handled the same way as the
-  # channel-name rules.
+  # channel-name rules. An answer IS the presence report — the slots register
+  # empty (instances.presence: reported), and this is the only thing that puts
+  # one in service, so it clears the not_fitted reason with it.
   - match: 'g_link_extstatus 0000 \S+ NC ([1-7]),"((?:[^"]|"")*)",(\S+),(\S+)'
     child_set:
       - type: link_extension
@@ -1559,6 +1565,9 @@ responses:
           device_name: $2
           serial: $3
           firmware_version: $4
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
 
   # ── SmartMix common settings answer (9 fields fan out into 8 vars;
   #    the trailing field is the SmartMix group, fixed to 1) ──

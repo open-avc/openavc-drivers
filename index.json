@@ -783,7 +783,7 @@
       "name": "Audio-Technica ATDM-0604a",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -791,14 +791,14 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "6a7b0a410173c331ba85a094e186e170f2e44a7d0760d439c21ed22fe99e6fde"
+        "audio/at_atdm_0604a.avcdriver": "ce1ff24c79b9d4ee02b3145de5310e27153d57c571e3dbf076a3b28d85f670bb"
       },
       "ports": [
         17300
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.33.0",
       "tags": [
         "mixer",
         "smartmixer",

@@ -562,14 +562,19 @@ def _make_pair(monkeypatch, strict: bool = False):
     return stub_driver, stub_state, real_driver, real_store
 
 
-def test_construction_seeds_the_same_state(monkeypatch):
-    """Declared variables are seeded with typed defaults at construction, so a
-    driver reading one before its first poll gets 0/False/"" rather than None.
-    A stub that skipped this lets a driver depend on the None."""
+def test_construction_creates_the_same_keys(monkeypatch):
+    """Declared variables get a key at construction and no value: a driver
+    reading one before its first poll gets None, because nothing has reported.
+
+    Both halves have to match. A stub that skipped the keys entirely would let
+    a driver depend on the key being absent, which on a real system it never
+    is; a stub that invented typed defaults -- which this one did, mirroring
+    the platform before it stopped -- would hide a driver reading a number the
+    hardware never sent."""
     _, stub_state, _, real_store = _make_pair(monkeypatch)
     assert stub_state.data == real_store.snapshot() == {
-        "device.widget_1.power": False,
-        "device.widget_1.volume": 0,
+        "device.widget_1.power": None,
+        "device.widget_1.volume": None,
         "device.widget_1.connected": False,
     }
 
@@ -695,7 +700,13 @@ def test_connected_is_exempt_from_the_undeclared_check(monkeypatch):
 
 
 def test_child_registration_writes_the_same_keys(monkeypatch):
-    """Padded ids, injected online/label, and per-prop defaults."""
+    """Padded ids, the four injected platform props, and the rest unreported.
+
+    ``mute`` is the one that matters here: it was declared, it was not supplied
+    and nobody has read it, so it holds nothing on both sides. The four
+    platform props DO say something -- they describe the child rather than
+    report from it -- and a stub that let them fall through to "unreported"
+    would diverge on all four."""
     stub_driver, stub_state, real_driver, real_store = _make_pair(monkeypatch)
 
     stub_driver.register_child("zone", 3, {"level": -6})
@@ -703,9 +714,11 @@ def test_child_registration_writes_the_same_keys(monkeypatch):
 
     expected = {
         "device.widget_1.zone.03.level": -6,
-        "device.widget_1.zone.03.mute": False,
+        "device.widget_1.zone.03.mute": None,
         "device.widget_1.zone.03.online": True,
         "device.widget_1.zone.03.label": "",
+        "device.widget_1.zone.03.offline_reason": "",
+        "device.widget_1.zone.03.offline_detail": "",
     }
     for key, value in expected.items():
         assert stub_state.data[key] == value, key
@@ -755,10 +768,13 @@ def test_dynamic_child_schema_behaves_the_same(monkeypatch):
     stub_driver.register_child("block", "Pgm_Gain", schema=schema)
     real_driver.register_child("block", "Pgm_Gain", schema=schema)
 
-    # A declared min is the seed, not 0 — the stub said 0 until this test
-    # compared it against the platform.
-    assert stub_state.data["device.widget_1.block.Pgm_Gain.gain"] == -100.0
-    assert real_store.get("device.widget_1.block.Pgm_Gain.gain") == -100.0
+    # A dynamic child's declared prop is no different: registered is not read,
+    # so it holds nothing on both sides. This used to be -100.0 -- the declared
+    # min, drawn on a fader as fully attenuated -- and before that a stub-only 0.
+    assert stub_state.data["device.widget_1.block.Pgm_Gain.gain"] is None
+    assert real_store.get("device.widget_1.block.Pgm_Gain.gain") is None
+    assert stub_state.has("device.widget_1.block.Pgm_Gain.gain")
+    assert real_store.has("device.widget_1.block.Pgm_Gain.gain")
     assert stub_driver.get_child_schema("block", "Pgm_Gain") == \
         real_driver.get_child_schema("block", "Pgm_Gain")
     assert stub_driver.is_child_type_dynamic("block") is \

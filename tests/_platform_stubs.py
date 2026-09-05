@@ -51,7 +51,6 @@ from __future__ import annotations
 import fnmatch
 import importlib.util
 import logging
-import math
 import os
 import re
 import sys
@@ -460,12 +459,15 @@ class StubBaseDriver:
         self._init_state_variables()
 
     def _init_state_variables(self) -> None:
-        """Seed every declared state variable with its default, plus
-        ``connected``.
+        """Create a key for every declared state variable, plus ``connected``.
 
-        The platform does this in ``__init__``, so a driver that reads a
-        variable before its first poll gets a typed default rather than None.
-        A stub that skipped it would let a driver depend on the None.
+        The platform does this in ``__init__``, so the keys exist from
+        construction and each holds ``None`` until the device reports. A stub
+        that skipped it would let a driver depend on the key being absent,
+        which on a real system it never is.
+
+        ``connected`` is the exception and is not a reading: a driver being
+        constructed is definitely not connected yet.
         """
         for prop_name, prop_info in self.DRIVER_INFO.get(
                 "state_variables", {}).items():
@@ -646,46 +648,30 @@ class StubBaseDriver:
 
     @staticmethod
     def _default_for_var_def(var_def: dict[str, Any]) -> Any:
-        """A declared state variable's value before anything is read.
+        """What a declared state variable holds before the device has spoken:
+        nothing.
 
-        A numeric variable starts at its declared ``min``, not at "0 clamped
-        into range" — that is what this stub said before the fidelity test
-        compared it, and it seeds a fader declared ``min: -100`` at 0 dB
-        instead of the platform's -100. An ``integer`` with a fractional
-        ``min`` rounds UP, so the value never starts below the minimum the
-        driver itself declared, and a ``min`` that isn't a number (``true``
-        included — ``float(True)`` is 1) falls back to 0 rather than raising
-        at instantiation.
+        The key is created; the value is not invented. A driver that has not
+        heard from its hardware has no reading, and the platform's own
+        consumers already read ``None`` that way -- a monitor tile draws "--"
+        rather than 0, an alert rule matches no threshold, and a macro guard
+        makes no decision.
 
-        The platform keeps this rule in ``compiled_protocol.state_var_default``
-        so its runtime, simulator and validator cannot drift apart on it. This
-        repo's suite runs with no platform installed, so the rule is spelled
-        out here instead of imported; the platform-stub fidelity job is what
-        stops the two from drifting.
+        It used to hand back a typed value here (a numeric at its declared
+        ``min``, an enum at its first value, a string at ``""``), which nothing
+        downstream could tell from a reading: a projector nobody had reached
+        published 0 lamp hours against a true 450, and a monitor declaring a
+        minimum above zero fired on it.
+
+        ``var_def`` is unused and stays in the signature deliberately -- it is
+        what a caller has in hand, and the platform-stub fidelity job compares
+        this signature against the real ``BaseDriver``.
+
+        The value-producing form of the rule still exists on the platform, as
+        ``compiled_protocol.state_var_default``, for the simulator and the
+        driver validator. Nothing in this repo's suite needs it.
         """
-        var_type = var_def.get("type", "string")
-        if var_type == "boolean":
-            return False
-        if var_type in ("integer", "number", "float"):
-            raw = var_def.get("min")
-            min_num = None
-            if raw is not None and not isinstance(raw, bool):
-                try:
-                    min_num = float(raw)
-                except (TypeError, ValueError):
-                    min_num = None
-            if min_num is None:
-                if raw is not None:
-                    log.warning(
-                        "state variable declares a non-numeric 'min' %r; "
-                        "defaulting to 0", raw,
-                    )
-                return 0 if var_type == "integer" else 0.0
-            return math.ceil(min_num) if var_type == "integer" else min_num
-        if var_type == "enum":
-            values = var_def.get("values", [])
-            return values[0] if values else ""
-        return ""
+        return None
 
     def register_child(
         self,
@@ -767,6 +753,12 @@ class StubBaseDriver:
                 value = overrides.get("online", True)
             elif prop == "label":
                 value = overrides.get("label", project_label)
+            elif prop in ("offline_reason", "offline_detail"):
+                # The platform's own arms. These describe the child rather than
+                # report from it, so they say something rather than falling
+                # through to "nothing reported" -- a child claims no fault
+                # until one is asserted.
+                value = overrides.get(prop, "")
             elif prop in overrides:
                 value = overrides[prop]
             else:

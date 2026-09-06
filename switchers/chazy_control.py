@@ -67,6 +67,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from openavc.core.connection_fault import CHILD_NOT_RESPONDING
 from openavc.drivers.base import BaseDriver
 from openavc.utils.logger import get_logger
 
@@ -210,10 +211,16 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.27.0",
+        # Gated on the newest platform surface this driver CALLS:
+        # BaseDriver.child_fault(), the child fault vocabulary, which
+        # arrived in 0.29.0. On an older box that call is an
+        # AttributeError in the middle of a poll, so the gate is what
+        # keeps a working system from being handed a driver that takes
+        # its endpoint roster down.
+        "min_platform_version": "0.29.0",
         "description": (
             "Controls a TurtleAV Chazy Control AV-over-IP matrix controller "
             "and the sub-units it manages: video encoders (TX), decoders (RX), "
@@ -753,6 +760,31 @@ class ChazyControlDriver(BaseDriver):
         except Exception:
             log.debug(f"[{self.device_id}] GPIO poll failed", exc_info=True)
 
+    def _net_presence(self, props: dict[str, Any]) -> dict[str, Any]:
+        """Presence for an enrolled endpoint, plus WHY when it is missing.
+
+        The controller keeps an endpoint in its database once it has been
+        enrolled, so an entry it still lists whose ``net`` link is down is one
+        it expects and cannot reach — ``not_responding``, which is exactly
+        "it is listed and it is not answering, go and find it".
+
+        `not_responding` and not `service_fault`, and the difference matters:
+        `net` is the endpoint's link to the controller, and an endpoint that
+        has lost it is indistinguishable from an unplugged one — the controller
+        has nothing further to say about a box it cannot talk to. A wedged
+        endpoint that still answers reads `net` up and is not this case.
+
+        Clearing matters as much as setting: an endpoint that comes back gets
+        the fault keys cleared in the same write that turns `online` back on,
+        so one power cut does not leave a fault sitting on a working endpoint
+        for as long as the controller stays up.
+        """
+        return (
+            self.child_fault()
+            if bool(props.get("net", False))
+            else self.child_fault(CHILD_NOT_RESPONDING)
+        )
+
     def _reconcile_children(
         self,
         ctype: str,
@@ -774,7 +806,11 @@ class ChazyControlDriver(BaseDriver):
         for cid, props in parsed_map.items():
             seen.add(cid)
             clean = {k: v for k, v in props.items() if k in schema}
-            clean["online"] = bool(props.get("net", False)) if online_from_net else True
+            # Config-style children have no link concept, so "in service,
+            # nothing claimed" is the whole truth about them.
+            clean.update(
+                self._net_presence(props) if online_from_net else self.child_fault()
+            )
             if cid not in current:
                 self.register_child(ctype, cid, initial_state=clean)
             else:
@@ -818,7 +854,7 @@ class ChazyControlDriver(BaseDriver):
             props = _parse_encoder_detail(resp)
             clean = {k: v for k, v in props.items() if k in schema}
             if clean:
-                clean["online"] = bool(props.get("net", False))
+                clean.update(self._net_presence(props))
                 # Secondary-stream preview URLs come from a separate query
                 # (FW 1.00.17 §6); best-effort so an SS failure never drops the
                 # encoder. SS STATUS may be absent on some shipping firmware.
@@ -856,7 +892,7 @@ class ChazyControlDriver(BaseDriver):
             props = _parse_decoder_detail(resp)
             clean = {k: v for k, v in props.items() if k in schema}
             if clean:
-                clean["online"] = bool(props.get("net", False))
+                clean.update(self._net_presence(props))
                 out[did] = clean
         return out
 

@@ -22,6 +22,8 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    install_connection_fault_stub,
+    StubBaseDriver as _StubBaseDriver,
     StubState as _FakeState,
 )
 
@@ -44,9 +46,16 @@ class _FakeBaseDriver(LifecycleFake):
 
     def _eff_schema(self, ctype: str) -> dict:
         schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
+        # All four reserved props, the way the platform injects them.
         schema.setdefault("online", {"type": "boolean"})
         schema.setdefault("label", {"type": "string"})
+        schema.setdefault("offline_reason", {"type": "string"})
+        schema.setdefault("offline_detail", {"type": "string"})
         return schema
+
+    # The platform's own rule, so a code this taxonomy does not define is
+    # refused here the way a real box refuses it.
+    child_fault = staticmethod(_StubBaseDriver.child_fault)
 
     def get_child_entity_types(self) -> dict:
         out = {}
@@ -69,8 +78,8 @@ class _FakeBaseDriver(LifecycleFake):
         for prop in schema:
             if prop == "online":
                 st[prop] = ov.get("online", True)
-            elif prop == "label":
-                st[prop] = ov.get("label", "")
+            elif prop in ("label", "offline_reason", "offline_detail"):
+                st[prop] = ov.get(prop, "")
             else:
                 st[prop] = ov.get(prop)
         bucket[lid] = st
@@ -125,6 +134,7 @@ def _load_driver() -> ModuleType:
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
     sys.modules["openavc.utils.logger"] = logger
+    install_connection_fault_stub()
     spec = importlib.util.spec_from_file_location("chazy_pro_dispatch_under_test", DRIVER_PATH)
     mod = importlib.util.module_from_spec(spec)
     sys.modules["chazy_pro_dispatch_under_test"] = mod

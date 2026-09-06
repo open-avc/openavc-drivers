@@ -20,6 +20,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+from _platform_stubs import install_connection_fault_stub
+
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -117,6 +119,7 @@ def _install_server_stubs() -> None:
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="chazy": logging.getLogger(name)
     sys.modules["openavc.utils.logger"] = logger
+    install_connection_fault_stub()
 
 
 def _load(path: Path, name: str) -> ModuleType:

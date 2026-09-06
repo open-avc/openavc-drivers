@@ -1161,6 +1161,25 @@ def stub_modules(
     return modules
 
 
+def install_connection_fault_stub() -> None:
+    """Install just ``openavc.core.connection_fault`` into ``sys.modules``.
+
+    For a test module that hand-rolls its own narrow stub tree rather than
+    calling :func:`install_stubs`, and whose driver imports a child fault code
+    at module scope. The codes come from this module's mirror of the platform
+    taxonomy, so a driver naming one that does not exist fails here.
+    """
+    core = sys.modules.get("openavc.core")
+    if core is None:
+        core = ModuleType("openavc.core")
+        core.__path__ = []  # type: ignore[attr-defined]
+        sys.modules["openavc.core"] = core
+    faults = ModuleType("openavc.core.connection_fault")
+    for name, value in _default_tree()["openavc.core.connection_fault"].items():
+        setattr(faults, name, value)
+    sys.modules["openavc.core.connection_fault"] = faults
+
+
 def install_stubs(
     overrides: dict[str, dict[str, Any]] | None = None,
     *,

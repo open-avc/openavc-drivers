@@ -32,8 +32,11 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    CHILD_NOT_RESPONDING,
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    install_connection_fault_stub,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -162,9 +165,17 @@ class _FakeBaseDriver(LifecycleFake):
 
     def _eff_schema(self, ctype: str) -> dict:
         schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
+        # All four reserved props, the way the platform injects them —
+        # the driver writes the fault pair through child_fault().
         schema.setdefault("online", {"type": "boolean"})
         schema.setdefault("label", {"type": "string"})
+        schema.setdefault("offline_reason", {"type": "string"})
+        schema.setdefault("offline_detail", {"type": "string"})
         return schema
+
+    # The platform's own rule, so a driver asserting a code this taxonomy
+    # does not define fails here the way it would on a real box.
+    child_fault = staticmethod(_StubBaseDriver.child_fault)
 
     def get_child_entity_types(self) -> dict:
         out = {}
@@ -181,6 +192,8 @@ class _FakeBaseDriver(LifecycleFake):
         st = {prop: None for prop in self._eff_schema(ctype)}
         st["online"] = True
         st["label"] = ""
+        st["offline_reason"] = ""
+        st["offline_detail"] = ""
         st.update(initial_state or {})
         bucket[lid] = st
 
@@ -350,6 +363,7 @@ def _install_server_stubs() -> None:
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     sys.modules["openavc.drivers.base"] = base
+    install_connection_fault_stub()
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="chazy": logging.getLogger(name)
     sys.modules["openavc.utils.logger"] = logger
@@ -375,10 +389,11 @@ def test_driver_identity():
     assert INFO["id"] == "chazy_control"
     assert INFO["manufacturer"] == "TurtleAV"
     assert INFO["transport"] == "tcp"
-    assert INFO["version"] == "1.3.0"
-    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert INFO["min_platform_version"] == "0.27.0"
+    assert INFO["version"] == "1.4.0"
+    # The floor is the newest platform surface the driver CALLS. That was the
+    # 0.25.0 package move until it began asserting a child fault code, which
+    # is BaseDriver.child_fault() and arrived in 0.29.0.
+    assert INFO["min_platform_version"] == "0.29.0"
     assert INFO["simulated"] is True
 
 
@@ -743,3 +758,55 @@ async def test_transport_drop_also_clears_receive_state():
     assert transport.connected is False
     assert d._rx_buffer == b""
     assert "device.disconnected.ctl1" in d.events.emitted
+
+# ── An enrolled endpoint that is not answering ──────────────────────────────
+#
+# The controller keeps an endpoint in its database once enrolled, so one it
+# still lists whose link is down is one it expects and cannot reach. The
+# driver detected that all along -- `online` went False, which is the hard
+# half -- but said nothing about WHY, so `offline_reason` was blank on the
+# device page, automation could not match on it, and a panel bound to the key
+# drew nothing. The IDE's "not answering" banner is synthesized from `online`
+# alone, so an absent endpoint and a wedged one read identically there too.
+
+def test_an_enrolled_endpoint_that_is_not_answering_says_why():
+    d = _make_driver()
+    d._reconcile_roster("encoder", {1: {"net": False, "name": "Stage TX"}})
+    st = d.get_child_state("encoder", 1)
+    assert st["online"] is False
+    assert st["offline_reason"] == CHILD_NOT_RESPONDING
+    # A code with no sentence behind it reaches a person as a bare token.
+    assert st["offline_detail"]
+
+
+def test_an_endpoint_that_is_answering_claims_nothing():
+    d = _make_driver()
+    d._reconcile_roster("decoder", {1: {"net": True, "name": "Lobby RX"}})
+    st = d.get_child_state("decoder", 1)
+    assert st["online"] is True
+    assert st["offline_reason"] == "" and st["offline_detail"] == ""
+
+
+def test_the_fault_clears_when_the_endpoint_comes_back():
+    # Clearing matters as much as setting: without it one power cut leaves a
+    # fault on a working endpoint for as long as the controller stays up.
+    d = _make_driver()
+    d._reconcile_roster("encoder", {1: {"net": False, "name": "Stage TX"}})
+    assert d.get_child_state("encoder", 1)["offline_reason"] == CHILD_NOT_RESPONDING
+    d._reconcile_roster("encoder", {1: {"net": True, "name": "Stage TX"}})
+    st = d.get_child_state("encoder", 1)
+    assert st["online"] is True
+    assert st["offline_reason"] == "" and st["offline_detail"] == ""
+
+
+def test_a_config_child_is_in_service_and_claims_nothing():
+    # A group has no link concept -- the controller listing it IS its
+    # presence, so it must never be marked as not answering.
+    d = _make_driver()
+    d._reconcile_children(
+        "video_wall", {1: {"name": "All Displays"}}, online_from_net=False,
+    )
+    st = d.get_child_state("video_wall", 1)
+    assert st["online"] is True
+    assert st["offline_reason"] == "" and st["offline_detail"] == ""
+

@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.2",
+        "version": "1.5.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -882,6 +882,44 @@ class SonyBraviaDriver(BaseDriver):
                 log.warning(f"[{self.device_id}] Unknown command: {command}")
 
         log.debug(f"[{self.device_id}] Sent command: {command} {params}")
+        await self._read_back(command)
+
+    # What each command changes, read straight back. The display acts at
+    # once, but without this every key it changed sat on the old value until
+    # the next poll: up to a whole poll interval in which the panel, the
+    # Live State list and a Wait Until on power disagreed with the display.
+    # Power decides what else is readable, so a power command re-reads it all.
+    _READ_BACK: dict[str, str] = {
+        "power_on": "all",
+        "power_off": "all",
+        "set_volume": "audio",
+        "volume_up": "audio",
+        "volume_down": "audio",
+        "mute_on": "audio",
+        "mute_off": "audio",
+        "set_input": "content",
+        "launch_app": "content",
+    }
+
+    async def _read_back(self, command: str) -> None:
+        """Re-read the keys ``command`` changed. The command already went
+        through, so a read-back that fails is logged, never raised; the next
+        poll catches up."""
+        area = self._READ_BACK.get(command)
+        if area is None:
+            return
+        try:
+            if area == "all":
+                await self.poll()
+            elif area == "audio":
+                await self._read_audio()
+            else:
+                await self._read_playing_content()
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                f"[{self.device_id}] Could not read the display back after "
+                f"{command}: {exc}"
+            )
 
     async def _set_picture(self, target: str, value: Any) -> None:
         """Write one picture-quality setting. Values go on the wire as strings
@@ -921,13 +959,7 @@ class SonyBraviaDriver(BaseDriver):
         if not self.transport or not self.transport.connected:
             return
 
-        # Power status
-        result = await self._jsonrpc("system", "getPowerStatus")
-        powered_on = True
-        if result and isinstance(result, list) and len(result) > 0:
-            status = result[0].get("status", "")
-            powered_on = status == "active"
-            self.set_state("power", "on" if powered_on else "off")
+        powered_on = await self._read_power()
 
         # LED indicator is a system setting — readable even in standby.
         await self._read_led_indicator()
@@ -936,7 +968,25 @@ class SonyBraviaDriver(BaseDriver):
         if not powered_on:
             return
 
-        # Volume and mute
+        await self._read_audio()
+        await self._read_playing_content()
+
+        # Picture-quality settings — read-back for the device_settings surface.
+        await self._read_picture_settings()
+
+    async def _read_power(self) -> bool:
+        """Read the power state; True when the display is on (also the
+        answer when the query fails, so the rest of a poll still runs)."""
+        result = await self._jsonrpc("system", "getPowerStatus")
+        powered_on = True
+        if result and isinstance(result, list) and len(result) > 0:
+            status = result[0].get("status", "")
+            powered_on = status == "active"
+            self.set_state("power", "on" if powered_on else "off")
+        return powered_on
+
+    async def _read_audio(self) -> None:
+        """Read the speaker volume and mute."""
         result = await self._jsonrpc("audio", "getVolumeInformation")
         if result and isinstance(result, list):
             for item_list in result:
@@ -951,9 +1001,10 @@ class SonyBraviaDriver(BaseDriver):
                     self.set_state("mute", bool(item_list.get("mute", False)))
                     break
 
-        # Current input / app (may return Illegal State error code 7 if the
-        # TV is in an internal app rather than an external input, which is
-        # expected and silenced in _jsonrpc).
+    async def _read_playing_content(self) -> None:
+        """Read the current input, or the app when the display is on an
+        internal source (may return Illegal State error code 7 in that case
+        or in standby, which is expected and silenced in _jsonrpc)."""
         result = await self._jsonrpc("avContent", "getPlayingContentInfo")
         if result and isinstance(result, list) and len(result) > 0:
             info = result[0]
@@ -968,9 +1019,6 @@ class SonyBraviaDriver(BaseDriver):
                 # In an app or internal source
                 self.set_state("input", "app")
                 self.set_state("app", title or uri)
-
-        # Picture-quality settings — read-back for the device_settings surface.
-        await self._read_picture_settings()
 
     # --- Setup wizard ---
 

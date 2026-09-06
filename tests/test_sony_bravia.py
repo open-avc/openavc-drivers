@@ -424,7 +424,7 @@ def _make_driver(sim, psk="secret"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.2"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.3"
     assert DRV.SonyBraviaDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -507,6 +507,57 @@ def test_poll_reads_led_and_picture():
             assert driver.get_state("color") == 33
             assert driver.get_state("sharpness") == 12
             assert driver.get_state("picture_mode") == "Cinema"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+# ── A command reads its own result back ──────────────────────────────────────
+#
+# Without this, every key a command changes sat on its old value until the
+# next poll: up to a whole poll interval in which the panel, the Live State
+# list and a Wait Until on power all disagreed with the display.
+
+
+def test_power_command_reads_back_without_a_poll():
+    async def go():
+        sim = _make_sim(power="standby")
+        driver = _make_driver(sim)
+        await driver.connect()
+        try:
+            await driver.poll()
+            assert driver.get_state("power") == "off"
+            await driver.send_command("power_on")
+            assert driver.get_state("power") == "on"
+            # Power on makes the rest readable, so they arrive with it.
+            assert driver.get_state("input") is not None
+            assert driver.get_state("volume") is not None
+            await driver.send_command("power_off")
+            assert driver.get_state("power") == "off"
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_input_volume_and_mute_commands_read_back_without_a_poll():
+    async def go():
+        sim = _make_sim(power="active")
+        driver = _make_driver(sim)
+        await driver.connect()
+        try:
+            await driver.poll()
+            await driver.send_command("set_input", {"input": "hdmi2"})
+            assert driver.get_state("input") == "hdmi2"
+            await driver.send_command("set_volume", {"level": 37})
+            assert driver.get_state("volume") == 37
+            await driver.send_command("mute_on")
+            assert driver.get_state("mute") is True
+            await driver.send_command("mute_off")
+            assert driver.get_state("mute") is False
+            await driver.send_command("volume_up")
+            assert driver.get_state("volume") == 38
         finally:
             await driver.disconnect()
 

@@ -344,13 +344,13 @@
     },
     {
       "manufacturer": "Any",
-      "model": "Any IP camera or AV device that answers ONVIF WS-Discovery with a NetworkVideoTransmitter scope (Axis, Hanwha, Hikvision, Bosch, Sony, Panasonic, AVer, Vaddio, PTZOptics, Lumens, Marshall, etc.)",
+      "model": "Any ONVIF Profile S or Profile T conformant camera or encoder",
       "category": "camera",
       "drivers": [
         {
           "id": "onvif_camera",
           "confidence": "untested",
-          "notes": "Discovery-only entry. Tested against the ONVIF Network Specification \u00a77 scope URI format; firmware variations in the SOAP envelope are tolerated. For control, use the matching vendor-specific camera driver once it ships in the catalog.\n"
+          "notes": "Built from the ONVIF Core, Media, Media2, PTZ, Imaging and Device IO specifications and verified against the simulator. Cameras differ in which services they offer; the driver reads the device's own service list and shows only what it has."
         }
       ]
     },

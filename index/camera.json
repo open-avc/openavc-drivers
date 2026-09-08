@@ -233,40 +233,49 @@
     },
     {
       "id": "onvif_camera",
-      "name": "ONVIF Camera (discovery)",
+      "name": "ONVIF Camera",
       "manufacturer": "ONVIF",
       "category": "camera",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "author": "OpenAVC",
-      "transport": "tcp",
-      "description": "Discovery-only anchor for cameras and AV devices that answer the ONVIF WS-Discovery multicast probe. Surfaces manufacturer, hardware model, and ONVIF service URLs in scan results so vendor-specific camera drivers can claim the device as primary; otherwise the user gets a placeholder they can swap for a control driver later.\n",
-      "source_url": "https://github.com/open-avc/openavc-drivers",
-      "file": "cameras/onvif_camera.avcdriver",
-      "format": "avcdriver",
+      "transport": "http",
+      "description": "Controls any ONVIF Profile S or Profile T camera or video encoder: pan, tilt, zoom and focus, presets and home, image settings, relay outputs and digital inputs, plus the camera's RTSP stream and snapshot addresses for the Video Panel. Motion, tamper, signal-loss and input changes arrive as events. Use a brand's own driver when the catalog has one; this one covers everything else.",
+      "source_url": "https://www.onvif.org/specs/core/ONVIF-Core-Specification.pdf",
+      "file": "cameras/onvif_camera.py",
+      "format": "python",
       "files": {
-        "cameras/onvif_camera.avcdriver": "f544de932524685a8d381851b3f8c7c5f28c5dc666d43a6fb0cc85c18cbd8892",
-        "cameras/onvif_camera_discovery.py": "da18440c979f5507289b4ab02e5234206aafa49aff7fb4ef4301635ea594c162"
+        "cameras/onvif_camera.py": "ebc4a86593329ed7411df9bb80038f925191859bb031f1d3a9433eef3fbd2284",
+        "cameras/onvif_camera_discovery.py": "f854e35831216fb79176f5fa78a22326885c5f964690aa5c6ee461ee131b1a13",
+        "cameras/onvif_camera_sim.py": "722023e4ed54b3b8c4d4160e23a5492f896a217bbe6a869bf552f30db02c7a58"
       },
+      "ports": [
+        80
+      ],
       "protocols": [
         "onvif"
       ],
+      "simulated": true,
       "tags": [
-        "discovery-anchor",
         "onvif",
-        "camera"
+        "ptz",
+        "camera",
+        "rtsp",
+        "profile-s",
+        "profile-t"
       ],
       "help": {
-        "overview": "ONVIF cameras advertise themselves on the local network via SOAP-over-UDP WS-Discovery (multicast group 239.255.255.250 port 3702). A scan listens for ProbeMatch responses and reads each camera's manufacturer + hardware fields from the scope URIs so the matcher can identify the device. Use this anchor when no vendor-specific driver is available; replace it with the vendor's control driver once one ships in the catalog.\n",
-        "setup": "1. Run a network scan from the discovery panel. 2. ONVIF cameras that answer the multicast Probe surface with\n   manufacturer, hardware model, and ONVIF service URLs read from\n   their scope URIs.\n3. If a vendor-specific camera driver matches the device's\n   manufacturer or OUI, that driver wins primary identification\n   and this anchor demotes to an alternative.\n4. If no specific driver matches, add this anchor \u2014 you'll get\n   a placeholder device entry surfacing the camera's identity.\n   Install / build the right control driver next and swap it in.\n"
+        "overview": "ONVIF is the cross-vendor camera control standard. Turn ONVIF on in the camera's web interface, give it an ONVIF user, and add the camera here with that login. The driver reads the camera's make and model, its media profiles (each with a stream address the Video Panel can show), and whatever PTZ, focus, imaging and relay control the camera offers.",
+        "setup": "1. In the camera's web interface enable ONVIF and create an ONVIF user with administrator or operator rights. Some brands keep ONVIF users separate from web users.\n2. Check the camera's date and time. A clock more than a few minutes wrong makes the camera refuse every login; the driver compensates, but only once it can read the clock.\n3. Add the camera with its IP address, the ONVIF port (80 on most cameras, 8080 or 8000 on some) and the ONVIF login.\n4. Under Advanced, pick a media profile if the camera has more than one and you want PTZ bound to a specific one; the default is the first profile with PTZ.\n5. To let the Video Panel play the camera's stream without adding it by hand, turn on 'Login in stream address' under Advanced and read the note beside it first.",
+        "connection": "Enable ONVIF on the camera and use an ONVIF user, not the web login, if the camera keeps them separate. If the login is right and the camera still refuses, set the camera's clock."
       },
       "compatible_models": [
         {
           "manufacturer": "Any",
           "models": [
-            "Any IP camera or AV device that answers ONVIF WS-Discovery with a NetworkVideoTransmitter scope (Axis, Hanwha, Hikvision, Bosch, Sony, Panasonic, AVer, Vaddio, PTZOptics, Lumens, Marshall, etc.)"
+            "Any ONVIF Profile S or Profile T conformant camera or encoder"
           ],
           "confidence": "untested",
-          "notes": "Discovery-only entry. Tested against the ONVIF Network Specification \u00a77 scope URI format; firmware variations in the SOAP envelope are tolerated. For control, use the matching vendor-specific camera driver once it ships in the catalog.\n"
+          "notes": "Built from the ONVIF Core, Media, Media2, PTZ, Imaging and Device IO specifications and verified against the simulator. Cameras differ in which services they offer; the driver reads the device's own service list and shows only what it has."
         }
       ],
       "discovery": {

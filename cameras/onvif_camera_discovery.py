@@ -1,4 +1,4 @@
-"""Discovery companion for the ONVIF camera anchor driver.
+"""Discovery companion for the generic ONVIF camera driver.
 
 ONVIF is an open multi-vendor standard for IP cameras and other AV
 devices. Discovery uses WS-Discovery: a SOAP-over-UDP probe sent to

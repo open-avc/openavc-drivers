@@ -39,6 +39,7 @@ import struct
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import unquote
 
 from defusedxml.ElementTree import fromstring as _safe_fromstring
 from defusedxml.ElementTree import ParseError as _XMLParseError
@@ -88,11 +89,18 @@ class _ProbeMatch:
     endpoint_reference: str = ""
 
     def scope_value(self, category: str) -> str | None:
+        """The value of the first scope in ``category``, percent-decoded.
+
+        Scopes are RFC 3986 URIs (Core spec 7.3.2.2), so a space in a name
+        arrives as ``%20``: an AXIS P3265-V announces
+        ``onvif://www.onvif.org/name/AXIS%20P3265-V``.
+        """
         target = category.lower()
         for scope in self.scopes:
             match = _SCOPE_RE.match(scope.strip())
             if match and match.group(1).lower() == target:
-                return match.group(2).strip()
+                value = unquote(match.group(2).strip())
+                return value or None
         return None
 
 
@@ -236,7 +244,16 @@ def _build_response(match: _ProbeMatch) -> dict[str, Any]:
     if match.xaddrs:
         response["xaddrs"] = list(match.xaddrs)
     if match.endpoint_reference:
-        response["serial_number"] = match.endpoint_reference
+        # A stable per-device id (urn:uuid:...), not the serial number: the
+        # spec keeps those apart (7.3.1 vs the SerialNumber scope), and an
+        # AXIS camera shows the difference on the scan card.
+        response["endpoint_reference"] = match.endpoint_reference
+    serial = match.scope_value("SerialNumber")
+    if serial:
+        response["serial_number"] = serial
+    mac = match.scope_value("MacAddress")
+    if mac:
+        response["mac_address"] = mac
 
     manufacturer = match.scope_value("manufacturer")
     if manufacturer:

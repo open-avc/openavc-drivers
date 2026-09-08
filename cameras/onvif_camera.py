@@ -458,7 +458,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls any ONVIF Profile S or Profile T camera or video encoder: "

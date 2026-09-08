@@ -317,6 +317,18 @@ def test_wrong_password_is_a_typed_auth_failure():
     _run(scenario())
 
 
+def test_no_login_entered_says_so_instead_of_blaming_the_password():
+    async def scenario():
+        driver, sim, handler = _make({"require_auth": True}, {"username": "", "password": ""})
+        with pytest.raises(ConnectionFaultError) as exc_info:
+            await _connect(driver, handler)
+        assert exc_info.value.fault_code == "auth_failed"
+        assert "none is entered" in str(exc_info.value)
+        assert "create an ONVIF user" in str(exc_info.value)
+
+    _run(scenario())
+
+
 def test_camera_clock_ten_minutes_off_still_logs_in():
     async def scenario():
         driver, sim = await _connected_pair({"require_auth": True, "clock_skew_s": 600})

@@ -458,7 +458,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls any ONVIF Profile S or Profile T camera or video encoder: "
@@ -1061,6 +1061,24 @@ class OnvifCameraDriver(BaseDriver):
     def _device_now(self) -> datetime:
         return datetime.now(timezone.utc) + self._clock_offset
 
+    def _auth_fault(self, exc: OnvifFault) -> ConnectionFaultError:
+        """The typed auth_failed fault, worded for what actually happened: a
+        camera that wants a login when none is entered is told what to do,
+        a rejected one is told what to check."""
+        if not self._username:
+            message = (
+                "This camera needs an ONVIF login and none is entered. Open its "
+                "web interface, create an ONVIF user with administrator or "
+                "operator rights, then enter it under Edit Device and press "
+                "Reconnect."
+            )
+        else:
+            message = (
+                "The camera refused the ONVIF login. Check the username and "
+                "password, and the camera's clock."
+            )
+        return ConnectionFaultError(message, code="auth_failed")
+
     # ── Connection lifecycle ──
 
     async def _create_transport(self, transport_type: str) -> None:
@@ -1083,11 +1101,7 @@ class OnvifCameraDriver(BaseDriver):
             await self._read_identity()
         except OnvifFault as exc:
             if exc.not_authorized:
-                raise ConnectionFaultError(
-                    "The camera refused the ONVIF login. Check the username and "
-                    "password, and the camera's clock.",
-                    code="auth_failed",
-                ) from exc
+                raise self._auth_fault(exc) from exc
             raise ConnectionError(f"The camera answered with a fault: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
@@ -1105,11 +1119,7 @@ class OnvifCameraDriver(BaseDriver):
             await self._read_io()
         except OnvifFault as exc:
             if exc.not_authorized:
-                raise ConnectionFaultError(
-                    "The camera refused the ONVIF login. Check the username and "
-                    "password, and the camera's clock.",
-                    code="auth_failed",
-                ) from exc
+                raise self._auth_fault(exc) from exc
             raise ConnectionError(f"The camera answered with a fault: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc

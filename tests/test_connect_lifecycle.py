@@ -53,6 +53,9 @@ _CONFIG: dict[str, dict] = {
     "tvone_coriomatrix": {"password": "adminpw"},
     "tvone_coriomaster": {"password": "adminpw"},
     "crestron_nvx": {"password": "smokepw"},
+    # VAPIX refuses a blank login before touching the camera; the sim accepts
+    # any password while its auth check is off.
+    "axis_vapix": {"username": "root", "password": "smokepw"},
     # Reached over SSH on real hardware (its default_config says so), but the
     # SSH transport shells out to the OS client and no simulator here speaks the
     # protocol. The device serves the SAME CLI over telnet on 23, which is what

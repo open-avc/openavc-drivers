@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 93,
+    "total_devices": 95,
     "shards": null,
     "category": "camera"
   },
@@ -201,13 +201,42 @@
     },
     {
       "manufacturer": "Axis",
+      "model": "Any Axis camera on AXIS OS 9.x or later",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "axis_vapix",
+          "confidence": "untested",
+          "notes": "Built from the VAPIX documentation. The driver reads what the camera says it has (API discovery, optics capabilities, the port and light rosters) and offers only that. Events need AXIS OS 10.11 or later; older cameras are polled."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Axis",
       "model": "P3265-V",
       "category": "camera",
       "drivers": [
         {
+          "id": "axis_vapix",
+          "confidence": "partial",
+          "notes": "Bench-tested on AXIS OS 10.12: identity, remote zoom and focus, IR cut filter and day/night, image settings, overlays, the I/O ports and their events, view areas with stream and snapshot addresses. It is a fixed dome, so the PTZ, guard tour and IR illuminator control were verified in the simulator only."
+        },
+        {
           "id": "onvif_camera",
           "confidence": "partial",
           "notes": "Bench-tested on AXIS OS 10.12: identity, three media profiles with stream and snapshot addresses, imaging levels and wide dynamic range, the relay output and the digital input, and the relay and input events. The camera exposes no PTZ over ONVIF and reports no focus move options, so its remote zoom and focus are not reachable through this driver. Create an ONVIF account on the camera first; Axis keeps them separate from web accounts."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Axis",
+      "model": "PTZ models (P55, P56, Q60, Q61, Q62, Q63 series and M55)",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "axis_vapix",
+          "confidence": "untested",
+          "notes": "Built from the VAPIX documentation. The driver reads what the camera says it has (API discovery, optics capabilities, the port and light rosters) and offers only that. Events need AXIS OS 10.11 or later; older cameras are polled."
         }
       ]
     },

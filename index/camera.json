@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 8,
+    "total_drivers": 9,
     "shards": null,
     "category": "camera"
   },
@@ -64,6 +64,107 @@
         "oui": [
           "00:18:1a"
         ]
+      }
+    },
+    {
+      "id": "axis_vapix",
+      "name": "Axis Camera (VAPIX)",
+      "manufacturer": "Axis",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
+      "source_url": "https://developer.axis.com/vapix/",
+      "file": "cameras/axis_vapix.py",
+      "format": "python",
+      "files": {
+        "cameras/axis_vapix.py": "13835517563068d54eecf4b81f661ac9d59aaffb88355fcaea334ddb73dcca0c",
+        "cameras/axis_vapix_sim.py": "a90d1901a598c317dde195b240435e87fd19f7577fb73d67d84b4447fcc83552"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "vapix",
+        "http"
+      ],
+      "simulated": true,
+      "tags": [
+        "axis",
+        "vapix",
+        "camera",
+        "ptz",
+        "rtsp",
+        "day-night",
+        "io"
+      ],
+      "help": {
+        "overview": "Controls an Axis camera through VAPIX, the camera's own API. Fixed cameras get remote zoom and focus, the IR cut filter and day/night switch, image settings, overlays, the I/O ports and any IR illuminator. PTZ cameras add pan, tilt, zoom, presets and guard tours. Every view area is listed with its stream address so the Video Panel can show it.",
+        "setup": "1. Find the camera. Axis cameras take a DHCP address and fall back to 192.168.0.90 when no DHCP server answers. The hostname is axis- followed by the serial number, for example axis-b8a44fc359b2.\n2. A brand-new camera asks for a root password the first time its web interface opens. Set it before anything else; the camera answers nothing until it is set.\n3. Create an account for the driver under System > Accounts with operator or administrator rights, or use root. ONVIF accounts are separate on Axis and do not work here.\n4. Check the camera's date and time under System > Date and time. Event timestamps and the camera's own certificate depend on it.\n5. Add the camera with its IP address and that login. Under Advanced, pick the view area to control if the camera has more than one, and a stream profile if the Video Panel should use one.\n6. To let the Video Panel play the camera's stream without adding it by hand, turn on 'Login in stream address' under Advanced and read the note beside it first.",
+        "connection": "Use a camera account with operator or administrator rights, not an ONVIF account. A new camera needs its root password set in its web interface first. No DHCP? The camera is at 192.168.0.90."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Axis",
+          "models": [
+            "P3265-V"
+          ],
+          "confidence": "partial",
+          "notes": "Bench-tested on AXIS OS 10.12: identity, remote zoom and focus, IR cut filter and day/night, image settings, overlays, the I/O ports and their events, view areas with stream and snapshot addresses. It is a fixed dome, so the PTZ, guard tour and IR illuminator control were verified in the simulator only."
+        },
+        {
+          "manufacturer": "Axis",
+          "models": [
+            "Any Axis camera on AXIS OS 9.x or later",
+            "PTZ models (P55, P56, Q60, Q61, Q62, Q63 series and M55)"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the VAPIX documentation. The driver reads what the camera says it has (API discovery, optics capabilities, the port and light rosters) and offers only that. Events need AXIS OS 10.11 or later; older cameras are polled."
+        }
+      ],
+      "discovery": {
+        "requires": "0.23.0",
+        "oui": [
+          "00:40:8c",
+          "ac:cc:8e",
+          "b8:a4:4f",
+          "e8:27:25"
+        ],
+        "manufacturer_alias": [
+          "AXIS",
+          "Axis Communications"
+        ],
+        "hostname": [
+          "^axis-"
+        ],
+        "mdns": "_axis-video._tcp.local.",
+        "ssdp": {
+          "device_type": "urn:schemas-upnp-org:device:Basic:1",
+          "manufacturer": "AXIS"
+        },
+        "tcp_probe": {
+          "port": 80,
+          "send_ascii": "POST /axis-cgi/basicdeviceinfo.cgi HTTP/1.1\r\nHost: axis\r\nContent-Type: application/json\r\nContent-Length: 66\r\nConnection: close\r\n\r\n{\"apiVersion\":\"1.0\",\"method\":\"getAllUnrestrictedProperties\"}      ",
+          "expect_regex": "\"Brand\"\\s*:\\s*\"AXIS\"",
+          "extract_manufacturer": "Axis",
+          "extract": {
+            "model": {
+              "regex": "\"ProdNbr\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            },
+            "serial_number": {
+              "regex": "\"SerialNumber\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            },
+            "firmware": {
+              "regex": "\"Version\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            }
+          },
+          "timeout_ms": 3000
+        }
       }
     },
     {

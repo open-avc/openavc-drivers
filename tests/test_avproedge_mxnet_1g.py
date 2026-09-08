@@ -948,8 +948,8 @@ async def test_a_present_endpoint_claims_no_fault_whatever_its_service_state():
     driver, _sim = await _make_pair()
 
     assert _child(driver, "encoder", TX_CABLE, "service_state") == "s_attaching"
-    assert _child(driver, "encoder", TX_CABLE, "offline_reason") == ""
-    assert _child(driver, "encoder", TX_CABLE, "offline_detail") == ""
+    assert _child(driver, "encoder", TX_CABLE, "offline_reason") is None
+    assert _child(driver, "encoder", TX_CABLE, "offline_detail") is None
 
 
 @pytest.mark.asyncio
@@ -963,8 +963,8 @@ async def test_a_returning_endpoint_clears_its_fault():
     await driver.poll()
 
     assert _child(driver, "decoder", RX_BOARD, "online") is True
-    assert _child(driver, "decoder", RX_BOARD, "offline_reason") == ""
-    assert _child(driver, "decoder", RX_BOARD, "offline_detail") == ""
+    assert _child(driver, "decoder", RX_BOARD, "offline_reason") is None
+    assert _child(driver, "decoder", RX_BOARD, "offline_detail") is None
 
 
 @pytest.mark.asyncio

@@ -162,8 +162,8 @@ class _FakeBaseDriver(LifecycleFake):
         st = {prop: None for prop in self._eff_schema(ctype)}
         st["online"] = True
         st["label"] = ""
-        st["offline_reason"] = ""
-        st["offline_detail"] = ""
+        st["offline_reason"] = None
+        st["offline_detail"] = None
         st.update(initial_state or {})
         bucket[lid] = st
 
@@ -823,7 +823,7 @@ def test_an_endpoint_that_is_answering_claims_nothing():
     d._reconcile_roster("decoder", {1: {"net": True, "name": "Lobby RX"}})
     st = d.get_child_state("decoder", 1)
     assert st["online"] is True
-    assert st["offline_reason"] == "" and st["offline_detail"] == ""
+    assert st["offline_reason"] is None and st["offline_detail"] is None
 
 
 def test_the_fault_clears_when_the_endpoint_comes_back():
@@ -835,7 +835,7 @@ def test_the_fault_clears_when_the_endpoint_comes_back():
     d._reconcile_roster("encoder", {1: {"net": True, "name": "Stage TX"}})
     st = d.get_child_state("encoder", 1)
     assert st["online"] is True
-    assert st["offline_reason"] == "" and st["offline_detail"] == ""
+    assert st["offline_reason"] is None and st["offline_detail"] is None
 
 
 def test_a_config_child_is_in_service_and_claims_nothing():
@@ -847,7 +847,7 @@ def test_a_config_child_is_in_service_and_claims_nothing():
     )
     st = d.get_child_state("group", 1)
     assert st["online"] is True
-    assert st["offline_reason"] == "" and st["offline_detail"] == ""
+    assert st["offline_reason"] is None and st["offline_detail"] is None
 
 
 @pytest.mark.asyncio
@@ -880,5 +880,5 @@ async def test_the_decoder_detail_poll_clears_a_live_one(monkeypatch):
     monkeypatch.setattr(d, "_send_request", fake_send)
     out = await d._fetch_decoder_detail([1])
     assert out[1]["online"] is True
-    assert out[1]["offline_reason"] == "" and out[1]["offline_detail"] == ""
+    assert out[1]["offline_reason"] is None and out[1]["offline_detail"] is None
 

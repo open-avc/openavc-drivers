@@ -408,6 +408,15 @@ _CHILD_STRING_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 _CHILD_STRING_ID_MAX_LEN = 128
 
 
+def _fold_child_presence(prop: str, value: Any) -> Any:
+    """The platform's rule for a child's fault pair: "nothing claimed" is None
+    at both levels, and an empty string written through any door folds to it
+    (openavc ``b43ed270``). Other props pass through untouched."""
+    if prop in ("offline_reason", "offline_detail") and (value is None or value == ""):
+        return None
+    return value
+
+
 class StubBaseDriver:
     """Stand-in for the state-owning half of ``openavc.drivers.base.BaseDriver``.
 
@@ -755,10 +764,11 @@ class StubBaseDriver:
                 value = overrides.get("label", project_label)
             elif prop in ("offline_reason", "offline_detail"):
                 # The platform's own arms. These describe the child rather than
-                # report from it, so they say something rather than falling
-                # through to "nothing reported" -- a child claims no fault
-                # until one is asserted.
-                value = overrides.get(prop, "")
+                # report from it: a child claims no fault until one is
+                # asserted, and "nothing claimed" is None at both levels (a
+                # device clears its pair to None too). An empty string handed
+                # in folds to the same None, as it does at every platform door.
+                value = _fold_child_presence(prop, overrides.get(prop))
             elif prop in overrides:
                 value = overrides[prop]
             else:
@@ -798,7 +808,7 @@ class StubBaseDriver:
         self._validate_child_prop(child_type, local_id, prop)
         self.state.set(
             self._child_state_key(child_type, local_id, prop),
-            value,
+            _fold_child_presence(prop, value),
             source=f"device.{self.device_id}",
         )
 
@@ -812,7 +822,7 @@ class StubBaseDriver:
         driver ship a wedged endpoint drawing green.
         """
         if not code:
-            return {"online": True, "offline_reason": "", "offline_detail": ""}
+            return {"online": True, "offline_reason": None, "offline_detail": None}
         if not is_child_fault_code(code):
             raise ValueError(
                 f"{code!r} is not a child fault code (expected one of "
@@ -838,7 +848,7 @@ class StubBaseDriver:
             self._validate_child_prop(child_type, local_id, prop)
         self.state.set_batch(
             {
-                self._child_state_key(child_type, local_id, prop): v
+                self._child_state_key(child_type, local_id, prop): _fold_child_presence(prop, v)
                 for prop, v in updates.items()
             },
             source=f"device.{self.device_id}",
@@ -863,7 +873,9 @@ class StubBaseDriver:
         namespaced: dict[str, Any] = {}
         for child_type, local_id, child_updates in live:
             for prop, value in child_updates.items():
-                namespaced[self._child_state_key(child_type, local_id, prop)] = value
+                namespaced[self._child_state_key(child_type, local_id, prop)] = (
+                    _fold_child_presence(prop, value)
+                )
         if namespaced:
             self.state.set_batch(namespaced, source=f"device.{self.device_id}")
 

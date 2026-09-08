@@ -702,6 +702,10 @@ def test_connected_is_exempt_from_the_undeclared_check(monkeypatch):
 def test_child_registration_writes_the_same_keys(monkeypatch):
     """Padded ids, the four injected platform props, and the rest unreported.
 
+    The fault pair is None: "nothing claimed" is one value at both levels
+    (openavc ``b43ed270``), and an empty string written through any door
+    folds to it on both sides.
+
     ``mute`` is the one that matters here: it was declared, it was not supplied
     and nobody has read it, so it holds nothing on both sides. The four
     platform props DO say something -- they describe the child rather than
@@ -717,8 +721,8 @@ def test_child_registration_writes_the_same_keys(monkeypatch):
         "device.widget_1.zone.03.mute": None,
         "device.widget_1.zone.03.online": True,
         "device.widget_1.zone.03.label": "",
-        "device.widget_1.zone.03.offline_reason": "",
-        "device.widget_1.zone.03.offline_detail": "",
+        "device.widget_1.zone.03.offline_reason": None,
+        "device.widget_1.zone.03.offline_detail": None,
     }
     for key, value in expected.items():
         assert stub_state.data[key] == value, key

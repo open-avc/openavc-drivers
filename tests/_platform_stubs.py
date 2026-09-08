@@ -66,6 +66,7 @@ __all__ = [
     "CHILD_RESERVED_PROP_SCHEMA",
     "CHILD_NOT_RESPONDING",
     "CHILD_SERVICE_FAULT",
+    "CHILD_NOT_FITTED",
     "ConnectionFaultError",
     "DeviceSettingValueError",
     "UndeclaredStateError",
@@ -156,10 +157,12 @@ CHILD_RESERVED_PROPS: tuple[str, ...] = tuple(CHILD_RESERVED_PROP_SCHEMA)
 
 CHILD_NOT_RESPONDING = "not_responding"
 CHILD_SERVICE_FAULT = "service_fault"
+CHILD_NOT_FITTED = "not_fitted"
 
 CHILD_FAULT_CODES = frozenset({
     CHILD_NOT_RESPONDING,
     CHILD_SERVICE_FAULT,
+    CHILD_NOT_FITTED,
 })
 
 CHILD_FAULT_MESSAGES = {
@@ -170,6 +173,7 @@ CHILD_FAULT_MESSAGES = {
         "Reachable, but not running. Power-cycle it, or restart it from the "
         "controller."
     ),
+    CHILD_NOT_FITTED: "Nothing is connected here.",
 }
 
 
@@ -1098,6 +1102,7 @@ def _default_tree() -> dict[str, dict[str, Any]]:
             "CHILD_FAULT_CODES": CHILD_FAULT_CODES,
             "CHILD_NOT_RESPONDING": CHILD_NOT_RESPONDING,
             "CHILD_SERVICE_FAULT": CHILD_SERVICE_FAULT,
+            "CHILD_NOT_FITTED": CHILD_NOT_FITTED,
             "ConnectionFaultError": ConnectionFaultError,
             "default_child_fault_message": default_child_fault_message,
             "is_child_fault_code": is_child_fault_code,

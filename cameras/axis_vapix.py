@@ -93,6 +93,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import httpx
 import websockets
 
+from openavc.core.connection_fault import CHILD_NOT_FITTED
 from openavc.drivers.base import (
     BaseDriver,
     ConnectionFaultError,
@@ -343,7 +344,7 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Axis network cameras through VAPIX, Axis's own API: remote "
@@ -1588,7 +1589,12 @@ class AxisVapixDriver(BaseDriver):
         for camera, values in views.items():
             enabled = enabled_flags.get(camera, True)
             values["enabled"] = enabled
-            values["online"] = enabled
+            # A view area the camera lists but has turned off is an unused slot, not a
+            # fault: the camera answers for it, there is just no video behind it.
+            values.update(self.child_fault() if enabled else self.child_fault(
+                CHILD_NOT_FITTED,
+                f"View area {camera} is turned off in the camera. Turn it on under "
+                "Video > View areas to use it."))
             values.update(self._stream_urls(camera))
             if camera in self._views:
                 self.set_child_state_batch("view", camera, values)

@@ -409,6 +409,10 @@ def test_connect_reads_everything_the_fixed_dome_offers():
             assert _child(driver, "view", 1, "enabled") is True
             assert _child(driver, "view", 2, "enabled") is False
             assert _child(driver, "view", 2, "online") is False
+            # Turned off in the camera is an empty slot, not a fault the IDE should banner.
+            assert _child(driver, "view", 2, "offline_reason") == "not_fitted"
+            assert "View area 2 is turned off" in _child(driver, "view", 2, "offline_detail")
+            assert _child(driver, "view", 1, "offline_reason") is None
             assert _st(driver, "motion") is False
             assert _st(driver, "manual_trigger") is False
             assert "secret" in driver.redacted_secrets

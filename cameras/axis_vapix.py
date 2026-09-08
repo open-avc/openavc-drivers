@@ -344,7 +344,7 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "author": "OpenAVC",
         "description": (
             "Controls Axis network cameras through VAPIX, Axis's own API: remote "
@@ -777,7 +777,7 @@ class AxisVapixDriver(BaseDriver):
             "digital_ptz": {
                 "type": "boolean", "label": "Digital PTZ",
                 "state_key": "ptz_enabled", "default": False, "setup": False,
-                "help": "Turn the camera's digital pan, tilt and zoom on for the controlled view area. The PTZ commands work while it is on.",
+                "help": "Turn the camera's digital pan, tilt and zoom on for the controlled view area. The PTZ commands work while it is on. Pan and tilt move the view only once it is zoomed in; at full width there is nowhere to pan.",
             },
             "ir_cut_filter": {
                 "type": "enum", "label": "IR Cut Filter",

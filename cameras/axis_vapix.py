@@ -7,7 +7,8 @@ and the day/night switch, image settings (brightness, contrast, wide dynamic
 range, exposure, white balance, defog and the rest of the sensor group),
 rotation and mirroring, text and image overlays, the I/O ports, IR
 illuminators, audio, view areas with their stream and snapshot addresses,
-and on PTZ models pan, tilt, zoom, focus, presets and guard tours. Events
+and pan, tilt, zoom, focus, presets and guard tours on PTZ models and on
+fixed cameras with digital PTZ turned on. Events
 (port changes, day/night mode, motion from the camera's analytics, tampering,
 system ready, hardware faults) arrive over the VAPIX event WebSocket.
 
@@ -342,7 +343,7 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls Axis network cameras through VAPIX, Axis's own API: remote "
@@ -628,7 +629,12 @@ class AxisVapixDriver(BaseDriver):
             "overlays_shown": {"type": "string", "label": "Overlays Shown",
                                "help": "Which overlay kinds the camera draws into its streams."},
             # PTZ
-            "ptz_supported": {"type": "boolean", "label": "PTZ Supported"},
+            "ptz_supported": {"type": "boolean", "label": "PTZ Supported",
+                              "help": "True while the camera's pan, tilt and zoom (mechanical, or digital on a fixed camera) is turned on."},
+            "ptz_digital": {"type": "boolean", "label": "Digital PTZ Available",
+                            "help": "The camera can pan, tilt and zoom digitally within its picture."},
+            "ptz_enabled": {"type": "boolean", "label": "PTZ Enabled",
+                            "help": "The camera's PTZ is turned on for the controlled view area."},
             "ptz_driver": {"type": "string", "label": "PTZ Driver"},
             "pan_position": {"type": "number", "label": "Pan", "min": -180.0, "max": 180.0, "step": 0.1,
                              "unit": "deg", "control": True},
@@ -677,8 +683,14 @@ class AxisVapixDriver(BaseDriver):
                                 "help": "Someone is watching the camera's live stream."},
             "system_ready": {"type": "boolean", "label": "System Ready"},
             "casing_open": {"type": "boolean", "label": "Casing Open"},
-            "hardware_fault": {"type": "boolean", "label": "Hardware Fault"},
+            "hardware_fault": {"type": "boolean", "label": "Hardware Fault",
+                               "help": "A fan, power supply or temperature failure the camera reports."},
             "hardware_fault_reason": {"type": "string", "label": "Hardware Fault Reason"},
+            "storage_fault": {"type": "boolean", "label": "Storage Disrupted",
+                              "help": "The camera cannot use its SD card or network share. A camera with no card fitted reports this too."},
+            "storage_fault_detail": {"type": "string", "label": "Storage Disrupted On"},
+            "scene_change": {"type": "boolean", "label": "Scene Changed",
+                             "help": "The camera reports its whole picture changed, as when it is covered or turned."},
             "temperature_alarm": {"type": "boolean", "label": "Temperature Outside Range"},
             "pir": {"type": "boolean", "label": "PIR Sensor"},
             "shock_count": {"type": "integer", "label": "Shock Count"},
@@ -693,8 +705,10 @@ class AxisVapixDriver(BaseDriver):
                 "label": "View Area",
                 "label_plural": "View Areas",
                 "id_format": {"type": "integer", "min": 1, "max": 32},
-                "summary_fields": ["source", "configurable", "resolution"],
+                "summary_fields": ["enabled", "source", "resolution"],
                 "state_variables": {
+                    "enabled": {"type": "boolean", "label": "Enabled",
+                                "help": "Turned on in the camera. A disabled view area has no stream."},
                     "source": {"type": "integer", "label": "Image Source"},
                     "configurable": {"type": "boolean", "label": "Configurable"},
                     "resolution": {"type": "string", "label": "Geometry",
@@ -759,6 +773,11 @@ class AxisVapixDriver(BaseDriver):
             },
         },
         "device_settings": {
+            "digital_ptz": {
+                "type": "boolean", "label": "Digital PTZ",
+                "state_key": "ptz_enabled", "default": False, "setup": False,
+                "help": "Turn the camera's digital pan, tilt and zoom on for the controlled view area. The PTZ commands work while it is on.",
+            },
             "ir_cut_filter": {
                 "type": "enum", "label": "IR Cut Filter",
                 "values": [{"value": "auto", "label": "Auto"}, {"value": "on", "label": "On (day)"},
@@ -1207,7 +1226,11 @@ class AxisVapixDriver(BaseDriver):
         self._optics_id = ""
         self._optics_caps: set[str] = set()
         self._ptz = False
+        self._ptz_available = False
+        self._ptz_digital = False
         self._ptz_support: dict[str, str] = {}
+        self._lights_absent = False
+        self._storage_faults: dict[str, bool] = {}
         self._presets: dict[str, str] = {}          # number -> name
         self._tours: dict[str, dict[str, str]] = {}  # G# -> params
         self._ports: dict[str, dict[str, Any]] = {}  # port id -> last item
@@ -1550,10 +1573,22 @@ class AxisVapixDriver(BaseDriver):
                 count = _int((await self._param_list("Image.NbrOfConfigs")).get("Image.NbrOfConfigs"), 1) or 1
             for camera in range(1, max(1, count) + 1):
                 views[camera] = {"source": 0, "configurable": False, "resolution": ""}
+        enabled_flags: dict[int, bool] = {}
+        try:
+            for key, value in (await self._param_list("Image.*.Enabled")).items():
+                m = re.match(r"Image\.I(\d+)\.Enabled$", key)
+                if m:
+                    enabled_flags[int(m.group(1)) + 1] = _bool_text(value)
+        except VapixError as exc:
+            if exc.not_authorized:
+                raise
         for camera in list(self._views):
             if camera not in views:
                 self.deregister_child("view", camera)
         for camera, values in views.items():
+            enabled = enabled_flags.get(camera, True)
+            values["enabled"] = enabled
+            values["online"] = enabled
             values.update(self._stream_urls(camera))
             if camera in self._views:
                 self.set_child_state_batch("view", camera, values)
@@ -1650,8 +1685,10 @@ class AxisVapixDriver(BaseDriver):
 
     async def _read_daynight(self, *, initial: bool = False) -> None:
         if API_DAYNIGHT not in self._apis:
-            if initial and not self._optics_id:
-                await self._read_ir_cut_param()
+            # Older AXIS OS has no daynight.cgi; the day to night threshold is
+            # the sensor's DayNight.ShiftLevel parameter, and the IR cut filter
+            # of a camera without optics control sits beside it.
+            await self._read_ir_cut_param(read_filter=not self._optics_id)
             return
         if initial:
             try:
@@ -1689,17 +1726,20 @@ class AxisVapixDriver(BaseDriver):
         if initial and not self._optics_id and not self._ptz:
             await self._read_ir_cut_param()
 
-    async def _read_ir_cut_param(self) -> None:
-        """The IR cut filter of a fixed camera without optics control lives in
-        the sensor's DayNight parameter group."""
+    async def _read_ir_cut_param(self, *, read_filter: bool = True) -> None:
+        """The sensor's DayNight parameter group: the day to night threshold,
+        and the IR cut filter of a fixed camera without optics control."""
         try:
             params = await self._param_list(f"ImageSource.I{self._src}.DayNight")
         except VapixError as exc:
             if exc.not_authorized:
                 raise
             return
+        level = _int(params.get(f"ImageSource.I{self._src}.DayNight.ShiftLevel"))
+        if level is not None:
+            self.set_state("day_night_shift_level", level)
         value = params.get(f"ImageSource.I{self._src}.DayNight.IrCutFilter", "").lower()
-        if value:
+        if value and read_filter:
             self.set_states({
                 "ir_cut_supported": True,
                 "ir_cut_filter": {"yes": "on", "no": "off"}.get(value, value),
@@ -1774,7 +1814,37 @@ class AxisVapixDriver(BaseDriver):
 
     async def _read_ptz(self, *, initial: bool = False) -> None:
         if initial:
-            self._ptz = API_PTZ in self._apis or self._properties.get("Properties.PTZ.PTZ", "").lower() == "yes"
+            props = self._properties
+            self._ptz_available = API_PTZ in self._apis or props.get("Properties.PTZ.PTZ", "").lower() == "yes"
+            self._ptz_digital = props.get("Properties.PTZ.DigitalPTZ", "").lower() == "yes"
+            enabled = self._ptz_available
+            driver = ""
+            if self._ptz_available:
+                # A fixed camera's digital PTZ is off until turned on; the
+                # enable flag says so, and ptz.cgi answers "PTZ disabled".
+                try:
+                    flags = await self._param_list(f"PTZ.ImageSource.I{self._src}.PTZEnabled")
+                    flag = flags.get(f"PTZ.ImageSource.I{self._src}.PTZEnabled")
+                    if flag is not None:
+                        enabled = _bool_text(flag)
+                except VapixError as exc:
+                    if exc.not_authorized:
+                        raise
+                try:
+                    driver = (await self._text_get(CGI_PTZ, {"camera": self._cam, "whoami": 1})).strip()
+                except VapixError as exc:
+                    if exc.not_authorized:
+                        raise
+                    driver = str(exc)
+                if "disabled" in driver.lower():
+                    enabled = False
+            self._ptz = self._ptz_available and enabled
+            self.set_states({
+                "ptz_supported": self._ptz,
+                "ptz_digital": self._ptz_digital,
+                "ptz_enabled": enabled if self._ptz_available else False,
+                "ptz_driver": driver,
+            })
             if self._ptz:
                 try:
                     self._ptz_support = await self._param_list(f"PTZ.Support.S{self._cam}")
@@ -1782,19 +1852,12 @@ class AxisVapixDriver(BaseDriver):
                     if exc.not_authorized:
                         raise
                     self._ptz_support = {}
-                driver = ""
-                try:
-                    driver = await self._ptz_get({"whoami": 1})
-                except VapixError as exc:
-                    if exc.not_authorized:
-                        raise
-                self.set_states({"ptz_supported": True, "ptz_driver": driver.strip()})
                 await self._refresh_presets()
                 await self._read_guard_tours()
             else:
                 self.set_states({
-                    "ptz_supported": False, "ptz_driver": "", "preset_count": 0,
-                    "preset_options": "[]", "guard_tour_options": "[]", "guard_tour_running": "",
+                    "preset_count": 0, "preset_options": "[]",
+                    "guard_tour_options": "[]", "guard_tour_running": "",
                 })
         if not self._ptz:
             return
@@ -1979,7 +2042,7 @@ class AxisVapixDriver(BaseDriver):
     # ── Illuminators ──
 
     async def _read_lights(self) -> None:
-        if API_LIGHT not in self._apis:
+        if API_LIGHT not in self._apis or self._lights_absent:
             self.set_state("light_count", 0)
             return
         try:
@@ -1987,7 +2050,11 @@ class AxisVapixDriver(BaseDriver):
         except VapixError as exc:
             if exc.not_authorized:
                 raise
-            log.info(f"[{self.device_id}] Light information unavailable: {exc}")
+            # The API is there on cameras with no illuminator; the answer is
+            # error 1005 "No light hardware found". Say so once and stop asking.
+            self._lights_absent = True
+            self.set_state("light_count", 0)
+            log.info(f"[{self.device_id}] No illuminator on this camera: {exc}")
             return
         items = {str(i.get("lightID", "")): i for i in data.get("items") or [] if i.get("lightID")}
         for light_id, child_id in list(self._lights.items()):
@@ -2349,6 +2416,13 @@ class AxisVapixDriver(BaseDriver):
         elif topic == "Device/Status/Temperature/Above_or_below":
             if "sensor_level" in data:
                 self.set_state("temperature_alarm", _bool_text(data["sensor_level"]))
+        elif topic == "Device/HardwareFailure/StorageFailure":
+            # Reported per disk (disk_id SD_DISK / NetworkShare, disruption 0|1);
+            # an empty card slot counts as disrupted, so this is its own state.
+            disk = source.get("disk_id", "") or "storage"
+            self._storage_faults[disk] = _bool_text(data.get("disruption", next(iter(data.values()), "")))
+            active = sorted(k for k, v in self._storage_faults.items() if v)
+            self.set_states({"storage_fault": bool(active), "storage_fault_detail": ", ".join(active)})
         elif topic.startswith("Device/HardwareFailure/"):
             kind = topic.rsplit("/", 1)[-1]
             value = next(iter(data.values()), "")
@@ -2365,12 +2439,16 @@ class AxisVapixDriver(BaseDriver):
         elif topic == "Device/Tampering/ShockDetected":
             self.set_state("shock_count", (_int(self.get_state("shock_count"), 0) or 0) + 1)
         elif topic == "PTZController/PTZReady":
-            if "ready" in data:
+            # One per view area (source channel); only the controlled one counts.
+            if "ready" in data and source.get("channel", str(self._cam)) == str(self._cam):
                 self.set_state("ptz_ready", _bool_text(data["ready"]))
         elif topic.startswith("PTZController/Move/"):
             value = next(iter(data.values()), None)
-            if value is not None:
+            if value is not None and source.get("channel", str(self._cam)) == str(self._cam):
                 self.set_state("ptz_moving", _bool_text(value))
+        elif topic.startswith("VideoSource/GlobalSceneChange"):
+            if "State" in data or "state" in data:
+                self.set_state("scene_change", _bool_text(data.get("State", data.get("state"))))
         elif topic.startswith("PTZController/PTZPresets/"):
             token = data.get("PresetToken", "")
             on_preset = data.get("on_preset", data.get("OnPreset", "1"))
@@ -2925,6 +3003,22 @@ class AxisVapixDriver(BaseDriver):
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
 
     async def _write_setting(self, key: str, value: Any) -> None:
+        if key == "digital_ptz":
+            if not self._ptz_available:
+                raise DeviceSettingValueError("This camera has no pan, tilt or zoom to turn on")
+            if not self._ptz_digital:
+                raise DeviceSettingValueError("This camera's PTZ is mechanical and always on")
+            on = value if isinstance(value, bool) else _bool_text(value)
+            await self._param_update(**{f"PTZ.ImageSource.I{self._src}.PTZEnabled": "true" if on else "false"})
+            if on:
+                # A locked view area does not move; unlock it with the enable.
+                try:
+                    await self._param_update(**{f"PTZ.Various.V{self._cam}.Locked": "false"})
+                except VapixError as exc:
+                    if exc.not_authorized:
+                        raise
+            await self._read_ptz(initial=True)
+            return
         if key == "ir_cut_filter":
             await self._set_ir_cut(str(value))
             return
@@ -2964,6 +3058,8 @@ class AxisVapixDriver(BaseDriver):
             await self._read_image()
             return
         if key == "overlays_shown":
+            if self.get_state("overlays_shown") is None:
+                raise DeviceSettingValueError("This camera does not report an overlay visibility setting, so it cannot be set")
             wire = str(value).strip()
             if wire not in ("all", "text", "image", "application", "off", "all-sync", "application-sync"):
                 raise DeviceSettingValueError("Overlays shown is all, text, image, application or off")
@@ -2972,7 +3068,16 @@ class AxisVapixDriver(BaseDriver):
             return
         if key in DAYNIGHT_SETTINGS:
             if API_DAYNIGHT not in self._apis:
-                raise DeviceSettingValueError("This camera has no day/night configuration API")
+                if key != "day_night_shift_level":
+                    raise DeviceSettingValueError(
+                        "This camera's software has no day/night configuration API; only the day to night level can be set"
+                    )
+                number = _int(value)
+                if number is None or not (0 <= number <= 100):
+                    raise DeviceSettingValueError(f"{key} is 0 to 100")
+                await self._param_update(**{f"ImageSource.I{self._src}.DayNight.ShiftLevel": str(number)})
+                await self._read_ir_cut_param(read_filter=False)
+                return
             name = DAYNIGHT_SETTINGS[key]
             if key == "day_night_autotune" and not self._daynight_caps.get("autotune", True):
                 raise DeviceSettingValueError("This camera does not support night to day autotune")

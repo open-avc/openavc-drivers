@@ -394,6 +394,21 @@ def test_connect_reads_everything_the_fixed_dome_offers():
             assert sim.configure_count == 1
             assert _st(driver, "day_mode") is True
             assert _st(driver, "system_ready") is True
+            # A fixed dome: digital PTZ exists but ships turned off.
+            assert _st(driver, "ptz_digital") is True
+            assert _st(driver, "ptz_enabled") is False
+            assert _st(driver, "ptz_supported") is False
+            assert _st(driver, "ptz_driver") == "PTZ disabled"
+            assert _st(driver, "ptz_ready") is False
+            # An empty card slot is storage disruption, not a hardware fault.
+            assert _st(driver, "storage_fault") is True
+            assert _st(driver, "storage_fault_detail") == "NetworkShare, SD_DISK"
+            assert _st(driver, "hardware_fault") is None
+            assert _st(driver, "scene_change") is False
+            # View areas: only the first is turned on in the camera.
+            assert _child(driver, "view", 1, "enabled") is True
+            assert _child(driver, "view", 2, "enabled") is False
+            assert _child(driver, "view", 2, "online") is False
             assert _st(driver, "motion") is False
             assert _st(driver, "manual_trigger") is False
             assert "secret" in driver.redacted_secrets
@@ -600,9 +615,16 @@ def test_device_settings_write_through_and_the_camera_refuses_bad_values():
 
 def test_settings_a_camera_lacks_are_refused_with_a_sentence():
     async def scenario():
-        driver, sim, _ = await _connected({"require_auth": True, "audio": False, "optics": False})
+        driver, sim, _ = await _connected({"require_auth": True, "audio": False, "optics": False, "lights": False})
         try:
             assert _st(driver, "audio_supported") is False
+            assert _st(driver, "light_count") == 0
+            assert driver.list_children("light") == []
+            before = sim.calls.count("/axis-cgi/lightcontrol.cgi")
+            await driver.poll()
+            assert sim.calls.count("/axis-cgi/lightcontrol.cgi") == before  # asked once, not every poll
+            with pytest.raises(DRV.VapixCommandError, match="Pick an illuminator"):
+                await driver.send_command("light_on", {"light": "led0"})
             with pytest.raises(DeviceSettingValueError, match="no audio"):
                 await driver.set_device_setting("audio_enabled", True)
             assert _st(driver, "zoom_supported") is False
@@ -719,29 +741,29 @@ def test_overlays_add_change_and_remove():
                 "text": "Room 101", "position": "bottomRight", "font_size": 24, "text_color": "white",
                 "background_color": "black",
             })
-            assert identity == 0
-            assert driver.list_children("overlay") == ["0"]
-            assert _child(driver, "overlay", "0", "kind") == "text"
-            assert _child(driver, "overlay", "0", "text") == "Room 101"
-            assert _child(driver, "overlay", "0", "position") == "bottomRight"
-            assert _child(driver, "overlay", "0", "font_size") == 24
-            assert _child(driver, "overlay", "0", "background_color") == "black"
-            await driver.send_command("overlay_set_text", {"overlay": "0", "text": "Room 102"})
-            assert sim._overlays[0]["text"] == "Room 102"
-            assert _child(driver, "overlay", "0", "text") == "Room 102"
-            await driver.send_command("overlay_set_position", {"overlay": "0", "position": "top"})
-            assert _child(driver, "overlay", "0", "position") == "top"
+            assert identity == 1  # the camera numbers overlays from 1
+            assert driver.list_children("overlay") == ["1"]
+            assert _child(driver, "overlay", "1", "kind") == "text"
+            assert _child(driver, "overlay", "1", "text") == "Room 101"
+            assert _child(driver, "overlay", "1", "position") == "bottomRight"
+            assert _child(driver, "overlay", "1", "font_size") == 24
+            assert _child(driver, "overlay", "1", "background_color") == "black"
+            await driver.send_command("overlay_set_text", {"overlay": "1", "text": "Room 102"})
+            assert sim._overlays[1]["text"] == "Room 102"
+            assert _child(driver, "overlay", "1", "text") == "Room 102"
+            await driver.send_command("overlay_set_position", {"overlay": "1", "position": "top"})
+            assert _child(driver, "overlay", "1", "position") == "top"
             image = await driver.send_command("overlay_add_image", {"image": "/etc/overlays/logo.ovl",
                                                                     "position": "bottomLeft"})
-            assert image == 1
-            assert _child(driver, "overlay", "1", "kind") == "image"
-            assert _child(driver, "overlay", "1", "image_path") == "/etc/overlays/logo.ovl"
+            assert image == 2
+            assert _child(driver, "overlay", "2", "kind") == "image"
+            assert _child(driver, "overlay", "2", "image_path") == "/etc/overlays/logo.ovl"
             with pytest.raises(DRV.VapixCommandError, match="image"):
-                await driver.send_command("overlay_set_text", {"overlay": "1", "text": "x"})
+                await driver.send_command("overlay_set_text", {"overlay": "2", "text": "x"})
             with pytest.raises(DRV.VapixCommandError):
                 await driver.send_command("overlay_add_image", {"image": "missing.ovl"})
-            await driver.send_command("overlay_remove", {"overlay": "0"})
-            assert driver.list_children("overlay") == ["1"]
+            await driver.send_command("overlay_remove", {"overlay": "1"})
+            assert driver.list_children("overlay") == ["2"]
             counts = await driver.refresh_children()
             assert counts == {"views": 2, "ports": 2, "lights": 1, "overlays": 1}
         finally:
@@ -854,7 +876,7 @@ def test_older_camera_without_the_json_apis():
             assert _st(driver, "firmware_version") == "10.12.165"
             assert _st(driver, "serial_number") == SIM.SERIAL
             # No API discovery: what the Properties group reveals is all there is.
-            assert _st(driver, "api_list") == "light-control"
+            assert _st(driver, "api_list") == "light-control, ptz-control"
             assert "/axis-cgi/apidiscovery.cgi" in sim.calls
             assert driver._port_mgmt is False
             assert driver.list_children("port") == ["0", "1"]
@@ -900,6 +922,56 @@ def test_a_camera_error_mid_session_lands_in_last_error_not_offline():
             await driver.send_command("reboot", {})
             assert sim.get_state("rebooted") is True
             assert "/axis-cgi/firmwaremanagement.cgi" in sim.calls
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+
+def test_digital_ptz_setting_turns_the_fixed_dome_ptz_on_and_off():
+    async def scenario():
+        driver, sim, _ = await _connected({"require_auth": True})
+        try:
+            with pytest.raises(DRV.VapixCommandError, match="no pan/tilt/zoom"):
+                await driver.send_command("pt_home", {})
+            await driver.set_device_setting("digital_ptz", True)
+            assert sim._param("PTZ.ImageSource.I0.PTZEnabled") == "true"
+            assert sim._param("PTZ.Various.V1.Locked") == "false"
+            assert _st(driver, "ptz_enabled") is True
+            assert _st(driver, "ptz_supported") is True
+            assert _st(driver, "ptz_driver") == "Digital PTZ"
+            await driver.send_command("pt_absolute", {"pan": 12, "tilt": -3})
+            assert _st(driver, "pan_position") == 12.0
+            assert _st(driver, "tilt_position") == -3.0
+            await driver.send_command("ptz_zoom_absolute", {"zoom": 4000})
+            assert _st(driver, "zoom_level") == 4000
+            await driver.set_device_setting("digital_ptz", False)
+            assert _st(driver, "ptz_supported") is False
+            assert _st(driver, "ptz_driver") == "PTZ disabled"
+            with pytest.raises(DRV.VapixCommandError, match="no pan/tilt/zoom"):
+                await driver.send_command("pt_absolute", {"pan": 0, "tilt": 0})
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_without_the_daynight_api_the_shift_level_is_the_sensor_parameter():
+    async def scenario():
+        driver, sim, _ = await _connected({"require_auth": True, "daynight_api": False})
+        try:
+            assert "daynight" not in _st(driver, "api_list")
+            assert _st(driver, "day_night_shift_level") == 50
+            assert _st(driver, "day_night_dwell_time") is None
+            await driver.set_device_setting("day_night_shift_level", 80)
+            assert sim._param("ImageSource.I0.DayNight.ShiftLevel") == "80"
+            assert _st(driver, "day_night_shift_level") == 80
+            with pytest.raises(DeviceSettingValueError, match="only the day to night level"):
+                await driver.set_device_setting("day_night_dwell_time", 5)
+            # The IR cut filter still goes through the optics API on this camera.
+            await driver.send_command("ir_cut_off", {})
+            assert sim.get_state("ir_cut_filter") == "off"
         finally:
             await driver.disconnect()
 

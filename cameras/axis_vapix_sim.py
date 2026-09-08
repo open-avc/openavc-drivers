@@ -250,12 +250,14 @@ class AxisVapixSimulator(HTTPSimulator):
         self._require_auth = bool(cfg.get("require_auth", False))
         self._auth_mode = str(cfg.get("auth_mode", "digest"))
         self._password = str(cfg.get("password", "secret"))
-        self._ptz = bool(cfg.get("ptz", False))
+        self._ptz = bool(cfg.get("ptz", False))          # a PTZ model: mechanical, always on
         self._optics = bool(cfg.get("optics", True)) and not self._ptz
         self._lights = bool(cfg.get("lights", True))
         self._audio = bool(cfg.get("audio", True))
         self._events = bool(cfg.get("events", True))
         self._legacy = bool(cfg.get("legacy", False))
+        self._daynight_api = bool(cfg.get("daynight_api", True))
+        self._sd_card = bool(cfg.get("sd_card", False))
         self._clock_skew = timedelta(seconds=float(cfg.get("clock_skew_s", 0) or 0))
         self._max_magnification = float(cfg.get("max_magnification", 2.4) or 2.4)
         self._nonces: set[str] = set()
@@ -300,8 +302,11 @@ class AxisVapixSimulator(HTTPSimulator):
             "Properties.Image.Rotation": "0,90,180,270",
             "Properties.Image.Format": "jpeg,mjpeg,h264,h265",
             "Properties.Image.NbrOfViews": "2",
-            "Properties.PTZ.PTZ": _yesno(self._ptz),
-            "Properties.PTZ.DigitalPTZ": "no",
+            # A fixed dome has digital PTZ that ships turned off; a PTZ model
+            # is mechanical and always on.
+            "Properties.PTZ.PTZ": "yes",
+            "Properties.PTZ.DigitalPTZ": _yesno(not self._ptz),
+            "PTZ.ImageSource.I0.PTZEnabled": "true" if self._ptz else "false",
             "Properties.Audio.Audio": _yesno(self._audio),
             "Properties.DynamicOverlay.DynamicOverlay": "yes",
             "Properties.DynamicOverlay.Version": "1.00",
@@ -313,6 +318,8 @@ class AxisVapixSimulator(HTTPSimulator):
             "Brand.ProdShortName": "AXIS P3265-V",
             "Brand.ProdType": "Dome Camera",
             "Image.NbrOfConfigs": "2",
+            "Image.I0.Enabled": "yes",
+            "Image.I1.Enabled": "no",
             "Image.MaxViewers": "20",
             "Image.I0.Appearance.Resolution": "1920x1080",
             "Image.I0.Appearance.Compression": "30",
@@ -373,7 +380,7 @@ class AxisVapixSimulator(HTTPSimulator):
                 "AudioSource.A0.InputGain": "0",
                 "AudioSource.A0.OutputGain": "0",
             })
-        if self._ptz:
+        if True:
             p.update({
                 "PTZ.Support.S1.AbsolutePan": "true",
                 "PTZ.Support.S1.AbsoluteTilt": "true",
@@ -381,16 +388,20 @@ class AxisVapixSimulator(HTTPSimulator):
                 "PTZ.Support.S1.ContinuousPan": "true",
                 "PTZ.Support.S1.ContinuousTilt": "true",
                 "PTZ.Support.S1.ContinuousZoom": "true",
-                "PTZ.Support.S1.ContinuousFocus": "true",
-                "PTZ.Support.S1.AutoFocus": "true",
-                "PTZ.Support.S1.IrCutFilter": "true",
-                "PTZ.Support.S1.AutoIrCutFilter": "true",
+                "PTZ.Support.S1.ContinuousFocus": _yesno(self._ptz).replace("yes", "true").replace("no", "false"),
+                "PTZ.Support.S1.AutoFocus": _yesno(self._ptz).replace("yes", "true").replace("no", "false"),
+                "PTZ.Support.S1.IrCutFilter": _yesno(self._ptz).replace("yes", "true").replace("no", "false"),
+                "PTZ.Support.S1.AutoIrCutFilter": _yesno(self._ptz).replace("yes", "true").replace("no", "false"),
                 "PTZ.Support.S1.ServerPreset": "true",
                 "PTZ.Support.S1.AreaZoom": "true",
                 "PTZ.Various.V1.IrCutFilter": "auto",
+                "PTZ.Various.V1.Locked": "true" if not self._ptz else "false",
                 "PTZ.Various.V1.PanEnabled": "true",
                 "PTZ.Various.V1.TiltEnabled": "true",
                 "PTZ.Various.V1.ZoomEnabled": "true",
+            })
+        if self._ptz:
+            p.update({
                 "GuardTour.G0.Name": "Lobby sweep",
                 "GuardTour.G0.CamNbr": "1",
                 "GuardTour.G0.Running": "no",
@@ -407,6 +418,9 @@ class AxisVapixSimulator(HTTPSimulator):
 
     def _param(self, name: str) -> str:
         return self._params.get(name, "")
+
+    def _ptz_on(self) -> bool:
+        return self._param("PTZ.ImageSource.I0.PTZEnabled") == "true"
 
     def _set_param(self, name: str, value: str) -> bool:
         """Validate and store a parameter, mirroring it into state. False when
@@ -432,6 +446,10 @@ class AxisVapixSimulator(HTTPSimulator):
         ):
             return False
         if name.endswith(".Enabled") and name.startswith("Audio.") and value not in ("yes", "no"):
+            return False
+        if name == "PTZ.ImageSource.I0.PTZEnabled" and value not in ("true", "false"):
+            return False
+        if name == "PTZ.Various.V1.Locked" and value not in ("true", "false"):
             return False
         if name.startswith("GuardTour.") and name.endswith(".Running"):
             if value not in ("yes", "no"):
@@ -464,7 +482,7 @@ class AxisVapixSimulator(HTTPSimulator):
     def tick(self, dt: float) -> None:
         """Advance PTZ movement by ``dt`` seconds (the motion task calls
         this; a test calls it directly)."""
-        if not self._ptz:
+        if not self._ptz_on():
             return
         vp, vt, vz = self._velocity
         if vp or vt or vz:
@@ -561,8 +579,15 @@ class AxisVapixSimulator(HTTPSimulator):
                     {"ready": "1" if self.get_state("system_ready") else "0"}))
         out.append(("tns1:CameraApplicationPlatform/tnsaxis:VMD/tnsaxis:Camera1ProfileANY", {},
                     {"active": "1" if self.get_state("motion") else "0"}))
-        if self._ptz:
-            out.append(("tns1:PTZController/tnsaxis:PTZReady", {"channel": "1"}, {"ready": "1"}))
+        out.append(("tns1:PTZController/tnsaxis:PTZReady", {"channel": "1"},
+                    {"ready": "1" if self._ptz_on() else "0"}))
+        out.append(("tns1:PTZController/tnsaxis:PTZReady", {"channel": "2"}, {"ready": "0"}))
+        # The camera reports storage per disk; an empty card slot is "disrupted".
+        out.append(("tns1:Device/tnsaxis:HardwareFailure/tnsaxis:StorageFailure", {"disk_id": "SD_DISK"},
+                    {"disruption": "0" if self._sd_card else "1"}))
+        out.append(("tns1:Device/tnsaxis:HardwareFailure/tnsaxis:StorageFailure", {"disk_id": "NetworkShare"},
+                    {"disruption": "1"}))
+        out.append(("tns1:VideoSource/GlobalSceneChange/ImagingService", {"Source": "0"}, {"State": "0"}))
         return out
 
     def _frame(self, topic: str, source: dict[str, str], data: dict[str, str]) -> str:
@@ -830,15 +855,15 @@ class AxisVapixSimulator(HTTPSimulator):
 
     def _api_ids(self) -> list[str]:
         ids = ["api-discovery", "basic-device-info", "param-cgi", "view-area", "stream-profiles",
-               "time-service", "fwmgr", "io-port-management", "daynight"]
+               "time-service", "fwmgr", "io-port-management", "light-control", "ptz-control"]
+        if self._daynight_api:
+            ids.append("daynight")
         if self._events:
             ids.append("event-streaming-over-websocket")
         if self._optics:
             ids.append("optics-control")
-        if self._lights:
-            ids.append("light-control")
         if self._ptz:
-            ids += ["ptz-control", "guard-tour"]
+            ids.append("guard-tour")
         return ids
 
     def _api_discovery(self, body: str):
@@ -867,8 +892,17 @@ class AxisVapixSimulator(HTTPSimulator):
             if not group:
                 lines = [f"root.{k}={v}" for k, v in sorted(self._params.items())]
                 return 200, "\n".join(lines) + "\n"
-            prefix = group if group.endswith(".") else group + "."
-            matches = {k: v for k, v in self._params.items() if k == group or k.startswith(prefix)}
+            matches: dict[str, str] = {}
+            for wanted in group.split(","):
+                wanted = wanted.strip()
+                if "*" in wanted:
+                    # The camera takes a wildcard per path segment: Image.*.Enabled lists every view area's flag.
+                    pattern = re.compile("^" + ".".join(
+                        "[^.]+" if part == "*" else re.escape(part) for part in wanted.split(".")) + r"(\..*)?$")
+                    matches.update({k: v for k, v in self._params.items() if pattern.match(k)})
+                    continue
+                prefix = wanted if wanted.endswith(".") else wanted + "."
+                matches.update({k: v for k, v in self._params.items() if k == wanted or k.startswith(prefix)})
             if not matches:
                 return 200, f"# Error: Error -1 getting param in group '{group}'\n"
             return 200, "\n".join(f"root.{k}={v}" for k, v in sorted(matches.items())) + "\n"
@@ -1002,6 +1036,8 @@ class AxisVapixSimulator(HTTPSimulator):
     # ── daynight.cgi ──
 
     def _daynight_cgi(self, body: str):
+        if not self._daynight_api:
+            return 404, "Not Found"
         _, method, context, params = self._parse_json(body)
         v = "1.2"
         channel = params.get("channel")
@@ -1185,10 +1221,12 @@ class AxisVapixSimulator(HTTPSimulator):
     # ── lightcontrol.cgi ──
 
     def _light_cgi(self, body: str):
-        if not self._lights:
-            return 404, "Not Found"
         _, method, context, params = self._parse_json(body)
         v = "1.0"
+        if not self._lights:
+            # The API answers on a camera with no illuminator; the hardware is
+            # what is missing.
+            return _json_error(method, 1005, "No light hardware found, could not complete request.", v, context)
         light_id = str(params.get("lightID", ""))
         if method == "getSupportedVersions":
             return _json_ok(method, {"apiVersions": ["1.0"]}, v, context)
@@ -1296,7 +1334,7 @@ class AxisVapixSimulator(HTTPSimulator):
             position = params.get("position", [0.0, 0.0])
             if isinstance(position, str) and position not in OVERLAY_POSITIONS:
                 return _json_error(method, 103, "Invalid value for parameter position", v, context)
-            identity = 0
+            identity = 1
             while identity in self._overlays:
                 identity += 1
             if method == "addText":
@@ -1408,11 +1446,15 @@ class AxisVapixSimulator(HTTPSimulator):
     # ── ptz.cgi / ptzconfig.cgi (PTZ models) ──
 
     def _ptz_cgi(self, query: dict[str, str]):
-        if not self._ptz:
-            return 404, "Not Found"
         camera = query.get("camera", "1")
         if camera not in ("1", "all"):
             return 200, "Error:\ncamera: invalid value\n"
+        if not self._ptz_on():
+            # What a fixed dome with digital PTZ turned off answers: whoami
+            # says so in plain text, every other argument is an error.
+            if "whoami" in query:
+                return 200, "PTZ disabled\n"
+            return 200, "Error:\nPTZ disabled\n"
         if "info" in query:
             return 200, ("Available commands\n:\n{camera=[n]}\nwhoami=yes\ncenter=[x],[y]\n  imagewidth=[n]\n"
                          "  imageheight=[n]\nareazoom=[x],[y],[z]\nmove={ home | up | down | left | right | "
@@ -1423,7 +1465,7 @@ class AxisVapixSimulator(HTTPSimulator):
                          "gotoserverpresetname=[name]\ngotoserverpresetno=[n]\nspeed=[n]\n"
                          "query={ speed | position | limits | presetposcam | presetposall }\n")
         if "whoami" in query:
-            return 200, "Axis PTZ driver\n"
+            return 200, ("Axis PTZ driver\n" if self._ptz else "Digital PTZ\n")
         if "query" in query:
             what = query["query"]
             if what == "position":
@@ -1544,8 +1586,8 @@ class AxisVapixSimulator(HTTPSimulator):
         raise ValueError(f"{name}: unknown argument")
 
     def _ptz_config_cgi(self, query: dict[str, str]):
-        if not self._ptz:
-            return 404, "Not Found"
+        if not self._ptz_on():
+            return 200, "Error:\nPTZ disabled\n"
         if "setserverpresetname" in query:
             name = query["setserverpresetname"]
             number = next((n for n, p in self._presets.items() if p["name"] == name), None)

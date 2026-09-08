@@ -216,8 +216,15 @@ def test_driver_declares_http_and_its_discovery_companion():
     assert (DRIVER_PATH.parent / info["discovery"]["python"]["file"].lstrip("./")).exists()
     for action in info["actions"]:
         assert action["command"] in info["commands"]
-    for quick in info["quick_actions"]:
-        assert quick in info["commands"]
+    # The PTZ and focus quick actions hide on a camera that reported no such
+    # capability; the reboot action is always there.
+    gates = {a["id"]: a.get("visible_when", {}).get("key") for a in info["actions"]}
+    assert gates == {
+        "pt_home": "device.$id.ptz_supported",
+        "pt_stop": "device.$id.ptz_supported",
+        "focus_auto": "device.$id.focus_supported",
+        "reboot": None,
+    }
 
 
 def test_password_digest_matches_the_wss_profile_formula():
@@ -265,6 +272,7 @@ def test_connect_reads_identity_profiles_ptz_and_io():
             assert _st(driver, "preview_url") == "rtsp://10.0.0.9:554/stream1"
             assert "@" not in _st(driver, "preview_url")
             assert _st(driver, "ptz_supported") is True
+            assert _st(driver, "focus_supported") is True
             assert _st(driver, "home_supported") is True
             assert _st(driver, "preset_count") == 2
             options = json.loads(_st(driver, "preset_options"))

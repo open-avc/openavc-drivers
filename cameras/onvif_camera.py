@@ -458,7 +458,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.3",
+        "version": "2.0.4",
         "author": "OpenAVC",
         "description": (
             "Controls any ONVIF Profile S or Profile T camera or video encoder: "
@@ -654,6 +654,8 @@ class OnvifCameraDriver(BaseDriver):
             "snapshot_url": {"type": "string", "label": "Snapshot URL",
                              "help": "A JPEG of the current picture, fetched with an HTTP GET."},
             "ptz_supported": {"type": "boolean", "label": "PTZ Supported"},
+            "focus_supported": {"type": "boolean", "label": "Focus Control Supported",
+                                "help": "True when the camera offers remote focus over its imaging service."},
             "pan_position": {"type": "number", "label": "Pan Position", "min": -1.0, "max": 1.0,
                              "step": 0.01, "control": True,
                              "help": "-1 (full left) to 1 (full right) in the camera's generic space."},
@@ -811,8 +813,33 @@ class OnvifCameraDriver(BaseDriver):
                 "state_key": "sharpness", "default": 50, "setup": False,
             },
         },
-        "quick_actions": ["pt_home", "pt_stop", "focus_auto"],
+        # The quick actions hide on a camera that lacks the capability: a fixed
+        # dome has no home position to go to and no focus to hand back.
         "actions": [
+            {
+                "id": "pt_home",
+                "kind": "command",
+                "command": "pt_home",
+                "label": "Go to Home",
+                "icon": "house",
+                "visible_when": {"key": "device.$id.ptz_supported", "operator": "truthy"},
+            },
+            {
+                "id": "pt_stop",
+                "kind": "command",
+                "command": "pt_stop",
+                "label": "Stop Pan/Tilt/Zoom",
+                "icon": "octagon-x",
+                "visible_when": {"key": "device.$id.ptz_supported", "operator": "truthy"},
+            },
+            {
+                "id": "focus_auto",
+                "kind": "command",
+                "command": "focus_auto",
+                "label": "Auto Focus",
+                "icon": "focus",
+                "visible_when": {"key": "device.$id.focus_supported", "operator": "truthy"},
+            },
             {
                 "id": "reboot",
                 "kind": "command",
@@ -1630,6 +1657,8 @@ class OnvifCameraDriver(BaseDriver):
 
     async def _read_imaging(self, *, initial: bool = False) -> None:
         if "imaging" not in self._services or not self._video_source:
+            if initial:
+                self.set_state("focus_supported", False)
             return
         if initial:
             try:
@@ -1654,6 +1683,7 @@ class OnvifCameraDriver(BaseDriver):
                 )
             except OnvifFault as exc:
                 log.info(f"[{self.device_id}] Imaging GetMoveOptions faulted: {exc}")
+            self.set_state("focus_supported", self._focus_status_supported)
             try:
                 resp = await self._imaging_call("GetPresets")
                 self._imaging_presets = {

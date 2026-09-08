@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 770,
+    "total_devices": 771,
     "shards": null
   },
   "devices": [
@@ -1065,6 +1065,18 @@
           "id": "avproedge_acmx",
           "confidence": "untested",
           "notes": "Covered by AVPro Edge's unified ASCII command list, which is shared across the AC-MX matrix family, but not yet driven against one of these units. Each model documents its own subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe an 8x8). HDBaseT models split per-output stream control into the HDMI-port and HDBaseT-port commands.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Axis",
+      "model": "P3265-V",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "onvif_camera",
+          "confidence": "partial",
+          "notes": "Bench-tested on AXIS OS 10.12: identity, three media profiles with stream and snapshot addresses, imaging levels and wide dynamic range, the relay output and the digital input, and the relay and input events. The camera exposes no PTZ over ONVIF and reports no focus move options, so its remote zoom and focus are not reachable through this driver. Create an ONVIF account on the camera first; Axis keeps them separate from web accounts."
         }
       ]
     },

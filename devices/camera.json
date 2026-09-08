@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 92,
+    "total_devices": 93,
     "shards": null,
     "category": "camera"
   },
@@ -196,6 +196,18 @@
           "id": "visca_ip",
           "confidence": "untested",
           "notes": "AVer's published 'VISCA over IP' protocol guide uses UDP 52381 with the Sony 8-byte header (verified against AVer's VISCA Specification 3.3). For the PTZ310 / PTZ330 family use the dedicated `aver_ptz` driver instead -- it adds AVer's HTTP CGI surface (image quality, SmartShoot, SmartFraming, RTMP, bulk status) on top of the VISCA-IP wire format. Other AVer cameras don't have a comparably documented HTTP CGI guide and continue here."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Axis",
+      "model": "P3265-V",
+      "category": "camera",
+      "drivers": [
+        {
+          "id": "onvif_camera",
+          "confidence": "partial",
+          "notes": "Bench-tested on AXIS OS 10.12: identity, three media profiles with stream and snapshot addresses, imaging levels and wide dynamic range, the relay output and the digital input, and the relay and input events. The camera exposes no PTZ over ONVIF and reports no focus move options, so its remote zoom and focus are not reachable through this driver. Create an ONVIF account on the camera first; Axis keeps them separate from web accounts."
         }
       ]
     },

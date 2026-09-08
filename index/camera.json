@@ -236,7 +236,7 @@
       "name": "ONVIF Camera",
       "manufacturer": "ONVIF",
       "category": "camera",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls any ONVIF Profile S or Profile T camera or video encoder: pan, tilt, zoom and focus, presets and home, image settings, relay outputs and digital inputs, plus the camera's RTSP stream and snapshot addresses for the Video Panel. Motion, tamper, signal-loss and input changes arrive as events. Use a brand's own driver when the catalog has one; this one covers everything else.",
@@ -244,7 +244,7 @@
       "file": "cameras/onvif_camera.py",
       "format": "python",
       "files": {
-        "cameras/onvif_camera.py": "554552ea40af4492a8d2a11506f12f13be0721d4419d07ebbe8ffb17cc9dac6f",
+        "cameras/onvif_camera.py": "3fd63d6e5f52e7733838770dda25fab4cd4c7ba6bf21daf320d020f2c9a1cbdd",
         "cameras/onvif_camera_discovery.py": "274b89c3a799d65ee923225ec45bc81420a164b372504fcbd91c8845489b5d47",
         "cameras/onvif_camera_sim.py": "722023e4ed54b3b8c4d4160e23a5492f896a217bbe6a869bf552f30db02c7a58"
       },
@@ -269,6 +269,14 @@
         "connection": "Enable ONVIF on the camera and use an ONVIF user, not the web login, if the camera keeps them separate. If the login is right and the camera still refuses, set the camera's clock."
       },
       "compatible_models": [
+        {
+          "manufacturer": "Axis",
+          "models": [
+            "P3265-V"
+          ],
+          "confidence": "partial",
+          "notes": "Bench-tested on AXIS OS 10.12: identity, three media profiles with stream and snapshot addresses, imaging levels and wide dynamic range, the relay output and the digital input, and the relay and input events. The camera exposes no PTZ over ONVIF and reports no focus move options, so its remote zoom and focus are not reachable through this driver. Create an ONVIF account on the camera first; Axis keeps them separate from web accounts."
+        },
         {
           "manufacturer": "Any",
           "models": [

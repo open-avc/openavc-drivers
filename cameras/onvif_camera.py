@@ -458,7 +458,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "author": "OpenAVC",
         "description": (
             "Controls any ONVIF Profile S or Profile T camera or video encoder: "
@@ -486,6 +486,20 @@ class OnvifCameraDriver(BaseDriver):
             },
         },
         "compatible_models": [
+            {
+                "manufacturer": "Axis",
+                "models": ["P3265-V"],
+                "confidence": "partial",
+                "notes": (
+                    "Bench-tested on AXIS OS 10.12: identity, three media profiles "
+                    "with stream and snapshot addresses, imaging levels and wide "
+                    "dynamic range, the relay output and the digital input, and the "
+                    "relay and input events. The camera exposes no PTZ over ONVIF and "
+                    "reports no focus move options, so its remote zoom and focus are "
+                    "not reachable through this driver. Create an ONVIF account on "
+                    "the camera first; Axis keeps them separate from web accounts."
+                ),
+            },
             {
                 "manufacturer": "Any",
                 "models": [

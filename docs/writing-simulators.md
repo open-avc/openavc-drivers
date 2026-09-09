@@ -176,7 +176,8 @@ The handler code has access to:
 | `config` | Device config from the project file |
 | `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
 | `notify(text)` | Send an unsolicited message on the device's push channel: the change notice or subscription update a real device emits *after* acknowledging a write. Delivered where this device's notifications go (its multicast group, SSE stream, dial-back subscribers or webhook callbacks; with no push block, every connected TCP client, or the last UDP peer). The delimiter is appended for you. |
-| `re`, `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate` | Built-in functions |
+| `re`, `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate`, `isinstance` | Built-in functions |
+| `json` | The standard `json` module, for a device whose protocol is JSON: `json.loads(match.group(0))` to read the request, `json.dumps(...)` to build the reply. Needs platform 0.34.0 — on an older simulator the name is missing, the handler raises, and the device answers nothing. |
 | `True`, `False`, `None` | Built-in constants |
 | `Exception`, `ValueError`, `TypeError`, `KeyError`, `IndexError`, `AttributeError`, `ZeroDivisionError`, `RuntimeError`, `StopIteration` | Exception types — so `try/except` blocks work |
 

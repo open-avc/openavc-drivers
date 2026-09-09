@@ -375,10 +375,11 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.6.0",
+        "version": "1.7.0",
         "author": "OpenAVC",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0;
+        # `restarts_device_for` on power_on and all_on needs 0.34.0.
+        "min_platform_version": "0.34.0",
         "description": (
             "Controls Samsung commercial displays via the MDC (Multiple "
             "Display Control) binary protocol over TCP. Each Set ID on the "
@@ -545,6 +546,14 @@ class SamsungMDCDriver(BaseDriver):
         "commands": {
             "power_on": {
                 "label": "Power On",
+                # Powering ON reboots the display's main SoC and its network
+                # interface goes with it: measured on a DM75E with bare TCP
+                # connects and nothing else touching port 1515, the port stopped
+                # answering 4s after the command (SYN dropped, not refused) and
+                # came back 48s after it. 60 covers that with room for a slower
+                # model. Powering OFF needs nothing here -- the display stays
+                # fully reachable in standby and keeps reporting power=0.
+                "restarts_device_for": 60,
                 "params": {
                     "display": {
                         "type": "child_id",
@@ -751,6 +760,7 @@ class SamsungMDCDriver(BaseDriver):
                 "help": "Set a display's color tone preset (Cool 2 through Warm 2).",
             },
             "all_on": {
+                "restarts_device_for": 60,
                 "label": "All Displays On",
                 "params": {},
                 "help": "Turn on every display on the chain.",

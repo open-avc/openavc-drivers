@@ -1,0 +1,2592 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Sennheiser TeamConnect Ceiling 2 (TCC2) beamforming ceiling microphone
+#
+# Controls the TeamConnect Ceiling 2 over Sennheiser Sound Control (SSC), the
+# JSON-over-UDP media control protocol on port 45.
+#
+# Protocol reference: Sennheiser Sound Control Protocol (SSC) — Media control
+# protocol, TeamConnect Ceiling 2, Firmware Version 1.8.0 (TI 1245 v1.8.0).
+# Archived: driver-roadmap/reference-docs/sennheiser-ssc-tcc2-v1.8.0.pdf
+#
+# Wire format (spec §4):
+#   Every message is one JSON object, one object per UDP datagram. The object
+#   is an address tree: {"audio":{"mute":true}} sets /audio/mute, and a null
+#   argument is a query: {"audio":{"mute":null}} reads it. The reply carries
+#   the resulting value in the same tree, so a setter's answer IS the readback
+#   (an out-of-range number comes back adapted, not refused). Several methods
+#   may share one message. Faults arrive as {"osc":{"error":[ ...tree... ]}}
+#   with a three-digit code and a "desc" (spec §5.1.2).
+#
+# Transport (spec §6): UDP is the transport every SSC device MUST implement
+# and the one the TeamConnect Ceiling 2 document lists first; TCP on the same
+# port is OPTIONAL in the spec and nothing in Sennheiser's TCC2 documents says
+# the microphone offers it, so this driver speaks UDP. An SSC session over UDP
+# lasts 60 s past the last successful method call (spec §4.3.3), which is why
+# the liveness probe below pings every 20 s: it proves the microphone is there
+# AND keeps the session, and with it every subscription, alive.
+#
+# Push, not polling (spec §5.1.9): the microphone notifies a subscribed client
+# on every value change, on the same socket the request came from, so there is
+# no push: block (that primitive is for channels the platform must open).
+# on_connect subscribes to the whole control surface; the subscription reply
+# is bundled with the current values, so the device is fully populated before
+# the first poll. The poll cycle re-sends the same subscriptions: a renewal is
+# indistinguishable from a first request, so a session the microphone dropped
+# (reboot, a >60 s gap) re-arms itself within one poll interval, and the
+# renewal reply doubles as a full resync.
+#
+# Talker position and level meters are opt-in. /m/beam/azimuth and
+# /m/beam/elevation follow the active talker; /m/in1/peak and /m/ref1/rms are
+# live meters. Each is a continuous feed once subscribed, so both stay behind a
+# config switch, are rate-limited on the microphone itself ("#":{"max":..} in
+# the subscription, the spec's "notifications are sent not earlier than this
+# many ms apart" parameter), throttled again in the response rules, and relay
+# to the cloud at low priority. Both can also be switched at runtime from a
+# macro or panel button.
+#
+# Exclusion zones, the priority zone and the equalizer are array-valued
+# methods. SSC accepts null for "leave this element alone" (spec §4.3.1
+# "Combined query-and-change", and the exclusion-zone examples in §7.47), so
+# every one of those values is a device setting that writes its own slot and
+# nulls the rest. Zone on/off is also a command whose zone picker carries the
+# positional row.
+#
+# Format: YAML. Every method is a fixed JSON string, every reply parses with
+# json: true rules, and the subscription is a query like any other; nothing
+# here needs code.
+#
+# NOT hardware-verified. Built from the specification and its own examples;
+# the quirks worth checking on a microphone are listed in the shipped record
+# (driver-roadmap/shipped/sennheiser_tcc2.md).
+
+id: sennheiser_tcc2
+name: Sennheiser TeamConnect Ceiling 2
+manufacturer: Sennheiser
+category: audio
+version: "1.0.0"
+author: OpenAVC
+min_platform_version: "0.23.0"
+description: >
+  Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone
+  over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity,
+  analog and Dante output levels, AEC reference gain, the 7-band equalizer,
+  noise gate, Voice Lift, priority and exclusion zones, installation type,
+  the LED ring colours and brightness, device naming, identify, restart and
+  restore. The microphone reports where the active talker is (beam azimuth and
+  elevation) and live input and reference meters; both feeds are opt-in and
+  can be switched from a macro or panel. State is push-driven: the driver
+  subscribes and the microphone reports every change as it happens, including
+  changes made from Sennheiser Control Cockpit.
+
+source_url: https://www.sennheiser.com/globalassets/digizuite/41940-en-ti_1245_v1.8.0_sennheiser_sound_control_protocol_tcc2_en.pdf
+tags: [microphone, ceiling-mic, beamforming, array, conferencing, dante, camera-tracking, ssc]
+verified: false
+simulated: true
+protocols: [ssc]
+ports: [45]
+
+compatible_models:
+  - manufacturer: Sennheiser
+    models: [TeamConnect Ceiling 2]
+    confidence: untested
+    notes: >
+      Built from Sennheiser's SSC developer guide for firmware 1.8.0; not yet
+      run against a microphone. Every method in that guide is covered except
+      the network address configuration and firmware update, which belong to
+      Sennheiser Control Cockpit.
+
+transport: udp
+
+help:
+  overview: >
+    Controls the Sennheiser TeamConnect Ceiling 2, a ceiling microphone that
+    steers one pickup beam at whoever is talking. Mute it, set its output
+    levels and processing, change the LED ring, and read where the talker is
+    (azimuth and elevation) to drive camera presets from a macro. Everything
+    the microphone changes, from Control Cockpit or its own button, shows up
+    here as it happens.
+  setup: >
+    1. Set the microphone up once in Sennheiser Control Cockpit (it must be
+       configured there before any control system can talk to it) and note
+       its IP address.
+    2. Enter that address here. Control uses UDP port 45; leave the port
+       alone unless Sennheiser support changed it.
+    3. Talker Position and Level Meters are off by default. Each one makes
+       the microphone stream continuously, so turn one on only when you bind
+       it, and raise its interval if you want less traffic. The settings here
+       decide what happens on connect; the Talker Position On/Off and Level
+       Meters On/Off commands switch them while running, so a panel can start
+       the feed when a page opens and stop it when the page closes.
+    4. Exclusion zones (where the beam must never point) and the priority
+       zone live in this device's settings, one value per angle, and follow
+       the same 5 degree steps as Control Cockpit. Zone on/off is also a
+       command for macros.
+    5. The microphone and the OpenAVC server must be able to exchange UDP
+       traffic on port 45 in both directions. If the microphone shows offline
+       while Control Cockpit still sees it, check for a firewall between the
+       two.
+  connection: >
+    The microphone answers UDP port 45 only after its first configuration in
+    Sennheiser Control Cockpit. If Control Cockpit sees it and OpenAVC does
+    not, a firewall between the server and the microphone is blocking UDP 45.
+
+discovery:
+  # One SSC message asks two things: the installation type, whose two possible
+  # answers only a TeamConnect Ceiling 2 gives (other Sennheiser SSC devices
+  # answer that address with a 404), and the product string for the model
+  # column. Every SSC device answers UDP 45, so the port alone proves nothing.
+  # The probe is sent to each subnet's broadcast address; whether a
+  # microphone answers a broadcast datagram (the spec says an SSC server MUST
+  # respond to every message it receives) is one of the things to confirm on
+  # hardware.
+  udp_probe:
+    port: 45
+    send_ascii: '{"device":{"identity":{"product":null}},"audio":{"installation_type":null}}'
+    expect_regex: '"installation_type":"(?:flush_mount|suspended)"'
+    timeout_ms: 1500
+    extract:
+      model:
+        regex: '"product":"([^"]+)"'
+        group: 1
+    extract_manufacturer: "Sennheiser"
+  oui:
+    - "00:1b:66"   # Sennheiser electronic GmbH & Co. KG
+  manufacturer_alias:
+    - "sennheiser"
+
+default_config:
+  host: ""
+  port: 45
+  poll_interval: 30
+  inter_command_delay: 0.05
+  enable_talker_position: false
+  talker_interval_ms: 500
+  enable_level_meters: false
+  meter_interval_ms: 500
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 45
+    label: UDP Port
+    help: "Sennheiser Sound Control listens on UDP port 45."
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Poll Interval (sec)
+    help: >
+      How often the subscriptions are renewed, which also re-reads every
+      value. The microphone pushes changes between polls, so 30 s is plenty.
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+  enable_talker_position:
+    type: boolean
+    default: false
+    label: Enable Talker Position
+    help: >
+      Report the direction of the active talker (Beam Azimuth and Beam
+      Elevation) for driving camera presets from macros. The microphone
+      streams this continuously once enabled, so leave it off unless you use
+      it.
+  talker_interval_ms:
+    type: integer
+    default: 500
+    min: 50
+    max: 60000
+    label: Talker Position Interval (ms)
+    help: >
+      Shortest gap between talker position updates. Applied on connect while
+      Enable Talker Position is on, and by the Talker Position On command.
+  enable_level_meters:
+    type: boolean
+    default: false
+    label: Enable Level Meters
+    help: >
+      Stream the microphone's input peak level and the AEC reference level
+      into OpenAVC. Continuous once enabled, so leave it off unless you bind
+      a meter on a panel.
+  meter_interval_ms:
+    type: integer
+    default: 500
+    min: 50
+    max: 60000
+    label: Meter Interval (ms)
+    help: >
+      Shortest gap between meter updates. Applied on connect while Enable
+      Level Meters is on, and by the Level Meters On command.
+
+# UDP has no connection to drop, so the microphone's own ping is the liveness
+# signal: two silent probes force a reconnect with a typed no_response fault.
+# 20 s also keeps the SSC session (and every subscription) alive, which the
+# spec ends 60 s after the last successful call.
+liveness:
+  send: '{"osc":{"ping":null}}'
+  expect: '"ping"'
+  interval: 20
+  timeout: 5
+  max_failures: 2
+
+# Constants are read once; everything that can change is subscribed. The
+# subscription reply is bundled with the current values, so this is also the
+# initial sync. Split into a few datagrams so none approaches a UDP MTU.
+on_connect:
+  - '{"device":{"identity":{"product":null,"version":null,"serial":null,"vendor":null,"hw_revision":null},"language":null,"network":{"ether":{"macs":null}}},"interface":{"version":null},"audio":{"out1":{"label":null},"out2":{"label":null,"identity":{"version":null}},"ref1":{"label":null}}}'
+  - '{"osc":{"state":{"subscribe":[{"audio":{"mute":null,"room_in_use":null,"installation_type":null,"out1":{"attenuation":null},"out2":{"gain":null,"network":{"ether":{"interface_mapping":null},"ipv4":{"ipaddr":null}}},"ref1":{"gain":null,"farend_auto_adjust_enable":null},"source_detection":{"threshold":null}}}]}}}'
+  - '{"osc":{"state":{"subscribe":[{"audio":{"equalizer":{"preset":null,"custom":null},"noise_gate":{"active":null,"threshold":null,"hold_time":null},"voice_lift":{"active":null,"emergency_mute_threshold":null,"emergency_mute_time":null},"priority":{"zones":null,"weights":null,"active":null},"exclusion":{"zones":null,"active":null}}}]}}}'
+  - '{"osc":{"state":{"subscribe":[{"device":{"name":null,"location":null,"position":null,"system":null,"identification":{"visual":null},"button":{"state":null},"update":{"progress":null,"error":null,"enable":null},"led":{"brightness":null,"mic_on":{"color":null},"mic_mute":{"color":null},"custom":{"color":null,"active":null},"show_farend_activity":null},"network":{"mdns":null,"ipv4":{"ipaddr":null}}},"beam":{"orientation":{"offset":null,"visual":null}}}]}}}'
+  - send: '{"osc":{"state":{"subscribe":[{"#":{"max":{talker_interval_ms}},"m":{"beam":{"azimuth":null,"elevation":null}}}]}}}'
+    when: enable_talker_position
+  - send: '{"osc":{"state":{"subscribe":[{"#":{"max":{meter_interval_ms}},"m":{"in1":{"peak":null},"ref1":{"rms":null}}}]}}}'
+    when: enable_level_meters
+
+# Renew every subscription each cycle: a renewal is the same message as the
+# first request (spec §5.1.9), it re-arms a session the microphone dropped,
+# and its reply carries every current value, so one cycle is a full resync.
+polling:
+  queries:
+    - '{"osc":{"state":{"subscribe":[{"audio":{"mute":null,"room_in_use":null,"installation_type":null,"out1":{"attenuation":null},"out2":{"gain":null,"network":{"ether":{"interface_mapping":null},"ipv4":{"ipaddr":null}}},"ref1":{"gain":null,"farend_auto_adjust_enable":null},"source_detection":{"threshold":null}}}]}}}'
+    - '{"osc":{"state":{"subscribe":[{"audio":{"equalizer":{"preset":null,"custom":null},"noise_gate":{"active":null,"threshold":null,"hold_time":null},"voice_lift":{"active":null,"emergency_mute_threshold":null,"emergency_mute_time":null},"priority":{"zones":null,"weights":null,"active":null},"exclusion":{"zones":null,"active":null}}}]}}}'
+    - '{"osc":{"state":{"subscribe":[{"device":{"name":null,"location":null,"position":null,"system":null,"identification":{"visual":null},"button":{"state":null},"update":{"progress":null,"error":null,"enable":null},"led":{"brightness":null,"mic_on":{"color":null},"mic_mute":{"color":null},"custom":{"color":null,"active":null},"show_farend_activity":null},"network":{"mdns":null,"ipv4":{"ipaddr":null}}},"beam":{"orientation":{"offset":null,"visual":null}}}]}}}'
+    - send: '{"osc":{"state":{"subscribe":[{"#":{"max":{talker_interval_ms}},"m":{"beam":{"azimuth":null,"elevation":null}}}]}}}'
+      when: enable_talker_position
+    - send: '{"osc":{"state":{"subscribe":[{"#":{"max":{meter_interval_ms}},"m":{"in1":{"peak":null},"ref1":{"rms":null}}}]}}}'
+      when: enable_level_meters
+
+state_variables:
+  # ── Identity ──
+  product:
+    type: string
+    label: Product
+  firmware_version:
+    type: string
+    label: Firmware Version
+  serial_number:
+    type: string
+    label: Serial Number
+  vendor:
+    type: string
+    label: Vendor
+  hardware_revision:
+    type: string
+    label: Hardware Revision
+  interface_version:
+    type: string
+    label: SSC Interface Version
+    help: "Version of the microphone's control address tree."
+  language:
+    type: string
+    label: Language
+  mac_address:
+    type: string
+    label: MAC Address
+  ip_address:
+    type: string
+    label: IP Address (on device)
+    help: "Control-port address the microphone reports for itself."
+  mdns_enabled:
+    type: boolean
+    label: mDNS Advertising
+    help: "True when the microphone announces itself on the network (Bonjour)."
+  device_name:
+    type: string
+    label: Device Name
+    help: "Name set on the microphone (up to 8 characters)."
+  location:
+    type: string
+    label: Location
+    help: "Room and building, as set on the microphone."
+  position:
+    type: string
+    label: Position in Room
+    help: "Where in the room this microphone sits, as set on the microphone."
+  system_label:
+    type: string
+    label: System Label
+    help: "Free-text system information stored on the microphone."
+
+  # ── Live state ──
+  mute:
+    type: boolean
+    label: Muted
+    control: true
+    cloud_priority: high
+    help: "True when the microphone is muted. Mutes every output."
+  room_in_use:
+    type: boolean
+    label: Room In Use
+    cloud_priority: high
+    help: >
+      True while the microphone hears someone talking. Bind a trigger to it
+      for occupancy-driven automation.
+  identify_active:
+    type: boolean
+    label: Identify Active
+    help: "True while the LED ring is blinking to identify the microphone (10 s)."
+  reset_button_pressed:
+    type: boolean
+    label: Reset Button Pressed
+  beam_azimuth:
+    type: integer
+    label: Beam Azimuth
+    min: 0
+    max: 359
+    unit: deg
+    cloud_priority: low
+    help: >
+      Direction of the active talker, 0 to 359 degrees from the microphone's
+      0 degree reference (Beam Orientation Offset). Updates only while Talker
+      Position is on; holds the last direction when the room is quiet.
+  beam_elevation:
+    type: integer
+    label: Beam Elevation
+    min: 0
+    max: 90
+    unit: deg
+    cloud_priority: low
+    help: >
+      Elevation of the active talker, 0 (horizon) to 90 (straight down).
+      Updates only while Talker Position is on.
+  input_peak_db:
+    type: number
+    label: Input Peak Level
+    min: -90
+    max: 0
+    unit: dB
+    cloud_priority: low
+    help: "Microphone input peak. Updates only while Level Meters is on."
+  reference_rms_db:
+    type: number
+    label: AEC Reference Level
+    min: -120
+    max: 0
+    unit: dBFS
+    cloud_priority: low
+    help: >
+      RMS level of the far-end (AEC reference) signal arriving over Dante.
+      Updates only while Level Meters is on.
+
+  # ── Outputs and reference ──
+  out1_label:
+    type: string
+    label: Analog Output Label
+  output_attenuation:
+    type: number
+    label: Analog Output Attenuation
+    min: -18
+    max: 0
+    step: 1
+    unit: dB
+    control: true
+    help: "Attenuation applied to the analog (Phoenix) output, -18 to 0 dB."
+  out2_label:
+    type: string
+    label: Dante Output Label
+  dante_output_gain:
+    type: number
+    label: Dante Output Gain
+    min: 0
+    max: 24
+    step: 1
+    unit: dB
+    control: true
+    help: "Gain applied to the Dante output, 0 to +24 dB."
+  dante_firmware_version:
+    type: string
+    label: Dante Firmware Version
+  dante_ip_primary:
+    type: string
+    label: Dante Primary IP
+  dante_ip_secondary:
+    type: string
+    label: Dante Secondary IP
+  dante_interface_mapping:
+    type: enum
+    values: [AUDIO_SWITCHED, AUDIO_REDUNDANT]
+    label: Dante Port Mode
+    help: "Switched (one network on both ports) or Redundant (primary and secondary)."
+  ref1_label:
+    type: string
+    label: AEC Reference Label
+  reference_gain:
+    type: number
+    label: AEC Reference Gain
+    min: -60
+    max: 10
+    step: 1
+    unit: dB
+    control: true
+    help: "Gain applied to the far-end signal the echo canceller listens to."
+  farend_auto_adjust:
+    type: boolean
+    label: Far-End Auto Adjust
+    help: "True when the AEC threshold follows the estimated noise floor."
+
+  # ── Processing ──
+  installation_type:
+    type: enum
+    values: [flush_mount, suspended]
+    label: Installation Type
+    help: "Flush against the ceiling, or suspended at least 30 cm below it."
+  source_detection_threshold:
+    type: enum
+    values: [quiet_room, normal_room, loud_room]
+    label: Source Detection Threshold
+    help: "How loud a talker must be, relative to the room, to steer the beam."
+  eq_preset:
+    type: enum
+    values: ["OFF", CUSTOM]
+    label: Equalizer
+    help: "OFF bypasses the equalizer; CUSTOM applies the seven band gains."
+  eq_125_hz:
+    type: number
+    label: EQ 125 Hz
+    min: -8
+    max: 8
+    step: 0.5
+    unit: dB
+  eq_250_hz:
+    type: number
+    label: EQ 250 Hz
+    min: -8
+    max: 8
+    step: 0.5
+    unit: dB
+  eq_500_hz:
+    type: number
+    label: EQ 500 Hz
+    min: -8
+    max: 8
+    step: 0.5
+    unit: dB
+  eq_1_khz:
+    type: number
+    label: EQ 1 kHz
+    min: -8
+    max: 8
+    step: 0.5
+    unit: dB
+  eq_2_khz:
+    type: number
+    label: EQ 2 kHz
+    min: -8
+    max: 8
+    step: 0.5
+    unit: dB
+  eq_4_khz:
+    type: number
+    label: EQ 4 kHz
+    min: -8
+    max: 8
+    step: 0.5
+    unit: dB
+  eq_8_khz:
+    type: number
+    label: EQ 8 kHz
+    min: -8
+    max: 8
+    step: 0.5
+    unit: dB
+  noise_gate_active:
+    type: boolean
+    label: Noise Gate
+  noise_gate_threshold:
+    type: number
+    label: Noise Gate Threshold
+    min: -90
+    max: -40
+    step: 1
+    unit: dB
+    help: "Level that opens the gate. A built-in hysteresis closes it again."
+  noise_gate_hold_time:
+    type: integer
+    label: Noise Gate Hold Time
+    min: 50
+    max: 1000
+    step: 10
+    unit: ms
+    help: "Shortest time the gate stays open once triggered."
+  voice_lift_active:
+    type: boolean
+    label: Voice Lift
+    help: "True when the feedback-reduction processing for voice lift is on."
+  voice_lift_mute_threshold:
+    type: number
+    label: Voice Lift Emergency Mute Threshold
+    min: -50
+    max: -3
+    step: 1
+    unit: dB
+    help: "Microphone level above which Voice Lift mutes the output briefly."
+  voice_lift_mute_time:
+    type: number
+    label: Voice Lift Emergency Mute Time
+    min: 1
+    max: 30
+    step: 1
+    unit: s
+    help: "How long the emergency mute lasts."
+
+  # ── Priority zone (one zone: the talkers the beam should favour) ──
+  priority_zone_active:
+    type: boolean
+    label: Priority Zone
+  priority_zone_elevation_min:
+    type: integer
+    label: Priority Zone Elevation Min
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  priority_zone_elevation_max:
+    type: integer
+    label: Priority Zone Elevation Max
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  priority_zone_azimuth_min:
+    type: integer
+    label: Priority Zone Azimuth Min
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  priority_zone_azimuth_max:
+    type: integer
+    label: Priority Zone Azimuth Max
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  priority_zone_weight:
+    type: number
+    label: Priority Zone Weight
+    min: 1
+    max: 4
+    step: 0.1
+    help: "How strongly the beam favours the priority zone (1.0 = neutral)."
+
+  # ── Exclusion zones (five: where the beam must never point) ──
+  exclusion_zone_1_active:
+    type: boolean
+    label: Exclusion Zone 1
+  exclusion_zone_1_elevation_min:
+    type: integer
+    label: Exclusion Zone 1 Elevation Min
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_1_elevation_max:
+    type: integer
+    label: Exclusion Zone 1 Elevation Max
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_1_azimuth_min:
+    type: integer
+    label: Exclusion Zone 1 Azimuth Min
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_1_azimuth_max:
+    type: integer
+    label: Exclusion Zone 1 Azimuth Max
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_2_active:
+    type: boolean
+    label: Exclusion Zone 2
+  exclusion_zone_2_elevation_min:
+    type: integer
+    label: Exclusion Zone 2 Elevation Min
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_2_elevation_max:
+    type: integer
+    label: Exclusion Zone 2 Elevation Max
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_2_azimuth_min:
+    type: integer
+    label: Exclusion Zone 2 Azimuth Min
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_2_azimuth_max:
+    type: integer
+    label: Exclusion Zone 2 Azimuth Max
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_3_active:
+    type: boolean
+    label: Exclusion Zone 3
+  exclusion_zone_3_elevation_min:
+    type: integer
+    label: Exclusion Zone 3 Elevation Min
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_3_elevation_max:
+    type: integer
+    label: Exclusion Zone 3 Elevation Max
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_3_azimuth_min:
+    type: integer
+    label: Exclusion Zone 3 Azimuth Min
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_3_azimuth_max:
+    type: integer
+    label: Exclusion Zone 3 Azimuth Max
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_4_active:
+    type: boolean
+    label: Exclusion Zone 4
+  exclusion_zone_4_elevation_min:
+    type: integer
+    label: Exclusion Zone 4 Elevation Min
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_4_elevation_max:
+    type: integer
+    label: Exclusion Zone 4 Elevation Max
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_4_azimuth_min:
+    type: integer
+    label: Exclusion Zone 4 Azimuth Min
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_4_azimuth_max:
+    type: integer
+    label: Exclusion Zone 4 Azimuth Max
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_5_active:
+    type: boolean
+    label: Exclusion Zone 5
+  exclusion_zone_5_elevation_min:
+    type: integer
+    label: Exclusion Zone 5 Elevation Min
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_5_elevation_max:
+    type: integer
+    label: Exclusion Zone 5 Elevation Max
+    min: 0
+    max: 90
+    step: 5
+    unit: deg
+  exclusion_zone_5_azimuth_min:
+    type: integer
+    label: Exclusion Zone 5 Azimuth Min
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+  exclusion_zone_5_azimuth_max:
+    type: integer
+    label: Exclusion Zone 5 Azimuth Max
+    min: 0
+    max: 360
+    step: 5
+    unit: deg
+
+  # ── Orientation ──
+  beam_orientation_offset:
+    type: integer
+    label: Beam Orientation Offset
+    min: 0
+    max: 270
+    step: 90
+    unit: deg
+    help: >
+      Rotates the 0 degree reference of every azimuth value to match how the
+      microphone is mounted (0, 90, 180 or 270).
+  orientation_leds_active:
+    type: boolean
+    label: Orientation LEDs
+    help: "True while two LEDs show the microphone's 0 degree direction."
+
+  # ── LED ring ──
+  led_brightness:
+    type: integer
+    label: LED Brightness
+    min: 0
+    max: 5
+    step: 1
+    control: true
+    help: "0 turns the LED ring off; 5 is brightest."
+  mic_on_color:
+    type: enum
+    values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+    label: Mic On Colour
+    help: "LED ring colour while the microphone is live."
+  mic_mute_color:
+    type: enum
+    values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+    label: Mic Mute Colour
+    help: "LED ring colour while the microphone is muted."
+  custom_led_color:
+    type: enum
+    values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+    label: Custom LED Colour
+    help: "Colour shown while Custom LED is active."
+  custom_led_active:
+    type: boolean
+    label: Custom LED Active
+    help: >
+      True while the ring shows the custom colour instead of the mic on/mute
+      colours. Resets to off when the microphone reboots.
+  show_farend_activity:
+    type: boolean
+    label: Far-End Activity LED
+    help: "True when the ring also indicates audio arriving from the far end."
+
+  # ── Firmware update, as reported by the microphone ──
+  update_running:
+    type: boolean
+    label: Firmware Update Running
+  update_progress:
+    type: integer
+    label: Firmware Update Progress
+    min: 0
+    max: 100
+    unit: "%"
+  update_error:
+    type: string
+    label: Firmware Update Result
+
+  # ── Last protocol error ──
+  last_error_code:
+    type: integer
+    label: Last Error Code
+    help: "SSC error code of the last refused request (404 unknown address, 406 bad value)."
+  last_error:
+    type: string
+    label: Last Error
+    help: "The microphone's description of the last refused request."
+
+commands:
+  # ── Mute ──
+  mute_on:
+    label: Mute On
+    send: '{"audio":{"mute":true}}'
+    help: "Mute the microphone (every output)."
+  mute_off:
+    label: Mute Off
+    send: '{"audio":{"mute":false}}'
+
+  # ── Levels ──
+  set_output_attenuation:
+    label: Set Analog Output Attenuation
+    send: '{"audio":{"out1":{"attenuation":{level}}}}'
+    help: "Attenuate the analog output, -18 to 0 dB."
+    params:
+      level:
+        type: number
+        required: true
+        label: Attenuation
+        min: -18
+        max: 0
+        unit: dB
+  set_dante_gain:
+    label: Set Dante Output Gain
+    send: '{"audio":{"out2":{"gain":{gain}}}}'
+    params:
+      gain:
+        type: number
+        required: true
+        label: Gain
+        min: 0
+        max: 24
+        unit: dB
+  set_reference_gain:
+    label: Set AEC Reference Gain
+    send: '{"audio":{"ref1":{"gain":{gain}}}}'
+    help: "Gain applied to the far-end signal the echo canceller listens to."
+    params:
+      gain:
+        type: number
+        required: true
+        label: Gain
+        min: -60
+        max: 10
+        unit: dB
+
+  # ── Equalizer ──
+  eq_on:
+    label: Equalizer On
+    send: '{"audio":{"equalizer":{"preset":"CUSTOM"}}}'
+    help: "Apply the seven band gains."
+  eq_off:
+    label: Equalizer Off
+    send: '{"audio":{"equalizer":{"preset":"OFF"}}}'
+    help: "Bypass the equalizer. The band gains are kept."
+  set_eq:
+    label: Set Equalizer Bands
+    send: '{"audio":{"equalizer":{"custom":[{g125},{g250},{g500},{g1k},{g2k},{g4k},{g8k}]}}}'
+    help: "Set all seven bands at once, -8 to +8 dB in 0.5 dB steps. Each band is also a device setting."
+    params:
+      g125: { type: number, required: true, label: 125 Hz, min: -8, max: 8, unit: dB }
+      g250: { type: number, required: true, label: 250 Hz, min: -8, max: 8, unit: dB }
+      g500: { type: number, required: true, label: 500 Hz, min: -8, max: 8, unit: dB }
+      g1k: { type: number, required: true, label: 1 kHz, min: -8, max: 8, unit: dB }
+      g2k: { type: number, required: true, label: 2 kHz, min: -8, max: 8, unit: dB }
+      g4k: { type: number, required: true, label: 4 kHz, min: -8, max: 8, unit: dB }
+      g8k: { type: number, required: true, label: 8 kHz, min: -8, max: 8, unit: dB }
+
+  # ── Noise gate and Voice Lift ──
+  noise_gate_on:
+    label: Noise Gate On
+    send: '{"audio":{"noise_gate":{"active":true}}}'
+  noise_gate_off:
+    label: Noise Gate Off
+    send: '{"audio":{"noise_gate":{"active":false}}}'
+  set_noise_gate:
+    label: Set Noise Gate
+    send: '{"audio":{"noise_gate":{"threshold":{threshold},"hold_time":{hold_time}}}}'
+    params:
+      threshold:
+        type: number
+        required: true
+        label: Threshold
+        min: -90
+        max: -40
+        unit: dB
+      hold_time:
+        type: integer
+        required: true
+        label: Hold Time
+        min: 50
+        max: 1000
+        unit: ms
+  voice_lift_on:
+    label: Voice Lift On
+    send: '{"audio":{"voice_lift":{"active":true}}}'
+    help: "Turn on the feedback-reduction processing for rooms that reinforce the microphone through loudspeakers."
+  voice_lift_off:
+    label: Voice Lift Off
+    send: '{"audio":{"voice_lift":{"active":false}}}'
+  set_voice_lift_emergency_mute:
+    label: Set Voice Lift Emergency Mute
+    send: '{"audio":{"voice_lift":{"emergency_mute_threshold":{threshold},"emergency_mute_time":{time}}}}'
+    help: "Level above which Voice Lift mutes the output, and for how long."
+    params:
+      threshold:
+        type: number
+        required: true
+        label: Threshold
+        min: -50
+        max: -3
+        unit: dB
+      time:
+        type: number
+        required: true
+        label: Mute Time
+        min: 1
+        max: 30
+        unit: s
+
+  # ── Pickup ──
+  set_source_detection:
+    label: Set Source Detection Threshold
+    send: '{"audio":{"source_detection":{"threshold":"{threshold}"}}}'
+    help: "How loud a talker must be, relative to the room, to steer the beam."
+    params:
+      threshold:
+        type: enum
+        required: true
+        label: Room
+        values:
+          - { value: quiet_room, label: Quiet room }
+          - { value: normal_room, label: Normal room }
+          - { value: loud_room, label: Loud room }
+  set_installation_type:
+    label: Set Installation Type
+    send: '{"audio":{"installation_type":"{type}"}}'
+    params:
+      type:
+        type: enum
+        required: true
+        label: Installation
+        values:
+          - { value: flush_mount, label: Flush mount }
+          - { value: suspended, label: Suspended }
+
+  # ── Zones ──
+  # A zone's on/off flag lives in a five-element array; the zone picker carries
+  # the whole positional row, null meaning "leave that zone as it is".
+  exclusion_zone_on:
+    label: Exclusion Zone On
+    send: '{"audio":{"exclusion":{"active":[{zone}]}}}'
+    help: "Activate one of the five exclusion zones. Its angles are in this device's settings."
+    params:
+      zone:
+        type: enum
+        required: true
+        label: Zone
+        values: ["1", "2", "3", "4", "5"]
+        map:
+          "1": "true,null,null,null,null"
+          "2": "null,true,null,null,null"
+          "3": "null,null,true,null,null"
+          "4": "null,null,null,true,null"
+          "5": "null,null,null,null,true"
+  exclusion_zone_off:
+    label: Exclusion Zone Off
+    send: '{"audio":{"exclusion":{"active":[{zone}]}}}'
+    params:
+      zone:
+        type: enum
+        required: true
+        label: Zone
+        values: ["1", "2", "3", "4", "5"]
+        map:
+          "1": "false,null,null,null,null"
+          "2": "null,false,null,null,null"
+          "3": "null,null,false,null,null"
+          "4": "null,null,null,false,null"
+          "5": "null,null,null,null,false"
+  priority_zone_on:
+    label: Priority Zone On
+    send: '{"audio":{"priority":{"active":[true]}}}'
+    help: "Make the beam favour talkers inside the priority zone."
+  priority_zone_off:
+    label: Priority Zone Off
+    send: '{"audio":{"priority":{"active":[false]}}}'
+  set_priority_zone:
+    label: Set Priority Zone
+    send: '{"audio":{"priority":{"zones":[{elevation_min},{elevation_max},{azimuth_min},{azimuth_max}]}}}'
+    help: "Angles of the priority zone, in 5 degree steps; each angle is also a device setting."
+    params:
+      elevation_min: { type: integer, required: true, label: Elevation Min, min: 0, max: 90, unit: deg }
+      elevation_max: { type: integer, required: true, label: Elevation Max, min: 0, max: 90, unit: deg }
+      azimuth_min: { type: integer, required: true, label: Azimuth Min, min: 0, max: 360, unit: deg }
+      azimuth_max: { type: integer, required: true, label: Azimuth Max, min: 0, max: 360, unit: deg }
+
+  # ── LED ring ──
+  set_led_brightness:
+    label: Set LED Brightness
+    send: '{"device":{"led":{"brightness":{level}}}}'
+    help: "0 turns the ring off; 5 is brightest."
+    params:
+      level:
+        type: integer
+        required: true
+        label: Brightness
+        min: 0
+        max: 5
+  set_mic_on_color:
+    label: Set Mic On Colour
+    send: '{"device":{"led":{"mic_on":{"color":"{color}"}}}}'
+    params:
+      color:
+        type: enum
+        required: true
+        label: Colour
+        values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+  set_mic_mute_color:
+    label: Set Mic Mute Colour
+    send: '{"device":{"led":{"mic_mute":{"color":"{color}"}}}}'
+    params:
+      color:
+        type: enum
+        required: true
+        label: Colour
+        values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+  custom_led_on:
+    label: Custom LED Colour On
+    send: '{"device":{"led":{"custom":{"color":"{color}","active":true}}}}'
+    help: "Show a colour of your choice on the ring instead of the mic on/mute colours, until Custom LED Colour Off or a reboot."
+    params:
+      color:
+        type: enum
+        required: true
+        label: Colour
+        values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+  custom_led_off:
+    label: Custom LED Colour Off
+    send: '{"device":{"led":{"custom":{"active":false}}}}'
+  farend_activity_led_on:
+    label: Far-End Activity LED On
+    send: '{"device":{"led":{"show_farend_activity":true}}}'
+    help: "Let the ring also show audio arriving from the far end."
+  farend_activity_led_off:
+    label: Far-End Activity LED Off
+    send: '{"device":{"led":{"show_farend_activity":false}}}'
+  identify:
+    label: Identify
+    send: '{"device":{"identification":{"visual":true}}}'
+    help: "Blink the LED ring for 10 seconds so you can find this microphone in the ceiling."
+
+  # ── Orientation ──
+  set_orientation_offset:
+    label: Set Beam Orientation Offset
+    send: '{"beam":{"orientation":{"offset":{offset}}}}'
+    help: "Rotate the 0 degree reference to match the mounting: 0, 90, 180 or 270 degrees."
+    params:
+      offset:
+        type: enum
+        required: true
+        label: Offset
+        values: ["0", "90", "180", "270"]
+  orientation_leds_on:
+    label: Orientation LEDs On
+    send: '{"beam":{"orientation":{"visual":true}}}'
+    help: "Light two LEDs showing the microphone's 0 degree direction (green right, red left)."
+  orientation_leds_off:
+    label: Orientation LEDs Off
+    send: '{"beam":{"orientation":{"visual":false}}}'
+
+  # ── Talker position and meters, switchable at runtime ──
+  # The config switches decide what is armed on connect; these subscribe and
+  # cancel the same feeds while running, so a panel pays for the stream only
+  # while it is on screen.
+  get_beam_position:
+    label: Get Talker Position
+    send: '{"m":{"beam":{"azimuth":null,"elevation":null}}}'
+    help: >
+      Read the talker's direction once and update Beam Azimuth and Beam
+      Elevation. Use this instead of Talker Position On when a macro needs
+      the direction at one moment rather than continuously.
+  talker_position_on:
+    label: Talker Position On
+    send: '{"osc":{"state":{"subscribe":[{"#":{"max":{talker_interval_ms}},"m":{"beam":{"azimuth":null,"elevation":null}}}]}}}'
+    help: "Start the talker position feed (Beam Azimuth and Beam Elevation). Continuous until Talker Position Off."
+  talker_position_off:
+    label: Talker Position Off
+    send: '{"osc":{"state":{"subscribe":[{"#":{"cancel":true},"m":{"beam":{"azimuth":null,"elevation":null}}}]}}}'
+  meters_on:
+    label: Level Meters On
+    send: '{"osc":{"state":{"subscribe":[{"#":{"max":{meter_interval_ms}},"m":{"in1":{"peak":null},"ref1":{"rms":null}}}]}}}'
+    help: "Start the live meter feed (Input Peak Level and AEC Reference Level). Continuous until Level Meters Off."
+  meters_off:
+    label: Level Meters Off
+    send: '{"osc":{"state":{"subscribe":[{"#":{"cancel":true},"m":{"in1":{"peak":null},"ref1":{"rms":null}}}]}}}'
+
+  # ── Device ──
+  set_device_name:
+    label: Set Device Name
+    send: '{"device":{"name":"{name}"}}'
+    help: "Up to 8 characters: letters, digits, - and _, starting with a letter and ending with a letter or digit."
+    params:
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '^[A-Za-z](?:[A-Za-z0-9_-]{0,6}[A-Za-z0-9])?$'
+  restart:
+    label: Restart
+    send: '{"device":{"restart":true}}'
+    help: "Reboot the microphone. Audio drops for about a minute."
+  restore:
+    label: Restore Defaults
+    send: '{"device":{"restore":"{scope}"}}'
+    help: >
+      Audio Defaults resets the audio settings and keeps the microphone
+      running. Factory Defaults and Dante Factory Defaults also reset the
+      network settings and reboot, so the microphone may come back on a
+      different address.
+    params:
+      scope:
+        type: enum
+        required: true
+        label: Restore
+        values:
+          - { value: AUDIO_DEFAULTS, label: "Audio defaults (no reboot)" }
+          - { value: FACTORY_DEFAULTS, label: "Factory defaults (reboots, resets network)" }
+          - { value: DANTE_FACTORY_DEFAULTS, label: "Dante factory defaults (reboots)" }
+  refresh:
+    label: Refresh From Device
+    send: '{"osc":{"state":{"subscribe":[{"audio":{"mute":null,"room_in_use":null,"installation_type":null,"out1":{"attenuation":null},"out2":{"gain":null}},"device":{"name":null,"led":{"brightness":null}}}]}}}'
+    help: "Re-read the microphone's main values now. The poll does this automatically."
+
+device_settings:
+  # ── Naming ──
+  device_name:
+    type: string
+    label: Device Name
+    help: "Up to 8 characters: letters, digits, - and _, starting with a letter and ending with a letter or digit."
+    state_key: device_name
+    default: "SLCM2"
+    regex: '^[A-Za-z](?:[A-Za-z0-9_-]{0,6}[A-Za-z0-9])?$'
+    setup: false
+    write:
+      send: '{"device":{"name":"{value}"}}'
+  location:
+    type: string
+    label: Location
+    help: "Room and building, up to 100 characters."
+    state_key: location
+    default: "Room"
+    setup: false
+    write:
+      send: '{"device":{"location":"{value}"}}'
+  position:
+    type: string
+    label: Position in Room
+    help: "Where in the room this microphone sits, up to 30 characters (letters, digits and spaces)."
+    state_key: position
+    default: "over central table"
+    regex: '^[A-Za-z0-9 ]{0,30}$'
+    setup: false
+    write:
+      send: '{"device":{"position":"{value}"}}'
+  system_label:
+    type: string
+    label: System Label
+    help: "Free text stored on the microphone, up to 30 characters."
+    state_key: system_label
+    default: "System"
+    regex: '^.{0,30}$'
+    setup: false
+    write:
+      send: '{"device":{"system":"{value}"}}'
+
+  # ── Pickup ──
+  installation_type:
+    type: enum
+    values:
+      - { value: flush_mount, label: Flush mount }
+      - { value: suspended, label: Suspended (30 cm or more below the ceiling) }
+    label: Installation Type
+    help: "The microphone tunes its pickup for how it is mounted."
+    state_key: installation_type
+    default: flush_mount
+    setup: false
+    write:
+      send: '{"audio":{"installation_type":"{value}"}}'
+  source_detection_threshold:
+    type: enum
+    values:
+      - { value: quiet_room, label: Quiet room }
+      - { value: normal_room, label: Normal room }
+      - { value: loud_room, label: Loud room }
+    label: Source Detection Threshold
+    help: "How loud a talker must be, relative to the room, before the beam steers to them."
+    state_key: source_detection_threshold
+    default: normal_room
+    setup: false
+    write:
+      send: '{"audio":{"source_detection":{"threshold":"{value}"}}}'
+
+  # ── Levels ──
+  output_attenuation:
+    type: number
+    min: -18
+    max: 0
+    label: Analog Output Attenuation (dB)
+    state_key: output_attenuation
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"out1":{"attenuation":{value}}}}'
+  dante_output_gain:
+    type: number
+    min: 0
+    max: 24
+    label: Dante Output Gain (dB)
+    state_key: dante_output_gain
+    default: 12
+    setup: false
+    write:
+      send: '{"audio":{"out2":{"gain":{value}}}}'
+  reference_gain:
+    type: number
+    min: -60
+    max: 10
+    label: AEC Reference Gain (dB)
+    help: "Gain applied to the far-end signal the echo canceller listens to."
+    state_key: reference_gain
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"ref1":{"gain":{value}}}}'
+  farend_auto_adjust:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Far-End Auto Adjust
+    help: "Let the AEC threshold follow the estimated noise floor."
+    state_key: farend_auto_adjust
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"ref1":{"farend_auto_adjust_enable":{value}}}}'
+
+  # ── Equalizer: seven bands at Q 1.41, each writes only its own slot ──
+  eq_preset:
+    type: enum
+    values:
+      - { value: "OFF", label: "Off (bypass)" }
+      - { value: CUSTOM, label: "On (custom bands)" }
+    label: Equalizer
+    state_key: eq_preset
+    default: "OFF"
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"preset":"{value}"}}}'
+  eq_125_hz:
+    type: number
+    min: -8
+    max: 8
+    label: EQ 125 Hz (dB)
+    state_key: eq_125_hz
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"custom":[{value},null,null,null,null,null,null]}}}'
+  eq_250_hz:
+    type: number
+    min: -8
+    max: 8
+    label: EQ 250 Hz (dB)
+    state_key: eq_250_hz
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"custom":[null,{value},null,null,null,null,null]}}}'
+  eq_500_hz:
+    type: number
+    min: -8
+    max: 8
+    label: EQ 500 Hz (dB)
+    state_key: eq_500_hz
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"custom":[null,null,{value},null,null,null,null]}}}'
+  eq_1_khz:
+    type: number
+    min: -8
+    max: 8
+    label: EQ 1 kHz (dB)
+    state_key: eq_1_khz
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"custom":[null,null,null,{value},null,null,null]}}}'
+  eq_2_khz:
+    type: number
+    min: -8
+    max: 8
+    label: EQ 2 kHz (dB)
+    state_key: eq_2_khz
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"custom":[null,null,null,null,{value},null,null]}}}'
+  eq_4_khz:
+    type: number
+    min: -8
+    max: 8
+    label: EQ 4 kHz (dB)
+    state_key: eq_4_khz
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"custom":[null,null,null,null,null,{value},null]}}}'
+  eq_8_khz:
+    type: number
+    min: -8
+    max: 8
+    label: EQ 8 kHz (dB)
+    state_key: eq_8_khz
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"equalizer":{"custom":[null,null,null,null,null,null,{value}]}}}'
+
+  # ── Noise gate ──
+  noise_gate_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Noise Gate
+    state_key: noise_gate_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"noise_gate":{"active":{value}}}}'
+  noise_gate_threshold:
+    type: number
+    min: -90
+    max: -40
+    label: Noise Gate Threshold (dB)
+    help: "Level that opens the gate."
+    state_key: noise_gate_threshold
+    default: -60
+    setup: false
+    write:
+      send: '{"audio":{"noise_gate":{"threshold":{value}}}}'
+  noise_gate_hold_time:
+    type: integer
+    min: 50
+    max: 1000
+    label: Noise Gate Hold Time (ms)
+    state_key: noise_gate_hold_time
+    default: 200
+    setup: false
+    write:
+      send: '{"audio":{"noise_gate":{"hold_time":{value}}}}'
+
+  # ── Voice Lift ──
+  voice_lift_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Voice Lift
+    help: "Feedback reduction for rooms that reinforce the microphone through loudspeakers."
+    state_key: voice_lift_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"voice_lift":{"active":{value}}}}'
+  voice_lift_mute_threshold:
+    type: number
+    min: -50
+    max: -3
+    label: Voice Lift Emergency Mute Threshold (dB)
+    help: "Microphone level above which Voice Lift mutes the output briefly."
+    state_key: voice_lift_mute_threshold
+    default: -20
+    setup: false
+    write:
+      send: '{"audio":{"voice_lift":{"emergency_mute_threshold":{value}}}}'
+  voice_lift_mute_time:
+    type: number
+    min: 1
+    max: 30
+    label: Voice Lift Emergency Mute Time (s)
+    state_key: voice_lift_mute_time
+    default: 4
+    setup: false
+    write:
+      send: '{"audio":{"voice_lift":{"emergency_mute_time":{value}}}}'
+
+  # ── Priority zone: [elevation min, elevation max, azimuth min, azimuth max] ──
+  priority_zone_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Priority Zone
+    help: "Make the beam favour talkers inside the zone below."
+    state_key: priority_zone_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"priority":{"active":[{value}]}}}'
+  priority_zone_elevation_min:
+    type: integer
+    min: 0
+    max: 90
+    label: Priority Zone Elevation Min (deg)
+    help: "5 degree steps; the zone must span at least 10 degrees."
+    state_key: priority_zone_elevation_min
+    default: 60
+    setup: false
+    write:
+      send: '{"audio":{"priority":{"zones":[{value},null,null,null]}}}'
+  priority_zone_elevation_max:
+    type: integer
+    min: 0
+    max: 90
+    label: Priority Zone Elevation Max (deg)
+    state_key: priority_zone_elevation_max
+    default: 80
+    setup: false
+    write:
+      send: '{"audio":{"priority":{"zones":[null,{value},null,null]}}}'
+  priority_zone_azimuth_min:
+    type: integer
+    min: 0
+    max: 360
+    label: Priority Zone Azimuth Min (deg)
+    state_key: priority_zone_azimuth_min
+    default: 160
+    setup: false
+    write:
+      send: '{"audio":{"priority":{"zones":[null,null,{value},null]}}}'
+  priority_zone_azimuth_max:
+    type: integer
+    min: 0
+    max: 360
+    label: Priority Zone Azimuth Max (deg)
+    state_key: priority_zone_azimuth_max
+    default: 200
+    setup: false
+    write:
+      send: '{"audio":{"priority":{"zones":[null,null,null,{value}]}}}'
+  priority_zone_weight:
+    type: number
+    min: 1
+    max: 4
+    label: Priority Zone Weight
+    help: "How strongly the beam favours the zone, 1.0 (neutral) to 4.0."
+    state_key: priority_zone_weight
+    default: 1.5
+    setup: false
+    write:
+      send: '{"audio":{"priority":{"weights":[{value}]}}}'
+
+  # ── Exclusion zones: five rows of [elevation min, elevation max, azimuth min, azimuth max] ──
+  # Each setting writes its own element and nulls the rest, so two settings
+  # can change independently. Elevation 0 to 90, azimuth 0 to 360, 5 degree
+  # steps, at least 10 degrees between min and max; equal azimuth min and max
+  # means the full circle.
+  exclusion_zone_1_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Exclusion Zone 1
+    state_key: exclusion_zone_1_active
+    default: "true"
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"active":[{value},null,null,null,null]}}}'
+  exclusion_zone_1_elevation_min:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 1 Elevation Min (deg)
+    state_key: exclusion_zone_1_elevation_min
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[[{value},null,null,null],null,null,null,null]}}}'
+  exclusion_zone_1_elevation_max:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 1 Elevation Max (deg)
+    state_key: exclusion_zone_1_elevation_max
+    default: 10
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[[null,{value},null,null],null,null,null,null]}}}'
+  exclusion_zone_1_azimuth_min:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 1 Azimuth Min (deg)
+    state_key: exclusion_zone_1_azimuth_min
+    default: 0
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[[null,null,{value},null],null,null,null,null]}}}'
+  exclusion_zone_1_azimuth_max:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 1 Azimuth Max (deg)
+    state_key: exclusion_zone_1_azimuth_max
+    default: 360
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[[null,null,null,{value}],null,null,null,null]}}}'
+  exclusion_zone_2_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Exclusion Zone 2
+    state_key: exclusion_zone_2_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"active":[null,{value},null,null,null]}}}'
+  exclusion_zone_2_elevation_min:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 2 Elevation Min (deg)
+    state_key: exclusion_zone_2_elevation_min
+    default: 10
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,[{value},null,null,null],null,null,null]}}}'
+  exclusion_zone_2_elevation_max:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 2 Elevation Max (deg)
+    state_key: exclusion_zone_2_elevation_max
+    default: 50
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,[null,{value},null,null],null,null,null]}}}'
+  exclusion_zone_2_azimuth_min:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 2 Azimuth Min (deg)
+    state_key: exclusion_zone_2_azimuth_min
+    default: 20
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,[null,null,{value},null],null,null,null]}}}'
+  exclusion_zone_2_azimuth_max:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 2 Azimuth Max (deg)
+    state_key: exclusion_zone_2_azimuth_max
+    default: 70
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,[null,null,null,{value}],null,null,null]}}}'
+  exclusion_zone_3_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Exclusion Zone 3
+    state_key: exclusion_zone_3_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"active":[null,null,{value},null,null]}}}'
+  exclusion_zone_3_elevation_min:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 3 Elevation Min (deg)
+    state_key: exclusion_zone_3_elevation_min
+    default: 10
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,[{value},null,null,null],null,null]}}}'
+  exclusion_zone_3_elevation_max:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 3 Elevation Max (deg)
+    state_key: exclusion_zone_3_elevation_max
+    default: 50
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,[null,{value},null,null],null,null]}}}'
+  exclusion_zone_3_azimuth_min:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 3 Azimuth Min (deg)
+    state_key: exclusion_zone_3_azimuth_min
+    default: 110
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,[null,null,{value},null],null,null]}}}'
+  exclusion_zone_3_azimuth_max:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 3 Azimuth Max (deg)
+    state_key: exclusion_zone_3_azimuth_max
+    default: 160
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,[null,null,null,{value}],null,null]}}}'
+  exclusion_zone_4_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Exclusion Zone 4
+    state_key: exclusion_zone_4_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"active":[null,null,null,{value},null]}}}'
+  exclusion_zone_4_elevation_min:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 4 Elevation Min (deg)
+    state_key: exclusion_zone_4_elevation_min
+    default: 10
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,[{value},null,null,null],null]}}}'
+  exclusion_zone_4_elevation_max:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 4 Elevation Max (deg)
+    state_key: exclusion_zone_4_elevation_max
+    default: 50
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,[null,{value},null,null],null]}}}'
+  exclusion_zone_4_azimuth_min:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 4 Azimuth Min (deg)
+    state_key: exclusion_zone_4_azimuth_min
+    default: 200
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,[null,null,{value},null],null]}}}'
+  exclusion_zone_4_azimuth_max:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 4 Azimuth Max (deg)
+    state_key: exclusion_zone_4_azimuth_max
+    default: 250
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,[null,null,null,{value}],null]}}}'
+  exclusion_zone_5_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Exclusion Zone 5
+    state_key: exclusion_zone_5_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"active":[null,null,null,null,{value}]}}}'
+  exclusion_zone_5_elevation_min:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 5 Elevation Min (deg)
+    state_key: exclusion_zone_5_elevation_min
+    default: 10
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,null,[{value},null,null,null]]}}}'
+  exclusion_zone_5_elevation_max:
+    type: integer
+    min: 0
+    max: 90
+    label: Exclusion Zone 5 Elevation Max (deg)
+    state_key: exclusion_zone_5_elevation_max
+    default: 50
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,null,[null,{value},null,null]]}}}'
+  exclusion_zone_5_azimuth_min:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 5 Azimuth Min (deg)
+    state_key: exclusion_zone_5_azimuth_min
+    default: 290
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,null,[null,null,{value},null]]}}}'
+  exclusion_zone_5_azimuth_max:
+    type: integer
+    min: 0
+    max: 360
+    label: Exclusion Zone 5 Azimuth Max (deg)
+    state_key: exclusion_zone_5_azimuth_max
+    default: 340
+    setup: false
+    write:
+      send: '{"audio":{"exclusion":{"zones":[null,null,null,null,[null,null,null,{value}]]}}}'
+
+  # ── Orientation ──
+  beam_orientation_offset:
+    type: enum
+    values:
+      - { value: "0", label: "0 degrees" }
+      - { value: "90", label: "90 degrees" }
+      - { value: "180", label: "180 degrees" }
+      - { value: "270", label: "270 degrees" }
+    label: Beam Orientation Offset
+    help: "Rotate the 0 degree reference of every azimuth value to match how the microphone is mounted."
+    state_key: beam_orientation_offset
+    default: "0"
+    setup: false
+    write:
+      send: '{"beam":{"orientation":{"offset":{value}}}}'
+
+  # ── LED ring ──
+  led_brightness:
+    type: integer
+    min: 0
+    max: 5
+    label: LED Brightness
+    help: "0 turns the ring off; 5 is brightest."
+    state_key: led_brightness
+    default: 5
+    setup: false
+    write:
+      send: '{"device":{"led":{"brightness":{value}}}}'
+  mic_on_color:
+    type: enum
+    values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+    label: Mic On Colour
+    help: "Ring colour while the microphone is live. Factory is GREEN."
+    state_key: mic_on_color
+    default: GREEN
+    setup: false
+    write:
+      send: '{"device":{"led":{"mic_on":{"color":"{value}"}}}}'
+  mic_mute_color:
+    type: enum
+    values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+    label: Mic Mute Colour
+    help: "Ring colour while the microphone is muted. Factory is RED."
+    state_key: mic_mute_color
+    default: RED
+    setup: false
+    write:
+      send: '{"device":{"led":{"mic_mute":{"color":"{value}"}}}}'
+  custom_led_color:
+    type: enum
+    values: [LIGHT GREEN, GREEN, BLUE, RED, YELLOW, ORANGE, CYAN, PINK]
+    label: Custom LED Colour
+    help: "Colour shown while Custom LED Active is on."
+    state_key: custom_led_color
+    default: BLUE
+    setup: false
+    write:
+      send: '{"device":{"led":{"custom":{"color":"{value}"}}}}'
+  custom_led_active:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Custom LED Active
+    help: "Show the custom colour instead of the mic on/mute colours. Resets to off when the microphone reboots."
+    state_key: custom_led_active
+    default: "false"
+    setup: false
+    write:
+      send: '{"device":{"led":{"custom":{"active":{value}}}}}'
+  show_farend_activity:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: Far-End Activity LED
+    help: "Let the ring also show audio arriving from the far end."
+    state_key: show_farend_activity
+    default: "false"
+    setup: false
+    write:
+      send: '{"device":{"led":{"show_farend_activity":{value}}}}'
+
+  # ── Network ──
+  mdns_enabled:
+    type: enum
+    values:
+      - { value: "true", label: "On" }
+      - { value: "false", label: "Off" }
+    label: mDNS Advertising
+    help: "Announce the microphone on the network (Bonjour), which is how Control Cockpit and network scans find it."
+    state_key: mdns_enabled
+    default: "true"
+    setup: false
+    write:
+      send: '{"device":{"network":{"mdns":{value}}}}'
+  dante_interface_mapping:
+    type: enum
+    values:
+      - { value: AUDIO_SWITCHED, label: Switched (one network on both Dante ports) }
+      - { value: AUDIO_REDUNDANT, label: Redundant (primary and secondary networks) }
+    label: Dante Port Mode
+    help: "The microphone reboots to apply a change."
+    state_key: dante_interface_mapping
+    default: AUDIO_SWITCHED
+    setup: false
+    write:
+      send: '{"audio":{"out2":{"network":{"ether":{"interface_mapping":"{value}"}}}}}'
+
+# Quick Actions on the device view. The mute pair is gated on the state it
+# sets, so only the button that does something shows; the microphone reports
+# mute on change, so the button follows the device, not the click.
+actions:
+  - id: mute_on
+    icon: mic-off
+    visible_when: { key: "device.$id.mute", operator: falsy }
+  - id: mute_off
+    icon: mic
+    visible_when: { key: "device.$id.mute", operator: truthy }
+  - id: identify
+    icon: sun
+  - id: get_beam_position
+    icon: crosshair
+  - id: restart
+    icon: refresh-cw
+    confirm: >
+      Restart the microphone? Audio drops for about a minute while it boots.
+
+# Every reply and every subscription notification is an SSC address tree, so
+# one json rule per feed reads whatever addresses the body carries; a body
+# with none of a rule's keys leaves that rule alone. The subscription echo
+# ({"osc":{"state":{"subscribe":[...]}}}) carries nulls under "osc" and
+# matches nothing here. Array-valued methods are read element by element.
+responses:
+  # ── Everything that is not a live feed ──
+  - json: true
+    set:
+      product: device.identity.product
+      firmware_version: device.identity.version
+      serial_number: device.identity.serial
+      vendor: device.identity.vendor
+      hardware_revision: device.identity.hw_revision
+      interface_version: interface.version
+      language: device.language
+      mac_address: device.network.ether.macs.0
+      ip_address: device.network.ipv4.ipaddr.0
+      mdns_enabled: device.network.mdns
+      device_name: device.name
+      location: device.location
+      position: device.position
+      system_label: device.system
+      identify_active: device.identification.visual
+      reset_button_pressed: device.button.state
+      update_running: device.update.enable
+      update_progress: device.update.progress
+      update_error: device.update.error
+      led_brightness: device.led.brightness
+      mic_on_color: device.led.mic_on.color
+      mic_mute_color: device.led.mic_mute.color
+      custom_led_color: device.led.custom.color
+      custom_led_active: device.led.custom.active
+      show_farend_activity: device.led.show_farend_activity
+      beam_orientation_offset: beam.orientation.offset
+      orientation_leds_active: beam.orientation.visual
+      mute: audio.mute
+      room_in_use: audio.room_in_use
+      installation_type: audio.installation_type
+      source_detection_threshold: audio.source_detection.threshold
+      out1_label: audio.out1.label
+      output_attenuation: audio.out1.attenuation
+      out2_label: audio.out2.label
+      dante_output_gain: audio.out2.gain
+      dante_firmware_version: audio.out2.identity.version
+      dante_ip_primary: audio.out2.network.ipv4.ipaddr.0
+      dante_ip_secondary: audio.out2.network.ipv4.ipaddr.1
+      dante_interface_mapping: audio.out2.network.ether.interface_mapping
+      ref1_label: audio.ref1.label
+      reference_gain: audio.ref1.gain
+      farend_auto_adjust: audio.ref1.farend_auto_adjust_enable
+      eq_preset: audio.equalizer.preset
+      eq_125_hz: audio.equalizer.custom.0
+      eq_250_hz: audio.equalizer.custom.1
+      eq_500_hz: audio.equalizer.custom.2
+      eq_1_khz: audio.equalizer.custom.3
+      eq_2_khz: audio.equalizer.custom.4
+      eq_4_khz: audio.equalizer.custom.5
+      eq_8_khz: audio.equalizer.custom.6
+      noise_gate_active: audio.noise_gate.active
+      noise_gate_threshold: audio.noise_gate.threshold
+      noise_gate_hold_time: audio.noise_gate.hold_time
+      voice_lift_active: audio.voice_lift.active
+      voice_lift_mute_threshold: audio.voice_lift.emergency_mute_threshold
+      voice_lift_mute_time: audio.voice_lift.emergency_mute_time
+      priority_zone_active: audio.priority.active.0
+      priority_zone_weight: audio.priority.weights.0
+      priority_zone_elevation_min: audio.priority.zones.0
+      priority_zone_elevation_max: audio.priority.zones.1
+      priority_zone_azimuth_min: audio.priority.zones.2
+      priority_zone_azimuth_max: audio.priority.zones.3
+      exclusion_zone_1_active: audio.exclusion.active.0
+      exclusion_zone_2_active: audio.exclusion.active.1
+      exclusion_zone_3_active: audio.exclusion.active.2
+      exclusion_zone_4_active: audio.exclusion.active.3
+      exclusion_zone_5_active: audio.exclusion.active.4
+      exclusion_zone_1_elevation_min: audio.exclusion.zones.0.0
+      exclusion_zone_1_elevation_max: audio.exclusion.zones.0.1
+      exclusion_zone_1_azimuth_min: audio.exclusion.zones.0.2
+      exclusion_zone_1_azimuth_max: audio.exclusion.zones.0.3
+      exclusion_zone_2_elevation_min: audio.exclusion.zones.1.0
+      exclusion_zone_2_elevation_max: audio.exclusion.zones.1.1
+      exclusion_zone_2_azimuth_min: audio.exclusion.zones.1.2
+      exclusion_zone_2_azimuth_max: audio.exclusion.zones.1.3
+      exclusion_zone_3_elevation_min: audio.exclusion.zones.2.0
+      exclusion_zone_3_elevation_max: audio.exclusion.zones.2.1
+      exclusion_zone_3_azimuth_min: audio.exclusion.zones.2.2
+      exclusion_zone_3_azimuth_max: audio.exclusion.zones.2.3
+      exclusion_zone_4_elevation_min: audio.exclusion.zones.3.0
+      exclusion_zone_4_elevation_max: audio.exclusion.zones.3.1
+      exclusion_zone_4_azimuth_min: audio.exclusion.zones.3.2
+      exclusion_zone_4_azimuth_max: audio.exclusion.zones.3.3
+      exclusion_zone_5_elevation_min: audio.exclusion.zones.4.0
+      exclusion_zone_5_elevation_max: audio.exclusion.zones.4.1
+      exclusion_zone_5_azimuth_min: audio.exclusion.zones.4.2
+      exclusion_zone_5_azimuth_max: audio.exclusion.zones.4.3
+
+  # ── Talker position: a continuous feed while subscribed ──
+  # The subscription already asks the microphone for no more than one update
+  # per Talker Position Interval; this is the panel-friendly ceiling should
+  # the microphone ignore that (drop-style: the next frame carries the
+  # current value, so nothing goes stale).
+  - json: true
+    throttle: 0.2
+    set:
+      beam_azimuth: m.beam.azimuth
+      beam_elevation: m.beam.elevation
+
+  # ── Level meters ──
+  - json: true
+    throttle: 0.2
+    set:
+      input_peak_db: m.in1.peak
+      reference_rms_db: m.ref1.rms
+
+  # ── Errors ── {"osc":{"error":[ {tree:[code,{"desc":"..."}]} ]}} or, for a
+  # message the microphone could not parse, {"osc":{"error":[400,{"desc":..}]}}.
+  # Nothing above reads a key under "osc", so an error body reaches these.
+  - match: '"error":\[.*?(\d{3}),\{"desc":"([^"]*)"'
+    set:
+      last_error_code: "$1"
+      last_error: "$2"
+
+# ── SIMULATOR ──
+# One script handler is the whole SSC server: it parses the incoming JSON
+# object (the handler sandbox has no json module, so a small parser and
+# serializer live in the handler), walks the address tree against the method
+# table below, answers every leaf with its resulting value, records
+# subscriptions, bundles the current values into a subscription reply, and
+# reports unknown addresses and refused values the way the spec does. Every
+# change to a subscribed-style value also goes out as a notification through
+# the notifications: map, which is what the real microphone does after it has
+# answered a set.
+#
+# Modelled from the spec, not hardware: out-of-range numbers are adapted to
+# the nearest limit and answered without an error (spec §4.2), an enum the
+# microphone would refuse answers 406, a read-only address answers its current
+# value, and an unknown address answers 404. Array methods honour null for
+# "leave this element alone". The 60 s UDP session timeout is not modelled
+# (the sandbox has no clock); subscriptions last until cancelled.
+simulator:
+  initial_state:
+    _subscriptions: ""
+    product: "TCC2"
+    firmware_version: "1.8.0"
+    serial_number: "SIM0000001"
+    vendor: "Sennheiser electronic GmbH & Co. KG"
+    hardware_revision: "1.0"
+    interface_version: "1.8.0"
+    language: "en_GB"
+    mac_address: "00:1B:66:00:00:01"
+    ip_address: "192.168.1.60"
+    mdns_enabled: true
+    device_name: "SLCM2"
+    location: "Room"
+    position: "over central table"
+    system_label: "System"
+    mute: false
+    room_in_use: false
+    identify_active: false
+    reset_button_pressed: false
+    beam_azimuth: 180
+    beam_elevation: 45
+    input_peak_db: -60
+    reference_rms_db: -80
+    out1_label: "Analog Out"
+    output_attenuation: 0
+    out2_label: "Dante Out"
+    dante_output_gain: 12
+    dante_firmware_version: "4.2.4.9"
+    dante_ip_primary: "169.254.10.10"
+    dante_ip_secondary: "172.31.10.10"
+    dante_interface_mapping: "AUDIO_SWITCHED"
+    ref1_label: "Dante In"
+    reference_gain: 0
+    farend_auto_adjust: false
+    installation_type: "flush_mount"
+    source_detection_threshold: "normal_room"
+    eq_preset: "OFF"
+    eq_125_hz: 0
+    eq_250_hz: 0
+    eq_500_hz: 0
+    eq_1_khz: 0
+    eq_2_khz: 0
+    eq_4_khz: 0
+    eq_8_khz: 0
+    noise_gate_active: false
+    noise_gate_threshold: -60
+    noise_gate_hold_time: 200
+    voice_lift_active: false
+    voice_lift_mute_threshold: -20
+    voice_lift_mute_time: 4
+    priority_zone_active: false
+    priority_zone_elevation_min: 60
+    priority_zone_elevation_max: 80
+    priority_zone_azimuth_min: 160
+    priority_zone_azimuth_max: 200
+    priority_zone_weight: 1.5
+    exclusion_zone_1_active: true
+    exclusion_zone_1_elevation_min: 0
+    exclusion_zone_1_elevation_max: 10
+    exclusion_zone_1_azimuth_min: 0
+    exclusion_zone_1_azimuth_max: 360
+    exclusion_zone_2_active: false
+    exclusion_zone_2_elevation_min: 10
+    exclusion_zone_2_elevation_max: 50
+    exclusion_zone_2_azimuth_min: 20
+    exclusion_zone_2_azimuth_max: 70
+    exclusion_zone_3_active: false
+    exclusion_zone_3_elevation_min: 10
+    exclusion_zone_3_elevation_max: 50
+    exclusion_zone_3_azimuth_min: 110
+    exclusion_zone_3_azimuth_max: 160
+    exclusion_zone_4_active: false
+    exclusion_zone_4_elevation_min: 10
+    exclusion_zone_4_elevation_max: 50
+    exclusion_zone_4_azimuth_min: 200
+    exclusion_zone_4_azimuth_max: 250
+    exclusion_zone_5_active: false
+    exclusion_zone_5_elevation_min: 10
+    exclusion_zone_5_elevation_max: 50
+    exclusion_zone_5_azimuth_min: 290
+    exclusion_zone_5_azimuth_max: 340
+    beam_orientation_offset: 0
+    orientation_leds_active: false
+    led_brightness: 5
+    mic_on_color: "GREEN"
+    mic_mute_color: "RED"
+    custom_led_color: "BLUE"
+    custom_led_active: false
+    show_farend_activity: false
+    update_running: false
+    update_progress: 0
+    update_error: ""
+    last_error_code: 0
+    last_error: ""
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: toggle
+      key: mute
+      label: Muted
+    - type: toggle
+      key: room_in_use
+      label: Room In Use (talker present)
+    - type: slider
+      key: beam_azimuth
+      label: Talker Azimuth
+      min: 0
+      max: 359
+    - type: slider
+      key: beam_elevation
+      label: Talker Elevation
+      min: 0
+      max: 90
+    - type: slider
+      key: input_peak_db
+      label: Input Peak (dB)
+      min: -90
+      max: 0
+    - type: slider
+      key: reference_rms_db
+      label: AEC Reference (dBFS)
+      min: -120
+      max: 0
+    - type: slider
+      key: led_brightness
+      label: LED Brightness
+      min: 0
+      max: 5
+    - type: toggle
+      key: reset_button_pressed
+      label: Reset Button Held
+    - type: select
+      key: installation_type
+      label: Installation Type
+      options: ["flush_mount", "suspended"]
+
+  # What the microphone sends, unasked, when a value changes. Booleans need a
+  # template per value (the JSON literal), strings are quoted, numbers bare.
+  # Array-valued methods (equalizer bands, zones) have no per-element frame;
+  # the reply to a set carries the whole array instead.
+  notifications:
+    mute:
+      'true': '{"audio":{"mute":true}}'
+      'false': '{"audio":{"mute":false}}'
+    room_in_use:
+      'true': '{"audio":{"room_in_use":true}}'
+      'false': '{"audio":{"room_in_use":false}}'
+    identify_active:
+      'true': '{"device":{"identification":{"visual":true}}}'
+      'false': '{"device":{"identification":{"visual":false}}}'
+    reset_button_pressed:
+      'true': '{"device":{"button":{"state":true}}}'
+      'false': '{"device":{"button":{"state":false}}}'
+    beam_azimuth: '{"m":{"beam":{"azimuth":{value}}}}'
+    beam_elevation: '{"m":{"beam":{"elevation":{value}}}}'
+    input_peak_db: '{"m":{"in1":{"peak":{value}}}}'
+    reference_rms_db: '{"m":{"ref1":{"rms":{value}}}}'
+    output_attenuation: '{"audio":{"out1":{"attenuation":{value}}}}'
+    dante_output_gain: '{"audio":{"out2":{"gain":{value}}}}'
+    reference_gain: '{"audio":{"ref1":{"gain":{value}}}}'
+    farend_auto_adjust:
+      'true': '{"audio":{"ref1":{"farend_auto_adjust_enable":true}}}'
+      'false': '{"audio":{"ref1":{"farend_auto_adjust_enable":false}}}'
+    installation_type: '{"audio":{"installation_type":"{value}"}}'
+    source_detection_threshold: '{"audio":{"source_detection":{"threshold":"{value}"}}}'
+    eq_preset: '{"audio":{"equalizer":{"preset":"{value}"}}}'
+    noise_gate_active:
+      'true': '{"audio":{"noise_gate":{"active":true}}}'
+      'false': '{"audio":{"noise_gate":{"active":false}}}'
+    noise_gate_threshold: '{"audio":{"noise_gate":{"threshold":{value}}}}'
+    noise_gate_hold_time: '{"audio":{"noise_gate":{"hold_time":{value}}}}'
+    voice_lift_active:
+      'true': '{"audio":{"voice_lift":{"active":true}}}'
+      'false': '{"audio":{"voice_lift":{"active":false}}}'
+    voice_lift_mute_threshold: '{"audio":{"voice_lift":{"emergency_mute_threshold":{value}}}}'
+    voice_lift_mute_time: '{"audio":{"voice_lift":{"emergency_mute_time":{value}}}}'
+    priority_zone_active:
+      'true': '{"audio":{"priority":{"active":[true]}}}'
+      'false': '{"audio":{"priority":{"active":[false]}}}'
+    priority_zone_weight: '{"audio":{"priority":{"weights":[{value}]}}}'
+    beam_orientation_offset: '{"beam":{"orientation":{"offset":{value}}}}'
+    orientation_leds_active:
+      'true': '{"beam":{"orientation":{"visual":true}}}'
+      'false': '{"beam":{"orientation":{"visual":false}}}'
+    led_brightness: '{"device":{"led":{"brightness":{value}}}}'
+    mic_on_color: '{"device":{"led":{"mic_on":{"color":"{value}"}}}}'
+    mic_mute_color: '{"device":{"led":{"mic_mute":{"color":"{value}"}}}}'
+    custom_led_color: '{"device":{"led":{"custom":{"color":"{value}"}}}}'
+    custom_led_active:
+      'true': '{"device":{"led":{"custom":{"active":true}}}}'
+      'false': '{"device":{"led":{"custom":{"active":false}}}}'
+    show_farend_activity:
+      'true': '{"device":{"led":{"show_farend_activity":true}}}'
+      'false': '{"device":{"led":{"show_farend_activity":false}}}'
+    mdns_enabled:
+      'true': '{"device":{"network":{"mdns":true}}}'
+      'false': '{"device":{"network":{"mdns":false}}}'
+    device_name: '{"device":{"name":"{value}"}}'
+    location: '{"device":{"location":"{value}"}}'
+    position: '{"device":{"position":"{value}"}}'
+    system_label: '{"device":{"system":"{value}"}}'
+    dante_interface_mapping: '{"audio":{"out2":{"network":{"ether":{"interface_mapping":"{value}"}}}}}'
+    update_running:
+      'true': '{"device":{"update":{"enable":true}}}'
+      'false': '{"device":{"update":{"enable":false}}}'
+    update_progress: '{"device":{"update":{"progress":{value}}}}'
+    update_error: '{"device":{"update":{"error":"{value}"}}}'
+
+  command_handlers:
+    # Everything the socket receives goes through the one SSC server, so a
+    # truncated or non-JSON datagram gets the spec's 400, not silence.
+    - match: '(?s:.*)'
+      handler: |
+        def _run():
+            text = match.group(0)
+
+            # ── JSON reader (objects, arrays, strings, numbers, literals) ──
+            pos = [0]
+            n = len(text)
+
+            def skip_ws():
+                while pos[0] < n and text[pos[0]] in " \t\r\n":
+                    pos[0] += 1
+
+            def read():
+                skip_ws()
+                if pos[0] >= n:
+                    raise ValueError("truncated")
+                c = text[pos[0]]
+                if c == "{":
+                    pos[0] += 1
+                    out = {}
+                    skip_ws()
+                    if pos[0] < n and text[pos[0]] == "}":
+                        pos[0] += 1
+                        return out
+                    while True:
+                        key = read()
+                        skip_ws()
+                        if pos[0] >= n or text[pos[0]] != ":":
+                            raise ValueError("object")
+                        pos[0] += 1
+                        out[key] = read()
+                        skip_ws()
+                        if pos[0] < n and text[pos[0]] == ",":
+                            pos[0] += 1
+                            continue
+                        if pos[0] < n and text[pos[0]] == "}":
+                            pos[0] += 1
+                            return out
+                        raise ValueError("object")
+                if c == "[":
+                    pos[0] += 1
+                    out = []
+                    skip_ws()
+                    if pos[0] < n and text[pos[0]] == "]":
+                        pos[0] += 1
+                        return out
+                    while True:
+                        out.append(read())
+                        skip_ws()
+                        if pos[0] < n and text[pos[0]] == ",":
+                            pos[0] += 1
+                            continue
+                        if pos[0] < n and text[pos[0]] == "]":
+                            pos[0] += 1
+                            return out
+                        raise ValueError("array")
+                if c == '"':
+                    pos[0] += 1
+                    buf = []
+                    while pos[0] < n:
+                        ch = text[pos[0]]
+                        if ch == "\\":
+                            nxt = text[pos[0] + 1]
+                            buf.append({"n": "\n", "r": "\r", "t": "\t"}.get(nxt, nxt))
+                            pos[0] += 2
+                            continue
+                        pos[0] += 1
+                        if ch == '"':
+                            return "".join(buf)
+                        buf.append(ch)
+                    raise ValueError("string")
+                m = re.match(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?|true|false|null", text[pos[0]:])
+                if not m:
+                    raise ValueError("token")
+                tok = m.group(0)
+                pos[0] += len(tok)
+                if tok == "true":
+                    return True
+                if tok == "false":
+                    return False
+                if tok == "null":
+                    return None
+                if "." in tok or "e" in tok or "E" in tok:
+                    return float(tok)
+                return int(tok)
+
+            # ── JSON writer ──
+            def dumps(v):
+                if v is None:
+                    return "null"
+                if v is True:
+                    return "true"
+                if v is False:
+                    return "false"
+                cls = v.__class__
+                if cls is dict:
+                    return "{" + ",".join(dumps(k) + ":" + dumps(x) for k, x in v.items()) + "}"
+                if cls is list or cls is tuple:
+                    return "[" + ",".join(dumps(x) for x in v) + "]"
+                if cls is str:
+                    return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+                if cls is float and v == int(v):
+                    return str(int(v))
+                return str(v)
+
+            # ── The method table: dotted address -> (kind, state key, limits) ──
+            # kinds: bool / num / int / str / enum (options) / const (read-only)
+            # arr: a list of element specs, or a list of lists for nested arrays
+            COLORS = ["LIGHT GREEN", "GREEN", "BLUE", "RED", "YELLOW", "ORANGE", "CYAN", "PINK"]
+            def zone(i):
+                return [
+                    ("int", "exclusion_zone_%d_elevation_min" % i, 0, 90),
+                    ("int", "exclusion_zone_%d_elevation_max" % i, 0, 90),
+                    ("int", "exclusion_zone_%d_azimuth_min" % i, 0, 360),
+                    ("int", "exclusion_zone_%d_azimuth_max" % i, 0, 360),
+                ]
+            LEAVES = {
+                "device.identity.product": ("const", "product"),
+                "device.identity.version": ("const", "firmware_version"),
+                "device.identity.serial": ("const", "serial_number"),
+                "device.identity.vendor": ("const", "vendor"),
+                "device.identity.hw_revision": ("const", "hardware_revision"),
+                "device.language": ("const", "language"),
+                "device.network.ether.macs": ("arr", [("const", "mac_address")]),
+                "device.network.ipv4.ipaddr": ("arr", [("const", "ip_address")]),
+                "device.network.mdns": ("bool", "mdns_enabled"),
+                "device.name": ("str", "device_name", 8),
+                "device.location": ("str", "location", 100),
+                "device.position": ("str", "position", 30),
+                "device.system": ("str", "system_label", 30),
+                "device.identification.visual": ("bool", "identify_active"),
+                "device.button.state": ("const", "reset_button_pressed"),
+                "device.update.enable": ("bool", "update_running"),
+                "device.update.progress": ("const", "update_progress"),
+                "device.update.error": ("const", "update_error"),
+                "device.led.brightness": ("int", "led_brightness", 0, 5),
+                "device.led.mic_on.color": ("enum", "mic_on_color", COLORS),
+                "device.led.mic_mute.color": ("enum", "mic_mute_color", COLORS),
+                "device.led.custom.color": ("enum", "custom_led_color", COLORS),
+                "device.led.custom.active": ("bool", "custom_led_active"),
+                "device.led.show_farend_activity": ("bool", "show_farend_activity"),
+                "device.restart": ("trigger", None),
+                "device.restore": ("enum", None, ["FACTORY_DEFAULTS", "AUDIO_DEFAULTS", "DANTE_FACTORY_DEFAULTS"]),
+                "interface.version": ("const", "interface_version"),
+                "audio.mute": ("bool", "mute"),
+                "audio.room_in_use": ("const", "room_in_use"),
+                "audio.installation_type": ("enum", "installation_type", ["flush_mount", "suspended"]),
+                "audio.source_detection.threshold": ("enum", "source_detection_threshold", ["quiet_room", "normal_room", "loud_room"]),
+                "audio.out1.label": ("const", "out1_label"),
+                "audio.out1.attenuation": ("num", "output_attenuation", -18, 0),
+                "audio.out2.label": ("const", "out2_label"),
+                "audio.out2.gain": ("num", "dante_output_gain", 0, 24),
+                "audio.out2.identity.version": ("const", "dante_firmware_version"),
+                "audio.out2.network.ipv4.ipaddr": ("arr", [("const", "dante_ip_primary"), ("const", "dante_ip_secondary")]),
+                "audio.out2.network.ether.interface_mapping": ("enum", "dante_interface_mapping", ["AUDIO_SWITCHED", "AUDIO_REDUNDANT"]),
+                "audio.ref1.label": ("const", "ref1_label"),
+                "audio.ref1.gain": ("num", "reference_gain", -60, 10),
+                "audio.ref1.farend_auto_adjust_enable": ("bool", "farend_auto_adjust"),
+                "audio.equalizer.preset": ("enum", "eq_preset", ["OFF", "CUSTOM"]),
+                "audio.equalizer.custom": ("arr", [
+                    ("num", "eq_125_hz", -8, 8), ("num", "eq_250_hz", -8, 8),
+                    ("num", "eq_500_hz", -8, 8), ("num", "eq_1_khz", -8, 8),
+                    ("num", "eq_2_khz", -8, 8), ("num", "eq_4_khz", -8, 8),
+                    ("num", "eq_8_khz", -8, 8)]),
+                "audio.noise_gate.active": ("bool", "noise_gate_active"),
+                "audio.noise_gate.threshold": ("num", "noise_gate_threshold", -90, -40),
+                "audio.noise_gate.hold_time": ("int", "noise_gate_hold_time", 50, 1000),
+                "audio.voice_lift.active": ("bool", "voice_lift_active"),
+                "audio.voice_lift.emergency_mute_threshold": ("num", "voice_lift_mute_threshold", -50, -3),
+                "audio.voice_lift.emergency_mute_time": ("num", "voice_lift_mute_time", 1, 30),
+                "audio.priority.active": ("arr", [("bool", "priority_zone_active")]),
+                "audio.priority.weights": ("arr", [("num", "priority_zone_weight", 1, 4)]),
+                "audio.priority.zones": ("arr", [
+                    ("int", "priority_zone_elevation_min", 0, 90),
+                    ("int", "priority_zone_elevation_max", 0, 90),
+                    ("int", "priority_zone_azimuth_min", 0, 360),
+                    ("int", "priority_zone_azimuth_max", 0, 360)]),
+                "audio.exclusion.active": ("arr", [
+                    ("bool", "exclusion_zone_1_active"), ("bool", "exclusion_zone_2_active"),
+                    ("bool", "exclusion_zone_3_active"), ("bool", "exclusion_zone_4_active"),
+                    ("bool", "exclusion_zone_5_active")]),
+                "audio.exclusion.zones": ("arr", [
+                    ("arr", zone(1)), ("arr", zone(2)), ("arr", zone(3)),
+                    ("arr", zone(4)), ("arr", zone(5))]),
+                "beam.orientation.offset": ("enum", "beam_orientation_offset", [0, 90, 180, 270]),
+                "beam.orientation.visual": ("bool", "orientation_leds_active"),
+                "m.beam.azimuth": ("const", "beam_azimuth"),
+                "m.beam.elevation": ("const", "beam_elevation"),
+                "m.in1.peak": ("const", "input_peak_db"),
+                "m.ref1.rms": ("const", "reference_rms_db"),
+            }
+            SUBSCRIBABLE = [p for p in LEAVES if not p.startswith("device.identity") and p not in ("device.language", "interface.version", "device.restart", "device.restore", "audio.out1.label", "audio.out2.label", "audio.ref1.label", "audio.out2.identity.version", "device.network.ether.macs")]
+
+            reply = {}
+            errors = []
+
+            def put(tree, path, value):
+                node = tree
+                for seg in path[:-1]:
+                    if seg not in node or node[seg].__class__ is not dict:
+                        node[seg] = {}
+                    node = node[seg]
+                node[path[-1]] = value
+
+            def fail(path, code, desc):
+                tree = {}
+                put(tree, path, [code, {"desc": desc}])
+                errors.append(tree)
+
+            def current(spec):
+                kind = spec[0]
+                if kind == "arr":
+                    return [current(el) for el in spec[1]]
+                if kind == "trigger":
+                    return None
+                if spec[1] is None:
+                    return None
+                return state[spec[1]]
+
+            # A refused method is reported under osc.error and left out of the
+            # value tree, as in the spec's own example (§5.1.2); OMIT marks it.
+            OMIT = ("omit",)
+
+            def apply(spec, value, path):
+                # Returns the resulting value (the reply), recording errors.
+                kind = spec[0]
+                if kind == "arr":
+                    elems = spec[1]
+                    if value.__class__ is not list:
+                        value = [value]
+                    if len(value) > len(elems):
+                        fail(path, 416, "requested range not satisfiable")
+                        return OMIT
+                    out = []
+                    for i, el in enumerate(elems):
+                        v = value[i] if i < len(value) else None
+                        res = current(el) if v is None else apply(el, v, path)
+                        out.append(current(el) if res is OMIT else res)
+                    return out
+                if kind == "const":
+                    return state[spec[1]]
+                if kind == "trigger":
+                    return value
+                if kind == "bool":
+                    state[spec[1]] = bool(value)
+                    return state[spec[1]]
+                if kind == "str":
+                    s = str(value)[: spec[2]]
+                    state[spec[1]] = s
+                    return s
+                if kind == "enum":
+                    if value not in spec[2]:
+                        fail(path, 406, "not acceptable")
+                        return OMIT
+                    if spec[1] is not None:
+                        state[spec[1]] = value
+                    return value
+                # num / int: out-of-range values are adapted, not refused
+                try:
+                    num = float(value)
+                except (TypeError, ValueError):
+                    fail(path, 406, "not acceptable")
+                    return OMIT
+                num = max(spec[2], min(spec[3], num))
+                if kind == "int" or num == int(num):
+                    num = int(num)
+                state[spec[1]] = num
+                return num
+
+            def subscribed():
+                s = state["_subscriptions"]
+                return [p for p in s.split(",") if p]
+
+            def leaves_of(tree, prefix):
+                # Every (path, value) pair below a request node, as dotted paths.
+                out = []
+                for key, val in tree.items():
+                    if key == "#":
+                        continue
+                    path = prefix + [key]
+                    if val.__class__ is dict:
+                        dotted = ".".join(path)
+                        if dotted in LEAVES:
+                            out.append((path, val))
+                        else:
+                            out.extend(leaves_of(val, path))
+                    else:
+                        out.append((path, val))
+                return out
+
+            def handle_subscribe(value):
+                if value is None:
+                    tree = {}
+                    for p in subscribed():
+                        put(tree, p.split("."), None)
+                    put(reply, ["osc", "state", "subscribe"], [tree])
+                    return
+                if value.__class__ is not list:
+                    value = [value]
+                subs = subscribed()
+                for entry in value:
+                    if entry.__class__ is not dict:
+                        continue
+                    params = entry.get("#") or {}
+                    cancel = bool(params.get("cancel", False))
+                    for path, _val in leaves_of(entry, []):
+                        dotted = ".".join(path)
+                        if dotted not in SUBSCRIBABLE:
+                            fail(["osc", "state", "subscribe"] + path, 454, "parameter address not found")
+                            continue
+                        if cancel:
+                            subs = [p for p in subs if p != dotted]
+                        else:
+                            if dotted not in subs:
+                                subs.append(dotted)
+                            # Initial notification, bundled with the reply.
+                            put(reply, path, current(LEAVES[dotted]))
+                state["_subscriptions"] = ",".join(subs)
+                put(reply, ["osc", "state", "subscribe"], value)
+
+            def handle(path, value):
+                dotted = ".".join(path)
+                if dotted == "osc.ping" or dotted == "osc.xid":
+                    put(reply, path, value)
+                elif dotted == "osc.version":
+                    put(reply, path, "1.2")
+                elif dotted == "osc.error":
+                    pass  # answered below, from what this message produced
+                elif dotted == "osc.state.subscribe":
+                    handle_subscribe(value)
+                elif dotted == "osc.state.close":
+                    state["_subscriptions"] = ""
+                    put(reply, path, True)
+                elif dotted == "osc.state.prettyprint":
+                    put(reply, path, False)
+                elif dotted == "osc.state.auth.access":
+                    put(reply, path, "default:/")
+                elif dotted == "osc.feature.subscription":
+                    put(reply, path, True)
+                elif dotted == "osc.feature.pattern":
+                    put(reply, path, "*?")
+                elif dotted in ("osc.feature.timetag", "osc.feature.baseaddr"):
+                    put(reply, path, False)
+                elif dotted in LEAVES:
+                    spec = LEAVES[dotted]
+                    if value is None:
+                        put(reply, path, current(spec))
+                    else:
+                        result = apply(spec, value, path)
+                        if result is not OMIT:
+                            put(reply, path, result)
+                else:
+                    fail(path, 404, "address not found")
+
+            try:
+                request = read()
+                skip_ws()
+                if pos[0] != n or request.__class__ is not dict:
+                    raise ValueError("trailing")
+            except (ValueError, IndexError, KeyError):
+                respond('{"osc":{"error":[400,{"desc":"not understood"}]}}')
+                return
+
+            for path, value in leaves_of(request, []):
+                handle(path, value)
+            if errors:
+                put(reply, ["osc", "error"], errors)
+            elif "osc" in request and request["osc"].__class__ is dict and "error" in request["osc"]:
+                put(reply, ["osc", "error"], [])
+            respond(dumps(reply))
+
+        _run()

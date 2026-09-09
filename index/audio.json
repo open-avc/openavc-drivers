@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 24,
+    "total_drivers": 25,
     "shards": null,
     "category": "audio"
   },
@@ -1262,6 +1262,76 @@
         },
         "oui": [
           "00:60:74"
+        ]
+      }
+    },
+    {
+      "id": "sennheiser_tcc2",
+      "name": "Sennheiser TeamConnect Ceiling 2",
+      "manufacturer": "Sennheiser",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "udp",
+      "description": "Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity, analog and Dante output levels, AEC reference gain, the 7-band equalizer, noise gate, Voice Lift, priority and exclusion zones, installation type, the LED ring colours and brightness, device naming, identify, restart and restore. The microphone reports where the active talker is (beam azimuth and elevation) and live input and reference meters; both feeds are opt-in and can be switched from a macro or panel. State is push-driven: the driver subscribes and the microphone reports every change as it happens, including changes made from Sennheiser Control Cockpit.\n",
+      "source_url": "https://www.sennheiser.com/globalassets/digizuite/41940-en-ti_1245_v1.8.0_sennheiser_sound_control_protocol_tcc2_en.pdf",
+      "file": "audio/sennheiser_tcc2.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/sennheiser_tcc2.avcdriver": "a89f4eb8a9f27a7c066b4356f368af44e58ce2c6d89c4752d17bf55236fa2995"
+      },
+      "ports": [
+        45
+      ],
+      "protocols": [
+        "ssc"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.23.0",
+      "tags": [
+        "microphone",
+        "ceiling-mic",
+        "beamforming",
+        "array",
+        "conferencing",
+        "dante",
+        "camera-tracking",
+        "ssc"
+      ],
+      "help": {
+        "overview": "Controls the Sennheiser TeamConnect Ceiling 2, a ceiling microphone that steers one pickup beam at whoever is talking. Mute it, set its output levels and processing, change the LED ring, and read where the talker is (azimuth and elevation) to drive camera presets from a macro. Everything the microphone changes, from Control Cockpit or its own button, shows up here as it happens.\n",
+        "setup": "1. Set the microphone up once in Sennheiser Control Cockpit (it must be\n   configured there before any control system can talk to it) and note\n   its IP address.\n2. Enter that address here. Control uses UDP port 45; leave the port\n   alone unless Sennheiser support changed it.\n3. Talker Position and Level Meters are off by default. Each one makes\n   the microphone stream continuously, so turn one on only when you bind\n   it, and raise its interval if you want less traffic. The settings here\n   decide what happens on connect; the Talker Position On/Off and Level\n   Meters On/Off commands switch them while running, so a panel can start\n   the feed when a page opens and stop it when the page closes.\n4. Exclusion zones (where the beam must never point) and the priority\n   zone live in this device's settings, one value per angle, and follow\n   the same 5 degree steps as Control Cockpit. Zone on/off is also a\n   command for macros.\n5. The microphone and the OpenAVC server must be able to exchange UDP\n   traffic on port 45 in both directions. If the microphone shows offline\n   while Control Cockpit still sees it, check for a firewall between the\n   two.\n",
+        "connection": "The microphone answers UDP port 45 only after its first configuration in Sennheiser Control Cockpit. If Control Cockpit sees it and OpenAVC does not, a firewall between the server and the microphone is blocking UDP 45.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "TeamConnect Ceiling 2"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSC developer guide for firmware 1.8.0; not yet run against a microphone. Every method in that guide is covered except the network address configuration and firmware update, which belong to Sennheiser Control Cockpit.\n"
+        }
+      ],
+      "discovery": {
+        "udp_probe": {
+          "port": 45,
+          "send_ascii": "{\"device\":{\"identity\":{\"product\":null}},\"audio\":{\"installation_type\":null}}",
+          "expect_regex": "\"installation_type\":\"(?:flush_mount|suspended)\"",
+          "timeout_ms": 1500,
+          "extract": {
+            "model": {
+              "regex": "\"product\":\"([^\"]+)\"",
+              "group": 1
+            }
+          },
+          "extract_manufacturer": "Sennheiser"
+        },
+        "oui": [
+          "00:1b:66"
+        ],
+        "manufacturer_alias": [
+          "sennheiser"
         ]
       }
     },

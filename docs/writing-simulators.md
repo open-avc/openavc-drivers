@@ -175,6 +175,7 @@ The handler code has access to:
 | `state` | Mutable state dict. Writes trigger UI updates. |
 | `config` | Device config from the project file |
 | `respond(text)` | Send a response to the driver. Include the protocol delimiter. |
+| `notify(text)` | Send an unsolicited message on the device's push channel: the change notice or subscription update a real device emits *after* acknowledging a write. Delivered where this device's notifications go (its multicast group, SSE stream, dial-back subscribers or webhook callbacks; with no push block, every connected TCP client, or the last UDP peer). The delimiter is appended for you. |
 | `re`, `int`, `float`, `str`, `bool`, `max`, `min`, `round`, `abs`, `len`, `format`, `range`, `list`, `dict`, `set`, `tuple`, `sorted`, `enumerate` | Built-in functions |
 | `True`, `False`, `None` | Built-in constants |
 | `Exception`, `ValueError`, `TypeError`, `KeyError`, `IndexError`, `AttributeError`, `ZeroDivisionError`, `RuntimeError`, `StopIteration` | Exception types — so `try/except` blocks work |
@@ -436,6 +437,8 @@ Many AV devices push unsolicited messages to connected clients when state change
 Without `push_state: true`, the simulator is poll-only, matching real devices that don't send unsolicited updates. Only set this flag for devices that actually push state changes in their protocol (e.g., Extron verbose mode, Shure subscription updates).
 
 HTTP simulators are always poll-based regardless of the flag. State changes from the simulator UI are visible to the driver on its next poll cycle.
+
+A UDP device has no connections to push to, so it pushes to the last peer it heard from, which is the driver once it has sent anything. `push_state: true` and `notifications:` templates both deliver there, and so does a handler's `notify(text)`.
 
 ### Notifications (Custom Push Format Override)
 

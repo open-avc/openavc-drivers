@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 779,
+    "total_devices": 780,
     "shards": null
   },
   "devices": [
@@ -5393,6 +5393,18 @@
         {
           "id": "novastar_h_series",
           "confidence": "untested"
+        }
+      ]
+    },
+    {
+      "manufacturer": "OBS Project",
+      "model": "OBS Studio",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "obs_studio",
+          "confidence": "full",
+          "notes": "OBS Studio 28 or later on Windows, macOS or Linux (obs-websocket 5 is built in). OBS 27 and earlier need the obs-websocket 5 plugin installed separately; the 4.x plugin speaks a different protocol and is not supported."
         }
       ]
     },

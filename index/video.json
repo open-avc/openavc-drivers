@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 7,
+    "total_drivers": 8,
     "shards": null,
     "category": "video"
   },
@@ -255,6 +255,79 @@
         "manufacturer_alias": [
           "novastar",
           "xi'an novastar"
+        ]
+      }
+    },
+    {
+      "id": "obs_studio",
+      "name": "OBS Studio",
+      "manufacturer": "OBS Project",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls OBS Studio through its built-in WebSocket server: switch program and preview scenes, run the studio-mode transition, start and stop streaming, recording, the virtual camera and the replay buffer, mute and set the level of any audio input, play media sources, change text sources, show and hide scene items, switch filters, scene collections and profiles, and watch OBS's CPU, frame rate and dropped frames.",
+      "source_url": "https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md",
+      "file": "video/obs_studio.py",
+      "format": "python",
+      "files": {
+        "video/obs_studio.py": "b1aeb28582b1f10bce1b5b55ff0c7d04ee686f535d1d9b5101fbb46f9c6b2c1a",
+        "video/obs_studio_sim.py": "c3ec95511908dc98f0980cf50e48b6097e9954ba33bf343e78af759555cbf551"
+      },
+      "ports": [
+        4455
+      ],
+      "protocols": [
+        "obs-websocket"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "video-production",
+        "streaming",
+        "recording",
+        "switcher",
+        "software",
+        "lecture-capture",
+        "obs-websocket"
+      ],
+      "help": {
+        "overview": "OBS Studio is free video production software used for lecture capture, live streaming and recording. This driver talks to the WebSocket server built into OBS.\n\nOpenAVC switches the program and preview scene, runs the transition in studio mode, starts and stops the stream, the recording (with pause, file split and chapter markers), the virtual camera and the replay buffer, sets each audio input's mute, level, balance, sync offset and monitoring, plays and pauses media sources, rewrites text sources, refreshes browser sources, shows and hides scene items, turns filters on and off, starts any other output OBS has (NDI, Decklink), switches scene collections and profiles, triggers hotkeys, opens projectors and saves screenshots.\n\nEvery scene, input, scene item, filter and output is a child entity with live state, and changes made in OBS itself show up at once.",
+        "setup": "1. In OBS open Tools > WebSocket Server Settings, tick Enable WebSocket server and click Apply. The default port is 4455.\n2. If Enable Authentication is ticked (the OBS default), click Show Connect Info and copy the Server Password into the Password field below.\n3. Enter the address of the computer running OBS: 127.0.0.1 when OBS runs on the same computer as OpenAVC, otherwise its IP address on the network. For another computer, allow TCP port 4455 through its firewall.\n4. Scenes, inputs and outputs are read from OBS when the device connects and follow OBS as they change; use Refresh from Device after a large rebuild in OBS if anything is missing.",
+        "connection": "Check that the WebSocket server is enabled in OBS (Tools > WebSocket Server Settings), that the port matches, and that the password is the one shown under Show Connect Info."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "OBS Project",
+          "models": [
+            "OBS Studio"
+          ],
+          "confidence": "full",
+          "notes": "OBS Studio 28 or later on Windows, macOS or Linux (obs-websocket 5 is built in). OBS 27 and earlier need the obs-websocket 5 plugin installed separately; the 4.x plugin speaks a different protocol and is not supported."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 4455,
+          "send_ascii": "GET / HTTP/1.1\r\nHost: openavc\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: b3BlbmF2Yy1kaXNjb3Zlcg==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: obswebsocket.json\r\n\r\n",
+          "expect_regex": "\"obsWebSocketVersion\"\\s*:\\s*\"",
+          "timeout_ms": 3000,
+          "extract": {
+            "firmware": {
+              "regex": "\"obsStudioVersion\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            }
+          },
+          "extract_manufacturer": "OBS Project"
+        },
+        "port_open": [
+          4455
+        ],
+        "manufacturer_alias": [
+          "OBS",
+          "OBS Studio",
+          "OBS Project",
+          "obs-websocket"
         ]
       }
     },

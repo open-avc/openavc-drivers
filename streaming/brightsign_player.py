@@ -300,8 +300,8 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.2",
-        "min_platform_version": "0.25.0",
+        "version": "1.0.3",
+        "min_platform_version": "0.34.0",
         "author": "OpenAVC",
         "description": (
             "Monitors and controls BrightSign signage players through the "
@@ -576,16 +576,28 @@ class BrightSignPlayerDriver(BaseDriver):
             "reboot": {
                 "label": "Reboot",
                 "params": {},
+                # The player is off the network while it boots; the platform reports
+                # it as restarting rather than as a fault for this long. Unmeasured
+                # (no hardware): the bench should round the real gap up.
+                "restarts_device_for": 60,
                 "help": "Reboot the player. It drops offline for about a minute and reconnects by itself.",
             },
             "reboot_disable_autorun": {
                 "label": "Reboot Without Autorun",
                 "params": {},
+                # The player is off the network while it boots; the platform reports
+                # it as restarting rather than as a fault for this long. Unmeasured
+                # (no hardware): the bench should round the real gap up.
+                "restarts_device_for": 60,
                 "help": "Reboot the player with its autorun script disabled, for troubleshooting a presentation. The player shows its default screen until the presentation is republished.",
             },
             "factory_reset": {
                 "label": "Factory Reset",
                 "params": {},
+                # The player is off the network while it boots; the platform reports
+                # it as restarting rather than as a fault for this long. Unmeasured
+                # (no hardware): the bench should round the real gap up.
+                "restarts_device_for": 60,
                 "help": "Erase the player's persistent registry settings (networking, security, applications) and reboot. The player will need to be set up again.",
             },
             "display_sleep": {

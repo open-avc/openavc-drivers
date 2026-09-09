@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 165,
+    "total_devices": 182,
     "shards": null,
     "category": "audio"
   },
@@ -701,6 +701,210 @@
           "id": "biamp_tesira_ttp",
           "confidence": "untested",
           "notes": "Every Tesira / TesiraFORT\u00c9 DSP that runs Tesira software shares the same TTP protocol. Driver covers the block types AV integrators commonly use for room control. Setup: in Tesira's System Manager \u2192 Network Settings, enable Discovery and Telnet (both default OFF). Leave System Security disabled for the no-credentials path used by this driver."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "CSP-1248",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "partial",
+          "notes": "Software 2.2 or later, static IP, TCP 10055. The CSP guide documents the module commands for listening areas only: declare '<Area> Gain' as a Gain, '<Area> Selector' as a Source Selector and '<Area> AV' as CSP Listening Area AutoVolume. Groups, parameter sets and the slot commands are not documented for the CSP."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "CSP-428",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "partial",
+          "notes": "Software 2.2 or later, static IP, TCP 10055. The CSP guide documents the module commands for listening areas only: declare '<Area> Gain' as a Gain, '<Area> Selector' as a Source Selector and '<Area> AV' as CSP Listening Area AutoVolume. Groups, parameter sets and the slot commands are not documented for the CSP."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-00",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "Fixed port 10055 (8 connections) or RS-232 at 38,400 baud. Card-based: Surround Input and CobraNet cards exist only here (CobraNet cards have no serial control). Whether this generation answers the SUB subscription command is not stated; without it the driver polls every control each Resync interval, so lower that interval."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-00 Series II",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "Fixed port 10055 (8 connections) or RS-232 at 38,400 baud. Card-based: Surround Input and CobraNet cards exist only here (CobraNet cards have no serial control). Whether this generation answers the SUB subscription command is not stated; without it the driver polls every control each Resync interval, so lower that interval."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-1240",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-1240A",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-1240AD",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-1600",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-4120",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-88",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "Fixed port 10055 (8 connections) or RS-232 at 38,400 baud. Card-based: Surround Input and CobraNet cards exist only here (CobraNet cards have no serial control). Whether this generation answers the SUB subscription command is not stated; without it the driver polls every control each Resync interval, so lower that interval."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-880",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-880A",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "ESP-880AD",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "EX-1280",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "Serial-over-Ethernet on TCP 10055 (the port can be changed or disabled in Designer's device properties), or RS-232 at 115,200 baud. AEC, VoIP, PSTN, USB, logic, conference room router and room combine are EX-only. Built from the v5.13 protocol document and the simulator; not yet run against a processor."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "EX-1280C",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "Serial-over-Ethernet on TCP 10055 (the port can be changed or disabled in Designer's device properties), or RS-232 at 115,200 baud. AEC, VoIP, PSTN, USB, logic, conference room router and room combine are EX-only. Built from the v5.13 protocol document and the simulator; not yet run against a processor."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "EX-12AEC",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "Serial-over-Ethernet on TCP 10055 (the port can be changed or disabled in Designer's device properties), or RS-232 at 115,200 baud. AEC, VoIP, PSTN, USB, logic, conference room router and room combine are EX-only. Built from the v5.13 protocol document and the simulator; not yet run against a processor."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Bose Professional",
+      "model": "EX-440C",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bose_controlspace",
+          "confidence": "untested",
+          "notes": "Serial-over-Ethernet on TCP 10055 (the port can be changed or disabled in Designer's device properties), or RS-232 at 115,200 baud. AEC, VoIP, PSTN, USB, logic, conference room router and room combine are EX-only. Built from the v5.13 protocol document and the simulator; not yet run against a processor."
         }
       ]
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 100,
+    "total_drivers": 101,
     "shards": null
   },
   "drivers": [
@@ -2047,11 +2047,133 @@
       }
     },
     {
+      "id": "bose_controlspace",
+      "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
+      "manufacturer": "Bose Professional",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Bose Professional ControlSpace EX, ESP and CSP processors through the ControlSpace Serial Control Protocol on TCP port 10055 or the RS-232 port. Declare the modules from your ControlSpace Designer design (gains, inputs, outputs, selectors, routers, mixers, automatic mic mixers, EQs, dynamics, delays, logic, telephone and VoIP lines, signal-level meters, or any parameter by index) and each becomes a child entity whose controls panels bind to. Groups carry master level, mute and source; parameter sets recall by number or name; room combine groups join and split. Every control is subscribed on a processor that supports subscriptions, so changes made from a CC-16 or CC-64 wall controller or from Designer appear at once.",
+      "source_url": "https://assets.boseprofessional.com/m/4998082f60dfee56/original/ControlSpace-Serial-Protocol-v5-13.pdf",
+      "file": "audio/bose_controlspace.py",
+      "format": "python",
+      "files": {
+        "audio/bose_controlspace.py": "1710aafd9b9a7b984404dc92824d7b866a45ff4d2b75f167963e8e2aa4df0c02",
+        "audio/bose_controlspace_sim.py": "80cfe3aed3debec7ed012d979fe33bd27b5d223d62a5bea85cfb3e60fc567166"
+      },
+      "ports": [
+        10055
+      ],
+      "protocols": [
+        "bose-controlspace-serial"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "dsp",
+        "bose",
+        "controlspace",
+        "esp",
+        "ex",
+        "csp",
+        "install-audio",
+        "conference",
+        "room-combine",
+        "dante"
+      ],
+      "help": {
+        "overview": "ControlSpace control over the Serial Control Protocol (TCP 10055, no login). Declare each module you want to control in the Modules table on the device page: its label from ControlSpace Designer and its type. Every control of every module is subscribed, so panels update the moment a value changes anywhere. Drive them with Set / Toggle / Step Control (pick the module, then the control), recall parameter sets, set group levels and mutes, join and split rooms, and use Set Module Parameter for anything the module types do not cover.",
+        "setup": "STEP 1 - Read the labels.\nIn ControlSpace Designer, every module has a label (Main Volume, Input 1, AmpLink-Ch 3). Labels must be unique on the processor: two modules with the same label answer neither. Prefix a label with # in Designer to have the processor announce changes made from a wall controller even without subscriptions.\n\nSTEP 2 - Add the device.\nEnter the processor's IP address and port 10055 (or pick Direct serial and the RS-232 port: 115,200 baud, 38,400 on an ESP-00). Then add one row per module in the Modules table: the label, the module type, and a size where the type needs one (8 inputs, 8x4, 5 bands). Add volume and selector groups by number, and parameter sets by number and name.\n\nSTEP 3 - Test.\nRun Test Connection / Verify Modules. Every module that answers is listed; one the processor rejects has a label that does not match the loaded design.\n\nSignal level meters are off by default. Add a Signal Level row per slot and turn on 'Poll signal levels' to read them at the chosen rate.",
+        "connection": "Port 10055 needs no login. Going online with ControlSpace Designer closes every third-party connection; the driver reconnects on its own once the design is loaded. If nothing answers, check that the serial-over-Ethernet port is enabled in the device properties."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "EX-1280C",
+            "EX-12AEC",
+            "EX-440C",
+            "EX-1280"
+          ],
+          "confidence": "untested",
+          "notes": "Serial-over-Ethernet on TCP 10055 (the port can be changed or disabled in Designer's device properties), or RS-232 at 115,200 baud. AEC, VoIP, PSTN, USB, logic, conference room router and room combine are EX-only. Built from the v5.13 protocol document and the simulator; not yet run against a processor."
+        },
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "ESP-880",
+            "ESP-880A",
+            "ESP-880AD",
+            "ESP-1240",
+            "ESP-1240A",
+            "ESP-1240AD",
+            "ESP-4120",
+            "ESP-1600"
+          ],
+          "confidence": "untested",
+          "notes": "TCP 10055 (changeable in Designer) or RS-232 at 115,200 baud. Gain-sharing AMM, SmartBass, Dynamic EQ and PFS are available; the EX-only modules are not."
+        },
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "ESP-00 Series II",
+            "ESP-00",
+            "ESP-88"
+          ],
+          "confidence": "untested",
+          "notes": "Fixed port 10055 (8 connections) or RS-232 at 38,400 baud. Card-based: Surround Input and CobraNet cards exist only here (CobraNet cards have no serial control). Whether this generation answers the SUB subscription command is not stated; without it the driver polls every control each Resync interval, so lower that interval."
+        },
+        {
+          "manufacturer": "Bose Professional",
+          "models": [
+            "CSP-428",
+            "CSP-1248"
+          ],
+          "confidence": "partial",
+          "notes": "Software 2.2 or later, static IP, TCP 10055. The CSP guide documents the module commands for listening areas only: declare '<Area> Gain' as a Gain, '<Area> Selector' as a Source Selector and '<Area> AV' as CSP Listening Area AutoVolume. Groups, parameter sets and the slot commands are not documented for the CSP."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 10055,
+          "send_ascii": "IP\r",
+          "expect_regex": "^IP \\d{1,3}(\\.\\d{1,3}){3}",
+          "timeout_ms": 1500
+        },
+        "port_open": [
+          10055
+        ],
+        "oui": [
+          "00:0c:8a",
+          "04:52:c7",
+          "08:df:1f",
+          "28:11:a5",
+          "2c:41:a1",
+          "48:22:1d",
+          "4c:87:5d",
+          "60:ab:d2",
+          "68:f2:1f",
+          "78:2b:64",
+          "ac:bf:71",
+          "bc:87:fa",
+          "c8:7b:23",
+          "e4:58:bc"
+        ],
+        "manufacturer_alias": [
+          "bose",
+          "bose professional",
+          "bose corporation",
+          "controlspace"
+        ]
+      }
+    },
+    {
       "id": "bss_soundweb_london",
       "name": "BSS Soundweb London (BLU)",
       "manufacturer": "BSS Audio",
       "category": "audio",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
@@ -2059,7 +2181,7 @@
       "file": "audio/bss_soundweb_london.py",
       "format": "python",
       "files": {
-        "audio/bss_soundweb_london.py": "0d2f9de1460279279171c5bc96f4d0d4348db9dfa464158fb1d81e0127fe8c28",
+        "audio/bss_soundweb_london.py": "e4c2190060f537cadc03157a6450401d6c9c9ddcfa23730a4e149733b577df24",
         "audio/bss_soundweb_london_sim.py": "e609f12dde39e5e962f231b641eb47857cccb34973388e168e2b95ad25d89127"
       },
       "ports": [

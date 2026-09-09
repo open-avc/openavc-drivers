@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 96,
+    "total_drivers": 97,
     "shards": null
   },
   "drivers": [
@@ -2277,6 +2277,72 @@
         "manufacturer_alias": [
           "crestron",
           "crestron electronics"
+        ]
+      }
+    },
+    {
+      "id": "epiphan_pearl",
+      "name": "Epiphan Pearl",
+      "manufacturer": "Epiphan",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Epiphan Pearl Nano, Mini, Nexus and Pearl-2 lecture-capture and live production systems over the Pearl REST API: start and stop recording and streaming for the whole unit, a channel or one stream, switch layouts, add bookmarks, set input gain, mute and phantom power, pick the HDMI output source, run CMS events (Kaltura, Panopto, Opencast), apply configuration presets, and watch storage, uploads, CPU and temperature.",
+      "source_url": "https://epiphan-video.github.io/pearl_api_swagger_ui/",
+      "file": "streaming/epiphan_pearl.py",
+      "format": "python",
+      "files": {
+        "streaming/epiphan_pearl.py": "12135cfdb8fcc7bd0731a721e315f959aeb96621a0aa7bb4f569603b4df05464",
+        "streaming/epiphan_pearl_sim.py": "65f0376f014d0015a4fca6c2cc7e54c7a0401efa861e35ee2ab896cceb91d077"
+      },
+      "ports": [
+        80,
+        443
+      ],
+      "protocols": [
+        "epiphan-rest"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "encoder",
+        "recorder",
+        "lecture-capture",
+        "streaming",
+        "srt",
+        "rtmp",
+        "ndi",
+        "panopto",
+        "kaltura",
+        "opencast"
+      ],
+      "help": {
+        "overview": "Epiphan Pearl is a hardware encoder that records and streams several channels at once, each composed from the unit's inputs by a layout.\n\nOpenAVC starts and stops recording (every recorder, or one), starts and stops streams (every stream, one channel's, or one stream), switches a channel's layout, drops bookmarks into a recording, sets input gain, mute, phantom power and delays, picks what the HDMI output shows, controls scheduled CMS events, applies configuration presets and reboots the unit. Live state covers every recorder and stream, the one-touch control, storage, file uploads, CPU load and temperature.\n\nEach channel is also a Video Panel source over RTSP once its port is entered under Channel RTSP Ports.",
+        "setup": "1. Enter the Pearl's IP address. The REST API answers on the web port: 80, or 443 with Use HTTPS when HTTPS is enabled on the Pearl.\n2. Enter the admin account's password (Pearl firmware 4.14.2 and later require one on every account).\n3. For channel previews in the Video Panel, open the channel's Status page in the Pearl Admin panel, read the RTSP stream URL's port and enter it under Channel RTSP Ports. The Pearl Nano's channel is always 554.\n4. Stream destinations, layouts and CMS settings are created in the Pearl Admin panel; this driver starts, stops and switches them.",
+        "connection": "Check the admin password and whether HTTPS is enabled on the Pearl (then tick Use HTTPS and set the port to 443)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Epiphan",
+          "models": [
+            "Pearl Nano",
+            "Pearl Mini",
+            "Pearl Nexus",
+            "Pearl-2",
+            "Pearl-2 Rackmount",
+            "Pearl-2 Rackmount Twin"
+          ],
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ],
+      "discovery": {
+        "manufacturer_alias": [
+          "Epiphan",
+          "Epiphan Systems",
+          "Epiphan Systems Inc",
+          "Epiphan Video"
         ]
       }
     },

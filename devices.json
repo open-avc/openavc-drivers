@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 773,
+    "total_devices": 779,
     "shards": null
   },
   "devices": [
@@ -3543,6 +3543,78 @@
           "id": "sacn_e131",
           "confidence": "untested",
           "notes": "Enttec ODE Mk3 and S-Play families accept sACN and convert to DMX. The DIN-ODE fits a DIN rail in install racks."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl Mini",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl Nano",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl Nexus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl-2",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl-2 Rackmount",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl-2 Rackmount Twin",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
         }
       ]
     },

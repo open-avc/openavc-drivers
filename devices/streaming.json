@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 24,
+    "total_devices": 30,
     "shards": null,
     "category": "streaming"
   },
@@ -136,6 +136,78 @@
           "id": "barco_clickshare_cx",
           "confidence": "untested",
           "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl Mini",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl Nano",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl Nexus",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl-2",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl-2 Rackmount",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Epiphan",
+      "model": "Pearl-2 Rackmount Twin",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "epiphan_pearl",
+          "confidence": "untested",
+          "notes": "Built from the Pearl device REST API v2.0. The Pearl Nano has one channel and one layout; multi-channel commands act on that one."
         }
       ]
     },

@@ -4342,7 +4342,7 @@
       "name": "OBS Studio",
       "manufacturer": "OBS Project",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls OBS Studio through its built-in WebSocket server: switch program and preview scenes, run the studio-mode transition, start and stop streaming, recording, the virtual camera and the replay buffer, mute and set the level of any audio input, play media sources, change text sources, show and hide scene items, switch filters, scene collections and profiles, and watch OBS's CPU, frame rate and dropped frames.",
@@ -4350,7 +4350,7 @@
       "file": "video/obs_studio.py",
       "format": "python",
       "files": {
-        "video/obs_studio.py": "42102e5b6fba7906920ced5c0f6af8f0262119998881c4610b2d909829b4d50f",
+        "video/obs_studio.py": "8191627524b89f89801062d67dea6de3ae5d6f3685a4d2c696c0006410506b95",
         "video/obs_studio_sim.py": "c3ec95511908dc98f0980cf50e48b6097e9954ba33bf343e78af759555cbf551"
       },
       "ports": [
@@ -4360,6 +4360,7 @@
         "obs-websocket"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.25.0",
       "tags": [
         "video-production",

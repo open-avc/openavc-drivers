@@ -327,7 +327,7 @@ class ObsStudioDriver(BaseDriver):
         "name": "OBS Studio",
         "manufacturer": "OBS Project",
         "category": "video",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0; the sibling drivers that own their session declare 0.25.0.
         "min_platform_version": "0.25.0",
@@ -344,7 +344,7 @@ class ObsStudioDriver(BaseDriver):
         "source_url": "https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md",
         "tags": ["video-production", "streaming", "recording", "switcher", "software",
                  "lecture-capture", "obs-websocket"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "transport": "tcp",
         "ports": [4455],

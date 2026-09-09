@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 782,
+    "total_devices": 796,
     "shards": null
   },
   "devices": [
@@ -2569,6 +2569,174 @@
           "id": "sanyo_serial_projector",
           "confidence": "untested",
           "notes": "Boxlight (Sanyo-built) lines using the same C-command protocol. Note some Boxlight models (e.g. Eco Series) want a DIRECT cable rather than a crossover. Verify per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-100",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-101",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-102",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-103",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-120",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-16",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-160",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-32",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-320",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-80",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-800",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-805",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-806",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BSS Audio",
+      "model": "BLU-806DA",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "bss_soundweb_london",
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
         }
       ]
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 99,
+    "total_drivers": 100,
     "shards": null
   },
   "drivers": [
@@ -2044,6 +2044,84 @@
             }
           }
         }
+      }
+    },
+    {
+      "id": "bss_soundweb_london",
+      "name": "BSS Soundweb London (BLU)",
+      "manufacturer": "BSS Audio",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
+      "source_url": "https://bssaudio.com/en-US/site_elements/soundweb-london-di-kit",
+      "file": "audio/bss_soundweb_london.py",
+      "format": "python",
+      "files": {
+        "audio/bss_soundweb_london.py": "70e3860496ae8ade81c5749b641b5003bbca80e36e4f67eeb388bf0434a4d05c",
+        "audio/bss_soundweb_london_sim.py": "e609f12dde39e5e962f231b641eb47857cccb34973388e168e2b95ad25d89127"
+      },
+      "ports": [
+        1023
+      ],
+      "protocols": [
+        "bss-direct-inject"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "dsp",
+        "bss",
+        "soundweb",
+        "blu",
+        "hiqnet",
+        "harman"
+      ],
+      "help": {
+        "overview": "Soundweb London control over the Direct Inject protocol (TCP 1023, no login). Declare each processing object you want to control in the Objects table on the device page: its name, its HiQnet address from Architect, and its type. Every control of every object is subscribed, so panels update the moment a value changes anywhere. Drive them with Set / Toggle / Step Control (pick the object, then the control), recall presets by number, and use Set State Variable for anything the object types do not cover.",
+        "setup": "STEP 1 - Find the addresses.\nIn Audio Architect (or London Architect) select a processing object and open its Properties: the HiQnet address reads like 0x083203000100 (node, virtual device 03, object 000100). The unit's Node Address is on its own properties sheet.\n\nSTEP 2 - Add the device.\nEnter the unit's IP address, port 1023, and its Node Address. Then add one row per object in the Objects table: the full address or just the object part (0x100), the object type, and a size where the type needs one (8 inputs, 8x4, 1-4).\n\nSTEP 3 - Test.\nRun Test Connection / Verify Objects. Every object that answers is listed; one that stays silent has a wrong address or node, or is not in the design loaded on the unit.\n\nMeters are off by default. Turn on 'Subscribe to meters' to stream them at the chosen rate.",
+        "connection": "Port 1023 needs no login. If nothing answers, check the Node Address against the unit's properties in Architect."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BSS Audio",
+          "models": [
+            "BLU-100",
+            "BLU-101",
+            "BLU-102",
+            "BLU-103",
+            "BLU-120",
+            "BLU-160",
+            "BLU-320",
+            "BLU-800",
+            "BLU-805",
+            "BLU-806",
+            "BLU-806DA",
+            "BLU-16",
+            "BLU-32",
+            "BLU-80"
+          ],
+          "confidence": "untested",
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 1023,
+          "send_hex": "02 89 00 00 1B 83 00 01 00 00 01 00 00 00 00 8A 03 02 8A 00 00 1B 83 00 01 00 00 01 00 00 00 00 89 03",
+          "expect_regex": "^[\\x02\\x06\\x15]",
+          "timeout_ms": 1500
+        },
+        "port_open": [
+          1023
+        ],
+        "manufacturer_alias": [
+          "bss",
+          "bss audio",
+          "soundweb",
+          "soundweb london"
+        ]
       }
     },
     {

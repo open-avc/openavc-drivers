@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 4,
+    "total_drivers": 5,
     "shards": null,
     "category": "streaming"
   },
@@ -73,6 +73,112 @@
         "manufacturer_alias": [
           "barco",
           "clickshare"
+        ]
+      }
+    },
+    {
+      "id": "brightsign_player",
+      "name": "BrightSign Player (Local DWS)",
+      "manufacturer": "BrightSign",
+      "category": "streaming",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Monitors and controls BrightSign signage players through the player's Local Diagnostic Web Server API: identity, health, clock, every HDMI output with its display and video mode, HDMI power-save, reboot, snapshot, CEC, registry and log level, plus the Moka display's own panel controls. Drives the presentation with UDP messages and sets its User Variables.",
+      "source_url": "https://docs.brightsign.biz/develop/local-dws-apis",
+      "file": "streaming/brightsign_player.py",
+      "format": "python",
+      "files": {
+        "streaming/brightsign_player.py": "95e37e59883b8aaea0c3c67b886e3680fc85af7e6a3daafb38c8acf625046367",
+        "streaming/brightsign_player_sim.py": "1590c6a2042a9431e5e67975cd6d1d5d970f75fe8f5888bee5921956835649d2"
+      },
+      "ports": [
+        443,
+        80
+      ],
+      "protocols": [
+        "brightsign_ldws"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "brightsign",
+        "signage",
+        "media-player",
+        "digital-signage",
+        "dws",
+        "udp"
+      ],
+      "help": {
+        "overview": "BrightSign players run a presentation from BrightSign Author (or a web page) and are managed through BrightSign Cloud. This driver talks to one player on the local network through its Local Diagnostic Web Server API: it reports the player's identity, health, clock and video mode, lists every HDMI output with the connected display's state, and can put an output to sleep, reboot the player, take a snapshot of what is playing, send a CEC payload, read and write the registry and change the log level. The presentation itself is driven the way BrightSign Author expects: a UDP message to the port the presentation listens on, which a UDP Input event in the presentation matches, and <variable>:<value> messages that set its User Variables. On a Moka display with a built-in player the display's power, volume, brightness, contrast, standby timeout, video output and white balance are settings too.",
+        "setup": "1. Turn on the player's Local Diagnostic Web Server. In BrightSign Author, create or edit a Setup file (Admin > Setup), tick Enable Local Diagnostic Web Server under Player Settings > Player Configuration, enter a password, and provision the player with it. Players on BrightSignOS 9.0.218 / 9.1.75 or later have it off by default; older ones have it on with the serial number as the password. A cloud-managed player can also be switched under Network > Properties.\n2. Enter the player's IP address. Leave Use HTTPS on and the port at 443 for BrightSignOS 9.0.218 / 9.1.52 or later; an older player that still serves plain HTTP uses port 80 with Use HTTPS off.\n3. The username is always admin. Enter the password from the setup file, or the player's serial number if none was set. Leave it blank only for a player set up with no authentication.\n4. To control the presentation, set the UDP Port to the UDP Receiver Port in the presentation's settings (Presentation Settings > Interactive > Networking in BrightSign Author) and add UDP Input events for the messages you will send.\n5. Local DWS access is over the local network only; a player reached through BrightSign Cloud is out of reach of this driver.",
+        "connection": "Enable the Local Diagnostic Web Server in the player's setup file first; user admin, password from the setup file or the serial number."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "BrightSign",
+          "models": [
+            "XS156",
+            "XD236",
+            "XD1036",
+            "HD226",
+            "HD1026",
+            "AU335",
+            "HS125",
+            "HS145",
+            "HD225",
+            "HD1025",
+            "LS425",
+            "LS445",
+            "XD235",
+            "XD1035",
+            "XT245",
+            "XT1145",
+            "XT2145",
+            "XC2055",
+            "XC4055",
+            "LS424",
+            "HD224",
+            "HD1024",
+            "XD234",
+            "XD1034",
+            "XT244",
+            "XT1144",
+            "HS124",
+            "HS144",
+            "LS423",
+            "HD223",
+            "HD1023",
+            "XD233",
+            "XD1033",
+            "XD1133",
+            "XT243",
+            "XT1143",
+            "HS123",
+            "HO523"
+          ],
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        },
+        {
+          "manufacturer": "BrightSign",
+          "models": [
+            "Moka TV with BrightSign"
+          ],
+          "confidence": "untested",
+          "notes": "A display with a built-in player. The Display settings and the Display Power actions use the display-control API, which needs BrightSignOS 9.0.189 or later."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "90:ac:3f"
+        ],
+        "hostname": [
+          "^brightsign-"
+        ],
+        "manufacturer_alias": [
+          "BrightSign",
+          "BrightSign LLC"
         ]
       }
     },

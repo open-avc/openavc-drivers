@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 30,
+    "total_devices": 69,
     "shards": null,
     "category": "streaming"
   },
@@ -136,6 +136,474 @@
           "id": "barco_clickshare_cx",
           "confidence": "untested",
           "notes": "Same V2 REST API across the entire CX / C / CB family. Feature differences (number of paired buttons, dual video outputs on CX-50 Gen2, UVC pass-through on CX-30 Gen2 / CX-50 Gen2) are reported by the Base Unit at runtime in the `supportedOutputs`, `supportedModes`, `supportedPowerModes`, etc. arrays \u2014 the driver doesn't need to know the model. Older CSE / CSC ClickShare units use a different (legacy) API and are NOT covered.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "AU335",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD1023",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD1024",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD1025",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD1026",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD223",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD224",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD225",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HD226",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HO523",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HS123",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HS124",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HS125",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HS144",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "HS145",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "LS423",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "LS424",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "LS425",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "LS445",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "Moka TV with BrightSign",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "A display with a built-in player. The Display settings and the Display Power actions use the display-control API, which needs BrightSignOS 9.0.189 or later."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XC2055",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XC4055",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD1033",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD1034",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD1035",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD1036",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD1133",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD233",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD234",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD235",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XD236",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XS156",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XT1143",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XT1144",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XT1145",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XT2145",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XT243",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XT244",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
+        }
+      ]
+    },
+    {
+      "manufacturer": "BrightSign",
+      "model": "XT245",
+      "category": "streaming",
+      "drivers": [
+        {
+          "id": "brightsign_player",
+          "confidence": "untested",
+          "notes": "Every Series 3 to Series 6 player on BrightSignOS 8.4.6 or later with the Local Diagnostic Web Server enabled. The XC2055 and XT2145 expose two HDMI outputs and the XC4055 four; the driver reads the count from the player."
         }
       ]
     },

@@ -1015,7 +1015,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1198,6 +1198,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "Connected, but the unit stopped answering (no reply to a subscribe)."
     )
     PROBE_TIMEOUT_S = 3.0
+    RESYNC_AFTER_RELEASE_S = 0.25
 
     def __init__(self, device_id: str, config: dict[str, Any], state: Any, events: Any) -> None:
         self._node = 0
@@ -1595,7 +1596,11 @@ class BSSSoundwebLondonDriver(BaseDriver):
         # A unit may keep subscriptions per state variable rather than per
         # session (the Interface Kit does not say); the unsubscribes above
         # would then have silenced the live session's copies, so renew them.
+        # The releases went out on another connection, so give the unit a
+        # moment to act on them first: two sessions have no ordering between
+        # them, and a renewal that lands before a release is undone by it.
         if self.transport is not None and getattr(self.transport, "connected", False):
+            await asyncio.sleep(self.RESYNC_AFTER_RELEASE_S)
             try:
                 await self._subscribe_all()
             except Exception:

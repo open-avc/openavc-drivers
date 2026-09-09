@@ -669,6 +669,10 @@ async def test_test_connection_resyncs_a_live_session():
     assert result["ok"] is True
     renewed = [f for f in drv.transport.frames_sent()[before:] if f[1] == DRV.DI_SUBSCRIBESV]
     assert len(renewed) == sum(1 for o in drv._objects for c in o.controls.values() if c.fmt != DRV.FMT_METER)
+    # The releases travelled on the wizard's own socket and the renewals on
+    # the live link; the driver waits for the former before the latter, so
+    # the simulator ends with every live subscription in place.
+    await asyncio.sleep(0.05)
     assert sim.subscription_count == len(renewed)
 
 

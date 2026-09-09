@@ -422,8 +422,26 @@ def test_parse_frame_multiple():
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.6.0"
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.0"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.34.0"
+
+
+def test_powering_on_declares_the_restart_window():
+    # Powering ON reboots the display's SoC and takes its network stack with
+    # it: measured at 44.4s on a DM75E with bare TCP and nothing of ours
+    # holding the port. Declaring it is what stops the platform reporting a
+    # display somebody just switched on as an unreachable fault.
+    commands = DRV.SamsungMDCDriver.DRIVER_INFO["commands"]
+    assert commands["power_on"]["restarts_device_for"] == 60
+    assert commands["all_on"]["restarts_device_for"] == 60
+
+
+def test_powering_off_declares_no_window():
+    # Standby keeps answering MDC and keeps reporting power=0, so there is no
+    # gap to hold back and claiming one would delay a real fault.
+    commands = DRV.SamsungMDCDriver.DRIVER_INFO["commands"]
+    assert "restarts_device_for" not in commands["power_off"]
+    assert "restarts_device_for" not in commands["all_off"]
 
 
 def test_child_entity_type_declared():

@@ -888,9 +888,11 @@ def _object_param() -> dict[str, Any]:
 
 
 def _control_param(help: str) -> dict[str, Any]:
-    return {"type": "string", "required": True, "label": "Control",
-            "options_from": {"param": "object", "source": "child_schema"},
-            "help": help}
+    p: dict[str, Any] = {"type": "string", "required": True, "label": "Control",
+                         "options_from": {"param": "object", "source": "child_schema"}}
+    if help:
+        p["help"] = help
+    return p
 
 
 def _address_param() -> dict[str, Any]:
@@ -925,7 +927,7 @@ COMMANDS: dict[str, dict[str, Any]] = {
         "label": "Set Control",
         "params": {
             "object": _object_param(),
-            "control": _control_param("Pick the object above to list its controls."),
+            "control": _control_param(""),
             "value": {"type": "string", "required": True, "label": "Value",
                       "type_from": {"param": "control"},
                       "help": "dB for a gain, on/off for a mute, a number for a "
@@ -1013,7 +1015,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1180,6 +1182,11 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 "label": "Test Connection / Verify Objects",
                 "icon": "search",
                 "availability": "always",
+                "confirm": (
+                    "Opens a second session to the unit and asks every declared "
+                    "object for a value, then releases those subscriptions. "
+                    "Nothing on the unit changes."
+                ),
             },
         ],
     }
@@ -1203,6 +1210,11 @@ class BSSSoundwebLondonDriver(BaseDriver):
         objects, problems = parse_controls_config(config.get("controls", DEFAULT_CONTROLS), self._node)
         self._objects = objects
         self._problems.extend(problems)
+        if not objects and not problems:
+            self._problems.append(
+                "No objects declared yet: add one row per processing object in the "
+                "Objects table on the device page"
+            )
         self._by_cid: dict[str, DIObject] = {o.cid: o for o in objects}
         # (node, vd, obj, sv) -> (cid, prop): where an inbound DI_SETSV lands.
         self._route: dict[tuple[int, int, int, int], tuple[str, str]] = {}
@@ -1580,6 +1592,14 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 await writer.wait_closed()
             except Exception:
                 pass
+        # A unit may keep subscriptions per state variable rather than per
+        # session (the Interface Kit does not say); the unsubscribes above
+        # would then have silenced the live session's copies, so renew them.
+        if self.transport is not None and getattr(self.transport, "connected", False):
+            try:
+                await self._subscribe_all()
+            except Exception:
+                log.debug(f"[{self.device_id}] Could not resync after Test Connection", exc_info=True)
         ok = [o.name for o, ctl in probes if o.key(ctl) in answered]
         silent = [f"{o.name} ({o.address} sv {ctl.sv})" for o, ctl in probes if o.key(ctl) not in answered]
         if probes and not ok:

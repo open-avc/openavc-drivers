@@ -636,7 +636,8 @@ async def test_test_connection_reports_which_objects_answered():
     assert result["silent"] == ["Ghost (0x08AD03000777 sv 0)"]
     assert "8 of 9" in result["message"]
     assert steps[-1][1] == 100
-    # The test subscriptions were released.
+    # The test subscriptions were released, and a disconnected driver does not
+    # try to resync (nothing is connected here).
     assert sim.subscription_count == 0
 
     drv2, sim2 = _make(sim_config={"node_address": "0x0832", "controls": CONTROLS})
@@ -653,6 +654,32 @@ async def test_test_connection_reports_which_objects_answered():
         await drv3.run_setup_action("test_connection", {}, progress)
 
 
+@pytest.mark.asyncio
+async def test_test_connection_resyncs_a_live_session():
+    drv, sim = _make()
+    await drv.connect()
+    await _settle()
+    drv.PROBE_TIMEOUT_S = 0.3
+    before = len(drv.transport.frames_sent())
+    # A unit that tracks subscriptions per state variable would have dropped
+    # the two the wizard released; the live session renews every one after.
+    async with _SocketSim(sim) as port:
+        drv.config["host"], drv.config["port"] = "127.0.0.1", port
+        result = await drv.run_setup_action("test_connection", {}, lambda m, p: asyncio.sleep(0))
+    assert result["ok"] is True
+    renewed = [f for f in drv.transport.frames_sent()[before:] if f[1] == DRV.DI_SUBSCRIBESV]
+    assert len(renewed) == sum(1 for o in drv._objects for c in o.controls.values() if c.fmt != DRV.FMT_METER)
+    assert sim.subscription_count == len(renewed)
+
+
+def test_an_empty_object_list_says_where_the_rows_go():
+    drv = DRV.BSSSoundwebLondonDriver("blu", _config(controls=[]), StubState(), StubEvents())
+    assert drv._objects == []
+    assert any("Objects table" in p for p in drv._problems)
+    drv2 = DRV.BSSSoundwebLondonDriver("blu", _config(), StubState(), StubEvents())
+    assert drv2._problems == []
+
+
 def test_catalog_surface():
     info = DRV.BSSSoundwebLondonDriver.DRIVER_INFO
     assert info["id"] == "bss_soundweb_london"
@@ -661,6 +688,8 @@ def test_catalog_surface():
         if a["kind"] == "command":
             assert a["id"] in info["commands"]
     assert info["child_entity_types"]["object"]["dynamic"] is True
+    assert "help" not in info["commands"]["set_control"]["params"]["control"]
+    assert "Nothing on the unit changes" in next(a for a in info["actions"] if a["id"] == "test_connection")["confirm"]
     assert info["discovery"]["tcp_probe"]["send_hex"].split()[0:2] == ["02", "89"]
     probe = bytes.fromhex(info["discovery"]["tcp_probe"]["send_hex"])
     assert probe == DRV.build_subscribe(0, 3, 0x100, 1, 0) + DRV.build_unsubscribe(0, 3, 0x100, 1)

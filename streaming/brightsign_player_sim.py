@@ -330,7 +330,7 @@ class BrightSignPlayerSimulator(HTTPSimulator):
 
     def _now_text(self) -> str:
         now = datetime.now()
-        offset = int(self.state.get("clock_offset_s", 0) or 0)
+        offset = float(self.state.get("clock_offset_s", 0) or 0)
         stamp = datetime.fromtimestamp(now.timestamp() + offset)
         return f"{stamp.strftime('%Y-%m-%d %H:%M:%S')} {self.state.get('timezone_abbr', 'EST')}"
 
@@ -377,7 +377,7 @@ class BrightSignPlayerSimulator(HTTPSimulator):
         }
 
     def _time(self) -> dict[str, Any]:
-        offset = int(self.state.get("clock_offset_s", 0) or 0)
+        offset = float(self.state.get("clock_offset_s", 0) or 0)
         stamp = datetime.fromtimestamp(time.time() + offset)
         return {
             "time": f"{stamp.strftime('%Y-%m-%d %H:%M:%S')} {self.state.get('timezone_abbr', 'EST')}",
@@ -401,7 +401,9 @@ class BrightSignPlayerSimulator(HTTPSimulator):
             wanted = datetime.strptime(f"{date} {clock}", "%Y-%m-%d %H:%M:%S")
         except ValueError:
             return _err(400, "date must be YYYY-MM-DD and time HH:mm")
-        self.set_state("clock_offset_s", round(wanted.timestamp() - time.time()))
+        # A float, so the clock reads exactly the time that was set plus the
+        # seconds elapsed since, never a second behind it.
+        self.set_state("clock_offset_s", wanted.timestamp() - time.time())
         return _ok(True)
 
     def _mode(self) -> dict[str, Any]:

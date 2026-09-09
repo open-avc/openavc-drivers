@@ -300,7 +300,7 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -591,14 +591,14 @@ class BrightSignPlayerDriver(BaseDriver):
             "display_sleep": {
                 "label": "Display Sleep",
                 "params": {
-                    "output": {"type": "integer", "child_type": "hdmi_output", "required": True, "min": 0, "max": 3, "label": "HDMI Output", "help": "HDMI output number: 0 on every single-output player; 0 or 1 on the XC2055 and XT2145; 0 to 3 on the XC4055."},
+                    "output": {"type": "child_id", "child_type": "hdmi_output", "required": True, "label": "HDMI Output", "help": "HDMI output number: 0 on every single-output player; 0 or 1 on the XC2055 and XT2145; 0 to 3 on the XC4055."},
                 },
                 "help": "Turn on HDMI power save for an output: the display goes to sleep while the presentation keeps running.",
             },
             "display_wake": {
                 "label": "Display Wake",
                 "params": {
-                    "output": {"type": "integer", "child_type": "hdmi_output", "required": True, "min": 0, "max": 3, "label": "HDMI Output", "help": "HDMI output number: 0 on every single-output player; 0 or 1 on the XC2055 and XT2145; 0 to 3 on the XC4055."},
+                    "output": {"type": "child_id", "child_type": "hdmi_output", "required": True, "label": "HDMI Output", "help": "HDMI output number: 0 on every single-output player; 0 or 1 on the XC2055 and XT2145; 0 to 3 on the XC4055."},
                 },
                 "help": "Turn off HDMI power save for an output so the display wakes.",
             },

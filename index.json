@@ -5276,7 +5276,7 @@
       "name": "Samsung MDC Display",
       "manufacturer": "Samsung",
       "category": "display",
-      "version": "1.5.2",
+      "version": "1.6.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP. Each Set ID on the chain is a display child entity with power, volume, mute, input, and picture settings (brightness, contrast, backlight, picture mode, color tone).",
@@ -5284,8 +5284,8 @@
       "file": "displays/samsung_mdc.py",
       "format": "python",
       "files": {
-        "displays/samsung_mdc.py": "c4e68de448f4cbbb319cd91f46025b99cda8ed8933c5f0c03ba4a27b2bc13941",
-        "displays/samsung_mdc_sim.py": "18932a6ea3d18ca67866c8bf8c0e75ea991f93f8bc5698608a884b814184d5a7"
+        "displays/samsung_mdc.py": "972d3e32b2f277397e23cb1352aa92b824f64fbc369673704208461e24c332e2",
+        "displays/samsung_mdc_sim.py": "3757e583f05eab55a9fbce8b58df8ee2e8c8de33c5510fc1e9551221c3dbdfcd"
       },
       "ports": [
         1515
@@ -5294,6 +5294,7 @@
         "samsung_mdc"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.25.0",
       "tags": [
         "display",
@@ -5302,10 +5303,18 @@
         "video-wall"
       ],
       "help": {
-        "overview": "Controls Samsung commercial displays using the MDC binary protocol. Covers Smart Signage, The Wall, LED, and SMART Signage Platform series. One connection can address several displays daisy-chained by Set ID \u2014 each appears as a display child entity.",
-        "setup": "1. Connect the display (or the chain's master) to the network.\n2. Enable MDC / network control in the display's settings.\n3. Default port is 1515.\n4. In the display's menu, give each display a unique Set ID (ID). List those IDs in 'Display Set IDs' \u2014 e.g. 1 for a single display, or 1,2,3,4 for a four-panel wall.\n5. Route commands to a display by picking it from the Display dropdown; use All Displays On / Off to drive the whole chain at once."
+        "overview": "Controls Samsung commercial displays using the MDC binary protocol. Covers Smart Signage, The Wall, LED, and SMART Signage Platform series. One connection can address several displays daisy-chained by Set ID. Each appears as a display child entity.",
+        "setup": "1. Connect the display (or the chain's master) to the network.\n2. Enable MDC / network control in the display's settings.\n3. Default port is 1515.\n4. In the display's menu, give each display a unique Set ID (ID). List those IDs in 'Display Set IDs'. Use 1 for a single display, or 1,2,3,4 for a four-panel wall.\n5. Route commands to a display by picking it from the Display dropdown; use All Displays On / Off to drive the whole chain at once."
       },
       "compatible_models": [
+        {
+          "manufacturer": "Samsung",
+          "models": [
+            "DM75E"
+          ],
+          "confidence": "full",
+          "notes": "Verified on hardware (firmware T-GFSLE2AKUC-1037.2): power, volume, mute, input, contrast, brightness, backlight, sharpness and picture mode all round-trip. Colour tone (0x3E) is not implemented on this model and is dropped from the poll on its first NAK; colour temperature (0x3F) answers instead. Picture mode accepts calibration and the signage modes 0x20-0x27 only."
+        },
         {
           "manufacturer": "Samsung",
           "models": [
@@ -5314,7 +5323,8 @@
             "LED Commercial series",
             "SMART Signage Platform"
           ],
-          "confidence": "untested"
+          "confidence": "partial",
+          "notes": "Same MDC command set as the verified DM75E, but which commands and which picture modes a model implements varies; unsupported ones are reported rather than silently ignored."
         }
       ],
       "discovery": {

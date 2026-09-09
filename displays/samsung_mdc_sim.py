@@ -26,7 +26,25 @@ The lowest Set ID is the "primary" display and is backed by the simulator's
 are backed by an internal per-display map (wire-only, for exercising a driver's
 multi-display roster). A request to a Set ID that isn't present gets no reply,
 modelling an absent display.
+
+Model capability is simulated, because on real hardware it is the norm rather
+than the exception: MDC's command set is shared across the range but sparsely
+implemented, and a display NAKs what it does not offer. A DM75E — the model
+this simulator's defaults are taken from — refuses colour tone outright and
+accepts nine of the twenty-two documented picture modes. So:
+
+  * ``unsupported_commands`` lists command bytes that answer NAK. It defaults
+    to colour tone (0x3E), which means the shipped simulator exercises a
+    driver's NAK path on the very first poll instead of only ever ACKing.
+  * ``picture_modes`` lists the modes this simulated model accepts; anything
+    else NAKs.
+
+A simulator that answers everything is the reason a driver can pass its whole
+suite and still misbehave on a real panel, so the defaults here are the
+measured ones rather than the permissive ones.
 """
+
+import time
 
 from openavc.simulator.tcp_simulator import TCPSimulator
 
@@ -42,6 +60,34 @@ CMD_CONTRAST = 0x24
 CMD_BRIGHTNESS = 0x25
 CMD_COLOR_TONE = 0x3E
 CMD_BACKLIGHT = 0x58
+CMD_SHARPNESS = 0x26
+CMD_SW_VERSION = 0x0E
+CMD_MODEL_NAME = 0x8A
+
+# NAK error byte a Samsung display returns for a command it does not implement.
+NAK_UNSUPPORTED = 0x01
+
+# Setting volume clears mute and makes the display refuse a mute command for
+# about two seconds afterwards (measured on a DM75E). Simulated because a
+# driver that does not allow for it fails its second macro step on real
+# hardware while passing every test against a simulator that answers anything.
+DEFAULT_VOLUME_MUTE_GUARD_S = 2.0
+
+# What a DM75E accepts, measured on the unit this driver was verified against.
+DEFAULT_UNSUPPORTED_COMMANDS = (0x3E,)  # colour tone
+DEFAULT_PICTURE_MODES = (
+    "calibration",
+    "shop_mall_video",
+    "shop_mall_text",
+    "office_school_video",
+    "office_school_text",
+    "terminal_station_video",
+    "terminal_station_text",
+    "video_wall_video",
+    "video_wall_text",
+)
+DEFAULT_MODEL_NAME = "DM75E"
+DEFAULT_SW_VERSION = "T-GFSLE2AKUC-1037.2"
 CMD_PICTURE_MODE = 0x71
 
 # Input source codes (full Samsung source set — must match the driver)
@@ -129,7 +175,10 @@ DEFAULT_DISPLAY = {
     "brightness": 50,
     "contrast": 70,
     "backlight": 80,
-    "picture_mode": "standard",
+    "sharpness": 50,
+    # A signage mode, because the default model is a signage panel: the TV-style
+    # presets (standard, dynamic, movie...) are exactly the ones it refuses.
+    "picture_mode": "terminal_station_text",
     "color_tone": "normal",
 }
 
@@ -190,15 +239,14 @@ class SamsungMdcSimulator(TCPSimulator):
             {"type": "slider", "key": "brightness", "label": "Brightness", "min": 0, "max": 100},
             {"type": "slider", "key": "contrast", "label": "Contrast", "min": 0, "max": 100},
             {"type": "slider", "key": "backlight", "label": "Backlight", "min": 0, "max": 100},
+            {"type": "slider", "key": "sharpness", "label": "Sharpness", "min": 0, "max": 100},
             {
                 "type": "select",
                 "key": "picture_mode",
                 "label": "Picture Mode",
-                "options": [
-                    "standard", "dynamic", "movie", "natural",
-                    "calibration", "information", "advertisement",
-                    "video_wall_video",
-                ],
+                # The modes the default (DM75E) model accepts. Setting any
+                # other mode over the wire is answered with a NAK.
+                "options": list(DEFAULT_PICTURE_MODES),
             },
             {
                 "type": "select",
@@ -219,6 +267,38 @@ class SamsungMdcSimulator(TCPSimulator):
         self._displays: dict[int, dict] = {
             sid: dict(DEFAULT_DISPLAY) for sid in present if sid != self._primary
         }
+        self._unsupported = self._parse_command_bytes(
+            self.config.get("unsupported_commands"), DEFAULT_UNSUPPORTED_COMMANDS
+        )
+        modes = self.config.get("picture_modes")
+        self._picture_modes = frozenset(
+            [m.strip() for m in str(modes).replace(";", ",").split(",") if m.strip()]
+            if modes
+            else DEFAULT_PICTURE_MODES
+        )
+        guard = self.config.get("volume_mute_guard_s")
+        self._volume_mute_guard_s = (
+            DEFAULT_VOLUME_MUTE_GUARD_S if guard is None else float(guard)
+        )
+        self._volume_set_at: dict[int, float] = {}
+        self._model_name = str(self.config.get("model_name", DEFAULT_MODEL_NAME))
+        self._sw_version = str(self.config.get("sw_version", DEFAULT_SW_VERSION))
+
+    @staticmethod
+    def _parse_command_bytes(raw, default) -> frozenset:
+        """Read a comma-separated list of command bytes ("0x3E, 0x26")."""
+        if raw is None:
+            return frozenset(default)
+        out = set()
+        for part in str(raw).replace(";", ",").split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                out.add(int(part, 0))
+            except ValueError:
+                continue
+        return frozenset(out)
 
     @staticmethod
     def _parse_set_ids(raw) -> list[int]:
@@ -305,10 +385,28 @@ class SamsungMdcSimulator(TCPSimulator):
         if display_id not in self._present_ids:
             return None
 
+        # A command this model does not implement is refused, not ignored: the
+        # display answers NAK with an error byte, which is a reply (the link is
+        # fine) and not an outage.
+        if cmd in self._unsupported:
+            return self._build_ack(
+                cmd, display_id, bytes([NAK_UNSUPPORTED]), ack=False
+            )
+
         # ── Serial number (0x0B) — used by the discovery probe ──
         if cmd == CMD_SERIAL:
             return self._build_ack(
                 CMD_SERIAL, display_id, b"SIMULATED0000001"
+            )
+
+        # ── Identity: model name (0x8A) and software version (0x0E) ──
+        if cmd == CMD_MODEL_NAME:
+            return self._build_ack(
+                CMD_MODEL_NAME, display_id, self._model_name.encode("ascii", "ignore")
+            )
+        if cmd == CMD_SW_VERSION:
+            return self._build_ack(
+                CMD_SW_VERSION, display_id, self._sw_version.encode("ascii", "ignore")
             )
 
         # ── Status query (0x00) ──
@@ -340,6 +438,9 @@ class SamsungMdcSimulator(TCPSimulator):
         if cmd == CMD_VOLUME:
             if payload:
                 self._put(display_id, "volume", max(0, min(100, payload[0])))
+                # A level change clears mute and opens the refusal window.
+                self._put(display_id, "mute", False)
+                self._volume_set_at[display_id] = time.monotonic()
             return self._build_ack(
                 CMD_VOLUME, display_id, bytes([int(self._get(display_id, "volume"))])
             )
@@ -347,6 +448,14 @@ class SamsungMdcSimulator(TCPSimulator):
         # ── Mute (0x13) ──
         if cmd == CMD_MUTE:
             if payload:
+                set_at = self._volume_set_at.get(display_id)
+                if (
+                    set_at is not None
+                    and time.monotonic() - set_at < self._volume_mute_guard_s
+                ):
+                    return self._build_ack(
+                        CMD_MUTE, display_id, bytes([NAK_UNSUPPORTED]), ack=False
+                    )
                 self._put(display_id, "mute", payload[0] == 0x01)
             byte = 0x01 if self._get(display_id, "mute") else 0x00
             return self._build_ack(CMD_MUTE, display_id, bytes([byte]))
@@ -362,11 +471,12 @@ class SamsungMdcSimulator(TCPSimulator):
             return self._build_ack(CMD_INPUT, display_id, bytes([code]))
 
         # ── Contrast / Brightness / Backlight (0-100 ints) ──
-        if cmd in (CMD_CONTRAST, CMD_BRIGHTNESS, CMD_BACKLIGHT):
+        if cmd in (CMD_CONTRAST, CMD_BRIGHTNESS, CMD_BACKLIGHT, CMD_SHARPNESS):
             field = {
                 CMD_CONTRAST: "contrast",
                 CMD_BRIGHTNESS: "brightness",
                 CMD_BACKLIGHT: "backlight",
+                CMD_SHARPNESS: "sharpness",
             }[cmd]
             if payload:
                 self._put(display_id, field, max(0, min(100, payload[0])))
@@ -388,8 +498,14 @@ class SamsungMdcSimulator(TCPSimulator):
         if cmd == CMD_PICTURE_MODE:
             if payload:
                 name = PICTURE_MODE_NAMES.get(payload[0])
-                if name:
-                    self._put(display_id, "picture_mode", name)
+                if name is None or name not in self._picture_modes:
+                    return self._build_ack(
+                        CMD_PICTURE_MODE,
+                        display_id,
+                        bytes([NAK_UNSUPPORTED]),
+                        ack=False,
+                    )
+                self._put(display_id, "picture_mode", name)
                 return self._build_ack(CMD_PICTURE_MODE, display_id, bytes([payload[0]]))
             byte = PICTURE_MODE_BYTES.get(self._get(display_id, "picture_mode"), 0x01)
             return self._build_ack(CMD_PICTURE_MODE, display_id, bytes([byte]))

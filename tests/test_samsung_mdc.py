@@ -1,11 +1,31 @@
 """Driver + simulator tests for samsung_mdc (Samsung MDC binary protocol).
 
-No Samsung MDC hardware on hand, so correctness is proven two ways: byte-exact
-frame-helper assertions, and a **dual-proof round trip** wiring the real driver
-to the real simulator over an in-memory transport that speaks the MDC binary
-protocol — the sim renders response frames, the driver's frame parser strips
-and parses them, and results are asserted on both sides (same approach as
-test_blackmagic_videohub.py / test_racklink_rlnk.py).
+Correctness is proven two ways: byte-exact frame-helper assertions, and a
+**dual-proof round trip** wiring the real driver to the real simulator over an
+in-memory transport that speaks the MDC binary protocol — the sim renders
+response frames, the driver's frame parser strips and parses them, and results
+are asserted on both sides (same approach as test_blackmagic_videohub.py /
+test_racklink_rlnk.py).
+
+The v1.6.0 tests below come from a DM75E on the bench, and each one covers a
+way the previous version looked healthy while doing nothing:
+
+  - a Samsung display answers only its most recently opened connection and
+    goes silent on the others without ever closing them, so ``poll`` awaits
+    every reply and raises when the whole chain is mute, and
+    ``_liveness_probe`` says the same thing when polling is switched off
+    (``_SWALLOW`` is the deaf socket);
+  - one Set ID that does not answer is a roster entry with no panel behind it,
+    not a dead link — that child goes not_responding and the poll continues;
+  - a NAK is a model capability gap, not an error: it drops that command from
+    the poll (the DM75E refuses colour tone) and it makes a *command* raise
+    instead of silently doing nothing;
+  - a response frame whose checksum disagrees is dropped rather than written
+    to state;
+  - setting volume clears mute and makes the display refuse a mute command for
+    about two seconds, so the driver re-reads mute instead of assuming, and
+    holds a mute until the window closes rather than failing the second step
+    of "set the level, then mute".
 
 Covers the v1.5.0 first-class adoption:
   - each Set ID is a ``display`` child entity, sized from the ``display_ids``
@@ -31,11 +51,16 @@ import logging
 import sys
 from pathlib import Path
 from types import ModuleType
+
+import pytest
 from _platform_stubs import (
     CallableFrameParser,
     FrameParser,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    default_child_fault_message,
+    install_connection_fault_stub,
+    is_child_fault_code,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -51,6 +76,24 @@ class _FakeBaseDriver:
     """
 
     DRIVER_INFO: dict = {}
+    LAST_ERROR_PROPERTY = "last_error"
+
+    @staticmethod
+    def child_fault(code: str = "", message: str = "") -> dict:
+        """Mirror BaseDriver.child_fault: the three reserved presence keys."""
+        if not code:
+            return {
+                "online": True,
+                "offline_reason": None,
+                "offline_detail": None,
+            }
+        if not is_child_fault_code(code):
+            raise ValueError(f"{code!r} is not a child fault code")
+        return {
+            "online": False,
+            "offline_reason": code,
+            "offline_detail": message or default_child_fault_message(code),
+        }
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -91,6 +134,9 @@ class _FakeBaseDriver:
         schema = dict(self.DRIVER_INFO["child_entity_types"][ctype]["state_variables"])
         schema.setdefault("online", {"type": "boolean"})
         schema.setdefault("label", {"type": "string"})
+        # Reserved presence keys the platform adds to every child entity.
+        schema.setdefault("offline_reason", {"type": "string"})
+        schema.setdefault("offline_detail", {"type": "string"})
         return schema
 
     def get_child_entity_types(self) -> dict:
@@ -277,6 +323,9 @@ def _load(name: str, path: Path) -> ModuleType:
     logger.get_logger = lambda name="x": logging.getLogger(name)
     sys.modules["openavc.utils.logger"] = logger
 
+    # The driver names a child fault code at module scope.
+    install_connection_fault_stub()
+
     sim_pkg = ModuleType("openavc.simulator")
     sim_pkg.__path__ = []  # type: ignore[attr-defined]
     sys.modules["openavc.simulator"] = sim_pkg
@@ -373,7 +422,7 @@ def test_parse_frame_multiple():
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.5.2"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.6.0"
     assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -494,15 +543,19 @@ def test_picture_settings_round_trip():
             await driver.send_command("set_brightness", {"display": 1, "level": 65})
             await driver.send_command("set_contrast", {"display": 1, "level": 55})
             await driver.send_command("set_backlight", {"display": 1, "level": 90})
-            await driver.send_command("set_picture_mode", {"display": 1, "mode": "movie"})
-            await driver.send_command("set_color_tone", {"display": 1, "tone": "warm2"})
+            await driver.send_command("set_sharpness", {"display": 1, "level": 25})
+            # A signage panel takes the signage modes; "movie" is one of the
+            # TV-style presets it refuses (see test_picture_mode_refusal).
+            await driver.send_command(
+                "set_picture_mode", {"display": 1, "mode": "shop_mall_video"}
+            )
             await driver.poll()
             child = driver.get_child_state("display", 1)
             assert child["brightness"] == 65
             assert child["contrast"] == 55
             assert child["backlight"] == 90
-            assert child["picture_mode"] == "movie"
-            assert child["color_tone"] == "warm2"
+            assert child["sharpness"] == 25
+            assert child["picture_mode"] == "shop_mall_video"
         finally:
             await driver.disconnect()
 
@@ -581,11 +634,19 @@ def test_absent_display_does_not_update():
         await driver.connect()
         try:
             await driver.send_command("power_on", {"display": 1})
-            await driver.send_command("power_on", {"display": 2})  # no ACK, silent
+            # Display 2 is not on the chain. It used to accept the command
+            # silently; now the caller is told, because "nothing happened and
+            # nobody said so" is the failure this driver exists to stop.
+            with pytest.raises(TimeoutError):
+                await driver.send_command("power_on", {"display": 2})
             await driver.poll()
             assert driver.get_child_state("display", 1)["power"] == "on"
-            # Display 2 never answered — its child stays at the default.
-            assert driver.get_child_state("display", 2)["power"] == "off"
+            # Display 2 never answered — its child stays at the default and is
+            # marked absent rather than drawing green.
+            two = driver.get_child_state("display", 2)
+            assert two["power"] == "off"
+            assert two["online"] is False
+            assert two["offline_reason"] == "not_responding"
         finally:
             await driver.disconnect()
 
@@ -609,6 +670,296 @@ def test_refresh_children_repolls_roster():
             await driver.disconnect()
 
     asyncio.run(go())
+
+
+
+
+# ── v1.6.0: what a real DM75E does (see the module docstring) ───────────────
+
+def test_poll_raises_when_the_whole_chain_goes_silent():
+    """A Samsung display stops answering without closing the socket.
+
+    This is the headline failure: another controller, a discovery probe or a
+    vendor tool opens port 1515, the display hands service to that connection,
+    and this one receives nothing ever again — with no FIN, no RST, and
+    transport.connected still True. poll() has to be the thing that notices,
+    which it can only do by awaiting replies.
+    """
+    global _SWALLOW
+
+    async def go():
+        global _SWALLOW
+        driver, sim = await _make_pair()
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            await driver.poll()  # healthy
+            _SWALLOW = True  # the display goes deaf
+            with pytest.raises(ConnectionError):
+                await driver.poll()
+        finally:
+            _SWALLOW = False
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_liveness_probe_raises_on_a_deaf_socket():
+    """The same signal with polling switched off (poll_interval 0).
+
+    BaseDriver's watchdog force-drops the transport after consecutive misses,
+    so this raising is what gets the connection rebuilt — and a reconnect is
+    the only thing that makes the display answer this driver again.
+    """
+    async def go():
+        global _SWALLOW
+        driver, sim = await _make_pair()
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            await driver._liveness_probe()  # answers, returns normally
+            _SWALLOW = True
+            with pytest.raises(TimeoutError):
+                await driver._liveness_probe()
+        finally:
+            _SWALLOW = False
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_one_absent_set_id_does_not_condemn_the_link():
+    """A roster entry with no panel behind it is a config fact, not an outage.
+
+    Someone types "1,2" for a single display all the time. That must mark the
+    missing child and carry on, not flap the whole device offline every cycle.
+    """
+    async def go():
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": "1"},
+            driver_overrides={"display_ids": "1,2"},
+        )
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            await driver.poll()  # must NOT raise
+            one = driver.get_child_state("display", 1)
+            two = driver.get_child_state("display", 2)
+            assert one["online"] is True
+            assert one["offline_reason"] is None
+            assert two["online"] is False
+            assert two["offline_reason"] == "not_responding"
+            assert "2" in driver.state.data.get("last_error", "")
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_naked_get_is_dropped_from_the_poll():
+    """Colour tone is not implemented on a DM75E; it NAKs every time.
+
+    Re-asking forever cost a warning per display per cycle and taught people to
+    ignore the log. The first NAK retires that command for that Set ID.
+    """
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            key = (1, DRV.CMD_COLOR_TONE)
+            assert key in driver._unsupported  # learned on the first poll
+            sent: list[int] = []
+            original = driver._send_to
+
+            async def spy(display, cmd, data=b""):
+                sent.append(cmd)
+                await original(display, cmd, data)
+
+            driver._send_to = spy
+            await driver.poll()
+            assert DRV.CMD_COLOR_TONE not in sent
+            assert DRV.CMD_STATUS in sent  # everything else still polled
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_refused_command_raises_and_is_recorded():
+    """A NAK on a command the user issued must not read as success."""
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            with pytest.raises(ValueError, match="does not support"):
+                await driver.send_command(
+                    "set_picture_mode", {"display": 1, "mode": "movie"}
+                )
+            assert "picture mode" in driver.state.data.get("last_error", "")
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_an_unknown_enum_value_refuses_instead_of_no_opping():
+    """A typo in a macro used to be indistinguishable from a working step."""
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            with pytest.raises(ValueError, match="Unknown input source"):
+                await driver.send_command(
+                    "set_input", {"display": 1, "input": "hdmi9"}
+                )
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_frame_with_a_bad_checksum_is_rejected():
+    """0xAA is a legal data and checksum byte, so a resync can land mid-frame.
+
+    Without verification the parser hands on plausible garbage — a volume of
+    170, an input that decodes to nothing — and writes it to state.
+    """
+    good = bytes([0xAA, 0xFF, 0x01, 0x03, 0x41, 0x11, 0x01])
+    good += bytes([sum(good[1:]) & 0xFF])
+    frame, rest = _parse_mdc_frame(good)
+    assert frame is not None and rest == b""
+
+    bad = good[:-1] + bytes([(good[-1] + 1) & 0xFF])
+    frame, rest = _parse_mdc_frame(bad)
+    assert frame is None  # dropped, not handed on
+
+
+def test_parser_resyncs_past_a_corrupt_frame_to_a_good_one():
+    """A bad frame must not swallow the good one behind it."""
+    good = bytes([0xAA, 0xFF, 0x01, 0x03, 0x41, 0x12, 0x2A])
+    good += bytes([sum(good[1:]) & 0xFF])
+    junk = bytes([0xAA, 0xFF, 0x01, 0x03, 0x41, 0x12, 0x2A, 0x00])  # wrong checksum
+    frame, rest = _parse_mdc_frame(junk + good)
+    assert frame is not None
+    assert frame[4] == 0x12 and frame[5] == 0x2A  # the good one
+
+
+def test_an_uncorrelated_frame_still_updates_state():
+    """While this driver holds the newest socket it receives replies to
+    requests another controller made. Those still describe the display, so
+    they are applied — they just must not satisfy anybody's wait."""
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            # A volume reply nobody asked for.
+            body = bytes([0xFF, 0x01, 0x03, 0x41, DRV.CMD_VOLUME, 42])
+            await driver.on_data_received(body)
+            assert driver.get_child_state("display", 1)["volume"] == 42
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_identity_is_read_on_connect():
+    """Model and firmware answer on a real panel and belong on the card."""
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            assert driver.state.data.get("model") == "DM75E"
+            assert "GFSLE" in driver.state.data.get("firmware", "")
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_settable_picture_modes_include_the_signage_family():
+    """The old hand-picked list of eight was wrong for signage panels: six of
+    its entries NAK on a DM75E and seven of the modes that work were absent."""
+    modes = DRV.PICTURE_MODE_SET
+    for name in (
+        "shop_mall_video",
+        "office_school_video",
+        "terminal_station_text",
+        "video_wall_text",
+        "calibration",
+    ):
+        assert name in modes, name
+    assert "off" not in modes  # a read-back state, refused as a target
+
+
+
+
+
+def test_setting_volume_clears_mute_and_the_driver_reads_it_back():
+    """A level change unmutes the display as a side effect.
+
+    Nothing in the volume reply says so, so a driver that only tracks what it
+    sent shows a muted panel playing audio until the next poll.
+    """
+    async def go():
+        driver, sim = await _make_pair()
+        driver.VOLUME_MUTE_GUARD_S = 0.01
+        sim._volume_mute_guard_s = 0.0
+        await driver.connect()
+        try:
+            await driver.send_command("mute_on", {"display": 1})
+            assert driver.get_child_state("display", 1)["mute"] is True
+            await driver.send_command("set_volume", {"display": 1, "level": 33})
+            # Read back from the device, not inferred from the command.
+            assert driver.get_child_state("display", 1)["mute"] is False
+            assert driver.get_child_state("display", 1)["volume"] == 33
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_mute_waits_out_the_post_volume_window_instead_of_failing():
+    """"Set the level, then mute" is an ordinary macro, and the display NAKs
+    the second step for ~2s after the first. The driver holds instead."""
+    async def go():
+        driver, sim = await _make_pair()
+        driver.VOLUME_MUTE_GUARD_S = 0.30
+        sim._volume_mute_guard_s = 0.20
+        await driver.connect()
+        try:
+            await driver.send_command("set_volume", {"display": 1, "level": 25})
+            # Would raise ValueError (NAK) without the guard.
+            await driver.send_command("mute_on", {"display": 1})
+            assert driver.get_child_state("display", 1)["mute"] is True
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_refused_set_does_not_retire_the_command():
+    """A NAKed SET is usually about the value, not the command.
+
+    A DM75E has one HDMI port and refuses hdmi2; it also refuses any mute
+    inside the post-volume window. Retiring input or mute on that evidence
+    would stop polling something the display answers perfectly well.
+    """
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            with pytest.raises(ValueError):
+                await driver.send_command(
+                    "set_picture_mode", {"display": 1, "mode": "movie"}
+                )
+            assert (1, DRV.CMD_PICTURE_MODE) not in driver._unsupported
+            await driver.poll()
+            assert driver.get_child_state("display", 1)["picture_mode"]
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
 
 
 def test_status_reflects_ui_driven_change():

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 84,
+    "total_devices": 85,
     "shards": null,
     "category": "display"
   },
@@ -580,12 +580,25 @@
     },
     {
       "manufacturer": "Samsung",
+      "model": "DM75E",
+      "category": "display",
+      "drivers": [
+        {
+          "id": "samsung_mdc",
+          "confidence": "full",
+          "notes": "Verified on hardware (firmware T-GFSLE2AKUC-1037.2): power, volume, mute, input, contrast, brightness, backlight, sharpness and picture mode all round-trip. Colour tone (0x3E) is not implemented on this model and is dropped from the poll on its first NAK; colour temperature (0x3F) answers instead. Picture mode accepts calibration and the signage modes 0x20-0x27 only."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Samsung",
       "model": "LED Commercial series",
       "category": "display",
       "drivers": [
         {
           "id": "samsung_mdc",
-          "confidence": "untested"
+          "confidence": "partial",
+          "notes": "Same MDC command set as the verified DM75E, but which commands and which picture modes a model implements varies; unsupported ones are reported rather than silently ignored."
         }
       ]
     },
@@ -596,7 +609,8 @@
       "drivers": [
         {
           "id": "samsung_mdc",
-          "confidence": "untested"
+          "confidence": "partial",
+          "notes": "Same MDC command set as the verified DM75E, but which commands and which picture modes a model implements varies; unsupported ones are reported rather than silently ignored."
         }
       ]
     },
@@ -607,7 +621,8 @@
       "drivers": [
         {
           "id": "samsung_mdc",
-          "confidence": "untested"
+          "confidence": "partial",
+          "notes": "Same MDC command set as the verified DM75E, but which commands and which picture modes a model implements varies; unsupported ones are reported rather than silently ignored."
         }
       ]
     },
@@ -618,7 +633,8 @@
       "drivers": [
         {
           "id": "samsung_mdc",
-          "confidence": "untested"
+          "confidence": "partial",
+          "notes": "Same MDC command set as the verified DM75E, but which commands and which picture modes a model implements varies; unsupported ones are reported rather than silently ignored."
         }
       ]
     },

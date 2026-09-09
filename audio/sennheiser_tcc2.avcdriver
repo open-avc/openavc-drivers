@@ -1992,9 +1992,8 @@ responses:
 
 # ── SIMULATOR ──
 # One script handler is the whole SSC server: it parses the incoming JSON
-# object (the handler sandbox has no json module, so a small parser and
-# serializer live in the handler), walks the address tree against the method
-# table below, answers every leaf with its resulting value, records
+# object, walks the address tree against the method table below, answers
+# every leaf with its resulting value, records
 # subscriptions, bundles the current values into a subscription reply, and
 # reports unknown addresses and refused values the way the spec does. Every
 # change to a subscribed-style value also goes out as a notification through

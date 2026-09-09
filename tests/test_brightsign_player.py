@@ -697,6 +697,49 @@ def test_udp_is_refused_until_a_port_is_set():
     _run(scenario())
 
 
+def test_a_held_udp_port_does_not_stop_the_simulator():
+    """The platform passes the device config to the simulator, so udp_port is
+    the port the driver sends to; if something else holds it, the player must
+    still answer HTTP."""
+    import socket
+
+    async def scenario():
+        holder = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        holder.bind(("127.0.0.1", 0))
+        port = holder.getsockname()[1]
+        sim = SIM.BrightSignPlayerSimulator("s", {"udp_port": port})
+        started = {"http": False}
+
+        async def fake_http_start(p):
+            started["http"] = True
+
+        sim.start_http_server = fake_http_start
+        sim.stop_http_server = _noop
+        try:
+            await sim.start(19999)
+            assert started["http"] and sim._udp_transport is None
+            await sim.stop()
+        finally:
+            holder.close()
+        # With the port free the receiver comes up and hears a datagram.
+        sim2 = SIM.BrightSignPlayerSimulator("s2", {"udp_port": port})
+        sim2.start_http_server = fake_http_start
+        sim2.stop_http_server = _noop
+        await sim2.start(19999)
+        assert sim2._udp_transport is not None
+        sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sender.sendto(b"room:B 12", ("127.0.0.1", port))
+        sender.close()
+        await asyncio.sleep(0.1)
+        assert sim2.state["last_udp_message"] == "room:B 12"
+        await sim2.stop()
+    _run(scenario())
+
+
+async def _noop(*args, **kwargs):
+    return None
+
+
 def test_the_simulator_records_a_presentation_udp_message():
     sim = SIM.BrightSignPlayerSimulator("s", {})
     sim.udp_received(b"room:B 12")

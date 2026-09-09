@@ -81,7 +81,7 @@
       "name": "BrightSign Player (Local DWS)",
       "manufacturer": "BrightSign",
       "category": "streaming",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Monitors and controls BrightSign signage players through the player's Local Diagnostic Web Server API: identity, health, clock, every HDMI output with its display and video mode, HDMI power-save, reboot, snapshot, CEC, registry and log level, plus the Moka display's own panel controls. Drives the presentation with UDP messages and sets its User Variables.",
@@ -89,8 +89,8 @@
       "file": "streaming/brightsign_player.py",
       "format": "python",
       "files": {
-        "streaming/brightsign_player.py": "13801f7a8409072971ae4c0128682c943becc3102cf54e9951820af13045f3fa",
-        "streaming/brightsign_player_sim.py": "0ee2d706a00ccb44c58ba313bc6f8f266052e9d12a77a965b6dddec85769905b"
+        "streaming/brightsign_player.py": "356346c05dd0bc2cfeef3b816b1c96a907b9a2b92d72bf03ea73800bdf8591c2",
+        "streaming/brightsign_player_sim.py": "9801057f981eff0414a4fb604c2f5b863904951ed0ad67a8f5098f04bc21e6d1"
       },
       "ports": [
         443,

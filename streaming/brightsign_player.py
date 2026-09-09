@@ -300,7 +300,7 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (

@@ -198,19 +198,29 @@ class BrightSignPlayerSimulator(HTTPSimulator):
     # ── Lifecycle (the UDP receiver beside the HTTP server) ──
 
     async def start(self, port: int) -> None:
-        await super().start(port)
+        await self.start_http_server(port)
         if self._udp_port > 0:
+            # The platform hands the device's own config to its simulator, so
+            # this is the port the driver will send to. A port something else
+            # already holds must not take the HTTP side down with it: the
+            # player still answers, the presentation just cannot be reached.
             loop = asyncio.get_running_loop()
-            self._udp_transport, _ = await loop.create_datagram_endpoint(
-                lambda: _PresentationUdpProtocol(self),
-                local_addr=("127.0.0.1", self._udp_port),
-            )
+            try:
+                self._udp_transport, _ = await loop.create_datagram_endpoint(
+                    lambda: _PresentationUdpProtocol(self),
+                    local_addr=("127.0.0.1", self._udp_port),
+                )
+            except OSError as exc:
+                self._udp_transport = None
+                self.log_protocol(
+                    "in", f"UDP receiver not started on port {self._udp_port}: {exc}"
+                )
 
     async def stop(self) -> None:
         if self._udp_transport is not None:
             self._udp_transport.close()
             self._udp_transport = None
-        await super().stop()
+        await self.stop_http_server()
 
     def udp_received(self, data: bytes) -> None:
         """A presentation's UDP Input: record the message string."""

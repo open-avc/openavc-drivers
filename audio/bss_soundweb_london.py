@@ -1015,7 +1015,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1451,7 +1451,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         return o, ctl
 
     def _current(self, o: DIObject, ctl: ControlDef) -> Any:
-        return self.get_child_state(OBJECT_CHILD_TYPE, o.cid, ctl.prop)
+        return self.get_child_state(OBJECT_CHILD_TYPE, o.cid).get(ctl.prop)
 
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
         params = params or {}

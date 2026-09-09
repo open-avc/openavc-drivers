@@ -87,9 +87,6 @@ class _FakeBaseDriver(LifecycleFake, StubBaseDriver):
     def _link_alive(self):
         return bool(self.transport and self.transport.connected)
 
-    def get_child_state(self, child_type, local_id, prop):
-        return self.state.data.get(f"device.{self.device_id}.{child_type}.{local_id}.{prop}")
-
     async def connect(self):
         await self._stop_push()
         await self._close_session()

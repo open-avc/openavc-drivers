@@ -64,9 +64,9 @@ id: sennheiser_tcc2
 name: Sennheiser TeamConnect Ceiling 2
 manufacturer: Sennheiser
 category: audio
-version: "1.0.0"
+version: "1.1.0"
 author: OpenAVC
-min_platform_version: "0.23.0"
+min_platform_version: "0.34.0"
 description: >
   Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone
   over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity,
@@ -1980,7 +1980,12 @@ responses:
   # ── Errors ── {"osc":{"error":[ {tree:[code,{"desc":"..."}]} ]}} or, for a
   # message the microphone could not parse, {"osc":{"error":[400,{"desc":..}]}}.
   # Nothing above reads a key under "osc", so an error body reaches these.
+  # after_json: an SSC reply that answers a good method and a refused one in
+  # the same message carries both the value and osc.error. The json rules
+  # above resolve the value and would consume the frame, so this rule -- the
+  # only one that reads the error -- has to stay eligible past them.
   - match: '"error":\[.*?(\d{3}),\{"desc":"([^"]*)"'
+    after_json: true
     set:
       last_error_code: "$1"
       last_error: "$2"
@@ -2222,106 +2227,29 @@ simulator:
         def _run():
             text = match.group(0)
 
-            # ── JSON reader (objects, arrays, strings, numbers, literals) ──
-            pos = [0]
-            n = len(text)
-
-            def skip_ws():
-                while pos[0] < n and text[pos[0]] in " \t\r\n":
-                    pos[0] += 1
-
-            def read():
-                skip_ws()
-                if pos[0] >= n:
-                    raise ValueError("truncated")
-                c = text[pos[0]]
-                if c == "{":
-                    pos[0] += 1
-                    out = {}
-                    skip_ws()
-                    if pos[0] < n and text[pos[0]] == "}":
-                        pos[0] += 1
-                        return out
-                    while True:
-                        key = read()
-                        skip_ws()
-                        if pos[0] >= n or text[pos[0]] != ":":
-                            raise ValueError("object")
-                        pos[0] += 1
-                        out[key] = read()
-                        skip_ws()
-                        if pos[0] < n and text[pos[0]] == ",":
-                            pos[0] += 1
-                            continue
-                        if pos[0] < n and text[pos[0]] == "}":
-                            pos[0] += 1
-                            return out
-                        raise ValueError("object")
-                if c == "[":
-                    pos[0] += 1
-                    out = []
-                    skip_ws()
-                    if pos[0] < n and text[pos[0]] == "]":
-                        pos[0] += 1
-                        return out
-                    while True:
-                        out.append(read())
-                        skip_ws()
-                        if pos[0] < n and text[pos[0]] == ",":
-                            pos[0] += 1
-                            continue
-                        if pos[0] < n and text[pos[0]] == "]":
-                            pos[0] += 1
-                            return out
-                        raise ValueError("array")
-                if c == '"':
-                    pos[0] += 1
-                    buf = []
-                    while pos[0] < n:
-                        ch = text[pos[0]]
-                        if ch == "\\":
-                            nxt = text[pos[0] + 1]
-                            buf.append({"n": "\n", "r": "\r", "t": "\t"}.get(nxt, nxt))
-                            pos[0] += 2
-                            continue
-                        pos[0] += 1
-                        if ch == '"':
-                            return "".join(buf)
-                        buf.append(ch)
-                    raise ValueError("string")
-                m = re.match(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?|true|false|null", text[pos[0]:])
-                if not m:
-                    raise ValueError("token")
-                tok = m.group(0)
-                pos[0] += len(tok)
-                if tok == "true":
-                    return True
-                if tok == "false":
-                    return False
-                if tok == "null":
-                    return None
-                if "." in tok or "e" in tok or "E" in tok:
-                    return float(tok)
-                return int(tok)
-
-            # ── JSON writer ──
-            def dumps(v):
-                if v is None:
-                    return "null"
-                if v is True:
-                    return "true"
-                if v is False:
-                    return "false"
+            # ── JSON on the wire ──
+            # json.loads / json.dumps are available to a script handler from
+            # platform 0.34.0, which this driver requires; before that a JSON
+            # simulator had to bring its own reader and writer.
+            #
+            # The writer keeps one rule the stdlib does not have: a whole
+            # float prints as an integer. SSC integer methods pass through
+            # float arithmetic on the way here (clamping, averaging), and the
+            # microphone answers 5, never 5.0.
+            def plain(v):
                 cls = v.__class__
-                if cls is dict:
-                    return "{" + ",".join(dumps(k) + ":" + dumps(x) for k, x in v.items()) + "}"
-                if cls is list or cls is tuple:
-                    return "[" + ",".join(dumps(x) for x in v) + "]"
-                if cls is str:
-                    return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
                 if cls is float and v == int(v):
-                    return str(int(v))
-                return str(v)
+                    return int(v)
+                if cls is dict:
+                    return {k: plain(x) for k, x in v.items()}
+                if cls is list or cls is tuple:
+                    return [plain(x) for x in v]
+                return v
+
+            def dumps(v):
+                return json.dumps(
+                    plain(v), separators=(",", ":"), ensure_ascii=False
+                )
 
             # ── The method table: dotted address -> (kind, state key, limits) ──
             # kinds: bool / num / int / str / enum (options) / const (read-only)
@@ -2573,11 +2501,10 @@ simulator:
                     fail(path, 404, "address not found")
 
             try:
-                request = read()
-                skip_ws()
-                if pos[0] != n or request.__class__ is not dict:
-                    raise ValueError("trailing")
-            except (ValueError, IndexError, KeyError):
+                request = json.loads(text)
+                if request.__class__ is not dict:
+                    raise ValueError("not an object")
+            except ValueError:
                 respond('{"osc":{"error":[400,{"desc":"not understood"}]}}')
                 return
 

@@ -1348,7 +1348,7 @@
       "name": "Sennheiser TeamConnect Ceiling 2",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity, analog and Dante output levels, AEC reference gain, the 7-band equalizer, noise gate, Voice Lift, priority and exclusion zones, installation type, the LED ring colours and brightness, device naming, identify, restart and restore. The microphone reports where the active talker is (beam azimuth and elevation) and live input and reference meters; both feeds are opt-in and can be switched from a macro or panel. State is push-driven: the driver subscribes and the microphone reports every change as it happens, including changes made from Sennheiser Control Cockpit.\n",
@@ -1356,7 +1356,7 @@
       "file": "audio/sennheiser_tcc2.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_tcc2.avcdriver": "a89f4eb8a9f27a7c066b4356f368af44e58ce2c6d89c4752d17bf55236fa2995"
+        "audio/sennheiser_tcc2.avcdriver": "e34544d684bae98488e5c72305d5142b34acd237d6151746a11853a7de0f8e3e"
       },
       "ports": [
         45
@@ -1365,7 +1365,7 @@
         "ssc"
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.34.0",
       "tags": [
         "microphone",
         "ceiling-mic",

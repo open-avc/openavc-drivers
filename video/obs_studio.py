@@ -612,14 +612,14 @@ class ObsStudioDriver(BaseDriver):
                 "params": {"scene": {"type": "child_id", "child_type": "scene", "required": True, "label": "Scene"}},
                 "help": "Studio mode only.",
             },
-            "transition": {"label": "Transition", "params": {},
-                           "help": "Take the preview scene to program with the current transition. Studio mode only."},
             "set_studio_mode": {
                 "label": "Set Studio Mode",
                 "params": {"enabled": {"type": "boolean", "required": True, "label": "Enabled"}},
             },
             "studio_mode_on": {"label": "Studio Mode On", "params": {}},
             "studio_mode_off": {"label": "Studio Mode Off", "params": {}},
+            "transition": {"label": "Transition", "params": {},
+                           "help": "Take the preview scene to program with the current transition. Studio mode only."},
             "set_transition": {
                 "label": "Set Transition",
                 "params": {"name": {"type": "string", "required": True, "label": "Transition", "options_state": "transition_options"}},

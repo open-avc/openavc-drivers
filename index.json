@@ -4350,7 +4350,7 @@
       "file": "video/obs_studio.py",
       "format": "python",
       "files": {
-        "video/obs_studio.py": "b1aeb28582b1f10bce1b5b55ff0c7d04ee686f535d1d9b5101fbb46f9c6b2c1a",
+        "video/obs_studio.py": "42102e5b6fba7906920ced5c0f6af8f0262119998881c4610b2d909829b4d50f",
         "video/obs_studio_sim.py": "c3ec95511908dc98f0980cf50e48b6097e9954ba33bf343e78af759555cbf551"
       },
       "ports": [

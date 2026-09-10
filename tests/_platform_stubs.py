@@ -81,6 +81,8 @@ __all__ = [
     "StubTCPSimulator",
     "StubHTTPSimulator",
     "StubUDPSimulator",
+    "StubSNMPSimulator",
+    "SnmpError",
     "strict_driver_state",
     "install_stubs",
     "stub_modules",
@@ -1160,6 +1162,77 @@ class StubUDPSimulator(StubBaseSimulator):
         return None
 
 
+class SnmpError(Exception):
+    """Stand-in for ``openavc.transport.snmp.SnmpError``.
+
+    An agent that answered and refused: a read-only OID, a wrong type, a
+    community string without write access. Distinct from silence, which the
+    transport raises as a ``ConnectionFaultError``.
+    """
+
+    def __init__(self, message: str, *, error_status: int, error_name: str,
+                 error_index: int = 0, oid: str = "") -> None:
+        super().__init__(message)
+        self.error_status = error_status
+        self.error_name = error_name
+        self.error_index = error_index
+        self.oid = oid
+
+
+class StubSNMPSimulator(StubBaseSimulator):
+    """Stand-in for ``openavc.simulator.snmp_simulator.SNMPSimulator``.
+
+    Carries the MIB and the three override points, not the request serving:
+    parsing a GET and answering it is platform code, tested in the platform
+    repo against the real transport. What a driver's ``_sim.py`` owns is what
+    its overrides do, and those call into these.
+    """
+
+    OIDS: dict = {}
+    READ_COMMUNITY = "public"
+    WRITE_COMMUNITY = "private"
+
+    # RFC 3416 error-status values, as the real base returns them.
+    _NO_ERROR = 0
+    _READ_ONLY = 4
+    _NO_ACCESS = 6
+    _WRONG_TYPE = 7
+
+    def __init__(self, device_id: str, config: dict | None = None):
+        super().__init__(device_id, config)
+        self.oids = {oid: tuple(entry) for oid, entry in self.OIDS.items()}
+
+    def read_oid(self, oid: str):
+        entry = self.oids.get(oid)
+        if entry is None:
+            return None
+        return entry[0], entry[1]
+
+    def write_oid(self, oid: str, type_name: str, value) -> int:
+        entry = self.oids.get(oid)
+        if entry is None:
+            return self._NO_ACCESS
+        if len(entry) < 3 or not entry[2]:
+            return self._READ_ONLY
+        if type_name != entry[0]:
+            return self._WRONG_TYPE
+        self.oids[oid] = (entry[0], value, True)
+        return self._NO_ERROR
+
+    def next_oid(self, after: str):
+        def key(oid: str):
+            parts = []
+            for chunk in oid.split("."):
+                try:
+                    parts.append(int(chunk))
+                except ValueError:
+                    return tuple(parts)
+            return tuple(parts)
+
+        candidates = [o for o in self.oids if key(o) > key(after)]
+        return min(candidates, key=key) if candidates else None
+
+
 # ── sys.modules installation ────────────────────────────────────────────────
 
 #: The stub module tree, as {dotted name: {attribute: value}}. A package entry
@@ -1202,6 +1275,8 @@ def _default_tree() -> dict[str, dict[str, Any]]:
         "openavc.simulator.tcp_simulator": {"TCPSimulator": StubTCPSimulator},
         "openavc.simulator.http_simulator": {"HTTPSimulator": StubHTTPSimulator},
         "openavc.simulator.udp_simulator": {"UDPSimulator": StubUDPSimulator},
+        "openavc.simulator.snmp_simulator": {"SNMPSimulator": StubSNMPSimulator},
+        "openavc.transport.snmp": {"SnmpError": SnmpError},
     }
 
 

@@ -97,10 +97,11 @@ Every Python driver ships a test (section 8.1) and a companion simulator (sectio
 | `http` | `host`, `port`, `ssl`, `verify_ssl`, `auth_type`, `username`, `password`, `token`, `api_key` | REST API devices |
 | `udp` | `host`, `port` | Broadcast protocols (Wake-on-LAN, Art-Net) |
 | `osc` | `host`, `port`, `listen_port`, `transport_mode` | OSC (Open Sound Control) devices — mixing consoles, show control, lighting |
+| `snmp` | `host`, `port`, `community`, `write_community`, `timeout`, `retries` | SNMP v2c equipment — rack PDUs, UPSes, managed switches, sensors (Python drivers only) |
 
 **OSC over UDP or TCP.** `transport: osc` defaults to UDP. To use OSC over TCP (reliable, large replies — e.g. QLab), add a `transport_mode` config field with values `udp`/`tcp` (default `udp`); when set to `tcp` the platform frames OSC with SLIP (RFC 1055) over a TCP connection and replies arrive on the same socket (`listen_port` is unused in TCP mode). OSC drivers that don't declare `transport_mode` stay UDP-only and are unaffected.
 
-**`ssh` and `mqtt` are Python-driver-only transports.** There is no `.avcdriver`/YAML surface for them — an SSH CLI session and MQTT pub/sub don't fit the declarative request/response model, so they're not in the table above or in `avcdriver.schema.json`. Use a Python driver: build the transport in `connect()` (e.g. `MQTTTransport.create(...)` / `SSHTransport.create(...)`) and drive it yourself. For MQTT, register `self.transport.on_message` and use `publish`/`subscribe` rather than `send`/`send_and_wait`.
+**`ssh`, `mqtt` and `snmp` are Python-driver-only transports.** There is no `.avcdriver`/YAML surface for them — an SSH CLI session, MQTT pub/sub and an SNMP request (a list of OIDs rather than a send string) don't fit the declarative request/response model, so they're not in `avcdriver.schema.json`. Use a Python driver and declare the transport in `DRIVER_INFO` as usual — the platform builds the connection for these too, and `self.transport` is the one it built. What differs is the surface: for MQTT, register `self.transport.on_message` and use `publish`/`subscribe` rather than `send`/`send_and_wait`; for SNMP, use `get` / `get_value` / `get_next` / `walk` / `set` and expect typed values back, never a byte stream.
 
 **Common config fields (all transports):**
 - `poll_interval` -- Seconds between polls (0 = disabled)
@@ -116,6 +117,7 @@ The runtime decides "is this device actually online?" differently per transport.
 | `serial` | The OS rejects the port open. |
 | `http` | Pre-connect `verify()` HEAD probe; periodic poll on `poll_interval`. |
 | `osc` | Pre-connect `verify()` probe (send + listen); periodic poll on `poll_interval`. |
+| `snmp` | **No transport-level probe** — it rides UDP. Override `_liveness_probe()` to read something every agent has (`1.3.6.1.2.1.1.1.0`, sysDescr), and make `poll()` await its reads so silence raises. |
 | `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. Give the runtime a liveness signal or the device will sit at `connected: True` forever no matter what's happening on the network. YAML drivers: declare a `liveness:` block (see section 2) -- a YAML driver's UDP poll queries are fire-and-forget, so polling alone proves nothing. Python drivers: override `_liveness_probe()` (see section 3), or implement a `poll()` that round-trips a status query **and raises when the reply doesn't come back** (a fire-and-forget send never fails). |
 
 For UDP, picking a poll interval is a tradeoff: too tight wastes wire traffic on a connectionless protocol; too loose delays failure detection. 10–30 seconds is reasonable for most AV equipment.
@@ -419,7 +421,8 @@ What the module exports: `StubBaseDriver`, `StubState`, `StubEvents`,
 `ConnectionFaultError`, `CommandParamError`, `UndeclaredStateError`,
 `FrameParser`, `CallableFrameParser`, `DelimiterFrameParser`,
 `StubBaseSimulator`, `StubTCPSimulator`, `StubHTTPSimulator`,
-`StubUDPSimulator`, `StubProbeContext`, plus `install_stubs()`,
+`StubUDPSimulator`, `StubSNMPSimulator`, `SnmpError`, `StubProbeContext`,
+plus `install_stubs()`,
 `stub_modules()` and `load_module()`.
 
 `install_stubs()` takes per-module overrides for anything else the driver

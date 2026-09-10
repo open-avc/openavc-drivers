@@ -23,9 +23,7 @@ event matches, or ``<variable>:<value>`` to set a presentation User Variable.
 
 Why Python
 ----------
-The control surface is two transports: the REST API over HTTPS, and UDP for
-the presentation, which ``ConfigurableDriver`` cannot send alongside an HTTP
-transport. The HDMI output roster is enumerated from the player (one port on
+The HDMI output roster is enumerated from the player (one port on
 most models, two on the XC2055 and XT2145, four on the XC4055), the Moka
 display endpoints exist on one product family and are probed for, a white
 balance write is a read-modify-write of three values, and every error the
@@ -80,7 +78,6 @@ from urllib.parse import quote
 import httpx
 
 from openavc.drivers.base import BaseDriver, ConnectionFaultError
-from openavc.transport.udp import UDPTransport
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -300,7 +297,7 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.3",
+        "version": "1.0.4",
         "min_platform_version": "0.34.0",
         "author": "OpenAVC",
         "description": (
@@ -1198,17 +1195,18 @@ class BrightSignPlayerDriver(BaseDriver):
         return await self._set_power_save(params, False)
 
     async def _udp_send(self, text: str) -> None:
+        """One datagram to the presentation's UDP receiver on the player.
+
+        The platform's ``send_udp`` opens a socket for the send and closes it
+        after; the port is the ``udp_port`` config field, which is the
+        presentation's own setting rather than anything the player reports.
+        """
         port = self._udp_port
         if port <= 0:
             raise ValueError(
                 "Set the UDP Port under Edit Device to the presentation's UDP Receiver Port first."
             )
-        udp = UDPTransport(name=self.device_id)
-        await udp.open(allow_broadcast=False)
-        try:
-            await udp.send_to(text.encode("utf-8"), self._host, port)
-        finally:
-            await udp.close()
+        await self.send_udp(text.encode("utf-8"), host=self._host, port=port)
 
     async def _cmd_send_udp_message(self, params: dict[str, Any]) -> Any:
         message = str(params.get("message", ""))

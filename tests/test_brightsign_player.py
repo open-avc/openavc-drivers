@@ -679,7 +679,8 @@ def test_udp_message_and_variable_go_to_the_configured_port():
         driver, sim = await _connected(driver_config={"udp_port": 5100})
         await driver.send_command("send_udp_message", {"message": "play_intro "})
         await driver.send_command("set_presentation_variable", {"name": "room", "value": "B 12"})
-        assert UDP_SENT == [("10.0.0.20", 5100, b"play_intro "), ("10.0.0.20", 5100, b"room:B 12")]
+        # The platform's send_udp, one datagram each to the player's host.
+        assert driver.udp_sent == [(b"play_intro ", "10.0.0.20", 5100), (b"room:B 12", "10.0.0.20", 5100)]
         with pytest.raises(ValueError):
             await driver.send_command("set_presentation_variable", {"name": "a:b", "value": "1"})
         with pytest.raises(ValueError):
@@ -693,7 +694,7 @@ def test_udp_is_refused_until_a_port_is_set():
         with pytest.raises(ValueError) as info:
             await driver.send_command("send_udp_message", {"message": "x"})
         assert "UDP Receiver Port" in str(info.value)
-        assert UDP_SENT == []
+        assert driver.udp_sent == []
     _run(scenario())
 
 

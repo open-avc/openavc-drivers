@@ -412,6 +412,29 @@ _CHILD_STRING_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 _CHILD_STRING_ID_MAX_LEN = 128
 
 
+#: Mirrors ``openavc.drivers.base.WAKE_ON_LAN_PORT``.
+WAKE_ON_LAN_PORT = 9
+
+
+def normalize_mac(value: Any) -> str | None:
+    """Mirrors ``openavc.drivers.base.normalize_mac``."""
+    digits = re.sub(r"[^0-9A-Fa-f]", "", str(value or "")).lower()
+    if len(digits) != 12 or digits == "000000000000":
+        return None
+    return ":".join(digits[i:i + 2] for i in range(0, 12, 2))
+
+
+def magic_packet(mac: str) -> bytes:
+    """Mirrors ``openavc.drivers.base.magic_packet``."""
+    normalized = normalize_mac(mac)
+    if normalized is None:
+        raise ValueError(
+            f"'{mac}' is not a MAC address (expected six hex pairs, "
+            f"like aa:bb:cc:dd:ee:ff)"
+        )
+    return b"\xff" * 6 + bytes.fromhex(normalized.replace(":", "")) * 16
+
+
 def _fold_child_presence(prop: str, value: Any) -> Any:
     """The platform's rule for a child's fault pair: "nothing claimed" is None
     at both levels, and an empty string written through any door folds to it
@@ -469,6 +492,10 @@ class StubBaseDriver:
         # keeps these in a process-wide registry the transport formatter reads;
         # here they are just recorded so a test can assert on them.
         self.redacted_secrets: set[str] = set()
+        # Datagrams the driver sent beside its transport through send_udp() /
+        # wake_on_lan(): (payload, host, port). The platform opens a socket
+        # per send; here the bytes are recorded so a test can assert on them.
+        self.udp_sent: list[tuple[bytes, str, int]] = []
         self._init_state_variables()
 
     def _init_state_variables(self) -> None:
@@ -519,6 +546,58 @@ class StubBaseDriver:
             f"device.{self.device_id}.{property_name}",
             source=f"device.{self.device_id}",
         )
+
+    async def send_udp(
+        self,
+        payload: bytes,
+        host: str | None = None,
+        port: int | None = None,
+        broadcast: bool = False,
+    ) -> list[tuple[str, int]]:
+        """Record one datagram the way the platform would send it.
+
+        Same rules as ``BaseDriver.send_udp``: a port is required, the host
+        defaults to the device's own, ``broadcast`` goes to 255.255.255.255,
+        and ``udp_redirect`` wins over both.
+        """
+        if port is None or int(port) <= 0:
+            raise ValueError(f"[{self.device_id}] send_udp needs a port to send to")
+        port = int(port)
+        if broadcast:
+            host = "255.255.255.255"
+        else:
+            host = str(host or self.config.get("host") or "").strip()
+            if not host:
+                raise ValueError(
+                    f"[{self.device_id}] send_udp needs a host: the device has "
+                    f"no host configured and none was given"
+                )
+        target = (host, port)
+        # The platform's ``udp_redirect`` (set while a device is simulated)
+        # is a class attribute defaulting to None; a test that wants the
+        # redirect sets it on the instance.
+        redirect = getattr(self, "udp_redirect", None)
+        if redirect is not None:
+            target = redirect
+        self.udp_sent.append((bytes(payload), target[0], target[1]))
+        return [target]
+
+    async def wake_on_lan(
+        self,
+        mac: str,
+        host: str | None = None,
+        port: int = WAKE_ON_LAN_PORT,
+    ) -> str:
+        """The platform's Wake-on-LAN: broadcast, then the host directly."""
+        packet = magic_packet(mac)
+        normalized = normalize_mac(mac) or mac
+        await self.send_udp(packet, port=port, broadcast=True)
+        direct = str(host or self.config.get("host") or "").strip()
+        if getattr(self, "udp_redirect", None) is not None:
+            direct = ""
+        if direct:
+            await self.send_udp(packet, host=direct, port=port)
+        return normalized
 
     def redact_in_log(self, value: str) -> None:
         """Mask a runtime secret (a session token) in this device's log.

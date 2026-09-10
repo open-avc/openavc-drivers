@@ -1,0 +1,1373 @@
+# ViewSonic Commercial Display (LFD RS-232 & LAN protocol)
+# Reference: ViewSonic "LFD RS-232 & LAN Protocol Specification" rev 3.3.2
+#            (Dec 2020), the brand-wide grammar every CDE/ViewBoard/NMP model
+#            publishes per model at manuals.viewsonic.com.
+# Protocol: ASCII framed packets, CR terminated, over TCP 5000 (no login) or
+#           RS-232 9600 8N1 (fixed).
+#
+#   Set:    [len][ID two digits]['s'][code][value 3 bytes]<CR>
+#   Get:    [len][ID two digits]['g'][code]['000']<CR>
+#   Ack:    [len][ID]['+' or '-']<CR>                (set result)
+#   Reply:  [len][ID]['r'][code][value...]<CR>       (get answer)
+#   IR:     [len][ID]['p'][key MSB][key LSB]<CR>     (RCU pass-through)
+#
+# The length byte is the ASCII digit of the byte count excluding CR: '8' for
+# the standard 9-byte packet, which is every command here, so it is part of
+# command_prefix with the Monitor ID. Info replies (device name, MAC, IP,
+# serial, firmware, operation hours, smart hub) use the fixed "32-byte
+# format": the value is NUL-padded and its length byte is a literal '2', so
+# every response rule matches positionally and strips the padding itself.
+#
+# The backlight level rides its own command-type pair inherited from the
+# color-calibration command set: set type 'A' / get type 'a', code 'B'.
+# Monitor ID is 01 for LAN control; RS-232 daisy chains address IDs 1-98, so
+# the ID is a config field and replies for other IDs match no rule.
+#
+# Push vs poll: HYBRID. Since protocol 3.2.1 the display auto-replies (sends
+# the updated power / input / brightness / backlight / volume / mute frame
+# unsolicited when a user changes one locally); the rules below match any
+# 'r' frame whenever it arrives, and polling refreshes the rest.
+#
+# Power on: "001" on, "000" standby. Whether LAN control survives standby
+# depends on the display's standby/network setting; the spec says power-on
+# via LAN "may work only under specific modes" and offers "WOL by MAC" as
+# the alternative. Power On here is that alternative: the Wake-on-LAN magic
+# packet to the MAC learned on every connection (or typed in), declared
+# available_offline so it runs while the display is unreachable. The
+# protocol's own Set Power 001 stays reachable as Power On (LAN Command).
+#
+# 2.0.0 is the conversion from the 1.x Python driver; every command, state
+# variable and device setting kept its name and tokens.
+
+id: viewsonic_cde
+name: ViewSonic Commercial Display
+manufacturer: ViewSonic
+category: display
+version: 2.0.0
+author: OpenAVC
+description: >-
+  Controls ViewSonic CDE-series commercial displays (and other ViewSonic
+  large-format displays publishing the LFD RS-232 & LAN protocol) on TCP
+  port 5000 or direct RS-232. Power, input select, volume, mute,
+  brightness, backlight, picture values, freeze and screen blank, PIP,
+  video-wall tiling, keypad navigation, control locks, ambient sensor
+  readings, and a Power On that wakes a display whose standby closes the
+  network port over Wake-on-LAN. Listens for the display's own status
+  pushes and polls for the rest.
+source_url: https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol
+tags: [display, viewsonic, cde, signage, lfd, rs232, lan-control]
+verified: false
+simulated: true
+ports: [5000]
+min_platform_version: "0.34.0"
+compatible_models:
+  - manufacturer: ViewSonic
+    models:
+      - CDE4330
+      - CDE5530
+      - CDE6530
+      - CDE7530
+      - CDE8630
+      - CDE9830
+      - CDE4320
+      - CDE5520
+      - CDE6520
+      - CDE7520
+      - CDE8620
+      - CDE7512
+    confidence: untested
+    notes: >-
+      The CDE30 and CDE20 series publish this protocol in their per-model
+      RS-232 documentation. Every ViewSonic large-format display on the
+      brand-wide LFD RS-232 & LAN protocol, including ViewBoard IFP
+      interactive displays and NMP media players, is expected to work.
+      Function support varies by model (PIP and tiling are
+      model-dependent); an unsupported command answers a reject the driver
+      ignores.
+protocols: [viewsonic_lfd_rs232_lan]
+transport: tcp
+transports: [tcp, serial]
+delimiter: "\r"
+command_prefix: "8{monitor_id:02d}"
+command_suffix: "\r"
+
+help:
+  overview: >-
+    ViewSonic commercial displays speaking the LFD RS-232 & LAN protocol.
+    Power, input, audio, picture controls, screen blank and freeze, PIP,
+    video-wall tiling, and control locks. The display pushes power / input
+    / brightness / backlight / volume / mute changes on its own; everything
+    else is polled every 30 seconds.
+  setup: >-
+    1. Network control: connect the display's LAN port, note the IP address
+       from the network settings, and add it here (TCP port 5000, no
+       login). Monitor ID stays 1 for LAN control.
+
+    2. Check the display's standby / network-standby setting: on many
+       models a display in standby closes the network port. Enable the mode
+       that keeps the network alive, or rely on Power On, which wakes the
+       display over Wake-on-LAN (turn Wake-on-LAN on in the display's
+       settings; the MAC address is learned on every connection).
+
+    3. Serial control: connect the RS-232 port with a crossover (null-modem)
+       cable, 9600 8N1 (fixed). On a daisy chain, set each display's
+       Monitor ID in its OSD and match it here.
+  connection: >-
+    A display whose standby mode shuts the network down does not answer on
+    TCP 5000. Power On wakes it over Wake-on-LAN; the display's MAC is
+    learned automatically on every connection, or can be typed in under
+    Edit Device for a display that has never connected.
+
+discovery:
+  # Active fingerprint: the documented communication-link test (Get-ACK)
+  # on TCP 5000 answers the framed reply '801rz000', protocol-unique
+  # grammar. A display in network-dead standby will not probe; the OUI /
+  # alias hints still surface it.
+  tcp_probe:
+    port: 5000
+    send_ascii: "801gz000\r"
+    expect: "01rz"
+  oui:
+    - "00:0b:14"
+    - "04:0e:c2"
+  manufacturer_alias:
+    - viewsonic
+    - viewsonic corporation
+
+default_config:
+  host: ""
+  port: 5000
+  monitor_id: 1
+  poll_interval: 30
+  inter_command_delay: 0.05
+  baudrate: 9600
+  parity: "N"
+  bytesize: 8
+  stopbits: 1
+  mac_address: ""
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    description: Display IP address. LAN control uses TCP port 5000.
+  port:
+    type: integer
+    default: 5000
+    label: TCP Port
+    description: Default 5000 for ViewSonic LAN control (fixed on the display).
+  monitor_id:
+    type: integer
+    default: 1
+    min: 1
+    max: 98
+    label: Monitor ID
+    description: Leave at 1 for LAN control. RS-232 daisy chains address IDs 1-98 (set per display in the OSD).
+  poll_interval:
+    type: integer
+    default: 30
+    min: 5
+    label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.05
+    label: Inter-Command Delay (sec)
+  baudrate:
+    type: integer
+    default: 9600
+    label: Baud Rate (serial)
+    description: ViewSonic LFD serial control is fixed at 9600 8N1.
+  mac_address:
+    type: string
+    default: ""
+    label: MAC Address (for Wake-on-LAN)
+    description: Optional. Learned automatically on every connection; fill in manually to wake a display that has never connected.
+
+state_variables:
+  power:
+    type: enum
+    values: ["on", standby]
+    label: Power
+    control: true
+    help: "on = picture up; standby = off. Whether LAN control survives standby depends on the display's standby/network setting; Power On wakes it over Wake-on-LAN either way."
+  source:
+    type: string
+    label: Source
+    control: true
+    help: "Active input (hdmi1-4, dp1/dp2, typec1/typec2, ops, android, vga1-3, dvi, internal, ypbpr, av, svideo, tv). A code this driver does not know reads back as its two-character suffix."
+  signal_detected:
+    type: boolean
+    label: Signal Present
+    help: Whether the current input has a detected video signal (reported with every input read).
+  volume:
+    type: integer
+    label: Volume
+    control: true
+    min: 0
+    max: 100
+    step: 1
+    help: Speaker volume, 0-100.
+  mute:
+    type: boolean
+    label: Mute
+    control: true
+    help: Audio mute state.
+  brightness:
+    type: integer
+    label: Brightness
+    control: true
+    min: 0
+    max: 100
+    step: 1
+    help: Picture brightness, 0-100. On Android-based models the embedded source is governed by Backlight instead.
+  backlight:
+    type: integer
+    label: Backlight
+    min: 0
+    max: 100
+    step: 1
+    help: Backlight level, 0-100.
+  contrast:
+    type: integer
+    label: Contrast
+    min: 0
+    max: 100
+    step: 1
+    help: Picture contrast, 0-100.
+  sharpness:
+    type: integer
+    label: Sharpness
+    min: 0
+    max: 100
+    step: 1
+    help: Picture sharpness, 0-100.
+  color:
+    type: integer
+    label: Color
+    min: 0
+    max: 100
+    step: 1
+    help: Color saturation, 0-100.
+  tint:
+    type: integer
+    label: Tint
+    min: 0
+    max: 100
+    step: 1
+    help: Picture tint, 0-100.
+  backlight_on:
+    type: boolean
+    label: Backlight On
+    help: False while the screen is blanked (backlight off) with the display still on and controllable.
+  freeze:
+    type: boolean
+    label: Freeze
+    help: Whether the picture is frozen.
+  touch_enabled:
+    type: boolean
+    label: Touch Enabled
+    help: Whether the touch screen is enabled (touch-capable models only).
+  power_lock:
+    type: enum
+    values: [locked, unlocked]
+    label: Power Key Lock
+    help: Whether the display's power key is locked. RS-232/LAN power control keeps working while locked.
+  button_lock:
+    type: enum
+    values: [locked, unlocked]
+    label: Button Lock
+    help: Whether the front-panel buttons and remote are locked (power key excepted).
+  menu_lock:
+    type: enum
+    values: [locked, unlocked]
+    label: Menu Lock
+    help: Whether the OSD menu key is locked.
+  remote_control_mode:
+    type: enum
+    values: [disabled, enabled, passthrough]
+    label: Remote Control Mode
+    help: "IR remote handling: enabled, disabled, or passed through to a device on the RS-232 port."
+  pip_mode:
+    type: enum
+    values: ["off", pip, pbp]
+    label: PIP Mode
+    help: Picture-in-picture / picture-by-picture mode (model-dependent).
+  pip_input:
+    type: string
+    label: PIP Input
+    help: Source shown in the PIP window (model-dependent).
+  tiling_mode:
+    type: boolean
+    label: Tiling Mode
+    help: Video-wall tiling on/off (video-wall models only).
+  tiling_compensation:
+    type: boolean
+    label: Tiling Bezel Compensation
+    help: Video-wall bezel-width compensation on/off.
+  tiling_layout:
+    type: string
+    label: Tiling Layout
+    help: Video-wall layout as <horizontal>x<vertical> monitors (e.g. 3x3).
+  tiling_position:
+    type: integer
+    label: Tiling Position
+    help: This display's position in the video wall (1-25; 0 while tiling is off).
+  thermal_c:
+    type: integer
+    label: Temperature (C)
+    help: Internal temperature reported by the display, degrees Celsius.
+  amb_temperature_c:
+    type: number
+    label: Ambient Temperature (C)
+    help: Ambient temperature from the Smart Hub sensor accessory (models with a sensor hub only).
+  amb_humidity:
+    type: number
+    label: Ambient Humidity (%)
+    help: Ambient relative humidity from the Smart Hub sensor accessory.
+  amb_light:
+    type: integer
+    label: Ambient Light
+    help: Ambient light level from the Smart Hub sensor accessory.
+  amb_presence:
+    type: boolean
+    label: Presence Detected
+    help: PIR presence detection from the Smart Hub sensor accessory, usable as an occupancy trigger.
+  operation_hours:
+    type: integer
+    label: Operation Hours
+    help: Accumulated operation hours reported by the display.
+  device_name:
+    type: string
+    label: Device Name
+    help: Device name reported by the display.
+  mac_address:
+    type: string
+    label: MAC Address
+    help: Network MAC address reported by the display (twelve hex digits); Power On sends its Wake-on-LAN packet to it.
+  ip_address:
+    type: string
+    label: Reported IP Address
+    help: IP address the display reports for itself.
+  serial_number:
+    type: string
+    label: Serial Number
+    help: Serial number reported by the display.
+  firmware_version:
+    type: string
+    label: Firmware Version
+    help: Firmware version reported by the display.
+
+# Every command below is one 9-byte packet: command_prefix supplies the
+# length byte and Monitor ID, the send string is [type][code][value].
+commands:
+  power_on:
+    label: Power On
+    help: Wake the display over Wake-on-LAN. Sends the magic packet to the MAC learned on the last connection (or typed in under Edit Device), so it works from a macro, schedule or panel button while the display is in standby with its network port closed. Turn Wake-on-LAN on in the display's settings.
+    available_offline: true
+    udp:
+      magic_packet: mac_address
+    sets: { power: "on" }
+  power_on_lan:
+    label: Power On (LAN Command)
+    help: The protocol's own Set Power on, over the control connection. Works only while the display's standby mode keeps the network alive; Power On (Wake-on-LAN) covers the rest.
+    send: "s!001"
+    sets: { power: "on" }
+  power_off:
+    label: Power Off (Standby)
+    help: Put the display in standby. Depending on the model's standby setting this may close the LAN control port; Power On wakes it back up over Wake-on-LAN.
+    send: "s!000"
+    sets: { power: standby }
+  set_source:
+    label: Select Source
+    help: Select an input. Sources a given model lacks answer a reject the driver ignores.
+    send: "s\"{source}"
+    params:
+      source:
+        type: enum
+        required: true
+        label: Source
+        values:
+          - { value: hdmi1, label: "HDMI 1" }
+          - { value: hdmi2, label: "HDMI 2" }
+          - { value: hdmi3, label: "HDMI 3" }
+          - { value: hdmi4, label: "HDMI 4" }
+          - { value: dp1, label: "DisplayPort 1" }
+          - { value: dp2, label: "DisplayPort 2" }
+          - { value: typec1, label: "USB-C 1" }
+          - { value: typec2, label: "USB-C 2" }
+          - { value: ops, label: "Slot-in PC (OPS/HDBT)" }
+          - { value: android, label: "Embedded Android" }
+          - { value: vga1, label: "VGA 1" }
+          - { value: vga2, label: "VGA 2" }
+          - { value: vga3, label: "VGA 3" }
+          - { value: dvi, label: "DVI" }
+          - { value: internal, label: "Internal Memory" }
+          - { value: ypbpr, label: "YPbPr Component" }
+          - { value: av, label: "AV" }
+          - { value: svideo, label: "S-Video" }
+          - { value: tv, label: "TV Tuner" }
+        map:
+          hdmi1: "004"
+          hdmi2: "014"
+          hdmi3: "024"
+          hdmi4: "034"
+          dp1: "009"
+          dp2: "029"
+          typec1: "019"
+          typec2: "039"
+          ops: "007"
+          android: "00A"
+          vga1: "006"
+          vga2: "016"
+          vga3: "026"
+          dvi: "005"
+          internal: "008"
+          ypbpr: "003"
+          av: "001"
+          svideo: "002"
+          tv: "000"
+  input_cycle:
+    label: Cycle Input
+    help: Step to the next input in the display's own cycle list.
+    send: "s\"00Z"
+  set_volume:
+    label: Set Volume
+    send: "s5{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Volume (0-100), min: 0, max: 100 }
+    sets: { volume: "{level}" }
+  volume_up:
+    label: Volume Up
+    send: "s5901"
+  volume_down:
+    label: Volume Down
+    send: "s5900"
+  mute_on:
+    label: Mute On
+    send: "s6001"
+    sets: { mute: true }
+  mute_off:
+    label: Mute Off
+    send: "s6000"
+    sets: { mute: false }
+  set_brightness:
+    label: Set Brightness
+    send: "s${level:03d}"
+    params:
+      level: { type: integer, required: true, label: Brightness (0-100), min: 0, max: 100 }
+    sets: { brightness: "{level}" }
+  brightness_up:
+    label: Brightness Up
+    send: "s$901"
+  brightness_down:
+    label: Brightness Down
+    send: "s$900"
+  set_contrast:
+    label: Set Contrast
+    send: "s#{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Contrast (0-100), min: 0, max: 100 }
+    sets: { contrast: "{level}" }
+  set_sharpness:
+    label: Set Sharpness
+    send: "s%{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Sharpness (0-100), min: 0, max: 100 }
+    sets: { sharpness: "{level}" }
+  set_color:
+    label: Set Color
+    send: "s&{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Color (0-100), min: 0, max: 100 }
+    sets: { color: "{level}" }
+  set_tint:
+    label: Set Tint
+    send: "s'{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Tint (0-100), min: 0, max: 100 }
+    sets: { tint: "{level}" }
+  backlight_off:
+    label: Screen Blank (Backlight Off)
+    help: Blank the picture by switching the backlight off. The display stays on and controllable, the right 'off' for a short pause.
+    send: "s(000"
+    sets: { backlight_on: false }
+  backlight_on:
+    label: Screen Unblank (Backlight On)
+    send: "s(001"
+    sets: { backlight_on: true }
+  freeze_on:
+    label: Freeze Picture
+    send: "s*001"
+    sets: { freeze: true }
+  freeze_off:
+    label: Unfreeze Picture
+    send: "s*000"
+    sets: { freeze: false }
+  set_color_mode:
+    label: Set Color Mode
+    help: "Color temperature preset. Set-only: the protocol has no color-mode read-back."
+    send: "s){mode}"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Color Mode
+        values:
+          - { value: normal, label: Normal }
+          - { value: warm, label: Warm }
+          - { value: cold, label: Cold }
+          - { value: personal, label: Personal }
+        map: { normal: "000", warm: "001", cold: "002", personal: "003" }
+  set_picture_size:
+    label: Set Picture Size
+    help: "Aspect handling. Set-only: the protocol has no picture-size read-back."
+    send: "s1{size}"
+    params:
+      size:
+        type: enum
+        required: true
+        label: Picture Size
+        values:
+          - { value: full, label: "Full (16:9)" }
+          - { value: normal, label: "Normal (4:3)" }
+          - { value: real, label: "Real (1:1)" }
+        map: { full: "000", normal: "001", real: "002" }
+  set_bass:
+    label: Set Bass
+    help: "Set-only: the protocol has no bass read-back."
+    send: "s.{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Bass (0-100), min: 0, max: 100 }
+  set_treble:
+    label: Set Treble
+    help: "Set-only: the protocol has no treble read-back."
+    send: "s/{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Treble (0-100), min: 0, max: 100 }
+  set_balance:
+    label: Set Balance
+    help: "50 is centered. Set-only: the protocol has no balance read-back."
+    send: "s0{level:03d}"
+    params:
+      level: { type: integer, required: true, label: Balance (0-100), min: 0, max: 100 }
+  surround_on:
+    label: Surround Sound On
+    help: "Set-only: the protocol has no surround read-back."
+    send: "s-001"
+  surround_off:
+    label: Surround Sound Off
+    send: "s-000"
+  set_osd_language:
+    label: Set OSD Language
+    help: Set-only; some models extend the list beyond these three documented languages.
+    send: "s2{language}"
+    params:
+      language:
+        type: enum
+        required: true
+        label: Language
+        values:
+          - { value: english, label: English }
+          - { value: french, label: French }
+          - { value: spanish, label: Spanish }
+        map: { english: "000", french: "001", spanish: "002" }
+  set_pip_mode:
+    label: Set PIP Mode
+    send: "s9{mode}"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: PIP Mode
+        values:
+          - { value: "off", label: "Off" }
+          - { value: pip, label: PIP }
+          - { value: pbp, label: PBP }
+        map: { "off": "000", pip: "001", pbp: "002" }
+    sets: { pip_mode: "{mode}" }
+  set_pip_input:
+    label: Set PIP Input
+    send: "s7{source}"
+    params:
+      source:
+        type: enum
+        required: true
+        label: PIP Source
+        values:
+          - { value: hdmi1, label: "HDMI 1" }
+          - { value: hdmi2, label: "HDMI 2" }
+          - { value: hdmi3, label: "HDMI 3" }
+          - { value: hdmi4, label: "HDMI 4" }
+          - { value: dp1, label: "DisplayPort 1" }
+          - { value: dp2, label: "DisplayPort 2" }
+          - { value: typec1, label: "USB-C 1" }
+          - { value: typec2, label: "USB-C 2" }
+          - { value: ops, label: "Slot-in PC (OPS/HDBT)" }
+          - { value: android, label: "Embedded Android" }
+          - { value: vga1, label: "VGA 1" }
+          - { value: vga2, label: "VGA 2" }
+          - { value: vga3, label: "VGA 3" }
+          - { value: dvi, label: "DVI" }
+          - { value: internal, label: "Internal Memory" }
+          - { value: ypbpr, label: "YPbPr Component" }
+          - { value: av, label: "AV" }
+          - { value: svideo, label: "S-Video" }
+          - { value: tv, label: "TV Tuner" }
+        map:
+          hdmi1: "004"
+          hdmi2: "014"
+          hdmi3: "024"
+          hdmi4: "034"
+          dp1: "009"
+          dp2: "029"
+          typec1: "019"
+          typec2: "039"
+          ops: "007"
+          android: "00A"
+          vga1: "006"
+          vga2: "016"
+          vga3: "026"
+          dvi: "005"
+          internal: "008"
+          ypbpr: "003"
+          av: "001"
+          svideo: "002"
+          tv: "000"
+  set_pip_sound:
+    label: Set PIP Sound
+    help: "Which picture's audio plays. Set-only: no read-back."
+    send: "s:{from_window}"
+    params:
+      from_window:
+        type: enum
+        required: true
+        label: Sound From
+        values:
+          - { value: main, label: Main Picture }
+          - { value: sub, label: Sub Picture }
+        map: { main: "000", sub: "001" }
+  set_pip_position:
+    label: Set PIP Position
+    help: "Set-only: no read-back."
+    send: "s;{position}"
+    params:
+      position:
+        type: enum
+        required: true
+        label: Position
+        values:
+          - { value: up, label: Up }
+          - { value: down, label: Down }
+          - { value: left, label: Left }
+          - { value: right, label: Right }
+        map: { up: "000", down: "001", left: "002", right: "003" }
+  set_tiling_mode:
+    label: Set Tiling Mode
+    help: Video-wall tiling on/off (video-wall models only).
+    send: "sP{mode}"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Tiling
+        values:
+          - { value: "on", label: "On" }
+          - { value: "off", label: "Off" }
+        map: { "on": "001", "off": "000" }
+  set_tiling_compensation:
+    label: Set Tiling Bezel Compensation
+    send: "sQ{mode}"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Bezel Compensation
+        values:
+          - { value: "on", label: "On" }
+          - { value: "off", label: "Off" }
+        map: { "on": "001", "off": "000" }
+  set_tiling_layout:
+    label: Set Tiling Layout
+    help: Video-wall size in monitors, 1-9 each way.
+    send: "sR0{horizontal}{vertical}"
+    params:
+      horizontal: { type: integer, required: true, label: Horizontal Monitors (1-9), min: 1, max: 9 }
+      vertical: { type: integer, required: true, label: Vertical Monitors (1-9), min: 1, max: 9 }
+  set_tiling_position:
+    label: Set Tiling Position
+    help: This display's position in the video wall (1-25, row-major from top left).
+    send: "sS{position:03d}"
+    params:
+      position: { type: integer, required: true, label: Position (1-25), min: 1, max: 25 }
+    sets: { tiling_position: "{position}" }
+  nav_key:
+    label: Press Navigation Key
+    help: Send a virtual keypad press for OSD navigation.
+    send: "sA{key}"
+    params:
+      key:
+        type: enum
+        required: true
+        label: Key
+        values:
+          - { value: up, label: Up }
+          - { value: down, label: Down }
+          - { value: left, label: Left }
+          - { value: right, label: Right }
+          - { value: enter, label: Enter }
+          - { value: input, label: Input }
+          - { value: menu, label: Menu }
+          - { value: exit, label: Exit }
+        map: { up: "000", down: "001", left: "002", right: "003", enter: "004", input: "005", menu: "006", exit: "007" }
+  press_number:
+    label: Press Number Key
+    send: "s@{number:03d}"
+    params:
+      number: { type: integer, required: true, label: Number (0-9), min: 0, max: 9 }
+  custom_hot_key:
+    label: Trigger Custom Hot Key
+    help: Fire a model-defined customized hot key (e.g. 1 opens the MVBA app on supporting models).
+    send: "sX{key:03d}"
+    params:
+      key: { type: integer, required: true, label: Hot Key (1-999), min: 1, max: 999 }
+  restore_default:
+    label: Restore Factory Defaults
+    help: Recover the display to factory settings. This wipes the display's own configuration; use with care.
+    send: "s~000"
+  raw_command:
+    label: Send Raw Command
+    help: "Send any set/get from the LFD protocol tables: pick the type ('A'/'a' are the backlight-level pair), give the one-character command code and the three-character value field (e.g. type s, code $, value 076)."
+    send: "{cmd_type}{code}{value}"
+    params:
+      cmd_type:
+        type: enum
+        required: true
+        label: Type
+        values:
+          - { value: s, label: Set }
+          - { value: g, label: Get }
+          - { value: A, label: Set (backlight pair) }
+          - { value: a, label: Get (backlight pair) }
+      code:
+        type: string
+        required: true
+        label: Command Code
+        pattern: '^[\x20-\x7e]$'
+      value:
+        type: string
+        required: true
+        default: "000"
+        label: Value
+        pattern: '^[0-9A-Za-z]{3}$'
+
+# Settings are written as a full frame (command_prefix does not apply to a
+# setting write) followed by the matching get, so the value reads back at
+# once. Enum labels are the state tokens: the platform confirms a queued
+# write by matching the state variable's value against the label.
+device_settings:
+  backlight:
+    type: integer
+    min: 0
+    max: 100
+    label: Backlight
+    help: Backlight level, 0-100. Persisted on the display.
+    state_key: backlight
+    default: 100
+    setup: false
+    write:
+      send: "8{monitor_id:02d}AB{value:03d}\r8{monitor_id:02d}aB000\r"
+  power_lock:
+    type: enum
+    values:
+      - { value: "000", label: unlocked }
+      - { value: "001", label: locked }
+    label: Power Key Lock
+    help: Lock the power key on the panel and remote. RS-232/LAN power control keeps working.
+    state_key: power_lock
+    default: unlocked
+    setup: false
+    write:
+      send: "8{monitor_id:02d}s4{value}\r8{monitor_id:02d}go000\r"
+  button_lock:
+    type: enum
+    values:
+      - { value: "000", label: unlocked }
+      - { value: "001", label: locked }
+    label: Button Lock
+    help: Lock the front-panel buttons and remote (power key excepted).
+    state_key: button_lock
+    default: unlocked
+    setup: false
+    write:
+      send: "8{monitor_id:02d}s8{value}\r8{monitor_id:02d}gp000\r"
+  menu_lock:
+    type: enum
+    values:
+      - { value: "000", label: unlocked }
+      - { value: "001", label: locked }
+    label: Menu Lock
+    help: Lock the OSD menu key.
+    state_key: menu_lock
+    default: unlocked
+    setup: false
+    write:
+      send: "8{monitor_id:02d}s>{value}\r8{monitor_id:02d}gq000\r"
+  remote_control_mode:
+    type: enum
+    values:
+      - { value: "001", label: enabled }
+      - { value: "000", label: disabled }
+      - { value: "002", label: passthrough }
+    label: Remote Control Mode
+    help: Pass Through forwards IR remote keys to the RS-232 port instead of acting on them.
+    state_key: remote_control_mode
+    default: enabled
+    setup: false
+    write:
+      send: "8{monitor_id:02d}sB{value}\r8{monitor_id:02d}gn000\r"
+  touch:
+    type: boolean
+    label: Touch Screen
+    help: Enable or disable the touch screen (touch-capable models only).
+    state_key: touch_enabled
+    default: true
+    setup: false
+    write:
+      send: "8{monitor_id:02d}s={value:d}03\r8{monitor_id:02d}g=003\r"
+
+quick_actions: [power_on, power_off]
+
+# Replies are CR-framed and matched after the CR is stripped; the length
+# byte is any character and the Monitor ID must be this display's. Info
+# replies keep their NUL padding through the strip, so those rules end in
+# \x00*. First match wins.
+responses:
+  - match: '^.{monitor_id:02d}rl(00[01])$'
+    mappings:
+      - { group: 1, state: power, map: { "001": "on", "000": standby } }
+  # Get-Input packs two facts: digit 1 = signal detected, digits 2-3 = the
+  # source code's last two characters (every documented code has a unique
+  # suffix).
+  - match: '^.{monitor_id:02d}rj([01])(\w\w)$'
+    mappings:
+      - { group: 1, state: signal_detected, map: { "1": "true", "0": "false" } }
+      - group: 2
+        state: source
+        map:
+          "04": hdmi1
+          "14": hdmi2
+          "24": hdmi3
+          "34": hdmi4
+          "09": dp1
+          "29": dp2
+          "19": typec1
+          "39": typec2
+          "07": ops
+          "0A": android
+          "06": vga1
+          "16": vga2
+          "26": vga3
+          "05": dvi
+          "08": internal
+          "03": ypbpr
+          "01": av
+          "02": svideo
+          "00": tv
+  - match: '^.{monitor_id:02d}ru.(\w\w)$'
+    mappings:
+      - group: 1
+        state: pip_input
+        map:
+          "04": hdmi1
+          "14": hdmi2
+          "24": hdmi3
+          "34": hdmi4
+          "09": dp1
+          "29": dp2
+          "19": typec1
+          "39": typec2
+          "07": ops
+          "0A": android
+          "06": vga1
+          "16": vga2
+          "26": vga3
+          "05": dvi
+          "08": internal
+          "03": ypbpr
+          "01": av
+          "02": svideo
+          "00": tv
+  - match: '^.{monitor_id:02d}rf(\d{3})$'
+    set: { volume: "$1" }
+  - match: '^.{monitor_id:02d}rb(\d{3})$'
+    set: { brightness: "$1" }
+  # Backlight level: its own get type 'a', code 'B'; reply assumed r + B.
+  - match: '^.{monitor_id:02d}rB(\d{3})$'
+    set: { backlight: "$1" }
+  - match: '^.{monitor_id:02d}ra(\d{3})$'
+    set: { contrast: "$1" }
+  - match: '^.{monitor_id:02d}rc(\d{3})$'
+    set: { sharpness: "$1" }
+  - match: '^.{monitor_id:02d}rd(\d{3})$'
+    set: { color: "$1" }
+  - match: '^.{monitor_id:02d}re(\d{3})$'
+    set: { tint: "$1" }
+  - match: '^.{monitor_id:02d}rg(00[01])$'
+    mappings:
+      - { group: 1, state: mute, map: { "001": "true", "000": "false" } }
+  - match: '^.{monitor_id:02d}rh(00[01])$'
+    mappings:
+      - { group: 1, state: backlight_on, map: { "001": "true", "000": "false" } }
+  - match: '^.{monitor_id:02d}ri(00[01])$'
+    mappings:
+      - { group: 1, state: freeze, map: { "001": "true", "000": "false" } }
+  # Locks are not inverted on this protocol: 000 unlock / 001 lock.
+  - match: '^.{monitor_id:02d}ro(00[01])$'
+    mappings:
+      - { group: 1, state: power_lock, map: { "001": locked, "000": unlocked } }
+  - match: '^.{monitor_id:02d}rp(00[01])$'
+    mappings:
+      - { group: 1, state: button_lock, map: { "001": locked, "000": unlocked } }
+  - match: '^.{monitor_id:02d}rq(00[01])$'
+    mappings:
+      - { group: 1, state: menu_lock, map: { "001": locked, "000": unlocked } }
+  - match: '^.{monitor_id:02d}rn(00[012])$'
+    mappings:
+      - { group: 1, state: remote_control_mode, map: { "000": disabled, "001": enabled, "002": passthrough } }
+  - match: '^.{monitor_id:02d}rt(00[012])$'
+    mappings:
+      - { group: 1, state: pip_mode, map: { "000": "off", "001": pip, "002": pbp } }
+  - match: '^.{monitor_id:02d}rv(00[01])$'
+    mappings:
+      - { group: 1, state: tiling_mode, map: { "001": "true", "000": "false" } }
+  - match: '^.{monitor_id:02d}rw(00[01])$'
+    mappings:
+      - { group: 1, state: tiling_compensation, map: { "001": "true", "000": "false" } }
+  # Tiling H x V arrives as "0" + H digit + V digit; the layout string is
+  # the pair spelled out.
+  - match: '^.{monitor_id:02d}rx0([1-9][1-9])$'
+    mappings:
+      - group: 1
+        state: tiling_layout
+        map:
+          "11": "1x1"
+          "12": "1x2"
+          "13": "1x3"
+          "14": "1x4"
+          "15": "1x5"
+          "16": "1x6"
+          "17": "1x7"
+          "18": "1x8"
+          "19": "1x9"
+          "21": "2x1"
+          "22": "2x2"
+          "23": "2x3"
+          "24": "2x4"
+          "25": "2x5"
+          "26": "2x6"
+          "27": "2x7"
+          "28": "2x8"
+          "29": "2x9"
+          "31": "3x1"
+          "32": "3x2"
+          "33": "3x3"
+          "34": "3x4"
+          "35": "3x5"
+          "36": "3x6"
+          "37": "3x7"
+          "38": "3x8"
+          "39": "3x9"
+          "41": "4x1"
+          "42": "4x2"
+          "43": "4x3"
+          "44": "4x4"
+          "45": "4x5"
+          "46": "4x6"
+          "47": "4x7"
+          "48": "4x8"
+          "49": "4x9"
+          "51": "5x1"
+          "52": "5x2"
+          "53": "5x3"
+          "54": "5x4"
+          "55": "5x5"
+          "56": "5x6"
+          "57": "5x7"
+          "58": "5x8"
+          "59": "5x9"
+          "61": "6x1"
+          "62": "6x2"
+          "63": "6x3"
+          "64": "6x4"
+          "65": "6x5"
+          "66": "6x6"
+          "67": "6x7"
+          "68": "6x8"
+          "69": "6x9"
+          "71": "7x1"
+          "72": "7x2"
+          "73": "7x3"
+          "74": "7x4"
+          "75": "7x5"
+          "76": "7x6"
+          "77": "7x7"
+          "78": "7x8"
+          "79": "7x9"
+          "81": "8x1"
+          "82": "8x2"
+          "83": "8x3"
+          "84": "8x4"
+          "85": "8x5"
+          "86": "8x6"
+          "87": "8x7"
+          "88": "8x8"
+          "89": "8x9"
+          "91": "9x1"
+          "92": "9x2"
+          "93": "9x3"
+          "94": "9x4"
+          "95": "9x5"
+          "96": "9x6"
+          "97": "9x7"
+          "98": "9x8"
+          "99": "9x9"
+  - match: '^.{monitor_id:02d}ry(\d{3})$'
+    set: { tiling_position: "$1" }
+  # Thermal: 3 chars, below zero as "-NN".
+  - match: '^.{monitor_id:02d}r0(-?\d+)$'
+    set: { thermal_c: "$1" }
+  # Function On_Off get: [1/0 on/off][function id 01 backlight / 02 freeze / 03 touch].
+  - match: '^.{monitor_id:02d}r=([01])01$'
+    mappings:
+      - { group: 1, state: backlight_on, map: { "1": "true", "0": "false" } }
+  - match: '^.{monitor_id:02d}r=([01])02$'
+    mappings:
+      - { group: 1, state: freeze, map: { "1": "true", "0": "false" } }
+  - match: '^.{monitor_id:02d}r=([01])03$'
+    mappings:
+      - { group: 1, state: touch_enabled, map: { "1": "true", "0": "false" } }
+  # 32-byte info replies: value, then NUL padding.
+  - match: '^.{monitor_id:02d}r1(\d+)\x00*$'
+    set: { operation_hours: "$1" }
+  - match: '^.{monitor_id:02d}r4([^\x00]+)\x00*$'
+    set: { device_name: "$1" }
+  - match: '^.{monitor_id:02d}r5([0-9A-Fa-f]{12})\x00*$'
+    set: { mac_address: "$1" }
+  - match: '^.{monitor_id:02d}r6([^\x00]+)\x00*$'
+    set: { ip_address: "$1" }
+  - match: '^.{monitor_id:02d}r7([^\x00]+)\x00*$'
+    set: { serial_number: "$1" }
+  - match: '^.{monitor_id:02d}r8([^\x00]+)\x00*$'
+    set: { firmware_version: "$1" }
+  # Smart Hub: fixed 6-byte sub-fields, marker + 5 chars (A-05.0 B030.0
+  # C00080 D00001), any subset in any order. Each field is an optional
+  # lookahead so one rule reads whatever the accessory reports.
+  - match: '^.{monitor_id:02d}r:(?=(?:.*?A([-\d.]{5}))?)(?=(?:.*?B([\d.]{5}))?)(?=(?:.*?C(\d{5}))?)(?=(?:.*?D(\d{5}))?)'
+    mappings:
+      - { group: 1, state: amb_temperature_c }
+      - { group: 2, state: amb_humidity }
+      - { group: 3, state: amb_light }
+      - { group: 4, state: amb_presence, map: { "00001": "true", "00000": "false" } }
+
+# Identity (and the MAC Power On needs) once per connection.
+on_connect:
+  - "8{monitor_id:02d}g4000\r"
+  - "8{monitor_id:02d}g5000\r"
+  - "8{monitor_id:02d}g6000\r"
+  - "8{monitor_id:02d}g7000\r"
+  - "8{monitor_id:02d}g8000\r"
+
+# The poll cycle: every get with a state variable behind it. A model that
+# lacks a function answers '-', which matches no rule.
+polling:
+  queries:
+    - { send: "8{monitor_id:02d}gl000\r", query_for: power }
+    - { send: "8{monitor_id:02d}gj000\r", query_for: source }
+    - { send: "8{monitor_id:02d}gf000\r", query_for: volume }
+    - { send: "8{monitor_id:02d}gg000\r", query_for: mute }
+    - { send: "8{monitor_id:02d}gb000\r", query_for: brightness }
+    - { send: "8{monitor_id:02d}aB000\r", query_for: backlight }
+    - { send: "8{monitor_id:02d}ga000\r", query_for: contrast }
+    - { send: "8{monitor_id:02d}gc000\r", query_for: sharpness }
+    - { send: "8{monitor_id:02d}gd000\r", query_for: color }
+    - { send: "8{monitor_id:02d}ge000\r", query_for: tint }
+    - { send: "8{monitor_id:02d}gh000\r", query_for: backlight_on }
+    - { send: "8{monitor_id:02d}gi000\r", query_for: freeze }
+    - { send: "8{monitor_id:02d}g=003\r", query_for: touch_enabled }
+    - { send: "8{monitor_id:02d}go000\r", query_for: power_lock }
+    - { send: "8{monitor_id:02d}gp000\r", query_for: button_lock }
+    - { send: "8{monitor_id:02d}gq000\r", query_for: menu_lock }
+    - { send: "8{monitor_id:02d}gn000\r", query_for: remote_control_mode }
+    - { send: "8{monitor_id:02d}g0000\r", query_for: thermal_c }
+    - { send: "8{monitor_id:02d}gt000\r", query_for: pip_mode }
+    - { send: "8{monitor_id:02d}gu000\r", query_for: pip_input }
+    - { send: "8{monitor_id:02d}gv000\r", query_for: tiling_mode }
+    - { send: "8{monitor_id:02d}gw000\r", query_for: tiling_compensation }
+    - { send: "8{monitor_id:02d}gx000\r", query_for: tiling_layout }
+    - { send: "8{monitor_id:02d}gy000\r", query_for: tiling_position }
+    - { send: "8{monitor_id:02d}g:000\r", query_for: amb_temperature_c }
+    - { send: "8{monitor_id:02d}g1000\r", query_for: operation_hours }
+
+# ── Simulator ──
+# One dispatcher script handler speaks the whole framed grammar, because the
+# standby gate is stateful: in standby only the power set/get and the
+# Get-ACK link test answer (the closest testable approximation of a display
+# whose standby mode closes the LAN port). Sets answer '+' / '-', gets the
+# framed 'r' reply, info gets the 32-byte NUL-padded form, and a packet for
+# another Monitor ID gets no reply, like a real RS-232 chain. State is kept
+# in the driver's own vocabulary so the Simulator UI's controls (generated
+# from state_variables) read and write it directly; a magic packet from
+# Power On applies its declared sets: the simulated display comes on.
+simulator:
+  initial_state:
+    power: "on"
+    source: hdmi1
+    signal_detected: true
+    volume: 30
+    mute: false
+    brightness: 50
+    backlight: 80
+    contrast: 50
+    sharpness: 50
+    color: 50
+    tint: 50
+    backlight_on: true
+    freeze: false
+    touch_enabled: true
+    power_lock: unlocked
+    button_lock: unlocked
+    menu_lock: unlocked
+    remote_control_mode: enabled
+    pip_mode: "off"
+    pip_input: hdmi1
+    tiling_mode: false
+    tiling_compensation: false
+    tiling_layout: 1x1
+    tiling_position: 1
+    thermal_c: 42
+    amb_temperature_c: 23.5
+    amb_humidity: 45.0
+    amb_light: 80
+    amb_presence: true
+    operation_hours: 1234
+    device_name: CDE5530
+    mac_address: 040ec2123456
+    ip_address: 192.168.1.50
+    serial_number: ABC180212345
+    firmware_version: 3.02.001
+  delays:
+    command_response: 0.02
+  command_handlers:
+    - match: '.(\d\d)([sgAa])(.)(.*)'
+      handler: |
+        mid = int(config.get("monitor_id", 1) or 1)
+        if int(match.group(1)) != mid:
+            pass  # another display on the chain: silence
+        else:
+            ftype, code, value = match.group(2), match.group(3), match.group(4)
+            head = "8" + format(mid, "02d")
+
+            INPUTS = {"000": "tv", "001": "av", "002": "svideo", "003": "ypbpr",
+                      "004": "hdmi1", "014": "hdmi2", "024": "hdmi3", "034": "hdmi4",
+                      "005": "dvi", "006": "vga1", "016": "vga2", "026": "vga3",
+                      "007": "ops", "008": "internal", "009": "dp1", "029": "dp2",
+                      "019": "typec1", "039": "typec2", "00A": "android"}
+            CODES = dict((v, k) for k, v in INPUTS.items())
+            CYCLE = ["hdmi1", "hdmi2", "ops", "android", "vga1"]
+            NUM_SET = {"#": "contrast", "$": "brightness", "%": "sharpness",
+                       "&": "color", "'": "tint", "5": "volume"}
+            NUM_GET = {"a": "contrast", "b": "brightness", "c": "sharpness",
+                       "d": "color", "e": "tint", "f": "volume"}
+            BOOL_SET = {"6": "mute", "(": "backlight_on", "*": "freeze",
+                        "P": "tiling_mode", "Q": "tiling_compensation"}
+            BOOL_GET = {"g": "mute", "h": "backlight_on", "i": "freeze",
+                        "v": "tiling_mode", "w": "tiling_compensation"}
+            LOCK_SET = {"4": "power_lock", "8": "button_lock", ">": "menu_lock"}
+            LOCK_GET = {"o": "power_lock", "p": "button_lock", "q": "menu_lock"}
+            RCU = {"000": "disabled", "001": "enabled", "002": "passthrough"}
+            PIP = {"000": "off", "001": "pip", "002": "pbp"}
+            FUNC = {"01": "backlight_on", "02": "freeze", "03": "touch_enabled"}
+            ACK_ONLY = {")": 4, "1": 3, "2": 3, "-": 2, ":": 2, ";": 4}
+
+            def ack(ok):
+                respond(("5" + format(mid, "02d") + ("+" if ok else "-")) + "\r")
+
+            def reply(c, v):
+                respond(head + "r" + c + v + "\r")
+
+            def reply32(c, v):
+                body = str(v)[:26]
+                respond("2" + format(mid, "02d") + "r" + c + body + "\x00" * (26 - len(body)) + "\r")
+
+            def inv(d, v):
+                for k in d:
+                    if d[k] == v:
+                        return k
+                return None
+
+            on = state.get("power") == "on"
+            if ftype == "s":
+                if code == "!":
+                    if value == "001":
+                        state["power"] = "on"; ack(True)
+                    elif value == "000":
+                        state["power"] = "standby"; ack(True)
+                    else:
+                        ack(False)
+                elif not on:
+                    ack(False)
+                elif code == '"':
+                    if value == "00Z":
+                        cur = state.get("source")
+                        nxt = CYCLE[(CYCLE.index(cur) + 1) % len(CYCLE)] if cur in CYCLE else CYCLE[0]
+                        state["source"] = nxt; ack(True)
+                    elif value in INPUTS:
+                        state["source"] = INPUTS[value]; ack(True)
+                    else:
+                        ack(False)
+                elif code in ("$", "5") and value in ("900", "901"):
+                    key = "brightness" if code == "$" else "volume"
+                    state[key] = max(0, min(100, int(state.get(key, 0)) + (1 if value == "901" else -1)))
+                    ack(True)
+                elif code in NUM_SET or code in (".", "/", "0"):
+                    if value.isdigit() and 0 <= int(value) <= 100:
+                        if code in NUM_SET:
+                            state[NUM_SET[code]] = int(value)
+                        ack(True)
+                    else:
+                        ack(False)
+                elif code in BOOL_SET:
+                    if value in ("000", "001"):
+                        state[BOOL_SET[code]] = value == "001"; ack(True)
+                    else:
+                        ack(False)
+                elif code in LOCK_SET:
+                    if value in ("000", "001"):
+                        state[LOCK_SET[code]] = "locked" if value == "001" else "unlocked"; ack(True)
+                    else:
+                        ack(False)
+                elif code == "B":
+                    if value in RCU:
+                        state["remote_control_mode"] = RCU[value]; ack(True)
+                    else:
+                        ack(False)
+                elif code == "9":
+                    if value in PIP:
+                        state["pip_mode"] = PIP[value]; ack(True)
+                    else:
+                        ack(False)
+                elif code == "7":
+                    if value in INPUTS:
+                        state["pip_input"] = INPUTS[value]; ack(True)
+                    else:
+                        ack(False)
+                elif code == "=":
+                    fid = value[1:3] if len(value) == 3 else ""
+                    if fid in FUNC and value[0] in ("0", "1"):
+                        state[FUNC[fid]] = value[0] == "1"; ack(True)
+                    else:
+                        ack(False)
+                elif code == "R":
+                    if len(value) == 3 and value[0] == "0" and value[1] in "123456789" and value[2] in "123456789":
+                        state["tiling_layout"] = value[1] + "x" + value[2]; ack(True)
+                    else:
+                        ack(False)
+                elif code == "S":
+                    if value.isdigit() and 1 <= int(value) <= 25:
+                        state["tiling_position"] = int(value); ack(True)
+                    else:
+                        ack(False)
+                elif code == "A":
+                    ack(value in ["00" + str(i) for i in range(8)])
+                elif code == "@":
+                    ack(value.isdigit() and 0 <= int(value) <= 9)
+                elif code == "X":
+                    ack(value.isdigit() and 1 <= int(value) <= 999)
+                elif code in ACK_ONLY:
+                    ack(value.isdigit() and int(value) < ACK_ONLY[code])
+                elif code == "~":
+                    ack(value == "000")
+                else:
+                    ack(False)
+            elif ftype == "A" and code == "B":
+                if on and value.isdigit() and 0 <= int(value) <= 100:
+                    state["backlight"] = int(value); ack(True)
+                else:
+                    ack(False)
+            elif ftype == "a" and code == "B":
+                if on:
+                    reply("B", format(int(state.get("backlight", 0)), "03d"))
+                else:
+                    ack(False)
+            elif ftype == "g":
+                if code == "z":
+                    reply("z", "000")
+                elif code == "l":
+                    reply("l", "001" if on else "000")
+                elif not on:
+                    ack(False)
+                elif code == "j":
+                    reply("j", ("1" if state.get("signal_detected") else "0") + CODES.get(state.get("source"), "004")[1:])
+                elif code in NUM_GET:
+                    reply(code, format(int(state.get(NUM_GET[code], 0)), "03d"))
+                elif code in BOOL_GET:
+                    reply(code, "001" if state.get(BOOL_GET[code]) else "000")
+                elif code in LOCK_GET:
+                    reply(code, "001" if state.get(LOCK_GET[code]) == "locked" else "000")
+                elif code == "n":
+                    reply("n", inv(RCU, state.get("remote_control_mode")) or "001")
+                elif code == "t":
+                    reply("t", inv(PIP, state.get("pip_mode")) or "000")
+                elif code == "u":
+                    reply("u", CODES.get(state.get("pip_input"), "004"))
+                elif code == "x":
+                    lay = str(state.get("tiling_layout", "1x1"))
+                    reply("x", "0" + lay[0] + lay[-1])
+                elif code == "y":
+                    reply("y", format(int(state.get("tiling_position", 0)), "03d") if state.get("tiling_mode") else "000")
+                elif code == "=":
+                    fid = value[1:3] if len(value) == 3 else ""
+                    if fid in FUNC:
+                        reply("=", ("1" if state.get(FUNC[fid]) else "0") + fid)
+                    else:
+                        ack(False)
+                elif code == "0":
+                    t = int(state.get("thermal_c", 0))
+                    reply("0", format(t, "03d") if t >= 0 else "-" + format(abs(t), "02d"))
+                elif code == "1":
+                    reply32("1", format(int(state.get("operation_hours", 0)), "06d"))
+                elif code == "4":
+                    reply32("4", state.get("device_name", ""))
+                elif code == "5":
+                    reply32("5", str(state.get("mac_address", "")).replace(":", "").lower())
+                elif code == "6":
+                    reply32("6", state.get("ip_address", ""))
+                elif code == "7":
+                    reply32("7", state.get("serial_number", ""))
+                elif code == "8":
+                    reply32("8", state.get("firmware_version", ""))
+                elif code == ":":
+                    fields = {
+                        "00A": "A" + format(float(state.get("amb_temperature_c", 0)), "05.1f"),
+                        "00B": "B" + format(float(state.get("amb_humidity", 0)), "05.1f"),
+                        "00C": "C" + format(int(state.get("amb_light", 0)), "05d"),
+                        "00D": "D" + ("00001" if state.get("amb_presence") else "00000"),
+                    }
+                    if value == "000":
+                        reply32(":", "".join(fields.values()))
+                    elif value in fields:
+                        reply32(":", fields[value])
+                    else:
+                        ack(False)
+                else:
+                    ack(False)
+            else:
+                ack(False)
+  error_modes:
+    communication_timeout:
+      description: Display stops answering
+      behavior: no_response
+    garbled_response:
+      description: Corrupted data on the wire
+      behavior: corrupt_response

@@ -12,15 +12,15 @@
       "name": "BenQ Display",
       "manufacturer": "BenQ",
       "category": "display",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and Wake-on-LAN wake-up for displays in standby. Polls for status.",
+      "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and a Power On that wakes a standby display over Wake-on-LAN. Polls for status.",
       "source_url": "https://esupportdownload.benq.com/esupport/PUBLIC%20DISPLAY%20PRODUCT/Control%20Protocols/RM6503/RS232%20&%20LAN%20Command%20List_2_Others.pdf",
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "65d4373ce92f8f928ef49a6dfa19c99ad03ef7e67227435c4748d66129af3296",
+        "displays/benq_display.py": "ca2ec1e5effd8b462f4c5f46498d9bc97eb4f52df2e9c096d244550424174300",
         "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [
@@ -30,7 +30,7 @@
         "benq_rs232_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.34.0",
       "tags": [
         "display",
         "benq",
@@ -41,9 +41,9 @@
         "lan-control"
       ],
       "help": {
-        "overview": "BenQ Boards (interactive flat panels) and BenQ Smart Signage speaking BenQ's RS232 & LAN protocol. Power, source, audio, picture controls, backlight, locks, and power-save settings. Polls every 30 seconds. Use Screen Off (not Standby) as the automated 'off' for a space: it blanks the backlight while network control stays available. Standby shuts Android down and the LAN control port with it \u2014 a standby display is woken with the Wake Display (Wake-on-LAN) action or from the panel itself.",
-        "setup": "1. Network control: connect the display's LAN port, note the IP address from the network settings, and add it here (TCP port 4660). Monitor ID stays 1 for LAN control.\n2. Turn the display's Wake-on-LAN setting on so a standby display can be woken remotely.\n3. Serial control: connect the RS-232 port. Current BenQ Boards run 115200 8N1 (fixed); older RP panels and Smart Signage run 9600 8N1 \u2014 set Baud Rate to match your model.\n4. LAN commands only work while the display is on or screen-off (Android running). After Standby, use the Wake Display action, then reconnect.",
-        "connection": "A display in standby (Android off) does not answer on the LAN control port. Wake it with the Wake Display (Wake-on-LAN) action, or use Screen Off instead of Standby so control stays available."
+        "overview": "BenQ Boards (interactive flat panels) and BenQ Smart Signage speaking BenQ's RS232 & LAN protocol. Power, source, audio, picture controls, backlight, locks, and power-save settings. Polls every 30 seconds. Use Screen Off (not Standby) as the automated 'off' for a space: it blanks the backlight while network control stays available. Standby shuts Android down and the LAN control port with it \u2014 Power On wakes a standby display over Wake-on-LAN, and works while the display is offline.",
+        "setup": "1. Network control: connect the display's LAN port, note the IP address from the network settings, and add it here (TCP port 4660). Monitor ID stays 1 for LAN control.\n2. Turn the display's Wake-on-LAN setting on so a standby display can be woken remotely.\n3. Serial control: connect the RS-232 port. Current BenQ Boards run 115200 8N1 (fixed); older RP panels and Smart Signage run 9600 8N1 \u2014 set Baud Rate to match your model.\n4. LAN commands only work while the display is on or screen-off (Android running). After Standby, Power On wakes the display over Wake-on-LAN and the connection comes back on its own.",
+        "connection": "A display in standby (Android off) does not answer on the LAN control port. Power On wakes it over Wake-on-LAN (the display's Wake-on-LAN setting must be on and its MAC address known), or use Screen Off instead of Standby so control stays available."
       },
       "compatible_models": [
         {
@@ -214,7 +214,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.1.2",
+      "version": "4.2.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",
@@ -222,14 +222,14 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "727c307711327932ec540fb60ded9b1f3183e4cd6d310f0843239f4b417112b2",
+        "displays/lg_webos.py": "960dd4632c014d9bf47f68d0c4fa5a228446fb4aeef1f693618142b6049cfc3d",
         "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [
         3001
       ],
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.34.0",
       "tags": [
         "tv",
         "display",
@@ -645,16 +645,15 @@
       "name": "ViewSonic Commercial Display",
       "manufacturer": "ViewSonic",
       "category": "display",
-      "version": "1.0.1",
+      "version": "2.0.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, ambient sensor readings, and Wake-on-LAN wake-up for displays whose standby closes the network port. Listens for the display's own status pushes and polls for the rest.",
+      "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, ambient sensor readings, and a Power On that wakes a display whose standby closes the network port over Wake-on-LAN. Listens for the display's own status pushes and polls for the rest.",
       "source_url": "https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol",
-      "file": "displays/viewsonic_cde.py",
-      "format": "python",
+      "file": "displays/viewsonic_cde.avcdriver",
+      "format": "avcdriver",
       "files": {
-        "displays/viewsonic_cde.py": "ba985c27467f28ec9822a9dc9458f317623cbee96d916591b8110eced5e38d8b",
-        "displays/viewsonic_cde_sim.py": "327dc5974a82d5a339b6c6bedd65a2be03e15f1c9c95cbfabd74602e6f32b880"
+        "displays/viewsonic_cde.avcdriver": "4a72f8014240276fb022d9292cf461b932f82c89b0d2d650c86f1dd70c75949c"
       },
       "ports": [
         5000
@@ -663,7 +662,7 @@
         "viewsonic_lfd_rs232_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.34.0",
       "tags": [
         "display",
         "viewsonic",
@@ -675,8 +674,8 @@
       ],
       "help": {
         "overview": "ViewSonic commercial displays speaking the LFD RS-232 & LAN protocol. Power, input, audio, picture controls, screen blank and freeze, PIP, video-wall tiling, and control locks. The display pushes power / input / brightness / backlight / volume / mute changes on its own; everything else is polled every 30 seconds.",
-        "setup": "1. Network control: connect the display's LAN port, note the IP address from the network settings, and add it here (TCP port 5000, no login). Monitor ID stays 1 for LAN control.\n2. Check the display's standby / network-standby setting: on many models a display in standby closes the network port. Enable the mode that keeps the network alive, or rely on the Wake Display (Wake-on-LAN) action.\n3. Serial control: connect the RS-232 port with a crossover (null-modem) cable, 9600 8N1 (fixed). On a daisy chain, set each display's Monitor ID in its OSD and match it here.",
-        "connection": "A display whose standby mode shuts the network down does not answer on TCP 5000. Wake it with the Wake Display (Wake-on-LAN) action \u2014 the display's MAC is learned automatically on every connection."
+        "setup": "1. Network control: connect the display's LAN port, note the IP address\n   from the network settings, and add it here (TCP port 5000, no\n   login). Monitor ID stays 1 for LAN control.\n\n2. Check the display's standby / network-standby setting: on many\n   models a display in standby closes the network port. Enable the mode\n   that keeps the network alive, or rely on Power On, which wakes the\n   display over Wake-on-LAN (turn Wake-on-LAN on in the display's\n   settings; the MAC address is learned on every connection).\n\n3. Serial control: connect the RS-232 port with a crossover (null-modem)\n   cable, 9600 8N1 (fixed). On a daisy chain, set each display's\n   Monitor ID in its OSD and match it here.",
+        "connection": "A display whose standby mode shuts the network down does not answer on TCP 5000. Power On wakes it over Wake-on-LAN; the display's MAC is learned automatically on every connection, or can be typed in under Edit Device for a display that has never connected."
       },
       "compatible_models": [
         {
@@ -696,7 +695,7 @@
             "CDE7512"
           ],
           "confidence": "untested",
-          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol \u2014 including ViewBoard IFP interactive displays and NMP media players \u2014 is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
+          "notes": "The CDE30 and CDE20 series publish this protocol in their per-model RS-232 documentation. Every ViewSonic large-format display on the brand-wide LFD RS-232 & LAN protocol, including ViewBoard IFP interactive displays and NMP media players, is expected to work. Function support varies by model (PIP and tiling are model-dependent); an unsupported command answers a reject the driver ignores."
         }
       ],
       "discovery": {

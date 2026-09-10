@@ -1,673 +1,314 @@
-"""Driver + simulator tests for viewsonic_cde (LFD RS-232 & LAN protocol).
+"""Self-contained contract test for the viewsonic_cde .avcdriver (2.0.0).
 
-No ViewSonic display hardware on hand, so correctness is proven two
-ways: metadata / shape assertions on the driver, and **dual-proof round
-trips** that wire the real driver to the real simulator over an
-in-memory transport — the simulator renders the framed
-len/ID/type/code/value packets from the LFD RS-232 & LAN Protocol
-Specification v3.3.2, the driver parses them, and results are asserted
-on both sides.
+The 1.x driver was Python for one reason: the Wake-on-LAN packet a display
+in network-dead standby needs, which YAML could not send. The platform's
+``udp:`` command block now sends it, so 2.0.0 is the declarative rewrite of
+the same LFD RS-232 & LAN protocol. Every command, state variable and
+device setting kept its name and its tokens, which is what this file pins.
 
-Covers the protocol essentials:
-  - packet build against the spec's worked examples (length byte, ID
-    field, three-char value field, the backlight 'A'/'a' command-type
-    pair);
-  - every set command mutating the simulator and every polled get
-    landing in the right state variable, including the packed
-    Get-Input reply (signal digit + source suffix), the negative
-    thermal encoding, and the 32-byte NUL-padded info replies;
-  - device-setting writes with immediate read-back (locks are NOT
-    inverted on this protocol: wire 001 = locked);
-  - the auto-reply push path on both sides: the driver applies
-    unsolicited 'r' frames, and the simulator pushes them on
-    user-side state changes but not on controller-driven sets;
-  - set-only functions (bass/treble/balance, color mode, picture
-    size, surround, OSD language, PIP sound/position, key presses)
-    fabricating no state;
-  - Monitor-ID addressing, reject ('-') handling, the standby gate,
-    and IR pass-through ('p') frames being ignored;
-  - the Wake-on-LAN setup action's 126-byte spec packet and MAC
-    resolution order (param > learned state > config).
+Two mirrors of the runtime, without importing the platform (the community CI
+runs with PyYAML only):
 
-Loads the driver + simulator with the ``openavc.*``
-imports stubbed so the community CI stays self-contained (conftest.py
-rolls the stubs back after this module is collected).
+- the send side: ``command_prefix`` + the command's ``send`` with the
+  driver's ``{param}`` / ``{param:spec}`` substitution and the enum
+  ``map:`` translation, asserted byte for byte against the spec's worked
+  examples (brightness 76, an ID-05 get, the 'A'/'a' backlight pair);
+- the receive side: every reply through the declared ``responses`` first
+  match wins on the CR-stripped frame (``ConfigurableDriver.on_data_received``),
+  mappings applied group by group with their ``map`` and the state
+  variable's declared type, exactly as ``compiled_protocol`` compiles them.
+
+Replies are built from the LFD RS-232 & LAN Protocol Specification v3.3.2
+tables: the 9-byte set/get grammar, the packed Get-Input reply, the 32-byte
+NUL-padded info replies, the negative thermal form, and the Smart Hub's
+6-byte sub-fields.
 """
 
 from __future__ import annotations
 
-import asyncio
-import importlib.util
-import logging
-import sys
+import re
 from pathlib import Path
-from types import ModuleType
 
 import pytest
-from _platform_stubs import (
-    StubEvents as _FakeEvents,
-    StubState as _FakeState,
-)
+import yaml
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DRIVER_PATH = REPO_ROOT / "displays" / "viewsonic_cde.py"
-SIM_PATH = REPO_ROOT / "displays" / "viewsonic_cde_sim.py"
+DRIVER_PATH = Path(__file__).resolve().parent.parent / "displays" / "viewsonic_cde.avcdriver"
+INFO = yaml.safe_load(DRIVER_PATH.read_text(encoding="utf-8"))
+STATE_VARS = INFO["state_variables"]
+CONFIG = {"monitor_id": 1, "host": "10.0.0.50", "port": 5000}
 
-
-# ── Platform stand-ins ──────────────────────────────────────────────────────
-
-class _FakeBaseDriver:
-    """Stand-in for the platform BaseDriver surface this driver uses."""
-
-    DRIVER_INFO: dict = {}
-
-    def __init__(self, device_id, config, state, events) -> None:
-        self.device_id = device_id
-        self.config = config
-        self.state = state
-        self.events = events
-        self.transport = None
-        self._connected = False
-
-    def set_state(self, key, value) -> None:
-        self.state.set(f"device.{self.device_id}.{key}", value)
-
-    def get_state(self, key, default=None):
-        return self.state.data.get(f"device.{self.device_id}.{key}", default)
+_PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)(?::([^{}]*))?\}")
 
 
-# Set by the pairing harness so the stubbed transport reaches the live sim.
-_CURRENT_SIM: object | None = None
+# ── Runtime mirrors ─────────────────────────────────────────────────────────
 
 
-class _FakeTransport:
-    """In-memory pipe: driver bytes -> sim -> reply frames -> driver,
-    split on CR exactly like the platform's delimiter framing."""
-
-    def __init__(self, on_data) -> None:
-        self.on_data = on_data
-        self.connected = True
-        self.sent: list[bytes] = []
-
-    async def send(self, data) -> None:
-        if not self.connected:
-            raise ConnectionError("transport closed")
-        self.sent.append(bytes(data))
-        sim = _CURRENT_SIM
-        reply = sim.handle_command(bytes(data)) if sim else None
-        if reply:
-            for frame in bytes(reply).split(b"\r"):
-                if frame:
-                    await self.on_data(frame)
-
-    async def close(self) -> None:
-        self.connected = False
+def _substitute(template: str, values: dict) -> str:
+    """Mirror compiled_protocol.safe_substitute for the specs this driver uses."""
+    def repl(m):
+        name, spec = m.group(1), m.group(2)
+        if name not in values:
+            return m.group(0)
+        v = values[name]
+        if not spec:
+            return str(v)
+        try:
+            return format(v, spec)
+        except (ValueError, TypeError):
+            return format(int(v), spec)
+    return _PLACEHOLDER.sub(repl, template)
 
 
-class _FakeTCPSimulator:
-    SIMULATOR_INFO: dict = {}
-
-    def __init__(self, device_id, config=None) -> None:
-        self.device_id = device_id
-        self.config = config or {}
-        self._state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
-        self.pushed: list[bytes] = []
-
-    @property
-    def state(self) -> dict:
-        # Mirrors BaseSimulator: a READ-ONLY COPY. Sim code must write
-        # through set_state; tests read through this copy.
-        return dict(self._state)
-
-    def set_state(self, key, value) -> None:
-        self._state[key] = value
-
-    def get_state(self, key, default=None):
-        return self._state.get(key, default)
-
-    async def push(self, data) -> None:
-        self.pushed.append(bytes(data))
+def _wire(command: str, params: dict | None = None, config: dict | None = None) -> bytes:
+    """Mirror ConfigurableDriver.build_wire: map: translation, then prefix + send + suffix."""
+    cmd = INFO["commands"][command]
+    params = dict(params or {})
+    for name, pdef in (cmd.get("params") or {}).items():
+        value_map = pdef.get("map")
+        if value_map and name in params and str(params[name]) in value_map:
+            params[name] = value_map[str(params[name])]
+    raw = INFO["command_prefix"] + cmd["send"] + INFO["command_suffix"]
+    text = _substitute(raw, {**(config or CONFIG), **params})
+    return text.encode("ascii")
 
 
-def _load(name: str, path: Path) -> ModuleType:
-    server = ModuleType("openavc")
-    server.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["openavc"] = server
-    for sub in ("drivers", "utils"):
-        m = ModuleType(f"openavc.{sub}")
-        m.__path__ = []  # type: ignore[attr-defined]
-        sys.modules[f"openavc.{sub}"] = m
-    base = ModuleType("openavc.drivers.base")
-    base.BaseDriver = _FakeBaseDriver
-    sys.modules["openavc.drivers.base"] = base
-    logger = ModuleType("openavc.utils.logger")
-    logger.get_logger = lambda name="x": logging.getLogger(name)
-    sys.modules["openavc.utils.logger"] = logger
-
-    sim_pkg = ModuleType("openavc.simulator")
-    sim_pkg.__path__ = []  # type: ignore[attr-defined]
-    sys.modules["openavc.simulator"] = sim_pkg
-    sim_tcp = ModuleType("openavc.simulator.tcp_simulator")
-    sim_tcp.TCPSimulator = _FakeTCPSimulator
-    sys.modules["openavc.simulator.tcp_simulator"] = sim_tcp
-
-    spec = importlib.util.spec_from_file_location(name, path)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+def _coerce(value, key):
+    var_type = STATE_VARS.get(key, {}).get("type", "string")
+    if var_type == "integer":
+        return int(value)
+    if var_type == "number":
+        return float(value)
+    if var_type == "boolean":
+        return str(value).lower() in ("true", "1", "on", "yes")
+    return str(value)
 
 
-DRV = _load("viewsonic_cde_under_test", DRIVER_PATH)
-SIM = _load("viewsonic_cde_sim_under_test", SIM_PATH)
+def _apply(reply: bytes, config: dict | None = None) -> tuple[str | None, dict]:
+    """First response rule matching the CR-stripped reply, and what it writes."""
+    text = reply.decode("utf-8", errors="replace").strip()
+    for resp in INFO["responses"]:
+        pattern = _substitute(resp["match"], config or CONFIG)
+        m = re.search(pattern, text)
+        if not m:
+            continue
+        out: dict = {}
+        if "set" in resp:
+            for key, expr in resp["set"].items():
+                raw = m.group(int(expr[1:])) if str(expr).startswith("$") else expr
+                out[key] = _coerce(raw, key)
+        for mp in resp.get("mappings", []):
+            raw = m.group(mp["group"])
+            if raw is None:
+                continue
+            value_map = mp.get("map")
+            if value_map and raw in value_map:
+                raw = value_map[raw]
+            out[mp["state"]] = _coerce(raw, mp["state"])
+        return resp["match"], out
+    return None, {}
 
 
-# ── Pairing harness ─────────────────────────────────────────────────────────
-
-def _make_pair(sim_config=None, driver_overrides=None):
-    global _CURRENT_SIM
-    sim = SIM.ViewSonicCdeSimulator("sim1", sim_config or {})
-    _CURRENT_SIM = sim
-
-    cfg = {
-        "host": "10.0.0.61",
-        "port": 5000,
-        "monitor_id": 1,
-        "poll_interval": 0,
-    }
-    cfg.update(driver_overrides or {})
-    driver = DRV.ViewSonicCdeDriver("lfd1", cfg, _FakeState(), _FakeEvents())
-    driver.transport = _FakeTransport(driver.on_data_received)
-    return driver, sim
+def _reply(code: str, value: str, mid: int = 1) -> bytes:
+    body = f"{mid:02d}r{code}{value}"
+    return bytes([0x30 + len(body) + 1]) + body.encode() + b"\r"
 
 
-def _dstate(driver, key):
-    return driver.get_state(key)
+def _reply32(code: str, value: str, mid: int = 1) -> bytes:
+    payload = value.encode()[:26]
+    return f"2{mid:02d}r{code}".encode() + payload + b"\x00" * (26 - len(payload)) + b"\r"
 
 
-def _run(coro):
-    return asyncio.get_event_loop_policy().new_event_loop().run_until_complete(coro)
+# ── Metadata ────────────────────────────────────────────────────────────────
 
-
-@pytest.fixture()
-def pair():
-    return _make_pair()
-
-
-# ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_metadata_shape():
-    info = DRV.ViewSonicCdeDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
-    assert info["min_platform_version"] == "0.25.0"
-    assert info["ports"] == [5000]
-    assert info["transports"] == ["tcp", "serial"]
-    # Every device setting reads back through a declared state variable.
-    for key, setting in info["device_settings"].items():
-        assert setting["state_key"] in info["state_variables"], key
-    # Quick actions promote declared commands.
-    for cid in info["quick_actions"]:
-        assert cid in info["commands"], cid
-    # The wake action is a setup action available while offline.
-    wake = next(a for a in info["actions"] if a["id"] == "wake_display")
-    assert wake["kind"] == "setup"
-    assert wake["availability"] == "offline"
+    assert INFO["id"] == "viewsonic_cde"
+    assert INFO["version"] == "2.0.0"
+    assert INFO["transport"] == "tcp"
+    assert INFO["transports"] == ["tcp", "serial"]
+    assert INFO["delimiter"] == "\r"
+    assert INFO["command_prefix"] == "8{monitor_id:02d}"
+    assert INFO["command_suffix"] == "\r"
+    # The udp: block is a 0.34.0 field, and the floor says so.
+    assert INFO["min_platform_version"] == "0.34.0"
+    for cid in INFO["quick_actions"]:
+        assert cid in INFO["commands"], cid
+    for key, setting in INFO["device_settings"].items():
+        assert setting["state_key"] in STATE_VARS, key
+    assert "actions" not in INFO, "the kind:setup wake is gone; Power On is the wake"
 
 
-def test_setting_enums_match_state_enums():
-    info = DRV.ViewSonicCdeDriver.DRIVER_INFO
-    for key in ("power_lock", "button_lock", "menu_lock", "remote_control_mode"):
-        setting = info["device_settings"][key]
-        state_var = info["state_variables"][setting["state_key"]]
-        setting_values = {v["value"] for v in setting["values"]}
-        assert setting_values == set(state_var["values"]), key
+def test_power_on_is_the_wake_on_lan_and_runs_offline():
+    cmd = INFO["commands"]["power_on"]
+    assert cmd["available_offline"] is True
+    assert cmd["udp"] == {"magic_packet": "mac_address"}
+    assert "send" not in cmd
+    # The MAC can come from the display (state) or be typed in (config).
+    assert "mac_address" in STATE_VARS
+    assert "mac_address" in INFO["config_schema"]
+    assert cmd["sets"] == {"power": "on"}
+    # The protocol's own Set Power stays reachable.
+    assert INFO["commands"]["power_on_lan"]["send"] == "s!001"
+
+
+def test_setting_enum_labels_are_the_state_tokens():
+    # The platform confirms a queued setting write by matching the state
+    # variable's value against the option's label, so the two must agree.
+    for key, setting in INFO["device_settings"].items():
+        if setting["type"] != "enum":
+            continue
+        tokens = set(STATE_VARS[setting["state_key"]]["values"])
+        labels = {opt["label"] for opt in setting["values"]}
+        assert labels == tokens, key
+
+
+# ── Send side: the spec's worked examples ───────────────────────────────────
 
 
 def test_packet_build_matches_spec_examples():
-    # Spec example 1: Set Brightness 76 for display #02 ->
-    # 38 30 32 73 24 30 37 36 0D
-    driver, _ = _make_pair(driver_overrides={"monitor_id": 2})
-    assert driver._packet("s", "$", "076") == b"802s$076\r"
-    # Spec Get example: Get Brightness from display #05 ->
-    # 38 30 35 67 62 30 30 30 0D
-    driver5, _ = _make_pair(driver_overrides={"monitor_id": 5})
-    assert driver5._packet("g", "b", "000") == b"805gb000\r"
-    # The backlight level rides its own command-type pair (code 'B').
-    driver1, _ = _make_pair()
-    assert driver1._packet("A", "B", "055") == b"801AB055\r"
-    assert driver1._packet("a", "B", "000") == b"801aB000\r"
-
-
-def test_probe_answer_coherence():
-    """The declared tcp_probe bytes must be a packet the simulator answers,
-    and the reply must contain the declared expect substring."""
-    probe = DRV.ViewSonicCdeDriver.DRIVER_INFO["discovery"]["tcp_probe"]
-    assert probe["port"] == 5000
-    sim = SIM.ViewSonicCdeSimulator("probe_sim", {})
-    answer = sim.handle_command(probe["send_ascii"].encode("ascii"))
-    assert answer is not None
-    assert probe["expect"].encode("ascii") in answer
-    # The link test is documented to answer in standby too — a probe can
-    # still fingerprint a display whose standby keeps the network alive.
-    sim.set_state("power_code", "000")
-    answer = sim.handle_command(probe["send_ascii"].encode("ascii"))
-    assert probe["expect"].encode("ascii") in answer
-
-
-# ── Dual-proof round trips ──────────────────────────────────────────────────
-
-def test_power_transitions(pair):
-    driver, sim = pair
-
-    async def run():
-        await driver.send_command("power_off")
-        assert sim.state["power_code"] == "000"
-        await driver.poll()
-        assert _dstate(driver, "power") == "standby"
-
-        await driver.send_command("power_on")
-        assert sim.state["power_code"] == "001"
-        await driver.poll()
-        assert _dstate(driver, "power") == "on"
-
-    _run(run())
-
-
-def test_sets_mutate_sim_and_polls_read_back(pair):
-    driver, sim = pair
-
-    async def run():
-        cases = [
-            ("set_source", {"source": "hdmi2"}, "input_code", "014"),
-            ("set_volume", {"level": 42}, "volume", 42),
-            ("set_brightness", {"level": 62}, "brightness", 62),
-            ("set_contrast", {"level": 61}, "contrast", 61),
-            ("set_sharpness", {"level": 63}, "sharpness", 63),
-            ("set_color", {"level": 64}, "color", 64),
-            ("set_tint", {"level": 65}, "tint", 65),
-            ("set_backlight", {"level": 66}, "backlight", 66),
-            ("mute_on", None, "mute_code", "001"),
-            ("freeze_on", None, "freeze_code", "001"),
-            ("backlight_off", None, "backlight_on_code", "000"),
-            ("set_pip_mode", {"mode": "pip"}, "pip_mode_code", "001"),
-            ("set_pip_input", {"source": "dp1"}, "pip_input_code", "009"),
-            ("set_tiling_mode", {"mode": "on"}, "tiling_mode_code", "001"),
-            ("set_tiling_compensation", {"mode": "on"}, "tiling_comp_code", "001"),
-            ("set_tiling_layout", {"horizontal": 3, "vertical": 4}, "tiling_hv", "034"),
-            ("set_tiling_position", {"position": 7}, "tiling_pos_code", "007"),
-        ]
-        for command, params, sim_key, expected in cases:
-            await driver.send_command(command, params)
-            assert sim.state[sim_key] == expected, command
-
-        # The backlight set must ride the 'A' command type on the wire.
-        assert b"801AB066\r" in driver.transport.sent
-
-        await driver.poll()
-        expected_states = {
-            "power": "on", "source": "hdmi2", "signal_detected": True,
-            "volume": 42, "mute": True, "brightness": 62, "backlight": 66,
-            "contrast": 61, "sharpness": 63, "color": 64, "tint": 65,
-            "backlight_on": False, "freeze": True, "touch_enabled": True,
-            "power_lock": "unlocked", "button_lock": "unlocked",
-            "menu_lock": "unlocked", "remote_control_mode": "enabled",
-            "pip_mode": "pip", "pip_input": "dp1",
-            "tiling_mode": True, "tiling_compensation": True,
-            "tiling_layout": "3x4", "tiling_position": 7,
-            "thermal_c": 42, "operation_hours": 1234,
-            "amb_temperature_c": 23.5, "amb_humidity": 45.0,
-            "amb_light": 80, "amb_presence": True,
-        }
-        for key, value in expected_states.items():
-            assert _dstate(driver, key) == value, key
-
-    _run(run())
-
-
-def test_volume_brightness_steps_and_input_cycle(pair):
-    driver, sim = pair
-
-    async def run():
-        vol = sim.state["volume"]
-        await driver.send_command("volume_up")
-        assert sim.state["volume"] == vol + 1
-        await driver.send_command("volume_down")
-        assert sim.state["volume"] == vol
-
-        bri = sim.state["brightness"]
-        await driver.send_command("brightness_up")
-        assert sim.state["brightness"] == bri + 1
-        await driver.send_command("brightness_down")
-        assert sim.state["brightness"] == bri
-
-        # 00Z steps the display's own input cycle.
-        assert sim.state["input_code"] == "004"
-        await driver.send_command("input_cycle")
-        assert sim.state["input_code"] == "014"
-
-    _run(run())
-
-
-def test_device_settings_write_and_read_back(pair):
-    driver, sim = pair
-
-    async def run():
-        cases = [
-            ("backlight", 55, "backlight", 55, "backlight", 55),
-            # NOT inverted on this protocol: wire 001 = locked.
-            ("power_lock", "locked", "power_lock_code", "001",
-             "power_lock", "locked"),
-            ("button_lock", "locked", "button_lock_code", "001",
-             "button_lock", "locked"),
-            ("menu_lock", "locked", "menu_lock_code", "001",
-             "menu_lock", "locked"),
-            ("remote_control_mode", "passthrough", "rcu_mode_code", "002",
-             "remote_control_mode", "passthrough"),
-            ("touch", False, "touch_code", "000", "touch_enabled", False),
-        ]
-        for key, value, sim_key, sim_expected, state_key, state_expected in cases:
-            await driver.set_device_setting(key, value)
-            assert sim.state[sim_key] == sim_expected, key
-            # The write issues an immediate read-back get.
-            assert _dstate(driver, state_key) == state_expected, key
-
-        # The backlight read-back must ride the 'a' command type.
-        assert b"801aB000\r" in driver.transport.sent
-
-    _run(run())
-
-
-def test_identity_and_info_decode(pair):
-    driver, sim = pair
-
-    async def run():
-        await driver._post_connect()
-        assert _dstate(driver, "device_name") == "CDE5530"
-        assert _dstate(driver, "mac_address") == "04:0e:c2:12:34:56"
-        assert _dstate(driver, "ip_address") == "192.168.1.50"
-        assert _dstate(driver, "serial_number") == "ABC180212345"
-        assert _dstate(driver, "firmware_version") == "3.02.001"
-        # The 32-byte format's NUL padding must never leak into state.
-        for key in ("device_name", "ip_address", "serial_number", "firmware_version"):
-            assert "\x00" not in _dstate(driver, key)
-
-    _run(run())
-
-
-def test_input_reply_signal_packing(pair):
-    driver, sim = pair
-
-    async def run():
-        # Signal lost: the same reply carries detect digit + source suffix.
-        sim.set_state("signal_code", "0")
-        await driver.poll()
-        assert _dstate(driver, "signal_detected") is False
-        assert _dstate(driver, "source") == "hdmi1"
-
-        # An undocumented source code reads back as source_<suffix>.
-        sim.set_state("input_code", "099")
-        sim.set_state("signal_code", "1")
-        await driver.poll()
-        assert _dstate(driver, "signal_detected") is True
-        assert _dstate(driver, "source") == "source_99"
-
-    _run(run())
-
-
-def test_thermal_negative_encoding(pair):
-    driver, sim = pair
-
-    async def run():
-        sim.set_state("thermal_c", -5)
-        await driver.poll()
-        assert _dstate(driver, "thermal_c") == -5
-
-    _run(run())
-
-
-def test_smart_hub_parse(pair):
-    driver, sim = pair
-
-    async def run():
-        # Sub-zero ambient temperature, individual-field query form.
-        sim.set_state("hub_temp", "-05.0")
-        reply = sim.handle_command(b"801g:00A\r")
-        for frame in reply.split(b"\r"):
-            if frame:
-                await driver.on_data_received(frame)
-        assert _dstate(driver, "amb_temperature_c") == -5.0
-
-    _run(run())
-
-
-# ── Auto-reply push (*3.2.1) ───────────────────────────────────────────────
-
-def test_driver_applies_unsolicited_frames(pair):
-    driver, sim = pair
-
-    async def run():
-        await driver.on_data_received(b"801rf042")
-        assert _dstate(driver, "volume") == 42
-        await driver.on_data_received(b"801rj104")
-        assert _dstate(driver, "source") == "hdmi1"
-        assert _dstate(driver, "signal_detected") is True
-        await driver.on_data_received(b"801rg001")
-        assert _dstate(driver, "mute") is True
-        await driver.on_data_received(b"801rl000")
-        assert _dstate(driver, "power") == "standby"
-
-    _run(run())
-
-
-def test_sim_pushes_on_user_change_but_not_controller_sets(pair):
-    driver, sim = pair
-
-    async def run():
-        # A user-side change (Simulator UI) pushes the auto-reply frame.
-        sim.set_state("volume", 55)
-        await asyncio.sleep(0)
-        assert b"801rf055\r" in sim.pushed
-
-        sim.set_state("input_code", "014")
-        await asyncio.sleep(0)
-        assert b"801rj114\r" in sim.pushed
-
-        # A controller-driven set command must NOT trigger the push.
-        sim.pushed.clear()
-        sim.handle_command(b"801s5060\r")
-        await asyncio.sleep(0)
-        assert sim.state["volume"] == 60
-        assert sim.pushed == []
-
-    _run(run())
-
-
-def test_ir_passthrough_frames_ignored(pair):
-    driver, sim = pair
-
-    async def run():
-        snapshot = dict(driver.state.data)
-        # RCU pass-through key event (VOL+ on display #01).
-        await driver.on_data_received(b"601p10")
-        assert driver.state.data == snapshot
-
-    _run(run())
-
-
-# ── Addressing / rejects / standby ──────────────────────────────────────────
-
-def test_monitor_id_addressing():
-    # Driver addresses ID 2; the sim is ID 1 -> chain silence, no state.
-    driver, sim = _make_pair(driver_overrides={"monitor_id": 2})
-
-    async def run():
-        await driver.poll()
-        assert _dstate(driver, "power") is None
-        # A foreign reply frame is ignored by the driver's ID filter.
-        await driver.on_data_received(b"801rl001")
-        assert _dstate(driver, "power") is None
-
-    _run(run())
-
-
-def test_rejects_leave_state_untouched(pair):
-    driver, sim = pair
-
-    async def run():
-        await driver.poll()
-        assert _dstate(driver, "volume") == 30
-        # Out-of-range raw set: the sim answers '-', nothing changes.
-        await driver.send_command(
-            "raw_command", {"cmd_type": "s", "code": "5", "value": "176"},
-        )
-        assert sim.state["volume"] == 30
-        await driver.poll()
-        assert _dstate(driver, "volume") == 30
-
-    _run(run())
-
-
-def test_no_fabricated_state_for_set_only_functions(pair):
-    driver, sim = pair
-
-    async def run():
-        await driver.poll()
-        snapshot = dict(driver.state.data)
-        # None of these has a read-back in the protocol; the driver must
-        # not synthesize state from the outgoing command.
-        await driver.send_command("set_bass", {"level": 40})
-        await driver.send_command("set_treble", {"level": 60})
-        await driver.send_command("set_balance", {"level": 50})
-        await driver.send_command("set_color_mode", {"mode": "warm"})
-        await driver.send_command("set_picture_size", {"size": "full"})
-        await driver.send_command("set_osd_language", {"language": "english"})
-        await driver.send_command("surround_on")
-        await driver.send_command("set_pip_sound", {"from_window": "main"})
-        await driver.send_command("set_pip_position", {"position": "up"})
-        await driver.send_command("nav_key", {"key": "menu"})
-        await driver.send_command("press_number", {"number": 5})
-        await driver.send_command("custom_hot_key", {"key": 1})
-        assert driver.state.data == snapshot
-
-    _run(run())
-
-
-def test_standby_gate_holds_state(pair):
-    driver, sim = pair
-
-    async def run():
-        await driver.poll()
-        assert _dstate(driver, "volume") == 30
-
-        await driver.send_command("power_off")
-        assert sim.state["power_code"] == "000"
-        # Nudge the sim's held values; in standby only the power get
-        # answers, so the driver's other state must hold.
-        sim.set_state("volume", 77)
-        await driver.poll()
-        assert _dstate(driver, "power") == "standby"
-        assert _dstate(driver, "volume") == 30
-
-        # Power-on over the control link brings it back.
-        await driver.send_command("power_on")
-        await driver.poll()
-        assert _dstate(driver, "power") == "on"
-        assert _dstate(driver, "volume") == 77
-
-    _run(run())
-
-
-def test_poll_raises_on_dead_transport(pair):
-    driver, _ = pair
-
-    async def run():
-        await driver.transport.close()
-        with pytest.raises(ConnectionError):
-            await driver.poll()
-
-    _run(run())
-
-
-# ── Wake-on-LAN setup action ────────────────────────────────────────────────
-
-class _FakeSocket:
-    sent: list[tuple[bytes, tuple]] = []
-
-    def __init__(self, *args, **kwargs) -> None:
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def setsockopt(self, *args) -> None:
-        pass
-
-    def sendto(self, data, addr) -> None:
-        _FakeSocket.sent.append((bytes(data), addr))
-
-
-class _FakeSocketModule:
-    """Replaces the driver module's ``socket`` attribute only — patching
-    the real module would break asyncio's own socketpair plumbing."""
-
-    AF_INET = 2
-    SOCK_DGRAM = 2
-    SOL_SOCKET = 1
-    SO_BROADCAST = 6
-    socket = _FakeSocket
-
-
-def test_wake_display_sends_spec_magic_packet(pair, monkeypatch):
-    driver, _ = pair
-    monkeypatch.setattr(DRV, "socket", _FakeSocketModule)
-    _FakeSocket.sent = []
-    driver.set_state("mac_address", "04:0e:c2:12:34:56")
-    progress_lines: list[str] = []
-
-    async def progress(step, pct=None):
-        progress_lines.append(step)
-
-    async def run():
-        result = await driver.run_setup_action("wake_display", {}, progress)
-        assert result == {"mac": "04:0e:c2:12:34:56"}
-
-    _run(run())
-    mac_bytes = bytes([0x04, 0x0E, 0xC2, 0x12, 0x34, 0x56])
-    # The LFD spec's 126-byte WOL frame: sync + 16 MAC repeats + 24-byte
-    # zero tail, on UDP port 9.
-    magic = b"\xff" * 6 + mac_bytes * 16 + b"\x00" * 24
-    assert len(magic) == 126
-    # Broadcast plus a direct copy at the configured host.
-    assert (magic, ("255.255.255.255", 9)) in _FakeSocket.sent
-    assert (magic, ("10.0.0.61", 9)) in _FakeSocket.sent
-    assert progress_lines
-
-
-def test_wake_display_mac_resolution_and_validation(pair, monkeypatch):
-    driver, _ = pair
-    monkeypatch.setattr(DRV, "socket", _FakeSocketModule)
-    _FakeSocket.sent = []
-
-    async def progress(step, pct=None):
-        pass
-
-    async def run():
-        # No MAC anywhere -> a clear error.
-        with pytest.raises(ValueError, match="No MAC address"):
-            await driver.run_setup_action("wake_display", {}, progress)
-        # Malformed MAC -> a clear error.
-        with pytest.raises(ValueError, match="not a valid MAC"):
-            await driver.run_setup_action(
-                "wake_display", {"mac": "not-a-mac"}, progress,
-            )
-        # An explicit param wins over config.
-        driver.config["mac_address"] = "11:22:33:44:55:66"
-        result = await driver.run_setup_action(
-            "wake_display", {"mac": "aa:bb:cc:dd:ee:ff"}, progress,
-        )
-        assert result == {"mac": "aa:bb:cc:dd:ee:ff"}
-
-    _run(run())
+    # Set brightness 76 on ID 01: '8' '01' 's' '$' '076' CR
+    assert _wire("set_brightness", {"level": 76}) == b"801s$076\r"
+    # A get addressed to ID 05 (RS-232 chain).
+    assert _wire("power_on_lan", config={**CONFIG, "monitor_id": 5}) == b"805s!001\r"
+    # The backlight-level pair rides its own command type: 'A' set (raw command).
+    assert _wire("raw_command", {"cmd_type": "A", "code": "B", "value": "080"}) == b"801AB080\r"
+    assert _wire("raw_command", {"cmd_type": "a", "code": "B", "value": "000"}) == b"801aB000\r"
+
+
+def test_enum_params_map_tokens_to_wire_codes():
+    assert _wire("set_source", {"source": "hdmi2"}) == b'801s"014\r'
+    assert _wire("set_pip_input", {"source": "android"}) == b"801s700A\r"
+    assert _wire("set_color_mode", {"mode": "warm"}) == b"801s)001\r"
+    assert _wire("set_tiling_mode", {"mode": "on"}) == b"801sP001\r"
+    assert _wire("set_tiling_layout", {"horizontal": 3, "vertical": 2}) == b"801sR032\r"
+    assert _wire("set_tiling_position", {"position": 7}) == b"801sS007\r"
+    assert _wire("nav_key", {"key": "enter"}) == b"801sA004\r"
+    assert _wire("set_osd_language", {"language": "spanish"}) == b"801s2002\r"
+    assert _wire("input_cycle") == b'801s"00Z\r'
+    assert _wire("volume_up") == b"801s5901\r"
+    assert _wire("backlight_off") == b"801s(000\r"
+    assert _wire("restore_default") == b"801s~000\r"
+
+
+def test_every_source_token_has_a_wire_code_and_reads_back():
+    source_map = INFO["commands"]["set_source"]["params"]["source"]["map"]
+    values = {opt["value"] for opt in INFO["commands"]["set_source"]["params"]["source"]["values"]}
+    assert set(source_map) == values
+    # Every documented code's two-character suffix decodes back to its token.
+    for token, code in source_map.items():
+        _, out = _apply(_reply("j", "1" + code[1:]))
+        assert out == {"signal_detected": True, "source": token}, token
+
+
+def test_device_setting_writes_carry_the_frame_and_a_read_back():
+    ds = INFO["device_settings"]
+    assert _substitute(ds["backlight"]["write"]["send"], {**CONFIG, "value": 55}) == "801AB055\r801aB000\r"
+    assert _substitute(ds["power_lock"]["write"]["send"], {**CONFIG, "value": "001"}) == "801s4001\r801go000\r"
+    assert _substitute(ds["remote_control_mode"]["write"]["send"], {**CONFIG, "value": "002"}) == "801sB002\r801gn000\r"
+    assert _substitute(ds["touch"]["write"]["send"], {**CONFIG, "value": True}) == "801s=103\r801g=003\r"
+    assert _substitute(ds["touch"]["write"]["send"], {**CONFIG, "value": False}) == "801s=003\r801g=003\r"
+
+
+def test_polls_and_on_connect_are_framed_for_the_configured_monitor_id():
+    queries = INFO["polling"]["queries"]
+    assert len(queries) == 26
+    assert _substitute(queries[0]["send"], {"monitor_id": 5}) == "805gl000\r"
+    assert {q["query_for"] for q in queries} <= set(STATE_VARS)
+    assert [_substitute(q, CONFIG) for q in INFO["on_connect"]] == [
+        "801g4000\r", "801g5000\r", "801g6000\r", "801g7000\r", "801g8000\r",
+    ]
+
+
+# ── Receive side ────────────────────────────────────────────────────────────
+
+
+def test_power_and_binary_replies():
+    assert _apply(_reply("l", "001"))[1] == {"power": "on"}
+    assert _apply(_reply("l", "000"))[1] == {"power": "standby"}
+    assert _apply(_reply("g", "001"))[1] == {"mute": True}
+    assert _apply(_reply("h", "000"))[1] == {"backlight_on": False}
+    assert _apply(_reply("i", "001"))[1] == {"freeze": True}
+    assert _apply(_reply("v", "001"))[1] == {"tiling_mode": True}
+    assert _apply(_reply("w", "000"))[1] == {"tiling_compensation": False}
+
+
+def test_numeric_replies_including_the_backlight_pair():
+    assert _apply(_reply("f", "063"))[1] == {"volume": 63}
+    assert _apply(_reply("b", "076"))[1] == {"brightness": 76}
+    assert _apply(_reply("B", "080"))[1] == {"backlight": 80}
+    assert _apply(_reply("a", "050"))[1] == {"contrast": 50}
+    assert _apply(_reply("y", "007"))[1] == {"tiling_position": 7}
+
+
+def test_input_reply_signal_packing_and_unknown_code():
+    assert _apply(_reply("j", "104"))[1] == {"signal_detected": True, "source": "hdmi1"}
+    assert _apply(_reply("j", "014"))[1] == {"signal_detected": False, "source": "hdmi2"}
+    # A code this driver does not know reads back as its suffix.
+    assert _apply(_reply("j", "1ZZ"))[1] == {"signal_detected": True, "source": "ZZ"}
+    assert _apply(_reply("u", "029"))[1] == {"pip_input": "dp2"}
+
+
+def test_locks_are_not_inverted_and_rcu_pip_modes_decode():
+    assert _apply(_reply("o", "001"))[1] == {"power_lock": "locked"}
+    assert _apply(_reply("p", "000"))[1] == {"button_lock": "unlocked"}
+    assert _apply(_reply("q", "001"))[1] == {"menu_lock": "locked"}
+    assert _apply(_reply("n", "002"))[1] == {"remote_control_mode": "passthrough"}
+    assert _apply(_reply("t", "002"))[1] == {"pip_mode": "pbp"}
+
+
+def test_function_on_off_reply_routes_by_function_id():
+    assert _apply(_reply("=", "103"))[1] == {"touch_enabled": True}
+    assert _apply(_reply("=", "003"))[1] == {"touch_enabled": False}
+    assert _apply(_reply("=", "101"))[1] == {"backlight_on": True}
+    assert _apply(_reply("=", "002"))[1] == {"freeze": False}
+
+
+def test_tiling_layout_spells_out_h_by_v():
+    assert _apply(_reply("x", "033"))[1] == {"tiling_layout": "3x3"}
+    assert _apply(_reply("x", "019"))[1] == {"tiling_layout": "1x9"}
+    layout_map = next(
+        mp["map"] for r in INFO["responses"] for mp in r.get("mappings", [])
+        if mp["state"] == "tiling_layout"
+    )
+    assert len(layout_map) == 81
+
+
+def test_thermal_negative_encoding():
+    assert _apply(_reply("0", "042"))[1] == {"thermal_c": 42}
+    assert _apply(_reply("0", "-05"))[1] == {"thermal_c": -5}
+
+
+def test_identity_and_info_replies_strip_nul_padding():
+    assert _apply(_reply32("4", "CDE5530"))[1] == {"device_name": "CDE5530"}
+    assert _apply(_reply32("5", "040ec2123456"))[1] == {"mac_address": "040ec2123456"}
+    assert _apply(_reply32("6", "192.168.1.50"))[1] == {"ip_address": "192.168.1.50"}
+    assert _apply(_reply32("7", "ABC180212345"))[1] == {"serial_number": "ABC180212345"}
+    assert _apply(_reply32("8", "3.02.001"))[1] == {"firmware_version": "3.02.001"}
+    assert _apply(_reply32("1", "001234"))[1] == {"operation_hours": 1234}
+    # An all-zero MAC is not one; the twelve hex digits are what the rule takes.
+    assert _apply(_reply32("5", ""))[1] == {}
+
+
+def test_smart_hub_fields_in_any_order_and_any_subset():
+    _, out = _apply(_reply32(":", "A-05.0B030.0C00080D00001"))
+    assert out == {"amb_temperature_c": -5.0, "amb_humidity": 30.0, "amb_light": 80, "amb_presence": True}
+    _, out = _apply(_reply32(":", "D00000C00012"))
+    assert out == {"amb_light": 12, "amb_presence": False}
+    _, out = _apply(_reply32(":", "A023.5"))
+    assert out == {"amb_temperature_c": 23.5}
+
+
+def test_monitor_id_addressing_and_noise_match_nothing():
+    # A reply for another display on the chain matches no rule for ID 01.
+    assert _apply(_reply("l", "001", mid=2)) == (None, {})
+    # ... and matches once the driver is configured for that ID.
+    assert _apply(_reply("l", "001", mid=2), {**CONFIG, "monitor_id": 2})[1] == {"power": "on"}
+    # Acks, rejects, the link test and IR pass-through carry no state.
+    for frame in (b"501+\r", b"501-\r", _reply("z", "000"), b"801p\x01\x02\r"):
+        assert _apply(frame) == (None, {}), frame
+
+
+@pytest.mark.parametrize("command", sorted(INFO["commands"]))
+def test_every_command_sends_one_way(command):
+    cmd = INFO["commands"][command]
+    assert ("send" in cmd) != ("udp" in cmd), command

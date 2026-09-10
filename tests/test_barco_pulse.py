@@ -42,6 +42,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    StubBaseDriver,
     ConnectionFaultError as _FakeConnectionFaultError,
     FrameParser as _FrameParserBase,
     StubEvents as _FakeEvents,
@@ -61,6 +62,11 @@ class _FakeBaseDriver(LifecycleFake):
 
     DRIVER_INFO: dict = {}
 
+    # The platform's UDP side-send, recorded rather than sent: one
+    # implementation, borrowed from the shared stub so it cannot drift.
+    send_udp = StubBaseDriver.send_udp
+    wake_on_lan = StubBaseDriver.wake_on_lan
+
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
         self.config = config
@@ -73,6 +79,7 @@ class _FakeBaseDriver(LifecycleFake):
         self.disconnect_calls = 0
         self.stashed_fault: tuple[str, str] | None = None
         self.config_updates: list[dict] = []
+        self.udp_sent: list[tuple[bytes, str, int]] = []
         self.reconnect_requests = 0
         self._health_task = None
         self._health_failures = 0
@@ -394,12 +401,12 @@ async def _settle(n: int = 4) -> None:
 
 def test_version_and_platform_gate():
     info = DRV.BarcoPulseDriver.DRIVER_INFO
-    assert info["version"] == "1.0.2"
+    assert info["version"] == "1.0.3"
     # The BaseDriver connection lifecycle hooks this driver overrides
     # (_pre_connect / _post_connect / _initial_sync / _close_session)
     # ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.25.0"
+    assert info["min_platform_version"] == "0.34.0"
     assert info["ports"] == [9090]
 
 
@@ -571,7 +578,7 @@ def test_power_on_walks_state_machine_via_push():
             assert driver.get_state("power_state") == "on"
             assert driver.get_state("illumination") == "On"
             # No ECO wake needed from standby.
-            assert _FakeUDPTransport.sent == []
+            assert driver.udp_sent == []
 
             await driver.send_command("power_off")
             await _settle()
@@ -728,11 +735,12 @@ def test_power_on_from_eco_sends_wol():
 
             await driver.send_command("power_on")
             await _settle()
-            assert len(_FakeUDPTransport.sent) == 1
-            packet, host, port = _FakeUDPTransport.sent[0]
-            assert host == "255.255.255.255" and port == 9
+            # The platform's helper: broadcast, then the projector's host.
+            assert [(h, p) for _, h, p in driver.udp_sent] == [
+                ("255.255.255.255", 9), (driver.config["host"], 9),
+            ]
             mac = bytes.fromhex("000d0a016439")
-            assert packet == b"\xff" * 6 + mac * 16
+            assert driver.udp_sent[0][0] == b"\xff" * 6 + mac * 16
         finally:
             await driver.disconnect()
 

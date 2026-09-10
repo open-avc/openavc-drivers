@@ -228,15 +228,6 @@ class _JsonStreamParser(FrameParser):
         return None, buf[start:]
 
 
-def _wol_packet(mac: str) -> bytes | None:
-    """Build a Wake-on-LAN magic packet from a MAC string, or None."""
-    digits = "".join(c for c in mac if c in "0123456789abcdefABCDEF")
-    if len(digits) != 12:
-        return None
-    hw = bytes.fromhex(digits)
-    return b"\xff" * 6 + hw * 16
-
-
 def _parse_json_value(raw: str) -> Any:
     """Parse a user-supplied value: JSON if it parses, else the string."""
     try:
@@ -253,9 +244,9 @@ class BarcoPulseDriver(BaseDriver):
         "name": "Barco Pulse Projector",
         "manufacturer": "Barco",
         "category": "projector",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.34.0",
         "author": "OpenAVC",
         "description": (
             "Controls Barco Pulse-platform laser projectors (F70 / F80 "
@@ -1325,29 +1316,26 @@ class BarcoPulseDriver(BaseDriver):
         return result
 
     async def _send_wol(self) -> None:
-        """Best-effort Wake-on-LAN using the MAC read at connect."""
+        """Best-effort Wake-on-LAN using the MAC read at connect.
+
+        The platform's ``wake_on_lan`` sends the magic packet to the broadcast
+        address and to the projector's host; a MAC the projector never
+        reported is a warning, not a failed power-on, because
+        ``system.poweron`` still follows.
+        """
         mac = str(self.get_state("mac_address") or "")
-        packet = _wol_packet(mac)
-        if packet is None:
+        try:
+            await self.wake_on_lan(mac)
+        except ValueError:
             log.warning(
                 f"[{self.device_id}] No MAC address known — cannot send "
                 "Wake-on-LAN for ECO wake-up"
             )
             return
-        from openavc.transport.udp import UDPTransport
-
-        udp = UDPTransport(name=self.device_id)
-        try:
-            await udp.open(allow_broadcast=True)
-            await udp.send(packet, "255.255.255.255", 9)
-            log.info(f"[{self.device_id}] Sent Wake-on-LAN packet to {mac}")
         except OSError as exc:
             log.warning(f"[{self.device_id}] Wake-on-LAN send failed: {exc}")
-        finally:
-            try:
-                udp.close()
-            except Exception:
-                pass
+            return
+        log.info(f"[{self.device_id}] Sent Wake-on-LAN packet to {mac}")
 
     # ── Device settings ──
 

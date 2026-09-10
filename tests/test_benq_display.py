@@ -41,6 +41,7 @@ from types import ModuleType
 
 import pytest
 from _platform_stubs import (
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -70,6 +71,12 @@ class _FakeBaseDriver:
 
     def get_state(self, key, default=None):
         return self.state.data.get(f"device.{self.device_id}.{key}", default)
+
+    # The platform's UDP side-send, recorded rather than sent: one
+    # implementation, borrowed from the shared stub so it cannot drift.
+    udp_sent: list
+    send_udp = StubBaseDriver.send_udp
+    wake_on_lan = StubBaseDriver.wake_on_lan
 
 
 # Set by the pairing harness so the stubbed transport reaches the live sim.
@@ -169,6 +176,7 @@ def _make_pair(sim_config=None, driver_overrides=None):
     }
     cfg.update(driver_overrides or {})
     driver = DRV.BenqDisplayDriver("ifp1", cfg, _FakeState(), _FakeEvents())
+    driver.udp_sent = []
     driver.transport = _FakeTransport(driver.on_data_received)
     return driver, sim
 
@@ -190,8 +198,8 @@ def pair():
 
 def test_metadata_shape():
     info = DRV.BenqDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.0.1"
-    assert info["min_platform_version"] == "0.25.0"
+    assert info["version"] == "1.1.0"
+    assert info["min_platform_version"] == "0.34.0"
     assert info["ports"] == [4660]
     assert info["transports"] == ["tcp", "serial"]
     # Every device setting reads back through a declared state variable.
@@ -200,10 +208,10 @@ def test_metadata_shape():
     # Quick actions promote declared commands.
     for cid in info["quick_actions"]:
         assert cid in info["commands"], cid
-    # The wake action is a setup action available while offline.
-    wake = next(a for a in info["actions"] if a["id"] == "wake_display")
-    assert wake["kind"] == "setup"
-    assert wake["availability"] == "offline"
+    # Power On wakes over Wake-on-LAN, so it runs while the display is offline
+    # and there is no separate setup action for it any more.
+    assert info["commands"]["power_on"]["available_offline"] is True
+    assert "actions" not in info
 
 
 def test_setting_enums_match_state_enums():
@@ -429,81 +437,42 @@ def test_poll_raises_on_dead_transport(pair):
 
 # ── Wake-on-LAN setup action ────────────────────────────────────────────────
 
-class _FakeSocket:
-    sent: list[tuple[bytes, tuple]] = []
-
-    def __init__(self, *args, **kwargs) -> None:
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def setsockopt(self, *args) -> None:
-        pass
-
-    def sendto(self, data, addr) -> None:
-        _FakeSocket.sent.append((bytes(data), addr))
-
-
-class _FakeSocketModule:
-    """Replaces the driver module's ``socket`` attribute only — patching
-    the real module would break asyncio's own socketpair plumbing."""
-
-    AF_INET = 2
-    SOCK_DGRAM = 2
-    SOL_SOCKET = 1
-    SO_BROADCAST = 6
-    socket = _FakeSocket
-
-
-def test_wake_display_sends_magic_packet(pair, monkeypatch):
-    driver, _ = pair
-    monkeypatch.setattr(DRV, "socket", _FakeSocketModule)
-    _FakeSocket.sent = []
+def test_power_on_sends_magic_packet_and_the_protocol_power_on(pair):
+    driver, sim = pair
     driver.set_state("mac_address", "80:65:e9:12:34:56")
-    progress_lines: list[str] = []
-
-    async def progress(step, pct=None):
-        progress_lines.append(step)
 
     async def run():
-        result = await driver.run_setup_action("wake_display", {}, progress)
-        assert result == {"mac": "80:65:e9:12:34:56"}
+        assert await driver.send_command("power_on") is True
 
     _run(run())
     mac_bytes = bytes([0x80, 0x65, 0xE9, 0x12, 0x34, 0x56])
     magic = b"\xff" * 6 + mac_bytes * 16
-    # Broadcast plus a direct copy at the configured host.
-    assert (magic, ("255.255.255.255", 9)) in _FakeSocket.sent
-    assert (magic, ("10.0.0.60", 9)) in _FakeSocket.sent
-    assert progress_lines
+    # Broadcast plus a direct copy at the configured host, and the LAN
+    # power-on as well because the display was reachable.
+    assert (magic, "255.255.255.255", 9) in driver.udp_sent
+    assert (magic, "10.0.0.60", 9) in driver.udp_sent
+    assert sim.state["power_code"] == "001"
 
 
-def test_wake_display_mac_resolution_and_validation(pair, monkeypatch):
-    driver, _ = pair
-    monkeypatch.setattr(DRV, "socket", _FakeSocketModule)
-    _FakeSocket.sent = []
-
-    async def progress(step, pct=None):
-        pass
+def test_power_on_offline_wakes_with_a_known_mac_and_refuses_without_one():
+    driver, _ = _make_pair()
+    driver.transport = None  # offline: no control link at all
 
     async def run():
-        # No MAC anywhere -> a clear error.
-        with pytest.raises(ValueError, match="No MAC address"):
-            await driver.run_setup_action("wake_display", {}, progress)
-        # Malformed MAC -> a clear error.
-        with pytest.raises(ValueError, match="not a valid MAC"):
-            await driver.run_setup_action(
-                "wake_display", {"mac": "not-a-mac"}, progress,
-            )
-        # An explicit param wins over config.
+        # Offline and no MAC anywhere -> a clear error, nothing sent.
+        with pytest.raises(ValueError, match="no MAC address is known"):
+            await driver.send_command("power_on")
+        assert driver.udp_sent == []
+        # A malformed MAC is skipped with a warning, so still nothing to send.
+        driver.config["mac_address"] = "not-a-mac"
+        with pytest.raises(ValueError, match="no MAC address is known"):
+            await driver.send_command("power_on")
+        assert driver.udp_sent == []
+        # Learned state beats the config field.
         driver.config["mac_address"] = "11:22:33:44:55:66"
-        result = await driver.run_setup_action(
-            "wake_display", {"mac": "aa:bb:cc:dd:ee:ff"}, progress,
-        )
-        assert result == {"mac": "aa:bb:cc:dd:ee:ff"}
+        driver.set_state("mac_address", "aa:bb:cc:dd:ee:ff")
+        assert await driver.send_command("power_on") is True
+        assert driver.udp_sent[0][0][6:12] == bytes.fromhex("aabbccddeeff")
+        assert [h for _, h, _ in driver.udp_sent] == ["255.255.255.255", "10.0.0.60"]
 
     _run(run())

@@ -13,9 +13,10 @@ mode, saturation, hue, backlight, DCR, color temperature, power save,
 WOL, ...) are raw high-bit bytes that all decode to the same U+FFFD
 replacement character in text matching, so YAML response rules cannot
 tell their replies apart; the model/serial and network queries carry
-NUL-padded binary value blocks; and waking a standby display needs a
-Wake-on-LAN magic packet from a setup action. Position-parsing bytes in
-Python keeps every read unambiguous.
+NUL-padded binary value blocks. Position-parsing bytes in Python keeps
+every read unambiguous. (Waking a standby display is a Wake-on-LAN magic
+packet the platform sends for any driver, ``BaseDriver.wake_on_lan``; it
+stopped being a reason for Python when that helper landed.)
 
 Wire protocol (ASCII framing, CR terminated)::
 
@@ -46,10 +47,11 @@ Power model (matters for automation):
     automated spaces), "002" standby (Android off — the LAN control
     port goes dead until the panel is woken), "003" reboot.
   - Per the manual, LAN commands only work while the display is on or
-    screen-off. A display put into standby is unreachable over LAN;
-    the "Wake Display (Wake-on-LAN)" setup action sends a WOL magic
+    screen-off. A display put into standby is unreachable over LAN, so
+    ``power_on`` is ``available_offline``: it sends a Wake-on-LAN magic
     packet (the display's WOL setting must be on) using the MAC learned
-    on the last connection (or the mac_address config field).
+    on the last connection (or the mac_address config field), and the
+    protocol's own power-on as well whenever the display is reachable.
 
 Protocol reference: BenQ "RM6503/RM7503/RM8603/RM8603T RS232 & LAN
 Protocol Installation Guide" (2022); the signage-wide "Generic
@@ -59,9 +61,6 @@ grammar with baud 9600.
 
 from __future__ import annotations
 
-import asyncio
-import re
-import socket
 from typing import Any
 
 from openavc.drivers.base import BaseDriver
@@ -223,8 +222,6 @@ _POLL_GETS = [
     GET_WOL,
 ]
 
-_MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}([:-][0-9A-Fa-f]{2}){5}$")
-
 
 def _num(value: str, minimum: int = 0, maximum: int = 100) -> dict:
     return {
@@ -241,7 +238,7 @@ class BenqDisplayDriver(BaseDriver):
         "name": "BenQ Display",
         "manufacturer": "BenQ",
         "category": "display",
-        "version": "1.0.1",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "description": (
             "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, "
@@ -249,15 +246,15 @@ class BenqDisplayDriver(BaseDriver):
             "protocol on TCP port 4660 or direct RS-232. Power and screen "
             "off, source select, volume, mute and audio EQ, picture values "
             "and modes, backlight, color temperature, aspect, remote-key "
-            "navigation, IR and keypad locks, power save, and Wake-on-LAN "
-            "wake-up for displays in standby. Polls for status."
+            "navigation, IR and keypad locks, power save, and a Power On "
+            "that wakes a standby display over Wake-on-LAN. Polls for status."
         ),
         "source_url": "https://esupportdownload.benq.com/esupport/PUBLIC%20DISPLAY%20PRODUCT/Control%20Protocols/RM6503/RS232%20&%20LAN%20Command%20List_2_Others.pdf",
         "tags": ["display", "benq", "benq-board", "ifp", "signage", "rs232", "lan-control"],
         "verified": False,
         "simulated": True,
         "ports": [4660],
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.34.0",
         "transport": "tcp",
         "transports": ["tcp", "serial"],
         "delimiter": "\r",
@@ -294,9 +291,9 @@ class BenqDisplayDriver(BaseDriver):
                 "Polls every 30 seconds. Use Screen Off (not Standby) as the "
                 "automated 'off' for a space: it blanks the backlight while "
                 "network control stays available. Standby shuts Android down "
-                "and the LAN control port with it — a standby display is "
-                "woken with the Wake Display (Wake-on-LAN) action or from "
-                "the panel itself."
+                "and the LAN control port with it — Power On wakes a standby "
+                "display over Wake-on-LAN, and works while the display is "
+                "offline."
             ),
             "setup": (
                 "1. Network control: connect the display's LAN port, note the "
@@ -308,14 +305,16 @@ class BenqDisplayDriver(BaseDriver):
                 "Boards run 115200 8N1 (fixed); older RP panels and Smart "
                 "Signage run 9600 8N1 — set Baud Rate to match your model.\n"
                 "4. LAN commands only work while the display is on or screen-"
-                "off (Android running). After Standby, use the Wake Display "
-                "action, then reconnect."
+                "off (Android running). After Standby, Power On wakes the "
+                "display over Wake-on-LAN and the connection comes back on "
+                "its own."
             ),
             "connection": (
                 "A display in standby (Android off) does not answer on the "
-                "LAN control port. Wake it with the Wake Display "
-                "(Wake-on-LAN) action, or use Screen Off instead of Standby "
-                "so control stays available."
+                "LAN control port. Power On wakes it over Wake-on-LAN (the "
+                "display's Wake-on-LAN setting must be on and its MAC "
+                "address known), or use Screen Off instead of Standby so "
+                "control stays available."
             ),
         },
         "discovery": {
@@ -502,13 +501,14 @@ class BenqDisplayDriver(BaseDriver):
             },
             "mac_address": {
                 "type": "string", "label": "MAC Address",
-                "help": "Network MAC address reported by the display; used by the Wake Display action.",
+                "help": "Network MAC address reported by the display; Power On sends its Wake-on-LAN packet to this address.",
             },
         },
         "commands": {
             "power_on": {
                 "label": "Power On",
-                "help": "Turn the picture on. Works while the display is reachable (on or screen-off). A display in standby is unreachable over LAN — use the Wake Display (Wake-on-LAN) action instead.",
+                "help": "Turn the picture on. Sends a Wake-on-LAN packet to the display's MAC address (learned on the first connection, or typed in under Edit Device) so a display in standby wakes, and the protocol's power-on as well while the display is reachable. Runs while the device is offline.",
+                "available_offline": True,
                 "params": {},
             },
             "screen_off": {
@@ -518,7 +518,7 @@ class BenqDisplayDriver(BaseDriver):
             },
             "standby": {
                 "label": "Standby (Android Off)",
-                "help": "Full standby: Android shuts down and the LAN control port goes dead. Wake with the Wake Display action or at the panel.",
+                "help": "Full standby: Android shuts down and the LAN control port goes dead. Power On wakes it over Wake-on-LAN, or wake it at the panel.",
                 "params": {},
             },
             "reboot": {
@@ -752,7 +752,7 @@ class BenqDisplayDriver(BaseDriver):
             "wol": {
                 "type": "boolean",
                 "label": "Wake-on-LAN",
-                "help": "Keep on so a standby display can be woken with the Wake Display action.",
+                "help": "Keep on so Power On can wake a standby display over Wake-on-LAN.",
                 "state_key": "wol_enabled", "default": True, "setup": False,
             },
             "ir_lock": {
@@ -777,22 +777,6 @@ class BenqDisplayDriver(BaseDriver):
             },
         },
         "quick_actions": ["power_on", "screen_off"],
-        "actions": [
-            {
-                "id": "wake_display",
-                "kind": "setup",
-                "label": "Wake Display (Wake-on-LAN)",
-                "icon": "power",
-                "availability": "offline",
-                "params": {
-                    "mac": {
-                        "type": "string", "required": False,
-                        "label": "MAC Address",
-                        "description": "Leave blank to use the MAC learned on the last connection (or the mac_address config field).",
-                    },
-                },
-            },
-        ],
         "protocols": ["benq_rs232_lan"],
     }
 
@@ -828,7 +812,7 @@ class BenqDisplayDriver(BaseDriver):
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
     async def _post_connect(self) -> None:
-        # Identity + the MAC the Wake Display action needs. Fire-and-forget:
+        # Identity + the MAC Power On's Wake-on-LAN packet needs. Fire-and-forget:
         # replies land in on_data_received; a model that rejects one of these
         # answers '-' and the state simply stays unset.
         await self._get(GET_MODEL_INFO, b"\x02" + b"\x00" * 14)  # model name
@@ -847,8 +831,10 @@ class BenqDisplayDriver(BaseDriver):
     async def send_command(self, command: str, params: dict[str, Any] | None = None) -> Any:
         params = params or {}
 
+        if command == "power_on":
+            return await self._power_on()
+
         simple = {
-            "power_on": (SET_POWER, "001"),
             "screen_off": (SET_POWER, "000"),
             "standby": (SET_POWER, "002"),
             "reboot": (SET_POWER, "003"),
@@ -1029,54 +1015,37 @@ class BenqDisplayDriver(BaseDriver):
         elif code == GET_OPERATION_TIME:
             self.set_state("operation_hours", int(text))
 
-    # ── Wake-on-LAN setup action ───────────────────────────────────────────
+    # ── Power On: Wake-on-LAN, then the protocol ───────────────────────────
 
-    async def run_setup_action(self, action_id, params, progress):
-        if action_id != "wake_display":
-            raise ValueError(f"Unknown setup action '{action_id}'")
+    async def _power_on(self) -> bool:
+        """Wake a standby display and turn a reachable one on.
 
+        Declared ``available_offline``, so this runs whether or not the LAN
+        control port answers. A known MAC gets the Wake-on-LAN magic packet
+        (the platform sends it to the broadcast address and to the host); a
+        live connection also gets the protocol's own power-on, which is what
+        brings the picture back on a screen-off display. The MAC comes from
+        the network query on the last connection, else the config field.
+        """
         mac = (
-            str(params.get("mac") or "").strip()
-            or str(self.get_state("mac_address") or "").strip()
+            str(self.get_state("mac_address") or "").strip()
             or str(self.config.get("mac_address") or "").strip()
         )
-        if not mac:
+        woke = False
+        if mac:
+            try:
+                await self.wake_on_lan(mac)
+                woke = True
+            except ValueError as exc:
+                log.warning(f"[{self.device_id}] Wake-on-LAN skipped: {exc}")
+        if self.transport and self.transport.connected:
+            await self._set(SET_POWER, "001")
+            return True
+        if not woke:
             raise ValueError(
-                "No MAC address available. The MAC is learned automatically "
-                "on the first connection; enter it here or in the device's "
-                "mac_address config field."
+                "The display is offline and no MAC address is known, so it "
+                "cannot be woken. The MAC is learned automatically on the "
+                "first connection; until then, enter it under Edit Device, "
+                "or turn the display on at the panel."
             )
-        if not _MAC_RE.match(mac):
-            raise ValueError(f"'{mac}' is not a valid MAC address (aa:bb:cc:dd:ee:ff)")
-
-        await progress(f"Sending Wake-on-LAN magic packet to {mac}", pct=20)
-        mac_bytes = bytes(int(part, 16) for part in re.split(r"[:-]", mac))
-        magic = b"\xff" * 6 + mac_bytes * 16
-        loop = asyncio.get_running_loop()
-
-        def _send_wol() -> None:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                sock.sendto(magic, ("255.255.255.255", 9))
-                # Also aim at the display's own address in case broadcast
-                # is filtered between subnets.
-                host = self.config.get("host") or ""
-                if host:
-                    try:
-                        sock.sendto(magic, (host, 9))
-                    except OSError:
-                        pass
-
-        await loop.run_in_executor(None, _send_wol)
-        await progress(
-            "Magic packet sent. The display takes a little while to boot; "
-            "reconnecting.",
-            pct=70,
-        )
-        try:
-            await self.request_reconnect()
-        except Exception:
-            # Still booting — the normal auto-reconnect loop keeps retrying.
-            pass
-        await progress("Done. If the display stays offline, verify its Wake-on-LAN setting is on.", pct=100)
-        return {"mac": mac}
+        return True

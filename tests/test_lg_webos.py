@@ -26,6 +26,7 @@ import tempfile
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from _platform_stubs import (
+    StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -62,6 +63,7 @@ class _FakeBaseDriver:
         self._last_transport_error = ""
         self.health_starts = 0
         self.polling_starts = 0
+        self.udp_sent: list[tuple[bytes, str, int]] = []
 
     # State helpers -------------------------------------------------------
     def set_state(self, key, value):
@@ -73,6 +75,11 @@ class _FakeBaseDriver:
 
     def get_state(self, key, default=None):
         return self.state.data.get(f"device.{self.device_id}.{key}", default)
+
+    # The platform's UDP side-send, recorded rather than sent: one
+    # implementation, borrowed from the shared stub so it cannot drift.
+    send_udp = StubBaseDriver.send_udp
+    wake_on_lan = StubBaseDriver.wake_on_lan
 
     @property
     def connected(self) -> bool:
@@ -334,33 +341,26 @@ def test_power_true_is_wol():
     d = _driver()
     _with_recorded_requests(d)
     sent = {}
-    d._wake_on_lan = lambda: sent.setdefault("wol", True) or True
+
+    async def fake_wol():
+        sent["wol"] = True
+        return True
+
+    d._wake_on_lan = fake_wol
     assert asyncio.run(d.send_command("power", {"value": True})) is True
     assert sent.get("wol") is True
 
 
 # ── Wake-on-LAN ─────────────────────────────────────────────────────────────
 
-def test_wol_packet_bytes(monkeypatch):
+def test_wol_packet_bytes():
     d = _driver(mac_address="60:8D:26:24:97:62")
-    captured: list[tuple[bytes, tuple]] = []
-
-    class _FakeSock:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-        def setsockopt(self, *a):
-            pass
-
-        def sendto(self, data, dest):
-            captured.append((data, dest))
-
-    monkeypatch.setattr(_MOD.socket, "socket", lambda *a, **k: _FakeSock())
-    assert d._wake_on_lan() is True
-    packet = captured[0][0]
+    assert asyncio.run(d._wake_on_lan()) is True
+    # The platform's helper: broadcast, then the TV's own host.
+    assert [(h, p) for _, h, p in d.udp_sent] == [
+        ("255.255.255.255", 9), (d.config["host"], 9),
+    ]
+    packet = d.udp_sent[0][0]
     assert len(packet) == 102               # 6 x 0xff + MAC x 16
     assert packet[:6] == b"\xff" * 6
     assert packet[6:12] == bytes.fromhex("608d26249762")
@@ -369,7 +369,8 @@ def test_wol_packet_bytes(monkeypatch):
 
 def test_wol_rejects_bad_mac():
     d = _driver(mac_address="not-a-mac")
-    assert d._wake_on_lan() is False
+    assert asyncio.run(d._wake_on_lan()) is False
+    assert d.udp_sent == []
 
 
 # ── Offline Power On (available_offline command) ─────────────────────────────
@@ -390,7 +391,12 @@ def test_power_on_is_available_offline_quick_action():
 def test_power_on_command_fires_wol():
     d = _driver()
     fired = {}
-    d._wake_on_lan = lambda: fired.setdefault("wol", True) or True
+
+    async def fake_wol():
+        fired["wol"] = True
+        return True
+
+    d._wake_on_lan = fake_wol
     assert asyncio.run(d.send_command("power_on")) is True
     assert fired.get("wol") is True
 

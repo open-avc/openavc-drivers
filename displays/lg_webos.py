@@ -20,8 +20,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import re
-import socket
 import ssl
 from typing import Any
 
@@ -125,7 +123,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.1.2",
+        "version": "4.2.0",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -137,7 +135,7 @@ class LgWebosDriver(BaseDriver):
         # driver overrides connect() and never uses a platform transport.
         "transport": "tcp",
         "ports": [3001],
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.34.0",
 
         "default_config": {
             "host": "",
@@ -658,7 +656,7 @@ class LgWebosDriver(BaseDriver):
         # screen) or is fully off (WoL wakes it from cold). The auto-reconnect
         # brings the device back once the TV reopens its control port.
         if command == "power_on":
-            return self._wake_on_lan()
+            return await self._wake_on_lan()
 
         if command == "power_off":
             await self._request("ssap://system/turnOff")
@@ -756,25 +754,21 @@ class LgWebosDriver(BaseDriver):
 
     # ── Wake-on-LAN ────────────────────────────────────────────────────────
 
-    def _wake_on_lan(self) -> bool:
+    async def _wake_on_lan(self) -> bool:
+        """The platform's magic packet (broadcast + the TV's host) for the
+        configured MAC. False, with a warning, when no usable MAC is set: the
+        TV cannot be woken and a raise would only turn a missing setting into
+        a failed command."""
         mac = str(self.config.get("mac_address", "")).strip()
-        clean = re.sub(r"[^0-9A-Fa-f]", "", mac)
-        if len(clean) != 12:
+        try:
+            await self.wake_on_lan(mac)
+        except ValueError:
             log.warning(f"[{self.device_id}] Wake-on-LAN needs a valid MAC address")
             return False
-        packet = b"\xff" * 6 + bytes.fromhex(clean) * 16
-        host = str(self.config.get("host", "")).strip()
-        sent = False
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                sock.sendto(packet, ("255.255.255.255", 9))
-                if host:
-                    sock.sendto(packet, (host, 9))
-            sent = True
         except OSError as exc:
             log.warning(f"[{self.device_id}] Wake-on-LAN send failed: {exc}")
-        return sent
+            return False
+        return True
 
     # ── Helpers ────────────────────────────────────────────────────────────
 

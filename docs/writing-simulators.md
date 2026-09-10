@@ -786,6 +786,47 @@ SIMULATOR_INFO = {
 
 The control types and fields are the same as for YAML drivers. See the Controls Schema section under Level 1 for the full reference.
 
+### SNMP Simulators (a MIB, Not a Handler)
+
+An SNMP device is a set of numbered values rather than a command protocol, so its simulator declares those values instead of implementing `handle_command`. Subclass `SNMPSimulator` and give it a MIB:
+
+```python
+from openavc.simulator.snmp_simulator import SNMPSimulator
+
+OUTLET_NAME = "1.3.6.1.4.1.99999.2.1.2"
+OUTLET_STATE = "1.3.6.1.4.1.99999.2.1.3"
+
+
+class MyPduSimulator(SNMPSimulator):
+    SIMULATOR_INFO = {
+        "driver_id": "my_pdu",
+        "name": "My Rack PDU Simulator",
+        "category": "power",
+        "transport": "snmp",
+    }
+
+    READ_COMMUNITY = "public"
+    WRITE_COMMUNITY = "private"
+
+    OIDS = {
+        "1.3.6.1.2.1.1.1.0": ("string", "My Rack PDU"),
+        "1.3.6.1.4.1.99999.3.1.0": ("gauge32", 42),
+        **{f"{OUTLET_NAME}.{i}": ("string", f"outlet {i}") for i in range(1, 9)},
+        **{f"{OUTLET_STATE}.{i}": ("integer", 1, True) for i in range(1, 9)},
+    }
+```
+
+Each entry is `(type_name, value)` or `(type_name, value, writable)`; leave the third item off and the value is read-only. Type names are the ones in the MIB: `integer`, `string`, `oid`, `gauge32`, `counter32`, `counter64`, `timeticks`, `ip_address`.
+
+The base serves reads, walks and writes against that table, and it says no the way a real agent does — a write to a read-only value answers `readOnly`, a write to an OID that isn't there answers `noAccess`, a value of the wrong type answers `wrongType`, a read of a missing OID answers `noSuchObject`, and a request under the wrong community string gets no answer at all. That matters more than it sounds: a driver tested only against a simulator that says yes to everything has never run its error handling, and the first read-only OID on real hardware is where you find out.
+
+Two override points, for a device that does more than store values:
+
+- `read_oid(oid)` — return `(type_name, value)` computed at read time, for a load reading that drifts or an uptime that counts up.
+- `write_oid(oid, type_name, value)` — apply a write and return an RFC 3416 error-status (`0` means applied). Use it for a device that validates values, or one where writing an outlet takes a few seconds to take effect.
+
+A write carrying several values is applied all-or-nothing, as SNMP requires: if one binding in the request is bad, none of them takes effect.
+
 ### File Naming and Placement
 
 - Simulator files use the `_sim.py` suffix

@@ -1137,6 +1137,9 @@ class StubTCPSimulator(StubBaseSimulator):
     async def on_client_connected(self, client_id: str) -> bytes | None:
         return None
 
+    async def stop(self) -> None:
+        self.push_targets.clear()
+
     def handle_command(self, data: bytes) -> bytes | None:
         return None
 

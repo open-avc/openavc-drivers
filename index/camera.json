@@ -495,7 +495,7 @@
       "format": "python",
       "files": {
         "cameras/ptzoptics.py": "14eb4cd1346d21fb77c8538063d8bf8d31463b5cf58557802d98bccd3932bcb4",
-        "cameras/ptzoptics_sim.py": "0eba8e3249fc131689b6d9a5ecec39ee37331047b904b3a1dd69921dac1da7d7"
+        "cameras/ptzoptics_sim.py": "b5e34e295da3ba8412881ad1629264ff9dde4a28a5dee0529bfde43ad1adff03"
       },
       "ports": [
         5678

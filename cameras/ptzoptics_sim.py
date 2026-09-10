@@ -6,13 +6,19 @@ TCP 5678: parses bare ``81 ... FF`` packets, mutates state, and replies
 with ACK + Completion for action commands or a single Completion-with-
 data for inquiries.
 
+Pan/tilt and zoom drives continue until stopped or replaced. Speeds are
+illustrative; absolute positions, home and preset recalls complete immediately.
+Movement reference: https://docs.ptzoptics.com/dev/visca-api/movement/
+
 Driver: ptzoptics
 Transport: tcp (raw VISCA, 0xFF terminator)
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from typing import Any
 
 from openavc.simulator.tcp_simulator import TCPSimulator
@@ -26,6 +32,11 @@ logger = logging.getLogger(__name__)
 _PAN_MIN, _PAN_MAX = -2448, 2448
 _TILT_MIN, _TILT_MAX = -1296, 1296
 _ZOOM_MAX = 0x4000  # 16384 — full telephoto
+_MOTION_LIMITS = {
+    "pan_position": (_PAN_MIN, _PAN_MAX),
+    "tilt_position": (_TILT_MIN, _TILT_MAX),
+    "zoom_position": (0, _ZOOM_MAX),
+}
 
 _AE_MODE_FROM_BYTE = {
     0x00: "full_auto",
@@ -148,6 +159,14 @@ class PTZOpticsSimulator(TCPSimulator):
         self._delimiter = b"\xff"
         self._line_mode = False
         self._presets: dict[int, dict[str, Any]] = {}
+        self._motion: dict[str, float] = {}
+        self._motion_positions: dict[str, float] = {}
+        self._motion_time = time.monotonic()
+        self._motion_timer: asyncio.TimerHandle | None = None
+
+    async def stop(self) -> None:
+        self._set_motion(**dict.fromkeys(_MOTION_LIMITS, 0))
+        await super().stop()
 
     # ── Per-message handling ──
 
@@ -163,6 +182,7 @@ class PTZOpticsSimulator(TCPSimulator):
             return b"\x90\x60\x02\xff"
 
         try:
+            self._advance_motion()
             response = self._dispatch(body)
         except Exception:
             logger.exception("ptzoptics_sim: error handling %s", data.hex())
@@ -215,6 +235,8 @@ class PTZOpticsSimulator(TCPSimulator):
 
         # CAM_Power: `00 02|03`
         if op == 0x00 and len(rest) >= 1:
+            if rest[0] == 0x03:
+                self._set_motion(**dict.fromkeys(_MOTION_LIMITS, 0))
             self.set_state("power", rest[0] == 0x02)
             return _ack_completion()
 
@@ -222,19 +244,20 @@ class PTZOpticsSimulator(TCPSimulator):
         if op == 0x07 and len(rest) >= 1:
             sub = rest[0]
             if sub == 0x00:
-                pass  # stop
+                self._set_motion(zoom_position=0)
             elif sub == 0x02:
-                self._step_zoom(+512)
+                self._set_motion(zoom_position=512)
             elif sub == 0x03:
-                self._step_zoom(-512)
+                self._set_motion(zoom_position=-512)
             elif (sub & 0xF0) == 0x20:
-                self._step_zoom(+128 * ((sub & 0x0F) + 1))
+                self._set_motion(zoom_position=128 * ((sub & 0x0F) + 1))
             elif (sub & 0xF0) == 0x30:
-                self._step_zoom(-128 * ((sub & 0x0F) + 1))
+                self._set_motion(zoom_position=-128 * ((sub & 0x0F) + 1))
             return _ack_completion()
 
         # CAM_Zoom Direct: `47 0p 0q 0r 0s`
         if op == 0x47 and len(rest) >= 4:
+            self._set_motion(zoom_position=0)
             self.set_state("zoom_position", _decode_4nibble(rest[:4]))
             return _ack_completion()
 
@@ -319,6 +342,7 @@ class PTZOpticsSimulator(TCPSimulator):
                 elif sub == 0x02:
                     p = self._presets.get(num)
                     if p:
+                        self._set_motion(**dict.fromkeys(_MOTION_LIMITS, 0))
                         self.set_state("pan_position", p["pan"])
                         self.set_state("tilt_position", p["tilt"])
                         self.set_state("zoom_position", p["zoom"])
@@ -374,12 +398,16 @@ class PTZOpticsSimulator(TCPSimulator):
                 return _ack_completion()
             if len(rest) >= 4:
                 pan_speed, tilt_speed, pan_dir, tilt_dir = rest[:4]
-                self._step_pt(pan_dir, tilt_dir, pan_speed, tilt_speed)
+                self._set_motion(
+                    pan_position={1: -1, 2: 1}.get(pan_dir, 0) * max(1, pan_speed) * 8,
+                    tilt_position={1: 1, 2: -1}.get(tilt_dir, 0) * max(1, tilt_speed) * 8,
+                )
                 return _ack_completion()
             return b"\x90\x60\x02\xff"
 
         # Pan/Tilt absolute: `02 VV WW 0Y 0Y 0Y 0Y 0Z 0Z 0Z 0Z`
         if op == 0x02 and len(rest) >= 10:
+            self._set_motion(pan_position=0, tilt_position=0)
             pan = _decode_4nibble(rest[2:6], signed=True)
             tilt = _decode_4nibble(rest[6:10], signed=True)
             self.set_state(
@@ -392,6 +420,7 @@ class PTZOpticsSimulator(TCPSimulator):
 
         # Pan/Tilt relative: `03 VV WW 0Y 0Y 0Y 0Y 0Z 0Z 0Z 0Z`
         if op == 0x03 and len(rest) >= 10:
+            self._set_motion(pan_position=0, tilt_position=0)
             dpan = _decode_4nibble(rest[2:6], signed=True)
             dtilt = _decode_4nibble(rest[6:10], signed=True)
             self.set_state(
@@ -406,12 +435,14 @@ class PTZOpticsSimulator(TCPSimulator):
 
         # Pan/Tilt Home: `04`
         if op == 0x04:
+            self._set_motion(pan_position=0, tilt_position=0)
             self.set_state("pan_position", 0)
             self.set_state("tilt_position", 0)
             return _ack_completion()
 
         # Pan/Tilt Reset: `05`
         if op == 0x05:
+            self._set_motion(pan_position=0, tilt_position=0)
             self.set_state("pan_position", 0)
             self.set_state("tilt_position", 0)
             return _ack_completion()
@@ -570,31 +601,45 @@ class PTZOpticsSimulator(TCPSimulator):
 
     # ── State helpers ──
 
-    def _step_zoom(self, delta: int) -> None:
-        cur = self.get_state("zoom_position", 0)
-        self.set_state("zoom_position", max(0, min(_ZOOM_MAX, cur + delta)))
+    def _advance_motion(self) -> None:
+        now = time.monotonic()
+        elapsed = now - self._motion_time
+        self._motion_time = now
+        for key, speed in list(self._motion.items()):
+            low, high = _MOTION_LIMITS[key]
+            position = self._motion_positions[key] + speed * elapsed
+            position = max(low, min(high, position))
+            self._motion_positions[key] = position
+            self.set_state(key, round(position))
+            if position in (low, high):
+                del self._motion[key]
+
+    def _set_motion(self, **velocities: float) -> None:
+        # VISCA drive commands keep running until replaced or stopped. These
+        # rates make the motion observable; they do not model optical degrees
+        # per second or a particular camera's acceleration curve.
+        self._advance_motion()
+        for key, velocity in velocities.items():
+            if velocity:
+                self._motion_positions[key] = float(self.get_state(key, 0))
+                self._motion[key] = velocity
+            else:
+                self._motion.pop(key, None)
+                self._motion_positions.pop(key, None)
+        if not self._motion and self._motion_timer is not None:
+            self._motion_timer.cancel()
+            self._motion_timer = None
+        self._schedule_motion()
+
+    def _schedule_motion(self) -> None:
+        if self._motion and self._motion_timer is None:
+            self._motion_timer = asyncio.get_running_loop().call_later(.05, self._tick_motion)
+
+    def _tick_motion(self) -> None:
+        self._motion_timer = None
+        self._advance_motion()
+        self._schedule_motion()
 
     def _step_focus(self, delta: int) -> None:
         cur = self.get_state("focus_position", 0)
         self.set_state("focus_position", max(0, min(0xFFFF, cur + delta)))
-
-    def _step_pt(self, pan_dir: int, tilt_dir: int, pan_speed: int, tilt_speed: int) -> None:
-        # Pan dir: 1=left, 2=right, 3=stop. Tilt dir: 1=up, 2=down, 3=stop.
-        dpan = 0
-        dtilt = 0
-        if pan_dir == 0x01:
-            dpan = -max(1, pan_speed) * 8
-        elif pan_dir == 0x02:
-            dpan = +max(1, pan_speed) * 8
-        if tilt_dir == 0x01:
-            dtilt = +max(1, tilt_speed) * 8
-        elif tilt_dir == 0x02:
-            dtilt = -max(1, tilt_speed) * 8
-        cur_pan = self.get_state("pan_position", 0)
-        cur_tilt = self.get_state("tilt_position", 0)
-        self.set_state(
-            "pan_position", max(_PAN_MIN, min(_PAN_MAX, cur_pan + dpan))
-        )
-        self.set_state(
-            "tilt_position", max(_TILT_MIN, min(_TILT_MAX, cur_tilt + dtilt))
-        )

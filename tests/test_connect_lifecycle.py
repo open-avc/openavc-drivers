@@ -49,7 +49,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # driver only needs verification turned off, exactly as against real hardware.
 _CONFIG: dict[str, dict] = {
     "philips_hue": {"app_key": "smoke", "ssl": False},
-    "lg_webos": {"ssl": False},
+    # The first param-free command is the Wake-on-LAN power_on, which refuses
+    # to run with no MAC set (4.2.1), the way it does for an integrator.
+    "lg_webos": {"ssl": False, "mac_address": "02:00:5e:00:53:01"},
     "tvone_coriomatrix": {"password": "adminpw"},
     "tvone_coriomaster": {"password": "adminpw"},
     "crestron_nvx": {"password": "smokepw"},
@@ -237,6 +239,9 @@ async def _run_smoke(driver_id: str, driver_rel: str, port: int) -> None:
     config.update({"host": "127.0.0.1", "port": bound, "poll_interval": 0, "verify_timeout": 2.0})
     config.update(_CONFIG.get(driver_id, {}))
     driver = driver_cls(device_id="smoke", config=config, state=state, events=events)
+    # What the platform does under simulation: a datagram the driver sends
+    # beside its transport (a wake) goes to the simulator, not the network.
+    driver.udp_redirect = ("127.0.0.1", bound)
 
     try:
         await asyncio.wait_for(driver.connect(), timeout=_CONNECT_TIMEOUT)

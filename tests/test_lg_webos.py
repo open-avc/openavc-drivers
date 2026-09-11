@@ -25,6 +25,8 @@ import sys
 import tempfile
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+import pytest
+
 from _platform_stubs import (
     StubBaseDriver,
     StubEvents as _FakeEvents,
@@ -367,9 +369,16 @@ def test_wol_packet_bytes():
     assert packet.count(bytes.fromhex("608d26249762")) == 16
 
 
-def test_wol_rejects_bad_mac():
+def test_wol_refuses_a_bad_or_missing_mac_and_says_where_it_goes():
+    # A wake that cannot be sent is refused with the sentence an integrator
+    # acts on, not a warning nobody sees from the room.
     d = _driver(mac_address="not-a-mac")
-    assert asyncio.run(d._wake_on_lan()) is False
+    with pytest.raises(ValueError, match="is not a MAC address"):
+        asyncio.run(d._wake_on_lan())
+    assert d.udp_sent == []
+    d = _driver(mac_address="")
+    with pytest.raises(ValueError, match="no MAC address is set"):
+        asyncio.run(d.send_command("power_on"))
     assert d.udp_sent == []
 
 

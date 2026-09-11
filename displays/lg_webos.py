@@ -123,7 +123,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.2.0",
+        "version": "4.2.1",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -756,18 +756,28 @@ class LgWebosDriver(BaseDriver):
 
     async def _wake_on_lan(self) -> bool:
         """The platform's magic packet (broadcast + the TV's host) for the
-        configured MAC. False, with a warning, when no usable MAC is set: the
-        TV cannot be woken and a raise would only turn a missing setting into
-        a failed command."""
+        configured MAC.
+
+        No usable MAC is a refusal that says where the MAC goes, not a
+        warning in the log: a panel button or macro that "ran" while the TV
+        stayed dark is the failure nobody can diagnose from the room.
+        """
         mac = str(self.config.get("mac_address", "")).strip()
+        if not mac:
+            raise ValueError(
+                "The TV cannot be woken: no MAC address is set. Discovery "
+                "fills it in when the TV is found by a scan; for a TV added by "
+                "IP address, enter it under Edit Device, and turn on Mobile TV "
+                "On (Wake-on-LAN) in the TV's network settings."
+            )
         try:
             await self.wake_on_lan(mac)
         except ValueError:
-            log.warning(f"[{self.device_id}] Wake-on-LAN needs a valid MAC address")
-            return False
-        except OSError as exc:
-            log.warning(f"[{self.device_id}] Wake-on-LAN send failed: {exc}")
-            return False
+            raise ValueError(
+                f"The TV cannot be woken: '{mac}' is not a MAC address "
+                f"(expected six hex pairs, like 20:3d:bd:12:34:56). Correct it "
+                f"under Edit Device."
+            ) from None
         return True
 
     # ── Helpers ────────────────────────────────────────────────────────────

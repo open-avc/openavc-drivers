@@ -424,7 +424,7 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.4.0"
+    assert info["version"] == "1.4.1"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     # 0.27.0 was the routing: block. 0.28.0 is the combined "All streams"
@@ -439,6 +439,24 @@ def test_metadata():
     for ctype in ("encoder", "decoder"):
         assert info["child_entity_types"][ctype]["id_format"]["type"] == "string"
         assert info["child_entity_types"][ctype]["label_field"] == "name"
+
+
+def test_the_discovery_probe_claims_only_the_1g_control_box():
+    """Every MXNet control box answers `config get name` on TCP 24, and each
+    ecosystem speaks a different command set. The probe used to match
+    "AC-MXNET" alone, which identified a 10G, USP or Dante box as this driver —
+    a wrong pairing that looks like broken hardware rather than a wrong driver,
+    because most commands are accepted and mean something else."""
+    import re as _re
+
+    probe = DRV.AVProEdgeMXNet1GDriver.DRIVER_INFO["discovery"]["tcp_probe"]
+    pattern = _re.compile(probe["expect_regex"])
+    for mine in ("AC-MXNET-CBOX", "AC-MXNET-CBOX-B", "AC-MXNET-CBOX-HA"):
+        assert pattern.search('{"cmd":"config get name","info":"%s","code":0}' % mine)
+    for theirs in ("AC-MXNET-10G-CBOX", "AC-MXNET-USP-CBOX", "AC-MXNET-DANTE-CBOX"):
+        assert not pattern.search(
+            '{"cmd":"config get name","info":"%s","code":0}' % theirs
+        ), f"{theirs} must not match the 1G probe"
 
 
 def test_quick_actions_and_pickers_resolve():

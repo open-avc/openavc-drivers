@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 883,
+    "total_devices": 884,
     "shards": null
   },
   "devices": [
@@ -1317,6 +1317,18 @@
           "id": "avproedge_acmx",
           "confidence": "untested",
           "notes": "Covered by AVPro Edge's unified ASCII command list, which is shared across the AC-MX matrix family, but not yet driven against one of these units. Each model documents its own subset, and an unsupported command answers an error the driver ignores. Set the Input IDs / Output IDs lists to the model's shape (defaults describe an 8x8). HDBaseT models split per-output stream control into the HDMI-port and HDBaseT-port commands.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "AVPro Edge",
+      "model": "AC-MXNET-10G-CBOX",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "avproedge_mxnet_10g",
+          "confidence": "untested",
+          "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Covers the AC-MXNET-10G-E / -EV2 / -AVDM-E encoders and AC-MXNET-10G-D / -DV2 / -AVDM-D decoders the 10G control box manages. The 1G, USP and Dante control boxes speak different command sets and have their own drivers."
         }
       ]
     },

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -175,6 +176,14 @@ except ModuleNotFoundError:
 def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
+    # Register BEFORE executing, which is what import itself does. A module
+    # that is absent from sys.modules while its own body runs cannot be looked
+    # up by name, and `@dataclass` does exactly that: under
+    # `from __future__ import annotations` every annotation is a string, so
+    # dataclasses resolves each one through `sys.modules[cls.__module__]` to
+    # decide whether it is an InitVar — and got None here, failing the driver
+    # at import with an AttributeError from inside the stdlib.
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 

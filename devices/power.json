@@ -2,11 +2,383 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 24,
+    "total_devices": 55,
     "shards": null,
     "category": "power"
   },
   "devices": [
+    {
+      "manufacturer": "APC",
+      "model": "AP7900",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7900B",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7901",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7902",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7911A",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7920",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7921",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7921B",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7922",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7930",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7931",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7932",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7940",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7941",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7960",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7968",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7990",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP7998",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8432",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8453",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8458",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8858",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8859",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8886",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8888",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8941",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8953",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8958",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8959",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8961",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
+    {
+      "manufacturer": "APC",
+      "model": "AP8965",
+      "category": "power",
+      "drivers": [
+        {
+          "id": "apc_rack_pdu",
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        }
+      ]
+    },
     {
       "manufacturer": "Middle Atlantic",
       "model": "RLNK-215",

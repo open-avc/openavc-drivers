@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 103,
+    "total_drivers": 104,
     "shards": null
   },
   "drivers": [
@@ -376,6 +376,104 @@
           "a&h",
           "allen-heath",
           "audiotonix"
+        ]
+      }
+    },
+    {
+      "id": "apc_rack_pdu",
+      "name": "APC Switched Rack PDU",
+      "manufacturer": "APC",
+      "category": "power",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "snmp",
+      "description": "Controls APC Switched Rack PDUs over SNMP v2c. Outlets, banks, phases and the temperature/humidity sensor are addressable children read off the device, with named on/off/reboot commands, per-outlet delays, load thresholds and energy metering. Covers both the Rack PDU 2G MIB (AP84xx/86xx/88xx/89xx) and the first-generation one (AP79xx), detected on connect.",
+      "source_url": "https://www.se.com/us/en/download/document/APC_POWERNETMIB_EN/",
+      "file": "power/apc_rack_pdu.py",
+      "format": "python",
+      "files": {
+        "power/apc_rack_pdu.py": "6306eadcfc7fc7816b59ceb3e2722cfea12987c98012bd2cfdf5eb9f99851293",
+        "power/apc_rack_pdu_sim.py": "41db84a0b888b7d67979d15fe21f3964a2d810fc45cd3efe80f6f544ab12462f"
+      },
+      "ports": [
+        161
+      ],
+      "protocols": [
+        "snmp",
+        "powernet-mib"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.34.0",
+      "tags": [
+        "pdu",
+        "power",
+        "outlet-control",
+        "rack",
+        "snmp",
+        "metering",
+        "energy"
+      ],
+      "help": {
+        "overview": "APC Switched Rack PDUs are the metered power strips in most equipment racks. Each outlet is a child entity here, so a macro, schedule or panel button can switch one outlet, reboot a wedged device, or bring the whole rack up in sequence using the delays configured on the PDU itself. Bank and phase load, the breaker rating and the rack temperature sensor come through as live values you can alert on.",
+        "setup": "1. Give the Rack PDU's Network Management Card an IP address and reach its web interface.\n2. Under Configuration > Network > SNMPv1, enable SNMPv1 access and note the community strings. Switching outlets needs a community with Write access \u2014 APC ships that as 'private' on Access Control entry 2, and its Access Type must be Write or Write+ for a command to be accepted.\n3. Restrict the write community's NMS IP to the OpenAVC server's address, not 0.0.0.0, so only this server can switch outlets.\n4. Enter the PDU's IP and both community strings here, then run Test Connection \u2014 it reads the PDU's own model and serial back, which proves the address and the read community, and reports which MIB branch the unit answered on.\n5. Outlets appear as children once connected. If the count is wrong, use Refresh from Device."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "APC",
+          "models": [
+            "AP8941",
+            "AP8953",
+            "AP8958",
+            "AP8959",
+            "AP8961",
+            "AP8965",
+            "AP8858",
+            "AP8859",
+            "AP8886",
+            "AP8888",
+            "AP8432",
+            "AP8453",
+            "AP8458"
+          ],
+          "confidence": "untested",
+          "notes": "Rack PDU 2G and later, on the rPDU2 MIB branch. Switched models expose outlet control; Switched Metered-by-Outlet models (AP89xx) add per-outlet current, power and energy. Metered-only models connect and report banks, phases and device load with no outlet switching. The outlet, bank, phase and sensor rosters are read off the device, so a 16-outlet and a 24-outlet unit each surface exactly what they have."
+        },
+        {
+          "manufacturer": "APC",
+          "models": [
+            "AP7900",
+            "AP7900B",
+            "AP7901",
+            "AP7902",
+            "AP7911A",
+            "AP7920",
+            "AP7921",
+            "AP7921B",
+            "AP7922",
+            "AP7930",
+            "AP7931",
+            "AP7932",
+            "AP7940",
+            "AP7941",
+            "AP7960",
+            "AP7968",
+            "AP7990",
+            "AP7998"
+          ],
+          "confidence": "untested",
+          "notes": "First-generation Switched Rack PDUs, on the legacy rPDU MIB branch, detected automatically. Outlet switching, per-outlet delays and naming, phase current and bank load state all work. No per-outlet metering, no device energy meter and no sensor port on this generation, so those values stay blank."
+        }
+      ],
+      "discovery": {
+        "snmp_pen": 318,
+        "oui": [
+          "00:c0:b7"
+        ],
+        "manufacturer_alias": [
+          "apc",
+          "american power conversion",
+          "schneider electric",
+          "apc by schneider electric"
         ]
       }
     },

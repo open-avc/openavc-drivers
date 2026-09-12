@@ -15,6 +15,7 @@ hints are declared at all lives in ``test_netgear_m4250_m4350.py`` (self-contain
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -51,6 +52,31 @@ except ModuleNotFoundError:
 
 INFO = _driver_mod.NetgearM4250M4350Driver.DRIVER_INFO
 ROOTDESC = ROOTDESC_PATH.read_text(encoding="utf-8")
+
+# The real platform modules this file imported, captured now and re-installed
+# around every test.
+#
+# ``conftest`` rolls back whatever a test module's import added to
+# ``sys.modules``, which is what stops one module's stubs reaching the next.
+# The classes above survive that — this module holds its own references. What
+# does not survive is a LAZY import inside the platform:
+# ``SSDPResult.as_evidence`` does ``from openavc.discovery.result import
+# Evidence`` at CALL time, and by then ``openavc`` in ``sys.modules`` is
+# whichever stub package an earlier test module left behind, which has no
+# ``discovery.result``. These three tests therefore passed on their own and
+# failed in a full run with ModuleNotFoundError. Same re-install pattern
+# ``_platform_stubs.stub_modules`` documents for the mirror-image case.
+_REAL_PLATFORM = {
+    name: module
+    for name, module in sys.modules.items()
+    if name == "openavc" or name.startswith("openavc.")
+}
+
+
+@pytest.fixture(autouse=True)
+def _real_platform_on_sys_modules(monkeypatch):
+    for name, module in _REAL_PLATFORM.items():
+        monkeypatch.setitem(sys.modules, name, module)
 
 # The switch responds to SSDP with the generic gateway device type; the NETGEAR
 # identity lives only in the rootDesc.xml manufacturer.

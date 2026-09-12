@@ -107,13 +107,20 @@ _KNOWN_GAPS: dict[str, str] = {}
 _CONNECT_TIMEOUT = 30
 
 
-def _discover() -> list[tuple[str, str, int]]:
+def _discover() -> list[tuple[str, str]]:
     """Every ``<driver>_sim.py`` that has a sibling ``<driver>.py`` Python
-    driver, as ``(driver_id, relative_driver_path, port)``. Port is assigned
-    from a fixed pool because the HTTP/UDP/OSC sims bind the port they are given
-    without reading an ephemeral one back."""
-    out: list[tuple[str, str, int]] = []
-    port = 19000
+    driver, as ``(driver_id, relative_driver_path)``.
+
+    No port here. Each simulator is started on port 0 and asked what it bound.
+    Only the TCP base used to read an ephemeral port back, so this file kept a
+    hardcoded pool from 19000 upward instead; the datagram and HTTP bases read
+    theirs back too now. That pool was the product's OWN simulated-device
+    range, 19000-19499, so the sweep collided with any running OpenAVC
+    instance that had simulation on: the two drivers that happened to sort
+    first failed on every single run, on a developer machine, forever. Asking
+    the OS removes the collision with the product, with a parallel test run,
+    and with anything else on the box."""
+    out: list[tuple[str, str]] = []
     for sim_path in sorted(REPO_ROOT.rglob("*_sim.py")):
         if "tests" in sim_path.parts or "_vendor" in sim_path.parts:
             continue
@@ -121,8 +128,7 @@ def _discover() -> list[tuple[str, str, int]]:
         driver_path = sim_path.with_name(driver_id + ".py")
         if not driver_path.exists():
             continue  # YAML-paired auto-sim: no Python driver to drive
-        out.append((driver_id, str(driver_path.relative_to(REPO_ROOT)), port))
-        port += 1
+        out.append((driver_id, str(driver_path.relative_to(REPO_ROOT))))
     return out
 
 
@@ -225,7 +231,7 @@ def _required_config(driver_cls) -> dict:
     return cfg
 
 
-async def _run_smoke(driver_id: str, driver_rel: str, port: int) -> None:
+async def _run_smoke(driver_id: str, driver_rel: str) -> None:
     driver_mod = _load(f"_lc_{driver_id}", REPO_ROOT / driver_rel)
     sim_mod = _load(f"_lc_{driver_id}_sim", (REPO_ROOT / driver_rel).with_name(f"{driver_id}_sim.py"))
     driver_cls = _class_with(driver_mod, "DRIVER_INFO")
@@ -234,8 +240,15 @@ async def _run_smoke(driver_id: str, driver_rel: str, port: int) -> None:
     assert sim_cls is not None, f"{driver_id}_sim.py: no BaseSimulator subclass"
 
     sim = sim_cls(device_id="smoke")
-    await sim.start(port)
-    bound = getattr(sim, "port", None) or port
+    # Port 0: the OS picks a free one and the simulator reports what it bound.
+    await sim.start(0)
+    bound = getattr(sim, "port", None)
+    assert bound, (
+        f"{driver_id}: the simulator reported port {bound!r} after start(0). "
+        f"Every simulator base is supposed to read an ephemeral port back off "
+        f"the socket it bound; a platform old enough to predate that needs the "
+        f"fix before this sweep can run."
+    )
 
     state = StateStore()
     events = EventBus()
@@ -285,13 +298,13 @@ async def _run_smoke(driver_id: str, driver_rel: str, port: int) -> None:
 
 
 @pytest.mark.parametrize(
-    "driver_id,driver_rel,port",
+    "driver_id,driver_rel",
     _CASES,
     ids=[c[0] for c in _CASES],
 )
-def test_connect_lifecycle(driver_id, driver_rel, port):
+def test_connect_lifecycle(driver_id, driver_rel):
     """Drive the real connect -> command -> disconnect arc against the driver's
     own simulator and assert the platform lifecycle events + connected state."""
     if driver_id in _KNOWN_GAPS:
         pytest.skip(_KNOWN_GAPS[driver_id])
-    asyncio.run(_run_smoke(driver_id, driver_rel, port))
+    asyncio.run(_run_smoke(driver_id, driver_rel))

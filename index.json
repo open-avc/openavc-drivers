@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 108,
+    "total_drivers": 109,
     "shards": null
   },
   "drivers": [
@@ -6428,11 +6428,85 @@
       }
     },
     {
+      "id": "shure_axient_digital",
+      "name": "Shure Axient Digital Receivers",
+      "manufacturer": "Shure",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls and monitors Shure Axient Digital AD4D and AD4Q wireless receivers over Shure's command strings on TCP port 2202. Each receiver channel is a child entity with mute, gain, frequency and group/channel preset, interference and encryption warnings, the decoded transmitter's battery, RF power, lock and mute switch, and opt-in audio and RF meters. Each of a channel's eight transmitter slots is a child entity; a linked ADX transmitter's RF mute, power mode, gain offset, polarity, input pad and name are remote-controllable. State pushes live as it changes.",
+      "source_url": "https://www.shure.com/en-US/docs/commandstrings/AD4",
+      "file": "audio/shure_axient_digital.py",
+      "format": "python",
+      "files": {
+        "audio/shure_axient_digital.py": "4ffa94bdc1f9375455b8c4454b60c2b97d6d42d889577020aaec6938455158ec",
+        "audio/shure_axient_digital_sim.py": "a3327e803887ea6e79d7de68e79fcef1cf91f32ff280a7a944ec309d9b453d7e"
+      },
+      "ports": [
+        2202
+      ],
+      "protocols": [
+        "shure_command_strings"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.33.0",
+      "tags": [
+        "wireless",
+        "microphone",
+        "receiver",
+        "axient",
+        "rf"
+      ],
+      "help": {
+        "overview": "Shure Axient Digital receivers speak Shure's ASCII command strings on TCP port 2202. This driver models each receiver channel as a child entity carrying its mute, gain, frequency and preset, its warnings (interference, encryption mismatch, unregistered transmitter), the received transmitter's battery and settings, and opt-in level and RF meters. Each channel's eight transmitter slots are child entities too, and a linked ADX transmitter can be adjusted from here: RF mute, power mode, gain offset, polarity, input pad and name.\n\nState is push-driven: after connecting, the driver reads everything once, then mirrors the reports the receiver sends whenever anything changes, including changes made on the front panel or in Wireless Workbench. Meters stream only when Meter Interval is set or a channel's meters are turned on.",
+        "setup": "1. Give the receiver's Shure Control network interface a static IP or a DHCP reservation.\n2. In OpenAVC, enter that IP. Port 2202 is fixed.\n3. Set Channel Count to 4 for an AD4Q or 2 for an AD4D. The receiver's model name corrects it on the first connection.\n4. To see live audio and RF meters on a panel, set Meter Interval to a value like 500 ms (0 leaves metering off; the receiver streams a SAMPLE frame per channel at that rate)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Shure",
+          "models": [
+            "AD4D",
+            "AD4Q"
+          ],
+          "confidence": "untested",
+          "notes": "Both share one command set. The AD4Q is four channels, the AD4D two; the driver reads the count from the receiver's model name, so Channel Count only matters before the first connection. Quadversity mode (AD4Q only) and FD-C frequency diversity change the meter layout and are handled automatically."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 2202,
+          "send_ascii": "< GET MODEL >\r\n",
+          "expect_regex": "<\\s*REP\\s+MODEL\\s+\\{\\s*AD4",
+          "extract_manufacturer": "Shure",
+          "extract": {
+            "model": {
+              "regex": "<\\s*REP\\s+MODEL\\s+\\{\\s*(AD4[^}\\s]*)"
+            }
+          }
+        },
+        "oui": [
+          "00:0e:dd",
+          "d8:34:ee"
+        ],
+        "hostname": [
+          "^AD4"
+        ],
+        "port_open": [
+          2202
+        ],
+        "manufacturer_alias": [
+          "shure",
+          "shure incorporated"
+        ]
+      }
+    },
+    {
       "id": "shure_network",
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
@@ -6440,8 +6514,8 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "a9a8dd77bde07d2b6c24e4cf53c9f85964997ee5a2377f218c60ead2e8729941",
-        "audio/shure_network_sim.py": "1ce148bf5df3ffe117152b1e0ce812720cb237df4c47ab1b1725140e692cdfb1"
+        "audio/shure_network.py": "220c5f532c4f4ffb0f07ea52fe85c5d2fa9912e0b1d39e0dff6e7b91e2514b2c",
+        "audio/shure_network_sim.py": "911f6177bbf6e066a7aa86ad80c26e5c12d29247f82eaf2c692a8060fd616b28"
       },
       "ports": [
         2202
@@ -6482,12 +6556,12 @@
       "discovery": {
         "tcp_probe": {
           "port": 2202,
-          "send_ascii": "< GET DEVICE_ID >\r\n",
-          "expect_regex": "<\\s*REP\\s+DEVICE_ID",
+          "send_ascii": "< GET MODEL >\r\n",
+          "expect_regex": "<\\s*REP\\s+(?:MODEL\\s+\\{\\s*(?!AD4|AD6|ULXD|SLXD|QLXD|AXT|P10T)|ERR\\s*>)",
           "extract_manufacturer": "Shure",
           "extract": {
-            "device_name": {
-              "regex": "<\\s*REP\\s+DEVICE_ID\\s+\\{?\\s*([^{}>]+?)\\s*\\}?\\s*>"
+            "model": {
+              "regex": "<\\s*REP\\s+MODEL\\s+\\{\\s*([^{}>\\s]+)"
             }
           }
         },
@@ -6498,8 +6572,6 @@
         "hostname": [
           "^MXA",
           "^ANI",
-          "^AD4",
-          "^ULXD",
           "^MXW",
           "^P300",
           "^IMX"

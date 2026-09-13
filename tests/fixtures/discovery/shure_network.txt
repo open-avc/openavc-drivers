@@ -1,1 +1,1 @@
-< REP DEVICE_ID {MXA920-CONFROOM} >
+< REP MODEL {MXA920                          } >

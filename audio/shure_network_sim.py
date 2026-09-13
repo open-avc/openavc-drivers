@@ -42,6 +42,7 @@ class ShureNetworkSimulator(TCPSimulator):
         "delimiter": ">",
         "initial_state": {
             "device_name": "MXA920-SIM",
+            "model": "MXA920",
             "mute": False,
             "led_brightness": 2,
             "firmware": "4.6.11",
@@ -61,6 +62,7 @@ class ShureNetworkSimulator(TCPSimulator):
         self._count = int(cfg.get("channel_count", DEFAULT_CHANNEL_COUNT))
         self._device_name = str(
             self.state.get("device_name", "MXA920-SIM"))
+        self._model = str(self.state.get("model", "MXA920"))
         self._firmware = str(self.state.get("firmware", "4.6.11"))
         self._mute = bool(self.state.get("mute", False))
         self._brightness = int(self.state.get("led_brightness", 2))
@@ -106,6 +108,9 @@ class ShureNetworkSimulator(TCPSimulator):
     def _get_device(self, prop: str) -> bytes | None:
         if prop == "DEVICE_ID":
             return self._frame(f"REP DEVICE_ID {{{self._device_name}}}")
+        if prop == "MODEL":
+            # 32-character space-padded, as every MXA / ANI / P300 reports it.
+            return self._frame(f"REP MODEL {{{self._model:<32}}}")
         if prop == "DEVICE_AUDIO_MUTE":
             return self._frame(
                 f"REP DEVICE_AUDIO_MUTE {'ON' if self._mute else 'OFF'}")

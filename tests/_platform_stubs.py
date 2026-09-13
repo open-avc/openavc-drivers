@@ -136,6 +136,7 @@ DRIVER_FAULT_CODES = frozenset({
     "unreachable",
     "host_key_rejected",
     "no_response",
+    "write_stalled",
     "client_missing",
     "invalid_config",
     "transport_disconnected",

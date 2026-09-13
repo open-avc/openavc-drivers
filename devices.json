@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 890,
+    "total_devices": 892,
     "shards": null
   },
   "devices": [
@@ -8937,6 +8937,30 @@
           "id": "sharp_nec_display",
           "confidence": "untested",
           "notes": "The G2-generation External Control manual (Rev.2.4) this driver was built from documents these series. Opcode availability varies by model; unsupported opcodes answer result code 01 and the driver stops polling them on that display."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "AD4D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_axient_digital",
+          "confidence": "untested",
+          "notes": "Both share one command set. The AD4Q is four channels, the AD4D two; the driver reads the count from the receiver's model name, so Channel Count only matters before the first connection. Quadversity mode (AD4Q only) and FD-C frequency diversity change the meter layout and are handled automatically."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "AD4Q",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_axient_digital",
+          "confidence": "untested",
+          "notes": "Both share one command set. The AD4Q is four channels, the AD4D two; the driver reads the count from the receiver's model name, so Channel Count only matters before the first connection. Quadversity mode (AD4Q only) and FD-C frequency diversity change the meter layout and are handled automatically."
         }
       ]
     },

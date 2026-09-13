@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 884,
+    "total_devices": 885,
     "shards": null
   },
   "devices": [
@@ -5387,6 +5387,18 @@
           "id": "extron_sis",
           "confidence": "untested",
           "notes": "Any Extron product implementing the SIS protocol (~200 products). For matrix switchers, set Input Count / Output Count to the frame size to get per-output routing and mute state; leave both 0 for single-output devices.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Extron",
+      "model": "NAVigator",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "extron_nav",
+          "confidence": "untested",
+          "notes": "Needs the free LinkLicense for Third-Party Control activated on the NAVigator: until it is, the SSH/SIS interface does not exist and this driver cannot connect. Built from the NAVigator System Manager User Guide 68-2740-01 Rev. F. Not exercised against hardware: every behaviour here is doc-derived and simulator-verified. Endpoint RS-232 and IR ports are NOT reachable this way \u2014 Extron requires a Pro Series control processor for the Secure Platform Device ports on NAV endpoints."
         }
       ]
     },

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 105,
+    "total_drivers": 106,
     "shards": null
   },
   "drivers": [
@@ -2954,6 +2954,72 @@
           "etc",
           "electronic theatre controls",
           "eos"
+        ]
+      }
+    },
+    {
+      "id": "extron_nav",
+      "name": "Extron NAV Pro AV-over-IP (NAVigator)",
+      "manufacturer": "Extron",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "ssh",
+      "description": "Route and monitor an Extron NAV Pro AV-over-IP system through its NAVigator System Manager: video, audio and USB ties, WindoWall video-wall presets and windows, KVM workstation presets, system alarms, and every managed encoder and decoder as a child entity. Requires the free LinkLicense for Third-Party Control on the NAVigator.",
+      "source_url": "https://media.extron.com/public/download/files/userman/68-2740-01_F_NAVigator-UG__.pdf",
+      "file": "switchers/extron_nav.py",
+      "format": "python",
+      "files": {
+        "switchers/extron_nav.py": "cf08f5b79f540418bd7fdfd7b1eefd131390db70917e4a970305a1a28854d5aa",
+        "switchers/extron_nav_sim.py": "b47f3ba31e3f162ad72b6ddf50c3955ce8fd563053ddb4fa025f74fd5df26978"
+      },
+      "ports": [
+        22023
+      ],
+      "protocols": [
+        "extron_sis"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.34.0",
+      "tags": [
+        "av-over-ip",
+        "matrix",
+        "encoder",
+        "decoder",
+        "video-wall",
+        "kvm",
+        "sis"
+      ],
+      "help": {
+        "overview": "Controls an Extron NAV Pro AV-over-IP system through its NAVigator System Manager. OpenAVC talks to the NAVigator, which talks to the encoders and decoders \u2014 the endpoints are never addressed directly. Every endpoint the NAVigator manages appears as a child entity with its own presence and, for decoders, the input currently routed to it.",
+        "setup": "1. Activate the free LinkLicense for Third-Party Control on the NAVigator, through Extron S3 Sales and Technical Support. Until it is activated the NAVigator does not offer the SSH/SIS interface this driver uses, and nothing here can connect.\n2. Check the SSH/SIS port on the NAVigator under Settings > Ports. 22023 is the default.\n3. Add the device with the NAVigator's IP address, that port, and a NAVigator user account. The built-in accounts are superadmin, admin and user; a User-level account is refused (E24) on anything that changes configuration, so use an Administrator account if you want to route.\n4. Either the OOB port or the NAV LAN port reaches the SIS interface \u2014 use whichever this server can see.\n\nEndpoint RS-232 and IR ports are not reachable from a third-party controller: Extron requires one of its own Pro Series control processors for those. Routing, presence, WindoWall, KVM presets and alarms are all available here.",
+        "connection": "Check that the LinkLicense for Third-Party Control is activated on the NAVigator \u2014 without it there is no SSH/SIS interface to connect to \u2014 and that the port matches Settings > Ports (22023 by default)."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Extron",
+          "models": [
+            "NAVigator"
+          ],
+          "confidence": "untested",
+          "notes": "Needs the free LinkLicense for Third-Party Control activated on the NAVigator: until it is, the SSH/SIS interface does not exist and this driver cannot connect. Built from the NAVigator System Manager User Guide 68-2740-01 Rev. F. Not exercised against hardware: every behaviour here is doc-derived and simulator-verified. Endpoint RS-232 and IR ports are NOT reachable this way \u2014 Extron requires a Pro Series control processor for the Secure Platform Device ports on NAV endpoints."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 22023,
+          "expect_regex": "^SSH-2\\.0-",
+          "cross_vendor": true,
+          "timeout_ms": 4000
+        },
+        "oui": [
+          "00:05:a6"
+        ],
+        "hostname": [
+          "^NAVigator-"
+        ],
+        "manufacturer_alias": [
+          "extron"
         ]
       }
     },

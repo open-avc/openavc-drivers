@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 184,
+    "total_devices": 187,
     "shards": null,
     "category": "audio"
   },
@@ -1602,6 +1602,42 @@
           "id": "qsc_qrc",
           "confidence": "untested",
           "notes": "Every Q-SYS Core that runs Q-SYS Designer speaks QRC (TCP 1710) \u2014 the same protocol verified on the Core 24f \u2014 so these are expected to work but haven't been tested on real hardware. This driver uses QRC, not the legacy ECP (TCP 1702). In Designer, set each block's Script Access to External (or All) so it appears in auto-discovery; add Named Controls to the Named Controls list to monitor them."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "EW-DX EM 2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_ewdx",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7 schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is not covered). Not yet run against a receiver. The transmitters (EW-DX SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and the EW-D SK, SKP and SKM-S) are reported through the receiver channel they are linked to.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "EW-DX EM 2 Dante",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_ewdx",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7 schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is not covered). Not yet run against a receiver. The transmitters (EW-DX SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and the EW-D SK, SKP and SKM-S) are reported through the receiver channel they are linked to.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "EW-DX EM 4 Dante",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_ewdx",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7 schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is not covered). Not yet run against a receiver. The transmitters (EW-DX SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and the EW-D SK, SKP and SKM-S) are reported through the receiver channel they are linked to.\n"
         }
       ]
     },

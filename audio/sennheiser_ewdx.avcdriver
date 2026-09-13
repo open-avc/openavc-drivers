@@ -1,0 +1,2827 @@
+# Sennheiser EW-DX Receiver Driver (SSCv2, OpenAPI 1.7)
+#
+# Controls a Sennheiser Evolution Wireless Digital rack receiver, the EW-DX
+# EM 2, EM 2 Dante or EM 4 Dante, over Sennheiser Sound Control Protocol v2
+# (SSCv2): a REST API over HTTPS on port 443, JSON bodies, HTTP Basic
+# authentication as the fixed user "api" with the third-party password set
+# in Sennheiser Control Cockpit. Firmware 4.0 or newer; older firmware speaks
+# SSC v1 (JSON over UDP 45), which this driver does not.
+#
+# Protocol reference (the manufacturer's own):
+#   - "EW-DX 3rd-party API", OpenAPI 1.7, the file the Sennheiser 3rd Party
+#     API site's Swagger page renders (source_url below). This is the
+#     defining document for every path, field, range, enumeration and status
+#     code here. Archived in the workspace as
+#     driver-roadmap/reference-docs/sennheiser-ewdx-openapi-1.7.yaml.
+#   - "Sennheiser 3rd Party API" v6.2 (08/2026): the SSCv2 specification
+#     2.3 (subscriptions, dynamic resources, notification syntax) and the
+#     product pages. docs.cloud.sennheiser.com/en-us/api-docs/
+#
+# Not hardware-verified: built from the documents above and checked against
+# the simulator below. What the documents leave open is listed in the
+# workspace record (driver-roadmap/shipped/sennheiser_ewdx.md).
+#
+# Push, not polling (SSCv2 spec, "SSCv2 subscriptions"):
+#   The receiver streams every change of a subscribed resource as a
+#   Server-Sent Event. The stream is a session: GET
+#   /api/ssc/state/subscriptions opens it, the reply's Content-Location
+#   header (and the "open" event) names the session, and a PUT of a
+#   resource-path list to /api/ssc/state/subscriptions/{id}/add arms it.
+#   The receiver then sends the current value of every listed resource and
+#   each later change, from its front panel, Control Cockpit or the API.
+#   The push block's session handshake does that here: the register list
+#   runs once per (re)open, so a reopen (the device's "close" event, a
+#   dropped stream, 300 s of silence) is also a full resync. Polling stays
+#   on at 30 s for the device-level resources only, as the liveness
+#   baseline; per-channel and transmitter state comes from the session,
+#   because a channel's own GET body carries no channel number to route by.
+#
+#   The subscription is split into one request per resource group so that a
+#   list the receiver refuses (a resource its firmware lacks) costs only that
+#   group. The per-channel groups follow the roster, and the roster follows
+#   the receiver's own product code (2 or 4 channels) read from
+#   /api/device/identity before the per-channel groups run, so a two-channel
+#   receiver is never asked for channels 3 and 4.
+#
+#   The transmitter list /api/transmitters is a control resource: one
+#   subscription to it covers /api/transmitters/{n}, /battery and /warnings
+#   for every linked transmitter, including ones linked later (SSCv2 spec,
+#   "Dynamic Resource Subscriptions"). A transmitter that unlinks is
+#   reported as null, which reads as tx_linked false.
+#
+#   The four RF and audio meters per channel are FastResource feeds the spec
+#   says to subscribe only while the data is in use: "Report Level Meters"
+#   arms them on connect, and the Channel Meters On/Off commands switch them
+#   at runtime. They are throttled to two updates a second per channel and
+#   relay to the cloud at low priority.
+#
+# Why YAML:
+#   Everything on the wire is JSON over HTTPS with Basic auth, and the push
+#   block's session handshake (platform 0.34.0) is the subscription
+#   mechanism, so nothing needs code. The TeamConnect Ceiling Medium driver
+#   is the same protocol in Python, written before the handshake was
+#   declarative.
+#
+# Channels are child entities (local ids 1..4, wire channelId 0..3). Each
+# carries its receiver settings, its RF and audio state, its sync settings
+# (what the receiver writes into a transmitter on a sync) and the linked
+# transmitter's own state and battery, because a transmitter belongs to
+# exactly one channel on this API.
+#
+# Scope: every resource the EW-DX OpenAPI 1.7 declares except the raw
+# address tree (/api/ssc/schema), the open-source licence download, and the
+# frequency-bank reads (arrays of kHz values with nowhere to land as flat
+# state; the user bank is still writable).
+
+id: sennheiser_ewdx
+name: Sennheiser EW-DX Receiver
+manufacturer: Sennheiser
+category: audio
+version: 1.0.0
+# The push block's session handshake, its register list and the json
+# `contains` mapping all arrived in 0.34.0.
+min_platform_version: "0.34.0"
+author: OpenAVC
+description: >
+  Evolution Wireless Digital rack receivers (EW-DX EM 2, EM 2 Dante,
+  EM 4 Dante) over SSCv2, the HTTPS REST API with Server-Sent Events.
+  Per-channel mute, gain and output level, RF frequency and presets,
+  warnings (no link, low signal, RF and AF peak, encryption), the linked
+  transmitter's mute, battery and warnings, sync settings, opt-in RF and
+  audio meters. Every change streams in as it happens.
+
+source_url: https://docs.cloud.sennheiser.com/en-us/api-docs/api-docs/open-api-ew-dx.html
+tags: [sennheiser, ew-dx, evolution-wireless, wireless-microphone, receiver, dante, sscv2]
+verified: false
+simulated: true
+protocols: [sscv2]
+ports: [443]
+
+compatible_models:
+  - manufacturer: Sennheiser
+    models:
+      - EW-DX EM 2
+      - EW-DX EM 2 Dante
+      - EW-DX EM 4 Dante
+    confidence: untested
+    notes: >
+      Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7
+      schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is
+      not covered). Not yet run against a receiver. The transmitters (EW-DX
+      SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and
+      the EW-D SK, SKP and SKM-S) are reported through the receiver channel
+      they are linked to.
+
+help:
+  overview: >
+    Controls a Sennheiser EW-DX rack receiver and shows what its wireless
+    microphones are doing. Each receiver channel reports the linked
+    transmitter's battery, RF signal and warnings, so a panel can show a
+    rack at a glance and a trigger can alert on a flat battery or a lost
+    link. Mute channels, set gain and output level, recall frequency
+    presets, and write the sync settings a transmitter picks up when it is
+    held to the receiver. Everything the receiver changes, from its front
+    panel or Control Cockpit, shows up here as it happens.
+  setup: >
+    1. Set the receiver up once in Sennheiser Control Cockpit and update it
+       to firmware 4.0 or newer (the API arrived with 4.0).
+    2. On the receiver's device page in Control Cockpit, enable third-party
+       access and set a third-party password.
+    3. Enter the receiver's IP address and that password here. The user name
+       is always "api". Set "Receiver Channels" to 4 for an EM 4; the
+       receiver corrects the count itself once connected.
+    4. Turn on "Report Level Meters" only if a panel shows RF or audio
+       levels. They are continuous feeds, so they stay off unless needed;
+       a macro can also switch them per channel.
+  connection: >
+    HTTPS on port 443 with the third-party password from Control Cockpit.
+    The receiver's own certificate is self-signed, so certificate
+    verification is off unless you turn it on. A receiver on firmware
+    older than 4.0 has no HTTPS API at all.
+
+discovery:
+  # /api/device/identity answers without credentials (its OpenAPI entry
+  # declares no security), and only an EW-DX receiver answers with a product
+  # code starting EWDX. HTTPS only, self-signed, so the probe is a TLS GET.
+  tcp_probe:
+    port: 443
+    tls: true
+    send_ascii: "GET /api/device/identity HTTP/1.1\r\nHost: ewdx\r\nConnection: close\r\n\r\n"
+    expect_regex: '"product"\s*:\s*"EWDX'
+    extract_manufacturer: "Sennheiser"
+    extract:
+      model:
+        regex: '"product"\s*:\s*"(EWDX[A-Z0-9]+)"'
+        group: 1
+  # Sennheiser electronic GmbH & Co. KG (IEEE registry).
+  oui:
+    - "00:1b:66"
+  manufacturer_alias:
+    - "sennheiser"
+
+transport: http
+
+default_config:
+  host: ""
+  port: 443
+  ssl: true
+  verify_ssl: false
+  auth_type: "basic"
+  username: "api"
+  password: ""
+  timeout: 5.0
+  poll_interval: 30
+  channel_count: 2
+  enable_meters: false
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    help: "The receiver's IP address, as shown in Control Cockpit."
+  port:
+    type: integer
+    default: 443
+    label: HTTPS Port
+    advanced: true
+    help: "443 on every receiver; change it only behind a port forward."
+  password:
+    type: string
+    secret: true
+    required: true
+    label: Third-party Password
+    help: >
+      The third-party password set on the receiver's device page in
+      Sennheiser Control Cockpit. The user name is always "api" and needs
+      no entry.
+  verify_ssl:
+    type: boolean
+    default: false
+    label: Verify TLS Certificate
+    advanced: true
+    help: >
+      Off by default: the receiver ships a self-signed certificate. Turn on
+      only if a trusted certificate has been installed on it.
+  channel_count:
+    type: integer
+    default: 2
+    min: 2
+    max: 4
+    label: Receiver Channels
+    help: >
+      2 for an EM 2, 4 for an EM 4. Only the starting point: once connected
+      the receiver reports its own channel count and the roster follows it.
+  enable_meters:
+    type: boolean
+    default: false
+    label: Report Level Meters
+    help: >
+      Streams each channel's RF signal strength, RF quality, diversity and
+      audio level. Off by default because it is a continuous feed; a macro
+      or panel can also switch it per channel with the Channel Meters
+      On/Off commands.
+
+# ── Push: the SSCv2 subscription session ──────────────────────────────
+# One stream, named by the receiver; the register list arms it on every
+# (re)open. query_identity comes first so the roster is sized from the
+# receiver's own product code before the per-channel groups run.
+push:
+  type: sse
+  path: /api/ssc/state/subscriptions
+  # The receiver documents no keepalive. A reopen after five quiet minutes
+  # is a new session the receiver answers with every value, so a silent
+  # rack gets a free full resync and a half-open stream is noticed.
+  idle_timeout: 300
+  session:
+    header: Content-Location
+    event: open
+    key: sessionUUID
+    pattern: "([0-9a-fA-F-]{36})$"
+    close_event: close
+  register:
+    - query_identity
+    - subscribe_device
+    - { command: subscribe_channel, each_child: channel }
+    - subscribe_transmitters
+    - { command: channel_meters_on, each_child: channel, when: enable_meters }
+  unregister: end_subscription
+
+quick_actions: [identify_on]
+actions:
+  - id: identify_on
+    icon: eye
+    visible_when: { key: "device.$id.identifying", operator: falsy }
+  - id: identify_off
+    icon: eye-off
+    visible_when: { key: "device.$id.identifying", operator: truthy }
+
+state_variables:
+  # ── Identity ──
+  product:
+    type: string
+    label: Product Code
+    help: "The product code the receiver identifies itself by (EWDX2CHS, EWDX2CHDS, EWDX4CHDS)"
+  model:
+    type: string
+    label: Model
+  channel_count_reported:
+    type: integer
+    label: Receiver Channels
+    help: "Read from the product code; sizes the channel roster"
+  serial:
+    type: string
+    label: Serial Number
+  hardware_revision:
+    type: string
+    label: Hardware Revision
+  vendor:
+    type: string
+    label: Vendor
+  device_name:
+    type: string
+    label: Device Name
+    help: "Set in Control Cockpit; read-only on this API"
+  location:
+    type: string
+    label: Location
+  position:
+    type: string
+    label: Position
+
+  # ── Device state ──
+  device_state:
+    type: enum
+    values: ["Normal", "Identifying", "FirmwareUpdate", "Busy"]
+    label: Device State
+    help: "Busy while the receiver starts, applies a long operation or restarts"
+    cloud_priority: high
+  device_warning_count:
+    type: integer
+    label: Device Warnings
+    help: "How many device-wide warnings the receiver reports"
+  identifying:
+    type: boolean
+    label: Identifying
+    help: "The receiver's display is flashing to show which unit this is"
+  firmware_version:
+    type: string
+    label: Firmware Version
+  dante_version:
+    type: string
+    label: Dante Firmware Version
+  firmware_update_state:
+    type: enum
+    values: ["Idle", "Updating"]
+    label: Firmware Update
+    cloud_priority: high
+  firmware_update_progress:
+    type: integer
+    label: Firmware Update Progress
+    min: 0
+    max: 100
+    unit: "%"
+  firmware_last_status:
+    type: string
+    label: Last Firmware Update Result
+  ssc_protocol_version:
+    type: string
+    label: SSC Protocol Version
+  ssc_schema_version:
+    type: string
+    label: API Schema Version
+
+  # ── RF ──
+  rf_code:
+    type: enum
+    values: ["Q1-9", "R1-9", "S1-10", "S2-10", "S4-10", "U1/5", "V3-4", "V5-7", "Y1-3"]
+    label: Frequency Range Code
+    help: "The country-specific frequency variant of this receiver"
+  rf_range_count:
+    type: integer
+    label: Frequency Ranges
+    help: "How many tuning ranges the receiver has; some variants have gaps"
+  rf_range_start_khz:
+    type: integer
+    label: Tuning Range Start
+    unit: kHz
+  rf_range_end_khz:
+    type: integer
+    label: Tuning Range End
+    unit: kHz
+  rf_range_step_khz:
+    type: integer
+    label: Tuning Step
+    unit: kHz
+  transmission_mode:
+    type: enum
+    values: ["Standard", "LinkDensity"]
+    label: Transmission Mode
+    help: "Link Density mode doubles the channel count in a crowded spectrum"
+  preset_spacing_khz:
+    type: integer
+    label: Preset Spacing
+    unit: kHz
+  encryption_enabled:
+    type: boolean
+    label: AES-256 Encryption
+    cloud_priority: high
+  legacy_mode_enabled:
+    type: boolean
+    label: SSC v1 Legacy Mode
+    help: "Whether the receiver still answers the unencrypted SSC v1 protocol on UDP 45"
+
+child_entity_types:
+  channel:
+    label: "Channel"
+    label_plural: "Channels"
+    id_format:
+      type: integer
+      min: 1
+      max: 4
+    instances:
+      # The receiver reports its channel count in its product code, so the
+      # roster follows the hardware once connected; channel_count is only
+      # the offline fallback.
+      count_from_state: channel_count_reported
+      count_from: channel_count
+      label: "Channel {id}"
+    label_field: name
+    summary_fields: ["name", "mute", "tx_linked", "tx_battery_percent", "no_link", "low_signal"]
+    state_variables:
+      # ── Receiver channel ──
+      name:
+        type: string
+        label: Channel Name
+        help: "Up to eight characters, as shown on the receiver's display"
+      mute:
+        type: boolean
+        label: Mute
+        help: "Audio output mute of this receiver channel"
+        control: true
+        cloud_priority: high
+      gain:
+        type: integer
+        label: Gain
+        min: -3
+        max: 42
+        step: 3
+        unit: dB
+        control: true
+      output_level:
+        type: integer
+        label: AF Output Level
+        min: -24
+        max: 18
+        step: 6
+        unit: dB
+        control: true
+      mate:
+        type: enum
+        values: ["TX1", "TX2", "TX3", "TX4"]
+        label: Mate Slot
+        help: "The transmitter slot this channel is paired with"
+      audio_output:
+        type: enum
+        values: ["Out1", "Out2", "Out3", "Out4"]
+        label: Audio Output
+        help: "The receiver output this channel feeds"
+      identifying:
+        type: boolean
+        label: Identifying
+        help: "The channel's display is flashing to show which channel this is"
+
+      # ── Warnings ──
+      aes256_error:
+        type: boolean
+        label: "AES-256 Error"
+        help: "The receiver and transmitter disagree on encryption, so no audio passes"
+        cloud_priority: high
+      low_signal:
+        type: boolean
+        label: "Low RF Signal"
+        help: "The transmitter's signal is weak"
+        cloud_priority: high
+      no_link:
+        type: boolean
+        label: "No Link"
+        help: "No transmitter is linked to this channel"
+        cloud_priority: high
+      rf_peak:
+        type: boolean
+        label: "RF Peak"
+        help: "The RF input is overloaded"
+        cloud_priority: high
+      af_peak:
+        type: boolean
+        label: "AF Peak"
+        help: "The audio level is clipping"
+        cloud_priority: high
+
+      # ── RF ──
+      frequency_khz:
+        type: integer
+        label: Frequency
+        unit: kHz
+        control: true
+      preset_type:
+        type: enum
+        values: ["Factory", "User", "None"]
+        label: Active Preset Type
+        help: "None when the frequency was set directly rather than from a preset"
+      preset_bank:
+        type: integer
+        label: Active Preset Bank
+      preset_channel:
+        type: integer
+        label: Active Preset Channel
+
+      # ── Meters (opt-in feed) ──
+      rssi_dbm:
+        type: number
+        label: RF Signal Strength
+        min: -107
+        max: 0
+        unit: dBm
+        cloud_priority: low
+      rsqi_percent:
+        type: number
+        label: RF Signal Quality
+        min: 0
+        max: 100
+        unit: "%"
+        cloud_priority: low
+      diversity:
+        type: integer
+        label: Diversity Indicator
+        min: 0
+        max: 2
+        help: "Which antenna path the receiver is using"
+        cloud_priority: low
+      level_dbfs:
+        type: number
+        label: Audio Level
+        min: -138.5
+        max: 0
+        unit: dBFS
+        cloud_priority: low
+
+      # ── Sync settings: what the receiver writes into a transmitter on a sync ──
+      sync_mute_config:
+        type: enum
+        values: ["Off", "RfMute", "AfMute"]
+        label: Sync Mute Mode
+        help: "What a handheld or bodypack's mute switch does after a sync"
+      sync_cable_emulation:
+        type: enum
+        values: ["Off", "Type1", "Type2", "Type3"]
+        label: Sync Cable Emulation
+      sync_lowcut:
+        type: enum
+        values: ["Off", "30Hz", "60Hz", "80Hz", "100Hz", "120Hz"]
+        label: Sync Low Cut
+      sync_lock:
+        type: boolean
+        label: Sync Lock
+        help: "Lock the transmitter's controls after a sync"
+      sync_trim:
+        type: integer
+        label: Sync Trim
+        min: -12
+        max: 6
+        unit: dB
+      sync_led:
+        type: boolean
+        label: Sync LED
+      sync_mute_config_ts:
+        type: enum
+        values: ["AfMute", "Off", "PTT", "PTM"]
+        label: Sync Table Stand Mute Mode
+        help: "What a table stand's button does after a sync: push to talk or push to mute"
+      sync_ignore_mute_config:
+        type: boolean
+        label: "Sync Skips Mute Mode"
+        help: "Leave the transmitter's mute mode alone on a sync"
+      sync_ignore_cable_emulation:
+        type: boolean
+        label: "Sync Skips Cable Emulation"
+        help: "Leave the transmitter's cable emulation alone on a sync"
+      sync_ignore_lowcut:
+        type: boolean
+        label: "Sync Skips Low Cut"
+        help: "Leave the transmitter's low cut alone on a sync"
+      sync_ignore_lock:
+        type: boolean
+        label: "Sync Skips Lock"
+        help: "Leave the transmitter's lock alone on a sync"
+      sync_ignore_trim:
+        type: boolean
+        label: "Sync Skips Trim"
+        help: "Leave the transmitter's trim alone on a sync"
+      sync_ignore_led:
+        type: boolean
+        label: "Sync Skips LED"
+        help: "Leave the transmitter's led alone on a sync"
+      sync_ignore_name:
+        type: boolean
+        label: "Sync Skips Name"
+        help: "Leave the transmitter's name alone on a sync"
+      sync_ignore_frequency:
+        type: boolean
+        label: "Sync Skips Frequency"
+        help: "Leave the transmitter's frequency alone on a sync"
+
+      # ── Linked transmitter ──
+      tx_linked:
+        type: boolean
+        label: Transmitter Linked
+        help: "A transmitter is linked to this channel and reporting"
+        cloud_priority: high
+      tx_type:
+        type: enum
+        values: ["EW_D_SKP", "EW_D_SK", "EW_D_SKM_S", "EW_DX_SK", "EW_DX_SK_3_PIN", "EW_DX_SKM", "EW_DX_SKM_S", "EW_DX_TS_3_PIN", "EW_DX_TS_5_PIN"]
+        label: Transmitter Type
+      tx_capsule:
+        type: enum
+        values: ["Unknown", "KK_205", "KK_204", "ME_9002", "ME_9004", "ME_9005", "MME_865", "MD_9235", "MM_435", "MM_445", "MMD_945", "MMD_935", "MMD_845", "MMD_835", "MMD_815_1", "MMK_965", "MMD_42_I", "None"]
+        label: Capsule
+      tx_name:
+        type: string
+        label: Transmitter Name
+      tx_version:
+        type: string
+        label: Transmitter Firmware
+      tx_mute:
+        type: boolean
+        label: Transmitter Mute
+        help: "The transmitter's own mute switch"
+        cloud_priority: high
+      tx_identifying:
+        type: boolean
+        label: Transmitter Identifying
+      tx_lowcut:
+        type: enum
+        values: ["Off", "30Hz", "60Hz", "80Hz", "100Hz", "120Hz"]
+        label: Transmitter Low Cut
+      tx_trim:
+        type: integer
+        label: Transmitter Trim
+        min: -12
+        max: 6
+        unit: dB
+      tx_cable_emulation:
+        type: enum
+        values: ["Off", "Type1", "Type2", "Type3"]
+        label: Transmitter Cable Emulation
+      tx_led:
+        type: boolean
+        label: Transmitter LED
+      tx_lock:
+        type: boolean
+        label: Transmitter Locked
+      tx_mute_config:
+        type: enum
+        values: ["Off", "RfMute", "AfMute"]
+        label: Transmitter Mute Mode
+      tx_mute_config_table_stand:
+        type: enum
+        values: ["AfMute", "Off", "PushToTalk", "PushToMute"]
+        label: Table Stand Mute Mode
+      tx_battery_type:
+        type: enum
+        values: ["Battery", "PrimaryCell", "NoBattery"]
+        label: Battery Type
+        help: "A rechargeable pack, primary cells, or none reported"
+      tx_battery_minutes:
+        type: integer
+        label: Battery Runtime
+        unit: min
+        cloud_priority: high
+      tx_battery_percent:
+        type: integer
+        label: Battery Level
+        min: 0
+        max: 100
+        unit: "%"
+        cloud_priority: high
+      tx_low_battery:
+        type: boolean
+        label: "Low Battery"
+        help: "The transmitter's battery is nearly flat"
+        cloud_priority: high
+      tx_af_peak:
+        type: boolean
+        label: "Transmitter AF Peak"
+        help: "The transmitter's audio input is clipping"
+        cloud_priority: high
+
+commands:
+  # ── Queries (polled; the session covers everything else) ──
+  query_identity:
+    label: Query Identity
+    method: GET
+    path: /api/device/identity
+    query_for: product
+    help: "Reads the product code, serial and hardware revision; also sizes the channel roster"
+  query_site:
+    label: Query Site
+    method: GET
+    path: /api/device/site
+    query_for: device_name
+  query_state:
+    label: Query Device State
+    method: GET
+    path: /api/device/state
+    query_for: device_state
+  query_firmware:
+    label: Query Firmware
+    method: GET
+    path: /api/firmware/update/state
+    query_for: firmware_version
+  query_ssc_version:
+    label: Query API Version
+    method: GET
+    path: /api/ssc/version
+    query_for: ssc_schema_version
+  query_rf:
+    label: Query Frequency Range
+    method: GET
+    path: /api/rf
+    query_for: rf_code
+  query_transmission:
+    label: Query Transmission Mode
+    method: GET
+    path: /api/rf/transmission
+    query_for: transmission_mode
+  query_identification:
+    label: Query Identification
+    method: GET
+    path: /api/device/identification
+    query_for: identifying
+
+  # ── Device ──
+  identify_on:
+    label: Identify Receiver
+    method: PUT
+    path: /api/device/identification
+    body: '{"visual": true}'
+    help: "Flashes the receiver's display so you can find it in the rack"
+    sets: { identifying: true }
+  identify_off:
+    label: Stop Identifying Receiver
+    method: PUT
+    path: /api/device/identification
+    body: '{"visual": false}'
+    sets: { identifying: false }
+  set_transmission_mode:
+    label: Set Transmission Mode
+    method: PUT
+    path: /api/rf/transmission
+    body: '{"mode": "{mode}"}'
+    help: "Link Density doubles the number of channels that fit in a crowded spectrum; the receiver is briefly Busy while it switches"
+    params:
+      mode:
+        type: enum
+        required: true
+        label: Mode
+        values:
+          - { value: "Standard", label: "Standard" }
+          - { value: "LinkDensity", label: "Link Density" }
+    sets: { transmission_mode: "{mode}" }
+  encryption_on:
+    label: Enable Encryption
+    method: PUT
+    path: /api/rf/encryption
+    body: '{"enabled": true}'
+    help: "AES-256 on the radio link; transmitters must be synced afterwards"
+    sets: { encryption_enabled: true }
+  encryption_off:
+    label: Disable Encryption
+    method: PUT
+    path: /api/rf/encryption
+    body: '{"enabled": false}'
+    sets: { encryption_enabled: false }
+
+  # ── Receiver channel ──
+  set_channel_name:
+    label: Set Channel Name
+    method: PUT
+    path: /api/channel/{channel}
+    body: '{"name": "{name}"}'
+    help: "Up to eight characters: digits, capitals and a few symbols, as the receiver's display can show"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '^[ #*+,;/<=|>0-9A-Z-]{0,8}$'
+    sets: { name: "{name}" }
+  mute_channel:
+    label: Mute Channel
+    method: PUT
+    path: /api/channel/{channel}
+    body: '{"mute": true}'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+    sets: { mute: true }
+  unmute_channel:
+    label: Unmute Channel
+    method: PUT
+    path: /api/channel/{channel}
+    body: '{"mute": false}'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+    sets: { mute: false }
+  set_channel_gain:
+    label: Set Channel Gain
+    method: PUT
+    path: /api/channel/{channel}
+    body: '{"gain": {gain}}'
+    help: "-3 to +42 dB in steps of 3 dB; the receiver refuses a value between steps"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      gain:
+        type: integer
+        required: true
+        label: Gain
+        min: -3
+        max: 42
+        unit: dB
+    sets: { gain: "{gain}" }
+  set_channel_output_level:
+    label: Set Channel Output Level
+    method: PUT
+    path: /api/channel/{channel}
+    body: '{"outputLevel": {level}}'
+    help: "-24 to +18 dB in steps of 6 dB; the receiver refuses a value between steps"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      level:
+        type: integer
+        required: true
+        label: Output Level
+        min: -24
+        max: 18
+        unit: dB
+    sets: { output_level: "{level}" }
+  identify_channel_on:
+    label: Identify Channel
+    method: PUT
+    path: /api/channel/{channel}/identify
+    body: '{"enabled": true}'
+    help: "Flashes the channel on the receiver's display"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+    sets: { identifying: true }
+  identify_channel_off:
+    label: Stop Identifying Channel
+    method: PUT
+    path: /api/channel/{channel}/identify
+    body: '{"enabled": false}'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+    sets: { identifying: false }
+  restore_channel_audio:
+    label: Restore Channel Audio Defaults
+    method: PUT
+    path: /api/channel/{channel}/restore
+    body: '{"mode": "AudioDefault"}'
+    help: "Puts the channel's gain, output level and mute back to the factory values"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+  acknowledge_channel_sorting:
+    label: Acknowledge Channel Sorting
+    method: PUT
+    path: /api/channel/{channel}/channelSorting
+    body: '{"sorted": true}'
+    help: "Clears the receiver's channel-sorting prompt after channels were reordered"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+
+  # ── RF ──
+  set_channel_frequency:
+    label: Set Channel Frequency
+    method: PUT
+    path: /api/rf/channels/{channel}/frequency
+    body: '{"frequency": {frequency}}'
+    help: "In kHz, a multiple of 25 within the receiver's tuning range (see Tuning Range Start and End). The transmitter must be synced afterwards"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      frequency:
+        type: integer
+        required: true
+        label: Frequency
+        unit: kHz
+        min: 470000
+        max: 1805000
+    sets: { frequency_khz: "{frequency}" }
+  recall_channel_preset:
+    label: Recall Channel Frequency Preset
+    method: PUT
+    path: /api/rf/channels/{channel}/preset
+    body: '{"type": "{type}", "bank": {bank}, "channel": {preset_channel}}'
+    help: "Tunes the channel to a preset from the factory bank or the channel's user bank"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      type:
+        type: enum
+        required: true
+        label: Preset Type
+        values:
+          - { value: "Factory", label: "Factory bank" }
+          - { value: "User", label: "User bank" }
+      bank:
+        type: integer
+        label: Bank
+        default: 0
+        min: 0
+        max: 0
+        help: "The receiver has one bank of each type, bank 0"
+      preset_channel:
+        type: integer
+        required: true
+        label: Preset Number
+        min: 1
+        max: 100
+    sets: { preset_type: "{type}", preset_bank: "{bank}", preset_channel: "{preset_channel}" }
+  set_channel_user_bank:
+    label: Write Channel User Preset Bank
+    method: PUT
+    path: /api/rf/presets/user/channels/{channel}/banks/0
+    body: '{frequencies}'
+    help: "Replaces the channel's user frequency bank: a list of 1 to 100 frequencies in kHz, written as [470200, 470400, ...]"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      frequencies:
+        type: string
+        required: true
+        label: Frequencies (kHz)
+        pattern: '^\[\s*\d+(\s*,\s*\d+){0,99}\s*\]$'
+
+  # ── Sync settings (what a sync writes into the transmitter) ──
+  set_channel_sync_mute_config:
+    label: Set Sync Mute Mode
+    method: PUT
+    path: /api/syncSettings/{channel}
+    body: '{"muteConfig": "{mode}"}'
+    help: "What a handheld or bodypack's mute switch does after the next sync"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      mode:
+        type: enum
+        required: true
+        label: Mute Mode
+        values:
+          - { value: "Off", label: "Off" }
+          - { value: "RfMute", label: "RF mute" }
+          - { value: "AfMute", label: "AF mute" }
+    sets: { sync_mute_config: "{mode}" }
+  set_channel_sync_cable_emulation:
+    label: Set Sync Cable Emulation
+    method: PUT
+    path: /api/syncSettings/{channel}
+    body: '{"cableEmulation": "{mode}"}'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      mode:
+        type: enum
+        required: true
+        label: Cable Emulation
+        values: ["Off", "Type1", "Type2", "Type3"]
+    sets: { sync_cable_emulation: "{mode}" }
+  set_channel_sync_lowcut:
+    label: Set Sync Low Cut
+    method: PUT
+    path: /api/syncSettings/{channel}
+    body: '{"lowcut": "{lowcut}"}'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      lowcut:
+        type: enum
+        required: true
+        label: Low Cut
+        values: ["Off", "30Hz", "60Hz", "80Hz", "100Hz", "120Hz"]
+    sets: { sync_lowcut: "{lowcut}" }
+  set_channel_sync_lock:
+    label: Set Sync Lock
+    method: PUT
+    path: /api/syncSettings/{channel}
+    body: '{"lock": {locked}}'
+    help: "Whether the transmitter's controls are locked after the next sync"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      locked:
+        type: enum
+        required: true
+        label: Lock
+        values:
+          - { value: "true", label: "Locked" }
+          - { value: "false", label: "Unlocked" }
+  set_channel_sync_trim:
+    label: Set Sync Trim
+    method: PUT
+    path: /api/syncSettings/{channel}
+    body: '{"trim": {trim}}'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      trim:
+        type: integer
+        required: true
+        label: Trim
+        min: -12
+        max: 6
+        unit: dB
+    sets: { sync_trim: "{trim}" }
+  set_channel_sync_led:
+    label: Set Sync LED
+    method: PUT
+    path: /api/syncSettings/{channel}
+    body: '{"led": {enabled}}'
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      enabled:
+        type: enum
+        required: true
+        label: LED
+        values:
+          - { value: "true", label: "On" }
+          - { value: "false", label: "Off" }
+  set_channel_sync_mute_config_ts:
+    label: Set Sync Table Stand Mute Mode
+    method: PUT
+    path: /api/syncSettings/{channel}
+    body: '{"muteConfigTs": "{mode}"}'
+    help: "What a table stand's button does after the next sync"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      mode:
+        type: enum
+        required: true
+        label: Table Stand Mute Mode
+        values:
+          - { value: "AfMute", label: "AF mute" }
+          - { value: "Off", label: "Off" }
+          - { value: "PTT", label: "Push to talk" }
+          - { value: "PTM", label: "Push to mute" }
+    sets: { sync_mute_config_ts: "{mode}" }
+  set_channel_sync_ignore:
+    label: Set Sync Skip
+    method: PUT
+    path: /api/syncSettings/{channel}/ignore
+    body: '{"{setting}": {ignored}}'
+    help: "Whether a sync leaves one transmitter setting alone instead of writing it"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+      setting:
+        type: enum
+        required: true
+        label: Setting
+        values:
+          - { value: "muteConfig", label: "Mute Mode" }
+          - { value: "cableEmulation", label: "Cable Emulation" }
+          - { value: "lowcut", label: "Low Cut" }
+          - { value: "lock", label: "Lock" }
+          - { value: "trim", label: "Trim" }
+          - { value: "led", label: "LED" }
+          - { value: "name", label: "Name" }
+          - { value: "frequency", label: "Frequency" }
+      ignored:
+        type: enum
+        required: true
+        label: On a Sync
+        values:
+          - { value: "true", label: "Skip it" }
+          - { value: "false", label: "Write it" }
+
+  # ── Meter feeds (per channel, at runtime) ──
+  channel_meters_on:
+    label: Channel Meters On
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/channel/{channel}/signalStrengthIndicator", "/api/channel/{channel}/signalQualityIndicator", "/api/channel/{channel}/diversityIndicator", "/api/channel/{channel}/level"]'
+    help: "Starts streaming this channel's RF strength, RF quality, diversity and audio level"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+  channel_meters_off:
+    label: Channel Meters Off
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/remove
+    body: '["/api/channel/{channel}/signalStrengthIndicator", "/api/channel/{channel}/signalQualityIndicator", "/api/channel/{channel}/diversityIndicator", "/api/channel/{channel}/level"]'
+    help: "Stops this channel's meter feed"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+
+  # ── Subscription session (run by the push block; here so they are visible) ──
+  subscribe_device:
+    label: "Subscribe: device resources"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/device/state", "/api/device/site", "/api/device/identification", "/api/firmware/update/state", "/api/rf", "/api/rf/transmission", "/api/rf/encryption", "/api/ssc/legacyMode"]'
+    help: "Run by the push block on every stream open; nothing to send by hand"
+  subscribe_channel:
+    label: "Subscribe: one channel"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/channel/{channel}", "/api/channel/{channel}/warnings", "/api/channel/{channel}/identify", "/api/rf/channels/{channel}", "/api/syncSettings/{channel}", "/api/syncSettings/{channel}/ignore"]'
+    help: "Run by the push block once per channel on every stream open"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 0, "2": 1, "3": 2, "4": 3 }
+  subscribe_transmitters:
+    label: "Subscribe: transmitters"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/transmitters"]'
+    help: "Run by the push block on every stream open; covers every linked transmitter, now and later"
+  end_subscription:
+    label: "Subscribe: end session"
+    method: DELETE
+    path: /api/ssc/state/subscriptions/{push_session}
+    help: "Run by the push block when the device is disconnected on purpose"
+
+# ── Responses ──────────────────────────────────────────────────────────
+# Every body is JSON, so every rule is json: true and all of them run
+# against every body. Two shapes arrive:
+#   - a polled GET answers with the bare resource ({"state": ..}) — those
+#     rules are scoped with require: to a key unique to the resource, since
+#     several resources share field names (state, enabled);
+#   - the subscription stream sends {"<resource path>": {..}} (SSCv2 spec,
+#     "Subscription notification syntax"), so those rules read the path
+#     as the leading JSON key. A path only ever appears in stream bodies,
+#     so they need no require:. Per-channel paths carry the channel index,
+#     which is what routes each value to its child.
+# The encryption and legacy-mode bodies are both {"enabled": ..} and cannot
+# be told apart bare, so they are read from the stream only.
+responses:
+  # ── Polled bodies ──
+  # /api/device/identity (also sizes the roster from the product code)
+  - json: true
+    require: product
+    set:
+      product: "product"
+      model: { key: "product", map: { "EWDX2CHS": "EW-DX EM 2", "EWDX2CHDS": "EW-DX EM 2 Dante", "EWDX4CHDS": "EW-DX EM 4 Dante" } }
+      channel_count_reported: { key: "product", type: integer, map: { "EWDX2CHS": 2, "EWDX2CHDS": 2, "EWDX4CHDS": 4 } }
+      serial: "serial"
+      hardware_revision: "hardwareRevision"
+      vendor: "vendor"
+  # /api/device/site
+  - json: true
+    require: deviceName
+    set:
+      device_name: "deviceName"
+      location: "location"
+      position: "position"
+  # /api/device/state
+  - json: true
+    require: warnings
+    set:
+      device_state: "state"
+      device_warning_count: "warnings"
+  # /api/firmware/update/state
+  - json: true
+    require: deviceVersion
+    set:
+      firmware_version: "deviceVersion"
+      dante_version: "danteVersion"
+      firmware_update_state: "state"
+      firmware_update_progress: "progress"
+      firmware_last_status: "lastStatus"
+  # /api/ssc/version
+  - json: true
+    require: schema
+    set:
+      ssc_protocol_version: "protocol"
+      ssc_schema_version: "schema"
+  # /api/rf
+  - json: true
+    require: ranges
+    set:
+      rf_code: "code"
+      rf_range_count: "ranges"
+      rf_range_start_khz: "ranges.0.start"
+      rf_range_end_khz: "ranges.0.end"
+      rf_range_step_khz: "ranges.0.stepSize"
+  # /api/rf/transmission
+  - json: true
+    require: presetSpacing
+    set:
+      transmission_mode: "mode"
+      preset_spacing_khz: "presetSpacing"
+  # /api/device/identification
+  - json: true
+    require: visual
+    set:
+      identifying: "visual"
+
+  # ── Stream bodies, device level ──
+  # /api/device/state
+  - json: true
+    set:
+      device_state: "/api/device/state.state"
+      device_warning_count: "/api/device/state.warnings"
+  # /api/device/site
+  - json: true
+    set:
+      device_name: "/api/device/site.deviceName"
+      location: "/api/device/site.location"
+      position: "/api/device/site.position"
+  # /api/device/identification
+  - json: true
+    set:
+      identifying: "/api/device/identification.visual"
+  # /api/firmware/update/state
+  - json: true
+    set:
+      firmware_version: "/api/firmware/update/state.deviceVersion"
+      dante_version: "/api/firmware/update/state.danteVersion"
+      firmware_update_state: "/api/firmware/update/state.state"
+      firmware_update_progress: "/api/firmware/update/state.progress"
+      firmware_last_status: "/api/firmware/update/state.lastStatus"
+  # /api/rf
+  - json: true
+    set:
+      rf_code: "/api/rf.code"
+      rf_range_count: "/api/rf.ranges"
+      rf_range_start_khz: "/api/rf.ranges.0.start"
+      rf_range_end_khz: "/api/rf.ranges.0.end"
+      rf_range_step_khz: "/api/rf.ranges.0.stepSize"
+  # /api/rf/transmission
+  - json: true
+    set:
+      transmission_mode: "/api/rf/transmission.mode"
+      preset_spacing_khz: "/api/rf/transmission.presetSpacing"
+  # /api/rf/encryption
+  - json: true
+    set:
+      encryption_enabled: "/api/rf/encryption.enabled"
+  # /api/ssc/legacyMode
+  - json: true
+    set:
+      legacy_mode_enabled: "/api/ssc/legacyMode.enabled"
+
+  # ── Stream bodies, per channel (the path carries the channel index) ──
+  # /api/channel/{n}
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          name: "/api/channel/0.name"
+          mute: "/api/channel/0.mute"
+          gain: "/api/channel/0.gain"
+          output_level: "/api/channel/0.outputLevel"
+          mate: "/api/channel/0.mates.0"
+          audio_output: "/api/channel/0.audio.0"
+      - type: channel
+        id: 2
+        state:
+          name: "/api/channel/1.name"
+          mute: "/api/channel/1.mute"
+          gain: "/api/channel/1.gain"
+          output_level: "/api/channel/1.outputLevel"
+          mate: "/api/channel/1.mates.0"
+          audio_output: "/api/channel/1.audio.0"
+      - type: channel
+        id: 3
+        state:
+          name: "/api/channel/2.name"
+          mute: "/api/channel/2.mute"
+          gain: "/api/channel/2.gain"
+          output_level: "/api/channel/2.outputLevel"
+          mate: "/api/channel/2.mates.0"
+          audio_output: "/api/channel/2.audio.0"
+      - type: channel
+        id: 4
+        state:
+          name: "/api/channel/3.name"
+          mute: "/api/channel/3.mute"
+          gain: "/api/channel/3.gain"
+          output_level: "/api/channel/3.outputLevel"
+          mate: "/api/channel/3.mates.0"
+          audio_output: "/api/channel/3.audio.0"
+  # /api/channel/{n}/warnings: an array of flag names, one boolean each
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          aes256_error: { key: "/api/channel/0/warnings", contains: "Aes256Error" }
+          low_signal: { key: "/api/channel/0/warnings", contains: "LowSignal" }
+          no_link: { key: "/api/channel/0/warnings", contains: "NoLink" }
+          rf_peak: { key: "/api/channel/0/warnings", contains: "RfPeak" }
+          af_peak: { key: "/api/channel/0/warnings", contains: "AfPeak" }
+      - type: channel
+        id: 2
+        state:
+          aes256_error: { key: "/api/channel/1/warnings", contains: "Aes256Error" }
+          low_signal: { key: "/api/channel/1/warnings", contains: "LowSignal" }
+          no_link: { key: "/api/channel/1/warnings", contains: "NoLink" }
+          rf_peak: { key: "/api/channel/1/warnings", contains: "RfPeak" }
+          af_peak: { key: "/api/channel/1/warnings", contains: "AfPeak" }
+      - type: channel
+        id: 3
+        state:
+          aes256_error: { key: "/api/channel/2/warnings", contains: "Aes256Error" }
+          low_signal: { key: "/api/channel/2/warnings", contains: "LowSignal" }
+          no_link: { key: "/api/channel/2/warnings", contains: "NoLink" }
+          rf_peak: { key: "/api/channel/2/warnings", contains: "RfPeak" }
+          af_peak: { key: "/api/channel/2/warnings", contains: "AfPeak" }
+      - type: channel
+        id: 4
+        state:
+          aes256_error: { key: "/api/channel/3/warnings", contains: "Aes256Error" }
+          low_signal: { key: "/api/channel/3/warnings", contains: "LowSignal" }
+          no_link: { key: "/api/channel/3/warnings", contains: "NoLink" }
+          rf_peak: { key: "/api/channel/3/warnings", contains: "RfPeak" }
+          af_peak: { key: "/api/channel/3/warnings", contains: "AfPeak" }
+  # /api/channel/{n}/identify
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          identifying: "/api/channel/0/identify.enabled"
+      - type: channel
+        id: 2
+        state:
+          identifying: "/api/channel/1/identify.enabled"
+      - type: channel
+        id: 3
+        state:
+          identifying: "/api/channel/2/identify.enabled"
+      - type: channel
+        id: 4
+        state:
+          identifying: "/api/channel/3/identify.enabled"
+  # /api/rf/channels/{n}
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          frequency_khz: "/api/rf/channels/0.frequency"
+          preset_type: "/api/rf/channels/0.presets.type"
+          preset_bank: "/api/rf/channels/0.presets.bank"
+          preset_channel: "/api/rf/channels/0.presets.channel"
+      - type: channel
+        id: 2
+        state:
+          frequency_khz: "/api/rf/channels/1.frequency"
+          preset_type: "/api/rf/channels/1.presets.type"
+          preset_bank: "/api/rf/channels/1.presets.bank"
+          preset_channel: "/api/rf/channels/1.presets.channel"
+      - type: channel
+        id: 3
+        state:
+          frequency_khz: "/api/rf/channels/2.frequency"
+          preset_type: "/api/rf/channels/2.presets.type"
+          preset_bank: "/api/rf/channels/2.presets.bank"
+          preset_channel: "/api/rf/channels/2.presets.channel"
+      - type: channel
+        id: 4
+        state:
+          frequency_khz: "/api/rf/channels/3.frequency"
+          preset_type: "/api/rf/channels/3.presets.type"
+          preset_bank: "/api/rf/channels/3.presets.bank"
+          preset_channel: "/api/rf/channels/3.presets.channel"
+  # /api/syncSettings/{n}
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          sync_mute_config: "/api/syncSettings/0.muteConfig"
+          sync_cable_emulation: "/api/syncSettings/0.cableEmulation"
+          sync_lowcut: "/api/syncSettings/0.lowcut"
+          sync_lock: "/api/syncSettings/0.lock"
+          sync_trim: "/api/syncSettings/0.trim"
+          sync_led: "/api/syncSettings/0.led"
+          sync_mute_config_ts: "/api/syncSettings/0.muteConfigTs"
+      - type: channel
+        id: 2
+        state:
+          sync_mute_config: "/api/syncSettings/1.muteConfig"
+          sync_cable_emulation: "/api/syncSettings/1.cableEmulation"
+          sync_lowcut: "/api/syncSettings/1.lowcut"
+          sync_lock: "/api/syncSettings/1.lock"
+          sync_trim: "/api/syncSettings/1.trim"
+          sync_led: "/api/syncSettings/1.led"
+          sync_mute_config_ts: "/api/syncSettings/1.muteConfigTs"
+      - type: channel
+        id: 3
+        state:
+          sync_mute_config: "/api/syncSettings/2.muteConfig"
+          sync_cable_emulation: "/api/syncSettings/2.cableEmulation"
+          sync_lowcut: "/api/syncSettings/2.lowcut"
+          sync_lock: "/api/syncSettings/2.lock"
+          sync_trim: "/api/syncSettings/2.trim"
+          sync_led: "/api/syncSettings/2.led"
+          sync_mute_config_ts: "/api/syncSettings/2.muteConfigTs"
+      - type: channel
+        id: 4
+        state:
+          sync_mute_config: "/api/syncSettings/3.muteConfig"
+          sync_cable_emulation: "/api/syncSettings/3.cableEmulation"
+          sync_lowcut: "/api/syncSettings/3.lowcut"
+          sync_lock: "/api/syncSettings/3.lock"
+          sync_trim: "/api/syncSettings/3.trim"
+          sync_led: "/api/syncSettings/3.led"
+          sync_mute_config_ts: "/api/syncSettings/3.muteConfigTs"
+  # /api/syncSettings/{n}/ignore
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          sync_ignore_mute_config: "/api/syncSettings/0/ignore.muteConfig"
+          sync_ignore_cable_emulation: "/api/syncSettings/0/ignore.cableEmulation"
+          sync_ignore_lowcut: "/api/syncSettings/0/ignore.lowcut"
+          sync_ignore_lock: "/api/syncSettings/0/ignore.lock"
+          sync_ignore_trim: "/api/syncSettings/0/ignore.trim"
+          sync_ignore_led: "/api/syncSettings/0/ignore.led"
+          sync_ignore_name: "/api/syncSettings/0/ignore.name"
+          sync_ignore_frequency: "/api/syncSettings/0/ignore.frequency"
+      - type: channel
+        id: 2
+        state:
+          sync_ignore_mute_config: "/api/syncSettings/1/ignore.muteConfig"
+          sync_ignore_cable_emulation: "/api/syncSettings/1/ignore.cableEmulation"
+          sync_ignore_lowcut: "/api/syncSettings/1/ignore.lowcut"
+          sync_ignore_lock: "/api/syncSettings/1/ignore.lock"
+          sync_ignore_trim: "/api/syncSettings/1/ignore.trim"
+          sync_ignore_led: "/api/syncSettings/1/ignore.led"
+          sync_ignore_name: "/api/syncSettings/1/ignore.name"
+          sync_ignore_frequency: "/api/syncSettings/1/ignore.frequency"
+      - type: channel
+        id: 3
+        state:
+          sync_ignore_mute_config: "/api/syncSettings/2/ignore.muteConfig"
+          sync_ignore_cable_emulation: "/api/syncSettings/2/ignore.cableEmulation"
+          sync_ignore_lowcut: "/api/syncSettings/2/ignore.lowcut"
+          sync_ignore_lock: "/api/syncSettings/2/ignore.lock"
+          sync_ignore_trim: "/api/syncSettings/2/ignore.trim"
+          sync_ignore_led: "/api/syncSettings/2/ignore.led"
+          sync_ignore_name: "/api/syncSettings/2/ignore.name"
+          sync_ignore_frequency: "/api/syncSettings/2/ignore.frequency"
+      - type: channel
+        id: 4
+        state:
+          sync_ignore_mute_config: "/api/syncSettings/3/ignore.muteConfig"
+          sync_ignore_cable_emulation: "/api/syncSettings/3/ignore.cableEmulation"
+          sync_ignore_lowcut: "/api/syncSettings/3/ignore.lowcut"
+          sync_ignore_lock: "/api/syncSettings/3/ignore.lock"
+          sync_ignore_trim: "/api/syncSettings/3/ignore.trim"
+          sync_ignore_led: "/api/syncSettings/3/ignore.led"
+          sync_ignore_name: "/api/syncSettings/3/ignore.name"
+          sync_ignore_frequency: "/api/syncSettings/3/ignore.frequency"
+
+  # Meters: one rule per channel and resource so the throttle window is per channel
+  # /api/channel/0/signalStrengthIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          rssi_dbm: "/api/channel/0/signalStrengthIndicator.value"
+  # /api/channel/0/signalQualityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          rsqi_percent: "/api/channel/0/signalQualityIndicator.value"
+  # /api/channel/0/diversityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          diversity: "/api/channel/0/diversityIndicator.value"
+  # /api/channel/0/level
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          level_dbfs: "/api/channel/0/level.value"
+  # /api/channel/1/signalStrengthIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 2
+        state:
+          rssi_dbm: "/api/channel/1/signalStrengthIndicator.value"
+  # /api/channel/1/signalQualityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 2
+        state:
+          rsqi_percent: "/api/channel/1/signalQualityIndicator.value"
+  # /api/channel/1/diversityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 2
+        state:
+          diversity: "/api/channel/1/diversityIndicator.value"
+  # /api/channel/1/level
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 2
+        state:
+          level_dbfs: "/api/channel/1/level.value"
+  # /api/channel/2/signalStrengthIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 3
+        state:
+          rssi_dbm: "/api/channel/2/signalStrengthIndicator.value"
+  # /api/channel/2/signalQualityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 3
+        state:
+          rsqi_percent: "/api/channel/2/signalQualityIndicator.value"
+  # /api/channel/2/diversityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 3
+        state:
+          diversity: "/api/channel/2/diversityIndicator.value"
+  # /api/channel/2/level
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 3
+        state:
+          level_dbfs: "/api/channel/2/level.value"
+  # /api/channel/3/signalStrengthIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 4
+        state:
+          rssi_dbm: "/api/channel/3/signalStrengthIndicator.value"
+  # /api/channel/3/signalQualityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 4
+        state:
+          rsqi_percent: "/api/channel/3/signalQualityIndicator.value"
+  # /api/channel/3/diversityIndicator
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 4
+        state:
+          diversity: "/api/channel/3/diversityIndicator.value"
+  # /api/channel/3/level
+  - json: true
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: 4
+        state:
+          level_dbfs: "/api/channel/3/level.value"
+
+  # Transmitters: subresources of /api/transmitters, keyed by the same channel index
+  # /api/transmitters/{n}: the transmitter object, {} while it announces, null when it unlinks
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          tx_linked: { key: "/api/transmitters/0", contains: "type" }
+          tx_type: "/api/transmitters/0.type"
+          tx_capsule: "/api/transmitters/0.capsule"
+          tx_name: "/api/transmitters/0.name"
+          tx_version: "/api/transmitters/0.version"
+          tx_mute: "/api/transmitters/0.mute"
+          tx_identifying: "/api/transmitters/0.identification"
+          tx_lowcut: "/api/transmitters/0.lowcut"
+          tx_trim: "/api/transmitters/0.trim"
+          tx_cable_emulation: "/api/transmitters/0.cableEmulation"
+          tx_led: "/api/transmitters/0.led"
+          tx_lock: "/api/transmitters/0.lock"
+          tx_mute_config: "/api/transmitters/0.muteConfig"
+          tx_mute_config_table_stand: "/api/transmitters/0.muteConfigTableStand"
+      - type: channel
+        id: 2
+        state:
+          tx_linked: { key: "/api/transmitters/1", contains: "type" }
+          tx_type: "/api/transmitters/1.type"
+          tx_capsule: "/api/transmitters/1.capsule"
+          tx_name: "/api/transmitters/1.name"
+          tx_version: "/api/transmitters/1.version"
+          tx_mute: "/api/transmitters/1.mute"
+          tx_identifying: "/api/transmitters/1.identification"
+          tx_lowcut: "/api/transmitters/1.lowcut"
+          tx_trim: "/api/transmitters/1.trim"
+          tx_cable_emulation: "/api/transmitters/1.cableEmulation"
+          tx_led: "/api/transmitters/1.led"
+          tx_lock: "/api/transmitters/1.lock"
+          tx_mute_config: "/api/transmitters/1.muteConfig"
+          tx_mute_config_table_stand: "/api/transmitters/1.muteConfigTableStand"
+      - type: channel
+        id: 3
+        state:
+          tx_linked: { key: "/api/transmitters/2", contains: "type" }
+          tx_type: "/api/transmitters/2.type"
+          tx_capsule: "/api/transmitters/2.capsule"
+          tx_name: "/api/transmitters/2.name"
+          tx_version: "/api/transmitters/2.version"
+          tx_mute: "/api/transmitters/2.mute"
+          tx_identifying: "/api/transmitters/2.identification"
+          tx_lowcut: "/api/transmitters/2.lowcut"
+          tx_trim: "/api/transmitters/2.trim"
+          tx_cable_emulation: "/api/transmitters/2.cableEmulation"
+          tx_led: "/api/transmitters/2.led"
+          tx_lock: "/api/transmitters/2.lock"
+          tx_mute_config: "/api/transmitters/2.muteConfig"
+          tx_mute_config_table_stand: "/api/transmitters/2.muteConfigTableStand"
+      - type: channel
+        id: 4
+        state:
+          tx_linked: { key: "/api/transmitters/3", contains: "type" }
+          tx_type: "/api/transmitters/3.type"
+          tx_capsule: "/api/transmitters/3.capsule"
+          tx_name: "/api/transmitters/3.name"
+          tx_version: "/api/transmitters/3.version"
+          tx_mute: "/api/transmitters/3.mute"
+          tx_identifying: "/api/transmitters/3.identification"
+          tx_lowcut: "/api/transmitters/3.lowcut"
+          tx_trim: "/api/transmitters/3.trim"
+          tx_cable_emulation: "/api/transmitters/3.cableEmulation"
+          tx_led: "/api/transmitters/3.led"
+          tx_lock: "/api/transmitters/3.lock"
+          tx_mute_config: "/api/transmitters/3.muteConfig"
+          tx_mute_config_table_stand: "/api/transmitters/3.muteConfigTableStand"
+  # /api/transmitters/{n}/battery
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          tx_battery_type: "/api/transmitters/0/battery.type"
+          tx_battery_minutes: "/api/transmitters/0/battery.lifetime"
+          tx_battery_percent: "/api/transmitters/0/battery.gauge"
+      - type: channel
+        id: 2
+        state:
+          tx_battery_type: "/api/transmitters/1/battery.type"
+          tx_battery_minutes: "/api/transmitters/1/battery.lifetime"
+          tx_battery_percent: "/api/transmitters/1/battery.gauge"
+      - type: channel
+        id: 3
+        state:
+          tx_battery_type: "/api/transmitters/2/battery.type"
+          tx_battery_minutes: "/api/transmitters/2/battery.lifetime"
+          tx_battery_percent: "/api/transmitters/2/battery.gauge"
+      - type: channel
+        id: 4
+        state:
+          tx_battery_type: "/api/transmitters/3/battery.type"
+          tx_battery_minutes: "/api/transmitters/3/battery.lifetime"
+          tx_battery_percent: "/api/transmitters/3/battery.gauge"
+  # /api/transmitters/{n}/warnings
+  - json: true
+    child_set:
+      - type: channel
+        id: 1
+        state:
+          tx_low_battery: { key: "/api/transmitters/0/warnings", contains: "LowBattery" }
+          tx_af_peak: { key: "/api/transmitters/0/warnings", contains: "AfPeak" }
+      - type: channel
+        id: 2
+        state:
+          tx_low_battery: { key: "/api/transmitters/1/warnings", contains: "LowBattery" }
+          tx_af_peak: { key: "/api/transmitters/1/warnings", contains: "AfPeak" }
+      - type: channel
+        id: 3
+        state:
+          tx_low_battery: { key: "/api/transmitters/2/warnings", contains: "LowBattery" }
+          tx_af_peak: { key: "/api/transmitters/2/warnings", contains: "AfPeak" }
+      - type: channel
+        id: 4
+        state:
+          tx_low_battery: { key: "/api/transmitters/3/warnings", contains: "LowBattery" }
+          tx_af_peak: { key: "/api/transmitters/3/warnings", contains: "AfPeak" }
+
+on_connect:
+  - query_identity
+  - query_site
+  - query_state
+  - query_firmware
+  - query_ssc_version
+  - query_rf
+  - query_transmission
+  - query_identification
+
+# The device-level resources only: a channel's GET body carries no channel
+# number to route by, so channel and transmitter state comes from the
+# session, which resends everything on every reopen.
+polling:
+  queries:
+    - query_state
+    - query_firmware
+    - query_identification
+    - query_transmission
+    - query_site
+
+# ── Simulator ──────────────────────────────────────────────────────────
+# One dispatcher handler plays the receiver: it parses the synthesized
+# request line, answers GETs from state, applies PUTs to state and, like
+# the real receiver, sends the changed resource on the subscription stream
+# afterwards. The subscription requests record what the driver asked for
+# and answer with the current value of every newly subscribed resource,
+# which is what makes the driver's state complete after a (re)open. The
+# push block's session header and opening event come from the platform.
+#
+# Fidelity gaps, on purpose: any session id is accepted (a real receiver
+# answers 422 for an unknown one), Basic auth is not checked, and a value
+# the receiver would refuse (a gain between 3 dB steps) is stored as sent.
+# Toggling a warning flag from the Simulator UI sends that one flag as the
+# whole warnings array.
+simulator:
+  initial_state:
+    product: "EWDX2CHDS"
+    model: "EW-DX EM 2 Dante"
+    channel_count_reported: 2
+    serial: "1023456789"
+    hardware_revision: "0596715-06"
+    vendor: "Sennheiser electronic SE & Co. KG"
+    device_name: "EWDXEM2"
+    location: "Building 5, Room 15"
+    position: "Rack, top"
+    device_state: "Normal"
+    device_warning_count: 0
+    identifying: false
+    firmware_version: "4.1.0"
+    dante_version: "4.2.5.1"
+    firmware_update_state: "Idle"
+    firmware_update_progress: 0
+    firmware_last_status: "None"
+    ssc_protocol_version: "2.3"
+    ssc_schema_version: "1.7"
+    rf_code: "Q1-9"
+    rf_range_count: 1
+    rf_range_start_khz: 470200
+    rf_range_end_khz: 550000
+    rf_range_step_khz: 25
+    transmission_mode: "Standard"
+    preset_spacing_khz: 25
+    encryption_enabled: false
+    legacy_mode_enabled: false
+    subscribed_paths: ""
+    # channel 1
+    channel.1.name: "CH1"
+    channel.1.mute: false
+    channel.1.gain: 18
+    channel.1.output_level: 0
+    channel.1.mate: "TX1"
+    channel.1.audio_output: "Out1"
+    channel.1.identifying: false
+    channel.1.aes256_error: false
+    channel.1.low_signal: false
+    channel.1.no_link: false
+    channel.1.rf_peak: false
+    channel.1.af_peak: false
+    channel.1.frequency_khz: 470200
+    channel.1.preset_type: "Factory"
+    channel.1.preset_bank: 0
+    channel.1.preset_channel: 1
+    channel.1.rssi_dbm: -60.0
+    channel.1.rsqi_percent: 92.0
+    channel.1.diversity: 1
+    channel.1.level_dbfs: -30.0
+    channel.1.sync_mute_config: "AfMute"
+    channel.1.sync_cable_emulation: "Off"
+    channel.1.sync_lowcut: "80Hz"
+    channel.1.sync_lock: false
+    channel.1.sync_trim: 0
+    channel.1.sync_led: true
+    channel.1.sync_mute_config_ts: "PTT"
+    channel.1.tx_linked: true
+    channel.1.tx_type: "EW_DX_SKM"
+    channel.1.tx_capsule: "MMD_935"
+    channel.1.tx_name: "MIC1"
+    channel.1.tx_version: "4.1.0"
+    channel.1.tx_mute: false
+    channel.1.tx_identifying: false
+    channel.1.tx_lowcut: "80Hz"
+    channel.1.tx_trim: 0
+    channel.1.tx_cable_emulation: "Off"
+    channel.1.tx_led: true
+    channel.1.tx_lock: false
+    channel.1.tx_mute_config: "AfMute"
+    channel.1.tx_mute_config_table_stand: "Off"
+    channel.1.tx_battery_type: "Battery"
+    channel.1.tx_battery_minutes: 540
+    channel.1.tx_battery_percent: 85
+    channel.1.tx_low_battery: false
+    channel.1.tx_af_peak: false
+    channel.1.sync_ignore_mute_config: false
+    channel.1.sync_ignore_cable_emulation: false
+    channel.1.sync_ignore_lowcut: false
+    channel.1.sync_ignore_lock: false
+    channel.1.sync_ignore_trim: false
+    channel.1.sync_ignore_led: false
+    channel.1.sync_ignore_name: false
+    channel.1.sync_ignore_frequency: false
+    # channel 2
+    channel.2.name: "CH2"
+    channel.2.mute: false
+    channel.2.gain: 18
+    channel.2.output_level: 0
+    channel.2.mate: "TX2"
+    channel.2.audio_output: "Out2"
+    channel.2.identifying: false
+    channel.2.aes256_error: false
+    channel.2.low_signal: false
+    channel.2.no_link: false
+    channel.2.rf_peak: false
+    channel.2.af_peak: false
+    channel.2.frequency_khz: 470200
+    channel.2.preset_type: "Factory"
+    channel.2.preset_bank: 0
+    channel.2.preset_channel: 1
+    channel.2.rssi_dbm: -60.0
+    channel.2.rsqi_percent: 92.0
+    channel.2.diversity: 1
+    channel.2.level_dbfs: -30.0
+    channel.2.sync_mute_config: "AfMute"
+    channel.2.sync_cable_emulation: "Off"
+    channel.2.sync_lowcut: "80Hz"
+    channel.2.sync_lock: false
+    channel.2.sync_trim: 0
+    channel.2.sync_led: true
+    channel.2.sync_mute_config_ts: "PTT"
+    channel.2.tx_linked: true
+    channel.2.tx_type: "EW_DX_SKM"
+    channel.2.tx_capsule: "MMD_935"
+    channel.2.tx_name: "MIC2"
+    channel.2.tx_version: "4.1.0"
+    channel.2.tx_mute: false
+    channel.2.tx_identifying: false
+    channel.2.tx_lowcut: "80Hz"
+    channel.2.tx_trim: 0
+    channel.2.tx_cable_emulation: "Off"
+    channel.2.tx_led: true
+    channel.2.tx_lock: false
+    channel.2.tx_mute_config: "AfMute"
+    channel.2.tx_mute_config_table_stand: "Off"
+    channel.2.tx_battery_type: "Battery"
+    channel.2.tx_battery_minutes: 540
+    channel.2.tx_battery_percent: 85
+    channel.2.tx_low_battery: false
+    channel.2.tx_af_peak: false
+    channel.2.sync_ignore_mute_config: false
+    channel.2.sync_ignore_cable_emulation: false
+    channel.2.sync_ignore_lowcut: false
+    channel.2.sync_ignore_lock: false
+    channel.2.sync_ignore_trim: false
+    channel.2.sync_ignore_led: false
+    channel.2.sync_ignore_name: false
+    channel.2.sync_ignore_frequency: false
+    # channel 3
+    channel.3.name: "CH3"
+    channel.3.mute: false
+    channel.3.gain: 18
+    channel.3.output_level: 0
+    channel.3.mate: "TX3"
+    channel.3.audio_output: "Out3"
+    channel.3.identifying: false
+    channel.3.aes256_error: false
+    channel.3.low_signal: false
+    channel.3.no_link: false
+    channel.3.rf_peak: false
+    channel.3.af_peak: false
+    channel.3.frequency_khz: 470200
+    channel.3.preset_type: "Factory"
+    channel.3.preset_bank: 0
+    channel.3.preset_channel: 1
+    channel.3.rssi_dbm: -60.0
+    channel.3.rsqi_percent: 92.0
+    channel.3.diversity: 1
+    channel.3.level_dbfs: -30.0
+    channel.3.sync_mute_config: "AfMute"
+    channel.3.sync_cable_emulation: "Off"
+    channel.3.sync_lowcut: "80Hz"
+    channel.3.sync_lock: false
+    channel.3.sync_trim: 0
+    channel.3.sync_led: true
+    channel.3.sync_mute_config_ts: "PTT"
+    channel.3.tx_linked: true
+    channel.3.tx_type: "EW_DX_SKM"
+    channel.3.tx_capsule: "MMD_935"
+    channel.3.tx_name: "MIC3"
+    channel.3.tx_version: "4.1.0"
+    channel.3.tx_mute: false
+    channel.3.tx_identifying: false
+    channel.3.tx_lowcut: "80Hz"
+    channel.3.tx_trim: 0
+    channel.3.tx_cable_emulation: "Off"
+    channel.3.tx_led: true
+    channel.3.tx_lock: false
+    channel.3.tx_mute_config: "AfMute"
+    channel.3.tx_mute_config_table_stand: "Off"
+    channel.3.tx_battery_type: "Battery"
+    channel.3.tx_battery_minutes: 540
+    channel.3.tx_battery_percent: 85
+    channel.3.tx_low_battery: false
+    channel.3.tx_af_peak: false
+    channel.3.sync_ignore_mute_config: false
+    channel.3.sync_ignore_cable_emulation: false
+    channel.3.sync_ignore_lowcut: false
+    channel.3.sync_ignore_lock: false
+    channel.3.sync_ignore_trim: false
+    channel.3.sync_ignore_led: false
+    channel.3.sync_ignore_name: false
+    channel.3.sync_ignore_frequency: false
+    # channel 4
+    channel.4.name: "CH4"
+    channel.4.mute: false
+    channel.4.gain: 18
+    channel.4.output_level: 0
+    channel.4.mate: "TX4"
+    channel.4.audio_output: "Out4"
+    channel.4.identifying: false
+    channel.4.aes256_error: false
+    channel.4.low_signal: false
+    channel.4.no_link: false
+    channel.4.rf_peak: false
+    channel.4.af_peak: false
+    channel.4.frequency_khz: 470200
+    channel.4.preset_type: "Factory"
+    channel.4.preset_bank: 0
+    channel.4.preset_channel: 1
+    channel.4.rssi_dbm: -60.0
+    channel.4.rsqi_percent: 92.0
+    channel.4.diversity: 1
+    channel.4.level_dbfs: -30.0
+    channel.4.sync_mute_config: "AfMute"
+    channel.4.sync_cable_emulation: "Off"
+    channel.4.sync_lowcut: "80Hz"
+    channel.4.sync_lock: false
+    channel.4.sync_trim: 0
+    channel.4.sync_led: true
+    channel.4.sync_mute_config_ts: "PTT"
+    channel.4.tx_linked: true
+    channel.4.tx_type: "EW_DX_SKM"
+    channel.4.tx_capsule: "MMD_935"
+    channel.4.tx_name: "MIC4"
+    channel.4.tx_version: "4.1.0"
+    channel.4.tx_mute: false
+    channel.4.tx_identifying: false
+    channel.4.tx_lowcut: "80Hz"
+    channel.4.tx_trim: 0
+    channel.4.tx_cable_emulation: "Off"
+    channel.4.tx_led: true
+    channel.4.tx_lock: false
+    channel.4.tx_mute_config: "AfMute"
+    channel.4.tx_mute_config_table_stand: "Off"
+    channel.4.tx_battery_type: "Battery"
+    channel.4.tx_battery_minutes: 540
+    channel.4.tx_battery_percent: 85
+    channel.4.tx_low_battery: false
+    channel.4.tx_af_peak: false
+    channel.4.sync_ignore_mute_config: false
+    channel.4.sync_ignore_cable_emulation: false
+    channel.4.sync_ignore_lowcut: false
+    channel.4.sync_ignore_lock: false
+    channel.4.sync_ignore_trim: false
+    channel.4.sync_ignore_led: false
+    channel.4.sync_ignore_name: false
+    channel.4.sync_ignore_frequency: false
+
+  delays:
+    command_response: 0.02
+
+  # Changes made from the Simulator UI reach the stream through these; a
+  # PUT from the driver is answered by the dispatcher below, which sends the
+  # whole resource.
+  notifications:
+    device_state: '{"/api/device/state": {"state": "{value}", "warnings": []}}'
+    identifying:
+      "true": '{"/api/device/identification": {"visual": true}}'
+      "false": '{"/api/device/identification": {"visual": false}}'
+    encryption_enabled:
+      "true": '{"/api/rf/encryption": {"enabled": true}}'
+      "false": '{"/api/rf/encryption": {"enabled": false}}'
+    transmission_mode: '{"/api/rf/transmission": {"mode": "{value}", "presetSpacing": 25}}'
+    firmware_update_state: '{"/api/firmware/update/state": {"state": "{value}"}}'
+    firmware_update_progress: '{"/api/firmware/update/state": {"progress": {value}}}'
+    channel.1.mute:
+      "true": '{"/api/channel/0": {"mute": true}}'
+      "false": '{"/api/channel/0": {"mute": false}}'
+    channel.1.gain: '{"/api/channel/0": {"gain": {value}}}'
+    channel.1.output_level: '{"/api/channel/0": {"outputLevel": {value}}}'
+    channel.1.name: '{"/api/channel/0": {"name": "{value}"}}'
+    channel.1.identifying:
+      "true": '{"/api/channel/0/identify": {"enabled": true}}'
+      "false": '{"/api/channel/0/identify": {"enabled": false}}'
+    channel.1.frequency_khz: '{"/api/rf/channels/0": {"frequency": {value}}}'
+    channel.1.rssi_dbm: '{"/api/channel/0/signalStrengthIndicator": {"value": {value}}}'
+    channel.1.rsqi_percent: '{"/api/channel/0/signalQualityIndicator": {"value": {value}}}'
+    channel.1.diversity: '{"/api/channel/0/diversityIndicator": {"value": {value}}}'
+    channel.1.level_dbfs: '{"/api/channel/0/level": {"value": {value}}}'
+    channel.1.aes256_error:
+      "true": '{"/api/channel/0/warnings": ["Aes256Error"]}'
+      "false": '{"/api/channel/0/warnings": []}'
+    channel.1.low_signal:
+      "true": '{"/api/channel/0/warnings": ["LowSignal"]}'
+      "false": '{"/api/channel/0/warnings": []}'
+    channel.1.no_link:
+      "true": '{"/api/channel/0/warnings": ["NoLink"]}'
+      "false": '{"/api/channel/0/warnings": []}'
+    channel.1.rf_peak:
+      "true": '{"/api/channel/0/warnings": ["RfPeak"]}'
+      "false": '{"/api/channel/0/warnings": []}'
+    channel.1.af_peak:
+      "true": '{"/api/channel/0/warnings": ["AfPeak"]}'
+      "false": '{"/api/channel/0/warnings": []}'
+    channel.1.tx_mute:
+      "true": '{"/api/transmitters/0": {"type": "EW_DX_SKM", "mute": true}}'
+      "false": '{"/api/transmitters/0": {"type": "EW_DX_SKM", "mute": false}}'
+    channel.1.tx_linked:
+      "true": '{"/api/transmitters/0": {"type": "EW_DX_SKM", "capsule": "MMD_935", "name": "MIC1", "version": "4.1.0", "mute": false, "identification": false, "lowcut": "80Hz", "trim": 0, "led": true, "lock": false}}'
+      "false": '{"/api/transmitters/0": null}'
+    channel.1.tx_battery_percent: '{"/api/transmitters/0/battery": {"type": "Battery", "gauge": {value}}}'
+    channel.1.tx_battery_minutes: '{"/api/transmitters/0/battery": {"type": "Battery", "lifetime": {value}}}'
+    channel.1.tx_low_battery:
+      "true": '{"/api/transmitters/0/warnings": ["LowBattery"]}'
+      "false": '{"/api/transmitters/0/warnings": []}'
+    channel.1.tx_af_peak:
+      "true": '{"/api/transmitters/0/warnings": ["AfPeak"]}'
+      "false": '{"/api/transmitters/0/warnings": []}'
+    channel.2.mute:
+      "true": '{"/api/channel/1": {"mute": true}}'
+      "false": '{"/api/channel/1": {"mute": false}}'
+    channel.2.gain: '{"/api/channel/1": {"gain": {value}}}'
+    channel.2.output_level: '{"/api/channel/1": {"outputLevel": {value}}}'
+    channel.2.name: '{"/api/channel/1": {"name": "{value}"}}'
+    channel.2.identifying:
+      "true": '{"/api/channel/1/identify": {"enabled": true}}'
+      "false": '{"/api/channel/1/identify": {"enabled": false}}'
+    channel.2.frequency_khz: '{"/api/rf/channels/1": {"frequency": {value}}}'
+    channel.2.rssi_dbm: '{"/api/channel/1/signalStrengthIndicator": {"value": {value}}}'
+    channel.2.rsqi_percent: '{"/api/channel/1/signalQualityIndicator": {"value": {value}}}'
+    channel.2.diversity: '{"/api/channel/1/diversityIndicator": {"value": {value}}}'
+    channel.2.level_dbfs: '{"/api/channel/1/level": {"value": {value}}}'
+    channel.2.aes256_error:
+      "true": '{"/api/channel/1/warnings": ["Aes256Error"]}'
+      "false": '{"/api/channel/1/warnings": []}'
+    channel.2.low_signal:
+      "true": '{"/api/channel/1/warnings": ["LowSignal"]}'
+      "false": '{"/api/channel/1/warnings": []}'
+    channel.2.no_link:
+      "true": '{"/api/channel/1/warnings": ["NoLink"]}'
+      "false": '{"/api/channel/1/warnings": []}'
+    channel.2.rf_peak:
+      "true": '{"/api/channel/1/warnings": ["RfPeak"]}'
+      "false": '{"/api/channel/1/warnings": []}'
+    channel.2.af_peak:
+      "true": '{"/api/channel/1/warnings": ["AfPeak"]}'
+      "false": '{"/api/channel/1/warnings": []}'
+    channel.2.tx_mute:
+      "true": '{"/api/transmitters/1": {"type": "EW_DX_SKM", "mute": true}}'
+      "false": '{"/api/transmitters/1": {"type": "EW_DX_SKM", "mute": false}}'
+    channel.2.tx_linked:
+      "true": '{"/api/transmitters/1": {"type": "EW_DX_SKM", "capsule": "MMD_935", "name": "MIC2", "version": "4.1.0", "mute": false, "identification": false, "lowcut": "80Hz", "trim": 0, "led": true, "lock": false}}'
+      "false": '{"/api/transmitters/1": null}'
+    channel.2.tx_battery_percent: '{"/api/transmitters/1/battery": {"type": "Battery", "gauge": {value}}}'
+    channel.2.tx_battery_minutes: '{"/api/transmitters/1/battery": {"type": "Battery", "lifetime": {value}}}'
+    channel.2.tx_low_battery:
+      "true": '{"/api/transmitters/1/warnings": ["LowBattery"]}'
+      "false": '{"/api/transmitters/1/warnings": []}'
+    channel.2.tx_af_peak:
+      "true": '{"/api/transmitters/1/warnings": ["AfPeak"]}'
+      "false": '{"/api/transmitters/1/warnings": []}'
+    channel.3.mute:
+      "true": '{"/api/channel/2": {"mute": true}}'
+      "false": '{"/api/channel/2": {"mute": false}}'
+    channel.3.gain: '{"/api/channel/2": {"gain": {value}}}'
+    channel.3.output_level: '{"/api/channel/2": {"outputLevel": {value}}}'
+    channel.3.name: '{"/api/channel/2": {"name": "{value}"}}'
+    channel.3.identifying:
+      "true": '{"/api/channel/2/identify": {"enabled": true}}'
+      "false": '{"/api/channel/2/identify": {"enabled": false}}'
+    channel.3.frequency_khz: '{"/api/rf/channels/2": {"frequency": {value}}}'
+    channel.3.rssi_dbm: '{"/api/channel/2/signalStrengthIndicator": {"value": {value}}}'
+    channel.3.rsqi_percent: '{"/api/channel/2/signalQualityIndicator": {"value": {value}}}'
+    channel.3.diversity: '{"/api/channel/2/diversityIndicator": {"value": {value}}}'
+    channel.3.level_dbfs: '{"/api/channel/2/level": {"value": {value}}}'
+    channel.3.aes256_error:
+      "true": '{"/api/channel/2/warnings": ["Aes256Error"]}'
+      "false": '{"/api/channel/2/warnings": []}'
+    channel.3.low_signal:
+      "true": '{"/api/channel/2/warnings": ["LowSignal"]}'
+      "false": '{"/api/channel/2/warnings": []}'
+    channel.3.no_link:
+      "true": '{"/api/channel/2/warnings": ["NoLink"]}'
+      "false": '{"/api/channel/2/warnings": []}'
+    channel.3.rf_peak:
+      "true": '{"/api/channel/2/warnings": ["RfPeak"]}'
+      "false": '{"/api/channel/2/warnings": []}'
+    channel.3.af_peak:
+      "true": '{"/api/channel/2/warnings": ["AfPeak"]}'
+      "false": '{"/api/channel/2/warnings": []}'
+    channel.3.tx_mute:
+      "true": '{"/api/transmitters/2": {"type": "EW_DX_SKM", "mute": true}}'
+      "false": '{"/api/transmitters/2": {"type": "EW_DX_SKM", "mute": false}}'
+    channel.3.tx_linked:
+      "true": '{"/api/transmitters/2": {"type": "EW_DX_SKM", "capsule": "MMD_935", "name": "MIC3", "version": "4.1.0", "mute": false, "identification": false, "lowcut": "80Hz", "trim": 0, "led": true, "lock": false}}'
+      "false": '{"/api/transmitters/2": null}'
+    channel.3.tx_battery_percent: '{"/api/transmitters/2/battery": {"type": "Battery", "gauge": {value}}}'
+    channel.3.tx_battery_minutes: '{"/api/transmitters/2/battery": {"type": "Battery", "lifetime": {value}}}'
+    channel.3.tx_low_battery:
+      "true": '{"/api/transmitters/2/warnings": ["LowBattery"]}'
+      "false": '{"/api/transmitters/2/warnings": []}'
+    channel.3.tx_af_peak:
+      "true": '{"/api/transmitters/2/warnings": ["AfPeak"]}'
+      "false": '{"/api/transmitters/2/warnings": []}'
+    channel.4.mute:
+      "true": '{"/api/channel/3": {"mute": true}}'
+      "false": '{"/api/channel/3": {"mute": false}}'
+    channel.4.gain: '{"/api/channel/3": {"gain": {value}}}'
+    channel.4.output_level: '{"/api/channel/3": {"outputLevel": {value}}}'
+    channel.4.name: '{"/api/channel/3": {"name": "{value}"}}'
+    channel.4.identifying:
+      "true": '{"/api/channel/3/identify": {"enabled": true}}'
+      "false": '{"/api/channel/3/identify": {"enabled": false}}'
+    channel.4.frequency_khz: '{"/api/rf/channels/3": {"frequency": {value}}}'
+    channel.4.rssi_dbm: '{"/api/channel/3/signalStrengthIndicator": {"value": {value}}}'
+    channel.4.rsqi_percent: '{"/api/channel/3/signalQualityIndicator": {"value": {value}}}'
+    channel.4.diversity: '{"/api/channel/3/diversityIndicator": {"value": {value}}}'
+    channel.4.level_dbfs: '{"/api/channel/3/level": {"value": {value}}}'
+    channel.4.aes256_error:
+      "true": '{"/api/channel/3/warnings": ["Aes256Error"]}'
+      "false": '{"/api/channel/3/warnings": []}'
+    channel.4.low_signal:
+      "true": '{"/api/channel/3/warnings": ["LowSignal"]}'
+      "false": '{"/api/channel/3/warnings": []}'
+    channel.4.no_link:
+      "true": '{"/api/channel/3/warnings": ["NoLink"]}'
+      "false": '{"/api/channel/3/warnings": []}'
+    channel.4.rf_peak:
+      "true": '{"/api/channel/3/warnings": ["RfPeak"]}'
+      "false": '{"/api/channel/3/warnings": []}'
+    channel.4.af_peak:
+      "true": '{"/api/channel/3/warnings": ["AfPeak"]}'
+      "false": '{"/api/channel/3/warnings": []}'
+    channel.4.tx_mute:
+      "true": '{"/api/transmitters/3": {"type": "EW_DX_SKM", "mute": true}}'
+      "false": '{"/api/transmitters/3": {"type": "EW_DX_SKM", "mute": false}}'
+    channel.4.tx_linked:
+      "true": '{"/api/transmitters/3": {"type": "EW_DX_SKM", "capsule": "MMD_935", "name": "MIC4", "version": "4.1.0", "mute": false, "identification": false, "lowcut": "80Hz", "trim": 0, "led": true, "lock": false}}'
+      "false": '{"/api/transmitters/3": null}'
+    channel.4.tx_battery_percent: '{"/api/transmitters/3/battery": {"type": "Battery", "gauge": {value}}}'
+    channel.4.tx_battery_minutes: '{"/api/transmitters/3/battery": {"type": "Battery", "lifetime": {value}}}'
+    channel.4.tx_low_battery:
+      "true": '{"/api/transmitters/3/warnings": ["LowBattery"]}'
+      "false": '{"/api/transmitters/3/warnings": []}'
+    channel.4.tx_af_peak:
+      "true": '{"/api/transmitters/3/warnings": ["AfPeak"]}'
+      "false": '{"/api/transmitters/3/warnings": []}'
+
+  controls:
+    - type: indicator
+      key: product
+      label: Product
+    - type: indicator
+      key: serial
+      label: Serial Number
+    - type: indicator
+      key: subscribed_paths
+      label: Subscribed Resources
+    - type: toggle
+      key: identifying
+      label: Identifying
+    - type: toggle
+      key: encryption_enabled
+      label: Encryption
+    - type: group
+      label: "Channel 1"
+      controls:
+        - type: toggle
+          key: channel.1.mute
+          label: Mute
+        - type: slider
+          key: channel.1.gain
+          label: Gain
+          min: -3
+          max: 42
+          step: 3
+          unit: dB
+        - type: slider
+          key: channel.1.output_level
+          label: Output Level
+          min: -24
+          max: 18
+          step: 6
+          unit: dB
+        - type: slider
+          key: channel.1.rssi_dbm
+          label: RF Signal Strength
+          min: -107
+          max: 0
+          unit: dBm
+        - type: slider
+          key: channel.1.level_dbfs
+          label: Audio Level
+          min: -138.5
+          max: 0
+          unit: dBFS
+        - type: toggle
+          key: channel.1.no_link
+          label: No Link
+        - type: toggle
+          key: channel.1.low_signal
+          label: Low Signal
+        - type: toggle
+          key: channel.1.tx_linked
+          label: Transmitter Linked
+        - type: toggle
+          key: channel.1.tx_mute
+          label: Transmitter Mute
+        - type: slider
+          key: channel.1.tx_battery_percent
+          label: Battery
+          min: 0
+          max: 100
+          unit: "%"
+        - type: toggle
+          key: channel.1.tx_low_battery
+          label: Low Battery
+    - type: group
+      label: "Channel 2"
+      controls:
+        - type: toggle
+          key: channel.2.mute
+          label: Mute
+        - type: slider
+          key: channel.2.gain
+          label: Gain
+          min: -3
+          max: 42
+          step: 3
+          unit: dB
+        - type: slider
+          key: channel.2.output_level
+          label: Output Level
+          min: -24
+          max: 18
+          step: 6
+          unit: dB
+        - type: slider
+          key: channel.2.rssi_dbm
+          label: RF Signal Strength
+          min: -107
+          max: 0
+          unit: dBm
+        - type: slider
+          key: channel.2.level_dbfs
+          label: Audio Level
+          min: -138.5
+          max: 0
+          unit: dBFS
+        - type: toggle
+          key: channel.2.no_link
+          label: No Link
+        - type: toggle
+          key: channel.2.low_signal
+          label: Low Signal
+        - type: toggle
+          key: channel.2.tx_linked
+          label: Transmitter Linked
+        - type: toggle
+          key: channel.2.tx_mute
+          label: Transmitter Mute
+        - type: slider
+          key: channel.2.tx_battery_percent
+          label: Battery
+          min: 0
+          max: 100
+          unit: "%"
+        - type: toggle
+          key: channel.2.tx_low_battery
+          label: Low Battery
+    - type: group
+      label: "Channel 3"
+      controls:
+        - type: toggle
+          key: channel.3.mute
+          label: Mute
+        - type: slider
+          key: channel.3.gain
+          label: Gain
+          min: -3
+          max: 42
+          step: 3
+          unit: dB
+        - type: slider
+          key: channel.3.output_level
+          label: Output Level
+          min: -24
+          max: 18
+          step: 6
+          unit: dB
+        - type: slider
+          key: channel.3.rssi_dbm
+          label: RF Signal Strength
+          min: -107
+          max: 0
+          unit: dBm
+        - type: slider
+          key: channel.3.level_dbfs
+          label: Audio Level
+          min: -138.5
+          max: 0
+          unit: dBFS
+        - type: toggle
+          key: channel.3.no_link
+          label: No Link
+        - type: toggle
+          key: channel.3.low_signal
+          label: Low Signal
+        - type: toggle
+          key: channel.3.tx_linked
+          label: Transmitter Linked
+        - type: toggle
+          key: channel.3.tx_mute
+          label: Transmitter Mute
+        - type: slider
+          key: channel.3.tx_battery_percent
+          label: Battery
+          min: 0
+          max: 100
+          unit: "%"
+        - type: toggle
+          key: channel.3.tx_low_battery
+          label: Low Battery
+    - type: group
+      label: "Channel 4"
+      controls:
+        - type: toggle
+          key: channel.4.mute
+          label: Mute
+        - type: slider
+          key: channel.4.gain
+          label: Gain
+          min: -3
+          max: 42
+          step: 3
+          unit: dB
+        - type: slider
+          key: channel.4.output_level
+          label: Output Level
+          min: -24
+          max: 18
+          step: 6
+          unit: dB
+        - type: slider
+          key: channel.4.rssi_dbm
+          label: RF Signal Strength
+          min: -107
+          max: 0
+          unit: dBm
+        - type: slider
+          key: channel.4.level_dbfs
+          label: Audio Level
+          min: -138.5
+          max: 0
+          unit: dBFS
+        - type: toggle
+          key: channel.4.no_link
+          label: No Link
+        - type: toggle
+          key: channel.4.low_signal
+          label: Low Signal
+        - type: toggle
+          key: channel.4.tx_linked
+          label: Transmitter Linked
+        - type: toggle
+          key: channel.4.tx_mute
+          label: Transmitter Mute
+        - type: slider
+          key: channel.4.tx_battery_percent
+          label: Battery
+          min: 0
+          max: 100
+          unit: "%"
+        - type: toggle
+          key: channel.4.tx_low_battery
+          label: Low Battery
+
+  command_handlers:
+    # One dispatcher for every request: the synthesized line is
+    # "METHOD /path|body". A matched script handler ends dispatch, so the
+    # whole protocol lives in this one block.
+    - match: '(?s:.+)'
+      handler: |
+        def _run():
+            line = match.group(0)
+            method, _sep, rest = line.partition(" ")
+            path, _sep, body = rest.partition("|")
+            path = path.split("?")[0]
+            data = None
+            if body:
+                try:
+                    data = json.loads(body)
+                except ValueError:
+                    data = None
+
+            def roster():
+                # The simulated receiver's channel count is the device
+                # config's channel_count (2 or 4), like picking the model.
+                try:
+                    n = int(config.get("channel_count", 2) or 2)
+                except (TypeError, ValueError):
+                    n = 2
+                return 4 if n >= 4 else 2
+
+            def key(n, var):
+                return "channel." + str(int(n) + 1) + "." + var
+
+            def get(k, default=None):
+                return state.get(k, default)
+
+            def product():
+                return "EWDX4CHDS" if roster() == 4 else "EWDX2CHDS"
+
+            # ── Bodies, as the receiver's GET would answer them ──
+            def body_identity():
+                return {"product": product(), "hardwareRevision": get("hardware_revision"),
+                        "serial": get("serial"), "vendor": get("vendor")}
+
+            def body_site():
+                return {"deviceName": get("device_name"), "location": get("location"),
+                        "position": get("position")}
+
+            def body_state():
+                return {"state": get("device_state"), "warnings": []}
+
+            def body_firmware():
+                return {"deviceVersion": get("firmware_version"), "danteVersion": get("dante_version"),
+                        "state": get("firmware_update_state"), "progress": get("firmware_update_progress"),
+                        "lastStatus": get("firmware_last_status")}
+
+            def body_rf():
+                return {"code": get("rf_code"), "ranges": [{"start": get("rf_range_start_khz"),
+                        "end": get("rf_range_end_khz"), "stepSize": get("rf_range_step_khz")}]}
+
+            def body_transmission():
+                return {"mode": get("transmission_mode"), "presetSpacing": get("preset_spacing_khz")}
+
+            def body_channel(n):
+                return {"name": get(key(n, "name")), "mute": get(key(n, "mute")),
+                        "mates": [get(key(n, "mate"))], "gain": get(key(n, "gain")),
+                        "audio": [get(key(n, "audio_output"))],
+                        "outputLevel": get(key(n, "output_level")), "eventCounter": 0}
+
+            def body_warnings(n):
+                flags = []
+                for name, var in (("Aes256Error", "aes256_error"), ("LowSignal", "low_signal"),
+                                  ("NoLink", "no_link"), ("RfPeak", "rf_peak"), ("AfPeak", "af_peak")):
+                    if get(key(n, var)):
+                        flags.append(name)
+                return flags
+
+            def body_rf_channel(n):
+                out = {"frequency": get(key(n, "frequency_khz")),
+                       "presets": {"type": get(key(n, "preset_type"))}}
+                if out["presets"]["type"] != "None":
+                    out["presets"]["bank"] = get(key(n, "preset_bank"))
+                    out["presets"]["channel"] = get(key(n, "preset_channel"))
+                return out
+
+            def body_sync(n):
+                return {"muteConfig": get(key(n, "sync_mute_config")),
+                        "cableEmulation": get(key(n, "sync_cable_emulation")),
+                        "lowcut": get(key(n, "sync_lowcut")), "lock": get(key(n, "sync_lock")),
+                        "trim": get(key(n, "sync_trim")), "led": get(key(n, "sync_led")),
+                        "muteConfigTs": get(key(n, "sync_mute_config_ts"))}
+
+            IGNORE = (("muteConfig", "mute_config"), ("cableEmulation", "cable_emulation"),
+                      ("lowcut", "lowcut"), ("lock", "lock"), ("trim", "trim"), ("led", "led"),
+                      ("name", "name"), ("frequency", "frequency"))
+
+            def body_ignore(n):
+                return dict((wire, get(key(n, "sync_ignore_" + var))) for wire, var in IGNORE)
+
+            def body_tx(n):
+                if not get(key(n, "tx_linked")):
+                    return None
+                out = {"type": get(key(n, "tx_type")), "capsule": get(key(n, "tx_capsule")),
+                       "name": get(key(n, "tx_name")), "version": get(key(n, "tx_version")),
+                       "mute": get(key(n, "tx_mute")), "identification": get(key(n, "tx_identifying")),
+                       "lowcut": get(key(n, "tx_lowcut")), "trim": get(key(n, "tx_trim")),
+                       "led": get(key(n, "tx_led")), "lock": get(key(n, "tx_lock"))}
+                ttype = str(out["type"])
+                if ttype.startswith("EW_DX_TS"):
+                    out["cableEmulation"] = "Off"
+                    out["muteConfigTableStand"] = get(key(n, "tx_mute_config_table_stand"))
+                elif ttype in ("EW_DX_SK", "EW_DX_SK_3_PIN"):
+                    out["cableEmulation"] = get(key(n, "tx_cable_emulation"))
+                    out["muteConfig"] = get(key(n, "tx_mute_config"))
+                elif ttype == "EW_DX_SKM_S":
+                    out["muteConfig"] = get(key(n, "tx_mute_config"))
+                return out
+
+            def body_battery(n):
+                if not get(key(n, "tx_linked")):
+                    return None
+                return {"type": get(key(n, "tx_battery_type")), "lifetime": get(key(n, "tx_battery_minutes")),
+                        "gauge": get(key(n, "tx_battery_percent"))}
+
+            def body_tx_warnings(n):
+                if not get(key(n, "tx_linked")):
+                    return None
+                flags = []
+                for name, var in (("LowBattery", "tx_low_battery"), ("AfPeak", "tx_af_peak")):
+                    if get(key(n, var)):
+                        flags.append(name)
+                return flags
+
+            def body_meter(n, var):
+                return {"value": get(key(n, var))}
+
+            METERS = (("signalStrengthIndicator", "rssi_dbm"), ("signalQualityIndicator", "rsqi_percent"),
+                      ("diversityIndicator", "diversity"), ("level", "level_dbfs"))
+
+            def channel_ok(n):
+                return 0 <= int(n) < roster()
+
+            def resource(p):
+                """The GET body of one resource path, or None when the receiver has no such resource."""
+                if p == "/api/device/identity":
+                    return body_identity()
+                if p == "/api/device/site":
+                    return body_site()
+                if p == "/api/device/state":
+                    return body_state()
+                if p == "/api/device/identification":
+                    return {"visual": get("identifying")}
+                if p == "/api/firmware/update/state":
+                    return body_firmware()
+                if p == "/api/ssc/version":
+                    return {"protocol": get("ssc_protocol_version"), "schema": get("ssc_schema_version")}
+                if p == "/api/rf":
+                    return body_rf()
+                if p == "/api/rf/transmission":
+                    return body_transmission()
+                if p == "/api/rf/encryption":
+                    return {"enabled": get("encryption_enabled")}
+                if p == "/api/ssc/legacyMode":
+                    return {"enabled": get("legacy_mode_enabled")}
+                if p == "/api/rf/presets/factory/banks/0":
+                    return [470200 + 400 * i for i in range(20)]
+                m = re.match(r"^/api/channel/(\d)(?:/(\w+))?$", p)
+                if m and channel_ok(m.group(1)):
+                    n, sub = m.group(1), m.group(2)
+                    if sub is None:
+                        return body_channel(n)
+                    if sub == "warnings":
+                        return body_warnings(n)
+                    if sub == "identify":
+                        return {"enabled": get(key(n, "identifying"))}
+                    for res, var in METERS:
+                        if sub == res:
+                            return body_meter(n, var)
+                    return None
+                m = re.match(r"^/api/rf/channels/(\d)$", p)
+                if m and channel_ok(m.group(1)):
+                    return body_rf_channel(m.group(1))
+                m = re.match(r"^/api/rf/presets/user/channels/(\d)/banks(?:/0)?$", p)
+                if m and channel_ok(m.group(1)):
+                    return [0] if p.endswith("banks") else [470200, 470600, 471000]
+                m = re.match(r"^/api/syncSettings/(\d)(/ignore)?$", p)
+                if m and channel_ok(m.group(1)):
+                    return body_ignore(m.group(1)) if m.group(2) else body_sync(m.group(1))
+                if p == "/api/transmitters":
+                    out = []
+                    for n in range(roster()):
+                        tx = body_tx(n)
+                        if tx is not None:
+                            out.append({"id": n, "transmitter": tx})
+                    return out
+                m = re.match(r"^/api/transmitters/(\d)(?:/(battery|warnings))?$", p)
+                if m and channel_ok(m.group(1)):
+                    n, sub = m.group(1), m.group(2)
+                    if sub is None:
+                        return body_tx(n)
+                    if sub == "battery":
+                        return body_battery(n)
+                    return body_tx_warnings(n)
+                return None
+
+            def send(p):
+                """One subscription notification: {path: body}."""
+                b = resource(p)
+                if b is not None:
+                    notify(json.dumps({p: b}))
+
+            def send_transmitters():
+                # A subscription to the control resource reports every existing
+                # subresource and the resources below it (SSCv2 spec).
+                for n in range(roster()):
+                    if get(key(n, "tx_linked")):
+                        for p in ("/api/transmitters/%d" % n, "/api/transmitters/%d/battery" % n,
+                                  "/api/transmitters/%d/warnings" % n):
+                            send(p)
+
+            # ── Subscription session ──
+            m = re.match(r"^/api/ssc/state/subscriptions/([0-9a-fA-F-]{36})(/add|/remove)?$", path)
+            if m:
+                current = [p for p in str(get("subscribed_paths", "")).split(",") if p]
+                if method == "DELETE":
+                    state["subscribed_paths"] = ""
+                    respond("")
+                    return
+                if method == "GET" and not m.group(2):
+                    respond(json.dumps(current))
+                    return
+                if method == "PUT" and isinstance(data, list):
+                    wanted = [str(p) for p in data]
+                    if m.group(2) == "/add":
+                        new = [p for p in wanted if p not in current]
+                        current = current + new
+                    elif m.group(2) == "/remove":
+                        current = [p for p in current if p not in wanted]
+                        new = []
+                    else:
+                        new = [p for p in wanted if p not in current]
+                        current = wanted
+                    state["subscribed_paths"] = ",".join(current)
+                    for p in new:
+                        if p == "/api/transmitters":
+                            send_transmitters()
+                        else:
+                            send(p)
+                    respond("")
+                    return
+                respond("")
+                return
+
+            # ── Reads ──
+            if method == "GET":
+                b = resource(path)
+                if b is not None:
+                    respond(json.dumps(b))
+                return
+
+            if method != "PUT" or not isinstance(data, dict):
+                return
+
+            # ── Writes: apply, acknowledge, then notify the whole resource ──
+            def apply(fields):
+                for wire, k in fields:
+                    if wire in data:
+                        state[k] = data[wire]
+
+            if path == "/api/device/identification":
+                apply((("visual", "identifying"),))
+                respond("")
+                send(path)
+                return
+            if path == "/api/rf/transmission":
+                apply((("mode", "transmission_mode"),))
+                state["preset_spacing_khz"] = 50 if get("transmission_mode") == "LinkDensity" else 25
+                respond("")
+                send(path)
+                return
+            if path == "/api/rf/encryption":
+                apply((("enabled", "encryption_enabled"),))
+                respond("")
+                send(path)
+                return
+            m = re.match(r"^/api/channel/(\d)(?:/(identify|restore|channelSorting))?$", path)
+            if m and channel_ok(m.group(1)):
+                n, sub = m.group(1), m.group(2)
+                if sub is None:
+                    apply((("name", key(n, "name")), ("mute", key(n, "mute")), ("gain", key(n, "gain")),
+                           ("outputLevel", key(n, "output_level"))))
+                    respond("")
+                    send("/api/channel/" + n)
+                elif sub == "identify":
+                    apply((("enabled", key(n, "identifying")),))
+                    respond("")
+                    send(path)
+                elif sub == "restore":
+                    state[key(n, "gain")] = 18
+                    state[key(n, "output_level")] = 0
+                    state[key(n, "mute")] = False
+                    respond("")
+                    send("/api/channel/" + n)
+                else:
+                    respond("")
+                return
+            m = re.match(r"^/api/rf/channels/(\d)/(frequency|preset)$", path)
+            if m and channel_ok(m.group(1)):
+                n, sub = m.group(1), m.group(2)
+                if sub == "frequency":
+                    apply((("frequency", key(n, "frequency_khz")),))
+                    state[key(n, "preset_type")] = "None"
+                else:
+                    apply((("type", key(n, "preset_type")), ("bank", key(n, "preset_bank")),
+                           ("channel", key(n, "preset_channel"))))
+                    state[key(n, "frequency_khz")] = 470200 + 400 * (int(get(key(n, "preset_channel"), 1)) - 1)
+                respond("")
+                send("/api/rf/channels/" + n)
+                return
+            m = re.match(r"^/api/rf/presets/user/channels/(\d)/banks/0$", path)
+            if m and channel_ok(m.group(1)):
+                respond("")
+                return
+            m = re.match(r"^/api/syncSettings/(\d)(/ignore)?$", path)
+            if m and channel_ok(m.group(1)):
+                n = m.group(1)
+                if m.group(2):
+                    apply(tuple((wire, key(n, "sync_ignore_" + var)) for wire, var in IGNORE))
+                else:
+                    apply((("muteConfig", key(n, "sync_mute_config")),
+                           ("cableEmulation", key(n, "sync_cable_emulation")),
+                           ("lowcut", key(n, "sync_lowcut")), ("lock", key(n, "sync_lock")),
+                           ("trim", key(n, "sync_trim")), ("led", key(n, "sync_led")),
+                           ("muteConfigTs", key(n, "sync_mute_config_ts"))))
+                respond("")
+                send(path)
+                return
+
+        _run()

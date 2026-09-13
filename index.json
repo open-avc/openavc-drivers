@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 107,
+    "total_drivers": 108,
     "shards": null
   },
   "drivers": [
@@ -5994,6 +5994,77 @@
           "notes": "Boxlight (Sanyo-built) lines using the same C-command protocol. Note some Boxlight models (e.g. Eco Series) want a DIRECT cable rather than a crossover. Verify per model."
         }
       ]
+    },
+    {
+      "id": "sennheiser_ewdx",
+      "name": "Sennheiser EW-DX Receiver",
+      "manufacturer": "Sennheiser",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Evolution Wireless Digital rack receivers (EW-DX EM 2, EM 2 Dante, EM 4 Dante) over SSCv2, the HTTPS REST API with Server-Sent Events. Per-channel mute, gain and output level, RF frequency and presets, warnings (no link, low signal, RF and AF peak, encryption), the linked transmitter's mute, battery and warnings, sync settings, opt-in RF and audio meters. Every change streams in as it happens.\n",
+      "source_url": "https://docs.cloud.sennheiser.com/en-us/api-docs/api-docs/open-api-ew-dx.html",
+      "file": "audio/sennheiser_ewdx.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/sennheiser_ewdx.avcdriver": "3dff1dea266056108f032200847b5f27b163d91a966bb715b658ec2bcfa3356c"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "sscv2"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.34.0",
+      "tags": [
+        "sennheiser",
+        "ew-dx",
+        "evolution-wireless",
+        "wireless-microphone",
+        "receiver",
+        "dante",
+        "sscv2"
+      ],
+      "help": {
+        "overview": "Controls a Sennheiser EW-DX rack receiver and shows what its wireless microphones are doing. Each receiver channel reports the linked transmitter's battery, RF signal and warnings, so a panel can show a rack at a glance and a trigger can alert on a flat battery or a lost link. Mute channels, set gain and output level, recall frequency presets, and write the sync settings a transmitter picks up when it is held to the receiver. Everything the receiver changes, from its front panel or Control Cockpit, shows up here as it happens.\n",
+        "setup": "1. Set the receiver up once in Sennheiser Control Cockpit and update it\n   to firmware 4.0 or newer (the API arrived with 4.0).\n2. On the receiver's device page in Control Cockpit, enable third-party\n   access and set a third-party password.\n3. Enter the receiver's IP address and that password here. The user name\n   is always \"api\". Set \"Receiver Channels\" to 4 for an EM 4; the\n   receiver corrects the count itself once connected.\n4. Turn on \"Report Level Meters\" only if a panel shows RF or audio\n   levels. They are continuous feeds, so they stay off unless needed;\n   a macro can also switch them per channel.\n",
+        "connection": "HTTPS on port 443 with the third-party password from Control Cockpit. The receiver's own certificate is self-signed, so certificate verification is off unless you turn it on. A receiver on firmware older than 4.0 has no HTTPS API at all.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "EW-DX EM 2",
+            "EW-DX EM 2 Dante",
+            "EW-DX EM 4 Dante"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7 schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is not covered). Not yet run against a receiver. The transmitters (EW-DX SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and the EW-D SK, SKP and SKM-S) are reported through the receiver channel they are linked to.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET /api/device/identity HTTP/1.1\r\nHost: ewdx\r\nConnection: close\r\n\r\n",
+          "expect_regex": "\"product\"\\s*:\\s*\"EWDX",
+          "extract_manufacturer": "Sennheiser",
+          "extract": {
+            "model": {
+              "regex": "\"product\"\\s*:\\s*\"(EWDX[A-Z0-9]+)\"",
+              "group": 1
+            }
+          }
+        },
+        "oui": [
+          "00:1b:66"
+        ],
+        "manufacturer_alias": [
+          "sennheiser"
+        ]
+      }
     },
     {
       "id": "sennheiser_tcc2",

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 887,
+    "total_devices": 890,
     "shards": null
   },
   "devices": [
@@ -8481,6 +8481,42 @@
           "id": "sanyo_serial_projector",
           "confidence": "untested",
           "notes": "Sanyo PLC series, the origin of this \"Basic Serial Command\" protocol. Core power / input / status commands are shared; a few EK-era inputs here do not apply. Verify baud and cable type per model."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "EW-DX EM 2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_ewdx",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7 schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is not covered). Not yet run against a receiver. The transmitters (EW-DX SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and the EW-D SK, SKP and SKM-S) are reported through the receiver channel they are linked to.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "EW-DX EM 2 Dante",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_ewdx",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7 schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is not covered). Not yet run against a receiver. The transmitters (EW-DX SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and the EW-D SK, SKP and SKM-S) are reported through the receiver channel they are linked to.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "EW-DX EM 4 Dante",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_ewdx",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the EW-DX OpenAPI 1.7 schema (firmware 4.0 or newer; earlier firmware speaks SSC v1 and is not covered). Not yet run against a receiver. The transmitters (EW-DX SK, SK 3-pin, SKM, SKM-S, the TS 3-pin and 5-pin table stands, and the EW-D SK, SKP and SKM-S) are reported through the receiver channel they are linked to.\n"
         }
       ]
     },

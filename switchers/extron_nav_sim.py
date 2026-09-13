@@ -33,6 +33,15 @@ mislead:**
    video from 1 and audio from 17), and one endpoint is "present but not
    connected" rather than simply offline — the two states a real NAV system
    distinguishes and a boolean would flatten.
+5. **The WindoWall canvases and KVM workstations are non-contiguous** —
+   canvases 1 and 3, workstations 1 and 4 — and each canvas has its own window
+   count. The NAVigator cannot list any of them, so a driver has to ask within
+   a bound and keep what answers; one that trusted the bound would register a
+   phantom canvas 2 with four phantom windows. Everything that does not exist
+   answers E13.
+6. **A quick multiple tie with one bad entry still applies the good ones**
+   and answers `Qik14`. Reporting that as a plain failure would leave somebody
+   believing the room did not change when half of it did.
 
 License: MIT.
 """
@@ -81,6 +90,18 @@ _ALARMS = [
     ("202o", "video_loss", "info", "2026-09-12T14:03:40Z"),
 ]
 
+# WindoWall canvases the installer built, and which windows each has. NOT
+# 1..N: canvas 2 was deleted, so a driver that trusted its configured bound
+# instead of what the device answers would register a phantom canvas 2 with
+# four phantom windows. Canvas 3 is a 2x1 rather than a 2x2, so the window
+# count is per canvas and not a global.
+_CANVASES = {
+    1: (1, 2, 3, 4),
+    3: (1, 2),
+}
+# KVM workstations, likewise non-contiguous.
+_WORKSTATIONS = (1, 4)
+
 
 class ExtronNavSimulator(TCPSimulator):
     """Simulated Extron NAVigator System Manager."""
@@ -116,6 +137,7 @@ class ExtronNavSimulator(TCPSimulator):
             "nav_gateway": "192.168.1.1",
             "dns": "192.168.1.1",
             "licensed_endpoints": 48,
+            "dhcp": False,
             # Session settings, at their factory values: echo ON, verbose 0.
             "echo": 1,
             "verbose": 0,
@@ -130,6 +152,7 @@ class ExtronNavSimulator(TCPSimulator):
              "label": "Connected Users"},
             {"type": "select", "key": "licensed_endpoints",
              "options": [16, 48, 96, 240], "label": "Licensed Endpoints"},
+            {"type": "toggle", "key": "dhcp", "label": "DHCP"},
             {"type": "toggle", "key": "echo", "label": "Echo"},
             {"type": "slider", "key": "verbose", "min": 0, "max": 3,
              "label": "Verbose Mode"},
@@ -148,10 +171,14 @@ class ExtronNavSimulator(TCPSimulator):
         self._ties = {k: list(v) for k, v in _TIES.items()}
         self._usb = dict(_USB_TIES)
         self._alarms = list(_ALARMS)
-        self._window_mute: dict[tuple[int, int], int] = {}
-        self._window_input: dict[tuple[int, int], int] = {}
-        self._canvas_preset: dict[int, int] = {}
-        self._workstation_preset: dict[int, int] = {}
+        # Seeded so the windows that exist have real sources to read back.
+        self._window_mute: dict[tuple[int, int], int] = {(1, 2): 1}
+        self._window_input: dict[tuple[int, int], int] = {
+            (1, 1): 1, (1, 2): 2, (1, 3): 3, (1, 4): 17,
+            (3, 1): 101, (3, 2): 0,
+        }
+        self._canvas_preset: dict[int, int] = {1: 2}
+        self._workstation_preset: dict[int, int] = {4: 7}
 
     # ── session ──
 
@@ -286,13 +313,15 @@ class ExtronNavSimulator(TCPSimulator):
         m = re.match(r"^(\d+)\*(\d+)\*([01])B$", body)
         if m:
             canvas, window, value = int(m.group(1)), int(m.group(2)), int(m.group(3))
-            if not (1 <= canvas <= 8 and 1 <= window <= 64):
+            if window not in _CANVASES.get(canvas, ()):
                 raise _SisError("E13")
             self._window_mute[(canvas, window)] = value
             return f"Vmt{canvas}*{window}*{value}"
         m = re.match(r"^(\d+)\*(\d+)B$", body)
         if m:
             canvas, window = int(m.group(1)), int(m.group(2))
+            if window not in _CANVASES.get(canvas, ()):
+                raise _SisError("E13")
             value = self._window_mute.get((canvas, window), 0)
             return (f"Vmt{canvas}*{window}*{value}" if self._tagged()
                     else str(value))
@@ -352,7 +381,15 @@ class ExtronNavSimulator(TCPSimulator):
         m = re.match(r"^(.+)CN$", body)
         if m:
             name = m.group(1).strip()
-            if not name or not re.match(r"^[A-Za-z0-9\-]{1,63}$", name):
+            if not name:
+                # A space where the name would go is the documented reset:
+                # "NAVigator-" plus the last three pairs of the MAC.
+                mac = str(self.state.get("mac") or "")
+                tail = "-".join(mac.split("-")[-3:])
+                name = f"NAVigator-{tail}"
+                self.set_state("unit_name", name)
+                return f"Ipn {name}"
+            if not re.match(r"^[A-Za-z0-9\-]{1,63}$", name):
                 raise _SisError("E13")
             self.set_state("unit_name", name)
             return f"Ipn {name}"
@@ -387,6 +424,9 @@ class ExtronNavSimulator(TCPSimulator):
         if m:
             dns = str(self.state.get("dns"))
             return f"Dnss{m.group(1)}*{dns}" if self._tagged() else dns
+        if body == "DHCP":
+            # The view form takes no interface number, unlike the set form.
+            return str(int(bool(self.state.get("dhcp"))))
 
         # ── reports ──
         m = re.match(r"^Inventory\*([IO])\*RPRT$", body)
@@ -453,26 +493,37 @@ class ExtronNavSimulator(TCPSimulator):
         m = re.match(r"^R1\*(\d+)\*(\d+)PRST$", body)
         if m:
             canvas, preset = int(m.group(1)), int(m.group(2))
-            if not (1 <= canvas <= 8 and 1 <= preset <= 8):
+            if canvas not in _CANVASES or not (1 <= preset <= 8):
                 raise _SisError("E13")
             self._canvas_preset[canvas] = preset
+            # A preset rearranges the canvas, so the windows under it change
+            # too -- modelled, because a driver that did not re-read them
+            # would show the pre-recall sources forever.
+            for window in _CANVASES[canvas]:
+                self._window_input[(canvas, window)] = preset
             return f"PrstR1*{canvas}*{preset}"
         m = re.match(r"^L1\*(\d+)PRST$", body)
         if m:
             canvas = int(m.group(1))
+            # A canvas nobody built answers E13, which is how the driver tells
+            # what exists from what it merely asked about.
+            if canvas not in _CANVASES:
+                raise _SisError("E13")
             preset = self._canvas_preset.get(canvas, 0)
             return (f"PrstL1*{canvas}*{preset}" if self._tagged()
                     else str(preset))
         m = re.match(r"^R3\*(\d+)\*(\d+)PRST$", body)
         if m:
             ws, preset = int(m.group(1)), int(m.group(2))
-            if not (1 <= ws <= 30 and 1 <= preset <= 30):
+            if ws not in _WORKSTATIONS or not (1 <= preset <= 30):
                 raise _SisError("E13")
             self._workstation_preset[ws] = preset
             return f"PrstR3*{ws}*{preset}"
         m = re.match(r"^L3\*(\d+)PRST$", body)
         if m:
             ws = int(m.group(1))
+            if ws not in _WORKSTATIONS:
+                raise _SisError("E13")
             preset = self._workstation_preset.get(ws, 0)
             return f"PrstL3*{ws}*{preset}" if self._tagged() else str(preset)
 
@@ -481,7 +532,7 @@ class ExtronNavSimulator(TCPSimulator):
         if m:
             canvas, window, inp = (int(m.group(1)), int(m.group(2)),
                                    int(m.group(3)))
-            if not (1 <= canvas <= 8 and 1 <= window <= 64):
+            if window not in _CANVASES.get(canvas, ()):
                 raise _SisError("E13")
             if inp not in self._encoders:
                 raise _SisError("E25")
@@ -490,7 +541,10 @@ class ExtronNavSimulator(TCPSimulator):
         m = re.match(r"^(\d+)\*(\d+)!X$", body)
         if m:
             canvas, window = int(m.group(1)), int(m.group(2))
-            return str(self._window_input.get((canvas, window), 0))
+            if window not in _CANVASES.get(canvas, ()):
+                raise _SisError("E13")
+            value = self._window_input.get((canvas, window), 0)
+            return f"Grp{canvas}*{window}*{value}" if self._tagged() else str(value)
 
         # ── system reset ──
         if body == "ZQQQ":
@@ -503,6 +557,28 @@ class ExtronNavSimulator(TCPSimulator):
         return self._tie_command(body)
 
     def _tie_command(self, body: str) -> str | None:
+        # Quick multiple tie: all the ties land together, and an invalid entry
+        # does NOT abort the batch -- the valid ones are still made and the
+        # reply is Qik14. Modelled, because a driver that reported Qik14 as a
+        # plain failure would leave somebody believing the room did not change
+        # when half of it did.
+        if body.startswith("+Q"):
+            entries = re.findall(r"(\d{1,4})\*(\d{1,4})([!%$])", body[2:])
+            if not entries:
+                raise _SisError("E13")
+            any_invalid = False
+            for raw_in, raw_out, kind in entries:
+                inp, out = int(raw_in), int(raw_out)
+                if inp not in self._encoders or out not in self._decoders:
+                    any_invalid = True
+                    continue
+                if kind in "!%":
+                    self._ties[out][0] = inp
+                if kind in "!$":
+                    self._ties[out][1] = inp
+            self._sync_tie_state()
+            return "Qik14" if any_invalid else "Qik"
+
         # Clear every AV tie / every USB tie.
         if body == "0*!":
             for out in self._ties:

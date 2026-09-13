@@ -7,6 +7,17 @@ NAVigator and the NAVigator talks to the NAV encoders and decoders. Every
 endpoint the NAVigator manages (16 as shipped, up to 240 with LinkLicense) is
 modelled as an OpenAVC *child entity*, so routes, presence and names are
 addressable as ``device.<id>.encoder.<n>.<prop>`` / ``device.<id>.decoder.<n>.<prop>``.
+WindoWall canvases and windows and KVM workstations are child entities too,
+reporting the preset, source and mute the NAVigator holds for each.
+
+**The NAVigator cannot list its canvases, windows or workstations.** An
+installer creates them in its web UI, and the whole SIS surface has four report
+forms -- AV ties, USB ties, and the two endpoint inventories -- none of which
+covers them. So those three rosters are *discovered within a bound the
+integrator sets* (``windowall_canvases`` / ``windowall_windows`` /
+``kvm_workstations``): the driver asks up to that number and registers only
+what answers, which keeps a deleted canvas from becoming a phantom child and
+keeps nobody paying for 512 window queries they never asked for.
 
 **The NAVigator needs the free "LinkLicense for Third-Party Control" activated
 before any of this exists.** Without it the SSH/SIS interface is not offered and
@@ -140,6 +151,21 @@ def _parse_inventory(digits: str) -> dict[int, str]:
     }
 
 
+def _window_id(canvas: int, window: int) -> int:
+    """Child id for one WindoWall window: canvas*100 + window.
+
+    Canvas is 1-8 and window 1-64, so this is unique and sorts the windows of
+    one canvas together.
+    """
+    return canvas * 100 + window
+
+
+def _window_parts(child_id: int | str) -> tuple[int, int]:
+    """The canvas and window numbers back out of a window child id."""
+    value = int(child_id)
+    return value // 100, value % 100
+
+
 def _tie_value(cell: str) -> int:
     """A tie-report cell to an input number. Dashes mean no tie -> 0."""
     cell = cell.strip()
@@ -159,7 +185,7 @@ class ExtronNavDriver(BaseDriver):
         "name": "Extron NAV Pro AV-over-IP (NAVigator)",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         # Computed by `python -m openavc.drivers.check` from restarts_device_for
         # (0.34.0). BaseDriver.child_fault() -- which this driver calls on every
@@ -317,6 +343,40 @@ class ExtronNavDriver(BaseDriver):
                                "noticeably longer. Turn off to identify "
                                "endpoints by number alone.",
             },
+            # The NAVigator cannot list its canvases, windows or workstations
+            # -- an installer creates them in its web UI and SIS offers no
+            # report for them (see the module docstring). So these three are an
+            # upper bound to LOOK WITHIN, not a claim about what exists: the
+            # driver queries up to the number given and registers only what
+            # actually answers. That way a site that deleted canvas 2 gets
+            # canvases 1 and 3, not a phantom 2, and nobody pays for 512
+            # window queries they did not ask for.
+            "windowall_canvases": {
+                "type": "integer", "default": 0, "min": 0, "max": 8,
+                "label": "WindoWall Canvases",
+                "description": "Highest canvas number to look for (0 = no "
+                               "WindoWall on this system). Canvases that "
+                               "answer become child entities reporting their "
+                               "last recalled preset.",
+            },
+            "windowall_windows": {
+                "type": "integer", "default": 0, "min": 0, "max": 64,
+                "label": "Windows Per Canvas",
+                "description": "Highest window number to look for on each "
+                               "canvas (0 = don't track windows). Each window "
+                               "that answers becomes a child reporting its "
+                               "source and mute. Costs two queries per window "
+                               "per canvas on the detail poll, so set it to "
+                               "the size of your largest canvas rather than 64.",
+            },
+            "kvm_workstations": {
+                "type": "integer", "default": 0, "min": 0, "max": 30,
+                "label": "KVM Workstations",
+                "description": "Highest workstation number to look for "
+                               "(0 = no KVM on this system). Workstations that "
+                               "answer become child entities reporting their "
+                               "last recalled preset.",
+            },
             "command_timeout": {
                 "type": "integer", "default": 8, "min": 2, "max": 60,
                 "label": "Command Timeout (s)",
@@ -387,6 +447,8 @@ class ExtronNavDriver(BaseDriver):
                             "cloud_priority": "low"},
             "dns_servers": {"type": "string", "label": "DNS Servers",
                             "cloud_priority": "low"},
+            "dhcp_enabled": {"type": "boolean", "label": "DHCP",
+                             "cloud_priority": "low"},
             "last_hotkey": {
                 "type": "string", "label": "Last KVM Hot Key",
                 "help": "The endpoint whose KVM hot key the NAVigator last "
@@ -471,6 +533,63 @@ class ExtronNavDriver(BaseDriver):
                 "summary_fields": ["name", "number", "source_video",
                                    "connected"],
                 "label_field": "name",
+            },
+            # WindoWall and KVM objects. They exist only where the installer
+            # built them, so these rosters are discovered by asking within the
+            # configured bound rather than declared or assumed (see the config
+            # fields above). `online` is the platform's, and for these it means
+            # "the NAVigator still reports it" -- they are virtual objects, not
+            # endpoints that come and go, so they are never given a fault code.
+            "canvas": {
+                "label": "WindoWall Canvas",
+                "label_plural": "WindoWall Canvases",
+                "id_format": {"type": "integer", "min": 1, "max": 8},
+                "state_variables": {
+                    "last_preset": {
+                        "type": "integer", "label": "Last Recalled Preset",
+                        "min": 0, "max": 8,
+                        "help": "The preset most recently recalled on this "
+                                "canvas. 0 = none since the NAVigator started.",
+                        "cloud_priority": "high",
+                    },
+                },
+                "summary_fields": ["last_preset"],
+            },
+            "window": {
+                "label": "WindoWall Window",
+                "label_plural": "WindoWall Windows",
+                # id is canvas*100 + window, so canvas 1 window 3 reads 103 and
+                # the windows of one canvas sort together.
+                "id_format": {"type": "integer", "min": 101, "max": 864,
+                              "pad_width": 3},
+                "state_variables": {
+                    "canvas": {"type": "integer", "label": "Canvas"},
+                    "window": {"type": "integer", "label": "Window"},
+                    "input": {
+                        "type": "integer", "label": "Source",
+                        "help": "Input number shown in this window. 0 = none.",
+                        "cloud_priority": "high",
+                    },
+                    "muted": {"type": "boolean", "label": "Muted",
+                              "control": True, "cloud_priority": "high"},
+                },
+                "summary_fields": ["canvas", "window", "input", "muted"],
+            },
+            "workstation": {
+                "label": "KVM Workstation",
+                "label_plural": "KVM Workstations",
+                "id_format": {"type": "integer", "min": 1, "max": 30},
+                "state_variables": {
+                    "last_preset": {
+                        "type": "integer", "label": "Last Recalled Preset",
+                        "min": 0, "max": 30,
+                        "help": "The preset most recently recalled on this "
+                                "workstation. 0 = none since the NAVigator "
+                                "started.",
+                        "cloud_priority": "high",
+                    },
+                },
+                "summary_fields": ["last_preset"],
             },
         },
         "device_settings": {
@@ -583,12 +702,33 @@ class ExtronNavDriver(BaseDriver):
                 "label": "Clear All USB Ties",
                 "params": {},
             },
+            "quick_tie": {
+                "label": "Tie Several At Once",
+                "help": "Make several ties simultaneously, which is what the "
+                        "NAVigator does with them — a room preset arrives as "
+                        "one switch rather than as four you can watch happen. "
+                        "Write them as input*output, separated by commas, with "
+                        "an optional v for video only or a for audio only: "
+                        "\"3*4, 3*5v, 3*6a\" ties 3 to 4 completely, 3's video "
+                        "to 5 and 3's audio to 6.",
+                "params": {
+                    "ties": {
+                        "type": "string", "label": "Ties", "required": True,
+                        "pattern": r"^\s*\d{1,4}\*\d{1,4}\s*[vVaA]?\s*"
+                                   r"(?:,\s*\d{1,4}\*\d{1,4}\s*[vVaA]?\s*)*$",
+                        "help": "e.g. 3*4, 3*5v, 3*6a",
+                    },
+                },
+            },
             # ── WindoWall (video wall) ──
+            # The canvas / window / workstation params are child_id pickers, so
+            # an integrator chooses from what the NAVigator actually answered
+            # for rather than typing a number and finding out it was E13.
             "recall_windowall_preset": {
                 "label": "Recall WindoWall Preset",
                 "params": {
-                    "canvas": {"type": "integer", "label": "Canvas",
-                               "min": 1, "max": 8, "required": True},
+                    "canvas": {"type": "child_id", "child_type": "canvas",
+                               "label": "Canvas", "required": True},
                     "preset": {"type": "integer", "label": "Preset",
                                "min": 1, "max": 8, "required": True},
                 },
@@ -597,10 +737,8 @@ class ExtronNavDriver(BaseDriver):
                 "label": "Select WindoWall Window Input",
                 "help": "Show an input in one window of a WindoWall canvas.",
                 "params": {
-                    "canvas": {"type": "integer", "label": "Canvas",
-                               "min": 1, "max": 8, "required": True},
-                    "window": {"type": "integer", "label": "Window",
-                               "min": 1, "max": 64, "required": True},
+                    "window": {"type": "child_id", "child_type": "window",
+                               "label": "Window", "required": True},
                     "input": {"type": "child_id", "child_type": "encoder",
                               "label": "Input", "required": True},
                 },
@@ -608,27 +746,24 @@ class ExtronNavDriver(BaseDriver):
             "mute_window": {
                 "label": "Mute WindoWall Window",
                 "params": {
-                    "canvas": {"type": "integer", "label": "Canvas",
-                               "min": 1, "max": 8, "required": True},
-                    "window": {"type": "integer", "label": "Window",
-                               "min": 1, "max": 64, "required": True},
+                    "window": {"type": "child_id", "child_type": "window",
+                               "label": "Window", "required": True},
                 },
             },
             "unmute_window": {
                 "label": "Unmute WindoWall Window",
                 "params": {
-                    "canvas": {"type": "integer", "label": "Canvas",
-                               "min": 1, "max": 8, "required": True},
-                    "window": {"type": "integer", "label": "Window",
-                               "min": 1, "max": 64, "required": True},
+                    "window": {"type": "child_id", "child_type": "window",
+                               "label": "Window", "required": True},
                 },
             },
             # ── KVM ──
             "recall_workstation_preset": {
                 "label": "Recall KVM Workstation Preset",
                 "params": {
-                    "workstation": {"type": "integer", "label": "Workstation",
-                                    "min": 1, "max": 30, "required": True},
+                    "workstation": {"type": "child_id",
+                                    "child_type": "workstation",
+                                    "label": "Workstation", "required": True},
                     "preset": {"type": "integer", "label": "Preset",
                                "min": 1, "max": 30, "required": True},
                 },
@@ -643,7 +778,14 @@ class ExtronNavDriver(BaseDriver):
             "refresh_inventory": {
                 "label": "Refresh Endpoints",
                 "help": "Re-read the endpoint roster, names and ties from the "
-                        "NAVigator.",
+                        "NAVigator, plus the WindoWall canvases, windows and "
+                        "KVM workstations it answers for.",
+                "params": {},
+            },
+            "reset_device_name": {
+                "label": "Reset Name To Factory Default",
+                "help": "Set the NAVigator's name back to \"NAVigator-\" plus "
+                        "the last three pairs of its MAC address.",
                 "params": {},
             },
             "send_endpoint_command": {
@@ -853,13 +995,21 @@ class ExtronNavDriver(BaseDriver):
         timeout: float | None = None,
         *,
         allow_error: bool = False,
-    ) -> re.Match[str]:
+    ) -> re.Match[str] | None:
         """Send one command and return the match for its reply.
 
         Lines that are not the reply are discarded here — they have already
         been routed for device-initiated content by ``_route_line``, so
         dropping them costs nothing and keeps a stray frame from being read as
         an answer.
+
+        An error code ends the wait either way: it is raised, or with
+        ``allow_error`` it returns None for a caller that treats "the
+        NAVigator has no such thing" as an answer rather than a failure.
+        Ending the wait is the point — an error line that was merely *not
+        raised* would leave the request waiting out its whole timeout for a
+        reply that is never coming, which turns probing eight canvases into
+        half a minute of dead air.
         """
         timeout = timeout or float(self.config.get("command_timeout", 8) or 8)
         async with self._cmd_lock:
@@ -884,7 +1034,9 @@ class ExtronNavDriver(BaseDriver):
                 if m:
                     return m
                 err = _ERROR_RE.match(line)
-                if err and not allow_error:
+                if err:
+                    if allow_error:
+                        return None
                     code = err.group(1)
                     raise ValueError(
                         f"{code}: {_ERROR_TEXT.get(code, 'Command refused.')}")
@@ -975,6 +1127,8 @@ class ExtronNavDriver(BaseDriver):
         await self._reconcile_roster()
         await self._read_ties()
         await self._read_alarms()
+        await self._reconcile_wall_roster()
+        await self._read_windows()
 
     # ── polling ──
 
@@ -982,10 +1136,15 @@ class ExtronNavDriver(BaseDriver):
         await self._reconcile_roster()
         await self._read_ties()
         await self._read_alarms()
+        # Canvases and workstations are one cheap query each, bounded by config
+        # at 8 and 30, so they ride the normal cadence. Windows are two queries
+        # per window per canvas, so they wait for the detail cadence.
+        await self._reconcile_wall_roster()
 
         self._detail_countdown -= max(1, int(self.config.get("poll_interval", 10) or 10))
         if self._detail_countdown <= 0:
             await self._read_detail()
+            await self._read_windows()
 
     async def _liveness_probe(self) -> None:
         """Awaited probe so a silent link raises instead of looking healthy.
@@ -1071,6 +1230,9 @@ class ExtronNavDriver(BaseDriver):
         except (TimeoutError, ValueError) as e:
             log.debug(f"[{self.device_id}] LinkLicense unavailable: {e}")
             return
+        if m is None:
+            log.debug(f"[{self.device_id}] LinkLicense refused by the device")
+            return
         raw = m.group(1)
         # The guide prints the reply with typographic quotes; a real unit sends
         # JSON. Normalise before parsing so either survives.
@@ -1106,6 +1268,8 @@ class ExtronNavDriver(BaseDriver):
             except (TimeoutError, ValueError) as e:
                 log.debug(f"[{self.device_id}] {prefix} network unavailable: {e}")
                 continue
+            if m is None:
+                continue
             self.set_state(f"{prefix}_ip_address", m.group(1))
             self.set_state(f"{prefix}_subnet_mask", _prefix_to_mask(int(m.group(2))))
             self.set_state(f"{prefix}_gateway", m.group(3))
@@ -1115,9 +1279,20 @@ class ExtronNavDriver(BaseDriver):
                 f"{ESC}1DNSS{CR}",
                 re.compile(r"^(?:Dnss\d*\*)?((?:\d+\.\d+\.\d+\.\d+)(?:\*\d+\.\d+\.\d+\.\d+)*)$"),
                 allow_error=True)
-            self.set_state("dns_servers", m.group(1).replace("*", ", "))
+            if m is not None:
+                self.set_state("dns_servers", m.group(1).replace("*", ", "))
         except (TimeoutError, ValueError) as e:
             log.debug(f"[{self.device_id}] DNS unavailable: {e}")
+
+        # The view form takes no interface number, unlike the set form.
+        try:
+            m = await self._request(f"{ESC}DHCP{CR}",
+                                    re.compile(r"^(?:Dhcp\S*\s*\S*\*)?([01])$"),
+                                    allow_error=True)
+            if m is not None:
+                self.set_state("dhcp_enabled", m.group(1) == "1")
+        except (TimeoutError, ValueError) as e:
+            log.debug(f"[{self.device_id}] DHCP status unavailable: {e}")
 
     async def _read_alarms(self) -> None:
         try:
@@ -1248,6 +1423,8 @@ class ExtronNavDriver(BaseDriver):
         except (TimeoutError, ValueError) as e:
             log.debug(f"[{self.device_id}] name for {ref} unavailable: {e}")
             return ""
+        if m is None:
+            return ""
         body = m.group(2).strip()
         # Verbose tagging reaches the endpoint too, so the name may come back
         # as the set-command form ("Ipn <name>").
@@ -1255,6 +1432,115 @@ class ExtronNavDriver(BaseDriver):
         if _ERROR_RE.match(body) or not body:
             return ""
         return body
+
+    # ── WindoWall + KVM roster ──
+    #
+    # These are the only rosters the NAVigator cannot be asked to list, so they
+    # are DISCOVERED rather than declared or assumed: ask within the configured
+    # bound, keep what answers. A canvas or workstation that does not exist
+    # answers E13 (or nothing), which is the signal to leave it unregistered
+    # rather than an error worth surfacing.
+
+    async def _reconcile_wall_roster(self) -> None:
+        await self._reconcile_preset_holders(
+            "canvas", int(self.config.get("windowall_canvases", 0) or 0),
+            lambda n: f"{ESC}L1*{n}PRST{CR}")
+        await self._reconcile_preset_holders(
+            "workstation", int(self.config.get("kvm_workstations", 0) or 0),
+            lambda n: f"{ESC}L3*{n}PRST{CR}")
+
+    async def _reconcile_preset_holders(self, ctype: str, bound: int,
+                                        wire_for) -> None:
+        """Register every canvas / workstation that answers, drop the rest."""
+        seen: set[int] = set()
+        for number in range(1, bound + 1):
+            preset = await self._read_last_preset(wire_for(number))
+            if preset is None:
+                continue
+            seen.add(number)
+            if not self.is_child_registered(ctype, number):
+                self.register_child(ctype, number,
+                                    initial_state={"last_preset": preset})
+            else:
+                self.set_child_state(ctype, number, "last_preset", preset)
+        for stale in set(self.list_children(ctype)) - seen:
+            self.deregister_child(ctype, stale)
+
+    async def _read_last_preset(self, wire: str) -> int | None:
+        """The last recalled preset, or None when there is no such object.
+
+        Verbose 3 tags this as ``PrstL1*<canvas>*<preset>``; the untagged form
+        is the bare number. Both are accepted because the tagging is a session
+        setting and a reconnect could land before it is re-applied.
+        """
+        try:
+            m = await self._request(
+                wire,
+                re.compile(r"^(?:PrstL[13]\*\d+\*)?(\d{1,2})$"),
+                timeout=4.0, allow_error=True)
+        except (TimeoutError, ValueError):
+            return None
+        if m is None:
+            return None          # E13: the NAVigator has no such object
+        try:
+            return int(m.group(1))
+        except (TypeError, ValueError):
+            return None
+
+    async def _read_windows(self) -> None:
+        """Source and mute for every window of every registered canvas."""
+        bound = int(self.config.get("windowall_windows", 0) or 0)
+        if not bound:
+            for stale in list(self.list_children("window")):
+                self.deregister_child("window", stale)
+            return
+        seen: set[int] = set()
+        for canvas in sorted(self.list_children("canvas")):
+            for window in range(1, bound + 1):
+                source = await self._read_window_input(canvas, window)
+                if source is None:
+                    continue
+                muted = await self._read_window_mute(canvas, window)
+                cid = _window_id(canvas, window)
+                seen.add(cid)
+                values = {"canvas": canvas, "window": window, "input": source}
+                if muted is not None:
+                    values["muted"] = muted
+                if not self.is_child_registered("window", cid):
+                    self.register_child("window", cid, initial_state=values)
+                else:
+                    self.set_child_state_batch("window", cid, values)
+        for stale in set(self.list_children("window")) - seen:
+            self.deregister_child("window", stale)
+
+    async def _read_window_input(self, canvas: int, window: int) -> int | None:
+        try:
+            m = await self._request(
+                f"{ESC}{canvas}*{window}!X{CR}",
+                re.compile(r"^(?:Grp\d+\*\d+\*)?(\d{1,4})$"),
+                timeout=4.0, allow_error=True)
+        except (TimeoutError, ValueError):
+            return None
+        if m is None:
+            return None          # E13: no such window on that canvas
+        try:
+            return int(m.group(1))
+        except (TypeError, ValueError):
+            return None
+
+    async def _read_window_mute(self, canvas: int, window: int) -> bool | None:
+        # No ESC and no terminator but the trailing B, exactly as the guide
+        # writes it -- an ESC here would make it a different command.
+        try:
+            m = await self._request(
+                f"{canvas}*{window}B{CR}",
+                re.compile(r"^(?:Vmt\d+\*\d+\*)?([01])$"),
+                timeout=4.0, allow_error=True)
+        except (TimeoutError, ValueError):
+            return None
+        if m is None:
+            return None
+        return m.group(1) == "1"
 
     def _publish_endpoint_options(self) -> None:
         """The USB-tie and encapsulation pickers, in the NAVigator's notation."""
@@ -1322,9 +1608,14 @@ class ExtronNavDriver(BaseDriver):
         self._names.clear()
         await self._reconcile_roster()
         await self._read_ties()
+        await self._reconcile_wall_roster()
+        await self._read_windows()
         return {
             "encoders": len(self.list_children("encoder")),
             "decoders": len(self.list_children("decoder")),
+            "canvases": len(self.list_children("canvas")),
+            "windows": len(self.list_children("window")),
+            "workstations": len(self.list_children("workstation")),
         }
 
     # ── device settings ──
@@ -1392,31 +1683,55 @@ class ExtronNavDriver(BaseDriver):
             await self._read_ties()
             return True
 
+        if command == "quick_tie":
+            return await self._quick_tie(str(p["ties"]))
+
         if command == "recall_windowall_preset":
             canvas, preset = int(p["canvas"]), int(p["preset"])
             await self._request(f"{ESC}R1*{canvas}*{preset}PRST{CR}",
                                 re.compile(rf"^PrstR1\*{canvas}\*{preset}$"))
+            if self.is_child_registered("canvas", canvas):
+                self.set_child_state("canvas", canvas, "last_preset", preset)
+            # A preset moves the windows under it, so what they now show is
+            # not what we last read.
+            await self._read_windows_for(canvas)
             return True
 
         if command == "select_window_input":
-            canvas, window, inp = int(p["canvas"]), int(p["window"]), int(p["input"])
+            canvas, window = _window_parts(p["window"])
+            inp = int(p["input"])
             await self._request(f"{ESC}{canvas}*{window}*{inp}!X{CR}",
                                 re.compile(rf"^Grp{canvas}\*{window}\*\S+$"))
+            cid = _window_id(canvas, window)
+            if self.is_child_registered("window", cid):
+                self.set_child_state("window", cid, "input", inp)
             return True
 
         if command in ("mute_window", "unmute_window"):
-            canvas, window = int(p["canvas"]), int(p["window"])
+            canvas, window = _window_parts(p["window"])
             value = "1" if command == "mute_window" else "0"
             # No ESC and no terminator: the trailing B ends this one, which is
             # how the guide writes it.
             await self._request(f"{canvas}*{window}*{value}B{CR}",
                                 re.compile(rf"^Vmt{canvas}\*{window}\*{value}$"))
+            cid = _window_id(canvas, window)
+            if self.is_child_registered("window", cid):
+                self.set_child_state("window", cid, "muted", value == "1")
             return True
 
         if command == "recall_workstation_preset":
             ws, preset = int(p["workstation"]), int(p["preset"])
             await self._request(f"{ESC}R3*{ws}*{preset}PRST{CR}",
                                 re.compile(rf"^PrstR3\*{ws}\*{preset}$"))
+            if self.is_child_registered("workstation", ws):
+                self.set_child_state("workstation", ws, "last_preset", preset)
+            return True
+
+        if command == "reset_device_name":
+            # A space where the new name would go is the documented reset.
+            m = await self._request(f"{ESC} CN{CR}",
+                                    re.compile(r"^Ipn\s+(\S.*)$"))
+            self.set_state("device_name", m.group(1).strip())
             return True
 
         if command == "clear_alarms":
@@ -1438,6 +1753,61 @@ class ExtronNavDriver(BaseDriver):
 
         log.warning(f"[{self.device_id}] Unknown command: {command}")
         return False
+
+    async def _quick_tie(self, spec: str) -> bool:
+        """Make several ties in one command, which is what makes them land
+        together rather than one visible step at a time.
+
+        ``Qik14`` is not a plain refusal: the guide is explicit that the valid
+        ties in the batch are STILL MADE and only the invalid ones are dropped.
+        Reporting it as a simple failure would leave somebody believing the
+        room did not change when half of it did, so the error says so and the
+        state is re-read either way.
+        """
+        entries = [e.strip() for e in spec.split(",") if e.strip()]
+        if not entries:
+            raise ValueError("No ties given.")
+        parts: list[str] = []
+        for entry in entries:
+            m = re.match(r"^(\d{1,4})\*(\d{1,4})\s*([vVaA]?)$", entry)
+            if not m:
+                raise ValueError(
+                    f"{entry!r} is not a tie. Write input*output, optionally "
+                    f"with v for video only or a for audio only (e.g. 3*4, "
+                    f"3*5v).")
+            inp, out, kind = int(m.group(1)), int(m.group(2)), m.group(3).lower()
+            suffix = {"": "!", "v": "%", "a": "$"}[kind]
+            parts.append(f"{inp}*{out}{suffix}")
+        wire = f"{ESC}+Q" + "".join(parts) + CR
+        try:
+            m = await self._request(wire, re.compile(r"^Qik(\d*)$"))
+        finally:
+            # Whatever happened, the device moved; find out what it actually
+            # did rather than assuming the whole batch applied or none did.
+            await self._read_ties()
+        code = m.group(1)
+        if code:
+            raise ValueError(
+                f"Qik{code}: some of those ties were invalid and were skipped. "
+                f"The valid ones were still made — check the outputs.")
+        return True
+
+    async def _read_windows_for(self, canvas: int) -> None:
+        """Re-read one canvas's windows after something moved them."""
+        bound = int(self.config.get("windowall_windows", 0) or 0)
+        for window in range(1, bound + 1):
+            cid = _window_id(canvas, window)
+            if not self.is_child_registered("window", cid):
+                continue
+            source = await self._read_window_input(canvas, window)
+            muted = await self._read_window_mute(canvas, window)
+            values: dict[str, Any] = {}
+            if source is not None:
+                values["input"] = source
+            if muted is not None:
+                values["muted"] = muted
+            if values:
+                self.set_child_state_batch("window", cid, values)
 
     async def _tie(self, params: dict[str, Any], suffix: str, tag: str) -> bool:
         inp, out = int(params["input"]), int(params["output"])
@@ -1480,6 +1850,9 @@ class ExtronNavDriver(BaseDriver):
             body += CR
         wire = "{" + endpoint + ":" + body + "}" + CR
         m = await self._request(wire, _ENCAP_RE, allow_error=True)
+        if m is None:
+            raise ValueError(
+                "The NAVigator refused that encapsulated command.")
         reply = m.group(2).strip()
         err = _ERROR_RE.match(reply)
         if err:

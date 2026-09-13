@@ -178,7 +178,12 @@ async def _pair(*, silent=False, drip=False, config=None):
     state, events = StubState(), StubEvents()
     cfg = {"host": "127.0.0.1", "port": 22023, "transport": "tcp",
            "poll_interval": 10, "detail_poll_interval": 120,
-           "read_endpoint_names": True, "command_timeout": 5}
+           "read_endpoint_names": True, "command_timeout": 5,
+           # Bounds to look WITHIN, deliberately wider than what the simulator
+           # actually has: canvases 1 and 3 of 8, windows 1-2 or 1-4 of 4,
+           # workstations 1 and 4 of 4.
+           "windowall_canvases": 8, "windowall_windows": 4,
+           "kvm_workstations": 4}
     cfg.update(config or {})
     drv = Driver("nav1", cfg, state, events)
 
@@ -204,8 +209,15 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+# Child state keys carry the id as the type's id_format writes it: encoders and
+# decoders pad to 4, windows to 3, canvases and workstations not at all.
+_PAD = {"encoder": 4, "decoder": 4, "window": 3, "canvas": 0, "workstation": 0}
+
+
 def _cs(state, ctype, cid, prop):
-    return state.data.get(f"device.nav1.{ctype}.{cid:04d}.{prop}")
+    width = _PAD[ctype]
+    key = f"{cid:0{width}d}" if width else str(cid)
+    return state.data.get(f"device.nav1.{ctype}.{key}.{prop}")
 
 
 def _s(state, key):
@@ -542,14 +554,17 @@ def test_windowall_and_kvm_presets():
     async def go():
         drv, sim, state, link = await _pair()
         await drv.send_command("recall_windowall_preset",
-                               {"canvas": 2, "preset": 5})
-        assert sim._canvas_preset[2] == 5
+                               {"canvas": 1, "preset": 5})
+        assert sim._canvas_preset[1] == 5
+        assert _cs(state, "canvas", 1, "last_preset") == 5
         await drv.send_command("select_window_input",
-                               {"canvas": 1, "window": 3, "input": 17})
+                               {"window": 103, "input": 17})
         assert sim._window_input[(1, 3)] == 17
+        assert _cs(state, "window", 103, "input") == 17
         await drv.send_command("recall_workstation_preset",
                                {"workstation": 4, "preset": 9})
         assert sim._workstation_preset[4] == 9
+        assert _cs(state, "workstation", 4, "last_preset") == 9
         await drv.disconnect()
     _run(go())
 
@@ -557,13 +572,15 @@ def test_windowall_and_kvm_presets():
 def test_window_mute_is_sent_without_an_escape_prefix():
     async def go():
         drv, sim, state, link = await _pair()
-        await drv.send_command("mute_window", {"canvas": 1, "window": 3})
+        await drv.send_command("mute_window", {"window": 103})
         assert sim._window_mute[(1, 3)] == 1
         # The trailing B terminates this one; the guide writes it with no ESC,
         # and an ESC would make it a different command.
         assert f"1*3*1B{CR}" in link.sent
-        await drv.send_command("unmute_window", {"canvas": 1, "window": 3})
+        assert _cs(state, "window", 103, "muted") is True
+        await drv.send_command("unmute_window", {"window": 103})
         assert sim._window_mute[(1, 3)] == 0
+        assert _cs(state, "window", 103, "muted") is False
         await drv.disconnect()
     _run(go())
 
@@ -713,7 +730,8 @@ def test_refresh_children_re_reads_the_roster_and_the_names():
     async def go():
         drv, sim, state, link = await _pair()
         result = await drv.refresh_children()
-        assert result == {"encoders": 5, "decoders": 6}
+        assert result == {"encoders": 5, "decoders": 6, "canvases": 2,
+                          "windows": 6, "workstations": 2}
         assert _cs(state, "encoder", 1, "name") == "NAV-E-Podium-PC"
         await drv.disconnect()
     _run(go())
@@ -726,13 +744,16 @@ def _sample_params(name: str) -> dict:
     out: dict = {}
     for pname, pdef in spec.items():
         if pdef.get("type") == "child_id":
-            out[pname] = 1
+            out[pname] = {"window": 101, "canvas": 1,
+                          "workstation": 1}.get(pdef.get("child_type"), 1)
         elif pdef.get("type") == "integer":
             out[pname] = int(pdef.get("min", 1))
         elif pname in ("host", "device", "endpoint"):
             out[pname] = "1i"
         elif pname == "command":
             out[pname] = "1B"
+        elif pname == "ties":
+            out[pname] = "1*1"
         else:
             out[pname] = "1"
     return out
@@ -773,5 +794,199 @@ def test_the_factory_reset_is_acknowledged_and_takes_the_system_with_it():
         # it is a reboot.
         assert sim._encoders == {}
         assert sim._decoders == {}
+        await drv.disconnect()
+    _run(go())
+
+
+# ── WindoWall / KVM: rosters the NAVigator cannot list ──────────────────────
+
+def test_canvases_and_workstations_are_discovered_not_assumed():
+    """The bound says how far to look, the DEVICE says what is there.
+
+    The simulator has canvases 1 and 3 and workstations 1 and 4, inside a
+    configured bound of 8 and 4. A driver that trusted the bound would
+    register phantom canvases 2 and 4-8 and phantom workstations 2 and 3 --
+    every one of them drawing on a panel as a thing you could recall a preset
+    on, and every recall answering E13.
+    """
+    async def go():
+        drv, sim, state, link = await _pair()
+        assert sorted(drv.list_children("canvas")) == [1, 3]
+        assert sorted(drv.list_children("workstation")) == [1, 4]
+        # And the state they were discovered with is real, not a default.
+        assert _cs(state, "canvas", 1, "last_preset") == 2
+        assert _cs(state, "workstation", 4, "last_preset") == 7
+        await drv.disconnect()
+    _run(go())
+
+
+def test_each_canvas_keeps_its_own_window_count():
+    """Canvas 1 is a 2x2 and canvas 3 is a 2x1, inside one bound of 4.
+
+    Window count is per canvas, not a system-wide number, so the bound cannot
+    be applied uniformly.
+    """
+    async def go():
+        drv, sim, state, link = await _pair()
+        windows = sorted(drv.list_children("window"))
+        assert windows == [101, 102, 103, 104, 301, 302]
+        assert _cs(state, "window", 101, "canvas") == 1
+        assert _cs(state, "window", 301, "canvas") == 3
+        assert _cs(state, "window", 302, "window") == 2
+        await drv.disconnect()
+    _run(go())
+
+
+def test_window_source_and_mute_are_read_back():
+    """The whole point of the exercise: a panel can show what a window is
+    showing, not just set it."""
+    async def go():
+        drv, sim, state, link = await _pair()
+        assert _cs(state, "window", 101, "input") == 1
+        assert _cs(state, "window", 104, "input") == 17
+        assert _cs(state, "window", 301, "input") == 101
+        assert _cs(state, "window", 102, "muted") is True
+        assert _cs(state, "window", 101, "muted") is False
+        await drv.disconnect()
+    _run(go())
+
+
+def test_recalling_a_preset_re_reads_the_windows_it_moved():
+    """A preset rearranges the canvas under it. Without the re-read the
+    windows would keep reporting their pre-recall sources forever -- the
+    device moved and the panel would not know."""
+    async def go():
+        drv, sim, state, link = await _pair()
+        assert _cs(state, "window", 101, "input") == 1
+        await drv.send_command("recall_windowall_preset",
+                               {"canvas": 1, "preset": 6})
+        # The simulator repoints every window on the canvas when a preset is
+        # recalled, the way a real one does.
+        assert _cs(state, "window", 101, "input") == 6
+        assert _cs(state, "window", 104, "input") == 6
+        # A different canvas is untouched.
+        assert _cs(state, "window", 301, "input") == 101
+        await drv.disconnect()
+    _run(go())
+
+
+def test_turning_the_bounds_off_registers_nothing():
+    async def go():
+        drv, sim, state, link = await _pair(config={
+            "windowall_canvases": 0, "windowall_windows": 0,
+            "kvm_workstations": 0})
+        assert drv.list_children("canvas") == []
+        assert drv.list_children("window") == []
+        assert drv.list_children("workstation") == []
+        # And a system with no WindoWall pays nothing for it.
+        assert not any("PRST" in s or s.endswith(f"B{CR}") for s in link.sent)
+        await drv.disconnect()
+    _run(go())
+
+
+def test_a_deleted_canvas_is_deregistered_on_the_next_poll():
+    async def go():
+        drv, sim, state, link = await _pair()
+        assert 3 in drv.list_children("canvas")
+        del SIMM._CANVASES[3]
+        try:
+            await drv.poll()
+            assert sorted(drv.list_children("canvas")) == [1]
+            # Its windows go with it rather than lingering as orphans.
+            await drv._read_windows()
+            assert all(w < 300 for w in drv.list_children("window"))
+        finally:
+            SIMM._CANVASES[3] = (1, 2)
+        await drv.disconnect()
+    _run(go())
+
+
+def test_probing_a_missing_object_costs_one_round_trip_not_a_timeout():
+    """An E13 has to END the wait.
+
+    Merely not raising on it leaves the request waiting out its whole timeout
+    for a reply that is never coming, which turns probing eight canvases into
+    half a minute of dead air on every poll.
+    """
+    async def go():
+        import time
+        drv, sim, state, link = await _pair()
+        drv.config["command_timeout"] = 30     # would dominate if we waited
+        started = time.monotonic()
+        assert await drv._read_last_preset(f"{ESC}L1*7PRST{CR}") is None
+        assert time.monotonic() - started < 2.0
+        await drv.disconnect()
+    _run(go())
+
+
+# ── Quick multiple tie ──────────────────────────────────────────────────────
+
+def test_quick_tie_sends_one_command_for_all_of_them():
+    async def go():
+        drv, sim, state, link = await _pair()
+        await drv.send_command("quick_tie", {"ties": "3*4, 3*201v, 1*202a"})
+        # ONE command on the wire: that is what makes the ties land together
+        # rather than as three switches somebody can watch happen.
+        quick = [s for s in link.sent if s.startswith(f"{ESC}+Q")]
+        assert len(quick) == 1
+        assert quick[0] == f"{ESC}+Q3*4!3*201%1*202${CR}"
+        assert sim._ties[4] == [3, 3]
+        assert sim._ties[201][0] == 3
+        assert sim._ties[202][1] == 1
+        # State was re-read, so the panel agrees with the device.
+        assert _cs(state, "decoder", 4, "source_video") == 3
+        await drv.disconnect()
+    _run(go())
+
+
+def test_quick_tie_reports_a_partial_application_as_partial():
+    """Qik14 means the valid ties WERE made and only the invalid ones were
+    dropped. Reporting it as a plain failure would leave somebody believing
+    the room did not change when half of it did."""
+    async def go():
+        drv, sim, state, link = await _pair()
+        with pytest.raises(ValueError) as e:
+            await drv.send_command("quick_tie", {"ties": "3*4, 99*201"})
+        assert "still made" in str(e.value)
+        # The valid half really did apply, and state reflects it.
+        assert sim._ties[4] == [3, 3]
+        assert _cs(state, "decoder", 4, "source_video") == 3
+        await drv.disconnect()
+    _run(go())
+
+
+def test_quick_tie_refuses_a_malformed_entry_before_sending():
+    async def go():
+        drv, sim, state, link = await _pair()
+        before = len(link.sent)
+        with pytest.raises(ValueError) as e:
+            await drv.send_command("quick_tie", {"ties": "3 to 4"})
+        assert "is not a tie" in str(e.value)
+        assert len(link.sent) == before
+        await drv.disconnect()
+    _run(go())
+
+
+# ── The remaining documented reads ──────────────────────────────────────────
+
+def test_dhcp_status_is_read():
+    async def go():
+        drv, sim, state, link = await _pair()
+        assert _s(state, "dhcp_enabled") is False
+        sim.set_state("dhcp", True)
+        await drv._read_detail()
+        assert _s(state, "dhcp_enabled") is True
+        await drv.disconnect()
+    _run(go())
+
+
+def test_resetting_the_name_restores_the_factory_default():
+    async def go():
+        drv, sim, state, link = await _pair()
+        await drv.set_device_setting("device_name", "NAVigator-Lecture-Hall")
+        assert _s(state, "device_name") == "NAVigator-Lecture-Hall"
+        await drv.send_command("reset_device_name", {})
+        # "NAVigator-" plus the last three pairs of the MAC.
+        assert _s(state, "device_name") == "NAVigator-13-9C-32"
         await drv.disconnect()
     _run(go())

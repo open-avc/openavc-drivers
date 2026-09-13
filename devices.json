@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 885,
+    "total_devices": 887,
     "shards": null
   },
   "devices": [
@@ -8486,6 +8486,18 @@
     },
     {
       "manufacturer": "Sennheiser",
+      "model": "TCC M",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_tccm",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TCC M OpenAPI 1.9 schema (firmware 1.2 or newer; the input low-cut, single-capsule and beam-freeze auto-hold resources arrived in later API versions and are skipped on a microphone that lacks them). Not yet run against a microphone. Covers every product variant (TCC M-F flush, TCC M-S surface, TCC M CT grid-ceiling); the mounting kit does not change the API."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
       "model": "TeamConnect Ceiling 2",
       "category": "audio",
       "drivers": [
@@ -8493,6 +8505,18 @@
           "id": "sennheiser_tcc2",
           "confidence": "untested",
           "notes": "Built from Sennheiser's SSC developer guide for firmware 1.8.0; not yet run against a microphone. Every method in that guide is covered except the network address configuration and firmware update, which belong to Sennheiser Control Cockpit.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "TeamConnect Ceiling Medium",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "sennheiser_tccm",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TCC M OpenAPI 1.9 schema (firmware 1.2 or newer; the input low-cut, single-capsule and beam-freeze auto-hold resources arrived in later API versions and are skipped on a microphone that lacks them). Not yet run against a microphone. Covers every product variant (TCC M-F flush, TCC M-S surface, TCC M CT grid-ceiling); the mounting kit does not change the API."
         }
       ]
     },

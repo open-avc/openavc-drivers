@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 27,
+    "total_drivers": 28,
     "shards": null,
     "category": "audio"
   },
@@ -1532,6 +1532,79 @@
         ],
         "manufacturer_alias": [
           "sennheiser"
+        ]
+      }
+    },
+    {
+      "id": "sennheiser_tccm",
+      "name": "Sennheiser TeamConnect Ceiling Medium",
+      "manufacturer": "Sennheiser",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls the Sennheiser TeamConnect Ceiling Medium beamforming ceiling microphone over its SSCv2 REST API (HTTPS, port 443). Mute, identify, output gains and delays, the reference input, the shared equalizer and noise gate, Voice Lift, the denoiser, exclusion and priority zones, installation type, the LED ring, room-in-use, PoE pass-through and firmware status. The microphone reports where the active talker is (beam azimuth and elevation) and live level meters; both feeds are opt-in and can be switched from a macro or panel. State is push-driven: the driver subscribes and the microphone reports every change as it happens, including changes made from Sennheiser Control Cockpit.",
+      "source_url": "https://docs.cloud.sennheiser.com/en-us/api-docs/api-docs/open-api-tc-ceiling-medium.html",
+      "file": "audio/sennheiser_tccm.py",
+      "format": "python",
+      "files": {
+        "audio/sennheiser_tccm.py": "917231aa06d0b554647107d136f42e27df37c1b38093153ffca0a33cd725fcf3",
+        "audio/sennheiser_tccm_sim.py": "fdcbeed4aae804a39803e76819ff06f59e69b6addeae7b2a846d7be3c91e57cc"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "sscv2"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.25.0",
+      "tags": [
+        "microphone",
+        "ceiling-mic",
+        "beamforming",
+        "array",
+        "conferencing",
+        "dante",
+        "camera-tracking",
+        "ssc",
+        "sscv2"
+      ],
+      "help": {
+        "overview": "Controls the Sennheiser TeamConnect Ceiling Medium, a ceiling microphone that steers one pickup beam at whoever is talking. Mute it, set its output levels and processing, change the LED ring, and read where the talker is (azimuth and elevation) to drive camera presets from a macro. Everything the microphone changes, from Control Cockpit or its own button, shows up here as it happens.",
+        "setup": "1. Set the microphone up once in Sennheiser Control Cockpit (it must be claimed there before its API works).\n2. On the microphone's device page in Control Cockpit, enable third-party access and set a third-party password.\n3. Enter the microphone's IP address and that password here. The user name is always \"api\".\n4. Turn on \"Report talker position\" if a macro will follow the talker with a camera, and \"Report level meters\" if a panel shows the levels. Both are continuous feeds, so they are off unless needed.",
+        "connection": "HTTPS on port 443 with the third-party password from Control Cockpit. The microphone's own certificate is self-signed, so certificate verification is off unless you turn it on."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "TeamConnect Ceiling Medium",
+            "TCC M"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TCC M OpenAPI 1.9 schema (firmware 1.2 or newer; the input low-cut, single-capsule and beam-freeze auto-hold resources arrived in later API versions and are skipped on a microphone that lacks them). Not yet run against a microphone. Covers every product variant (TCC M-F flush, TCC M-S surface, TCC M CT grid-ceiling); the mounting kit does not change the API."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET /api/device/identity HTTP/1.1\r\nHost: tccm\r\nConnection: close\r\n\r\n",
+          "expect_regex": "\"product\"\\s*:\\s*\"TCCM\"",
+          "extract_manufacturer": "Sennheiser",
+          "extract": {
+            "model": {
+              "regex": "\"product\"\\s*:\\s*\"([A-Za-z0-9 ]+)\"",
+              "group": 1
+            }
+          }
+        },
+        "oui": [
+          "00:1b:66"
+        ],
+        "manufacturer_alias": [
+          "Sennheiser"
         ]
       }
     },

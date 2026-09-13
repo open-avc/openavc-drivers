@@ -92,6 +92,10 @@ _CONFIG: dict[str, dict] = {
     # simulator serves the identical SIS grammar on a plain socket. The driver's
     # own "transports" list allows tcp for exactly this.
     "extron_nav": {"transport": "tcp"},
+    # The TCC M refuses to send a login it knows cannot succeed (no password
+    # is auth_failed before any request); its sim accepts anything but
+    # "invalid" and serves HTTPS with its own certificate.
+    "sennheiser_tccm": {"password": "smokepw"},
 }
 
 

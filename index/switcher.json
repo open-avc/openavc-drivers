@@ -630,7 +630,7 @@
       "file": "switchers/extron_nav.py",
       "format": "python",
       "files": {
-        "switchers/extron_nav.py": "cf08f5b79f540418bd7fdfd7b1eefd131390db70917e4a970305a1a28854d5aa",
+        "switchers/extron_nav.py": "8787f9a36bd39c79d7593e8eea28ef40191caf4bcf70a6a3cff2a1e778c0b42b",
         "switchers/extron_nav_sim.py": "b47f3ba31e3f162ad72b6ddf50c3955ce8fd563053ddb4fa025f74fd5df26978"
       },
       "ports": [

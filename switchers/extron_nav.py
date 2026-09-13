@@ -10,7 +10,7 @@ addressable as ``device.<id>.encoder.<n>.<prop>`` / ``device.<id>.decoder.<n>.<p
 
 **The NAVigator needs the free "LinkLicense for Third-Party Control" activated
 before any of this exists.** Without it the SSH/SIS interface is not offered and
-the driver cannot connect at all -- see ``compatible_models[].setup``.
+the driver cannot connect at all -- see ``help.setup`` and ``help.connection``.
 
 Transport / protocol:
 
@@ -1188,10 +1188,13 @@ class ExtronNavDriver(BaseDriver):
             1 for d in self._roster["encoder"].values() if d == _INV_ONLINE))
         self.set_state("decoders_online", sum(
             1 for d in self._roster["decoder"].values() if d == _INV_ONLINE))
-        self._publish_endpoint_options()
 
         if self.config.get("read_endpoint_names", True):
             await self._read_missing_names()
+        # Published AFTER the names are in. Publishing first left the picker's
+        # labels reading "Encoder 1" until the second poll -- and the first
+        # poll is when somebody is actually choosing from it.
+        self._publish_endpoint_options()
 
     def _apply_presence(self, ctype: str, number: int, digit: str) -> None:
         """Turn one inventory digit into the child's presence and fault keys.

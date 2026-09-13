@@ -179,8 +179,39 @@ def test_discovery_hints_match_real_beacon():
     assert amx["model_pattern"] == fields["Model"]
     # 4998 getdevices probe + OUI.
     assert disc["tcp_probe"]["port"] == 4998
-    assert disc["tcp_probe"]["expect"] == "endlistdevices"
+    assert disc["tcp_probe"]["expect"] == "SERIAL"
     assert "00:0C:1E" in disc["oui"]
+
+
+def test_the_probe_claims_this_unit_and_neither_sibling():
+    """Each iTach model's probe matches its own captured reply and no other.
+
+    All three drivers send the same ``getdevices`` on the same port, so the
+    matcher can only tell them apart by what each one expects back. This driver
+    expected ``endlistdevices``, which terminates EVERY iTach reply — so it also
+    claimed a relay unit and an IR unit, and which driver a scan offered came
+    down to the order the probes answered in. The sibling drivers' own comments
+    say they match on the module type for exactly this reason; this pins that
+    all three now do, against the bytes real units sent.
+    """
+    fixtures = REPO_ROOT / "tests" / "fixtures"
+    replies = {
+        model: (fixtures / f"globalcache_itach_{model}"
+                / "getdevices.response.txt").read_bytes()
+        for model in ("ip2cc", "ip2ir", "ip2sl")
+    }
+    expects = {"ip2cc": b"RELAY", "ip2ir": b"IR", "ip2sl": b"SERIAL"}
+    # This driver's expectation is the one the DRIVER_INFO actually carries.
+    declared = drv.GlobalCacheItachIP2SLDriver.DRIVER_INFO["discovery"]
+    assert declared["tcp_probe"]["expect"].encode() == expects["ip2sl"]
+
+    for model, token in expects.items():
+        for other, reply in replies.items():
+            hit = token in reply
+            assert hit is (model == other), (
+                f"{model}'s probe token {token!r} "
+                f"{'matched' if hit else 'missed'} the {other} reply"
+            )
 
 
 def test_min_platform_version_gates_on_the_package_move():

@@ -325,7 +325,7 @@
       "name": "Global Cache iTach IP2SL Serial Bridge",
       "manufacturer": "Global Cache",
       "category": "utility",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Ethernet-to-RS-232 bridge. Connect serial devices through the iTach: bind a serial device to this bridge's port and OpenAVC routes it over the transparent pass-through while pushing the right baud and parity to the hardware.",
@@ -333,7 +333,7 @@
       "file": "utility/globalcache_itach_ip2sl.py",
       "format": "python",
       "files": {
-        "utility/globalcache_itach_ip2sl.py": "68fa5c34d0bd58eb78dc831d43766c38c7c27c52de8f34b3eab36c5a757e153f"
+        "utility/globalcache_itach_ip2sl.py": "d3c2533766e0ce77d1710439b3bc8f5812513509365b4af040e4b6628ab97020"
       },
       "ports": [
         4998,
@@ -371,7 +371,7 @@
         "tcp_probe": {
           "port": 4998,
           "send_ascii": "getdevices\r",
-          "expect": "endlistdevices"
+          "expect": "SERIAL"
         },
         "oui": [
           "00:0C:1E"

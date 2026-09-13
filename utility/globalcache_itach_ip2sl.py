@@ -179,7 +179,7 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
         "name": "Global Cache iTach IP2SL Serial Bridge",
         "manufacturer": "Global Cache",
         "category": "utility",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "transport": "tcp",
         "description": (
@@ -237,10 +237,16 @@ class GlobalCacheItachIP2SLDriver(BaseDriver):
             "amx_ddp": [
                 {"make": "GlobalCache", "model_pattern": "iTachIP2SL"},
             ],
+            # getdevices identifies a serial unit positively: an IP2CC answers
+            # the same probe with RELAY and an IP2IR with IR, so match on
+            # SERIAL. It used to match on `endlistdevices`, which terminates
+            # EVERY iTach reply — so this driver also claimed relay and IR
+            # units, and which of the three a scan offered came down to the
+            # order the probes happened to answer in.
             "tcp_probe": {
                 "port": 4998,
                 "send_ascii": "getdevices\r",
-                "expect": "endlistdevices",
+                "expect": "SERIAL",
             },
             "oui": ["00:0C:1E"],
             "manufacturer_alias": ["global cache", "globalcache"],

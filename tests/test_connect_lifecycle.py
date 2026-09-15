@@ -63,6 +63,12 @@ _CONFIG: dict[str, dict] = {
     # device; the platform merges default_config (admin) in but this smoke
     # does not. The sim accepts any password while its auth check is off.
     "epiphan_pearl": {"username": "admin", "password": "smokepw"},
+    # Same shape: the camera's Telnet shell wants both a username and a
+    # password, and the driver refuses a login it knows cannot succeed before
+    # opening the socket. There is no factory default to ship as one - the
+    # camera makes you set a password at commissioning - so the smoke supplies
+    # them. The sim accepts any credentials except the "invalid" sentinel.
+    "vaddio_conferenceshot_av": {"username": "admin", "password": "smokepw"},
     # Reached over SSH on real hardware (its default_config says so), but the
     # SSH transport shells out to the OS client and no simulator here speaks the
     # protocol. The device serves the SAME CLI over telnet on 23, which is what

@@ -54,6 +54,7 @@ from _vendor.avcdriver_semantic import (  # noqa: E402
 )
 from _vendor.python_info import (  # noqa: E402
     ExtractError,
+    driver_info_ast,
     extract_python_driver_info_full,
     python_driver_info_issues,
     python_driver_reference_skips,
@@ -324,27 +325,16 @@ def extract_python_driver_info(filepath: Path) -> dict[str, Any]:
     may contain non-literal expressions and are skipped. Index fields MUST be
     literal data; non-literal values there raise ExtractError.
     """
-    source = filepath.read_text(encoding="utf-8")
-    try:
-        tree = ast.parse(source)
-    except SyntaxError as e:
-        raise ExtractError(f"{filepath.name}: Python syntax error — {e}")
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            for item in node.body:
-                if (
-                    isinstance(item, ast.Assign)
-                    and len(item.targets) == 1
-                    and isinstance(item.targets[0], ast.Name)
-                    and item.targets[0].id == "DRIVER_INFO"
-                    and isinstance(item.value, ast.Dict)
-                ):
-                    return _extract_index_fields(item.value, file=filepath)
-    raise ExtractError(
-        f"{filepath.name}: no DRIVER_INFO class attribute found. "
-        "Python drivers must define `DRIVER_INFO = {...}` inside a class body."
-    )
+    # FINDING the dict is the platform's rule, so it comes from the vendored
+    # reader rather than a second walk here. This function used to carry its
+    # own copy, and the copy went stale: it matched only a plain `DRIVER_INFO
+    # = {...}` while the platform had already been taught to accept the
+    # annotated `DRIVER_INFO: dict[str, Any] = {...}` as the identical class
+    # attribute it is. A driver written the annotated way passed
+    # `python -m openavc.drivers.check` and was then refused by the catalog
+    # build for having no DRIVER_INFO at all. What stays here is the
+    # catalog's own stricter pass over the fields it publishes.
+    return _extract_index_fields(driver_info_ast(filepath), file=filepath)
 
 
 def _extract_index_fields(node: ast.Dict, *, file: Path) -> dict[str, Any]:

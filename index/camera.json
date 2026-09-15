@@ -699,12 +699,12 @@
       "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom, focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris / gain / detail / white-balance) controls, factory & custom CCU scenes, and standby. One driver covers the entire RoboSHOT family \u2014 HDBT, HD-SDI, NDI, IW, USB.\n",
+      "description": "Controls Vaddio (Legrand AV) RoboSHOT PTZ cameras via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom, focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris / gain / detail / white-balance) controls, factory & custom CCU scenes, and standby. One driver covers the RoboSHOT family \u2014 HDBT, HD-SDI, NDI, IW, USB. The ConferenceShot AV has its own driver.\n",
       "source_url": "https://res.cloudinary.com/iwh/image/upload/q_auto,g_center/assets/1/26/vaddio_RoboSHOT_12_Integrators_Complete_Guide.pdf",
       "file": "cameras/vaddio_roboshot.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/vaddio_roboshot.avcdriver": "eb28aed0bd63219f3d1e4b8055795c863bcd074a34d925bcd45c81db9df4f774"
+        "cameras/vaddio_roboshot.avcdriver": "60ab574d0848e8dff96ee00a1dc25ac7b43c95aaa19647e593d7c96d8db7ad1a"
       },
       "ports": [
         23

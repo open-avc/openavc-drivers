@@ -1,16 +1,27 @@
-# Vaddio RoboSHOT / ConferenceShot Driver (Telnet Serial Command API)
+# Vaddio RoboSHOT Driver (Telnet Serial Command API)
 #
-# Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras via
-# the Telnet Serial Command API on port 23. The protocol is an ASCII /
-# VT100 command line interpreter shared across the entire RoboSHOT family;
-# one driver covers HDBT, HD-SDI, NDI, IW, and USB variants.
+# Controls Vaddio (Legrand AV) RoboSHOT PTZ cameras via the Telnet Serial
+# Command API on port 23. The protocol is an ASCII / VT100 command line
+# interpreter shared across the RoboSHOT family; one driver covers HDBT,
+# HD-SDI, NDI, IW, and USB variants.
+#
+# Telnet is DISABLED by default on every firmware issued after mid-December
+# 2019 and is enabled on the web interface's Security page. Until it is,
+# nothing on port 23 answers.
 #
 # Models covered (RoboSHOT family — same Telnet API across all):
 #   RoboSHOT 12, 12E, 12 HDBT, 12 HD-SDI, 12E NDI
 #   RoboSHOT 20 UHD, 30, 30 HDBT, 30 HD-SDI, 30E NDI, 40 UHD
 #   RoboSHOT IW (in-wall) variants
 #   RoboSHOT USB / UHD-USB
-#   ConferenceShot 10 / AV / FX (older firmware — same command shape)
+#   ConferenceShot 10 / FX — listed but UNVERIFIED; see compatible_models.
+#
+# NOT covered: the ConferenceShot AV. Its protocol diverged far enough to
+# need its own driver, `vaddio_conferenceshot_av` — it carries a
+# seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute,
+# LED and IR-cut control and a CCU gamma value that this driver does not,
+# and it has neither the CCU scenes nor the Tri-Synchronous Motion presets
+# that this one sends.
 #
 # Protocol reference:
 #   "Integrator's Complete Guide to RoboSHOT 12 HDBT / 30 HDBT" (Vaddio)
@@ -47,12 +58,12 @@ version: 1.4.0
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
-  Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras
-  via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom,
+  Controls Vaddio (Legrand AV) RoboSHOT PTZ cameras via the Telnet
+  Serial Command API on port 23. Covers pan/tilt/zoom,
   focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris /
   gain / detail / white-balance) controls, factory & custom CCU scenes,
-  and standby. One driver covers the entire RoboSHOT family —
-  HDBT, HD-SDI, NDI, IW, USB.
+  and standby. One driver covers the RoboSHOT family — HDBT, HD-SDI,
+  NDI, IW, USB. The ConferenceShot AV has its own driver.
 
 source_url: https://res.cloudinary.com/iwh/image/upload/q_auto,g_center/assets/1/26/vaddio_RoboSHOT_12_Integrators_Complete_Guide.pdf
 tags: [ptz, camera, broadcast, conferencing, vaddio, legrand, roboshot, telnet]

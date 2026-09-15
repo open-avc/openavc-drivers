@@ -43,7 +43,7 @@ id: vaddio_roboshot
 name: Vaddio RoboSHOT / ConferenceShot
 manufacturer: Vaddio
 category: camera
-version: 1.3.0
+version: 1.4.0
 author: OpenAVC
 min_platform_version: "0.9.0"
 description: >
@@ -79,16 +79,24 @@ compatible_models:
       - RoboSHOT USB
       - RoboSHOT UHD-USB
       - ConferenceShot 10
-      - ConferenceShot AV
       - ConferenceShot FX
     confidence: untested
     notes: >
-      The full RoboSHOT family shares one Telnet API. Vaddio is now part
-      of Legrand AV — older boxes still ship as "Vaddio". ConferenceShot
-      models predate the rename and use an older firmware revision but
-      the same command shape. Speed ranges (pan 1-24, tilt 1-20,
-      zoom 1-7, focus 1-8) and CCU value ranges are consistent across
-      the family.
+      The RoboSHOT family shares one Telnet API. Vaddio is now part of
+      Legrand AV — older boxes still ship as "Vaddio". Speed ranges
+      (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges
+      are consistent across the RoboSHOT line.
+
+      The ConferenceShot AV is NOT covered here and has its own driver,
+      `vaddio_conferenceshot_av`. Checking it against hardware showed
+      the two protocols have diverged: the ConferenceShot AV has a
+      seven-channel audio mixer, readable absolute pan/tilt/zoom,
+      video mute, LED and IR-cut control and a CCU gamma value that
+      this driver does not carry, and it does NOT have the CCU scenes
+      or Tri-Synchronous Motion presets that this driver sends. Take
+      the ConferenceShot 10 and FX as unverified for the same reason:
+      the ConferenceShot line should not be assumed to match RoboSHOT
+      until each is read against its own manual or a unit.
 
 transport: tcp
 delimiter: "\r\n"
@@ -101,26 +109,33 @@ help:
     port 23 lets external controllers drive pan/tilt/zoom, recall the
     16 onboard presets (with optional Tri-Synchronous Motion for
     cinematic moves), tweak iris / gain / white balance, and put the
-    camera in standby. The same commands work across every RoboSHOT and
-    ConferenceShot model.
+    camera in standby. Telnet is disabled on the camera out of the box —
+    turn it on first, on the web interface's Security page.
+
+    The ConferenceShot AV is not this driver: its protocol has diverged
+    far enough to need its own, `vaddio_conferenceshot_av`.
   setup: >
-    1. Set a static IP on the camera in its web interface, or set a
+    1. Turn Telnet on first. In the camera's web interface, open
+       Security and enable Telnet access. Vaddio ships it disabled on
+       every firmware issued after mid-December 2019, and nothing on
+       port 23 answers until you enable it.
+    2. Set a static IP on the camera in its web interface, or set a
        DHCP reservation in your router.
-    2. In the camera's web interface, on the Security page, confirm
-       (or change) the admin password. The default is "password" —
-       Vaddio strongly recommends changing it.
-    3. Enter the camera's IP address, the username (default `admin`),
+    3. On the same Security page, confirm (or change) the admin
+       password. The default is "password" — Vaddio strongly
+       recommends changing it.
+    4. Enter the camera's IP address, the username (default `admin`),
        and the password below. Telnet sessions reuse the same admin
        credentials as the web UI.
-    4. Pan / tilt / zoom commands are drive-style — they keep moving
+    5. Pan / tilt / zoom commands are drive-style — they keep moving
        until you send the matching stop. Use the per-axis "stop"
        commands or the per-axis variable-speed drive commands with
        speed=0 to halt.
-    5. The 16 pan/tilt/zoom presets (camera preset recall N) are
+    6. The 16 pan/tilt/zoom presets (camera preset recall N) are
        saved in the camera. Use Tri-Synchronous Motion (the optional
        `tri-sync` speed parameter on store) for smooth simultaneous
        pan/tilt/zoom moves between presets.
-    6. CCU (color / lighting) values follow Vaddio's documented ranges:
+    7. CCU (color / lighting) values follow Vaddio's documented ranges:
        iris 0-11, gain 0-11, detail 0-15, chroma 0-14, red_gain and
        blue_gain 0-255. red/blue gain are only writable when auto white
        balance is off; iris and gain are only writable when auto-iris
@@ -132,13 +147,44 @@ discovery:
   # RoboSHOT line — confirmed across firmware 3.4-3.6 release notes
   # and the Integrator's Complete Guides for Roboshot 20/40 UHD.
   # (Vaddio's ONVIF-capable cameras are EasyIP and AV Bridge
-  # MatrixMIX, which would be separate drivers.) Vaddio also runs
-  # its Deployment Tool on mDNS but the exact service-type PTR
-  # string is not publicly documented; hint-only via OUI + the
-  # factory hostname pattern.
-  oui:
-    - "00:1e:c0"   # Vaddio
-    - "08:00:6b"   # Legrand AV (parent)
+  # MatrixMIX, which would be separate drivers.)
+  #
+  # Port 23 is NOT a usable signal for this family: Vaddio ships Telnet
+  # disabled on every firmware issued after mid-December 2019, so a
+  # perfectly healthy camera has nothing listening there until an
+  # integrator turns it on.
+  #
+  # Two OUI entries were removed here in 1.4.0 because neither belongs
+  # to Vaddio. `00:1e:c0` is a Microchip Technology block and `08:00:6b`
+  # is Accel Technologies. Vaddio buys its MACs from Microchip, so the
+  # first was real-but-useless — it would have claimed every
+  # Microchip-based device on the subnet — and a ConferenceShot AV on
+  # the bench turned out to be on `68:27:19`, a different Microchip
+  # block again. There is no Vaddio OUI to hint on; the mDNS service
+  # below is the signal that actually works.
+  # NOT declared here: the `_vaddiodevice._tcp.local.` mDNS service, which
+  # every Vaddio device on this generation advertises. It identifies the
+  # VENDOR, not the model — a RoboSHOT and a ConferenceShot AV answer the
+  # same service type — and a fingerprint may be claimed by only one driver,
+  # so declaring it would make whichever driver claimed it mis-identify the
+  # rest of the family. The model lives in the mDNS instance name and in a
+  # JSON blob in the TXT record, and the hint parser can filter a service
+  # only by k/v TXT pairs. The probe below reads the model directly instead.
+  tcp_probe:
+    # The web interface answers this one path with no credentials, over
+    # HTTPS, whether or not Telnet is enabled. Anchored on RoboSHOT so
+    # this driver cannot claim a ConferenceShot AV, which answers the
+    # same path with its own model name and has its own driver.
+    port: 443
+    tls: true
+    send_ascii: "GET /api/config/system/product HTTP/1.1\r\nHost: openavc-discovery\r\nConnection: close\r\n\r\n"
+    expect_regex: '"name"\s*:\s*"RoboSHOT[^"]*"'
+    timeout_ms: 4000
+    extract_manufacturer: "Vaddio"
+    extract:
+      model:
+        regex: '"name"\s*:\s*"([^"]+)"'
+        group: 1
   hostname:
     - "^vaddio-"
     - "^Vaddio-"

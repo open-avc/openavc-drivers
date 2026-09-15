@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 9,
+    "total_drivers": 10,
     "shards": null,
     "category": "camera"
   },
@@ -614,11 +614,89 @@
       }
     },
     {
+      "id": "vaddio_conferenceshot_av",
+      "name": "Vaddio ConferenceSHOT AV",
+      "manufacturer": "Vaddio",
+      "category": "camera",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls the Vaddio (Legrand AV) ConferenceSHOT AV conferencing system over its Telnet Serial Command API. Pan/tilt/zoom with absolute positioning and readable position, 16 presets, the full CCU colour and lighting surface, the seven-channel audio mixer as child entities, video mute, indicator LED, IR cut filter, software triggers, IP/USB streaming control with a previewable RTSP stream, and device health.",
+      "source_url": "https://www.adorama.com/col/productManuals/VAD99995000W.pdf",
+      "file": "cameras/vaddio_conferenceshot_av.py",
+      "format": "python",
+      "files": {
+        "cameras/vaddio_conferenceshot_av.py": "37f25e4333ab033f35b6e0c1b9739d91e2feac50e37bca2b900f7d4366fa5e3e",
+        "cameras/vaddio_conferenceshot_av_sim.py": "e7b79afb83066191c810b51f3cf6a926316592eed4c445fd34ed1eafd9e40407"
+      },
+      "ports": [
+        23
+      ],
+      "protocols": [
+        "vaddio_telnet"
+      ],
+      "simulated": true,
+      "verified": true,
+      "min_platform_version": "0.34.0",
+      "tags": [
+        "ptz",
+        "camera",
+        "conferencing",
+        "usb",
+        "audio",
+        "mixer",
+        "vaddio",
+        "legrand",
+        "conferenceshot",
+        "telnet",
+        "rtsp"
+      ],
+      "help": {
+        "overview": "The Vaddio ConferenceSHOT AV is a PTZ camera and audio mixer in one: a 10x optical zoom camera, two EasyMic microphone inputs, a line output for the room speaker, USB 3.0 record and playback, and an H.264 IP stream. This driver drives all of it over the camera's Telnet API \u2014 camera moves and presets, colour and lighting, per-channel levels and mutes, video mute for privacy, and the stream itself.",
+        "setup": "1. TURN TELNET ON FIRST. In the camera's web interface, open Security and enable Telnet access. Vaddio ships it disabled on every firmware issued after mid-December 2019, and nothing on port 23 answers until you enable it.\n2. Give the camera a static IP, or reserve its DHCP lease.\n3. Enter the IP address, the admin username (default 'admin') and the admin password below. Telnet uses the same admin account as the web interface.\n4. Pan, tilt and zoom come in two styles. The drive commands (Pan Left, Tilt Up, Zoom In) keep moving until you send the matching stop, which is what you bind to a press-and-hold button. The position commands (Go To Pan, Go To PTZ Position) move to an absolute angle and are what you bind to a recall.\n5. Audio channels appear as sub-devices. Each has a level in dB (-42 to +6) and a mute, so a panel fader binds straight to the channel you mean. Two things about mute are worth knowing before you wire a panel: master mute covers the microphone path only \u2014 both EasyMics and the USB record stream \u2014 and while it is on the camera refuses to change those three channels one at a time. Standby forces master mute on, so an audio button does nothing until the camera is awake.\n6. To see the camera in a Video Panel, turn IP streaming on and the driver publishes the RTSP address for you."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Vaddio",
+          "models": [
+            "ConferenceSHOT AV"
+          ],
+          "confidence": "full",
+          "notes": "Tested against a ConferenceSHOT AV on firmware 1.7.2. Telnet must be enabled on the web interface's Security page first \u2014 it is off by default on every firmware issued after mid-December 2019."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET /api/config/system/product HTTP/1.1\r\nHost: openavc-discovery\r\nConnection: close\r\n\r\n",
+          "expect_regex": "\"name\"\\s*:\\s*\"ConferenceSHOT AV\"",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "Vaddio",
+          "extract": {
+            "model": {
+              "regex": "\"name\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            }
+          }
+        },
+        "hostname": [
+          "^vaddio-conferenceshot-av",
+          "^conferenceshot-av"
+        ],
+        "manufacturer_alias": [
+          "vaddio",
+          "legrand",
+          "legrand av"
+        ]
+      }
+    },
+    {
       "id": "vaddio_roboshot",
       "name": "Vaddio RoboSHOT / ConferenceShot",
       "manufacturer": "Vaddio",
       "category": "camera",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Vaddio (Legrand AV) RoboSHOT and ConferenceShot PTZ cameras via the Telnet Serial Command API on port 23. Covers pan/tilt/zoom, focus, 16 presets with Tri-Synchronous Motion, CCU (color / iris / gain / detail / white-balance) controls, factory & custom CCU scenes, and standby. One driver covers the entire RoboSHOT family \u2014 HDBT, HD-SDI, NDI, IW, USB.\n",
@@ -626,7 +704,7 @@
       "file": "cameras/vaddio_roboshot.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/vaddio_roboshot.avcdriver": "ba21ebc39af2a97fdb0b994d6b7478766d0c5051c86096ee29d71bc06529e4e8"
+        "cameras/vaddio_roboshot.avcdriver": "eb28aed0bd63219f3d1e4b8055795c863bcd074a34d925bcd45c81db9df4f774"
       },
       "ports": [
         23
@@ -647,8 +725,8 @@
         "telnet"
       ],
       "help": {
-        "overview": "The Vaddio (Legrand AV) RoboSHOT family is one of the most widely deployed PTZ camera lines in commercial AV \u2014 boardrooms, lecture capture, courtrooms, broadcast. The Telnet Serial Command API on port 23 lets external controllers drive pan/tilt/zoom, recall the 16 onboard presets (with optional Tri-Synchronous Motion for cinematic moves), tweak iris / gain / white balance, and put the camera in standby. The same commands work across every RoboSHOT and ConferenceShot model.\n",
-        "setup": "1. Set a static IP on the camera in its web interface, or set a\n   DHCP reservation in your router.\n2. In the camera's web interface, on the Security page, confirm\n   (or change) the admin password. The default is \"password\" \u2014\n   Vaddio strongly recommends changing it.\n3. Enter the camera's IP address, the username (default `admin`),\n   and the password below. Telnet sessions reuse the same admin\n   credentials as the web UI.\n4. Pan / tilt / zoom commands are drive-style \u2014 they keep moving\n   until you send the matching stop. Use the per-axis \"stop\"\n   commands or the per-axis variable-speed drive commands with\n   speed=0 to halt.\n5. The 16 pan/tilt/zoom presets (camera preset recall N) are\n   saved in the camera. Use Tri-Synchronous Motion (the optional\n   `tri-sync` speed parameter on store) for smooth simultaneous\n   pan/tilt/zoom moves between presets.\n6. CCU (color / lighting) values follow Vaddio's documented ranges:\n   iris 0-11, gain 0-11, detail 0-15, chroma 0-14, red_gain and\n   blue_gain 0-255. red/blue gain are only writable when auto white\n   balance is off; iris and gain are only writable when auto-iris\n   is off; backlight compensation conflicts with wide dynamic range.\n"
+        "overview": "The Vaddio (Legrand AV) RoboSHOT family is one of the most widely deployed PTZ camera lines in commercial AV \u2014 boardrooms, lecture capture, courtrooms, broadcast. The Telnet Serial Command API on port 23 lets external controllers drive pan/tilt/zoom, recall the 16 onboard presets (with optional Tri-Synchronous Motion for cinematic moves), tweak iris / gain / white balance, and put the camera in standby. Telnet is disabled on the camera out of the box \u2014 turn it on first, on the web interface's Security page.\nThe ConferenceShot AV is not this driver: its protocol has diverged far enough to need its own, `vaddio_conferenceshot_av`.\n",
+        "setup": "1. Turn Telnet on first. In the camera's web interface, open\n   Security and enable Telnet access. Vaddio ships it disabled on\n   every firmware issued after mid-December 2019, and nothing on\n   port 23 answers until you enable it.\n2. Set a static IP on the camera in its web interface, or set a\n   DHCP reservation in your router.\n3. On the same Security page, confirm (or change) the admin\n   password. The default is \"password\" \u2014 Vaddio strongly\n   recommends changing it.\n4. Enter the camera's IP address, the username (default `admin`),\n   and the password below. Telnet sessions reuse the same admin\n   credentials as the web UI.\n5. Pan / tilt / zoom commands are drive-style \u2014 they keep moving\n   until you send the matching stop. Use the per-axis \"stop\"\n   commands or the per-axis variable-speed drive commands with\n   speed=0 to halt.\n6. The 16 pan/tilt/zoom presets (camera preset recall N) are\n   saved in the camera. Use Tri-Synchronous Motion (the optional\n   `tri-sync` speed parameter on store) for smooth simultaneous\n   pan/tilt/zoom moves between presets.\n7. CCU (color / lighting) values follow Vaddio's documented ranges:\n   iris 0-11, gain 0-11, detail 0-15, chroma 0-14, red_gain and\n   blue_gain 0-255. red/blue gain are only writable when auto white\n   balance is off; iris and gain are only writable when auto-iris\n   is off; backlight compensation conflicts with wide dynamic range.\n"
       },
       "compatible_models": [
         {
@@ -669,18 +747,27 @@
             "RoboSHOT USB",
             "RoboSHOT UHD-USB",
             "ConferenceShot 10",
-            "ConferenceShot AV",
             "ConferenceShot FX"
           ],
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ],
       "discovery": {
-        "oui": [
-          "00:1e:c0",
-          "08:00:6b"
-        ],
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET /api/config/system/product HTTP/1.1\r\nHost: openavc-discovery\r\nConnection: close\r\n\r\n",
+          "expect_regex": "\"name\"\\s*:\\s*\"RoboSHOT[^\"]*\"",
+          "timeout_ms": 4000,
+          "extract_manufacturer": "Vaddio",
+          "extract": {
+            "model": {
+              "regex": "\"name\"\\s*:\\s*\"([^\"]+)\"",
+              "group": 1
+            }
+          }
+        },
         "hostname": [
           "^vaddio-",
           "^Vaddio-",

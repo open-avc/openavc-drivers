@@ -10040,19 +10040,19 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
     {
       "manufacturer": "Vaddio",
-      "model": "ConferenceShot AV",
+      "model": "ConferenceSHOT AV",
       "category": "camera",
       "drivers": [
         {
-          "id": "vaddio_roboshot",
-          "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "id": "vaddio_conferenceshot_av",
+          "confidence": "full",
+          "notes": "Tested against a ConferenceSHOT AV on firmware 1.7.2. Telnet must be enabled on the web interface's Security page first \u2014 it is off by default on every firmware issued after mid-December 2019."
         }
       ]
     },
@@ -10064,7 +10064,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10076,7 +10076,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10088,7 +10088,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10100,7 +10100,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10112,7 +10112,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10124,7 +10124,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10136,7 +10136,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10148,7 +10148,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10160,7 +10160,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10172,7 +10172,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10184,7 +10184,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10196,7 +10196,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10208,7 +10208,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10220,7 +10220,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },
@@ -10232,7 +10232,7 @@
         {
           "id": "vaddio_roboshot",
           "confidence": "untested",
-          "notes": "The full RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". ConferenceShot models predate the rename and use an older firmware revision but the same command shape. Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the family.\n"
+          "notes": "The RoboSHOT family shares one Telnet API. Vaddio is now part of Legrand AV \u2014 older boxes still ship as \"Vaddio\". Speed ranges (pan 1-24, tilt 1-20, zoom 1-7, focus 1-8) and CCU value ranges are consistent across the RoboSHOT line.\nThe ConferenceShot AV is NOT covered here and has its own driver, `vaddio_conferenceshot_av`. Checking it against hardware showed the two protocols have diverged: the ConferenceShot AV has a seven-channel audio mixer, readable absolute pan/tilt/zoom, video mute, LED and IR-cut control and a CCU gamma value that this driver does not carry, and it does NOT have the CCU scenes or Tri-Synchronous Motion presets that this driver sends. Take the ConferenceShot 10 and FX as unverified for the same reason: the ConferenceShot line should not be assumed to match RoboSHOT until each is read against its own manual or a unit.\n"
         }
       ]
     },

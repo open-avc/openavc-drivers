@@ -84,6 +84,23 @@ log = get_logger(__name__)
 # Wire constants
 # ---------------------------------------------------------------------------
 
+# The camera's web interface, which the Enable Telnet action drives. HTTPS is
+# what a factory unit serves (it ships with plain HTTP off), and the port is
+# fixed: the web interface is not relocatable on this product.
+WEB_PORTS: tuple[tuple[str, int], ...] = (("https", 443), ("http", 80))
+
+# The one sentence every failure ends with. An operator who cannot get the
+# button to work needs the manual path more than they need the reason, so it
+# goes on every unhappy return rather than only the ones where we are sure.
+def manual_steps(host: str) -> str:
+    """The by-hand path, written so it can be followed without this driver."""
+    return (
+        f"To turn it on by hand: open https://{host} in a browser, sign in "
+        f"with the camera's admin account, go to Security, and switch on "
+        f"Telnet access. Then press Retry on the device."
+    )
+
+
 # Every reply block ends with the shell's prompt, which follows a CRLF and
 # carries no newline of its own:
 #     b'camera led get\r\nLED:    off\r\nOK\r\n> '
@@ -278,7 +295,7 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         "name": "Vaddio ConferenceSHOT AV",
         "manufacturer": "Vaddio",
         "category": "camera",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "author": "OpenAVC",
         "min_platform_version": "0.34.0",
         "description": (
@@ -706,6 +723,49 @@ class VaddioConferenceShotAVDriver(BaseDriver):
 
         "quick_actions": [
             "home", "standby_toggle", "video_mute_toggle", "master_mute_toggle",
+        ],
+
+        "actions": [
+            {
+                "id": "enable_telnet",
+                "kind": "setup",
+                "label": "Enable Telnet",
+                "icon": "shield",
+                # Shown whenever the camera is offline, not on a specific
+                # offline_reason. A camera with Telnet off refuses the
+                # connection, but the same button is the answer when the port
+                # is filtered or the camera was re-imaged, and gating on one
+                # reason would hide it in cases that need it.
+                "availability": "offline",
+                "confirm": (
+                    "Sign in to the camera's web interface and switch on "
+                    "Telnet access? This changes a setting on the camera."
+                ),
+                "params": {
+                    "username": {
+                        "type": "string", "default": "admin", "required": True,
+                        "label": "Admin Username",
+                        "help": "The account you use for the camera's web "
+                                "interface. Vaddio ships this as 'admin'.",
+                    },
+                    "password": {
+                        "type": "password", "secret": True, "required": True,
+                        "label": "Admin Password",
+                        "help": "The same password as the camera's web "
+                                "interface. There is no factory default: the "
+                                "camera makes you set one when it is first "
+                                "commissioned.",
+                    },
+                },
+            },
+            {
+                "id": "open_web_interface",
+                "kind": "link",
+                "label": "Open Web Interface",
+                "icon": "external-link",
+                "availability": "always",
+                "url": "https://{host}",
+            },
         ],
 
         "commands": {
@@ -1158,20 +1218,38 @@ class VaddioConferenceShotAVDriver(BaseDriver):
     # -- login -------------------------------------------------------------
 
     async def _pre_connect(self) -> None:
-        """Refuse a login that cannot succeed before opening the socket.
+        """Refuse what cannot succeed, and name the usual reason when it does.
 
-        The camera's shell wants both a username and a password, so a blank
-        either side is a certain rejection. Raising here rather than after
-        connecting keeps the platform's post-auth_failed reconnect pause
-        from spending attempts on a question already answered.
+        Two checks, cheapest first. A blank credential is a certain rejection,
+        and raising before the socket keeps the platform's post-auth_failed
+        reconnect pause from spending attempts on a settled question.
+
+        Then the port. A closed port 23 on this camera is almost always Telnet
+        being switched off rather than anything about the network, and the
+        platform's generic "connection refused" cannot know that. The driver
+        does, so it says so and names the button that fixes it. The probe
+        costs one handshake when Telnet is on and nothing at all when it is
+        off, which is the case being diagnosed.
         """
         if not str(self.config.get("username", "") or "") or not str(
             self.config.get("password", "") or ""
         ):
             raise ConnectionFaultError(
-                "Enter the camera's admin username and password — its Telnet "
-                "session requires both.",
+                "Enter the camera's admin username and password. Its Telnet "
+                "session needs both, and they are the same credentials the "
+                "camera's web interface uses.",
                 code="auth_failed",
+            )
+
+        host = str(self.config.get("host", "") or "").strip()
+        port = int(self.config.get("port", 23) or 23)
+        if host and not await self._port_answers(host, port, timeout=4.0):
+            raise ConnectionFaultError(
+                f"Nothing is answering on port {port} at {host}. Vaddio "
+                f"ships this camera with Telnet switched off, which is the "
+                f"usual cause. Use the Enable Telnet button on this device, "
+                f"or {manual_steps(host)[len('To turn it on by hand: '):]}",
+                code="connection_refused",
             )
 
     async def _post_connect(self) -> None:
@@ -1943,6 +2021,255 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         else:
             await self._read_ccu()
         return True
+
+    # -- setup action: enable Telnet ---------------------------------------
+
+    async def run_setup_action(
+        self, action_id: str, params: dict[str, Any], progress: Any
+    ) -> dict[str, Any]:
+        """Turn Telnet on from the camera's own web interface.
+
+        The camera ships with Telnet disabled and nothing on port 23 answers
+        until somebody enables it, so out of the box this driver cannot
+        connect at all. This does what the Security page does.
+
+        Every unhappy path returns rather than raises, and every message says
+        what the camera said and what to do about it, ending with the by-hand
+        steps. An operator who cannot make the button work has to be able to
+        finish the job without it.
+        """
+        if action_id != "enable_telnet":
+            return await super().run_setup_action(action_id, params, progress)
+
+        host = str(self.config.get("host", "") or "").strip()
+        if not host:
+            return {
+                "success": False,
+                "message": (
+                    "This camera has no IP address set yet. Add its address "
+                    "in the connection settings, then run this again."
+                ),
+            }
+
+        username = str(params.get("username") or "admin").strip()
+        password = str(params.get("password") or "")
+        if not password:
+            return {
+                "success": False,
+                "message": (
+                    "Enter the camera's admin password. It is the same one "
+                    f"the web interface uses. {manual_steps(host)}"
+                ),
+            }
+
+        port = int(self.config.get("port", 23) or 23)
+        already_on = await self._port_answers(host, port, timeout=4.0)
+
+        await progress(f"Looking for the camera's web interface at {host}...", 5)
+        scheme = await self._find_web_interface(host)
+        if scheme is None:
+            return {
+                "success": False,
+                "message": (
+                    f"Could not reach the camera's web interface at {host}. "
+                    f"Check that the camera is powered on, that {host} is "
+                    f"still its address, and that this server can reach it. "
+                    f"A camera left on DHCP can change address after a "
+                    f"reboot."
+                ),
+            }
+
+        await progress("Signing in...", 25)
+        session = await self._web_login(scheme, host, username, password)
+        if session.get("status") == 401:
+            return {
+                "success": False,
+                "message": (
+                    f"The camera would not accept that username and "
+                    f"password. It wants the same admin account as its web "
+                    f"interface. {manual_steps(host)}"
+                ),
+            }
+        if not session.get("cookie"):
+            return {
+                "success": False,
+                "message": (
+                    f"The camera answered the sign-in with "
+                    f"{self._http_reason(session)}, which this driver does "
+                    f"not know how to handle. {manual_steps(host)}"
+                ),
+            }
+
+        await progress("Switching on Telnet access...", 55)
+        res = await self._web_request(
+            "PATCH", scheme, host, "/api/config/account",
+            body={"telnet_enabled": True}, cookie=session["cookie"],
+        )
+        status = res.get("status")
+        if status == 403:
+            return {
+                "success": False,
+                "message": (
+                    f"'{username}' can sign in to the camera but is not "
+                    f"allowed to change its settings. Use the camera's admin "
+                    f"account rather than its user account. "
+                    f"{manual_steps(host)}"
+                ),
+            }
+        if status == 404:
+            return {
+                "success": False,
+                "message": (
+                    f"This camera's firmware does not accept the change over "
+                    f"the network. {manual_steps(host)}"
+                ),
+            }
+        if status not in (200, 204):
+            return {
+                "success": False,
+                "message": (
+                    f"The camera answered {self._http_reason(res)} when "
+                    f"asked to switch Telnet on. {manual_steps(host)}"
+                ),
+            }
+
+        await progress("Checking that the camera is answering...", 80)
+        if not await self._port_answers(host, port):
+            return {
+                "success": False,
+                "message": (
+                    f"The camera accepted the change but is still not "
+                    f"answering on port {port}. Check the Security page to "
+                    f"confirm Telnet access is on. If it is, something "
+                    f"between this server and the camera is blocking port "
+                    f"{port}."
+                ),
+            }
+
+        await progress("Telnet is on. Connecting...", 95)
+        await self.request_reconnect()
+        if already_on:
+            return {
+                "success": True,
+                "message": (
+                    f"Telnet was already on and the camera is answering on "
+                    f"port {port}. Nothing needed changing. If the camera is "
+                    f"still offline, the problem is elsewhere: check the "
+                    f"username and password in its connection settings."
+                ),
+            }
+        return {
+            "success": True,
+            "message": (
+                f"Telnet is on and the camera is answering on port {port}. "
+                f"It should come online in a moment."
+            ),
+        }
+
+    @staticmethod
+    def _http_reason(res: dict[str, Any]) -> str:
+        """Describe an HTTP outcome in words an operator can act on."""
+        if res.get("error"):
+            return str(res["error"])
+        status = res.get("status")
+        return f"HTTP {status}" if status else "no reply"
+
+    async def _find_web_interface(self, host: str) -> str | None:
+        """Return the scheme the camera serves its web interface on.
+
+        A factory unit answers HTTPS and has plain HTTP switched off, but an
+        integrator may have turned HTTP back on, so both are tried.
+        """
+        for scheme, port in WEB_PORTS:
+            if await self._port_answers(host, port, timeout=4.0):
+                return scheme
+        return None
+
+    @staticmethod
+    async def _port_answers(host: str, port: int, timeout: float = 5.0) -> bool:
+        """True when a TCP connection to host:port completes."""
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), timeout=timeout
+            )
+        except (OSError, asyncio.TimeoutError):
+            return False
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except (OSError, asyncio.TimeoutError):
+            pass
+        return True
+
+    async def _web_login(
+        self, scheme: str, host: str, username: str, password: str
+    ) -> dict[str, Any]:
+        """Sign in to the web interface. Returns the session cookie on success."""
+        res = await self._web_request(
+            "POST", scheme, host, "/api/config/session",
+            body={"username": username, "password": password},
+        )
+        if res.get("status") in (200, 201):
+            res["cookie"] = res.get("cookie") or ""
+        return res
+
+    async def _web_request(
+        self,
+        method: str,
+        scheme: str,
+        host: str,
+        path: str,
+        body: dict[str, Any] | None = None,
+        cookie: str = "",
+    ) -> dict[str, Any]:
+        """One request to the camera's web interface.
+
+        Stdlib only, on a worker thread. The camera ships a self-signed
+        certificate, so the chain is not verified; this runs before the device
+        is trusted or even reachable over its control port, and reads nothing
+        back but a status code.
+
+        Returns ``{status, body, cookie}`` or ``{error}``; it never raises, so
+        every caller above can turn the outcome into a sentence.
+        """
+        import json as _json
+        import ssl
+        import urllib.error
+        import urllib.request
+
+        url = f"{scheme}://{host}{path}"
+        data = _json.dumps(body).encode() if body is not None else None
+
+        def _call() -> dict[str, Any]:
+            req = urllib.request.Request(url, data=data, method=method)
+            if data is not None:
+                req.add_header("Content-Type", "application/json")
+            if cookie:
+                req.add_header("Cookie", cookie)
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            opener = urllib.request.build_opener(
+                urllib.request.HTTPSHandler(context=ctx)
+            )
+            try:
+                with opener.open(req, timeout=15) as resp:
+                    raw = resp.headers.get("Set-Cookie", "") or ""
+                    return {
+                        "status": resp.status,
+                        "body": resp.read().decode("utf-8", "replace"),
+                        "cookie": raw.split(";")[0] if raw else "",
+                    }
+            except urllib.error.HTTPError as exc:
+                return {
+                    "status": exc.code,
+                    "body": exc.read().decode("utf-8", "replace"),
+                    "cookie": "",
+                }
+            except (urllib.error.URLError, OSError, ValueError) as exc:
+                return {"error": str(getattr(exc, "reason", None) or exc)}
+
+        return await asyncio.to_thread(_call)
 
     # -- helpers -----------------------------------------------------------
 

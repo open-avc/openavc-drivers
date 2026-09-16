@@ -602,6 +602,22 @@ class StubBaseDriver:
             await self.send_udp(packet, host=direct, port=port)
         return normalized
 
+    async def run_setup_action(
+        self,
+        action_id: str,
+        params: dict[str, Any],
+        progress: Any,
+    ) -> dict[str, Any]:
+        """Default for a driver that declares no kind:"setup" action.
+
+        Modelled because a driver that DOES declare one delegates the ids it
+        does not own back to this, and a test that could not reach the default
+        could not tell "handled it" from "swallowed it".
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} has no setup action {action_id!r}"
+        )
+
     def redact_in_log(self, value: str) -> None:
         """Mask a runtime secret (a session token) in this device's log.
 

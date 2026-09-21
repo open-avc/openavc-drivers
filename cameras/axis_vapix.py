@@ -344,7 +344,7 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "author": "OpenAVC",
         "description": (
             "Controls Axis network cameras through VAPIX, Axis's own API: remote "
@@ -357,7 +357,7 @@ class AxisVapixDriver(BaseDriver):
         ),
         "source_url": "https://developer.axis.com/vapix/",
         "tags": ["axis", "vapix", "camera", "ptz", "rtsp", "day-night", "io"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["vapix", "http"],
         "ports": [80, 443],

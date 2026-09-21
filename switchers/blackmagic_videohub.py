@@ -97,7 +97,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         "name": "Blackmagic Videohub",
         "manufacturer": "Blackmagic Design",
         "category": "switcher",
-        "version": "1.3.3",
+        "version": "1.3.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -110,7 +110,7 @@ class BlackmagicVideohubDriver(BaseDriver):
         ),
         "source_url": "https://documents.blackmagicdesign.com/DeveloperManuals/VideohubEthernetProtocol.pdf",
         "tags": ["matrix-switcher", "sdi", "12g", "videohub", "broadcast"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["videohub"],
         "ports": [9990],

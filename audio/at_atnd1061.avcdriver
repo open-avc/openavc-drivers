@@ -180,7 +180,7 @@ id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.4.0
+version: 1.4.1
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -198,7 +198,7 @@ description: >
 
 source_url: https://docs.audio-technica.com/all/ATND1061_IP_Control_Specifications_Document_Ver9.0_EN_web_250930.pdf
 tags: [microphone, ceiling-mic, beamforming, array, conferencing, dante, automixer, camera-tracking]
-verified: false
+verified: true
 simulated: true
 ports: [17300]
 compatible_models:

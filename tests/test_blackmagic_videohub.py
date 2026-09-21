@@ -313,7 +313,7 @@ async def _make_pair(sim_config=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.3"
+    assert DRV.BlackmagicVideohubDriver.DRIVER_INFO["version"] == "1.3.4"
 
 
 def test_child_entity_types_declared():

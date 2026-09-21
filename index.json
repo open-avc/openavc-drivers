@@ -1015,7 +1015,7 @@
       "name": "Audio-Technica ATND1061",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, room type, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation or read on demand. Live meters and talker position can each be switched on and off at runtime from a macro or panel button. Several microphones in one room can be linked so a mute, preset recall or power-save follows across all of them.\n",
@@ -1023,12 +1023,13 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "b5d7bf425354f9ccf52c767701d1acd834c948780fb891048de534d9ec10754a"
+        "audio/at_atnd1061.avcdriver": "523f383febb605977c503a3ccd1bcaf24a02ecd71391968f84214a06e8a97231"
       },
       "ports": [
         17300
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.27.0",
       "tags": [
         "microphone",
@@ -1453,7 +1454,7 @@
       "name": "Axis Camera (VAPIX)",
       "manufacturer": "Axis",
       "category": "camera",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
@@ -1461,7 +1462,7 @@
       "file": "cameras/axis_vapix.py",
       "format": "python",
       "files": {
-        "cameras/axis_vapix.py": "8d5dbe56ecdce034d5665d5f922b92405754f363a80a808f3977315fd5fdac19",
+        "cameras/axis_vapix.py": "2f971dac9517e0afb56785c63eb1fe8550c42ca7ac53205abae76738d1392098",
         "cameras/axis_vapix_sim.py": "2a5148a7efa84f7e3c04c61b6640d90c87f2a665d00866a942c64949b927a79a"
       },
       "ports": [
@@ -1473,6 +1474,7 @@
         "http"
       ],
       "simulated": true,
+      "verified": true,
       "tags": [
         "axis",
         "vapix",
@@ -2135,7 +2137,7 @@
       "name": "Blackmagic Videohub",
       "manufacturer": "Blackmagic Design",
       "category": "switcher",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Video and monitoring outputs, inputs, routing, output locks, and labels are modeled as child entities sized to the connected frame \u2014 from a 12\u00d712 Smart Videohub to a 288\u00d7288 Universal Videohub.",
@@ -2143,7 +2145,7 @@
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
       "files": {
-        "switchers/blackmagic_videohub.py": "8ecb2e23a86922162b24994b73926595f08e772262920ff4c6ef884d82d8d9b8",
+        "switchers/blackmagic_videohub.py": "2967ecea12f88702f335e3d5712f75c3886f2d24d6d103c952693959037027a5",
         "switchers/blackmagic_videohub_sim.py": "d0caa03dd64e36d5b1e02475bc96d21dd6156cdca0c52a48931596a3723b37cd"
       },
       "ports": [
@@ -2153,6 +2155,7 @@
         "videohub"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.25.0",
       "tags": [
         "matrix-switcher",
@@ -5127,7 +5130,7 @@
       "name": "ONVIF Camera",
       "manufacturer": "ONVIF",
       "category": "camera",
-      "version": "2.0.4",
+      "version": "2.0.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls any ONVIF Profile S or Profile T camera or video encoder: pan, tilt, zoom and focus, presets and home, image settings, relay outputs and digital inputs, plus the camera's RTSP stream and snapshot addresses for the Video Panel. Motion, tamper, signal-loss and input changes arrive as events. Use a brand's own driver when the catalog has one; this one covers everything else.",
@@ -5135,7 +5138,7 @@
       "file": "cameras/onvif_camera.py",
       "format": "python",
       "files": {
-        "cameras/onvif_camera.py": "36c1b5e1aab2beb00aee16f7659110001288ee6960c96904eb2b9d7ba8421e96",
+        "cameras/onvif_camera.py": "bc7102af74465436a4521bbf0430d353b763069ab0055bb7a6f802a5673585b3",
         "cameras/onvif_camera_discovery.py": "274b89c3a799d65ee923225ec45bc81420a164b372504fcbd91c8845489b5d47",
         "cameras/onvif_camera_sim.py": "722023e4ed54b3b8c4d4160e23a5492f896a217bbe6a869bf552f30db02c7a58"
       },
@@ -5146,6 +5149,7 @@
         "onvif"
       ],
       "simulated": true,
+      "verified": true,
       "tags": [
         "onvif",
         "ptz",
@@ -5256,7 +5260,7 @@
       "name": "Panasonic AW-HE/UE/UN PTZ Camera",
       "manufacturer": "Panasonic",
       "category": "camera",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras via the documented HTTP CGI protocol (port 80). Covers power, pan/tilt drive and absolute positioning, zoom, focus (auto/manual), iris (auto/ manual), 100 presets, tally, wireless remote enable, and zoom-linked pan/tilt speed, with state changes pushed instantly by the camera's update-notification channel. Image-quality controls (gain, white balance, scene files, gamma) are install-time setup left to the camera's web UI.\n",
@@ -5264,7 +5268,7 @@
       "file": "cameras/panasonic_awhe.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/panasonic_awhe.avcdriver": "f1073d13da724ea98a3ede0aac7992c031bab8090641415ebc3476c471527470"
+        "cameras/panasonic_awhe.avcdriver": "846e7ccffb0a892db9a95b42c1863e93c69f577dd493971a61782356a401c8eb"
       },
       "ports": [
         80
@@ -5273,6 +5277,7 @@
         "panasonic_awhe"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.23.0",
       "tags": [
         "ptz",

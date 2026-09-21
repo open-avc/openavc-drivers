@@ -459,7 +459,7 @@
       "name": "Blackmagic Videohub",
       "manufacturer": "Blackmagic Design",
       "category": "switcher",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Blackmagic Design Videohub routers over the Videohub Ethernet Protocol (TCP 9990). Video and monitoring outputs, inputs, routing, output locks, and labels are modeled as child entities sized to the connected frame \u2014 from a 12\u00d712 Smart Videohub to a 288\u00d7288 Universal Videohub.",
@@ -467,7 +467,7 @@
       "file": "switchers/blackmagic_videohub.py",
       "format": "python",
       "files": {
-        "switchers/blackmagic_videohub.py": "8ecb2e23a86922162b24994b73926595f08e772262920ff4c6ef884d82d8d9b8",
+        "switchers/blackmagic_videohub.py": "2967ecea12f88702f335e3d5712f75c3886f2d24d6d103c952693959037027a5",
         "switchers/blackmagic_videohub_sim.py": "d0caa03dd64e36d5b1e02475bc96d21dd6156cdca0c52a48931596a3723b37cd"
       },
       "ports": [
@@ -477,6 +477,7 @@
         "videohub"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.25.0",
       "tags": [
         "matrix-switcher",

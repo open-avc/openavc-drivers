@@ -458,7 +458,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.4",
+        "version": "2.0.5",
         "author": "OpenAVC",
         "description": (
             "Controls any ONVIF Profile S or Profile T camera or video encoder: "
@@ -470,7 +470,7 @@ class OnvifCameraDriver(BaseDriver):
         ),
         "source_url": "https://www.onvif.org/specs/core/ONVIF-Core-Specification.pdf",
         "tags": ["onvif", "ptz", "camera", "rtsp", "profile-s", "profile-t"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["onvif"],
         "ports": [80],

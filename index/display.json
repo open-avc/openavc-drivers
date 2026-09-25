@@ -365,7 +365,7 @@
       "name": "Samsung MDC Display",
       "manufacturer": "Samsung",
       "category": "display",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Samsung commercial displays via the MDC (Multiple Display Control) binary protocol over TCP. Each Set ID on the chain is a display child entity with power, volume, mute, input, and picture settings (brightness, contrast, backlight, picture mode, color tone).",
@@ -373,7 +373,7 @@
       "file": "displays/samsung_mdc.py",
       "format": "python",
       "files": {
-        "displays/samsung_mdc.py": "52da2d90f3626be39a504146fed0affea918aa24b0c55b566462d9096d9b5e2f",
+        "displays/samsung_mdc.py": "b41368f3027cf2b06ba94319e3e2c5a95e02d0584be32ac34a022293d2ad0f65",
         "displays/samsung_mdc_sim.py": "3757e583f05eab55a9fbce8b58df8ee2e8c8de33c5510fc1e9551221c3dbdfcd"
       },
       "ports": [
@@ -431,7 +431,8 @@
           "64:b5:c6",
           "8c:71:f8",
           "b4:79:a7",
-          "d0:03:4b"
+          "d0:03:4b",
+          "f8:77:b8"
         ]
       }
     },

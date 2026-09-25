@@ -422,8 +422,16 @@ def test_parse_frame_multiple():
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.0"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.1"
     assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.34.0"
+
+
+def test_the_dm75e_prefix_is_a_discovery_hint():
+    # The DM75E on the bench has MAC f8:77:b8:..., a Samsung Electronics block.
+    # The TCP probe matches it only because its refusal also starts AA FF, so
+    # with network control off or the port busy, this prefix is what still
+    # offers the driver as a possible match.
+    assert "f8:77:b8" in DRV.SamsungMDCDriver.DRIVER_INFO["discovery"]["oui"]
 
 
 def test_powering_on_declares_the_restart_window():

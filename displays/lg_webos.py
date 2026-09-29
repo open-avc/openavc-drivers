@@ -123,7 +123,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.2.1",
+        "version": "4.2.2",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -256,12 +256,13 @@ class LgWebosDriver(BaseDriver):
             },
             # webOS TVs advertise this vendor URN over SSDP.
             "ssdp": ["urn:lge-com:service:webos-second-screen:1"],
-            # LG spreads TVs across many OUI blocks (incl. wireless-module
-            # vendors) — soft hints only; 60:8d:26 seen on a real webOS TV.
+            # LG's own IEEE blocks (LG Electronics and LG Innotek). A TV on a
+            # wireless module can carry the module maker's prefix instead (a
+            # real webOS TV read 60:8d:26, an Arcadyan block): that prefix is
+            # on other brands' gear too, so it is not declared.
             "oui": [
-                "60:8d:26", "00:05:c9", "00:e0:91", "10:68:3f", "2c:54:cf",
+                "00:05:c9", "00:e0:91", "10:68:3f", "2c:54:cf",
                 "34:4d:f7", "38:8c:50", "58:a2:b5", "64:99:5d", "a8:23:fe",
-                "bc:f1:71",
             ],
             "hostname": [r"^LGwebOSTV", r"^\[LG\]"],
             "manufacturer_alias": ["lg", "lg electronics", "lge"],

@@ -346,7 +346,7 @@ class EpiphanPearlDriver(BaseDriver):
         "name": "Epiphan Pearl",
         "manufacturer": "Epiphan",
         "category": "streaming",
-        "version": "1.0.0",
+        "version": "1.0.1",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (the sibling HTTP drivers declare the same floor); the
         # channel_rtsp_ports table field alone would need 0.23.0.
@@ -952,8 +952,10 @@ class EpiphanPearlDriver(BaseDriver):
         "discovery": {
             # No documented unauthenticated answer identifies a Pearl, and its
             # Bonjour service type is not published, so this driver is a
-            # candidate by vendor name only: a scan that captures "Epiphan"
-            # anywhere offers it.
+            # candidate by vendor name and MAC block only: a scan that
+            # captures "Epiphan" anywhere, or a MAC in Epiphan's only IEEE
+            # block (the MA-M 58:95:d8:7), offers it.
+            "oui": ["58:95:d8:7"],
             "manufacturer_alias": ["Epiphan", "Epiphan Systems", "Epiphan Systems Inc", "Epiphan Video"],
         },
     }

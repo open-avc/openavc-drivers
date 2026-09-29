@@ -111,7 +111,7 @@ class BirdDogPTZDriver(BaseDriver):
         "name": "BirdDog PTZ Camera",
         "manufacturer": "BirdDog",
         "category": "camera",
-        "version": "1.5.2",
+        "version": "1.5.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -475,7 +475,7 @@ class BirdDogPTZDriver(BaseDriver):
             # Eyes P200 / BirdUI manuals.
             #   API: birddog.tv/AV/API/index.html
             #   OUI: maclookup.app/macaddress/d42000a (MA-M scope D4:20:00:A*)
-            "oui": ["d4:20:00"],
+            "oui": ["d4:20:00:a"],
             "hostname": ["^birddog-", "^BirdDog-"],
             "manufacturer_alias": ["birddog", "bird-dog", "bird dog"],
         },

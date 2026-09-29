@@ -286,7 +286,7 @@ class SonosDriver(BaseDriver):
         "name": "Sonos Speaker",
         "manufacturer": "Sonos",
         "category": "audio",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "author": "OpenAVC",
         "description": (
             "Controls Sonos speakers via the local UPnP API. Play/pause, "
@@ -604,6 +604,7 @@ class SonosDriver(BaseDriver):
                 "54:2a:1b",   # Sonos (current)
                 "b8:e9:37",   # Sonos (legacy)
                 "78:28:ca",   # Sonos
+                "34:7e:5c",   # Sonos (read off an Amp)
             ],
             "hostname": ["^Sonos-", "^sonos"],
             "port_open": [1400],

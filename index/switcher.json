@@ -544,7 +544,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "switcher",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext REST API. One driver adapts to the endpoint's role: transmit stream + bitrate + HDMI-in monitoring on encoders, stream routing + scaler output + video wall on decoders. Covers the E20/D20/D200, E30/D30, and combo 35x/36x lines.",
@@ -552,7 +552,7 @@
       "file": "switchers/crestron_nvx.py",
       "format": "python",
       "files": {
-        "switchers/crestron_nvx.py": "b601cc6e49f6c842ed4a0d982765636250bdd82e8784b7107c676ad64da77bab",
+        "switchers/crestron_nvx.py": "3726287b2943606f4b576f3ade2c0808782cdea4db9364d8f845b67ab0d43eba",
         "switchers/crestron_nvx_sim.py": "47b270cbe9067875ea3b8f485a4794b6cbd9269d93220bb00a228bd5e586f6da"
       },
       "ports": [
@@ -605,9 +605,7 @@
         },
         "oui": [
           "c4:42:68",
-          "00:10:7f",
-          "00:0e:80",
-          "00:1f:5d"
+          "00:10:7f"
         ],
         "hostname": [
           "^DM-NVX-"
@@ -1039,7 +1037,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -1047,7 +1045,7 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "67987e04217996f234fcc52c12189823ec06b3e8f8c377debc7bf320de6cd639",
+        "switchers/chazy_control_pro.py": "0d5c71b539788bd752c30170e28b8073731cf948f93e051e1ec63a59d8e04e68",
         "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
         "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
@@ -1101,6 +1099,9 @@
         "python": "./chazy_control_pro_discovery.py",
         "hostname": [
           "^controller(\\.local)?$"
+        ],
+        "oui": [
+          "18:66:96:1"
         ],
         "port_open": [
           23

@@ -86,7 +86,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.4.0",
+        "version": "1.4.1",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -114,9 +114,11 @@ class PolyStudioDriver(BaseDriver):
             # the candidate `urn:polycom:device:VideoOSEndpoint:1` did
             # not turn up in any vendor doc, integrator module, or
             # public PCAP — left unset until a real capture lands.
+            # Polycom's and Poly's IEEE blocks, and two held by companies
+            # Polycom acquired (Obihai, ViaVideo).
             "oui": [
                 "00:04:f2", "64:16:7f", "48:25:67",
-                "9c:ad:ef", "00:e0:db", "00:90:27",
+                "9c:ad:ef", "00:e0:db",
             ],
             "manufacturer_alias": ["poly", "polycom", "hp", "plantronics"],
         },

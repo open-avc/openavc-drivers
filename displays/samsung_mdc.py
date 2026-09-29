@@ -375,7 +375,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.7.1",
+        "version": "1.7.2",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # `restarts_device_for` on power_on and all_on needs 0.34.0.
@@ -457,15 +457,14 @@ class SamsungMDCDriver(BaseDriver):
                 "expect_hex": "AAFF",
                 "extract_manufacturer": "Samsung",
             },
+            # Samsung's own IEEE blocks (Samsung Electronics and Samsung
+            # Electro-Mechanics).
             "oui": [
                 "00:07:ab",
                 "00:e0:64",
                 "14:49:e0",
-                "34:c3:d2",
-                "64:b5:c6",
                 "8c:71:f8",
                 "b4:79:a7",
-                "d0:03:4b",
                 "f8:77:b8",
             ],
         },

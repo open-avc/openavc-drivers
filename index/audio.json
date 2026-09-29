@@ -1142,7 +1142,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -1150,7 +1150,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "9a6ab26b95cae3887019ff3ff3b2e01b219f460faee47d1e1cb1d3e9c7db82ea"
+        "audio/lea_connect.avcdriver": "b22dbe58444cc1f6b65c166c44ecf12de61c6e27c62f132314ebe104ced4b8d7"
       },
       "ports": [
         4321
@@ -1228,9 +1228,6 @@
           "extract_manufacturer": "LEA Professional",
           "timeout_ms": 2000
         },
-        "oui": [
-          "64:8c:bb"
-        ],
         "port_open": [
           4321
         ],
@@ -1843,7 +1840,7 @@
       "name": "Sonos Speaker",
       "manufacturer": "Sonos",
       "category": "audio",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Sonos speakers via the local UPnP API. Play/pause, volume, mute, bass/treble, track info, and transport control. The speaker pushes state changes as they happen (UPnP eventing).",
@@ -1851,7 +1848,7 @@
       "file": "audio/sonos.py",
       "format": "python",
       "files": {
-        "audio/sonos.py": "49c0760c19cc75cfd280887bf99482e451917b7b4eecdc03edc223b2febd8e9b",
+        "audio/sonos.py": "38be91ef6b40ed8ed4b667335bdf789b4675ad51ea1866749aab2a38836facab",
         "audio/sonos_sim.py": "81b822ced3814073ca8f2d924ca5a22b6971344ef85f65a82fb7d9ebdfab5756"
       },
       "ports": [
@@ -1888,7 +1885,8 @@
         "oui": [
           "54:2a:1b",
           "b8:e9:37",
-          "78:28:ca"
+          "78:28:ca",
+          "34:7e:5c"
         ],
         "hostname": [
           "^Sonos-",
@@ -2036,7 +2034,7 @@
       "name": "Turtle AV Dante Bluetooth Wallplate",
       "manufacturer": "TurtleAV",
       "category": "audio",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Turtle AV Dante Bluetooth Wallplate (WPD20BUS) over Telnet. Bridges a stereo Bluetooth source into Dante. Input gain/mute/stereo, Bluetooth pairing window, volume, mute, audio bridging mode, transport (play/pause/skip) with now-playing metadata, connection status, and per-channel parametric EQ.\n",
@@ -2044,7 +2042,7 @@
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/turtle_bt_wallplate.avcdriver": "07b41195f509a7874c14c0d874f30d042b42101b18d3a1baddb0271e035370a3"
+        "audio/turtle_bt_wallplate.avcdriver": "c9b45877857dcb60ee99c60adafa69ecfef38a96ee0d3831da195735daa7bae1"
       },
       "ports": [
         23
@@ -2098,7 +2096,7 @@
           23
         ],
         "oui": [
-          "18:66:96"
+          "18:66:96:1"
         ],
         "manufacturer_alias": [
           "turtleav",

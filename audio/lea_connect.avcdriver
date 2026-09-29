@@ -66,7 +66,7 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: "1.0.2"
+version: "1.0.3"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -228,12 +228,11 @@ discovery:
     expect_regex: '/amp/deviceInfo/modelID "Connect Series'
     extract_manufacturer: "LEA Professional"
     timeout_ms: 2000
-  # OUI read off real hardware (Connect 352D MAC 64:8c:bb:f2:12:f1). LEA publishes
-  # no MAC prefix, so this was not declared until an amp was on the bench. It is a
-  # corroborating signal / vendor-name source; the tcp_probe above does the
-  # identifying.
-  oui:
-    - "64:8c:bb"
+  # No oui hint. The Connect 352D's MAC (64:8c:bb:f2:12:f1) is in a block the
+  # IEEE registry lists under Texas Instruments, the network module's maker, so
+  # the prefix is on other brands' devices too and would label them all
+  # "LEA Professional". LEA holds no block of its own; the tcp_probe above
+  # identifies the amp.
   port_open:
     - 4321
   manufacturer_alias:

@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.3",
+        "version": "1.5.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -217,6 +217,7 @@ class SonyBraviaDriver(BaseDriver):
             "ssdp": [
                 "urn:schemas-sony-com:service:ScalarWebAPI:1",
             ],
+            # Sony's own IEEE blocks.
             "oui": [
                 "00:01:4a",
                 "00:0a:d9",
@@ -224,9 +225,7 @@ class SonyBraviaDriver(BaseDriver):
                 "00:13:a9",
                 "00:1a:80",
                 "04:5d:4b",
-                "40:b8:9a",
                 "54:42:49",
-                "a8:93:4a",
                 "ac:9b:0a",
                 "fc:f1:52",
             ],

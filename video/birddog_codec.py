@@ -49,7 +49,7 @@ class BirdDogCodecDriver(BaseDriver):
         "name": "BirdDog NDI Encoder/Decoder",
         "manufacturer": "BirdDog",
         "category": "video",
-        "version": "1.5.2",
+        "version": "1.5.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -252,10 +252,11 @@ class BirdDogCodecDriver(BaseDriver):
             # BirdDog NDI encoders/decoders advertise NDI on `_ndi._tcp`
             # (claimed by ndi_source) and expose the BirdDog REST API on
             # TCP 8080, but 8080 is too generic to use as a hint — every
-            # web admin UI on the LAN opens it. OUI D4:20:00 is BirdDog
-            # Australia's MA-M block. Factory default hostname is
+            # web admin UI on the LAN opens it. OUI D4:20:00:A is BirdDog
+            # Australia's MA-M block (the /24 around it is split among other
+            # companies). Factory default hostname is
             # `birddog-<xxxxx>` per the Eyes P200 / BirdUI manuals.
-            "oui": ["d4:20:00"],
+            "oui": ["d4:20:00:a"],
             "hostname": ["^birddog-", "^BirdDog-"],
             "manufacturer_alias": ["birddog", "bird-dog", "bird dog"],
         },

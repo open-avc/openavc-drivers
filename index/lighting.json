@@ -455,7 +455,7 @@
       "name": "Philips Hue Bridge",
       "manufacturer": "Signify",
       "category": "lighting",
-      "version": "3.0.2",
+      "version": "3.0.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Philips Hue lights, rooms, zones, and scenes via the CLIP v2 API on a Hue Bridge (HTTPS). Live push state from the bridge's event stream; every light and group is a child entity; pair with the bridge's link button straight from the device page. Requires the square v2 bridge (BSB002).",
@@ -463,7 +463,7 @@
       "file": "lighting/philips_hue.py",
       "format": "python",
       "files": {
-        "lighting/philips_hue.py": "0c3e5a969e6415bd39b3dafea946e7d7c5fcfcae6116a392633b40c0da0aeb57",
+        "lighting/philips_hue.py": "5669ae050c5634aa8fa116a51ed533606f8481e3d18ad398efe19ce2866aa9e9",
         "lighting/philips_hue_sim.py": "07b2365e117f674195e111ac28fced23d577d44f67746b6db98b97bf7abfd636"
       },
       "ports": [
@@ -502,8 +502,7 @@
         "mdns": "_hue._tcp.local.",
         "oui": [
           "00:17:88",
-          "ec:b5:fa",
-          "1c:53:f9"
+          "ec:b5:fa"
         ],
         "tcp_probe": {
           "port": 80,

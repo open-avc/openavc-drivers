@@ -424,7 +424,7 @@ def _make_driver(sim, psk="secret"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.3"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.4"
     assert DRV.SonyBraviaDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 

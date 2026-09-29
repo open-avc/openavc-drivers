@@ -44,7 +44,7 @@ id: turtle_bt_wallplate
 name: Turtle AV Dante Bluetooth Wallplate
 manufacturer: TurtleAV
 category: audio
-version: 1.2.0
+version: 1.2.1
 author: OpenAVC
 min_platform_version: "0.23.0"
 description: >
@@ -107,9 +107,10 @@ discovery:
   # host in a scan (rate-limited, source-IP-bound); the reply gates the match,
   # so non-Turtle Telnet devices never false-identify. port_open keeps the
   # device surfaced as a candidate if the probe can't run (its single Telnet
-  # session is busy). oui = vendor-name display only (18:66:96 is TurtleAV's,
+  # session is busy). oui = vendor-name display only: TurtleAV's IEEE block is
+  # the MA-M 18:66:96:1 (the /24 around it is split among other companies),
   # shared with the Chazy/Darwin controllers, so it does not by itself fire the
-  # manufacturer alias). Dante mDNS is generic across all Dante hardware, so it
+  # manufacturer alias. Dante mDNS is generic across all Dante hardware, so it
   # is not claimed here.
   tcp_probe:
     port: 23
@@ -123,7 +124,7 @@ discovery:
   port_open:
     - 23
   oui:
-    - "18:66:96"
+    - "18:66:96:1"
   manufacturer_alias:
     - "turtleav"
     - "turtle av"

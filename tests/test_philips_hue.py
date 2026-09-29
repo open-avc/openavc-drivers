@@ -393,7 +393,7 @@ async def _wait_for(predicate, timeout: float = 3.0) -> None:
 
 def test_version_and_min_platform():
     info = DRV.PhilipsHueDriver.DRIVER_INFO
-    assert info["version"] == "3.0.2"
+    assert info["version"] == "3.0.3"
     assert info["min_platform_version"] == "0.25.0"
     assert info["transport"] == "http"
     assert info["ports"] == [443]

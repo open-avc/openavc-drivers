@@ -82,7 +82,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.1.0",
+        "version": "2.1.1",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -146,8 +146,8 @@ class CrestronNVXDriver(BaseDriver):
                 "extract": {"model": {"regex": r"DM-NVX-[A-Z0-9]+", "group": 0}},
                 "timeout_ms": 2500,
             },
-            # OUIs seen on modern NVX gear (c4:42:68 is the bench E20/D200 block).
-            "oui": ["c4:42:68", "00:10:7f", "00:0e:80", "00:1f:5d"],
+            # Crestron's own IEEE blocks (c4:42:68 is on the bench E30/D30).
+            "oui": ["c4:42:68", "00:10:7f"],
             "hostname": ["^DM-NVX-"],
             "manufacturer_alias": ["crestron", "crestron electronics"],
         },

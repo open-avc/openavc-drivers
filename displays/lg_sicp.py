@@ -281,7 +281,7 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.3",
+        "version": "2.0.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -353,7 +353,6 @@ class LGSICPDriver(BaseDriver):
                 "58:a2:b5",
                 "64:99:5d",
                 "a8:23:fe",
-                "bc:f1:71",
             ],
             "port_open": [9761],
             "manufacturer_alias": ["lg", "lg electronics"],

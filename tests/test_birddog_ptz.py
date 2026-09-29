@@ -155,7 +155,7 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.BirdDogPTZDriver.DRIVER_INFO["version"] == "1.5.2"
+    assert DRV.BirdDogPTZDriver.DRIVER_INFO["version"] == "1.5.3"
     assert DRV.BirdDogPTZDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 

@@ -177,7 +177,7 @@ class PhilipsHueDriver(BaseDriver):
         "name": "Philips Hue Bridge",
         "manufacturer": "Signify",
         "category": "lighting",
-        "version": "3.0.2",
+        "version": "3.0.3",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (which also covers the 0.23.0 needs: the HTTPS simulation
         # redirect and the SSE push generation).
@@ -262,7 +262,6 @@ class PhilipsHueDriver(BaseDriver):
             "oui": [
                 "00:17:88",
                 "ec:b5:fa",
-                "1c:53:f9",
             ],
             "tcp_probe": {
                 "port": 80,

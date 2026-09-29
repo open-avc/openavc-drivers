@@ -211,7 +211,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.6.0",
+        "version": "1.6.1",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -293,6 +293,8 @@ class ChazyControlProDriver(BaseDriver):
             },
             "python": "./chazy_control_pro_discovery.py",
             "hostname": ["^controller(\\.local)?$"],
+            # TurtleAV's IEEE MA-M block, read off a unit (18:66:96:11:11:e1).
+            "oui": ["18:66:96:1"],
             "port_open": [23],
             "manufacturer_alias": ["turtleav", "chazy"],
         },

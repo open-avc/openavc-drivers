@@ -1,10 +1,13 @@
 """Driver + simulator tests for bss_soundweb_london (BSS Soundweb London,
 Direct Inject protocol).
 
-No Soundweb hardware on hand, so correctness is a dual-proof round trip: the
-real driver wired to the real simulator over an in-memory transport that runs
-the driver's own frame parser, so what the simulator renders is what the
-driver parses, and both sides are asserted.
+The real driver wired to the real simulator over an in-memory transport that
+runs the driver's own frame parser, so what the simulator renders is what the
+driver parses, and both sides are asserted. The simulator models what a
+BLU-100 on firmware 86.4.2 did on the bench where the Interface Kit is silent
+or wrong: no ACK / NAK over Ethernet, replies from the unit's own node, no
+echo of a write to the session that made it, changes passed on in the form
+they were made, gains from -80 to +10 dB, meters in dB x 10000.
 
 Covers:
   - the frame codec against the Interface Kit's own worked examples (the
@@ -24,8 +27,11 @@ Covers:
   - a change at the unit reaching child state by push;
   - a wrong node and an undeclared object both producing silence, and Test
     Connection reporting exactly which objects answered over a real socket;
-  - the liveness probe resolved by the echo and timing out on a dead unit;
-  - NAK landing in last_error; reconnect re-subscribing; poll resyncing.
+  - the liveness probe resolved by the echo, timing out on a dead unit, and
+    never dropping a unit that answers nothing;
+  - node 0 learned from the reply; own writes read back; another
+    controller's percent write and bump read back rather than stored;
+  - nothing acknowledged; reconnect re-subscribing; poll resyncing.
 
 The driver and simulator are loaded with the ``openavc.*`` imports stubbed so
 the community CI stays self-contained (conftest.py rolls the stubs back).
@@ -276,10 +282,15 @@ def test_fader_law_matches_appendix_a():
     assert DRV.gain_db_to_raw(10) == 100000
     assert DRV.gain_db_to_raw(0) == 0
     assert DRV.gain_db_to_raw(-10) == -100000
-    assert DRV.gain_db_to_raw(-100) == -300000
-    assert DRV.raw_to_gain_db(-300000) == pytest.approx(-100.0)
+    # The words a BLU-100 sent when Architect set -20 and -60 dB, and its
+    # floor: every gain on the unit stops at -80 dB (-280617).
+    assert DRV.gain_db_to_raw(-20) == -160206
+    assert DRV.raw_to_gain_db(-160204) == pytest.approx(-20.0, abs=0.001)
+    assert DRV.gain_db_to_raw(-60) == -255630
+    assert DRV.raw_to_gain_db(-280617) == pytest.approx(-80.0, abs=0.001)
+    assert DRV.raw_to_gain_db(-300000) == pytest.approx(-100.0)  # the Kit's law goes lower
     assert DRV.raw_to_gain_db(DRV.gain_db_to_raw(-37.5)) == pytest.approx(-37.5, abs=0.01)
-    assert DRV.gain_db_to_raw(-200) == DRV.gain_db_to_raw(-100)  # clamped
+    assert DRV.gain_db_to_raw(-200) == DRV.gain_db_to_raw(-80)  # clamped like the unit
 
 
 def test_other_scaling_laws_round_trip():
@@ -396,9 +407,9 @@ async def test_connect_registers_objects_and_subscribes():
     assert _child(drv, "Meter", "meter") is None
     assert _child(drv, "Meter", "responding") is True  # attack/release answered
     assert drv.state.data["device.blu.objects_responding"] == 8
-    # Every frame the simulator sent was acknowledged.
-    acks = sum(1 for chunk in drv.transport.sent if chunk == b"\x06")
-    assert acks == non_meter
+    # Nothing is acknowledged over Ethernet.
+    assert all(chunk[0] == DRV.STX for chunk in drv.transport.sent)
+    assert drv.state.data["device.blu.reported_node_address"] == "0x08AD"
 
 
 @pytest.mark.asyncio
@@ -409,7 +420,7 @@ async def test_meters_subscribe_at_the_rate_when_enabled():
     meter_subs = [DRV.parse_body(DRV.decode_frame(f)) for f in drv.transport.frames_sent()
                   if f[1] == DRV.DI_SUBSCRIBESV and DRV.parse_body(DRV.decode_frame(f)).raw > 0]
     assert len(meter_subs) == 3 and all(m.raw == 100 for m in meter_subs)  # 50 ms granularity
-    assert _child(drv, "Meter", "meter") == pytest.approx(-60.0)
+    assert _child(drv, "Meter", "meter") == pytest.approx(-80.0)  # the floor, dB x 10000
     pushed = await sim.tick_meters()
     await _settle()
     assert pushed == 3
@@ -428,8 +439,11 @@ async def test_set_control_round_trips_through_the_subscription():
     await _settle()
     assert sim.value_of("Program", "gain") == -12.5
     assert _child(drv, "Program", "gain") == pytest.approx(-12.5)
-    last = drv.transport.frames_sent()[-1]
-    assert DRV.parse_body(DRV.decode_frame(last)).raw == DRV.gain_db_to_raw(-12.5)
+    written, read = drv.transport.frames_sent()[-2:]
+    assert DRV.parse_body(DRV.decode_frame(written)).raw == DRV.gain_db_to_raw(-12.5)
+    # The unit never echoes a write to the session that made it; the value
+    # came back because the driver asked for it.
+    assert read[1] == DRV.DI_SUBSCRIBESV
     await drv.send_command("set_control", {"object": "Program", "control": "Mute", "value": "on"})
     await _settle()
     assert sim.value_of("Program", "mute") is True and _child(drv, "Program", "mute") is True
@@ -471,13 +485,16 @@ async def test_toggle_step_percent_and_bump():
     assert _child(drv, "Program", "gain") == pytest.approx(10.0)  # clamped at the law's top
     await drv.send_command("set_percent", {"object": "Program", "control": "gain", "percent": 0})
     await _settle()
-    assert _child(drv, "Program", "gain") == pytest.approx(-100.0)
+    assert _child(drv, "Program", "gain") == pytest.approx(-80.0)
     before = len(drv.transport.frames_sent())
     await drv.send_command("bump_percent", {"object": "Program", "control": "gain", "delta": 10})
     await _settle()
     frames = drv.transport.frames_sent()[before:]
     assert [f[1] for f in frames] == [DRV.DI_BUMPSVPERCENT, DRV.DI_SUBSCRIBESV]
-    assert _child(drv, "Program", "gain") == pytest.approx(-89.0)
+    # Percent of travel is linear in the raw word from -80 dB to +10 dB.
+    lo, hi = DRV.gain_db_to_raw(-80), DRV.gain_db_to_raw(10)
+    assert _child(drv, "Program", "gain") == pytest.approx(
+        DRV.raw_to_gain_db(round(lo + 0.1 * (hi - lo))), abs=0.01)
 
 
 @pytest.mark.asyncio
@@ -494,7 +511,7 @@ async def test_presets_raw_and_string_escape_hatches():
     assert _child(drv, "Mics", "input_2_mute") is True
     await drv.send_command("set_raw_sv", {"address": "0x08AD03000100", "sv": 0, "value": -300000})
     await _settle()
-    assert _child(drv, "Program", "gain") == pytest.approx(-100.0)
+    assert _child(drv, "Program", "gain") == pytest.approx(-80.0)  # the unit clamps
     await drv.send_command("set_string_sv", {"address": "0x105", "sv": 7, "text": "5551234"})
     await _settle()
     assert _child(drv, "Phone", "value") == "5551234"
@@ -554,17 +571,68 @@ async def test_liveness_probe_resolves_and_times_out():
 
 
 @pytest.mark.asyncio
-async def test_nak_lands_in_last_error_and_bad_frame_is_nakked():
+async def test_liveness_asks_a_control_that_has_answered():
+    # The first row names an object the design does not have. The unit says
+    # nothing about it, so the probe asks the first control that answered.
+    rows = [{"name": "Ghost", "address": "0x777", "type": "gain"}] + [dict(r) for r in CONTROLS]
+    drv, sim = _make(sim_config={"node_address": "0x08AD", "controls": CONTROLS}, controls=rows)
+    await drv.connect()
+    await _settle()
+    drv.PROBE_TIMEOUT_S = 0.05
+    before = len(drv.transport.frames_sent())
+    await drv._liveness_probe()
+    asked = DRV.parse_body(DRV.decode_frame(drv.transport.frames_sent()[before]))
+    assert (asked.obj, asked.sv) == (0x100, 0)
+    # A unit that answered and then stops is still a miss.
+    drv.transport.silent = True
+    with pytest.raises(TimeoutError):
+        await drv._liveness_probe()
+
+
+@pytest.mark.asyncio
+async def test_a_unit_that_answers_nothing_keeps_its_link_and_says_why():
+    # A wrong node (or no design loaded): the unit is up and answers nothing.
+    drv, sim = _make(sim_config={"node_address": "0x0832", "controls": CONTROLS})
+    drv.HEALTH_INTERVAL_S, drv.HEALTH_TIMEOUT_S, drv.PROBE_TIMEOUT_S = 0.01, 0.5, 0.05
+    await drv.connect()
+    await _settle()
+    before = len(drv.transport.frames_sent())
+    drv._start_health_loop()
+    await asyncio.sleep(0.3)
+    drv._stop_health_loop()
+    assert not hasattr(drv, "stashed_fault")
+    assert drv.transport.connected and drv.state.data["device.blu.connected"] is True
+    assert "none of the 8 declared object(s) has answered" in drv.state.data["device.blu.last_error"]
+    assert "Node Address" in drv.state.data["device.blu.last_error"]
+    # The probe kept sending, so a unit that went away would still fail the send.
+    assert len(drv.transport.frames_sent()) > before
+    # The platform clears last_error after a poll that does not write it; a
+    # poll while nothing answers writes the sentence again.
+    drv.state.data["device.blu.last_error"] = ""
+    await drv.poll()
+    assert "has answered" in drv.state.data["device.blu.last_error"]
+    # The first answer clears the sentence (the design with this node loaded).
+    drv.transport.sim = SIMM.BSSSoundwebLondonSimulator("sim", dict(drv.config))
+    await drv.poll()
+    await _settle()
+    assert drv.state.data["device.blu.last_error"] == ""
+    assert drv.state.data["device.blu.objects_responding"] == 8
+
+
+@pytest.mark.asyncio
+async def test_nothing_is_acknowledged_either_way():
     drv, sim = _make()
     await drv.connect()
     await _settle()
-    await drv.transport.deliver(b"\x15")
-    assert "NAK" in drv.state.data["device.blu.last_error"]
+    sent = len(drv.transport.sent)
+    await drv.transport.deliver(b"\x06\x15")
     good = DRV.build_set(0x08AD, 3, 0x100, 1, 1)
     bad = good[:-2] + bytes([good[-2] ^ 0x01]) + good[-1:]
     await drv.transport.deliver(bad)
-    assert drv.transport.sent[-1] == b"\x15"
+    assert len(drv.transport.sent) == sent  # no ACK, no NAK
     assert _child(drv, "Program", "mute") is False
+    # The simulator drops a bad frame and a stray ACK without a word, as the unit did.
+    assert sim.handle_command(bytes([DRV.ACK]) + bad) is None
 
 
 @pytest.mark.asyncio
@@ -594,9 +662,13 @@ class _SocketSim:
     def __init__(self, sim):
         self.sim = sim
         self.server = None
+        self.clients = 0
 
     async def __aenter__(self):
         async def handle(reader, writer):
+            # The platform names each client from its own task; so does this.
+            self.clients += 1
+            await self.sim.on_client_connected(f"wizard{self.clients}")
             while True:
                 data = await reader.read(4096)
                 if not data:
@@ -628,7 +700,7 @@ async def test_test_connection_reports_which_objects_answered():
         drv.config["host"], drv.config["port"] = "127.0.0.1", port
         result = await drv.run_setup_action("test_connection", {}, progress)
     assert result["ok"] is False
-    assert result["acknowledged"] is True
+    assert result["unit_node"] == "0x08AD"
     assert result["answered"] == [r["name"] for r in CONTROLS]
     assert result["silent"] == ["Ghost (0x08AD03000777 sv 0)"]
     assert "8 of 9" in result["message"]
@@ -642,8 +714,22 @@ async def test_test_connection_reports_which_objects_answered():
     async with _SocketSim(sim2) as port:
         drv2.config["host"], drv2.config["port"] = "127.0.0.1", port
         result = await drv2.run_setup_action("test_connection", {}, progress)
+    # A wrong node: nothing answers at it, the unit answers as node 0, and
+    # its reply names the node to use.
     assert result["ok"] is False and result["answered"] == []
-    assert "Node Address" in result["message"]
+    assert result["unit_node"] == "0x0832"
+    assert "Set the Node Address to 0x0832, or leave it blank" in result["message"]
+    assert sim2.subscription_count == 0
+
+    # Objects the design does not have: silence at every node.
+    drv4, sim4 = _make(sim_config={"node_address": "", "controls": CONTROLS[:1]},
+                       controls=[{"name": "Ghost", "address": "0.7.119", "type": "gain"}])
+    drv4.PROBE_TIMEOUT_S = 0.2
+    async with _SocketSim(sim4) as port:
+        drv4.config["host"], drv4.config["port"] = "127.0.0.1", port
+        result = await drv4.run_setup_action("test_connection", {}, progress)
+    assert result["answered"] == [] and result["unit_node"] == ""
+    assert "the design is loaded on the unit" in result["message"]
 
     drv3, _ = _make()
     drv3.config["host"], drv3.config["port"] = "127.0.0.1", 1
@@ -652,25 +738,125 @@ async def test_test_connection_reports_which_objects_answered():
 
 
 @pytest.mark.asyncio
-async def test_test_connection_resyncs_a_live_session():
+async def test_test_connection_leaves_the_live_session_alone():
+    # Subscriptions belong to the session that made them (a BLU-100 kept the
+    # live one when another connection released the same SV), so the
+    # wizard's releases cannot silence the running driver.
     drv, sim = _make()
     await drv.connect()
     await _settle()
+    live = sim.subscription_count
     drv.PROBE_TIMEOUT_S = 0.3
     before = len(drv.transport.frames_sent())
-    # A unit that tracks subscriptions per state variable would have dropped
-    # the two the wizard released; the live session renews every one after.
     async with _SocketSim(sim) as port:
         drv.config["host"], drv.config["port"] = "127.0.0.1", port
         result = await drv.run_setup_action("test_connection", {}, lambda m, p: asyncio.sleep(0))
-    assert result["ok"] is True
-    renewed = [f for f in drv.transport.frames_sent()[before:] if f[1] == DRV.DI_SUBSCRIBESV]
-    assert len(renewed) == sum(1 for o in drv._objects for c in o.controls.values() if c.fmt != DRV.FMT_METER)
-    # The releases travelled on the wizard's own socket and the renewals on
-    # the live link; the driver waits for the former before the latter, so
-    # the simulator ends with every live subscription in place.
+    assert result["ok"] is True and result["unit_node"] == "0x08AD"
     await asyncio.sleep(0.05)
-    assert sim.subscription_count == len(renewed)
+    assert sim.subscription_count == live
+    assert drv.transport.frames_sent()[before:] == []
+    sim.set_value("Program", "mute", True)
+    await _settle()
+    assert _child(drv, "Program", "mute") is True
+
+
+# ── What the BLU-100 showed on the bench ────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_node_zero_is_learned_from_the_reply():
+    # A blank Node Address sends to node 0; the unit answers from its own
+    # node (a BLU-100's is the end of its MAC), and the rows still fill.
+    drv, sim = _make(sim_config={"node_address": "0x6362", "controls": CONTROLS}, node_address="")
+    await drv.connect()
+    await _settle()
+    sent = DRV.parse_body(DRV.decode_frame(drv.transport.frames_sent()[0]))
+    assert sent.node == 0
+    assert _child(drv, "Program", "gain") == 0.0
+    assert drv.state.data["device.blu.objects_responding"] == 8
+    assert drv.state.data["device.blu.reported_node_address"] == "0x6362"
+    assert _child(drv, "Program", "address") == "0x636203000100"
+    await drv.send_command("set_control", {"object": "Program", "control": "gain", "value": "-20"})
+    await _settle()
+    assert _child(drv, "Program", "gain") == pytest.approx(-20.0)
+    drv.PROBE_TIMEOUT_S = 0.05
+    await drv._liveness_probe()  # the echo from node 0x6362 answers a node-0 probe
+
+
+@pytest.mark.asyncio
+async def test_another_controllers_percent_write_and_bump_are_read_back():
+    drv, sim = _make()
+    await drv.connect()
+    await _settle()
+    # The unit passes a percent write on as a percent, and a bump as only the
+    # amount it moved; neither is the value, so the driver asks for it.
+    before = len(drv.transport.frames_sent())
+    assert sim.write_from_other_session("Program", "gain", percent=50)
+    await _settle()
+    asked = drv.transport.frames_sent()[before:]
+    assert [f[1] for f in asked] == [DRV.DI_SUBSCRIBESV]
+    assert _child(drv, "Program", "gain") == pytest.approx(sim.value_of("Program", "gain"))
+    assert _child(drv, "Program", "gain") == pytest.approx(-9.03, abs=0.02)  # 50 % on the unit
+    assert sim.write_from_other_session("Program", "gain", bump=10)
+    await _settle()
+    assert _child(drv, "Program", "gain") == pytest.approx(sim.value_of("Program", "gain"))
+    assert _child(drv, "Program", "gain") == pytest.approx(-5.23, abs=0.02)  # 60 % on the unit
+
+
+@pytest.mark.asyncio
+async def test_meter_and_input_gain_laws():
+    assert DRV.raw_to_value(DRV.FMT_METER, -800000) == -80.0
+    assert DRV.raw_to_value(DRV.FMT_METER, -629948) == -62.99
+    assert DRV.raw_to_value(DRV.FMT_INPUT_GAIN, 2) == 12
+    assert DRV.value_to_raw(DRV.FMT_INPUT_GAIN, 48) == 8
+    with pytest.raises(ValueError):
+        DRV.value_to_raw(DRV.FMT_INPUT_GAIN, 10)
+    drv, sim = _make()
+    await drv.connect()
+    await _settle()
+    schema = drv._by_cid["Input_Card_A"].controls["channel_1_gain"].schema()
+    assert (schema["unit"], schema["min"], schema["max"], schema["step"]) == ("dB", 0, 48, 6)
+    await drv.send_command("set_control", {"object": "Input_Card_A", "control": "channel_1_gain", "value": "12"})
+    await _settle()
+    written = [f for f in drv.transport.frames_sent() if f[1] == DRV.DI_SETSV][-1]
+    assert DRV.parse_body(DRV.decode_frame(written)).raw == 2
+    assert _child(drv, "Input_Card_A", "channel_1_gain") == 12
+    await drv.send_command("step_gain", {"object": "Input_Card_A", "control": "channel_1_gain", "amount": 6})
+    await _settle()
+    assert _child(drv, "Input_Card_A", "channel_1_gain") == 18
+    with pytest.raises(ValueError, match="6 dB steps"):
+        await drv.send_command("set_control", {"object": "Input_Card_A", "control": "channel_1_gain", "value": "10"})
+    with pytest.raises(ValueError, match="Use an amount of 6 or -6"):
+        await drv.send_command("step_gain", {"object": "Input_Card_A", "control": "channel_1_gain", "amount": 1})
+    with pytest.raises(ValueError, match="is not a level, so it has no dB to step. Use Set Control"):
+        await drv.send_command("step_gain", {"object": "Input_Card_A", "control": "channel_1_phantom", "amount": 1})
+
+
+def test_mixer_shape_matches_what_the_design_has():
+    objs, problems = DRV.parse_controls_config([
+        {"name": "M", "address": "0.1.3", "type": "mixer", "size": "4 mono aux 0 groups 0"},
+        {"name": "S", "address": "0.1.5", "type": "automixer", "size": "2 aux 2"},
+        {"name": "Full", "address": "0.1.6", "type": "mixer", "size": "2"},
+        {"name": "Bad", "address": "0.1.7", "type": "mixer", "size": "4 quad"},
+    ], 0)
+    assert len(problems) == 1 and "mono" in problems[0]
+    by = {o.name: o for o in objs}
+    # The BLU-100's mono mixer answered these and nothing else.
+    assert sorted(c.sv for c in by["M"].controls.values()) == [
+        0, 1, 3, 4, 100, 101, 103, 104, 200, 201, 203, 204, 300, 301, 303, 304, 20000, 20001]
+    assert "output_gain" in by["M"].controls and "input_1_pan" not in by["M"].controls
+    s = by["S"].controls
+    assert "input_2_aux_2_send" in s and "input_2_aux_3_send" not in s
+    assert "aux_b_gain" in s and "aux_c_gain" not in s and "group_d_gain" in s
+    assert "output_gain_right" in by["Full"].controls
+
+
+def test_audio_architect_object_ids():
+    assert DRV.parse_object_address("0.1.0", 0) == (0, 3, 0x100)
+    assert DRV.parse_object_address("0.1.4", 7) == (7, 3, 0x104)
+    assert DRV.parse_object_address("0.0.1", 0) == (0, 3, 1)
+    with pytest.raises(ValueError):
+        DRV.parse_object_address("0.256.0", 0)
+    assert DRV.DEFAULT_CONTROLS[0]["address"] == "0.1.0"
 
 
 def test_an_empty_object_list_says_where_the_rows_go():
@@ -691,6 +877,9 @@ def test_catalog_surface():
     assert info["child_entity_types"]["object"]["dynamic"] is True
     assert "help" not in info["commands"]["set_control"]["params"]["control"]
     assert "Nothing on the unit changes" in next(a for a in info["actions"] if a["id"] == "test_connection")["confirm"]
-    assert info["discovery"]["tcp_probe"]["send_hex"].split()[0:2] == ["02", "89"]
-    probe = bytes.fromhex(info["discovery"]["tcp_probe"]["send_hex"])
-    assert probe == DRV.build_subscribe(0, 3, 0x100, 1, 0) + DRV.build_unsubscribe(0, 3, 0x100, 1)
+    # The Telnet greeting names the unit; port 1023 answers nothing it can match.
+    probe = info["discovery"]["tcp_probe"]
+    assert probe == {"port": 23, "expect": "BSS Soundweb (London)", "timeout_ms": 1500}
+    assert info["discovery"]["port_open"] == [1023]
+    blu100 = next(m for m in info["compatible_models"] if "BLU-100" in m["models"])
+    assert blu100["models"] == ["BLU-100"]

@@ -27,28 +27,50 @@ Push, not polling (Principle 2):
     poll cycle (default 60 s) re-subscribes everything, which is both the
     re-arm after a reboot and a full resync.
 
+    Measured on a BLU-100 (firmware 86.4.2): subscriptions are kept per
+    session; a change is passed to every other subscribed session in the
+    form it was made (a value, a percent of travel, or for a bump only the
+    amount) but never back to the session that made it. So after each of
+    its own writes the driver subscribes again to read the value back, and a
+    percent notice from another controller is answered with a subscribe
+    rather than stored.
+
+Node address:
+    A frame to node 0 reaches the unit at the other end of the connection
+    (Kit p.8, and so over TCP too), and its reply carries the unit's real
+    node (p.12; a BLU-100's is the last two bytes of its MAC). Rows declared
+    without a node are matched to that reply, and the node is published as
+    ``reported_node_address``. A frame for a node not on the network gets
+    no answer.
+
 Liveness:
     A subscribed session can sit silent for hours. The watchdog re-subscribes
-    the first declared control and awaits its DI_SETSV echo; two misses force
-    a reconnect with a typed ``no_response`` fault.
+    the first declared control that has answered on this connection and
+    awaits its DI_SETSV echo; two misses force a reconnect with a typed
+    ``no_response`` fault. A unit says nothing at all about an address it
+    does not have, so while no control has answered the watchdog only
+    re-sends the subscribe and ``last_error`` names what to check: a wrong
+    row or node is a setup problem, not a dead unit.
 
 Acknowledgements:
-    The unit answers every well-formed frame with ACK (0x06) and a malformed
-    one with NAK (0x15). The Interface Kit says TCP makes the mechanism
-    unnecessary over Ethernet and also that the unit "always" acknowledges,
-    so the driver ignores inbound ACKs, records a NAK in ``last_error``, and
-    itself ACKs every well-formed frame it receives: a unit whose serial-port
-    property "Acknowledge" is Yes re-sends an unacknowledged notification
-    once a second forever (FAQ Q1), and one byte per frame is the cure.
+    None over Ethernet (Kit p.9: TCP provides it). A BLU-100 sends no ACK or
+    NAK on port 1023, not for a frame it acts on and not for a bad checksum,
+    which it drops; so the driver neither expects nor sends them. The
+    serial-port ACK/NAK exchange (and FAQ Q1's once-a-second re-sends) is an
+    RS-232 matter this TCP driver does not meet.
 
 Not modelled (the document does not give the addresses): the device-level
 state variables in Appendix G (Locate, display contrast, conductor priority)
 are listed without the virtual device / object they live under, so they are
 reachable only through ``set_raw_sv`` with an address read from Architect.
 
-Source (BSS Audio, manufacturer document):
+Source (BSS Audio, manufacturer documents):
     Soundweb London Interface Kit — 3rd Party Control, Revision 2.7, April
     2013. https://bssaudio.com/en-US/site_elements/soundweb-london-di-kit
+    Its Audio Architect companion, "Soundweb London Third Party Control"
+    (2016), gives the gain range (-80 to +10 dB), the meter scale and the
+    Ethernet no-ACK rule, all three also measured on a BLU-100 (86.4.2).
+    https://bssaudio.com/en-US/site_elements/soundweb-london-third-party-control-application-guide
 """
 
 
@@ -108,8 +130,11 @@ MAX_SV = 0xFFFF
 INT32_MIN = -(2 ** 31)
 INT32_MAX = 2 ** 31 - 1
 
-# Fader-law limits (Appendix A: linear +10 .. -10 dB, logarithmic below to -100 dB).
-GAIN_DB_MIN = -100.0
+# Fader-law limits. Appendix A draws the law from +10 dB down to -100 dB
+# (linear above -10, logarithmic below), but every gain on a BLU-100 (86.4.2)
+# stops at -80 dB: 0 % of travel and a written -100 dB both read back as
+# -280617. Percent of travel is linear in the raw word between the two ends.
+GAIN_DB_MIN = -80.0
 GAIN_DB_MAX = 10.0
 GAIN_LINEAR_FLOOR_DB = -10.0
 GAIN_LINEAR_FLOOR_RAW = -100000
@@ -290,7 +315,8 @@ def parse_body(body: bytes) -> DIMessage | None:
 # ── Value scaling (Appendix A) ──────────────────────────────────────────────
 
 FMT_GAIN = "gain"        # fader law, dB
-FMT_METER = "meter"      # read-only level, dB (same law as a gain — not stated by the doc)
+FMT_METER = "meter"      # read-only level, dB x 10000, floored at -80 dB (measured on a BLU-100)
+FMT_INPUT_GAIN = "input_gain"  # input card gain: one count per 6 dB step (measured on a BLU-100)
 FMT_BOOL = "bool"        # discrete 0 / 1
 FMT_INT = "int"          # discrete, sent as is
 FMT_SCALAR = "scalar"    # value x 10000
@@ -301,8 +327,8 @@ FMT_SPEED = "speed"      # log10(ms) x 1e6
 FMT_STRING = "string"    # Appendix F string SV
 
 VALUE_FORMATS = (
-    FMT_GAIN, FMT_METER, FMT_BOOL, FMT_INT, FMT_SCALAR, FMT_PERCENT,
-    FMT_DELAY, FMT_FREQ, FMT_SPEED, FMT_STRING,
+    FMT_GAIN, FMT_METER, FMT_INPUT_GAIN, FMT_BOOL, FMT_INT, FMT_SCALAR,
+    FMT_PERCENT, FMT_DELAY, FMT_FREQ, FMT_SPEED, FMT_STRING,
 )
 FORMAT_ALIASES = {
     "gain_db": FMT_GAIN, "db": FMT_GAIN, "fader": FMT_GAIN,
@@ -315,6 +341,17 @@ FORMAT_ALIASES = {
     "speed_ms": FMT_SPEED, "attack": FMT_SPEED, "release": FMT_SPEED,
     "str": FMT_STRING, "text": FMT_STRING,
 }
+
+# Meters: dB x 10000 from -80 to +40 dB, linear (BSS "Soundweb London Third
+# Party Control", 2016). A BLU-100 on 86.4.2 floors every meter at exactly
+# -800000 and shifts the reading by its Reference SV one for one.
+METER_DB_MIN = -80.0
+METER_DB_MAX = 40.0
+
+# Input card gain: the unit sends 0, 1, 2 for 0, +6, +12 dB; a BLU analogue
+# input reaches +48 dB.
+INPUT_GAIN_STEP_DB = 6
+INPUT_GAIN_MAX_DB = 48
 
 
 def gain_db_to_raw(db: float) -> int:
@@ -330,9 +367,24 @@ def raw_to_gain_db(raw: int) -> float:
     return -10 * (10 ** (abs(raw + 100000) / 200000))
 
 
+def input_gain_db_to_raw(db: float) -> int:
+    db = float(db)
+    steps = db / INPUT_GAIN_STEP_DB
+    if steps != int(steps) or not 0 <= db <= INPUT_GAIN_MAX_DB:
+        raise ValueError(
+            f"input gain moves in {INPUT_GAIN_STEP_DB} dB steps from 0 to "
+            f"{INPUT_GAIN_MAX_DB} dB; {db:g} dB is not one of them"
+        )
+    return int(steps)
+
+
 def value_to_raw(fmt: str, value: Any) -> int:
-    if fmt in (FMT_GAIN, FMT_METER):
+    if fmt == FMT_GAIN:
         return gain_db_to_raw(float(value))
+    if fmt == FMT_METER:
+        return round(float(value) * 10000)
+    if fmt == FMT_INPUT_GAIN:
+        return input_gain_db_to_raw(value)
     if fmt == FMT_BOOL:
         return 1 if value else 0
     if fmt == FMT_INT:
@@ -352,8 +404,12 @@ def value_to_raw(fmt: str, value: Any) -> int:
 
 
 def raw_to_value(fmt: str, raw: int) -> Any:
-    if fmt in (FMT_GAIN, FMT_METER):
+    if fmt == FMT_GAIN:
         return round(raw_to_gain_db(raw), 2)
+    if fmt == FMT_METER:
+        return round(raw / 10000, 2)
+    if fmt == FMT_INPUT_GAIN:
+        return int(raw) * INPUT_GAIN_STEP_DB
     if fmt == FMT_BOOL:
         return raw != 0
     if fmt == FMT_INT:
@@ -391,6 +447,9 @@ def coerce_user_value(fmt: str, value: Any) -> Any:
 
 _HEX_RE = re.compile(r"^0[xX]([0-9A-Fa-f]{1,12})$")
 _DEC_RE = re.compile(r"^\d{1,8}$")
+# Audio Architect's Properties window shows an Object ID as its three bytes:
+# 0.1.0 is object 0x100 (a BLU-100's first five objects read 0.1.0 to 0.1.4).
+_DOTTED_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
 
 
 def parse_node_address(text: Any) -> int:
@@ -414,12 +473,18 @@ def parse_node_address(text: Any) -> int:
 def parse_object_address(text: Any, default_node: int, default_vd: int = VD_AUDIO
                          ) -> tuple[int, int, int]:
     """An object address as the Properties window shows it: the full HiQnet
-    address ``0x083203000100`` (node, virtual device, object) or the object
-    part alone (``0x100`` / ``256``), which takes the device's node and the
-    audio virtual device."""
+    address ``0x083203000100`` (node, virtual device, object), or the object
+    part alone (``0x100`` / ``256`` / Audio Architect's ``0.1.0``), which
+    takes the device's node and the audio virtual device."""
     s = str(text or "").strip().replace(" ", "")
     if not s:
         raise ValueError("object address is blank")
+    m = _DOTTED_RE.match(s)
+    if m:
+        parts = [int(g) for g in m.groups()]
+        if any(p > 255 for p in parts):
+            raise ValueError(f"object id {s!r} has a part above 255")
+        return default_node, default_vd, (parts[0] << 16) | (parts[1] << 8) | parts[2]
     m = _HEX_RE.match(s)
     if m:
         digits = m.group(1)
@@ -434,7 +499,7 @@ def parse_object_address(text: Any, default_node: int, default_vd: int = VD_AUDI
         return default_node, default_vd, obj
     raise ValueError(
         f"object address {s!r} is not a HiQnet address (0x083203000100) "
-        f"or an object id (0x100)"
+        f"or an object id (0.1.0 or 0x100)"
     )
 
 
@@ -455,9 +520,15 @@ class ControlDef:
 
     def schema(self) -> dict[str, Any]:
         d: dict[str, Any] = {"label": self.label}
-        if self.fmt in (FMT_GAIN, FMT_METER):
+        if self.fmt == FMT_GAIN:
             d.update({"type": "number", "unit": "dB", "min": GAIN_DB_MIN,
                       "max": GAIN_DB_MAX, "step": 0.5})
+        elif self.fmt == FMT_METER:
+            d.update({"type": "number", "unit": "dB", "min": METER_DB_MIN,
+                      "max": METER_DB_MAX, "cloud_priority": "low"})
+        elif self.fmt == FMT_INPUT_GAIN:
+            d.update({"type": "number", "unit": "dB", "min": 0,
+                      "max": INPUT_GAIN_MAX_DB, "step": INPUT_GAIN_STEP_DB})
         elif self.fmt == FMT_BOOL:
             d["type"] = "boolean"
         elif self.fmt == FMT_INT:
@@ -474,9 +545,6 @@ class ControlDef:
             d["type"] = "string"
         else:
             d["type"] = "number"
-        if self.fmt == FMT_METER:
-            d["cloud_priority"] = "low"
-            d["min"] = GAIN_DB_MIN
         d["control"] = bool(self.writable)
         d.update(self.hints)
         return d
@@ -535,14 +603,56 @@ def build_n_input_gain(size: str) -> list[ControlDef]:
     return out
 
 
-def _mixer_inputs(n: int, automix: bool) -> list[ControlDef]:
+@dataclass
+class MixerShape:
+    inputs: int
+    stereo: bool = True
+    aux: int = 4
+    groups: int = 4
+
+
+def _parse_mixer(size: Any, default: int, maximum: int) -> MixerShape:
+    """``8``, or ``8 mono aux 2 groups 0``: the input count, then what the
+    mixer placed in the design has. A mixer only answers for the parts it
+    has (a mono one has no pan and no right output), so the row says which.
+    Left out: stereo, four aux sends, four groups (the whole Appendix G map)."""
+    tokens = str(size or "").strip().lower().replace(",", " ").split()
+    shape = MixerShape(inputs=default)
+    if tokens and tokens[0].isdigit():
+        shape.inputs = int(tokens.pop(0))
+        if not 1 <= shape.inputs <= maximum:
+            raise ValueError(f"size {shape.inputs} is outside 1..{maximum}")
+    while tokens:
+        word = tokens.pop(0)
+        if word in ("mono", "stereo"):
+            shape.stereo = word == "stereo"
+        elif word in ("aux", "groups", "group") and tokens and tokens[0].isdigit():
+            count = int(tokens.pop(0))
+            if not 0 <= count <= 4:
+                raise ValueError(f"{word} {count} is outside 0..4")
+            if word == "aux":
+                shape.aux = count
+            else:
+                shape.groups = count
+        else:
+            raise ValueError(
+                f"size {size!r} must be the input count, then optionally mono, "
+                f"aux 0-4 and groups 0-4 (e.g. 8 mono aux 2 groups 0)"
+            )
+    return shape
+
+
+def _mixer_inputs(shape: MixerShape, automix: bool) -> list[ControlDef]:
     out: list[ControlDef] = []
-    for i in range(1, n + 1):
+    for i in range(1, shape.inputs + 1):
         b = (i - 1) * 100
         out += [
             _gain(f"input_{i}_gain", f"Input {i} Gain", b),
             _bool(f"input_{i}_mute", f"Input {i} Mute", b + 1),
-            _scalar(f"input_{i}_pan", f"Input {i} Pan", b + 2),
+        ]
+        if shape.stereo:
+            out.append(_scalar(f"input_{i}_pan", f"Input {i} Pan", b + 2))
+        out += [
             _bool(f"input_{i}_polarity", f"Input {i} Polarity", b + 3),
             _bool(f"input_{i}_solo", f"Input {i} Solo", b + 4),
         ]
@@ -553,16 +663,16 @@ def _mixer_inputs(n: int, automix: bool) -> list[ControlDef]:
                 _bool(f"input_{i}_auto", f"Input {i} Auto", b + 7),
                 _bool(f"input_{i}_on", f"Input {i} On", b + 8),
             ]
-        for a in range(1, 5):
+        for a in range(1, shape.aux + 1):
             out.append(_gain(f"input_{i}_aux_{a}_send", f"Input {i} Aux {a} Send", b + 19 + a))
-        for g in range(1, 5):
+        for g in range(1, shape.groups + 1):
             out.append(_bool(f"input_{i}_group_{g}", f"Input {i} to Group {g}", b + 39 + g))
     return out
 
 
-def _mixer_buses(pre_post: bool) -> list[ControlDef]:
+def _mixer_buses(shape: MixerShape, pre_post: bool) -> list[ControlDef]:
     out: list[ControlDef] = []
-    for k, letter in enumerate("abcd"):
+    for k, letter in enumerate("abcd"[: shape.aux]):
         b = 10000 + k * 10
         if pre_post:
             out.append(_bool(f"aux_{letter}_pre_post", f"Aux {letter.upper()} Pre/Post", b))
@@ -570,30 +680,36 @@ def _mixer_buses(pre_post: bool) -> list[ControlDef]:
             _gain(f"aux_{letter}_gain", f"Aux {letter.upper()} Gain", b + 1),
             _bool(f"aux_{letter}_mute", f"Aux {letter.upper()} Mute", b + 2),
         ]
-    for k, letter in enumerate("abcd"):
+    for k, letter in enumerate("abcd"[: shape.groups]):
         b = 11000 + k * 10
         out += [
             _gain(f"group_{letter}_gain", f"Group {letter.upper()} Gain", b),
             _bool(f"group_{letter}_mute", f"Group {letter.upper()} Mute", b + 1),
         ]
-    out += [
-        _gain("output_gain_left", "Output Gain Left", 20000),
-        _bool("output_mute_left", "Output Mute Left", 20001),
-        _gain("output_gain_right", "Output Gain Right", 20002),
-        _bool("output_mute_right", "Output Mute Right", 20003),
-    ]
+    if shape.stereo:
+        out += [
+            _gain("output_gain_left", "Output Gain Left", 20000),
+            _bool("output_mute_left", "Output Mute Left", 20001),
+            _gain("output_gain_right", "Output Gain Right", 20002),
+            _bool("output_mute_right", "Output Mute Right", 20003),
+        ]
+    else:
+        out += [
+            _gain("output_gain", "Output Gain", 20000),
+            _bool("output_mute", "Output Mute", 20001),
+        ]
     return out
 
 
 def build_mixer(size: str) -> list[ControlDef]:
-    n = _parse_count(size, default=8, maximum=48)
-    return _mixer_inputs(n, automix=False) + _mixer_buses(pre_post=True)
+    shape = _parse_mixer(size, default=8, maximum=48)
+    return _mixer_inputs(shape, automix=False) + _mixer_buses(shape, pre_post=True)
 
 
 def build_automixer(size: str) -> list[ControlDef]:
-    n = _parse_count(size, default=8, maximum=48)
+    shape = _parse_mixer(size, default=8, maximum=48)
     return (
-        _mixer_inputs(n, automix=True) + _mixer_buses(pre_post=False)
+        _mixer_inputs(shape, automix=True) + _mixer_buses(shape, pre_post=False)
         + [_speed("output_speed", "Output Speed", 20004),
            _scalar("output_slope", "Output Slope", 20005)]
     )
@@ -622,7 +738,10 @@ def build_source_matrix(size: str) -> list[ControlDef]:
 
 
 def build_source_selector(size: str) -> list[ControlDef]:
-    return [_int("source", "Source", 0, min=0)]
+    # 1 selects input 1; 0 selects none (a new selector's value). Measured
+    # on a BLU-100: Architect's inputs 1, 2, 3 arrive as 1, 2, 3.
+    return [_int("source", "Source", 0, min=0,
+                 help="The selected input: 1 is input 1. 0 selects no input.")]
 
 
 def build_meter(size: str) -> list[ControlDef]:
@@ -638,7 +757,7 @@ def build_input_card(size: str) -> list[ControlDef]:
         b = (c - 1) * 6
         out += _meter_block(f"channel_{c}_", f"Channel {c} ", b, (0, 2, 3, 1))
         out += [
-            _int(f"channel_{c}_gain", f"Channel {c} Input Gain", b + 4),
+            ControlDef(f"channel_{c}_gain", f"Channel {c} Input Gain", b + 4, FMT_INPUT_GAIN),
             _bool(f"channel_{c}_phantom", f"Channel {c} Phantom Power", b + 5),
         ]
     return out
@@ -757,10 +876,10 @@ CONTROL_COLUMNS: dict[str, dict[str, Any]] = {
     },
     "address": {
         "type": "string", "label": "HiQnet Address", "required": True,
-        "help": "Select the object in Audio Architect / London Architect and "
-                "read its address from the Properties window: the full form "
-                "0x083203000100, or just the object part (0x100). Input and "
-                "output cards are fixed: 0x1 = card A ... 0x4 = card D.",
+        "help": "Select the object in Audio Architect and copy the Object "
+                "ID from the Properties window (0.1.0), or the full HiQnet "
+                "address London Architect shows (0x083203000100). Input and "
+                "output cards are fixed: 0.0.1 = card A ... 0.0.4 = card D.",
     },
     "type": {
         "type": "enum", "label": "Object Type", "required": True,
@@ -770,18 +889,20 @@ CONTROL_COLUMNS: dict[str, dict[str, Any]] = {
     },
     "size": {
         "type": "string", "label": "Size / SV",
-        "help": "Inputs for a mixer or N-Input Gain (8), inputs x outputs for "
-                "a matrix (8x4), outputs for a source matrix, channels for a "
-                "card (1-4). Custom: the state-variable id and its format, "
-                "e.g. '1 mute' or '0 gain'. Blank = the default size.",
+        "help": "Inputs for an N-Input Gain (8). For a mixer or automixer: its "
+                "inputs, then 'mono' and its aux and group counts when it has "
+                "fewer than four of each (8 mono aux 2 groups 0). Inputs x "
+                "outputs for a matrix (8x4), outputs for a source matrix, "
+                "channels for a card (1-4). Custom: the state-variable id and "
+                "its format, e.g. '1 mute' or '0 gain'. Blank = the default size.",
     },
 }
 
 DEFAULT_CONTROLS: list[dict[str, str]] = [
-    {"name": "Program", "address": "0x100", "type": "gain", "size": ""},
-    {"name": "Mics", "address": "0x101", "type": "n_input_gain", "size": "4"},
-    {"name": "Source", "address": "0x102", "type": "source_selector", "size": ""},
-    {"name": "Input Card A", "address": "0x1", "type": "input_card", "size": "1-4"},
+    {"name": "Program", "address": "0.1.0", "type": "gain", "size": ""},
+    {"name": "Mics", "address": "0.1.1", "type": "n_input_gain", "size": "4"},
+    {"name": "Source", "address": "0.1.2", "type": "source_selector", "size": ""},
+    {"name": "Input Card A", "address": "0.0.1", "type": "input_card", "size": "1-4"},
 ]
 
 
@@ -897,8 +1018,8 @@ def _control_param(help: str) -> dict[str, Any]:
 
 def _address_param() -> dict[str, Any]:
     return {"type": "string", "required": True, "label": "HiQnet Address",
-            "pattern": r"^\s*(0[xX][0-9A-Fa-f]{1,12}|\d{1,8})\s*$",
-            "help": "0x083203000100 as Architect shows it, or the object part (0x100)."}
+            "pattern": r"^\s*(0[xX][0-9A-Fa-f]{1,12}|\d{1,8}|\d{1,3}\.\d{1,3}\.\d{1,3})\s*$",
+            "help": "The Object ID as Audio Architect shows it (0.1.0), or a full HiQnet address (0x083203000100)."}
 
 
 def _sv_param() -> dict[str, Any]:
@@ -912,16 +1033,20 @@ COMMANDS: dict[str, dict[str, Any]] = {
         "label": "Recall Venue Preset",
         "params": {"preset": {"type": "integer", "required": True, "label": "Preset ID",
                               "min": 0, "max": INT32_MAX,
-                              "help": "The number in square brackets in the design tree."}},
+                              "help": "The number in square brackets in London Architect's design tree."}},
         "help": "Broadcasts a Venue Preset recall to every unit on the network "
-                "that is configured to respond to it.",
+                "that is configured to respond to it. Venue presets come from "
+                "London Architect designs; in an Audio Architect design use "
+                "Recall Parameter Preset.",
     },
     "recall_parameter_preset": {
         "label": "Recall Parameter Preset",
         "params": {"preset": {"type": "integer", "required": True, "label": "Preset ID",
                               "min": 0, "max": INT32_MAX,
-                              "help": "The number in square brackets in the design tree."}},
-        "help": "Broadcasts a Parameter Preset recall.",
+                              "help": "The number in square brackets after the preset's "
+                                      "name in Architect: Preset 1 [0] is 0."}},
+        "help": "Broadcasts a Parameter Preset recall. The recalled values "
+                "arrive on every subscribed control.",
     },
     "set_control": {
         "label": "Set Control",
@@ -950,7 +1075,8 @@ COMMANDS: dict[str, dict[str, Any]] = {
             "control": _control_param("A gain control."),
             "amount": {"type": "number", "required": True, "label": "Amount (dB)",
                        "default": 1.0, "min": -110, "max": 110, "unit": "dB",
-                       "help": "Positive raises, negative lowers."},
+                       "help": "Positive raises, negative lowers. An input "
+                               "card's gain moves in 6 dB steps."},
         },
         "help": "Nudge a gain by a number of dB from its current value.",
     },
@@ -1015,7 +1141,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.0.3",
+        "version": "1.1.0",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1031,27 +1157,20 @@ class BSSSoundwebLondonDriver(BaseDriver):
         ),
         "source_url": "https://bssaudio.com/en-US/site_elements/soundweb-london-di-kit",
         "tags": ["dsp", "bss", "soundweb", "blu", "hiqnet", "harman"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["bss-direct-inject"],
         "ports": [1023],
         "transport": "tcp",
         "discovery": {
-            # A DI_SUBSCRIBESV then DI_UNSUBSCRIBESV to node 0, the audio
-            # virtual device, object 0x100, SV 1 (the first placed object's
-            # Mute on most designs). A Soundweb answers a well-formed frame
-            # with ACK (0x06) — and with a DI_SETSV (STX 0x88) when the
-            # object exists — while any other listener on 1023 says nothing
-            # DI-shaped. The Interface Kit contradicts itself on whether the
-            # ACK is sent over Ethernet, so a unit that stays silent is still
-            # found by the port hint; bench-verify which reply arrives.
+            # The unit's Telnet port greets unprompted with
+            # "BSS Soundweb (London)\r\nUser-name: " (a BLU-100 on 6.0.5 and
+            # again on 86.4.2, within 30 ms). Port 1023 cannot identify a
+            # unit: it answers nothing for an object the loaded design does
+            # not have, not even an ACK.
             "tcp_probe": {
-                "port": 1023,
-                "send_hex": (
-                    "02 89 00 00 1B 83 00 01 00 00 01 00 00 00 00 8A 03 "
-                    "02 8A 00 00 1B 83 00 01 00 00 01 00 00 00 00 89 03"
-                ),
-                "expect_regex": r"^[\x02\x06\x15]",
+                "port": 23,
+                "expect": "BSS Soundweb (London)",
                 "timeout_ms": 1500,
             },
             "port_open": [1023],
@@ -1060,8 +1179,23 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "compatible_models": [
             {
                 "manufacturer": "BSS Audio",
+                "models": ["BLU-100"],
+                "confidence": "full",
+                "notes": (
+                    "Run against a BLU-100 on firmware 86.4.2 with an Audio "
+                    "Architect design: gain, N-input gain, source selector, "
+                    "mixer, meter and input card controls set and read back, "
+                    "a parameter preset recalled, and changes made in "
+                    "Architect arriving live. Not run on a unit: venue "
+                    "presets (London Architect designs only), string state "
+                    "variables (a BLU-100 has none), and the matrix object "
+                    "types."
+                ),
+            },
+            {
+                "manufacturer": "BSS Audio",
                 "models": [
-                    "BLU-100", "BLU-101", "BLU-102", "BLU-103", "BLU-120",
+                    "BLU-101", "BLU-102", "BLU-103", "BLU-120",
                     "BLU-160", "BLU-320", "BLU-800", "BLU-805", "BLU-806",
                     "BLU-806DA", "BLU-16", "BLU-32", "BLU-80",
                 ],
@@ -1069,8 +1203,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 "notes": (
                     "Every Soundweb London processor speaks the same Direct "
                     "Inject protocol; the object addresses come from the "
-                    "design loaded on the unit. Built from the Interface Kit "
-                    "revision 2.7 and the simulator; not yet run against a unit."
+                    "design loaded on the unit."
                 ),
             },
         ],
@@ -1088,25 +1221,28 @@ class BSSSoundwebLondonDriver(BaseDriver):
             ),
             "setup": (
                 "STEP 1 - Find the addresses.\n"
-                "In Audio Architect (or London Architect) select a processing "
-                "object and open its Properties: the HiQnet address reads like "
-                "0x083203000100 (node, virtual device 03, object 000100). "
-                "The unit's Node Address is on its own properties sheet.\n\n"
+                "In Audio Architect select a processing object: the Properties "
+                "window shows its Object ID (0.1.0 for the first object "
+                "placed, which is 0x100). London Architect shows the full "
+                "HiQnet address instead, 0x083203000100 (node, virtual "
+                "device 03, object 000100).\n\n"
                 "STEP 2 - Add the device.\n"
-                "Enter the unit's IP address, port 1023, and its Node Address. "
-                "Then add one row per object in the Objects table: the full "
-                "address or just the object part (0x100), the object type, and "
-                "a size where the type needs one (8 inputs, 8x4, 1-4).\n\n"
+                "Enter the unit's IP address and port 1023. Leave the Node "
+                "Address blank to control that unit; the address it answers "
+                "as appears as Reported Node Address. Then add one row per "
+                "object in the Objects table: its Object ID, the object type, "
+                "and a size where the type needs one (8 inputs, 8x4, 1-4).\n\n"
                 "STEP 3 - Test.\n"
                 "Run Test Connection / Verify Objects. Every object that "
                 "answers is listed; one that stays silent has a wrong address "
-                "or node, or is not in the design loaded on the unit.\n\n"
+                "or is not in the design loaded on the unit.\n\n"
                 "Meters are off by default. Turn on 'Subscribe to meters' to "
                 "stream them at the chosen rate."
             ),
             "connection": (
                 "Port 1023 needs no login. If nothing answers, check the "
-                "Node Address against the unit's properties in Architect."
+                "object addresses against Audio Architect and that the "
+                "design is loaded on the unit."
             ),
         },
         "default_config": {
@@ -1128,11 +1264,11 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 "type": "string", "label": "HiQnet Node Address",
                 "default": "",
                 "regex": r"^\s*(0[xX][0-9A-Fa-f]{1,4}|\d{1,5})?\s*$",
-                "help": "The unit's Node Address as Architect shows it (0x08AD "
-                        "or decimal). Blank addresses node 0, the unit you are "
-                        "connected to. An object row with a full 12-digit "
-                        "address carries its own node and can reach another "
-                        "unit on the same network through this one.",
+                "help": "Leave blank to control the unit at this IP address. "
+                        "Otherwise the unit's Node Address as Architect shows "
+                        "it (0x6362 or decimal). An object row with a full "
+                        "12-digit address carries its own node and can reach "
+                        "another unit on the same network through this one.",
             },
             "controls": {
                 "type": "table", "label": "Objects", "row_label": "object",
@@ -1165,6 +1301,10 @@ class BSSSoundwebLondonDriver(BaseDriver):
         },
         "child_entity_types": OBJECT_CHILD_TYPES,
         "state_variables": {
+            "reported_node_address": {
+                "type": "string", "label": "Reported Node Address",
+                "help": "The HiQnet node address the unit answers as.",
+            },
             "objects_declared": {"type": "integer", "label": "Objects Declared", "min": 0},
             "objects_responding": {"type": "integer", "label": "Objects Responding", "min": 0},
             "config_problems": {"type": "string", "label": "Object List Problems"},
@@ -1198,7 +1338,6 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "Connected, but the unit stopped answering (no reply to a subscribe)."
     )
     PROBE_TIMEOUT_S = 3.0
-    RESYNC_AFTER_RELEASE_S = 0.25
 
     def __init__(self, device_id: str, config: dict[str, Any], state: Any, events: Any) -> None:
         self._node = 0
@@ -1225,6 +1364,15 @@ class BSSSoundwebLondonDriver(BaseDriver):
         # Waiters for a DI_SETSV on a key (the liveness probe, Test Connection).
         self._waiters: dict[tuple[int, int, int, int], list[asyncio.Future[int]]] = {}
         self._responding: set[str] = set()
+        # Declared control keys the unit has reported on this connection: the
+        # only ones the liveness probe may ask (see _liveness_probe).
+        self._answered: set[tuple[int, int, int, int]] = set()
+        self._silence_reported = False
+        # The node the connected unit answers as. A frame to node 0 reaches
+        # the unit at the other end of the connection, and its reply carries
+        # the unit's real node (Kit p.12), so rows declared with node 0 are
+        # matched to it here.
+        self._unit_node: int | None = None
         self._send_lock = asyncio.Lock()
         super().__init__(device_id, config, state, events)
         for problem in self._problems:
@@ -1245,14 +1393,21 @@ class BSSSoundwebLondonDriver(BaseDriver):
         self.set_state("objects_declared", len(self._objects))
         self.set_state("config_problems", "; ".join(self._problems))
         self._responding.clear()
+        self._answered.clear()
+        self._silence_reported = False
+        self._unit_node = None
         self.set_state("objects_responding", 0)
         self._register_objects()
         await self._subscribe_all()
 
     async def poll(self) -> None:
         """Renew every subscription: a subscribe answers with the current
-        value, so this is the resync, and it re-arms a unit that rebooted."""
+        value, so this is the resync, and it re-arms a unit that rebooted.
+        While nothing has answered, ``last_error`` is written again: the
+        platform clears it after a poll that leaves it alone."""
         await self._subscribe_all()
+        if self._silence_reported:
+            self.set_state("last_error", self._silence_message())
 
     async def _close_session(self) -> None:
         for waiters in self._waiters.values():
@@ -1295,16 +1450,26 @@ class BSSSoundwebLondonDriver(BaseDriver):
             if delay > 0:
                 await asyncio.sleep(delay)
 
-    async def _send_control_byte(self, byte: int) -> None:
-        """ACK / NAK go straight to the transport: they are sent from the
-        receive path, which may run while a command holds the send lock, and
-        a single byte cannot interleave with a frame."""
+    async def _send_from_receive_path(self, frame: bytes) -> None:
+        """A frame sent while handling an inbound one goes straight to the
+        transport: the receive path may run while a command holds the send
+        lock, and one write call cannot interleave with another frame."""
         if not self.transport:
             return
         try:
-            await self.transport.send(bytes([byte]))
+            await self.transport.send(frame)
         except Exception:
-            log.debug(f"[{self.device_id}] Could not send control byte {byte:#04x}", exc_info=True)
+            log.debug(f"[{self.device_id}] Could not send from the receive path", exc_info=True)
+
+    async def _read_back(self, node: int, vd: int, obj: int, sv: int) -> None:
+        """Ask for a value after this session changed it. The unit tells every
+        other subscribed session about a change, never the one that made it
+        (measured on a BLU-100), so without this the driver's own writes
+        would not appear until the next resync. A subscribe is the GET."""
+        await self._send(build_subscribe(node, vd, obj, sv, 0))
+
+    def _declared(self, node: int, vd: int, obj: int, sv: int) -> bool:
+        return (node, vd, obj, sv) in self._route
 
     def _meters_enabled(self) -> bool:
         return bool(self.config.get("enable_meters", False))
@@ -1329,32 +1494,63 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 else:
                     await self._send(build_subscribe(o.node, o.vd, o.obj, ctl.sv, 0))
 
-    def _first_control(self) -> tuple[DIObject, ControlDef] | None:
+    def _probe_control(self) -> tuple[DIObject, ControlDef, bool] | None:
+        """The control the liveness probe asks, and whether it has answered
+        on this connection: the first declared control that has, else the
+        first declared control."""
+        first: tuple[DIObject, ControlDef] | None = None
         for o in self._objects:
             for ctl in o.controls.values():
-                if ctl.fmt != FMT_METER:
-                    return o, ctl
-        return None
+                if ctl.fmt == FMT_METER:
+                    continue
+                if o.key(ctl) in self._answered:
+                    return o, ctl, True
+                if first is None:
+                    first = (o, ctl)
+        return (first[0], first[1], False) if first else None
 
     # ── Receiving ──
 
+    def _route_key(self, msg: DIMessage) -> tuple[int, int, int, int] | None:
+        """The declared key an inbound frame belongs to. A reply to a frame
+        sent to node 0 carries the unit's real node, so it matches the row
+        declared with node 0; the node is learned from the first one."""
+        key = msg.key
+        if key in self._route:
+            if msg.node and msg.node == self._node:
+                self._learn_node(msg.node)
+            return key
+        alias = (0, msg.vd, msg.obj, msg.sv)
+        if msg.node and alias in self._route and self._unit_node in (None, msg.node):
+            self._learn_node(msg.node)
+            return alias
+        return None
+
+    def _learn_node(self, node: int) -> None:
+        if self._unit_node == node:
+            return
+        self._unit_node = node
+        self.set_state("reported_node_address", f"0x{node:04X}")
+        # Rows declared without a node now show the address Architect shows.
+        for o in self._objects:
+            if o.node == 0:
+                try:
+                    self.set_child_state(OBJECT_CHILD_TYPE, o.cid, "address",
+                                         format_hiqnet(node, o.vd, o.obj))
+                except (ValueError, KeyError):
+                    pass
+
     async def on_data_received(self, data: bytes) -> None:
-        if not data:
-            return
-        if data == bytes([ACK]):
-            return
-        if data == bytes([NAK]):
-            log.warning(f"[{self.device_id}] Unit rejected the last message (NAK)")
-            self.set_state("last_error", "The unit rejected a message (NAK): bad checksum or frame")
+        """Nothing here is acknowledged: over Ethernet a Soundweb London
+        neither sends nor expects ACK / NAK (Kit p.9; a BLU-100 sends none,
+        not even for a bad checksum, which it drops)."""
+        if not data or data in (bytes([ACK]), bytes([NAK])):
             return
         body = decode_frame(data)
         if body is None:
             log.warning(f"[{self.device_id}] Bad frame from unit (checksum or framing): {data.hex()}")
-            await self._send_control_byte(NAK)
             return
         msg = parse_body(body)
-        # Acknowledge every well-formed frame (see the module docstring).
-        await self._send_control_byte(ACK)
         if msg is None:
             log.debug(f"[{self.device_id}] Unhandled DI body {body.hex()}")
             return
@@ -1363,26 +1559,34 @@ class BSSSoundwebLondonDriver(BaseDriver):
             return
         if msg.cmd not in (DI_SETSV, DI_SETSTRINGSV, DI_SETSVPERCENT):
             return
-        self._resolve_waiters(msg.key, msg.raw)
-        route = self._route.get(msg.key)
-        if route is None:
-            log.debug(f"[{self.device_id}] DI_SETSV for an undeclared SV {format_hiqnet(msg.node, msg.vd, msg.obj)} sv {msg.sv}")
+        key = self._route_key(msg)
+        if key is None:
+            log.debug(f"[{self.device_id}] Value for an undeclared SV {format_hiqnet(msg.node, msg.vd, msg.obj)} sv {msg.sv}")
             return
-        cid, prop = route
+        if msg.cmd == DI_SETSVPERCENT:
+            # Another controller set this control by percentage, and the unit
+            # passes the change on in the form it was made: a percent of
+            # travel, or for a bump only the amount it moved. Neither is the
+            # value, so ask for it.
+            node, vd, obj, sv = key
+            await self._send_from_receive_path(build_subscribe(node, vd, obj, sv, 0))
+            return
+        self._resolve_waiters(key, msg.raw)
+        cid, prop = self._route[key]
         o = self._by_cid.get(cid)
         if o is None:
             return
         ctl = o.controls[prop]
-        if msg.cmd == DI_SETSVPERCENT:
-            # Only sent back for a percent subscription, which this driver
-            # never issues; a raw subscription answers in raw units.
-            return
         if msg.cmd == DI_SETSTRINGSV:
             value: Any = msg.text if ctl.fmt == FMT_STRING else (msg.text or "")
         elif ctl.fmt == FMT_STRING:
             value = str(msg.raw)
         else:
             value = raw_to_value(ctl.fmt, msg.raw)
+        self._answered.add(key)
+        if self._silence_reported:
+            self._silence_reported = False
+            self.set_state("last_error", "")
         updates: dict[str, Any] = {prop: value}
         if cid not in self._responding:
             self._responding.add(cid)
@@ -1407,13 +1611,27 @@ class BSSSoundwebLondonDriver(BaseDriver):
         return fut
 
     async def _liveness_probe(self) -> None:
-        """Re-subscribe the first declared control and await its DI_SETSV.
-        A subscribe is the protocol's GET (p.23), so the echo proves the
-        unit is alive and the object is still addressed correctly."""
-        first = self._first_control()
-        if first is None:
+        """Re-subscribe a control and await its DI_SETSV. A subscribe is the
+        protocol's GET (p.23), so the echo proves the unit is alive.
+
+        Only a control that has answered on this connection is awaited. The
+        Interface Kit has no message a unit answers whatever design it holds,
+        and the unit sends nothing back for an address it does not have (not
+        even an ACK over Ethernet), so a wrong row, a wrong node or a design
+        without the object would otherwise read as a dead unit and drop the
+        link every minute. When nothing has answered yet, the subscribe still
+        goes out, so a unit that has gone away surfaces as a transport error,
+        and ``last_error`` says what to check instead of dropping the link."""
+        probe = self._probe_control()
+        if probe is None:
             return
-        o, ctl = first
+        o, ctl, answered = probe
+        if not answered:
+            await self._send(build_subscribe(o.node, o.vd, o.obj, ctl.sv, 0))
+            if not self._silence_reported:
+                self._silence_reported = True
+                self.set_state("last_error", self._silence_message())
+            return
         key = o.key(ctl)
         fut = self._wait_for(key)
         try:
@@ -1429,6 +1647,14 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 lst.remove(fut)
                 if not lst:
                     self._waiters.pop(key, None)
+
+    def _silence_message(self) -> str:
+        return (
+            f"Connected, but none of the {len(self._objects)} declared object(s) "
+            f"has answered. Check the Node Address and each object's HiQnet "
+            f"address against Audio Architect, and that the design is loaded "
+            f"on the unit."
+        )
 
     # ── Commands ──
 
@@ -1473,6 +1699,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 await self._send(build_set_string(o.node, o.vd, o.obj, ctl.sv, value))
             else:
                 await self._send(build_set(o.node, o.vd, o.obj, ctl.sv, value_to_raw(ctl.fmt, value)))
+            await self._read_back(o.node, o.vd, o.obj, ctl.sv)
             return None
         if command == "toggle_control":
             o, ctl = self._lookup(params)
@@ -1482,16 +1709,36 @@ class BSSSoundwebLondonDriver(BaseDriver):
             if current is None:
                 raise ValueError(f"{o.name} {ctl.label} has not reported a value yet")
             await self._send(build_set(o.node, o.vd, o.obj, ctl.sv, 0 if current else 1))
+            await self._read_back(o.node, o.vd, o.obj, ctl.sv)
             return None
         if command == "step_gain":
             o, ctl = self._lookup(params)
-            if ctl.fmt != FMT_GAIN:
-                raise ValueError(f"{ctl.label} on {o.name} is not a gain")
-            current = self._current(o, ctl)
-            if current is None:
-                raise ValueError(f"{o.name} {ctl.label} has not reported a value yet")
-            target = max(GAIN_DB_MIN, min(GAIN_DB_MAX, float(current) + float(params.get("amount", 1.0))))
-            await self._send(build_set(o.node, o.vd, o.obj, ctl.sv, gain_db_to_raw(target)))
+            amount = float(params.get("amount", 1.0))
+            if ctl.fmt == FMT_GAIN:
+                current = self._current(o, ctl)
+                if current is None:
+                    raise ValueError(f"{o.name} {ctl.label} has not reported a value yet")
+                target = max(GAIN_DB_MIN, min(GAIN_DB_MAX, float(current) + amount))
+                raw = gain_db_to_raw(target)
+            elif ctl.fmt == FMT_INPUT_GAIN:
+                steps = round(amount / INPUT_GAIN_STEP_DB)
+                if steps == 0:
+                    raise ValueError(
+                        f"{ctl.label} on {o.name} moves in {INPUT_GAIN_STEP_DB} dB steps. "
+                        f"Use an amount of {INPUT_GAIN_STEP_DB} or -{INPUT_GAIN_STEP_DB}."
+                    )
+                current = self._current(o, ctl)
+                if current is None:
+                    raise ValueError(f"{o.name} {ctl.label} has not reported a value yet")
+                target = max(0, min(INPUT_GAIN_MAX_DB, int(current) + steps * INPUT_GAIN_STEP_DB))
+                raw = input_gain_db_to_raw(target)
+            else:
+                raise ValueError(
+                    f"{ctl.label} on {o.name} is not a level, so it has no dB to step. "
+                    f"Use Set Control."
+                )
+            await self._send(build_set(o.node, o.vd, o.obj, ctl.sv, raw))
+            await self._read_back(o.node, o.vd, o.obj, ctl.sv)
             return None
         if command == "set_percent":
             o, ctl = self._lookup(params)
@@ -1499,6 +1746,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 raise ValueError(f"{ctl.label} on {o.name} is read-only")
             pct = max(0.0, min(100.0, float(params["percent"])))
             await self._send(build_set_percent(o.node, o.vd, o.obj, ctl.sv, pct))
+            await self._read_back(o.node, o.vd, o.obj, ctl.sv)
             return None
         if command == "bump_percent":
             o, ctl = self._lookup(params)
@@ -1506,28 +1754,78 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 raise ValueError(f"{ctl.label} on {o.name} is read-only")
             delta = max(-100.0, min(100.0, float(params["delta"])))
             await self._send(build_bump_percent(o.node, o.vd, o.obj, ctl.sv, delta))
-            # A bump does not trigger a subscription update on its own
-            # (Harman help centre); ask for the value.
-            await self._send(build_subscribe(o.node, o.vd, o.obj, ctl.sv, 0))
+            await self._read_back(o.node, o.vd, o.obj, ctl.sv)
             return None
         if command == "set_raw_sv":
             node, vd, obj = parse_object_address(params.get("address"), self._node)
-            await self._send(build_set(node, vd, obj, int(params["sv"]), int(params["value"])))
+            sv = int(params["sv"])
+            await self._send(build_set(node, vd, obj, sv, int(params["value"])))
+            if self._declared(node, vd, obj, sv):
+                await self._read_back(node, vd, obj, sv)
             return None
         if command == "set_string_sv":
             node, vd, obj = parse_object_address(params.get("address"), self._node)
-            await self._send(build_set_string(node, vd, obj, int(params["sv"]), str(params.get("text", ""))))
+            sv = int(params["sv"])
+            await self._send(build_set_string(node, vd, obj, sv, str(params.get("text", ""))))
+            if self._declared(node, vd, obj, sv):
+                await self._read_back(node, vd, obj, sv)
             return None
         raise ValueError(f"Unknown command: {command}")
 
     # ── Test Connection / Verify Objects (setup wizard) ──
 
+    async def _ask(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        keys: list[tuple[int, int, int, int]],
+    ) -> dict[tuple[int, int, int, int], int]:
+        """Subscribe to each key on the wizard's own socket and return the
+        node each one answered from. A key sent to node 0 matches a reply
+        from any node (the unit answers from its own)."""
+        for node, vd, obj, sv in keys:
+            writer.write(build_subscribe(node, vd, obj, sv, 0))
+        await writer.drain()
+        answered: dict[tuple[int, int, int, int], int] = {}
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.PROBE_TIMEOUT_S
+        buf = b""
+        while len(answered) < len(keys):
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            try:
+                chunk = await asyncio.wait_for(reader.read(4096), remaining)
+            except asyncio.TimeoutError:
+                break
+            if not chunk:
+                break
+            buf += chunk
+            while True:
+                frame, buf = parse_di_stream(buf)
+                if frame is None or (frame == b"" and not buf):
+                    break
+                if not frame or frame[0] != STX:
+                    continue
+                body = decode_frame(frame)
+                msg = parse_body(body) if body else None
+                if not msg or msg.cmd not in (DI_SETSV, DI_SETSTRINGSV, DI_SETSVPERCENT):
+                    continue
+                for key in keys:
+                    node, vd, obj, sv = key
+                    if (vd, obj, sv) == (msg.vd, msg.obj, msg.sv) and node in (0, msg.node):
+                        answered.setdefault(key, msg.node)
+        return answered
+
     async def run_setup_action(self, action_id: str, params: dict[str, Any], progress: Any) -> dict[str, Any]:
-        """Open a session of its own (a Soundweb takes several DI clients),
-        subscribe to the first control of every declared object, and report
-        which objects answered. A silent object has a wrong address, a wrong
-        node, or is not in the design loaded on the unit — the commissioning
-        failure this protocol cannot otherwise show."""
+        """Open a session of its own (a Soundweb takes several DI clients and
+        keeps each one's subscriptions apart), subscribe to the first control
+        of every declared object, and report which objects answered and the
+        node the unit answers as. A unit says nothing about an address it
+        does not have, so this is the only place a wrong row or node shows.
+        When nothing answers at the configured node, the same controls are
+        asked at node 0 (the unit at the other end of the connection), whose
+        reply names the node to use."""
         if action_id != "test_connection":
             raise ValueError(f"Unknown setup action: {action_id}")
         host = str(self.config.get("host", "")).strip()
@@ -1541,51 +1839,28 @@ class BSSSoundwebLondonDriver(BaseDriver):
             reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), 10.0)
         except (OSError, asyncio.TimeoutError) as exc:
             raise ConnectionError(
-                f"Could not reach {host}:{port} — check the address and that the unit is on the network ({exc})"
+                f"Could not reach {host}:{port}. Check the address and that the unit is on the network ({exc})."
             ) from exc
-        answered: dict[tuple[int, int, int, int], int] = {}
         probes: list[tuple[DIObject, ControlDef]] = []
+        for o in self._objects:
+            ctl = next((c for c in o.controls.values() if c.fmt != FMT_METER), None) \
+                or next(iter(o.controls.values()), None)
+            if ctl is not None:
+                probes.append((o, ctl))
+        keys = [o.key(ctl) for o, ctl in probes]
+        asked = list(keys)
+        at_node_0: dict[tuple[int, int, int, int], int] = {}
         try:
-            for o in self._objects:
-                ctl = next((c for c in o.controls.values() if c.fmt != FMT_METER), None) \
-                    or next(iter(o.controls.values()), None)
-                if ctl is not None:
-                    probes.append((o, ctl))
             await progress(f"Asking {len(probes)} object(s) for a value", 30)
-            for o, ctl in probes:
-                writer.write(build_subscribe(o.node, o.vd, o.obj, ctl.sv, 0))
-            await writer.drain()
-            deadline = asyncio.get_running_loop().time() + self.PROBE_TIMEOUT_S
-            buf = b""
-            saw_ack = False
-            while len(answered) < len(probes):
-                remaining = deadline - asyncio.get_running_loop().time()
-                if remaining <= 0:
-                    break
-                try:
-                    chunk = await asyncio.wait_for(reader.read(4096), remaining)
-                except asyncio.TimeoutError:
-                    break
-                if not chunk:
-                    break
-                buf += chunk
-                while True:
-                    frame, buf = parse_di_stream(buf)
-                    if frame is None or (frame == b"" and not buf):
-                        break
-                    if frame == b"":
-                        continue
-                    if frame == bytes([ACK]):
-                        saw_ack = True
-                        continue
-                    body = decode_frame(frame)
-                    msg = parse_body(body) if body else None
-                    if msg and msg.cmd in (DI_SETSV, DI_SETSTRINGSV):
-                        answered[msg.key] = msg.raw
-                        writer.write(bytes([ACK]))
+            answered = await self._ask(reader, writer, keys)
+            if probes and not answered and any(k[0] for k in keys):
+                await progress("Nothing answered at that node: asking the unit as node 0", 60)
+                zero = [(0, vd, obj, sv) for _, vd, obj, sv in keys]
+                asked += zero
+                at_node_0 = await self._ask(reader, writer, zero)
             await progress("Releasing the test subscriptions", 90)
-            for o, ctl in probes:
-                writer.write(build_unsubscribe(o.node, o.vd, o.obj, ctl.sv))
+            for node, vd, obj, sv in asked:
+                writer.write(build_unsubscribe(node, vd, obj, sv))
             await writer.drain()
         finally:
             writer.close()
@@ -1593,41 +1868,43 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 await writer.wait_closed()
             except Exception:
                 pass
-        # A unit may keep subscriptions per state variable rather than per
-        # session (the Interface Kit does not say); the unsubscribes above
-        # would then have silenced the live session's copies, so renew them.
-        # The releases went out on another connection, so give the unit a
-        # moment to act on them first: two sessions have no ordering between
-        # them, and a renewal that lands before a release is undone by it.
-        if self.transport is not None and getattr(self.transport, "connected", False):
-            await asyncio.sleep(self.RESYNC_AFTER_RELEASE_S)
-            try:
-                await self._subscribe_all()
-            except Exception:
-                log.debug(f"[{self.device_id}] Could not resync after Test Connection", exc_info=True)
+        nodes = set(answered.values()) | set(at_node_0.values())
+        local = [n for k, n in answered.items() if k[0] in (0, self._node)] + list(at_node_0.values())
+        unit_node = local[0] if local else None
+        if unit_node is not None:
+            self._learn_node(unit_node)
         ok = [o.name for o, ctl in probes if o.key(ctl) in answered]
         silent = [f"{o.name} ({o.address} sv {ctl.sv})" for o, ctl in probes if o.key(ctl) not in answered]
-        if probes and not ok:
-            hint = ("The unit accepted the frames but no object reported a value: check the "
-                    "Node Address and the object addresses against Architect."
-                    if saw_ack else
-                    "Nothing came back at all: check the Node Address, and that this is a "
-                    "Soundweb London on port 1023.")
-            message = f"Connected to {host}:{port}, but none of the {len(probes)} object(s) answered. {hint}"
+        node_text = f" The unit answers as node 0x{unit_node:04X}." if unit_node is not None else ""
+        if probes and not ok and at_node_0:
+            message = (
+                f"None of the {len(probes)} object(s) answered at node 0x{self._node:04X}, but the "
+                f"unit answers as node 0x{unit_node:04X}. Set the Node Address to "
+                f"0x{unit_node:04X}, or leave it blank."
+            )
+        elif probes and not ok:
+            message = (
+                f"Connected to {host}:{port}, but none of the {len(probes)} object(s) answered. "
+                f"Check each object's HiQnet address against Audio Architect, and that the "
+                f"design is loaded on the unit."
+            )
         elif silent:
-            message = (f"{len(ok)} of {len(probes)} object(s) answered. Silent: {', '.join(silent)}. "
-                       f"A silent object has a wrong address or is not in the loaded design.")
+            message = (
+                f"{len(ok)} of {len(probes)} object(s) answered. Silent: {', '.join(silent)}. "
+                f"A silent object has a wrong address or is not in the design loaded on the "
+                f"unit.{node_text}"
+            )
         elif probes:
-            message = f"All {len(probes)} object(s) answered."
+            message = f"All {len(probes)} object(s) answered.{node_text}"
         else:
-            message = (f"Connected to {host}:{port}. No objects are declared yet, so nothing was verified."
-                       + (" Acknowledged." if saw_ack else ""))
+            message = f"Connected to {host}:{port}. No objects are declared yet, so nothing was verified."
         await progress(message, 100)
         return {
             "ok": bool(probes) and not silent,
             "message": message,
             "answered": ok,
             "silent": silent,
-            "acknowledged": saw_ack,
+            "unit_node": f"0x{unit_node:04X}" if unit_node is not None else "",
+            "nodes_seen": sorted(f"0x{n:04X}" for n in nodes),
             "problems": list(self._problems),
         }

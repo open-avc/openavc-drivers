@@ -915,8 +915,8 @@
       "drivers": [
         {
           "id": "bss_soundweb_london",
-          "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "confidence": "full",
+          "notes": "Run against a BLU-100 on firmware 86.4.2 with an Audio Architect design: gain, N-input gain, source selector, mixer, meter and input card controls set and read back, a parameter preset recalled, and changes made in Architect arriving live. Not run on a unit: venue presets (London Architect designs only), string state variables (a BLU-100 has none), and the matrix object types."
         }
       ]
     },
@@ -928,7 +928,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -940,7 +940,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -952,7 +952,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -964,7 +964,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -976,7 +976,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -988,7 +988,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -1000,7 +1000,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -1012,7 +1012,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -1024,7 +1024,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -1036,7 +1036,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -1048,7 +1048,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -1060,7 +1060,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },
@@ -1072,7 +1072,7 @@
         {
           "id": "bss_soundweb_london",
           "confidence": "untested",
-          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit. Built from the Interface Kit revision 2.7 and the simulator; not yet run against a unit."
+          "notes": "Every Soundweb London processor speaks the same Direct Inject protocol; the object addresses come from the design loaded on the unit."
         }
       ]
     },

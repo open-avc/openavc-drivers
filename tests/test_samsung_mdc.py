@@ -422,7 +422,7 @@ def test_parse_frame_multiple():
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.2"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.3"
     assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.34.0"
 
 
@@ -749,6 +749,107 @@ def test_liveness_probe_raises_on_a_deaf_socket():
                 await driver._liveness_probe()
         finally:
             _SWALLOW = False
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def _record_set_ids(sim) -> list[int]:
+    """Wrap the simulator so every request frame's Set ID is recorded."""
+    seen: list[int] = []
+    handle = sim.handle_command
+
+    def recording(data):
+        if len(data) >= 3 and data[0] == 0xAA:
+            seen.append(data[2])
+        return handle(data)
+
+    sim.handle_command = recording
+    return seen
+
+
+def test_liveness_survives_a_missing_first_set_id():
+    """The check must not depend on the first row of the display list.
+
+    Display IDs "2,3" on a chain whose only display is Set ID 3: the check
+    used to ask Set ID 2 alone, got silence every time, and the watchdog
+    dropped and reconnected a link Set ID 3 was answering on, every minute,
+    forever. A missing display is a roster fact poll() reports on its child.
+    """
+    async def go():
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": "3"},
+            driver_overrides={"display_ids": "2,3"},
+        )
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            await driver._liveness_probe()  # must NOT raise
+            # And with nothing recorded yet (the probe before any poll), it
+            # walks the roster rather than stopping at the first silence.
+            driver._answered_at.clear()
+            await driver._liveness_probe()
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_liveness_asks_the_display_that_answered_most_recently_first():
+    """One frame per probe on a healthy chain, however many IDs are listed."""
+    async def go():
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": "3"},
+            driver_overrides={"display_ids": "2,3"},
+        )
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            seen = _record_set_ids(sim)
+            await driver._liveness_probe()
+            assert seen == [3]
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_liveness_still_raises_when_no_display_on_the_chain_answers():
+    """Asking every Set ID in turn must not hide a deaf socket."""
+    async def go():
+        global _SWALLOW
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": "1,2"},
+            driver_overrides={"display_ids": "1,2"},
+        )
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            seen = _record_set_ids(sim)
+            _SWALLOW = True
+            with pytest.raises(TimeoutError):
+                await driver._liveness_probe()
+            assert sorted(seen) == [1, 2]  # every display was asked
+        finally:
+            _SWALLOW = False
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_identity_skips_a_set_id_with_no_display_behind_it():
+    """A typo at the head of the list used to cost the model and firmware."""
+    async def go():
+        driver, sim = await _make_pair(
+            sim_config={"set_ids": "3"},
+            driver_overrides={"display_ids": "2,3"},
+        )
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            assert driver.state.data.get("model") == "DM75E"
+            assert "GFSLE" in driver.state.data.get("firmware", "")
+        finally:
             await driver.disconnect()
 
     asyncio.run(go())

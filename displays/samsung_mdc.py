@@ -375,7 +375,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.7.2",
+        "version": "1.7.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # `restarts_device_for` on power_on and all_on needs 0.34.0.
@@ -792,6 +792,11 @@ class SamsungMDCDriver(BaseDriver):
         # another controller starts the same window and cannot be seen here,
         # so a NAK is still reported rather than assumed away.
         self._volume_set_at: dict[int, float] = {}
+        # When each Set ID last answered one of this driver's requests on the
+        # current connection (loop clock, ACK or NAK alike). Reset on every
+        # connect. The liveness probe asks the most recent one first, so a
+        # roster entry with no display behind it cannot fail the probe.
+        self._answered_at: dict[int, float] = {}
 
     # ── Roster ──
 
@@ -844,32 +849,41 @@ class SamsungMDCDriver(BaseDriver):
         and a reconnect is the one moment that panel may have changed.
         """
         self._unsupported.clear()
+        self._answered_at.clear()
         self._reconcile_displays()
         await self._read_identity()
         await self.poll()
 
     async def _read_identity(self) -> None:
-        """Read model and firmware from the first display, best effort.
+        """Read model and firmware from the first display that answers.
 
         Identity is a nicety, not a reason to fail a connect: a display that
         NAKs either command (the DM75E NAKs serial number, for instance) or a
-        chain whose first Set ID is absent should still come up.
+        chain whose first Set ID is absent should still come up. A Set ID with
+        no display behind it is skipped, so a typo at the head of the list
+        does not also cost the model and firmware.
         """
-        set_id = next(iter(self.list_children("display")), None)
-        if set_id is None:
-            return
-        for cmd, prop in ((CMD_MODEL_NAME, "model"), (CMD_SW_VERSION, "firmware")):
+        for set_id in self.list_children("display"):
             try:
-                ack, values = await self._request(set_id, cmd)
+                ack, values = await self._request(set_id, CMD_MODEL_NAME)
+            except TimeoutError:
+                continue
+            except ConnectionError:
+                return
+            self._set_identity("model", ack, values)
+            try:
+                ack, values = await self._request(set_id, CMD_SW_VERSION)
             except (TimeoutError, ConnectionError):
                 return
-            if ack == ACK and values:
-                # MDC pads these fields with NULs; keep the printable run.
-                text = "".join(
-                    chr(b) for b in values if 32 <= b < 127
-                ).strip()
-                if text:
-                    self.set_state(prop, text)
+            self._set_identity("firmware", ack, values)
+            return
+
+    def _set_identity(self, prop: str, ack: int, values: bytes) -> None:
+        if ack == ACK and values:
+            # MDC pads these fields with NULs; keep the printable run.
+            text = "".join(chr(b) for b in values if 32 <= b < 127).strip()
+            if text:
+                self.set_state(prop, text)
 
     async def refresh_children(self) -> dict[str, Any]:
         """Re-sync the display roster from config and re-read every display's
@@ -928,9 +942,11 @@ class SamsungMDCDriver(BaseDriver):
         self._waiters.setdefault(key, []).append(fut)
         try:
             await self._send_to(set_id, cmd, data)
-            return await asyncio.wait_for(
+            reply = await asyncio.wait_for(
                 fut, self.REPLY_TIMEOUT_S if timeout is None else timeout
             )
+            self._answered_at[set_id] = asyncio.get_running_loop().time()
+            return reply
         except asyncio.TimeoutError as exc:
             raise TimeoutError(
                 f"Display {set_id} did not answer command 0x{cmd:02X}"
@@ -964,7 +980,7 @@ class SamsungMDCDriver(BaseDriver):
     # ── Liveness ──
 
     async def _liveness_probe(self) -> None:
-        """Ask the first display for its power state and await the answer.
+        """Ask a display for its power state and await the answer.
 
         BaseDriver's watchdog wraps this in HEALTH_TIMEOUT_S and force-drops
         the transport after HEALTH_MAX_FAILURES misses, so the platform
@@ -972,11 +988,35 @@ class SamsungMDCDriver(BaseDriver):
         display has handed itself to a newer connection. poll() raising on
         silence covers the same ground, but only while polling is switched on;
         this keeps a poll_interval of 0 honest.
+
+        MDC has no question a display answers whatever its Set ID (on a DM75E
+        broadcast 0xFE / 0xFF and Set ID 0 answer nothing), so the probe asks
+        the Set ID that answered most recently on this connection, then the
+        others, and raises only when none of them answers — the same rule as
+        poll(). A Set ID with no display behind it (a typo, a renumbered or
+        unpowered panel) is a roster fact that poll() reports on its child;
+        it must not drop a link the rest of the chain is answering on. A NAK
+        is an answer. The reply is correlated to this request, so another
+        controller's traffic on a socket the display has stopped serving
+        cannot pass for one.
         """
-        set_id = next(iter(self.list_children("display")), None)
-        if set_id is None:
+        roster = list(self.list_children("display"))
+        if not roster:
             return
-        await self._request(set_id, CMD_POWER)
+        answered = sorted(
+            (sid for sid in roster if sid in self._answered_at),
+            key=lambda sid: self._answered_at[sid],
+            reverse=True,
+        )
+        for set_id in answered + [sid for sid in roster if sid not in answered]:
+            try:
+                await self._request(set_id, CMD_POWER)
+                return
+            except TimeoutError:
+                continue
+        raise TimeoutError(
+            f"No display answered ({len(roster)} Set ID(s) asked)"
+        )
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None

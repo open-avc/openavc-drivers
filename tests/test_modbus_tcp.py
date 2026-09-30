@@ -208,6 +208,12 @@ _REGISTERS = {
 
 # When True, the fake transport's create() raises like an unreachable host.
 _FAIL_CONNECT = False
+# (function code, address) pairs this server does not have: a read touching
+# one is answered with exception 0x02 (Illegal data address), as a real
+# server answers a wrong row in a register map.
+_MISSING: set[tuple[int, int]] = set()
+# When True, the server receives requests and answers nothing (a dead link).
+_SILENT = False
 
 
 class _FakeTCPTransport:
@@ -242,15 +248,20 @@ class _FakeTCPTransport:
             resp_pdu = bytes([func, 1, 0x01])
         elif func in (0x03, 0x04):  # read holding / input registers
             addr, count = struct.unpack(">HH", pdu[1:5])
-            data = b"".join(
-                _REGISTERS.get((func, addr + i), b"\x00\x00")
-                for i in range(count)
-            )
-            resp_pdu = bytes([func, len(data)]) + data
+            if any((func, addr + i) in _MISSING for i in range(count)):
+                resp_pdu = bytes([func | 0x80, 0x02])  # Illegal data address
+            else:
+                data = b"".join(
+                    _REGISTERS.get((func, addr + i), b"\x00\x00")
+                    for i in range(count)
+                )
+                resp_pdu = bytes([func, len(data)]) + data
         elif func in (0x05, 0x06):  # write single coil / register: echo
             resp_pdu = pdu
         else:
             resp_pdu = bytes([func | 0x80, 0x01])  # Illegal function
+        if _SILENT:
+            return
         resp = struct.pack(">HHHB", txid, 0, len(resp_pdu) + 1, unit) + resp_pdu
         if self.chunked:
             mid = len(resp) // 2
@@ -315,7 +326,7 @@ def _make_driver(config_overrides=None):
 
 def test_version_and_platform_gate():
     info = DRV.ModbusTCPDriver.DRIVER_INFO
-    assert info["version"] == "1.0.2"
+    assert info["version"] == "1.0.3"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -429,7 +440,15 @@ def test_write_command_round_trip():
     asyncio.run(go())
 
 
-def test_liveness_probe_reads_first_mapped_register():
+def _probe_request(driver) -> tuple[int, int, int, int]:
+    """(unit id, function code, address, quantity) of the last request."""
+    adu = driver.transport.requests[-1]
+    func, addr, qty = struct.unpack(">BHH", adu[7:12])
+    return adu[6], func, addr, qty
+
+
+def test_liveness_probe_reads_holding_register_zero_on_the_device_unit():
+    """The question comes from the device, not from the register map."""
     async def go():
         driver = _make_driver()
         await driver.connect()
@@ -437,9 +456,77 @@ def test_liveness_probe_reads_first_mapped_register():
             n = len(driver.transport.requests)
             await driver._liveness_probe()
             assert len(driver.transport.requests) == n + 1
-            # The probe re-reads the first readable register (FC04).
-            assert driver.transport.requests[-1][7] == 0x04
+            assert _probe_request(driver) == (1, 0x03, 0, 1)
         finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_liveness_counts_an_exception_response_as_an_answer():
+    """A wrong address is answered with an exception, and an answer is alive.
+
+    The check used to re-read the first mapped register and count the
+    device's exception response as a miss, so one wrong row dropped and
+    reconnected a device that was answering every request, every minute.
+    """
+    async def go():
+        driver = _make_driver()
+        await driver.connect()
+        try:
+            _MISSING.update({(0x04, 10), (0x03, 0)})
+            await driver._liveness_probe()  # must NOT raise
+        finally:
+            _MISSING.clear()
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_liveness_checks_a_map_with_nothing_to_read():
+    """A write-only map used to leave the link with no check at all."""
+    async def go():
+        driver = _make_driver({"register_map": [dict(REGISTER_MAP[1])]})
+        await driver.connect()
+        try:
+            n = len(driver.transport.requests)
+            await driver._liveness_probe()
+            assert len(driver.transport.requests) == n + 1
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_liveness_ignores_a_row_unit_id_override():
+    """A row's slave_id addresses a slave behind a gateway, not the link."""
+    async def go():
+        rows = [dict(REGISTER_MAP[0], slave_id=7), dict(REGISTER_MAP[1])]
+        driver = _make_driver({"register_map": rows})
+        await driver.connect()
+        try:
+            await driver._liveness_probe()
+            assert _probe_request(driver)[0] == 1
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_liveness_still_raises_when_the_device_says_nothing(monkeypatch):
+    """Counting every answer must not hide a dead link."""
+    monkeypatch.setattr(DRV, "TRANSACTION_TIMEOUT_S", 0.05)
+
+    async def go():
+        global _SILENT
+        driver = _make_driver()
+        await driver.connect()
+        try:
+            _SILENT = True
+            with pytest.raises((TimeoutError, asyncio.TimeoutError)):
+                await driver._liveness_probe()
+        finally:
+            _SILENT = False
             await driver.disconnect()
 
     asyncio.run(go())

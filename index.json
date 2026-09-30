@@ -3506,7 +3506,7 @@
       "name": "Modbus TCP Device",
       "manufacturer": "Generic",
       "category": "utility",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Read and write any Modbus TCP device by declaring its register map.",
@@ -3514,7 +3514,7 @@
       "file": "utility/modbus_tcp.py",
       "format": "python",
       "files": {
-        "utility/modbus_tcp.py": "1d39d937ec3c39ebf80695bcc1b7147fb933404469ac1e320815634834d9f87f",
+        "utility/modbus_tcp.py": "1261975662d82da2761c0ab3ecdb5d4a6b12515a0cf2b445fe0c9a048de1af1e",
         "utility/modbus_tcp_sim.py": "4f2b12cb891e579f5d353ac73c1c6d0c76a5859ac2e28c9b8263d55dddd05f5d"
       },
       "protocols": [

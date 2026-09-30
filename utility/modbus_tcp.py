@@ -263,7 +263,7 @@ class ModbusTCPDriver(BaseDriver):
         "name": "Modbus TCP Device",
         "manufacturer": "Generic",
         "category": "utility",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "author": "OpenAVC",
         "description": "Read and write any Modbus TCP device by declaring its register map.",
         "source_url": "https://www.modbus.org/modbus-specifications",
@@ -323,6 +323,8 @@ class ModbusTCPDriver(BaseDriver):
         self._pending: dict[int, asyncio.Future[bytes]] = {}
         self._txid = 0
         default_unit = self._safe_int(config.get("unit_id"), 1)
+        # The device's own unit ID, which the liveness probe addresses.
+        self._unit_id = default_unit
         self._registers = parse_register_map(config.get("register_map"), default_unit)
         # Map command / setting names back to their register spec.
         self._by_name: dict[str, dict[str, Any]] = {r["name"]: r for r in self._registers}
@@ -571,13 +573,29 @@ class ModbusTCPDriver(BaseDriver):
     # ── Liveness ──
 
     async def _liveness_probe(self) -> None:
-        """Read the first mapped read register as a keep-alive. Modbus over TCP
-        can drop silently (no FIN); an awaited read detects it. If the map has
-        no read register, there's nothing cheap to probe — skip."""
-        for reg in self._registers:
-            if reg["access"] in ("r", "rw"):
-                await self._read_register(reg)
-                return
+        """Read holding register 0 on the device's own unit ID as a keep-alive.
+
+        Modbus over TCP can drop silently (no FIN); an awaited read detects
+        it. The question does not come from the register map, and any reply
+        proves the link is up: a Modbus server answers a read of an address it
+        does not have, or of an area it does not implement, with an exception
+        response, and that is still the device answering. So a wrong row in
+        the map can neither fail this check nor leave the device unchecked (a
+        map with no readable register used to skip the probe entirely); the
+        poll reports a bad row on its own.
+
+        The unit ID is the device's own rather than the "not significant" 0xFF
+        the TCP guide recommends for a direct server, because a gateway
+        discards a request carrying 0xFF without answering (MODBUS Messaging
+        on TCP/IP Implementation Guide V1.0b, "Unit Identifier"). A gateway
+        whose target is absent answers exception 0x0B, which is the gateway
+        answering.
+        """
+        pdu = struct.pack(">BHH", AREAS["holding"]["read_fc"], 0, 1)
+        try:
+            await self._transact(self._unit_id, pdu)
+        except ModbusException:
+            return
 
 
 DRIVER_CLASS = ModbusTCPDriver

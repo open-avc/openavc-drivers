@@ -185,7 +185,7 @@ class ExtronNavDriver(BaseDriver):
         "name": "Extron NAV Pro AV-over-IP (NAVigator)",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         # Computed by `python -m openavc.drivers.check` from restarts_device_for
         # (0.34.0). BaseDriver.child_fault() -- which this driver calls on every
@@ -1152,9 +1152,15 @@ class ExtronNavDriver(BaseDriver):
         ``send`` alone succeeds against a socket nobody is reading, so the
         probe has to wait for an answer. BaseDriver turns repeated failures
         into a typed no_response fault and reconnects.
+
+        Any answer to ``1I`` proves the link: the model name however this
+        firmware spells it after "NAVigator" (the pattern the identity read
+        accepts), or an error code, which ``allow_error`` turns into a return
+        instead of a raise. Only silence is a miss.
         """
-        await self._request(f"1I{CR}", re.compile(r"^NAVigator$"),
-                            timeout=float(self.HEALTH_TIMEOUT_S))
+        await self._request(f"1I{CR}", re.compile(r"^NAVigator"),
+                            timeout=float(self.HEALTH_TIMEOUT_S),
+                            allow_error=True)
 
     # ── reads ──
 

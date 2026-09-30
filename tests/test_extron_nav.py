@@ -726,6 +726,40 @@ def test_the_liveness_probe_awaits_an_answer():
     _run(go())
 
 
+def test_the_liveness_probe_takes_the_model_name_as_its_identity_read_does():
+    """A model string with anything after "NAVigator" is the device answering.
+
+    The identity read accepts ``^NAVigator.*``; the check wanted exactly
+    ``^NAVigator$``, so such a reply was discarded as not-the-answer and the
+    check timed out on a device that had answered.
+    """
+    async def go():
+        drv, sim, state, link = await _pair()
+        drv.HEALTH_TIMEOUT_S = 0.5
+        sim.set_state("model", "NAVigator Pro")
+        await drv._liveness_probe()          # must NOT raise
+        await drv.disconnect()
+    _run(go())
+
+
+def test_the_liveness_probe_counts_an_error_code_as_an_answer():
+    """An error code is the NAVigator answering; only silence is a miss."""
+    async def go():
+        drv, sim, state, link = await _pair()
+        drv.HEALTH_TIMEOUT_S = 0.5
+        answer = sim.handle_command
+
+        def refuse_1i(data):
+            if bytes(data).strip() == b"1I":
+                return b"E10\r\n"
+            return answer(data)
+
+        sim.handle_command = refuse_1i
+        await drv._liveness_probe()          # must NOT raise
+        await drv.disconnect()
+    _run(go())
+
+
 def test_refresh_children_re_reads_the_roster_and_the_names():
     async def go():
         drv, sim, state, link = await _pair()

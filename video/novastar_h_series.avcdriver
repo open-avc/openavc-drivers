@@ -23,7 +23,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.6.0
+version: 1.6.1
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -931,10 +931,19 @@ polling:
 # uses and requires the R0401 reply back (expect keeps unrelated chatter
 # from counting); after max_failures silent probes the platform drops the
 # connection with a no_response fault and reconnects.
+#
+# Any R0401 reply proves the link, the error one included. The control
+# protocol (V1.0.7, section 2) answers a command it cannot carry out, a
+# screen ID that does not exist among them, with
+#   [{"cmd": "R0401", "deviceId": 0, "ack": "Error"}]
+# and prints its replies both with and without a space after the colon, so
+# expect allows whitespace and either case around the echoed command. What a
+# device ID the unit does not have gets back (an error or nothing) is not in
+# that document.
 
 liveness:
   send: '[{"cmd":"R0401","param0":{device_id},"param1":{screen_id}}]'
-  expect: '"cmd":"R0401"'
+  expect: '(?i)"cmd"\s*:\s*"R0401"'
   interval: 15
   timeout: 5
   max_failures: 2

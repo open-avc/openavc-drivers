@@ -926,6 +926,17 @@ Some protocols answer a single bulk query with one key/value per line. The TCP/T
 
 When you set `body:` on an HTTP command, the runtime tries to parse it as JSON. If parsing succeeds, the request goes out as `Content-Type: application/json` with that JSON body. If parsing fails (e.g. XML, plain text), the body is sent as raw bytes with **no** `Content-Type` header. If your device strictly checks Content-Type for non-JSON bodies, set the right one explicitly via the command's `headers:` field (see section 2).
 
+### A liveness check asks what every unit answers, and any reply counts
+
+The liveness watchdog (a YAML `liveness:` block, or a Python `_liveness_probe()`) knows one fault: the device stopped answering. It fixes that the only way it can, by reconnecting, and a reconnect never fixes a setting. So a check that a wrong setting can fail drops a working device every minute or so, for as long as it runs, and the device card says the device stopped answering.
+
+- Ask something every unit answers however it is set up: a version or model query, a no-op, the protocol's own keep-alive. Never an address from the device's configuration (the first row of a table, a zone, a register, an object, a display ID, a workspace).
+- Any reply is the device answering, an error included. In Python, catch your protocol's own error reply (a NAK, an exception response, an error frame) and return: the watchdog counts every exception the probe raises as a miss. In YAML, write `expect` to match the device's error reply to the probe as well as the normal one, with the whitespace and case the protocol allows.
+- When every message is addressed to something configured (displays on a shared bus that each answer only their own ID), ask the one that answered most recently on this connection, then the others, and fail only when none of them answers.
+- Never use the watchdog to log back in. If the device forgets your session, log in again on the connection you have when its refusal arrives. A rejected password is `auth_failed`, which stops the retries.
+
+The Creating Drivers guide has the long form, in "The liveness probe" and the `liveness` section.
+
 ### Don't fabricate state from outgoing commands
 
 If the protocol has no query for a value, don't synthesize that state by tracking the last command you sent. The "state" you'd be reporting wouldn't reflect the actual device — it'd reflect the last command issued, which diverges the moment another control surface (front panel, IR remote, scheduled task) acts. Mirror only what the device tells you. If users want a "last sent" value, that belongs in macros / variables on the project side, not in the driver's state surface.

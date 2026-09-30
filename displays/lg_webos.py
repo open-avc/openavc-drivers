@@ -123,7 +123,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.2.2",
+        "version": "4.2.3",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -641,9 +641,16 @@ class LgWebosDriver(BaseDriver):
 
     async def _liveness_probe(self) -> None:
         # Doubles as a keep-alive and a power-state refresh; a raise here counts
-        # toward the watchdog and forces a reconnect.
-        payload = await self._request(
-            "ssap://com.webos.service.tvpower/power/getPowerState", timeout=5.0)
+        # toward the watchdog and forces a reconnect. An SSAP error reply is the
+        # TV answering (a model without the power service, a permission it
+        # refused), which proves the link is up, so it is not a miss: counting
+        # it as one dropped and reconnected such a TV every minute, forever.
+        try:
+            payload = await self._request(
+                "ssap://com.webos.service.tvpower/power/getPowerState", timeout=5.0)
+        except SSAPError as exc:
+            log.debug(f"[{self.device_id}] Power state unavailable: {exc}")
+            return
         self._apply_power(payload)
 
     # ── Commands ───────────────────────────────────────────────────────────

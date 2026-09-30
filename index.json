@@ -4428,7 +4428,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.2.2",
+      "version": "4.2.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",
@@ -4436,7 +4436,7 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "2daea9b5b4fc74ccb580da1b98e440257410ff12fa2cf8924f739e18dd9a5ada",
+        "displays/lg_webos.py": "f36ab6d1046e8a71e3bdd7d13138124ba56215e449ebbdaf2495214cec639de5",
         "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [

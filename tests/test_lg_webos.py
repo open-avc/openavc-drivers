@@ -460,6 +460,44 @@ def test_helpers():
     assert _MOD._humanize_app("com.acme.player") == "Player"
 
 
+# ── Liveness ────────────────────────────────────────────────────────────────
+
+def test_liveness_counts_an_ssap_error_reply_as_an_answer():
+    """A TV without the power service, or refusing the permission, answers
+    the check with type: error. That is the TV answering: counting it as a
+    miss dropped and reconnected such a TV every minute, forever."""
+    d = _driver()
+
+    async def refused(uri, payload=None, **kwargs):
+        raise _MOD.SSAPError("404 no such service or method")
+
+    d._request = refused
+    asyncio.run(d._liveness_probe())  # must NOT raise
+
+
+def test_liveness_still_raises_when_the_tv_says_nothing():
+    d = _driver()
+
+    async def silent(uri, payload=None, **kwargs):
+        raise TimeoutError("SSAP getPowerState timed out")
+
+    d._request = silent
+    with pytest.raises(TimeoutError):
+        asyncio.run(d._liveness_probe())
+
+
+def test_liveness_answer_refreshes_power():
+    d = _driver()
+
+    async def answered(uri, payload=None, **kwargs):
+        assert uri.endswith("/power/getPowerState")
+        return {"state": "Active"}
+
+    d._request = answered
+    asyncio.run(d._liveness_probe())
+    assert d.get_state("power") == "on"
+
+
 def test_ws_is_open_reads_state_enum():
     open_ws = SimpleNamespace(state=SimpleNamespace(name="OPEN"))
     closed_ws = SimpleNamespace(state=SimpleNamespace(name="CLOSED"))

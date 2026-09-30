@@ -379,7 +379,7 @@
         {
           "id": "qlab",
           "confidence": "untested",
-          "notes": "Shares the same OSC address grammar as QLab 5; video-specific addresses differ. Not tested against real QLab 4 hardware."
+          "notes": "Shares the same OSC address grammar as QLab 5; video-specific addresses differ. Not tested against real QLab 4."
         }
       ]
     },

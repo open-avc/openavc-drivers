@@ -42,6 +42,8 @@ def _install_simulator_stub() -> None:
             self.device_id = device_id
             self.config = config or {}
             self._state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
+            self._error_modes = dict(self.SIMULATOR_INFO.get("error_modes", {}))
+            self._active_errors = set()
 
         @property
         def state(self):
@@ -52,6 +54,20 @@ def _install_simulator_stub() -> None:
 
         def get_state(self, key, default=None):
             return self._state.get(key, default)
+
+        # Error injection, as BaseSimulator does it.
+        def inject_error(self, mode):
+            if mode in self._error_modes:
+                self._active_errors.add(mode)
+
+        def clear_error(self, mode):
+            self._active_errors.discard(mode)
+
+        def has_error_behavior(self, behavior):
+            return any(
+                self._error_modes.get(m, {}).get("behavior") == behavior
+                for m in self._active_errors
+            )
 
     mod.OSCSimulator = _OSCSimulator
     sys.modules["openavc.simulator.osc_simulator"] = mod
@@ -90,9 +106,9 @@ def test_version_reply_rootless(sim):
 
 
 def test_connect_reply_ok(sim):
-    resp = sim.handle_message("/workspace/ABC/connect", [("s", "")])
+    resp = sim.handle_message("/workspace/SIMWS/connect", [("s", "")])
     # Real QLab returns the granted permissions on success, not a bare "ok".
-    assert _reply_data(resp, "/reply/workspace/ABC/connect") == "ok:view|edit|control"
+    assert _reply_data(resp, "/reply/workspace/SIMWS/connect") == "ok:view|edit|control"
 
 
 # ── Reply address echoes the invoked address (rootless and scoped) ──
@@ -103,8 +119,8 @@ def test_playhead_name_reply_rootless(sim):
 
 
 def test_playhead_number_reply_workspace_scoped(sim):
-    resp = sim.handle_message("/workspace/ABC/cue/playhead/number", [])
-    addr = "/reply/workspace/ABC/cue/playhead/number"
+    resp = sim.handle_message("/workspace/SIMWS/cue/playhead/number", [])
+    addr = "/reply/workspace/SIMWS/cue/playhead/number"
     assert _reply_data(resp, addr) == "1"
 
 
@@ -123,8 +139,8 @@ def test_running_cues_empty_until_go(sim):
 
 
 def test_go_sets_running_and_pushes_valueless_playback_position(sim):
-    sim.handle_message("/workspace/ABC/updates", [("i", 1)])
-    resp = sim.handle_message("/workspace/ABC/go", [])
+    sim.handle_message("/workspace/SIMWS/updates", [("i", 1)])
+    resp = sim.handle_message("/workspace/SIMWS/go", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
     assert update in [a for a, _ in resp]
     # As on real QLab 5, the push is value-less — it signals "re-query" only.
@@ -146,8 +162,8 @@ def test_go_advances_playhead_name(sim):
 # ── Cue targeting by number and by unique id ──
 
 def test_start_cue_by_number_moves_playhead(sim):
-    sim.handle_message("/workspace/ABC/updates", [("i", 1)])
-    resp = sim.handle_message("/workspace/ABC/cue/4/start", [])
+    sim.handle_message("/workspace/SIMWS/updates", [("i", 1)])
+    resp = sim.handle_message("/workspace/SIMWS/cue/4/start", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
     assert dict(resp)[update] == []  # value-less push
     num = sim.handle_message("/cue/playhead/number", [])
@@ -177,3 +193,94 @@ def test_no_playback_push_until_subscribed(sim):
     # Without /updates 1, GO must not emit an unsolicited update.
     resp = sim.handle_message("/go", [])
     assert all("playbackPosition" not in a for a, _ in resp)
+
+
+# ── Logging in, the open workspace, and a restart ──
+
+def _status(responses, expect_addr):
+    for addr, args in responses:
+        if addr == expect_addr:
+            return json.loads(args[0][1])["status"]
+    raise AssertionError(f"no reply at {expect_addr} in {[a for a, _ in responses]}")
+
+
+@pytest.fixture
+def locked():
+    """A workspace with an OSC passcode, as the device config sets it."""
+    return _load_sim_class()("qlab-test", {"passcode": "5775"})
+
+
+def test_a_locked_workspace_denies_until_logged_in(locked):
+    resp = locked.handle_message("/workspace/SIMWS/go", [])
+    assert _status(resp, "/reply/workspace/SIMWS/go") == "denied"
+    ok = locked.handle_message("/workspace/SIMWS/connect", [("s", "5775")])
+    assert _reply_data(ok, "/reply/workspace/SIMWS/connect") == "ok:view|edit|control"
+    assert locked.state["connected_ok"] == "ok:view|edit|control"
+    num = locked.handle_message("/workspace/SIMWS/cue/playhead/number", [])
+    assert _reply_data(num, "/reply/workspace/SIMWS/cue/playhead/number") == "1"
+
+
+def test_a_wrong_or_missing_passcode_is_badpass(locked):
+    for args in ([("s", "1234")], [], [("s", "invalid")]):
+        resp = locked.handle_message("/connect", args)
+        assert _reply_data(resp, "/reply/connect") == "badpass"
+    # Still refused.
+    resp = locked.handle_message("/cue/playhead/number", [])
+    assert _status(resp, "/reply/cue/playhead/number") == "denied"
+
+
+def test_the_invalid_sentinel_is_refused_even_with_no_passcode(sim):
+    resp = sim.handle_message("/connect", [("s", "invalid")])
+    assert _reply_data(resp, "/reply/connect") == "badpass"
+
+
+def test_another_workspace_id_is_an_error(sim):
+    resp = sim.handle_message("/workspace/NOPE/connect", [])
+    assert _status(resp, "/reply/workspace/NOPE/connect") == "error"
+    resp = sim.handle_message("/workspace/NOPE/thump", [])
+    assert _status(resp, "/reply/workspace/NOPE/thump") == "error"
+
+
+def test_the_configured_workspace_is_the_open_one():
+    sim = _load_sim_class()("qlab-test", {"workspace_id": "1E37BBC6"})
+    resp = sim.handle_message("/workspace/1E37BBC6/connect", [])
+    assert _reply_data(resp, "/reply/workspace/1E37BBC6/connect") == "ok:view|edit|control"
+
+
+def test_the_heartbeat_answers_without_always_reply(sim):
+    resp = sim.handle_message("/workspace/SIMWS/thump", [])
+    assert _reply_data(resp, "/reply/workspace/SIMWS/thump") == "thump"
+
+
+def test_a_restart_forgets_the_login_the_reply_mode_and_the_updates(locked):
+    locked.handle_message("/connect", [("s", "5775")])
+    locked.handle_message("/alwaysReply", [("i", 1)])
+    locked.handle_message("/updates", [("i", 1)])
+    locked.inject_error("qlab_restarted")
+    resp = locked.handle_message("/workspace/SIMWS/thump", [])
+    assert _status(resp, "/reply/workspace/SIMWS/thump") == "denied"
+    # One shot: logging in again restores service.
+    locked.handle_message("/connect", [("s", "5775")])
+    resp = locked.handle_message("/workspace/SIMWS/thump", [])
+    assert _reply_data(resp, "/reply/workspace/SIMWS/thump") == "thump"
+    # /alwaysReply and /updates were forgotten too.
+    assert locked.handle_message("/go", []) == []
+
+
+def test_a_closed_workspace_errors_until_reopened(sim):
+    sim.inject_error("workspace_closed")
+    resp = sim.handle_message("/workspace/SIMWS/thump", [])
+    assert _status(resp, "/reply/workspace/SIMWS/thump") == "error"
+    resp = sim.handle_message("/connect", [])
+    assert _status(resp, "/reply/connect") == "error"
+    # The application itself still answers.
+    assert _reply_data(sim.handle_message("/version", []), "/reply/version") == "5.4.5"
+    sim.clear_error("workspace_closed")
+    resp = sim.handle_message("/workspace/SIMWS/thump", [])
+    assert _reply_data(resp, "/reply/workspace/SIMWS/thump") == "thump"
+
+
+def test_a_cue_number_that_does_not_exist_is_an_error(sim):
+    sim.handle_message("/alwaysReply", [("i", 1)])
+    resp = sim.handle_message("/cue/99/start", [])
+    assert _status(resp, "/reply/cue/99/start") == "error"

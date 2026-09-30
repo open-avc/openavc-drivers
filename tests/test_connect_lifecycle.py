@@ -59,6 +59,9 @@ _CONFIG: dict[str, dict] = {
     # VAPIX refuses a blank login before touching the camera; the sim accepts
     # any password while its auth check is off.
     "axis_vapix": {"username": "root", "password": "smokepw"},
+    # QLab ignores the generic OSC reachability probe, which is why the
+    # driver's own default_config turns it off; the login is its first answer.
+    "qlab": {"verify_timeout": 0},
     # The Pearl driver refuses a login with no account before touching the
     # device; the platform merges default_config (admin) in but this smoke
     # does not. The sim accepts any password while its auth check is off.

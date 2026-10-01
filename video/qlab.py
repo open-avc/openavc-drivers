@@ -29,19 +29,24 @@ socket there (``listen_port``); over TCP they come back on the connection.
 
 Feedback is polled (the playhead's unique ID, name and number, and whether
 anything is running) and refreshed early on QLab's playback-position push.
-After /updates 1 QLab pushes /update/... notifications, but they carry no value
-(they only say "something changed, re-query"), so the push triggers a re-query
-rather than carrying state.
+/updates 1 subscribes this client to /update/... notifications; it is
+application-wide and sent rootless, because QLab 5.6.1 answers the
+workspace-scoped form with an error. The playback-position push carries the
+new playhead cue's unique ID, which the driver takes, then re-reads the name
+and number (measured on QLab 5.6.1).
 
-Logging in. /connect [passcode] answers "ok:<permissions>" (for example
-"ok:view|edit|control"), "badpass", or "error" when no workspace with that ID
-is open. QLab lengthens the delay before it accepts the next /connect after
-every wrong passcode, and after QLab restarts it has forgotten every login:
-with a passcode set it then answers each message "denied". So:
+Logging in. /connect [passcode] answers, as data in an "ok" reply (measured on
+QLab 5.6.1): "ok:<permissions>" (for example "ok:view|edit|control"),
+"badpass" for a wrong passcode, "ok:" with no permissions for no passcode on a
+workspace that has one, and "error" when no workspace with that ID is open.
+QLab lengthens the delay before it accepts the next /connect after every wrong
+passcode, and after QLab restarts it has forgotten every login: with a
+passcode set it then answers each message "denied", the heartbeat included.
+So:
 
-  * a refused passcode is ``auth_failed``, which stops the platform
-    reconnecting until the passcode is changed: a wrong passcode is never sent
-    on a timer;
+  * a refused passcode, or a login with no permissions, is ``auth_failed``,
+    which stops the platform reconnecting until the passcode is changed: a
+    wrong passcode is never sent on a timer;
   * a workspace that is not open is ``no_response`` with a sentence naming the
     workspace. It keeps retrying, because a show the operator closed comes
     back when it is reopened, and a closed workspace answers "error", not
@@ -59,10 +64,10 @@ reconnect re-send the passcode, and with a wrong passcode that meant a wrong
 passcode sent every 35 seconds, forever, reported as "stopped answering".
 
 Liveness. The check sends ``{ws}/thump`` (QLab's heartbeat, which always
-answers) every ``HEALTH_INTERVAL_S`` and counts any reply to it, "denied" and
-"error" included, as QLab answering: a denial starts a login and an error means
-the configured workspace is not open, which the driver reports itself. Only
-silence is a miss. Over UDP nothing else would notice QLab going away: a Mac
+answers; rootless, it goes to the front workspace) every ``HEALTH_INTERVAL_S``
+and counts any reply to it, "denied" and "error" included, as QLab answering:
+a denial starts a login and an error means the workspace is not open, which the
+driver reports itself. Only silence is a miss. Over UDP nothing else would notice QLab going away: a Mac
 reboot or a QLab quit does not close a UDP socket.
 
 Not modeled: enumerating the whole cue list into browsable per-cue entities.
@@ -137,6 +142,11 @@ def _method(address: str) -> str:
     return address
 
 
+def _granted(answer: str) -> list[str]:
+    """The permissions in a /connect answer: "ok:view|edit" -> [view, edit]."""
+    return [p for p in answer.split(":", 1)[1].split("|") if p] if ":" in answer else []
+
+
 def _osc_value(tag: str, value: Any) -> Any:
     if tag == "f":
         return float(value)
@@ -184,11 +194,13 @@ class QLabDriver(BaseDriver):
                 "models": ["QLab 5"],
                 "confidence": "full",
                 "notes": "Validated against QLab 5.6.1 over both UDP and TCP: "
-                         "connect/passcode, GO/STOP/PANIC, cue start by "
-                         "number/ID, and live feedback (version, current cue "
-                         "id/number/name, running state). OSC remote control "
-                         "is a free feature in QLab 5 across all license tiers "
-                         "(Free, Audio, Video, Lighting).",
+                         "login with a passcode, a wrong or missing passcode, "
+                         "a workspace that is not open, QLab quitting and "
+                         "restarting, GO/STOP/PANIC, cue start by number, and "
+                         "live feedback (version, current cue id/number/name, "
+                         "running state). OSC remote control is a free feature "
+                         "in QLab 5 across all license tiers (Free, Audio, "
+                         "Video, Lighting).",
             },
             {
                 "manufacturer": "Figure 53",
@@ -560,6 +572,12 @@ class QLabDriver(BaseDriver):
                     f"Workspace Settings > OSC.")
         return "QLab is running, but no workspace is open. Open the show in QLab."
 
+    def _no_access_message(self) -> str:
+        if str(self.config.get("passcode") or ""):
+            return ("QLab accepted the OSC passcode but gives it no access. Turn on "
+                    "view, edit and control for it in QLab's Workspace Settings > OSC.")
+        return self._badpass_message()
+
     def _badpass_message(self) -> str:
         if str(self.config.get("passcode") or ""):
             return ("QLab refused the OSC passcode. Enter the passcode from "
@@ -605,6 +623,13 @@ class QLabDriver(BaseDriver):
         answer = data if isinstance(data, str) else ""
         if answer.startswith("ok"):
             self.set_state("connected_ok", answer)
+            if ":" in answer and not _granted(answer):
+                # "ok:" with nothing after it: QLab let the connection in with
+                # no permissions (a locked workspace and no passcode, or a
+                # passcode with every access box off), so every message after
+                # it would be refused. QLab 5.6.1 answers a locked workspace
+                # this way rather than with "badpass".
+                raise ConnectionFaultError(self._no_access_message(), code="auth_failed")
             self._note_permissions(answer)
             return
         if answer == "badpass" or status == "badpass":
@@ -621,9 +646,9 @@ class QLabDriver(BaseDriver):
         """Say so when the login cannot fire cues ("ok:view" or "ok:view|edit")."""
         if ":" not in answer:
             return
-        granted = [p for p in answer.split(":", 1)[1].split("|") if p]
+        granted = _granted(answer)
         if "control" not in granted:
-            allowed = " and ".join(granted) or "nothing"
+            allowed = " and ".join(granted)
             self.set_state(
                 self.LAST_ERROR_PROPERTY,
                 f"QLab allows this connection {allowed} only, so GO and the other "
@@ -635,7 +660,7 @@ class QLabDriver(BaseDriver):
         """Ask for a reply to every message and for change notices, then read
         the current state. QLab forgets all of it when it restarts."""
         await self._send("/alwaysReply", [("i", 1)])
-        await self._send(f"{self._ws()}/updates", [("i", 1)])
+        await self._send("/updates", [("i", 1)])
         await self._send("/version")
         await self._query_state()
 
@@ -717,6 +742,8 @@ class QLabDriver(BaseDriver):
             if address.startswith("/reply"):
                 self._handle_reply(address, args)
             elif address.startswith("/update/") and address.endswith("/playbackPosition"):
+                if args and args[0][0] == "s" and args[0][1]:
+                    self.set_state("current_cue_id", str(args[0][1]))
                 self._schedule_refresh()
 
     def _handle_reply(self, address: str, args: list[tuple[str, Any]]) -> None:
@@ -807,11 +834,11 @@ class QLabDriver(BaseDriver):
 
     def _on_error(self, sent: str, method: str) -> None:
         if method == "/thump":
-            if self._workspace_id():
-                # The heartbeat of the configured workspace errors only when
-                # that workspace is not open. Offline with the reason, and
-                # reconnecting (which logs in) until the show is reopened.
-                self._force_disconnect("no_response", self._no_workspace_message())
+            # The heartbeat goes to the configured workspace, or the front one,
+            # and errors only when there is no such workspace open. Offline
+            # with the reason, and reconnecting (which logs in) until the show
+            # is reopened.
+            self._force_disconnect("no_response", self._no_workspace_message())
             return
         if method in _PLAYHEAD_QUERIES or method == _RUNNING_QUERY or method == "/version":
             # A playhead past the end of the list answers "error"; the last

@@ -391,7 +391,7 @@
         {
           "id": "qlab",
           "confidence": "full",
-          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode, GO/STOP/PANIC, cue start by number/ID, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
+          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: login with a passcode, a wrong or missing passcode, a workspace that is not open, QLab quitting and restarting, GO/STOP/PANIC, cue start by number, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
         }
       ]
     },

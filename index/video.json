@@ -165,8 +165,8 @@
       "file": "video/qlab.py",
       "format": "python",
       "files": {
-        "video/qlab.py": "cf03381ca869f11b46e4e061debb5285740c6d12cc1f8263e3d9ad9e0516106a",
-        "video/qlab_sim.py": "35653614ee9d2f60ae6e89890f909746880e47d8175b951a0d4d6a66fa4f7e00"
+        "video/qlab.py": "86c59c4c0a6ecf771256c6070a0cd7fb550c5999421eb84c0cb5605469d6331d",
+        "video/qlab_sim.py": "4bdfdfae05c5405a7115959182e93a93c88c9cfb07748008f1761766af35cf29"
       },
       "ports": [
         53000
@@ -194,7 +194,7 @@
             "QLab 5"
           ],
           "confidence": "full",
-          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: connect/passcode, GO/STOP/PANIC, cue start by number/ID, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
+          "notes": "Validated against QLab 5.6.1 over both UDP and TCP: login with a passcode, a wrong or missing passcode, a workspace that is not open, QLab quitting and restarting, GO/STOP/PANIC, cue start by number, and live feedback (version, current cue id/number/name, running state). OSC remote control is a free feature in QLab 5 across all license tiers (Free, Audio, Video, Lighting)."
         },
         {
           "manufacturer": "Figure 53",

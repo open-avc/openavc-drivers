@@ -311,7 +311,9 @@ def test_the_passcode_and_the_workspace_are_sent():
             {"passcode": "5775", "workspace_id": "SIMWS"}, {"passcode": "5775"})
         link = box["link"]
         assert link.sent[0] == ("/workspace/SIMWS/connect", [("s", "5775")])
-        assert "/workspace/SIMWS/updates" in link.addresses()
+        # The update subscription is application-wide, so rootless.
+        assert ("/updates", [("i", 1)]) in link.sent
+        assert "/workspace/SIMWS/updates" not in link.addresses()
         await drv.disconnect()
     _run(go())
 
@@ -402,7 +404,7 @@ def test_after_a_restart_a_denial_is_an_answer_and_logs_in_again():
         again = link.sent[before:]
         assert ("/workspace/SIMWS/connect", [("s", "5775")]) in again
         assert ("/alwaysReply", [("i", 1)]) in again
-        assert ("/workspace/SIMWS/updates", [("i", 1)]) in again
+        assert ("/updates", [("i", 1)]) in again
         assert drv.stashed_fault is None     # never dropped
         # Service is back: the heartbeat answers ok again.
         await drv._liveness_probe()
@@ -493,7 +495,13 @@ def test_commands_build_qlabs_addresses_and_typed_arguments():
 def test_the_playback_push_refreshes_the_playhead():
     async def go():
         drv, sim, box = await _pair()
+        refresh = drv._schedule_refresh
+        drv._schedule_refresh = lambda: None   # the push alone, no re-query
         await drv.send_command("go")
+        assert drv.get_state("current_cue_id") == "cue-2"
+        drv._schedule_refresh = refresh
+        await drv.send_command("playhead_next")
+        await drv.send_command("playhead_previous")
         await _settle(drv)
         assert drv.get_state("current_cue_number") == "2"
         assert drv.get_state("current_cue_name") == "Houselights to Half"

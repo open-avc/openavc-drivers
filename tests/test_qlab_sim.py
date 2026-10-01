@@ -125,8 +125,8 @@ def test_playhead_number_reply_workspace_scoped(sim):
 
 
 def test_playhead_uniqueid_reply(sim):
-    # The driver polls /cue/playhead/uniqueID for current_cue_id (QLab 5's
-    # playback-position push is value-less), so the sim must answer it.
+    # The driver polls /cue/playhead/uniqueID for current_cue_id, so the sim
+    # must answer it.
     resp = sim.handle_message("/cue/playhead/uniqueID", [])
     assert _reply_data(resp, "/reply/cue/playhead/uniqueID") == "cue-1"
 
@@ -138,13 +138,13 @@ def test_running_cues_empty_until_go(sim):
     assert _reply_data(resp, "/reply/runningOrPausedCues") == []
 
 
-def test_go_sets_running_and_pushes_valueless_playback_position(sim):
-    sim.handle_message("/workspace/SIMWS/updates", [("i", 1)])
+def test_go_sets_running_and_pushes_the_new_playhead_cue(sim):
+    sim.handle_message("/updates", [("i", 1)])
     resp = sim.handle_message("/workspace/SIMWS/go", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
     assert update in [a for a, _ in resp]
-    # As on real QLab 5, the push is value-less — it signals "re-query" only.
-    assert dict(resp)[update] == []
+    # As on QLab 5.6.1, the push carries the new playhead cue's unique ID.
+    assert dict(resp)[update] == [("s", "cue-2")]
     # The driver reads the new playhead via /cue/playhead/uniqueID; GO advanced 1->2.
     uid = sim.handle_message("/cue/playhead/uniqueID", [])
     assert _reply_data(uid, "/reply/cue/playhead/uniqueID") == "cue-2"
@@ -162,10 +162,10 @@ def test_go_advances_playhead_name(sim):
 # ── Cue targeting by number and by unique id ──
 
 def test_start_cue_by_number_moves_playhead(sim):
-    sim.handle_message("/workspace/SIMWS/updates", [("i", 1)])
+    sim.handle_message("/updates", [("i", 1)])
     resp = sim.handle_message("/workspace/SIMWS/cue/4/start", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
-    assert dict(resp)[update] == []  # value-less push
+    assert dict(resp)[update] == [("s", "cue-4")]
     num = sim.handle_message("/cue/playhead/number", [])
     assert _reply_data(num, "/reply/cue/playhead/number") == "4"
 
@@ -174,7 +174,7 @@ def test_start_cue_by_id_moves_playhead(sim):
     sim.handle_message("/updates", [("i", 1)])
     resp = sim.handle_message("/cue_id/cue-3/start", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
-    assert dict(resp)[update] == []  # value-less push
+    assert dict(resp)[update] == [("s", "cue-3")]
     uid = sim.handle_message("/cue/playhead/uniqueID", [])
     assert _reply_data(uid, "/reply/cue/playhead/uniqueID") == "cue-3"
 
@@ -184,9 +184,17 @@ def test_reset_returns_to_top(sim):
     sim.handle_message("/cue/5/start", [])
     resp = sim.handle_message("/reset", [])
     update = "/update/workspace/SIMWS/cueList/CL1/playbackPosition"
-    assert dict(resp)[update] == []  # value-less push
+    assert dict(resp)[update] == [("s", "cue-1")]
     uid = sim.handle_message("/cue/playhead/uniqueID", [])
     assert _reply_data(uid, "/reply/cue/playhead/uniqueID") == "cue-1"
+
+
+def test_the_update_subscription_is_application_wide(sim):
+    """QLab 5.6.1 refuses /workspace/<id>/updates; /updates is the form."""
+    resp = sim.handle_message("/workspace/SIMWS/updates", [("i", 1)])
+    assert _status(resp, "/reply/workspace/SIMWS/updates") == "error"
+    resp = sim.handle_message("/go", [])
+    assert all("playbackPosition" not in a for a, _ in resp)
 
 
 def test_no_playback_push_until_subscribed(sim):
@@ -220,13 +228,27 @@ def test_a_locked_workspace_denies_until_logged_in(locked):
     assert _reply_data(num, "/reply/workspace/SIMWS/cue/playhead/number") == "1"
 
 
-def test_a_wrong_or_missing_passcode_is_badpass(locked):
-    for args in ([("s", "1234")], [], [("s", "invalid")]):
+def test_a_wrong_passcode_is_badpass(locked):
+    for args in ([("s", "1234")], [("s", "invalid")]):
         resp = locked.handle_message("/connect", args)
         assert _reply_data(resp, "/reply/connect") == "badpass"
     # Still refused.
     resp = locked.handle_message("/cue/playhead/number", [])
     assert _status(resp, "/reply/cue/playhead/number") == "denied"
+
+
+def test_no_passcode_on_a_locked_workspace_lets_in_with_no_permissions(locked):
+    """QLab 5.6.1 answers "ok:" here, not "badpass", and then denies."""
+    resp = locked.handle_message("/connect", [])
+    assert _reply_data(resp, "/reply/connect") == "ok:"
+    resp = locked.handle_message("/go", [])
+    assert _status(resp, "/reply/go") == "denied"
+
+
+def test_the_rootless_heartbeat_is_denied_before_a_login(locked):
+    """Rootless, the heartbeat is the front workspace's (QLab 5.6.1)."""
+    resp = locked.handle_message("/thump", [])
+    assert _status(resp, "/reply/thump") == "denied"
 
 
 def test_the_invalid_sentinel_is_refused_even_with_no_passcode(sim):
@@ -235,8 +257,9 @@ def test_the_invalid_sentinel_is_refused_even_with_no_passcode(sim):
 
 
 def test_another_workspace_id_is_an_error(sim):
+    # /connect answers "ok" with "error" as its data; anything else errors.
     resp = sim.handle_message("/workspace/NOPE/connect", [])
-    assert _status(resp, "/reply/workspace/NOPE/connect") == "error"
+    assert _reply_data(resp, "/reply/workspace/NOPE/connect") == "error"
     resp = sim.handle_message("/workspace/NOPE/thump", [])
     assert _status(resp, "/reply/workspace/NOPE/thump") == "error"
 
@@ -272,7 +295,7 @@ def test_a_closed_workspace_errors_until_reopened(sim):
     resp = sim.handle_message("/workspace/SIMWS/thump", [])
     assert _status(resp, "/reply/workspace/SIMWS/thump") == "error"
     resp = sim.handle_message("/connect", [])
-    assert _status(resp, "/reply/connect") == "error"
+    assert _reply_data(resp, "/reply/connect") == "error"
     # The application itself still answers.
     assert _reply_data(sim.handle_message("/version", []), "/reply/version") == "5.4.5"
     sim.clear_error("workspace_closed")

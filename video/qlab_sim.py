@@ -15,22 +15,26 @@ exercises:
   heartbeat, which always answers), /version.
 - Feedback: /reply/<address> carrying QLab's JSON shape
   ({"workspace_id","address","status","data"}) for playhead displayName /
-  number / uniqueID and runningOrPausedCues; and an unsolicited, value-less
-  /update/workspace/<id>/cueList/<id>/playbackPosition push whenever the
-  playhead moves (driven by /go, /reset, /playhead/*, cue starts). As on real
-  QLab 5, that push carries no argument: it only signals "re-query", so the
-  driver reads the new playhead from /cue/playhead/uniqueID.
+  number / uniqueID and runningOrPausedCues; and, after /updates 1, an
+  unsolicited /update/workspace/<id>/cueList/<id>/playbackPosition push
+  carrying the new playhead cue's unique ID whenever the playhead moves
+  (driven by /go, /reset, /playhead/*, cue starts), as QLab 5.6.1 sends it.
+  /updates is application-wide: rootless only, the workspace-scoped form
+  answers an error, as on QLab 5.6.1.
 
 Logging in, as QLab does it:
 
 - The workspace has an OSC passcode when the device config has one (the
   simulator is handed the device's own config). /connect with it answers
-  "ok:view|edit|control"; with another one, none, or the rejected-credential
-  sentinel ``invalid``, "badpass". Until a login succeeds, every workspace
-  message answers ``"status": "denied"``. With no passcode, nothing is denied.
-- The open workspace is the configured Workspace ID (``SIMWS`` when blank). A
-  message to another workspace ID answers ``"status": "error"``, which for
-  /connect is QLab's "no open workspace with that ID".
+  "ok:view|edit|control"; with another one, or the rejected-credential
+  sentinel ``invalid``, "badpass"; with none, "ok:" and no permissions. Until a
+  login succeeds, every workspace message (the heartbeat included) answers
+  ``"status": "denied"``. With no passcode, nothing is denied.
+- The open workspace is the configured Workspace ID (``SIMWS`` when blank).
+  /connect to another workspace ID answers "error" as its data, and any other
+  message to it ``"status": "error"``.
+- /connect always answers ``"status": "ok"`` with the result as data, as QLab
+  5.6.1 does.
 - Error modes for the Simulator UI: ``qlab_restarted`` is a one-shot restart
   (the login, /alwaysReply and /updates are forgotten, so the next workspace
   message is denied), ``workspace_closed`` closes the show (every workspace
@@ -74,7 +78,7 @@ _INVALID = "invalid"
 
 # Messages QLab answers without a login: the application's own, not a
 # workspace's.
-_APPLICATION_METHODS = {"/version", "/alwaysReply", "/connect"}
+_APPLICATION_METHODS = {"/version", "/alwaysReply", "/connect", "/updates"}
 
 
 class QLabSimulator(OSCSimulator):
@@ -183,17 +187,13 @@ class QLabSimulator(OSCSimulator):
         return ("/reply" + address, [("s", json.dumps(body))])
 
     def _playback_update(self) -> tuple[str, list[tuple[str, Any]]]:
-        """Build the unsolicited playhead-moved push.
-
-        As on real QLab 5, this push is value-less: it signals the playhead
-        moved but carries no cue ID. The driver reacts by polling
-        /cue/playhead/uniqueID for the new cue.
-        """
+        """Build the unsolicited playhead-moved push: the new playhead cue's
+        unique ID as its one argument, as QLab 5.6.1 sends it."""
         addr = (
             f"/update/workspace/{self._workspace_id}/cueList/{_CUELIST_ID}"
             f"/playbackPosition"
         )
-        return (addr, [])
+        return (addr, [("s", self._current_cue()["id"])])
 
     def _moved_playhead(self, new_index: int) -> list[tuple[str, list]]:
         self._playhead = max(0, min(new_index, len(self._cues) - 1))
@@ -222,9 +222,15 @@ class QLabSimulator(OSCSimulator):
         workspace_open = not self.has_error_behavior("workspace_closed")
 
         if method == "/connect":
+            # QLab 5.6.1 answers every /connect "ok", with the result as data.
             if ws_id not in (None, self._workspace_id) or not workspace_open:
-                return [self._reply(address, status="error")]
+                return [self._reply(address, "error")]
             got = str(self._argval(args) or "")
+            if self._passcode and not got:
+                # Let in with no permissions: everything after is denied.
+                self._logged_in = False
+                self.set_state("connected_ok", "ok:")
+                return [self._reply(address, "ok:")]
             if self._passcode and (got != self._passcode or got == _INVALID):
                 self._logged_in = False
                 self.set_state("connected_ok", "badpass")
@@ -236,7 +242,10 @@ class QLabSimulator(OSCSimulator):
             self.set_state("connected_ok", _CONNECT_OK)
             return [self._reply(address, _CONNECT_OK)]
 
-        if method not in _APPLICATION_METHODS and not (ws_id is None and method == "/thump"):
+        # Everything else is the configured workspace's, or (rootless) the
+        # front one's, the heartbeat included: QLab 5.6.1 answers a rootless
+        # /thump "denied" before a login.
+        if method not in _APPLICATION_METHODS:
             if ws_id not in (None, self._workspace_id) or not workspace_open:
                 return [self._reply(address, status="error")]
             if self._passcode and not self._logged_in:
@@ -251,8 +260,11 @@ class QLabSimulator(OSCSimulator):
             return [self._reply(address, "thump")]
         if method == "/alwaysReply":
             self._always_reply = bool(self._argval(args))
-            return []
+            return self._ack(address)
         if method == "/updates":
+            if ws_id is not None:
+                # Application-wide on QLab 5.6.1: the scoped form errors.
+                return [self._reply(address, status="error")]
             self._updates = bool(self._argval(args))
             return self._ack(address)
 

@@ -389,7 +389,7 @@ def test_driver_identity():
     assert INFO["id"] == "chazy_control"
     assert INFO["manufacturer"] == "TurtleAV"
     assert INFO["transport"] == "tcp"
-    assert INFO["version"] == "1.4.0"
+    assert INFO["version"] == "1.4.1"
     # The floor is the newest platform surface the driver CALLS. That was the
     # 0.25.0 package move until it began asserting a child fault code, which
     # is BaseDriver.child_fault() and arrived in 0.29.0.

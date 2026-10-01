@@ -211,7 +211,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.0",
+        "version": "1.4.1",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -1558,9 +1558,12 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                        "help": "Remove an encoder from the controller config."},
         "enc_switch_arc": {"label": "Encoder: Route ARC", "params": {
             "encoder_id": enc_id(), "decoder_id": dec_id("Decoder (0 = clear)")},
-            "help": "Route an encoder's ARC-only signal to a decoder; decoder 0 closes it."},
+            "help": "Selects which decoder the encoder takes its ARC/eARC return "
+                    "audio from. Decoder 0 clears the selection."},
         "enc_led": {"label": "Encoder: Power LED Flash", "params": {
-            "encoder_id": enc_id(), "state": onoff}, "help": "Flash the encoder power LED."},
+            "encoder_id": enc_id(), "state": onoff},
+            "help": "Starts (On) or stops (Off) flashing the encoder's front-panel "
+                    "power LED; Off leaves it steady."},
         "enc_multicast": {"label": "Encoder: Multicast", "params": {
             "encoder_id": enc_id(), "state": onoff}, "help": "Multicast transmit on/off."},
         "enc_dante_bridge": {"label": "Encoder: Dante Bridge", "params": {
@@ -1638,7 +1641,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_route": {"label": "Decoder: Route Source", "params": {
             "decoder_id": dec_id(), "encoder_id": enc_id("Encoder (0 = clear/follow)"),
             "signal": {"type": "enum", "values": SIGNAL_TYPES, "required": True}},
-            "help": "Route an encoder to a decoder for one signal type. Encoder 0 clears/returns to follow."},
+            "help": "Routes the chosen encoder to the decoder, for every signal (ALL) or one "
+                    "signal only. Encoder 0 clears the route; for video, audio, IR, RS-232, "
+                    "USB, or CEC alone, that signal goes back to following the main route."},
         "dec_led": {"label": "Decoder: Power LED Flash", "params": {
             "decoder_id": dec_id(), "state": onoff}},
         "dec_multicast": {"label": "Decoder: Multicast", "params": {

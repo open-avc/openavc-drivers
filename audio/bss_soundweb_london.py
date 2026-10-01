@@ -1006,7 +1006,7 @@ OBJECT_CHILD_TYPES: dict[str, dict[str, Any]] = {
 def _object_param() -> dict[str, Any]:
     return {"type": "child_id", "child_type": OBJECT_CHILD_TYPE, "required": True,
             "label": "Object",
-            "help": "One of the processing objects declared on the device page."}
+            "help": "One of the processing objects in this device's Objects table."}
 
 
 def _control_param(help: str) -> dict[str, Any]:
@@ -1142,7 +1142,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1312,11 +1312,26 @@ class BSSSoundwebLondonDriver(BaseDriver):
             "last_error": {"type": "string", "label": "Last Error"},
         },
         "commands": COMMANDS,
-        "quick_actions": ["recall_venue_preset", "recall_parameter_preset", "resync"],
+        # The everyday controls come first; a Device Audit asks a manufacturer
+        # to try these. The preset recalls are broadcast to the whole network,
+        # so they ask before running and are not among the commands an audit
+        # suggests.
+        "quick_actions": ["set_control", "toggle_control", "step_gain"],
         "actions": [
-            {"id": "recall_venue_preset", "kind": "command", "icon": "bookmark"},
-            {"id": "recall_parameter_preset", "kind": "command", "icon": "sliders-horizontal"},
-            {"id": "resync", "kind": "command", "icon": "refresh-cw"},
+            {"id": "set_control", "kind": "command", "icon": "sliders-vertical"},
+            {"id": "toggle_control", "kind": "command", "icon": "toggle-left"},
+            {"id": "step_gain", "kind": "command", "icon": "chevrons-up-down"},
+            {
+                "id": "recall_venue_preset", "kind": "command", "icon": "bookmark",
+                "confirm": "The recall goes to every unit on the network that is set "
+                           "to respond to it, not only this one.",
+            },
+            {
+                "id": "recall_parameter_preset", "kind": "command",
+                "icon": "sliders-horizontal",
+                "confirm": "The recall is broadcast to the whole Soundweb network, "
+                           "not only to this unit.",
+            },
             {
                 "id": "test_connection",
                 "kind": "setup",

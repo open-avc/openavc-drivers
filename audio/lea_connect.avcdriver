@@ -66,7 +66,7 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: "1.0.3"
+version: "1.0.4"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
@@ -1071,6 +1071,7 @@ commands:
 
   set_primary_fader:
     label: "Set Primary Input Level"
+    help: "Sets the level of a channel's primary input in dB (0 = full level, -80 = off)"
     send: "set /amp/channels/{channel}/inputSelector/primaryFader {level}\n"
     params:
       channel:
@@ -1088,6 +1089,7 @@ commands:
 
   set_secondary_fader:
     label: "Set Secondary Input Level"
+    help: "Sets the level of a channel's secondary (backup or override) input in dB (0 = full level, -80 = off)"
     send: "set /amp/channels/{channel}/inputSelector/secondaryFader {level}\n"
     params:
       channel:
@@ -1123,6 +1125,7 @@ commands:
 
   set_secondary_threshold:
     label: "Set Secondary Override Threshold"
+    help: "Sets the secondary input's override threshold for a channel, in dB"
     send: "set /amp/channels/{channel}/inputSelector/secondaryThreshold {level}\n"
     params:
       channel:
@@ -1203,6 +1206,7 @@ commands:
 
   signal_gen_off:
     label: "Signal Generator Off"
+    help: "Stops the signal generator feeding a channel"
     send: "set /amp/channels/{channel}/inputSelector/signalGeneratorEnable false\n"
     params:
       channel:
@@ -1213,6 +1217,7 @@ commands:
 
   set_signal_gen_fader:
     label: "Set Signal Generator Level"
+    help: "Sets the signal generator's level on a channel in dB (0 = full level, -80 = off)"
     send: "set /amp/channels/{channel}/inputSelector/signalGeneratorFader {level}\n"
     params:
       channel:
@@ -1232,6 +1237,7 @@ commands:
 
   set_crossover_gain:
     label: "Set Crossover Gain"
+    help: "Sets a channel's crossover band gain, -15 to +15 dB"
     send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/gain {gain}\n"
     params:
       channel:
@@ -1267,6 +1273,7 @@ commands:
 
   set_polarity:
     label: "Set Polarity"
+    help: "Sets a channel's output polarity: normal, or inverted"
     send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/invert {invert}\n"
     params:
       channel:
@@ -1284,6 +1291,7 @@ commands:
 
   set_low_pass:
     label: "Set Low Pass Filter"
+    help: "Turns a channel's crossover low-pass filter on or off"
     send: "set /amp/channels/{channel}/crossover/lowPassFilter/enable {enable}\n"
     params:
       channel:
@@ -1301,6 +1309,7 @@ commands:
 
   set_low_pass_type:
     label: "Set Low Pass Type"
+    help: "Sets the slope and alignment of a channel's crossover low-pass filter"
     send: 'set /amp/channels/{channel}/crossover/lowPassFilter/type "{type}"\n'
     params:
       channel:
@@ -1328,6 +1337,7 @@ commands:
 
   set_low_pass_frequency:
     label: "Set Low Pass Frequency"
+    help: "Sets a channel's crossover low-pass filter frequency, 20 Hz to 20 kHz"
     send: "set /amp/channels/{channel}/crossover/lowPassFilter/frequency {frequency}\n"
     params:
       channel:
@@ -1344,6 +1354,7 @@ commands:
 
   set_high_pass:
     label: "Set High Pass Filter"
+    help: "Turns a channel's crossover high-pass filter on or off"
     send: "set /amp/channels/{channel}/crossover/highPassFilter/enable {enable}\n"
     params:
       channel:
@@ -1361,6 +1372,7 @@ commands:
 
   set_high_pass_type:
     label: "Set High Pass Type"
+    help: "Sets the slope and alignment of a channel's crossover high-pass filter"
     send: 'set /amp/channels/{channel}/crossover/highPassFilter/type "{type}"\n'
     params:
       channel:
@@ -1376,6 +1388,7 @@ commands:
 
   set_high_pass_frequency:
     label: "Set High Pass Frequency"
+    help: "Sets a channel's crossover high-pass filter frequency, 20 Hz to 20 kHz"
     send: "set /amp/channels/{channel}/crossover/highPassFilter/frequency {frequency}\n"
     params:
       channel:
@@ -1397,6 +1410,7 @@ commands:
 
   set_eq_enable:
     label: "Set EQ Band On/Off"
+    help: "Turns one output EQ band on or off on a channel"
     send: "set /amp/channels/{channel}/outputEqFilters/{band}/enable {enable}\n"
     params:
       channel:
@@ -1420,6 +1434,7 @@ commands:
 
   set_eq_type:
     label: "Set EQ Band Type"
+    help: "Sets the filter type of one output EQ band on a channel: parametric, or a low or high shelf"
     send: 'set /amp/channels/{channel}/outputEqFilters/{band}/type "{type}"\n'
     params:
       channel:
@@ -1446,6 +1461,7 @@ commands:
 
   set_eq_gain:
     label: "Set EQ Band Gain"
+    help: "Sets the gain of one output EQ band on a channel, -15 to +15 dB"
     send: "set /amp/channels/{channel}/outputEqFilters/{band}/gain {gain}\n"
     params:
       channel:
@@ -1469,6 +1485,7 @@ commands:
 
   set_eq_frequency:
     label: "Set EQ Band Frequency"
+    help: "Sets the frequency of one output EQ band on a channel, 20 Hz to 20 kHz"
     send: "set /amp/channels/{channel}/outputEqFilters/{band}/frequency {frequency}\n"
     params:
       channel:
@@ -1491,6 +1508,7 @@ commands:
 
   set_eq_q:
     label: "Set EQ Band Q"
+    help: "Sets the Q (bandwidth) of one output EQ band on a channel, 0.1 to 24"
     send: "set /amp/channels/{channel}/outputEqFilters/{band}/q {q}\n"
     params:
       channel:
@@ -1516,6 +1534,7 @@ commands:
 
   set_rms_limiter:
     label: "Set RMS Limiter"
+    help: "Turns a channel's RMS limiter on or off"
     send: "set /amp/channels/{channel}/rmsLimiter/enable {enable}\n"
     params:
       channel:
@@ -1551,6 +1570,7 @@ commands:
 
   set_rms_attack:
     label: "Set RMS Limiter Attack"
+    help: "Sets a channel's RMS limiter attack time in ms (1000 to 10000)"
     send: "set /amp/channels/{channel}/rmsLimiter/attackTime {time}\n"
     params:
       channel:
@@ -1568,6 +1588,7 @@ commands:
 
   set_rms_release:
     label: "Set RMS Limiter Release"
+    help: "Sets a channel's RMS limiter release time in ms (1000 to 10000)"
     send: "set /amp/channels/{channel}/rmsLimiter/releaseTime {time}\n"
     params:
       channel:
@@ -1585,6 +1606,7 @@ commands:
 
   set_peak_limiter:
     label: "Set Peak Limiter"
+    help: "Turns a channel's peak limiter on or off"
     send: "set /amp/channels/{channel}/peakLimiter/enable {enable}\n"
     params:
       channel:
@@ -1620,6 +1642,7 @@ commands:
 
   set_peak_attack:
     label: "Set Peak Limiter Attack"
+    help: "Sets a channel's peak limiter attack time in ms (1 to 1000)"
     send: "set /amp/channels/{channel}/peakLimiter/attackTime {time}\n"
     params:
       channel:
@@ -1637,6 +1660,7 @@ commands:
 
   set_peak_release:
     label: "Set Peak Limiter Release"
+    help: "Sets a channel's peak limiter release time in ms (1 to 1000)"
     send: "set /amp/channels/{channel}/peakLimiter/releaseTime {time}\n"
     params:
       channel:
@@ -1712,6 +1736,7 @@ commands:
 
   set_auto_standby:
     label: "Set Auto Standby"
+    help: "Turns the amplifier's auto standby on or off. With it on, the amp goes to standby once its input stays below the standby threshold for the set wait time"
     send: "set /amp/autoStandby/enable {enable}\n"
     params:
       enable:
@@ -1724,6 +1749,7 @@ commands:
 
   set_signal_gen_type:
     label: "Set Signal Generator Type"
+    help: "Chooses what the signal generator plays: pink noise, white noise or a sine tone"
     send: 'set /amp/signalGenerator/type "{type}"\n'
     params:
       type:
@@ -1734,6 +1760,7 @@ commands:
 
   set_signal_gen_frequency:
     label: "Set Signal Generator Tone"
+    help: "Sets the signal generator's sine tone frequency, 20 Hz to 20 kHz"
     send: "set /amp/signalGenerator/frequency {frequency}\n"
     params:
       frequency:

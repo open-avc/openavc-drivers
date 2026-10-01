@@ -1025,7 +1025,7 @@
       "name": "BSS Soundweb London (BLU)",
       "manufacturer": "BSS Audio",
       "category": "audio",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
@@ -1033,7 +1033,7 @@
       "file": "audio/bss_soundweb_london.py",
       "format": "python",
       "files": {
-        "audio/bss_soundweb_london.py": "514a2c046bb711676fd2c493cad89026c55f8a8eff08cb41c69d4c6784c27bdb",
+        "audio/bss_soundweb_london.py": "79b6ba8e0c6ff0ac80fdc95c7dfbcd2dc05daed490a666c37d7fa9280cebaeb2",
         "audio/bss_soundweb_london_sim.py": "b5e01e6f1f336639a8431c8d4990e0fd72ff25f5e541d516fdbb350c9beed491"
       },
       "ports": [
@@ -1149,7 +1149,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -1157,7 +1157,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "b22dbe58444cc1f6b65c166c44ecf12de61c6e27c62f132314ebe104ced4b8d7"
+        "audio/lea_connect.avcdriver": "98b2bfc0bbf1db6ab859f5fd5c3b0ae52fe882a25bfcf98dc704ebbb65a8de97"
       },
       "ports": [
         4321

@@ -1025,7 +1025,7 @@
       "name": "BSS Soundweb London (BLU)",
       "manufacturer": "BSS Audio",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
@@ -1033,7 +1033,7 @@
       "file": "audio/bss_soundweb_london.py",
       "format": "python",
       "files": {
-        "audio/bss_soundweb_london.py": "b553ed925d5f23363690e74ee38f4bf586d02519a115cbd35bd55cbd9421e6ca",
+        "audio/bss_soundweb_london.py": "b862b17870c3cf4b24e47be61555921c7ae86484f40a472bebf1d9a20403a57c",
         "audio/bss_soundweb_london_sim.py": "b5e01e6f1f336639a8431c8d4990e0fd72ff25f5e541d516fdbb350c9beed491"
       },
       "ports": [

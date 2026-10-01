@@ -45,12 +45,13 @@ Node address:
 
 Liveness:
     A subscribed session can sit silent for hours. The watchdog re-subscribes
-    the first declared control that has answered on this connection and
-    awaits its DI_SETSV echo; two misses force a reconnect with a typed
-    ``no_response`` fault. A unit says nothing at all about an address it
-    does not have, so while no control has answered the watchdog only
-    re-sends the subscribe and ``last_error`` names what to check: a wrong
-    row or node is a setup problem, not a dead unit.
+    the control that answered last on this connection, then one control of
+    every other answering object, and awaits a DI_SETSV echo; two rounds
+    with no echo at all force a reconnect with a typed ``no_response``
+    fault. A unit says nothing at all about an address it does not have, so
+    while no control has answered the watchdog only re-sends the subscribe
+    and ``last_error`` names what to check: a wrong row or node is a setup
+    problem, not a dead unit.
 
 Acknowledgements:
     None over Ethernet (Kit p.9: TCP provides it). A BLU-100 sends no ACK or
@@ -1141,7 +1142,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1338,6 +1339,11 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "Connected, but the unit stopped answering (no reply to a subscribe)."
     )
     PROBE_TIMEOUT_S = 3.0
+    # The liveness probe's two waits, inside HEALTH_TIMEOUT_S: the control
+    # that answered last, then one control of every other answering object.
+    # A BLU-100 answers a subscribe in about 20 ms.
+    LIVENESS_FIRST_WAIT_S = 1.5
+    LIVENESS_REST_WAIT_S = 2.5
 
     def __init__(self, device_id: str, config: dict[str, Any], state: Any, events: Any) -> None:
         self._node = 0
@@ -1364,9 +1370,9 @@ class BSSSoundwebLondonDriver(BaseDriver):
         # Waiters for a DI_SETSV on a key (the liveness probe, Test Connection).
         self._waiters: dict[tuple[int, int, int, int], list[asyncio.Future[int]]] = {}
         self._responding: set[str] = set()
-        # Declared control keys the unit has reported on this connection: the
-        # only ones the liveness probe may ask (see _liveness_probe).
-        self._answered: set[tuple[int, int, int, int]] = set()
+        # Declared control keys the unit has reported on this connection, and
+        # when: the only ones the liveness probe may wait on (_liveness_probe).
+        self._answered: dict[tuple[int, int, int, int], float] = {}
         self._silence_reported = False
         # The node the connected unit answers as. A frame to node 0 reaches
         # the unit at the other end of the connection, and its reply carries
@@ -1494,20 +1500,26 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 else:
                     await self._send(build_subscribe(o.node, o.vd, o.obj, ctl.sv, 0))
 
-    def _probe_control(self) -> tuple[DIObject, ControlDef, bool] | None:
-        """The control the liveness probe asks, and whether it has answered
-        on this connection: the first declared control that has, else the
-        first declared control."""
-        first: tuple[DIObject, ControlDef] | None = None
+    def _first_control(self) -> tuple[DIObject, ControlDef] | None:
         for o in self._objects:
             for ctl in o.controls.values():
-                if ctl.fmt == FMT_METER:
-                    continue
-                if o.key(ctl) in self._answered:
-                    return o, ctl, True
-                if first is None:
-                    first = (o, ctl)
-        return (first[0], first[1], False) if first else None
+                if ctl.fmt != FMT_METER:
+                    return o, ctl
+        return None
+
+    def _liveness_keys(self) -> list[tuple[int, int, int, int]]:
+        """Controls that answered on this connection, one per object, the
+        object that answered last first. Meters are left out: a subscribe
+        at rate 0 would stop a meter's stream."""
+        latest: dict[str, tuple[float, tuple[int, int, int, int]]] = {}
+        for key, at in self._answered.items():
+            cid, prop = self._route[key]
+            o = self._by_cid.get(cid)
+            if o is None or o.controls[prop].fmt == FMT_METER:
+                continue
+            if cid not in latest or at > latest[cid][0]:
+                latest[cid] = (at, key)
+        return [key for _, key in sorted(latest.values(), reverse=True)]
 
     # ── Receiving ──
 
@@ -1583,7 +1595,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
             value = str(msg.raw)
         else:
             value = raw_to_value(ctl.fmt, msg.raw)
-        self._answered.add(key)
+        self._answered[key] = asyncio.get_running_loop().time()
         if self._silence_reported:
             self._silence_reported = False
             self.set_state("last_error", "")
@@ -1611,42 +1623,57 @@ class BSSSoundwebLondonDriver(BaseDriver):
         return fut
 
     async def _liveness_probe(self) -> None:
-        """Re-subscribe a control and await its DI_SETSV. A subscribe is the
-        protocol's GET (p.23), so the echo proves the unit is alive.
+        """Re-subscribe controls and await an echo. A subscribe is the
+        protocol's GET (p.23), so any echo proves the unit is alive.
 
-        Only a control that has answered on this connection is awaited. The
-        Interface Kit has no message a unit answers whatever design it holds,
-        and the unit sends nothing back for an address it does not have (not
-        even an ACK over Ethernet), so a wrong row, a wrong node or a design
-        without the object would otherwise read as a dead unit and drop the
-        link every minute. When nothing has answered yet, the subscribe still
+        The Interface Kit has no message a unit answers whatever design it
+        holds, and the unit sends nothing back for an address it does not
+        have (not even an ACK over Ethernet), so only controls that have
+        answered on this connection are waited on: the one that answered
+        last, then one control of every other answering object at once. The
+        link is condemned only when none of them answers, so a wrong row, a
+        wrong node or an object deleted from the design never drops a unit
+        that is answering. When nothing has answered yet, a subscribe still
         goes out, so a unit that has gone away surfaces as a transport error,
-        and ``last_error`` says what to check instead of dropping the link."""
-        probe = self._probe_control()
-        if probe is None:
-            return
-        o, ctl, answered = probe
-        if not answered:
+        and ``last_error`` says what to check instead."""
+        keys = self._liveness_keys()
+        if not keys:
+            first = self._first_control()
+            if first is None:
+                return
+            o, ctl = first
             await self._send(build_subscribe(o.node, o.vd, o.obj, ctl.sv, 0))
             if not self._silence_reported:
                 self._silence_reported = True
                 self.set_state("last_error", self._silence_message())
             return
-        key = o.key(ctl)
-        fut = self._wait_for(key)
+        if await self._await_any(keys[:1], self.LIVENESS_FIRST_WAIT_S):
+            return
+        if len(keys) > 1 and await self._await_any(keys[1:], self.LIVENESS_REST_WAIT_S):
+            return
+        raise TimeoutError(
+            f"no reply to a subscribe on any of the {len(keys)} object(s) that had answered"
+        )
+
+    async def _await_any(self, keys: list[tuple[int, int, int, int]], timeout: float) -> bool:
+        """Subscribe to each key and wait for an echo on any of them."""
+        fut: asyncio.Future[int] = asyncio.get_running_loop().create_future()
+        for key in keys:
+            self._waiters.setdefault(key, []).append(fut)
         try:
-            await self._send(build_subscribe(o.node, o.vd, o.obj, ctl.sv, 0))
-            await asyncio.wait_for(fut, self.PROBE_TIMEOUT_S)
-        except asyncio.TimeoutError as exc:
-            raise TimeoutError(
-                f"no reply to a subscribe on {o.name} ({o.address} sv {ctl.sv})"
-            ) from exc
+            for node, vd, obj, sv in keys:
+                await self._send(build_subscribe(node, vd, obj, sv, 0))
+            await asyncio.wait_for(fut, timeout)
+            return True
+        except asyncio.TimeoutError:
+            return False
         finally:
-            lst = self._waiters.get(key)
-            if lst and fut in lst:
-                lst.remove(fut)
-                if not lst:
-                    self._waiters.pop(key, None)
+            for key in keys:
+                lst = self._waiters.get(key)
+                if lst and fut in lst:
+                    lst.remove(fut)
+                    if not lst:
+                        self._waiters.pop(key, None)
 
     def _silence_message(self) -> str:
         return (

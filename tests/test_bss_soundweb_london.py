@@ -562,7 +562,7 @@ async def test_liveness_probe_resolves_and_times_out():
     drv, sim = _make()
     await drv.connect()
     await _settle()
-    drv.PROBE_TIMEOUT_S = 0.05
+    drv.LIVENESS_FIRST_WAIT_S = drv.LIVENESS_REST_WAIT_S = 0.05
     await drv._liveness_probe()
     drv.transport.silent = True
     with pytest.raises(TimeoutError):
@@ -578,15 +578,43 @@ async def test_liveness_asks_a_control_that_has_answered():
     drv, sim = _make(sim_config={"node_address": "0x08AD", "controls": CONTROLS}, controls=rows)
     await drv.connect()
     await _settle()
-    drv.PROBE_TIMEOUT_S = 0.05
+    drv.LIVENESS_FIRST_WAIT_S = drv.LIVENESS_REST_WAIT_S = 0.05
     before = len(drv.transport.frames_sent())
     await drv._liveness_probe()
     asked = DRV.parse_body(DRV.decode_frame(drv.transport.frames_sent()[before]))
-    assert (asked.obj, asked.sv) == (0x100, 0)
+    assert asked.key in drv._answered and asked.obj != 0x777
+    # The object that answered last is asked first.
+    assert asked.key == max(drv._liveness_keys(), key=lambda k: drv._answered[k])
     # A unit that answered and then stops is still a miss.
     drv.transport.silent = True
     with pytest.raises(TimeoutError):
         await drv._liveness_probe()
+
+
+@pytest.mark.asyncio
+async def test_liveness_survives_an_object_leaving_the_design():
+    # The object that answered last disappears from the design mid-session
+    # (Architect sent a new one); the others still answer, so the link stays.
+    drv, sim = _make()
+    await drv.connect()
+    await _settle()
+    drv.LIVENESS_FIRST_WAIT_S = drv.LIVENESS_REST_WAIT_S = drv.PROBE_TIMEOUT_S = 0.05
+    before = len(drv.transport.frames_sent())
+    # Gone: the first declared object (Program) and the one that answered
+    # last on connect (Delay, the last row).
+    for gone in (0x100, 0x106):
+        for key in [k for k in sim._fmt if k[1] == gone]:
+            del sim._fmt[key]
+    await drv._liveness_probe()
+    asked = [DRV.parse_body(DRV.decode_frame(f)) for f in drv.transport.frames_sent()[before:]]
+    assert all(m.cmd == DRV.DI_SUBSCRIBESV and m.raw == 0 for m in asked)
+    assert asked[0].obj == 0x106  # the last to answer is asked first
+    # Then one control of every other object at once, never a meter (a
+    # subscribe at rate 0 would stop its stream).
+    assert sorted(m.obj for m in asked[1:]) == [0x1, 0x100, 0x101, 0x102, 0x103, 0x104, 0x105]
+    for m in asked:
+        cid, prop = drv._route[m.key]
+        assert drv._by_cid[cid].controls[prop].fmt != DRV.FMT_METER
 
 
 @pytest.mark.asyncio

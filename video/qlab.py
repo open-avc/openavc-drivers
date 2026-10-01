@@ -171,7 +171,7 @@ class QLabDriver(BaseDriver):
         "name": "QLab Show Control",
         "manufacturer": "Figure 53",
         "category": "video",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "author": "OpenAVC",
         "description": "Controls Figure 53's QLab show-control / playback "
                        "software (macOS) over OSC. GO, STOP, PANIC, "
@@ -546,6 +546,10 @@ class QLabDriver(BaseDriver):
         self._refresh_task: asyncio.Task | None = None
         # Loop time of the last time a denial started a login (0 = never).
         self._relogin_at = 0.0
+        # What the last login's permissions rule out, for last_error ("" =
+        # nothing). poll() writes it again while it holds, because the
+        # platform clears last_error after a poll that wrote nothing.
+        self._permission_note = ""
 
     # ── Addressing ──
 
@@ -644,17 +648,18 @@ class QLabDriver(BaseDriver):
 
     def _note_permissions(self, answer: str) -> None:
         """Say so when the login cannot fire cues ("ok:view" or "ok:view|edit")."""
+        self._permission_note = ""
         if ":" not in answer:
             return
         granted = _granted(answer)
         if "control" not in granted:
             allowed = " and ".join(granted)
-            self.set_state(
-                self.LAST_ERROR_PROPERTY,
+            self._permission_note = (
                 f"QLab allows this connection {allowed} only, so GO and the other "
                 f"cue commands will be refused. Give the passcode control access "
-                f"in QLab's Workspace Settings > OSC.",
+                f"in QLab's Workspace Settings > OSC."
             )
+            self.set_state(self.LAST_ERROR_PROPERTY, self._permission_note)
 
     async def _arm_session(self) -> None:
         """Ask for a reply to every message and for change notices, then read
@@ -672,12 +677,15 @@ class QLabDriver(BaseDriver):
 
     async def poll(self) -> None:
         """The heartbeat (which also keeps QLab from dropping an idle UDP
-        client) and the playhead / running state. Replies arrive through
-        on_data_received; silence is the liveness check's to judge."""
+        client) and the playhead / running state, and the permission note
+        again while it holds. Replies arrive through on_data_received; silence
+        is the liveness check's to judge."""
         if not self.transport or not self.transport.connected:
             return
         await self._send(f"{self._ws()}/thump")
         await self._query_state()
+        if self._permission_note:
+            self.set_state(self.LAST_ERROR_PROPERTY, self._permission_note)
 
     async def _liveness_probe(self) -> None:
         """Send the heartbeat and wait for any reply to it.

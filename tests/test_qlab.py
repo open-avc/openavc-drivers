@@ -262,7 +262,7 @@ async def _settle(drv):
 def test_version_and_platform_gate():
     info = DRV.QLabDriver.DRIVER_INFO
     assert info["id"] == "qlab"
-    assert info["version"] == "2.0.0"
+    assert info["version"] == "2.0.1"
     assert info["transport"] == "osc"
     # LAST_ERROR_PROPERTY is the newest platform surface the driver uses.
     assert info["min_platform_version"] == "0.29.0"
@@ -457,11 +457,23 @@ def test_the_configured_workspace_closing_takes_the_device_offline_with_the_reas
     _run(go())
 
 
-def test_a_login_without_control_access_is_said_on_the_card():
+def test_a_login_without_control_access_stays_on_the_card(monkeypatch):
+    """The platform clears last_error after a poll that wrote nothing, so a
+    poll writes the sentence again for as long as the login lacks control."""
+    monkeypatch.setattr(SIMM, "_CONNECT_OK", "ok:view")
+
     async def go():
         drv, sim, box = await _pair()
-        drv._note_permissions("ok:view")
         assert "view only" in drv.get_state("last_error")
+        drv.set_state("last_error", "")      # the platform's clear
+        await drv.poll()
+        assert "view only" in drv.get_state("last_error")
+        # A login that grants control ends it.
+        monkeypatch.setattr(SIMM, "_CONNECT_OK", "ok:view|edit|control")
+        await drv._login()
+        drv.set_state("last_error", "")
+        await drv.poll()
+        assert drv.get_state("last_error") == ""
         await drv.disconnect()
     _run(go())
 

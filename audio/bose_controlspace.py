@@ -1473,9 +1473,13 @@ def _module_param() -> dict[str, Any]:
             "help": "One of the modules declared on the device page."}
 
 
-def _control_param(help: str = "") -> dict[str, Any]:
+def _control_param(help: str = "", **narrow: list[str]) -> dict[str, Any]:
+    """The Control picker for a command on a declared module. ``narrow`` lists
+    the control types (and units) the command works on, so the picker offers
+    only those."""
     p: dict[str, Any] = {"type": "string", "required": True, "label": "Control",
-                         "options_from": {"param": "module", "source": "child_schema"}}
+                         "options_from": {"param": "module", "source": "child_schema",
+                                          **narrow}}
     if help:
         p["help"] = help
     return p
@@ -1562,19 +1566,20 @@ COMMANDS: dict[str, dict[str, Any]] = {
     "toggle_control": {
         "label": "Toggle Control",
         "params": {"module": _module_param(),
-                   "control": _control_param("A mute, bypass, polarity, cross-point or other on/off control.")},
+                   "control": _control_param("A mute, bypass, polarity, cross-point or other on/off control.",
+                                             types=["boolean"])},
         "help": "Flip an on/off control. The processor toggles it, so no current value is needed.",
     },
     "pulse_control": {
         "label": "Pulse Logic Control",
         "params": {"module": _module_param(),
-                   "control": _control_param("A logic input or output pin.")},
+                   "control": _control_param("A logic input or output pin.", types=["boolean"])},
         "help": "Momentarily press a logic pin: on, then back off.",
     },
     "step_level": {
         "label": "Step Level (dB)",
         "params": {"module": _module_param(),
-                   "control": _control_param("A level control."),
+                   "control": _control_param("A level control.", types=["number"], units=["dB"]),
                    "amount": _step_param()},
         "help": "Raise or lower a level by a number of dB from its current value.",
     },
@@ -1740,7 +1745,7 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (

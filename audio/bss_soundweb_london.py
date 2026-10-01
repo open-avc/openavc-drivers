@@ -1009,9 +1009,13 @@ def _object_param() -> dict[str, Any]:
             "help": "One of the processing objects in this device's Objects table."}
 
 
-def _control_param(help: str) -> dict[str, Any]:
+def _control_param(help: str, **narrow: list[str]) -> dict[str, Any]:
+    """The Control picker for a command on a declared object. ``narrow`` lists
+    the control types (and units) the command works on, so the picker offers
+    only those: a toggle takes booleans, a gain step takes numbers in dB."""
     p: dict[str, Any] = {"type": "string", "required": True, "label": "Control",
-                         "options_from": {"param": "object", "source": "child_schema"}}
+                         "options_from": {"param": "object", "source": "child_schema",
+                                          **narrow}}
     if help:
         p["help"] = help
     return p
@@ -1065,7 +1069,8 @@ COMMANDS: dict[str, dict[str, Any]] = {
         "label": "Toggle Control",
         "params": {
             "object": _object_param(),
-            "control": _control_param("A mute, polarity, solo, crosspoint or other on/off control."),
+            "control": _control_param("A mute, polarity, solo, crosspoint or other on/off control.",
+                                      types=["boolean"]),
         },
         "help": "Flip an on/off control. Needs a current value from the unit.",
     },
@@ -1073,7 +1078,7 @@ COMMANDS: dict[str, dict[str, Any]] = {
         "label": "Step Gain (dB)",
         "params": {
             "object": _object_param(),
-            "control": _control_param("A gain control."),
+            "control": _control_param("A gain control.", types=["number"], units=["dB"]),
             "amount": {"type": "number", "required": True, "label": "Amount (dB)",
                        "default": 1.0, "min": -110, "max": 110, "unit": "dB",
                        "help": "Positive raises, negative lowers. An input "
@@ -1142,7 +1147,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.4",
+        "version": "1.1.5",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (

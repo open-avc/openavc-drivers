@@ -390,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.3.1",
+        "version": "2.3.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -1243,7 +1243,8 @@ class VMixDriver(BaseDriver):
                     "selected_name": {
                         "type": "string",
                         "label": "Field",
-                        "options_from": {"param": "input", "source": "child_schema"},
+                        "options_from": {"param": "input", "source": "child_schema",
+                                         "types": ["string"]},
                         "help": "Text field to set. Pick one the title reports, or type a name (e.g. Headline.Text on a GT title).",
                     },
                     # Title text is the one thing on this driver that is poll-only:
@@ -1739,13 +1740,12 @@ class VMixDriver(BaseDriver):
             schema[name] = dict(TEXT_FIELD_VAR)
 
         if text_fields:
-            # `control` does double duty in the platform: it orders the UI
-            # Builder's value picker AND it scopes the field cascade on Set
-            # Text. On a title that means the fader and mute would be offered
-            # as text fields to write a headline into. An input carrying title
-            # fields is a title, and nobody binds a panel fader to a title's
-            # volume, so the audio half stands down here and the cascade
-            # offers exactly the fields the title has.
+            # `control` orders the UI Builder's value picker. An input carrying
+            # title fields is a title, and nobody binds a panel fader to a
+            # title's volume, so the audio half stands down here and a title's
+            # text fields lead the list. (Set Text's field picker takes string
+            # controls only, so it offers exactly the fields the title has
+            # either way.)
             for name in _AUDIO_CONTROL_VARS:
                 if name in schema and schema[name].get("control"):
                     var = dict(schema[name])

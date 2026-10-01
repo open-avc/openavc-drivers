@@ -935,6 +935,54 @@ def test_an_empty_object_list_says_where_the_rows_go():
     assert drv2._problems == []
 
 
+def _picker_offers(schema: dict, options_from: dict) -> set[str]:
+    """The controls the IDE's Control picker lists for one object: the
+    control-flagged variables (every variable when none is flagged), narrowed
+    to the command's options_from types and units. The IDE's rule, restated."""
+    flagged = {k for k, d in schema.items() if d.get("control") is True}
+    keys = flagged or set(schema) - {"online", "label", "offline_reason", "offline_detail"}
+    types = options_from.get("types")
+    units = [u.lower() for u in options_from.get("units", [])] or None
+    return {
+        k for k in keys
+        if (types is None or schema[k].get("type") in types)
+        and (units is None or str(schema[k].get("unit", "")).lower() in units)
+    }
+
+
+def _object_schema(controls) -> dict:
+    schema = dict(DRV._OBJECT_SUMMARY_SCHEMA)
+    for ctl in controls:
+        schema[ctl.prop] = ctl.schema()
+    return schema
+
+
+def test_the_control_pickers_offer_what_each_command_takes():
+    """Toggle Control lists the on/off controls and Step Gain the gains: the
+    same controls the driver accepts when the command runs, for every value
+    format an object's control can have."""
+    commands = DRV.BSSSoundwebLondonDriver.DRIVER_INFO["commands"]
+    toggle = commands["toggle_control"]["params"]["control"]["options_from"]
+    step = commands["step_gain"]["params"]["control"]["options_from"]
+    assert toggle == {"param": "object", "source": "child_schema", "types": ["boolean"]}
+    assert step == {"param": "object", "source": "child_schema",
+                    "types": ["number"], "units": ["dB"]}
+
+    gain_object = _object_schema(DRV.build_gain_object(""))
+    assert _picker_offers(gain_object, toggle) == {"mute", "polarity"}
+    assert _picker_offers(gain_object, step) == {"gain"}
+
+    # One writable control of each format beside an on/off control, so the
+    # control-flagged list is never empty.
+    for fmt in DRV.VALUE_FORMATS:
+        ctl = DRV.build_custom(f"1 {fmt}")[0]
+        schema = _object_schema([ctl, DRV.ControlDef("mute", "Mute", 2, DRV.FMT_BOOL)])
+        offered_to_toggle = "value" in _picker_offers(schema, toggle)
+        offered_to_step = "value" in _picker_offers(schema, step)
+        assert offered_to_toggle == (fmt == DRV.FMT_BOOL), fmt
+        assert offered_to_step == (fmt in (DRV.FMT_GAIN, DRV.FMT_INPUT_GAIN)), fmt
+
+
 def test_catalog_surface():
     info = DRV.BSSSoundwebLondonDriver.DRIVER_INFO
     assert info["id"] == "bss_soundweb_london"

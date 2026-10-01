@@ -441,7 +441,7 @@ def system_state_variables() -> dict[str, dict[str, Any]]:
 # and the ones the set_control / step_control pickers offer.
 
 def _level(label: str) -> dict[str, Any]:
-    return {"type": "number", "label": label, "min": -100, "max": 12,
+    return {"type": "number", "label": label, "min": -100, "max": 12, "unit": "dB",
             "control": True, "cloud_priority": "low"}
 
 
@@ -613,14 +613,15 @@ def _block_param() -> dict[str, Any]:
             "help": "Pick one of the DSP blocks you declared in the block list."}
 
 
-def _control_param(help: str | None = None) -> dict[str, Any]:
+def _control_param(help: str | None = None, **narrow: list[str]) -> dict[str, Any]:
     # Cascades off the sibling `block` child_id param: picking a block
     # populates this with that block's controls (its dynamic schema's
-    # control:true props). Stays free-text-forgiving for anything the
-    # picker hasn't loaded yet.
+    # control:true props), narrowed to the types (and units) the command
+    # works on. Stays free-text-forgiving for anything the picker hasn't
+    # loaded yet.
     p: dict[str, Any] = {
         "type": "string", "required": True, "label": "Control",
-        "options_from": {"param": "block", "source": "child_schema"},
+        "options_from": {"param": "block", "source": "child_schema", **narrow},
     }
     if help:
         p["help"] = help
@@ -774,7 +775,8 @@ def build_commands() -> dict[str, dict[str, Any]]:
             "params": {
                 "block": _block_param(),
                 "control": _control_param(
-                    "A boolean control — a mute, crosspoint on/off, or logic state."),
+                    "A boolean control — a mute, crosspoint on/off, or logic state.",
+                    types=["boolean"]),
             },
             "help": "Toggle a boolean control on a declared block.",
         },
@@ -782,7 +784,8 @@ def build_commands() -> dict[str, dict[str, Any]]:
             "label": "Step Control (± dB)",
             "params": {
                 "block": _block_param(),
-                "control": _control_param("A level control, e.g. level_1."),
+                "control": _control_param("A level control, e.g. level_1.",
+                                          types=["number"], units=["dB"]),
                 "amount": {"type": "number", "required": True, "label": "Amount (dB)",
                            "default": 1.0,
                            "help": "Positive increments, negative decrements."},
@@ -793,7 +796,8 @@ def build_commands() -> dict[str, dict[str, Any]]:
             "label": "Ramp Level (dB over sec)",
             "params": {
                 "block": _block_param(),
-                "control": _control_param("A level control to ramp, e.g. level_1."),
+                "control": _control_param("A level control to ramp, e.g. level_1.",
+                                          types=["number"], units=["dB"]),
                 "target_db": {"type": "number", "required": True, "label": "Target (dB)",
                               "min": -100, "max": 12},
                 "duration_s": {"type": "number", "required": True, "label": "Duration (sec)",
@@ -866,7 +870,7 @@ class BiampTesiraTTPDriver(BaseDriver):
         "name": "Biamp Tesira TTP",
         "manufacturer": "Biamp",
         "category": "audio",
-        "version": "3.1.2",
+        "version": "3.1.3",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (supersedes the table-editor 0.23.0 requirement).
         "min_platform_version": "0.25.0",

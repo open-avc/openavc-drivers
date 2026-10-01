@@ -528,9 +528,54 @@ def test_parse_blocks_legacy_string_and_rows_agree():
 
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
+def _picker_offers(schema: dict, options_from: dict) -> set[str]:
+    """The controls the IDE's Control picker lists for one child: the
+    control-flagged variables (every variable when none is flagged), narrowed
+    to the command's options_from types and units. The IDE's rule, restated."""
+    flagged = {k for k, d in schema.items() if d.get("control") is True}
+    keys = flagged or set(schema) - {"online", "label", "offline_reason", "offline_detail"}
+    types = options_from.get("types")
+    units = [u.lower() for u in options_from.get("units", [])] or None
+    return {
+        k for k in keys
+        if (types is None or schema[k].get("type") in types)
+        and (units is None or str(schema[k].get("unit", "")).lower() in units)
+    }
+
+
+def test_the_control_pickers_offer_what_each_command_takes():
+    """Toggle Control lists a block's on/off controls; Step Control and Ramp
+    Level list its levels, which declare dB, and no other number."""
+    commands = DRV.BiampTesiraTTPDriver.DRIVER_INFO["commands"]
+    toggle = commands["toggle_control"]["params"]["control"]["options_from"]
+    step = commands["step_control"]["params"]["control"]["options_from"]
+    ramp = commands["ramp_level"]["params"]["control"]["options_from"]
+    assert toggle["types"] == ["boolean"]
+    assert step["types"] == ramp["types"] == ["number"]
+    assert step["units"] == ramp["units"] == ["dB"]
+
+    blocks = DRV.parse_blocks_config(
+        "Lvl level 1-2\nMute mute 1-2\nMix matrix_mixer 2x2\nSrc source_select\n"
+        "Amx automixer 1-2\nGen generator\nAec aec 1\n"
+    )
+    for block in blocks:
+        schema, _wire, _subs = DRV._expand_block(block)
+        offered_step = _picker_offers(schema, step)
+        for prop in _picker_offers(schema, toggle):
+            assert schema[prop]["type"] == "boolean", (block["tag"], prop)
+        for prop in offered_step:
+            assert schema[prop].get("unit") == "dB" and schema[prop].get("max") == 12, (block["tag"], prop)
+        # Every level is still offered.
+        levels = {p for p, d in schema.items() if d.get("control") and d.get("max") == 12}
+        assert levels <= offered_step, block["tag"]
+    lvl = DRV._expand_block(blocks[0])[0]
+    assert _picker_offers(lvl, step) == {"level_1", "level_2"}
+    assert _picker_offers(lvl, toggle) == {p for p in lvl if p.startswith("mute_")}
+
+
 def test_metadata_and_actions_shape():
     info = DRV.BiampTesiraTTPDriver.DRIVER_INFO
-    assert info["version"] == "3.1.2"
+    assert info["version"] == "3.1.3"
     # The connection-lifecycle hooks the driver overrides landed in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"

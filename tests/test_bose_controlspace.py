@@ -842,6 +842,63 @@ def test_an_empty_table_says_where_the_rows_go():
     assert drv3._problems == []                      # groups alone are a valid device
 
 
+def _picker_offers(schema: dict, options_from: dict) -> set[str]:
+    """The controls the IDE's Control picker lists for one child: the
+    control-flagged variables (every variable when none is flagged), narrowed
+    to the command's options_from types and units. The IDE's rule, restated."""
+    flagged = {k for k, d in schema.items() if d.get("control") is True}
+    keys = flagged or set(schema) - {"online", "label", "offline_reason", "offline_detail"}
+    types = options_from.get("types")
+    units = [u.lower() for u in options_from.get("units", [])] or None
+    return {
+        k for k in keys
+        if (types is None or schema[k].get("type") in types)
+        and (units is None or str(schema[k].get("unit", "")).lower() in units)
+    }
+
+
+def test_the_control_pickers_offer_what_each_command_takes():
+    """Every control of every module type, held against what each command
+    accepts when it runs. Toggle Control lists exactly the on/off and logic
+    controls. A logic pin and an on/off control both declare boolean, so Pulse
+    Logic Control also lists the on/off ones, and a dB number is listed for
+    Step Level beside the levels; the driver refuses those when the command
+    runs, and nothing else is listed that it would refuse."""
+    commands = DRV.BoseControlSpaceDriver.DRIVER_INFO["commands"]
+    narrow = {name: commands[name]["params"]["control"]["options_from"]
+              for name in ("toggle_control", "pulse_control", "step_level")}
+    assert narrow["toggle_control"]["types"] == ["boolean"]
+    assert narrow["pulse_control"]["types"] == ["boolean"]
+    assert narrow["step_level"]["types"] == ["number"]
+    assert narrow["step_level"]["units"] == ["dB"]
+
+    seen = 0
+    for type_id, mtype in DRV.MODULE_TYPES.items():
+        try:
+            controls = mtype["build"]("")
+        except ValueError:
+            continue  # a type that needs a size; the formats repeat elsewhere
+        for ctl in controls:
+            schema = dict(DRV._MODULE_SUMMARY_SCHEMA)
+            schema[ctl.prop] = ctl.schema()
+            schema["_anchor"] = {"type": "boolean", "control": True}
+            offered = {c for c in narrow if ctl.prop in _picker_offers(schema, narrow[c])}
+            ok = ctl.writable
+            assert ("toggle_control" in offered) == (
+                ok and ctl.fmt in (DRV.FMT_ONOFF, DRV.FMT_LOGIC)), (type_id, ctl.prop)
+            if ok and ctl.fmt == DRV.FMT_LOGIC:
+                assert "pulse_control" in offered, (type_id, ctl.prop)
+            if "pulse_control" in offered:
+                assert ctl.fmt in (DRV.FMT_ONOFF, DRV.FMT_LOGIC), (type_id, ctl.prop)
+            if ok and ctl.fmt == DRV.FMT_LEVEL:
+                assert "step_level" in offered, (type_id, ctl.prop)
+            if "step_level" in offered:
+                assert ctl.fmt in (DRV.FMT_LEVEL, DRV.FMT_NUMBER), (type_id, ctl.prop)
+                assert (ctl.unit or "dB") == "dB", (type_id, ctl.prop)
+            seen += 1
+    assert seen > 100
+
+
 def test_catalog_surface():
     info = DRV.BoseControlSpaceDriver.DRIVER_INFO
     assert info["id"] == "bose_controlspace"

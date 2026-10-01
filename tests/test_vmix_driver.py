@@ -1039,12 +1039,14 @@ def test_a_field_named_like_a_built_in_property_does_not_clobber_it():
 
 
 def test_set_text_field_picker_cascades_off_the_chosen_input():
-    """Picking the title populates the field list from that title."""
+    """Picking the title populates the field list from that title, and only
+    with its text fields: an input's fader and mute are not places to write
+    a headline."""
     params = VMixDriver.DRIVER_INFO["commands"]["set_text"]["params"]
     assert params["input"]["type"] == "child_id"
     assert params["input"]["child_type"] == "input"
     assert params["selected_name"]["options_from"] == {
-        "param": "input", "source": "child_schema",
+        "param": "input", "source": "child_schema", "types": ["string"],
     }
     # Free text still allowed: a GT title's "Headline.Text" is never reported.
     assert params["selected_name"]["type"] == "string"

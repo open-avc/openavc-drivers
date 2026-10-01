@@ -834,7 +834,7 @@
       "name": "Biamp Tesira TTP",
       "manufacturer": "Biamp",
       "category": "audio",
-      "version": "3.1.2",
+      "version": "3.1.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Biamp Tesira and TesiraFORT\u00c9 DSPs over the Tesira Text Protocol on TCP port 23 (Telnet). Supports Mute, Level, Source Selector, Matrix Mixer (crosspoints), Auto Mixer, Router, Logic, AEC, Room Combiner, Audio Meter, Signal Present Meter, Tone Generator, Preset recall, and basic VoIP / Dialer surfaces. Subscribes to push updates instead of polling. Declare your Tesira blocks once in the device config \u2014 each block becomes a child entity whose per-channel controls panel UIs bind to directly.",
@@ -842,7 +842,7 @@
       "file": "audio/biamp_tesira_ttp.py",
       "format": "python",
       "files": {
-        "audio/biamp_tesira_ttp.py": "964d096f7e2017fd2ec7777860bb4de28cfaf7e06185fdc66bdee63f92451777",
+        "audio/biamp_tesira_ttp.py": "1c56e3355d872c96724bd2b7ab01f7de770a058fa7a06d76b0dab49171e11fed",
         "audio/biamp_tesira_ttp_discovery.py": "52a9a3d6c365efd4549d6b69b5bab2d385b207ac51da02d197089464a723d66e",
         "audio/biamp_tesira_ttp_sim.py": "501c2200221ddc5852e5183f8b4218e6ee09d7c091cb2c83bed0236cd9d8b819"
       },
@@ -903,7 +903,7 @@
       "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
       "manufacturer": "Bose Professional",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Bose Professional ControlSpace EX, ESP and CSP processors through the ControlSpace Serial Control Protocol on TCP port 10055 or the RS-232 port. Declare the modules from your ControlSpace Designer design (gains, inputs, outputs, selectors, routers, mixers, automatic mic mixers, EQs, dynamics, delays, logic, telephone and VoIP lines, signal-level meters, or any parameter by index) and each becomes a child entity whose controls panels bind to. Groups carry master level, mute and source; parameter sets recall by number or name; room combine groups join and split. Every control is subscribed on a processor that supports subscriptions, so changes made from a CC-16 or CC-64 wall controller or from Designer appear at once.",
@@ -911,7 +911,7 @@
       "file": "audio/bose_controlspace.py",
       "format": "python",
       "files": {
-        "audio/bose_controlspace.py": "1710aafd9b9a7b984404dc92824d7b866a45ff4d2b75f167963e8e2aa4df0c02",
+        "audio/bose_controlspace.py": "8f878064201b8e0bd63e74b7eeb1b617ce5ca0a875b9a315529675e941fe4fd0",
         "audio/bose_controlspace_sim.py": "80cfe3aed3debec7ed012d979fe33bd27b5d223d62a5bea85cfb3e60fc567166"
       },
       "ports": [
@@ -1025,7 +1025,7 @@
       "name": "BSS Soundweb London (BLU)",
       "manufacturer": "BSS Audio",
       "category": "audio",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BSS Soundweb London BLU-series processors through the London Direct Inject protocol on TCP port 1023. Declare the processing objects from your Audio Architect design (gains, mixers, automixers, matrices, routers, source selectors, meters, input and output cards, or any single state variable) and each becomes a child entity whose controls panels bind to. Every control is subscribed, so changes made from Architect or a wall controller appear instantly; venue and parameter presets recall by number.",
@@ -1033,7 +1033,7 @@
       "file": "audio/bss_soundweb_london.py",
       "format": "python",
       "files": {
-        "audio/bss_soundweb_london.py": "63ed06148380a3aa6f20849c4e5a088c64d43c049e3605bd152b2e3f39abefca",
+        "audio/bss_soundweb_london.py": "885bc648ddae0cd45450420b180979353c3f859dfe4a8613f998656b99a70ce9",
         "audio/bss_soundweb_london_sim.py": "b5e01e6f1f336639a8431c8d4990e0fd72ff25f5e541d516fdbb350c9beed491"
       },
       "ports": [

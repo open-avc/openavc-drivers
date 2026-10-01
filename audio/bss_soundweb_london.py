@@ -1142,7 +1142,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1661,8 +1661,11 @@ class BSSSoundwebLondonDriver(BaseDriver):
         for key in keys:
             self._waiters.setdefault(key, []).append(fut)
         try:
-            for node, vd, obj, sv in keys:
-                await self._send(build_subscribe(node, vd, obj, sv, 0))
+            # One write for the round: the inter-command delay paces commands,
+            # and paced one frame at a time a round across many objects could
+            # outlast the watchdog's deadline and read as a dead unit.
+            await self._send(b"".join(build_subscribe(node, vd, obj, sv, 0)
+                                      for node, vd, obj, sv in keys))
             await asyncio.wait_for(fut, timeout)
             return True
         except asyncio.TimeoutError:

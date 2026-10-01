@@ -618,6 +618,24 @@ async def test_liveness_survives_an_object_leaving_the_design():
 
 
 @pytest.mark.asyncio
+async def test_a_liveness_round_is_one_write_whatever_the_command_delay():
+    # The inter-command delay paces each write. Paced frame by frame, a round
+    # across many objects would outlast the watchdog and read as a dead unit.
+    drv, sim = _make()
+    await drv.connect()
+    await _settle()
+    drv.config["inter_command_delay"] = 0.3
+    drv.LIVENESS_FIRST_WAIT_S = drv.LIVENESS_REST_WAIT_S = 0.05
+    for key in [k for k in sim._fmt if k[1] == 0x106]:
+        del sim._fmt[key]  # the last to answer is gone, so both rounds run
+    writes = len(drv.transport.sent)
+    started = asyncio.get_running_loop().time()
+    await drv._liveness_probe()
+    assert len(drv.transport.sent) - writes == 2
+    assert asyncio.get_running_loop().time() - started < 1.0
+
+
+@pytest.mark.asyncio
 async def test_a_unit_that_answers_nothing_keeps_its_link_and_says_why():
     # A wrong node (or no design loaded): the unit is up and answers nothing.
     drv, sim = _make(sim_config={"node_address": "0x0832", "controls": CONTROLS})

@@ -526,6 +526,12 @@ async def test_set_toggle_pulse_step_read_back_after_every_write():
     assert _child(drv, "Main_Volume", "level") == -15.5
     await drv.send_command("step_level", {"module": "Main_Volume", "control": "level", "amount": 50})
     assert _child(drv, "Main_Volume", "level") == 12.0          # clamped at +12
+    # A number in dB steps too, on its own step and range (EQ gain: 0.1, +/-20).
+    await drv.send_command("set_control", {"module": "Room_EQ", "control": "band_1_gain", "value": "1.2"})
+    await drv.send_command("step_level", {"module": "Room_EQ", "control": "band_1_gain", "amount": -0.55})
+    assert drv.transport.lines()[-2] == 'SA "Room EQ">1>3=0.6'
+    await drv.send_command("step_level", {"module": "Room_EQ", "control": "band_1_gain", "amount": 30})
+    assert _child(drv, "Room_EQ", "band_1_gain") == 20.0
     await drv.send_command("set_control", {"module": "Hook", "control": "value", "value": "1"})
     assert drv.transport.lines()[-2] == 'SA "Hook">0>9=O'
     with pytest.raises(ValueError, match="out of range"):
@@ -542,8 +548,10 @@ async def test_set_toggle_pulse_step_read_back_after_every_write():
         await drv.send_command("set_control", {"module": "PSTN_In_1", "control": "call_status", "value": "x"})
     with pytest.raises(ValueError, match="not an on/off"):
         await drv.send_command("toggle_control", {"module": "Main_Volume", "control": "level"})
-    with pytest.raises(ValueError, match="not a logic pin"):
+    with pytest.raises(DRV.CommandParamError, match="not a logic pin.*Toggle Control"):
         await drv.send_command("pulse_control", {"module": "Main_Volume", "control": "mute"})
+    with pytest.raises(DRV.CommandParamError, match="not a level or a control in dB"):
+        await drv.send_command("step_level", {"module": "Room_EQ", "control": "band_1_q", "amount": 1})
     with pytest.raises(ValueError, match="no control named"):
         await drv.send_command("set_control", {"module": "Main_Volume", "control": "nope", "value": "1"})
     with pytest.raises(ValueError, match="not one of the declared"):
@@ -844,10 +852,12 @@ def test_an_empty_table_says_where_the_rows_go():
 
 def _picker_offers(schema: dict, options_from: dict) -> set[str]:
     """The controls the IDE's Control picker lists for one child: the
-    control-flagged variables (every variable when none is flagged), narrowed
-    to the command's options_from types and units. The IDE's rule, restated."""
+    control-flagged variables (none when variables are flagged only false,
+    every variable when none carries the flag), narrowed to the command's
+    options_from types and units. The IDE's rule, restated."""
     flagged = {k for k, d in schema.items() if d.get("control") is True}
-    keys = flagged or set(schema) - {"online", "label", "offline_reason", "offline_detail"}
+    marked = any(isinstance(d.get("control"), bool) for d in schema.values())
+    keys = flagged if marked else set(schema) - {"online", "label", "offline_reason", "offline_detail"}
     types = options_from.get("types")
     units = [u.lower() for u in options_from.get("units", [])] or None
     return {
@@ -860,10 +870,10 @@ def _picker_offers(schema: dict, options_from: dict) -> set[str]:
 def test_the_control_pickers_offer_what_each_command_takes():
     """Every control of every module type, held against what each command
     accepts when it runs. Toggle Control lists exactly the on/off and logic
-    controls. A logic pin and an on/off control both declare boolean, so Pulse
-    Logic Control also lists the on/off ones, and a dB number is listed for
-    Step Level beside the levels; the driver refuses those when the command
-    runs, and nothing else is listed that it would refuse."""
+    controls, and Step Level exactly the levels and the numbers in dB. A logic
+    pin and an on/off control both declare boolean, so Pulse Logic Control
+    also lists the on/off ones, which the driver refuses: the protocol pulses
+    only a logic pin. Nothing else is listed that a command would refuse."""
     commands = DRV.BoseControlSpaceDriver.DRIVER_INFO["commands"]
     narrow = {name: commands[name]["params"]["control"]["options_from"]
               for name in ("toggle_control", "pulse_control", "step_level")}
@@ -890,11 +900,9 @@ def test_the_control_pickers_offer_what_each_command_takes():
                 assert "pulse_control" in offered, (type_id, ctl.prop)
             if "pulse_control" in offered:
                 assert ctl.fmt in (DRV.FMT_ONOFF, DRV.FMT_LOGIC), (type_id, ctl.prop)
-            if ok and ctl.fmt == DRV.FMT_LEVEL:
-                assert "step_level" in offered, (type_id, ctl.prop)
-            if "step_level" in offered:
-                assert ctl.fmt in (DRV.FMT_LEVEL, DRV.FMT_NUMBER), (type_id, ctl.prop)
-                assert (ctl.unit or "dB") == "dB", (type_id, ctl.prop)
+            in_db = ctl.fmt == DRV.FMT_LEVEL or (
+                ctl.fmt == DRV.FMT_NUMBER and (ctl.unit or "").lower() == "db")
+            assert ("step_level" in offered) == (ok and in_db), (type_id, ctl.prop)
             seen += 1
     assert seen > 100
 

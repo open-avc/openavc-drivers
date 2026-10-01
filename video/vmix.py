@@ -390,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.3.2",
+        "version": "2.3.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -1231,11 +1231,14 @@ class VMixDriver(BaseDriver):
             },
             # --- Titles / Text ---
             # These two pick the input as a CHILD rather than off input_list,
-            # because that is what lets the field name cascade: picking the
-            # title populates the name dropdown from that title's own fields,
-            # which the driver discovered from the device. The name stays a
-            # string rather than an enum so a field vMix has not reported --
-            # a GT title's "Headline.Text", say -- can still be typed.
+            # because that is what lets Set Text's field name cascade: picking
+            # the title populates the name dropdown from that title's own text
+            # fields, which the driver discovered from the device. The name
+            # stays a string rather than an enum so a field vMix has not
+            # reported -- a GT title's "Headline.Text", say -- can still be
+            # typed. Set Image's field is typed: the XML lists a title's image
+            # fields beside its text fields, both plain strings, so a cascade
+            # could not offer the image fields alone.
             "set_text": {
                 "label": "Set Text",
                 "params": {
@@ -1262,8 +1265,8 @@ class VMixDriver(BaseDriver):
                     "selected_name": {
                         "type": "string",
                         "label": "Field",
-                        "options_from": {"param": "input", "source": "child_schema"},
-                        "help": "Image field to set (e.g. MyImage.Source).",
+                        "help": "The image field's name as vMix's Title Editor shows it, "
+                                "e.g. Image1.Source on a GT title.",
                     },
                     "value": {"type": "string", "required": True, "help": "Image filename, or empty to clear"},
                 },

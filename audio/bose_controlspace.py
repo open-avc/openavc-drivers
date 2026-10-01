@@ -68,7 +68,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, CommandParamError
 from openavc.transport.frame_parsers import CallableFrameParser
 from openavc.utils.logger import get_logger
 
@@ -194,7 +194,7 @@ def coerce_onoff(value: Any) -> bool:
         return True
     if s in ("0", "false", "off", "no", "n", "f", "unmute", "unmuted"):
         return False
-    raise ValueError(f"{value!r} is not an on/off value")
+    raise CommandParamError(f"{value!r} is not an on/off value")
 
 
 def hex_level_to_db(raw: int) -> float:
@@ -1439,30 +1439,30 @@ def encode_value(ctl: ControlDef, value: Any) -> str:
     if ctl.fmt in (FMT_LEVEL, FMT_NUMBER):
         v = float(str(value).strip())
         if ctl.min is not None and v < ctl.min:
-            raise ValueError(f"{ctl.label}: {v} is below the minimum {ctl.min}")
+            raise CommandParamError(f"{ctl.label}: {v} is below the minimum {ctl.min}")
         if ctl.max is not None and v > ctl.max:
-            raise ValueError(f"{ctl.label}: {v} is above the maximum {ctl.max}")
+            raise CommandParamError(f"{ctl.label}: {v} is above the maximum {ctl.max}")
         return format_number(v)
     if ctl.fmt == FMT_INT:
         v = int(float(str(value).strip()))
         if ctl.min is not None and v < ctl.min:
-            raise ValueError(f"{ctl.label}: {v} is below the minimum {int(ctl.min)}")
+            raise CommandParamError(f"{ctl.label}: {v} is below the minimum {int(ctl.min)}")
         if ctl.max is not None and v > ctl.max:
-            raise ValueError(f"{ctl.label}: {v} is above the maximum {int(ctl.max)}")
+            raise CommandParamError(f"{ctl.label}: {v} is above the maximum {int(ctl.max)}")
         return str(v)
     if ctl.fmt == FMT_ENUM:
         s = str(value).strip()
         for wire, label in ctl.values:
             if s == wire or s.lower() == label.lower():
                 return wire
-        raise ValueError(f"{ctl.label}: {s!r} is not one of "
+        raise CommandParamError(f"{ctl.label}: {s!r} is not one of "
                          f"{', '.join(w for w, _ in ctl.values)}")
     if ctl.fmt == FMT_STRING:
         s = str(value).strip()
         if '"' in s:
-            raise ValueError(f"{ctl.label}: a value cannot contain a double quote")
+            raise CommandParamError(f"{ctl.label}: a value cannot contain a double quote")
         return s
-    raise ValueError(f"{ctl.label} cannot be set")
+    raise CommandParamError(f"{ctl.label} cannot be set")
 
 
 # ── Command surface ─────────────────────────────────────────────────────────
@@ -1511,10 +1511,9 @@ def _level_param() -> dict[str, Any]:
             "help": "-60 to +12 dB in 0.5 dB steps; -60.5 is off."}
 
 
-def _step_param() -> dict[str, Any]:
+def _step_param(help: str = "Positive raises, negative lowers, in 0.5 dB steps.") -> dict[str, Any]:
     return {"type": "number", "required": True, "label": "Amount (dB)", "unit": "dB",
-            "default": 1.0, "min": -72, "max": 72, "decimals": 1,
-            "help": "Positive raises, negative lowers, in 0.5 dB steps."}
+            "default": 1.0, "min": -72, "max": 72, "decimals": 1, "help": help}
 
 
 def _module_name_param() -> dict[str, Any]:
@@ -1573,15 +1572,19 @@ COMMANDS: dict[str, dict[str, Any]] = {
     "pulse_control": {
         "label": "Pulse Logic Control",
         "params": {"module": _module_param(),
-                   "control": _control_param("A logic input or output pin.", types=["boolean"])},
+                   "control": _control_param("A logic input or output pin. Only a pin can pulse; "
+                                             "use Toggle Control for any other on/off control.",
+                                             types=["boolean"])},
         "help": "Momentarily press a logic pin: on, then back off.",
     },
     "step_level": {
         "label": "Step Level (dB)",
         "params": {"module": _module_param(),
-                   "control": _control_param("A level control.", types=["number"], units=["dB"]),
-                   "amount": _step_param()},
-        "help": "Raise or lower a level by a number of dB from its current value.",
+                   "control": _control_param("A level, or any other control in dB.",
+                                             types=["number"], units=["dB"]),
+                   "amount": _step_param("Positive raises, negative lowers. The result keeps "
+                                         "to the control's step and range.")},
+        "help": "Raise or lower a level, or any other control in dB, from its current value.",
     },
     "make_call": {
         "label": "Make Call",
@@ -1745,7 +1748,7 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -2575,7 +2578,7 @@ class BoseControlSpaceDriver(BaseDriver):
         cid = str(params.get("module") or "").strip()
         m = self._by_cid.get(cid) or self._by_cid.get(safe_child_id(cid))
         if m is None:
-            raise ValueError(f"'{cid}' is not one of the declared modules")
+            raise CommandParamError(f"'{cid}' is not one of the declared modules")
         name = str(params.get("control") or "").strip()
         ctl = m.controls.get(name)
         if ctl is None:
@@ -2585,24 +2588,24 @@ class BoseControlSpaceDriver(BaseDriver):
                     ctl = c
                     break
         if ctl is None:
-            raise ValueError(f"{m.name} has no control named '{name}'")
+            raise CommandParamError(f"{m.name} has no control named '{name}'")
         return m, ctl
 
     def _lookup_module(self, params: dict[str, Any]) -> ModuleDef:
         cid = str(params.get("module") or "").strip()
         m = self._by_cid.get(cid) or self._by_cid.get(safe_child_id(cid))
         if m is None:
-            raise ValueError(f"'{cid}' is not one of the declared modules")
+            raise CommandParamError(f"'{cid}' is not one of the declared modules")
         return m
 
     def _lookup_group(self, params: dict[str, Any]) -> GroupDef:
         try:
             number = int(params.get("group"))
         except (TypeError, ValueError) as exc:
-            raise ValueError("pick one of the declared groups") from exc
+            raise CommandParamError("pick one of the declared groups") from exc
         g = self._group_by_number.get(number)
         if g is None:
-            raise ValueError(f"group {number} is not in the Groups table")
+            raise CommandParamError(f"group {number} is not in the Groups table")
         return g
 
     def _current(self, m: ModuleDef, prop: str) -> Any:
@@ -2610,16 +2613,16 @@ class BoseControlSpaceDriver(BaseDriver):
 
     async def _set_module_control(self, m: ModuleDef, ctl: ControlDef, wire: str) -> None:
         if not ctl.writable:
-            raise ValueError(f"{ctl.label} on {m.name} is read-only")
+            raise CommandParamError(f"{ctl.label} on {m.name} is read-only")
         await self._module_write(sa_line(m.name, ctl.write_path, wire, m.device))
         await self._read_back(m, ctl)
 
     async def _call_action(self, params: dict[str, Any], action: str, parameter: str | None) -> None:
         m = self._lookup_module(params)
         if m.type_id not in CALL_MODULE_TYPES:
-            raise ValueError(f"{m.name} is not a PSTN or VoIP input module")
+            raise CommandParamError(f"{m.name} is not a PSTN or VoIP input module")
         if action == "transfer_call" and m.type_id != "voip_input":
-            raise ValueError("only a VoIP line can transfer a call")
+            raise CommandParamError("only a VoIP line can transfer a call")
         await self._module_write(ma_line(m.name, CALL_ACTIONS[action], parameter, m.device))
         # The call status and Call Active flag are read-only reports; ask for
         # them so a panel sees the new state without waiting for a push.
@@ -2633,7 +2636,7 @@ class BoseControlSpaceDriver(BaseDriver):
         if command == "recall_parameter_set":
             n = int(params["number"])
             if not 1 <= n <= PARAMETER_SET_MAX:
-                raise ValueError("a parameter set is 1..255")
+                raise CommandParamError("a parameter set is 1..255")
             await self._fire(f"SS {n:x}")
             await self._query("GS", lambda f: bool(_S_RE.match(f.decode("ascii", "replace"))))
             return None
@@ -2644,27 +2647,38 @@ class BoseControlSpaceDriver(BaseDriver):
         if command == "toggle_control":
             m, ctl = self._lookup(params)
             if ctl.fmt not in (FMT_ONOFF, FMT_LOGIC):
-                raise ValueError(f"{ctl.label} on {m.name} is not an on/off control")
+                raise CommandParamError(f"{ctl.label} on {m.name} is not an on/off control")
             await self._set_module_control(m, ctl, "T")
             return None
         if command == "pulse_control":
             m, ctl = self._lookup(params)
             if ctl.fmt != FMT_LOGIC:
-                raise ValueError(f"{ctl.label} on {m.name} is not a logic pin")
+                raise CommandParamError(f"{ctl.label} on {m.name} is not a logic pin, and only a "
+                                 "logic pin can pulse. Use Toggle Control or Set Control.")
             await self._set_module_control(m, ctl, "P")
             return None
         if command == "step_level":
             m, ctl = self._lookup(params)
-            if ctl.fmt != FMT_LEVEL:
-                raise ValueError(f"{ctl.label} on {m.name} is not a level")
+            # A level, or a number declared in dB (Max Total Gain, an EQ
+            # band's gain): the two the Control picker offers here.
+            if ctl.fmt == FMT_LEVEL:
+                lo = LEVEL_MIN if ctl.min is None else ctl.min
+                hi = LEVEL_MAX if ctl.max is None else ctl.max
+                step = ctl.step or 0.5
+            elif ctl.fmt == FMT_NUMBER and (ctl.unit or "").lower() == "db":
+                lo, hi, step = ctl.min, ctl.max, ctl.step
+            else:
+                raise CommandParamError(f"{ctl.label} on {m.name} is not a level or a control in dB")
             current = self._current(m, ctl.prop)
             if current is None:
                 raise ValueError(f"{m.name} {ctl.label} has not reported a value yet")
-            lo = LEVEL_MIN if ctl.min is None else ctl.min
-            hi = LEVEL_MAX if ctl.max is None else ctl.max
-            step = ctl.step or 0.5
-            target = max(lo, min(hi, float(current) + float(params.get("amount", 1.0))))
-            target = round(round(target / step) * step, 3)
+            target = float(current) + float(params.get("amount", 1.0))
+            if step:
+                target = round(round(target / step) * step, 3)
+            if lo is not None:
+                target = max(lo, target)
+            if hi is not None:
+                target = min(hi, target)
             await self._set_module_control(m, ctl, format_number(target))
             return None
         if command == "make_call":
@@ -2685,14 +2699,14 @@ class BoseControlSpaceDriver(BaseDriver):
         if command == "set_group_level":
             g = self._lookup_group(params)
             if g.kind != "level":
-                raise ValueError(f"{g.name} is a selector group; use Set Group Source")
+                raise CommandParamError(f"{g.name} is a selector group; use Set Group Source")
             await self._fire(f"SG {g.number:x},{db_to_hex_level(float(params['level']))}")
             await self._query(f"GG {g.number:x}", lambda f, n=g.number: self._group_reply(f, "GG", n))
             return None
         if command == "step_group_level":
             g = self._lookup_group(params)
             if g.kind != "level":
-                raise ValueError(f"{g.name} is a selector group")
+                raise CommandParamError(f"{g.name} is a selector group")
             amount = float(params.get("amount", 1.0))
             steps = int(round(abs(amount) * 2))
             if steps == 0:
@@ -2703,34 +2717,34 @@ class BoseControlSpaceDriver(BaseDriver):
         if command == "set_group_mute":
             g = self._lookup_group(params)
             if g.kind != "level":
-                raise ValueError(f"{g.name} is a selector group")
+                raise CommandParamError(f"{g.name} is a selector group")
             await self._fire(f"SN {g.number:x},{'M' if coerce_onoff(params.get('mute')) else 'U'}")
             await self._query(f"GN {g.number:x}", lambda f, n=g.number: self._group_reply(f, "GN", n))
             return None
         if command == "toggle_group_mute":
             g = self._lookup_group(params)
             if g.kind != "level":
-                raise ValueError(f"{g.name} is a selector group")
+                raise CommandParamError(f"{g.name} is a selector group")
             await self._fire(f"SN {g.number:x},T")
             await self._query(f"GN {g.number:x}", lambda f, n=g.number: self._group_reply(f, "GN", n))
             return None
         if command == "set_group_source":
             g = self._lookup_group(params)
             if g.kind != "selector":
-                raise ValueError(f"{g.name} is a volume group; use Set Group Level")
+                raise CommandParamError(f"{g.name} is a volume group; use Set Group Level")
             channel = int(params["channel"])
             if not 1 <= channel <= 32:
-                raise ValueError("a source selector group takes channels 1..32")
+                raise CommandParamError("a source selector group takes channels 1..32")
             await self._fire(f"SG {g.number:x},{channel:x}")
             await self._query(f"GG {g.number:x}", lambda f, n=g.number: self._group_reply(f, "GG", n))
             return None
         if command in ("join_rooms", "split_rooms"):
             n = int(params["group"])
             if not 1 <= n <= self._rc_groups:
-                raise ValueError(f"room combine group {n} is not declared (Room Combine Groups is {self._rc_groups})")
+                raise CommandParamError(f"room combine group {n} is not declared (Room Combine Groups is {self._rc_groups})")
             a, b = int(params["room_a"]), int(params["room_b"])
             if a == b:
-                raise ValueError("pick two different rooms")
+                raise CommandParamError("pick two different rooms")
             await self._fire(f"SRC {n},{a},{b},{'J' if command == 'join_rooms' else 'S'}")
             await self._query(f"GRC {n}", lambda f, n=n: self._grc_matches(f, n))
             return None
@@ -2750,14 +2764,14 @@ class BoseControlSpaceDriver(BaseDriver):
             slot, ch = self._slot_channel(params)
             state = str(params["state"]).strip().upper()[:1]
             if state not in ("M", "U", "T"):
-                raise ValueError("state is M, U or T")
+                raise CommandParamError("state is M, U or T")
             await self._fire(f"SM {slot},{ch},{state}")
             return await self._io_read_back(f"GM {slot},{ch}", _GM_RE)
         if command == "set_module_parameter":
             name, path, device = self._raw_module_params(params)
             value = str(params.get("value", "")).strip()
             if '"' in value:
-                raise ValueError("a value cannot contain a double quote")
+                raise CommandParamError("a value cannot contain a double quote")
             await self._module_write(sa_line(name, path, value, device))
             text = ga_line(name, path, device)
             await self._query(text, lambda f, t=text: self._ga_matches(f, t))
@@ -2778,7 +2792,7 @@ class BoseControlSpaceDriver(BaseDriver):
         if command == "set_ip_address":
             address = str(params["address"]).strip()
             if not _IPV4_RE.match(address):
-                raise ValueError("enter a dotted IPv4 address")
+                raise CommandParamError("enter a dotted IPv4 address")
             await self._fire(f"IP {address}")
             return None
         if command == "set_network_parameter":
@@ -2787,12 +2801,12 @@ class BoseControlSpaceDriver(BaseDriver):
             if key == "T":
                 value = value.upper()[:1]
                 if value not in ("D", "S"):
-                    raise ValueError("addressing is D (DHCP) or S (static)")
+                    raise CommandParamError("addressing is D (DHCP) or S (static)")
             elif key in ("M", "G"):
                 if not _IPV4_RE.match(value):
-                    raise ValueError("enter a dotted IPv4 address")
+                    raise CommandParamError("enter a dotted IPv4 address")
             else:
-                raise ValueError("parameter is T, M or G")
+                raise CommandParamError("parameter is T, M or G")
             await self._fire(f"NP {key},{value}")
             return None
         if command == "reset_network_defaults":
@@ -2826,7 +2840,7 @@ class BoseControlSpaceDriver(BaseDriver):
         slot = str(params.get("slot", "")).strip().lower()
         ch = str(params.get("channel", "")).strip().lower()
         if not _HEX_RE.match(slot) or not _HEX_RE.match(ch):
-            raise ValueError("slot and channel are hexadecimal (1-B, 1-40)")
+            raise CommandParamError("slot and channel are hexadecimal (1-B, 1-40)")
         return slot, ch
 
     @staticmethod
@@ -2835,9 +2849,9 @@ class BoseControlSpaceDriver(BaseDriver):
         path = re.sub(r"\s+", "", str(params.get("index", "")))
         device = str(params.get("device") or "").strip()
         if not name or '"' in name or '"' in device:
-            raise ValueError("enter the module label without quotes")
+            raise CommandParamError("enter the module label without quotes")
         if not path or not re.match(r"^[0-9(),>]+$", path):
-            raise ValueError("the index path is digits separated by >, e.g. 1 or 0>3 or 4>(2,5)")
+            raise CommandParamError("the index path is digits separated by >, e.g. 1 or 0>3 or 4>(2,5)")
         return name, path, device
 
     # ── Test Connection / Verify Modules (setup wizard) ──

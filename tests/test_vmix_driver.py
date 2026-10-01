@@ -1052,6 +1052,15 @@ def test_set_text_field_picker_cascades_off_the_chosen_input():
     assert params["selected_name"]["type"] == "string"
 
 
+def test_set_image_field_is_typed_not_picked():
+    """A title's image fields are plain strings like its text fields, so a
+    cascade would offer the text fields; the field name is typed instead."""
+    params = VMixDriver.DRIVER_INFO["commands"]["set_image"]["params"]
+    assert params["input"]["type"] == "child_id"
+    assert "options_from" not in params["selected_name"]
+    assert "Image1.Source" in params["selected_name"]["help"]
+
+
 def test_set_text_round_trip():
     async def s(d, state, sim):
         await d.send_command(

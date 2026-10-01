@@ -211,7 +211,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.6.1",
+        "version": "1.6.2",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -332,14 +332,35 @@ class ChazyControlProDriver(BaseDriver):
                 "them here."
             ),
         },
-        # Quick Action strip: promote the device-enrollment workflow (and the
-        # controller reboot) to one-click buttons at the top of the device view,
-        # so they aren't buried in the 200+ entry Send Command list. Labels are
-        # inherited from each command; reboot confirms first (it drops control).
+        # Buttons at the top of the device view, so the controls people use
+        # every day aren't buried in the 200+ entry Send Command list. Labels
+        # are inherited from each command. The everyday controls come first;
+        # the enrollment buttons and the reboot change the system or drop
+        # control, so each asks for a confirmation before it runs.
         "actions": [
-            {"id": "discover_add_all", "kind": "command", "icon": "radar"},
-            {"id": "search", "kind": "command", "icon": "search"},
-            {"id": "add_auto_all", "kind": "command", "icon": "circle-plus"},
+            {"id": "dec_route", "kind": "command", "icon": "route"},
+            {"id": "group_switch", "kind": "command", "icon": "group"},
+            {"id": "dec_output", "kind": "command", "icon": "monitor"},
+            {"id": "dec_output_mute", "kind": "command", "icon": "eye-off"},
+            {"id": "wall_apply_preset", "kind": "command", "icon": "layout-grid"},
+            {
+                "id": "discover_add_all",
+                "kind": "command",
+                "icon": "radar",
+                "confirm": (
+                    "Search the Video LAN and add every new encoder and decoder "
+                    "it finds to the system?"
+                ),
+            },
+            {
+                "id": "add_auto_all",
+                "kind": "command",
+                "icon": "circle-plus",
+                "confirm": (
+                    "Add every encoder and decoder the last search found to the "
+                    "system?"
+                ),
+            },
             {
                 "id": "reboot_controller",
                 "kind": "command",
@@ -2009,146 +2030,237 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                        "help": "Remove an encoder from the controller config."},
         "enc_switch_arc": {"label": "Encoder: Route ARC", "params": {
             "encoder_id": enc_id(), "decoder_id": dec_id("Decoder (0 = clear)")},
-            "help": "Route an encoder's ARC-only signal to a decoder; decoder 0 closes it."},
+            "help": "Selects which decoder the encoder takes its ARC/eARC return "
+                    "audio from. Decoder 0 clears the selection."},
         "enc_led": {"label": "Encoder: Power LED Flash", "params": {
-            "encoder_id": enc_id(), "state": onoff}, "help": "Flash the encoder power LED."},
+            "encoder_id": enc_id(), "state": onoff},
+            "help": "Starts (On) or stops (Off) flashing the encoder's front-panel "
+                    "power LED; Off leaves it steady."},
         "enc_multicast": {"label": "Encoder: Multicast", "params": {
             "encoder_id": enc_id(), "state": onoff}, "help": "Multicast transmit on/off."},
         "enc_dante_bridge": {"label": "Encoder: Dante Bridge", "params": {
-            "encoder_id": enc_id(), "state": onoff}},
+            "encoder_id": enc_id(), "state": onoff},
+            "help": "When on, the encoder takes audio from the Dante network and "
+                    "passes it into the system as the audio source for decoders "
+                    "without Dante. Its HDMI loop output keeps its own audio."},
         "enc_dante_vlan": {"label": "Encoder: Dante VLAN", "params": {
-            "encoder_id": enc_id(), "state": onoff}},
+            "encoder_id": enc_id(), "state": onoff},
+            "help": "Turns Dante VLAN tagging on or off for the encoder."},
         "enc_dante_vlan_tag": {"label": "Encoder: Dante VLAN Tag", "params": {
-            "encoder_id": enc_id(), "tag": {"type": "integer", "required": True, "min": 1, "max": 4095}}},
+            "encoder_id": enc_id(), "tag": {"type": "integer", "required": True, "min": 1, "max": 4095}},
+            "help": "Sets the VLAN tag (1-4095) the encoder uses for Dante."},
         "enc_audio_stream": {"label": "Encoder: Audio Stream", "params": {
             "encoder_id": enc_id(), "stream": {"type": "enum", "values": ["DANTE", "AES67", "NONE"],
-                                               "required": True}}},
+                                               "required": True}},
+            "help": "Sets which network audio stream the encoder uses: Dante, AES67, or none."},
         "enc_audio_input": {"label": "Encoder: Audio Input", "params": {
             "encoder_id": enc_id(), "source": {"type": "enum", "values": ["HDMI", "ANA"],
-                                               "required": True}}},
+                                               "required": True}},
+            "help": "Selects the encoder's audio source: its HDMI input or "
+                    "its analog L/R input. That audio feeds the encoder's "
+                    "HDMI loop output and the decoders it is routed to."},
         "enc_edid_copy": {"label": "Encoder: Copy EDID from Decoder", "params": {
-            "encoder_id": enc_id(), "decoder_id": dec_id()}},
+            "encoder_id": enc_id(), "decoder_id": dec_id()},
+            "help": "Copies the EDID from the chosen decoder's display to the encoder."},
         "enc_edid_default": {"label": "Encoder: Set Default EDID", "params": {
             "encoder_id": enc_id(), "edid": {"type": "string", "required": True,
-                                             "help": "EDID preset index (00-27 built-in, 101/102 user)."}}},
+                                             "help": "EDID preset index (00-27 built-in, 101/102 user)."}},
+            "help": "Sets the encoder's EDID to a built-in "
+                    "preset (00-27) or a user EDID (101 or 102)."},
         "enc_ir_vol": {"label": "Encoder: IR Voltage", "params": {
             "encoder_id": enc_id(), "voltage": {"type": "enum", "values": ["5V", "12V"],
-                                                "required": True}}},
+                                                "required": True}},
+            "help": "Sets the encoder's IR voltage to 5 V or 12 V, to match the IR cable in use."},
         "enc_io_vol": {"label": "Encoder: IO Voltage", "params": {
             "encoder_id": enc_id(), "voltage": {"type": "enum", "values": ["5V", "12V"],
-                                                "required": True}}},
+                                                "required": True}},
+            "help": "Sets the voltage of the encoder's IO ports to 5 V or 12 V."},
         "enc_io_dir": {"label": "Encoder: IO Direction", "params": {
             "encoder_id": enc_id(), "port": {"type": "enum", "values": ["1", "2"], "required": True},
-            "direction": {"type": "enum", "values": ["IN", "OUT"], "required": True}}},
+            "direction": {"type": "enum", "values": ["IN", "OUT"], "required": True}},
+            "help": "Sets the encoder's IO port 1 or 2 as an input or an output."},
         "enc_io_out": {"label": "Encoder: IO Output Level", "params": {
             "encoder_id": enc_id(), "port": {"type": "enum", "values": ["1", "2"], "required": True},
-            "level": {"type": "enum", "values": ["0", "1"], "required": True}}},
+            "level": {"type": "enum", "values": ["0", "1"], "required": True}},
+            "help": "Drives the encoder's IO port 1 or 2 low (0) or "
+                    "high (1). Works only on a port set as an output."},
         "enc_relay": {"label": "Encoder: Relay", "params": {
             "encoder_id": enc_id(), "relay": {"type": "enum", "values": ["1", "2"], "required": True},
-            "state": {"type": "enum", "values": ["OPEN", "CLOSE"], "required": True}}},
+            "state": {"type": "enum", "values": ["OPEN", "CLOSE"], "required": True}},
+            "help": "Opens or closes the encoder's relay 1 or 2."},
         "enc_sac": {"label": "Encoder: Shared Audio Pin", "params": {
             "encoder_id": enc_id(), "mode": {"type": "enum", "values": ["ARC", "CEC", "OFF"],
-                                             "required": True}}},
+                                             "required": True}},
+            "help": "Sets the encoder's shared CEC/ARC pin to ARC, CEC, or off "
+                    "(neither). The encoder reboots if the setting changes."},
         "enc_net": {"label": "Encoder: Network PHY", "params": {
             "encoder_id": enc_id(), "phy": {"type": "enum", "values": ["FIBER", "COPPER"],
-                                            "required": True}}},
+                                            "required": True}},
+            "help": "Selects the encoder's network port: fiber "
+                    "or copper. Only on encoders that have both."},
         "enc_usbmode": {"label": "Encoder: USB Mode", "params": {
             "encoder_id": enc_id(), "mode": {"type": "enum", "values": ["AUTO", "HOST", "TYPEC"],
-                                             "required": True}}},
+                                             "required": True}},
+            "help": "Sets the encoder's USB mode: Auto, Host, or Type-C."},
         "enc_source": {"label": "Encoder: Video Source", "params": {
             "encoder_id": enc_id(), "source": {"type": "enum", "values": ["AUTO", "HDMI", "TYPEC"],
-                                               "required": True}}},
+                                               "required": True}},
+            "help": "Selects the encoder's video input: Auto, HDMI, or Type-C."},
         "enc_fan": {"label": "Encoder: Fan Speed", "params": {
             "encoder_id": enc_id(), "speed": {"type": "enum",
                                               "values": ["SILENT", "LOW", "STANDARD", "HIGH", "AUTO"],
-                                              "required": True}}},
+                                              "required": True}},
+            "help": "Sets the encoder's fan speed: Silent, Low, Standard, High, or Auto."},
         "enc_cec_send": {"label": "Encoder: Send CEC", "params": {
             "encoder_id": enc_id(), "data": {"type": "string", "required": True,
-                                             "help": "Hex bytes, e.g. '40 04'."}}},
+                                             "help": "Hex bytes, e.g. '40 04'."}},
+            "help": "Sends a CEC message (hex bytes) from the encoder over HDMI."},
         "enc_ir_send": {"label": "Encoder: Send IR", "params": {
             "encoder_id": enc_id(), "data": {"type": "string", "required": True,
-                                             "help": "Hex IR data."}}},
+                                             "help": "Hex IR data."}},
+            "help": "Sends an IR code (hex, CCF format) out of the encoder's IR port."},
         "enc_sendguest_ascii": {"label": "Encoder: Send Serial (ASCII)", "params": {
-            "encoder_id": enc_id(), "message": {"type": "string", "required": True}}},
+            "encoder_id": enc_id(), "message": {"type": "string", "required": True}},
+            "help": "Sends a text message out of the encoder's RS-232 port."},
         "enc_sendguest_hex": {"label": "Encoder: Send Serial (Hex)", "params": {
-            "encoder_id": enc_id(), "message": {"type": "string", "required": True}}},
-        "enc_led_timeout": {"label": "Encoder: Flash LED (90s)", "params": {"encoder_id": enc_id()}},
+            "encoder_id": enc_id(), "message": {"type": "string", "required": True}},
+            "help": "Sends hex bytes out of the encoder's RS-232 port."},
+        "enc_led_timeout": {"label": "Encoder: Flash LED (90s)", "params": {"encoder_id": enc_id()},
+            "help": "Flashes the encoder's power LED for 90 seconds, then leaves it steady."},
         "enc_source_auto_priority": {"label": "Encoder: Auto Source Priority", "params": {
             "encoder_id": enc_id(), "priority": {"type": "enum", "values": ["NONE", "HDMI", "TYPEC"],
-                                                 "required": True}}},
+                                                 "required": True}},
+            "help": "Sets which input the encoder prefers when its "
+                    "video source is Auto: none, HDMI, or Type-C."},
         "enc_guest_config": {"label": "Encoder: Serial Guest Config", "params": {
             "encoder_id": enc_id(), "state": onoff, "baud": _baud(),
-            "bits": {"type": "string", "required": True, "help": "Data/parity/stop, e.g. 8n1"}}},
+            "bits": {"type": "string", "required": True, "help": "Data/parity/stop, e.g. 8n1"}},
+            "help": "Turns the encoder's RS-232 command relay (serial guest "
+                    "mode) on or off and sets its baud rate and data format."},
         "enc_guest_start": {"label": "Encoder: Start Serial Guest", "params": {"encoder_id": enc_id()},
                             "help": "Enter interactive serial guest mode (exit with Exit Serial Guest)."},
         "enc_ipmode": {"label": "Encoder: IP Mode", "params": {
-            "encoder_id": enc_id(), "mode": _ipmode_ds()}},
+            "encoder_id": enc_id(), "mode": _ipmode_ds()},
+            "help": "Sets the encoder to get its IP address from DHCP or use a static one. "
+                    "Takes effect when the encoder's network restarts (Encoder: Reboot NIC)."},
         "enc_static_ip": {"label": "Encoder: Static IP", "params": {
-            "encoder_id": enc_id(), "ip": _ipparam()}},
+            "encoder_id": enc_id(), "ip": _ipparam()},
+            "help": "Sets the encoder's static IP address. Takes effect when "
+                    "the encoder's network restarts (Encoder: Reboot NIC)."},
         "enc_static_gateway": {"label": "Encoder: Static Gateway", "params": {
-            "encoder_id": enc_id(), "gateway": _ipparam("Gateway")}},
+            "encoder_id": enc_id(), "gateway": _ipparam("Gateway")},
+            "help": "Sets the encoder's static gateway address. Takes effect "
+                    "when the encoder's network restarts (Encoder: Reboot NIC)."},
         "enc_static_mask": {"label": "Encoder: Static Mask", "params": {
-            "encoder_id": enc_id(), "mask": _ipparam("Subnet Mask")}},
-        "enc_network_reboot": {"label": "Encoder: Reboot NIC", "params": {"encoder_id": enc_id()}},
+            "encoder_id": enc_id(), "mask": _ipparam("Subnet Mask")},
+            "help": "Sets the encoder's static subnet mask. Takes effect when "
+                    "the encoder's network restarts (Encoder: Reboot NIC)."},
+        "enc_network_reboot": {"label": "Encoder: Reboot NIC", "params": {"encoder_id": enc_id()},
+            "help": "Restarts the encoder's network connection and applies its new network "
+                    "settings. The encoder drops off the network until it reconnects."},
         "enc_lanmode": {"label": "Encoder: LAN Mode", "params": {
-            "encoder_id": enc_id(), "lanmode": {"type": "enum", "values": ["1", "2"], "required": True}}},
+            "encoder_id": enc_id(), "lanmode": {"type": "enum", "values": ["1", "2"], "required": True}},
+            "help": "Sets the encoder's LAN mode: 1 carries video and Dante "
+                    "audio on the LAN1 (PoE) port, 2 moves Dante audio to "
+                    "the LAN2 port. The encoder reboots to apply it."},
         "enc_lan2_ipmode": {"label": "Encoder: LAN2 IP Mode", "params": {
-            "encoder_id": enc_id(), "mode": _ipmode_ds()}},
+            "encoder_id": enc_id(), "mode": _ipmode_ds()},
+            "help": "Sets the encoder's LAN2 port to get its "
+                    "address from DHCP or use a static one."},
         "enc_lan2_static_ip": {"label": "Encoder: LAN2 Static IP", "params": {
-            "encoder_id": enc_id(), "ip": _ipparam()}},
+            "encoder_id": enc_id(), "ip": _ipparam()},
+            "help": "Sets the static IP address of the encoder's LAN2 port."},
         "enc_lan2_static_gateway": {"label": "Encoder: LAN2 Static Gateway", "params": {
-            "encoder_id": enc_id(), "gateway": _ipparam("Gateway")}},
+            "encoder_id": enc_id(), "gateway": _ipparam("Gateway")},
+            "help": "Sets the static gateway address of the encoder's LAN2 port."},
         "enc_lan2_static_mask": {"label": "Encoder: LAN2 Static Mask", "params": {
-            "encoder_id": enc_id(), "mask": _ipparam("Subnet Mask")}},
-        "enc_preset_ipmode": {"label": "Encoder Preset: IP Mode", "params": {"mode": _ipmode_012()}},
-        "enc_preset_start_ip": {"label": "Encoder Preset: Start IP", "params": {"ip": _ipparam()}},
-        "enc_preset_end_ip": {"label": "Encoder Preset: End IP", "params": {"ip": _ipparam()}},
-        "enc_preset_gw": {"label": "Encoder Preset: Gateway", "params": {"gateway": _ipparam("Gateway")}},
-        "enc_preset_sm": {"label": "Encoder Preset: Subnet Mask", "params": {"mask": _ipparam("Subnet Mask")}},
-        "enc_preset_apply": {"label": "Encoder Preset: Apply", "params": {}},
-        "enc_reboot": {"label": "Encoder: Reboot", "params": {"encoder_id": enc_id()}},
-        "enc_reset": {"label": "Encoder: Factory Reset", "params": {"encoder_id": enc_id()}},
+            "encoder_id": enc_id(), "mask": _ipparam("Subnet Mask")},
+            "help": "Sets the static subnet mask of the encoder's LAN2 port."},
+        "enc_preset_ipmode": {"label": "Encoder Preset: IP Mode", "params": {"mode": _ipmode_012()},
+            "help": "Sets the IP mode (Auto IP, DHCP, or static) the controller gives encoders "
+                    "when they are added to the system. Saved by Encoder Preset: Apply."},
+        "enc_preset_start_ip": {"label": "Encoder Preset: Start IP", "params": {"ip": _ipparam()},
+            "help": "Sets the first address of the range the controller gives encoders "
+                    "when they are added to the system. Saved by Encoder Preset: Apply."},
+        "enc_preset_end_ip": {"label": "Encoder Preset: End IP", "params": {"ip": _ipparam()},
+            "help": "Sets the last address of the range the controller gives encoders "
+                    "when they are added to the system. Saved by Encoder Preset: Apply."},
+        "enc_preset_gw": {"label": "Encoder Preset: Gateway", "params": {"gateway": _ipparam("Gateway")},
+            "help": "Sets the gateway address the controller gives encoders when "
+                    "they are added to the system. Saved by Encoder Preset: Apply."},
+        "enc_preset_sm": {"label": "Encoder Preset: Subnet Mask", "params": {"mask": _ipparam("Subnet Mask")},
+            "help": "Sets the subnet mask the controller gives encoders when they "
+                    "are added to the system. Saved by Encoder Preset: Apply."},
+        "enc_preset_apply": {"label": "Encoder Preset: Apply", "params": {},
+            "help": "Saves the encoder address preset (IP mode, address range, gateway, "
+                    "and mask) that the controller uses for encoders added to the system."},
+        "enc_reboot": {"label": "Encoder: Reboot", "params": {"encoder_id": enc_id()},
+            "help": "Reboots the encoder; its video to every decoder drops until it is back."},
+        "enc_reset": {"label": "Encoder: Factory Reset", "params": {"encoder_id": enc_id()},
+            "help": "Resets the encoder to factory settings, erasing its configuration."},
 
         # ── Decoder ──
         "dec_set_name": {"label": "Decoder: Set Name", "params": {
-            "decoder_id": dec_id(), "name": {"type": "string", "required": True}}},
+            "decoder_id": dec_id(), "name": {"type": "string", "required": True}},
+            "help": "Renames the decoder (up to 32 characters)."},
         "dec_set_id": {"label": "Decoder: Renumber", "params": {
             "decoder_id": dec_id(), "new_id": {"type": "integer", "required": True, "min": 1,
-                                               "max": DEC_MAX, "label": "New ID"}}},
-        "dec_delete": {"label": "Decoder: Delete", "params": {"decoder_id": dec_id()}},
+                                               "max": DEC_MAX, "label": "New ID"}},
+            "help": "Changes the decoder's ID number (1-762). "
+                    "The new ID must not already be in use."},
+        "dec_delete": {"label": "Decoder: Delete", "params": {"decoder_id": dec_id()},
+            "help": "Removes the decoder from the system configuration."},
         "dec_route": {"label": "Decoder: Route Source", "params": {
             "decoder_id": dec_id(), "encoder_id": enc_id("Encoder (0 = clear/follow)"),
             "signal": {"type": "enum", "values": SIGNAL_TYPES, "required": True}},
-            "help": "Route an encoder to a decoder for one signal type. Encoder 0 clears/returns to follow."},
+            "help": "Routes the chosen encoder to the decoder, for every signal (ALL) or one "
+                    "signal only. Encoder 0 clears the route; for video, audio, IR, RS-232, "
+                    "USB, or CEC alone, that signal goes back to following the main route."},
         "dec_led": {"label": "Decoder: Power LED Flash", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Starts (On) or stops (Off) flashing the decoder's "
+                    "front-panel power LED; Off leaves it steady."},
         "dec_multicast": {"label": "Decoder: Multicast", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Turns multicast on or off for the decoder (off is unicast)."},
         "dec_ull": {"label": "Decoder: Ultra Low Latency", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Turns ultra low latency mode on or off for the decoder."},
         "dec_audio_stream": {"label": "Decoder: Audio Stream", "params": {
             "decoder_id": dec_id(), "stream": {"type": "enum", "values": ["DANTE", "AES67", "NONE"],
-                                               "required": True}}},
+                                               "required": True}},
+            "help": "Sets which network audio stream the decoder uses: Dante, AES67, or none."},
         "dec_dante_bridge": {"label": "Decoder: Dante Bridge", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "When on, the decoder passes the audio it receives "
+                    "onto the Dante network, so Dante devices can use it."},
         "dec_dante_vlan": {"label": "Decoder: Dante VLAN", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Turns Dante VLAN tagging on or off for the decoder."},
         "dec_dante_vlan_tag": {"label": "Decoder: Dante VLAN Tag", "params": {
-            "decoder_id": dec_id(), "tag": {"type": "integer", "required": True, "min": 1, "max": 4095}}},
+            "decoder_id": dec_id(), "tag": {"type": "integer", "required": True, "min": 1, "max": 4095}},
+            "help": "Sets the VLAN tag (1-4095) the decoder uses for Dante."},
         "dec_dante_audio_source": {"label": "Decoder: Dante Audio Source", "params": {
             "decoder_id": dec_id(), "source": {"type": "enum", "values": ["DANTE", "NATIVE"],
-                                               "required": True}}},
+                                               "required": True}},
+            "help": "Chooses the audio on the decoder's HDMI and analog outputs: Native (the "
+                    "system's own audio stream) or Dante (audio from the Dante network)."},
         "dec_output": {"label": "Decoder: Output", "params": {
             "decoder_id": dec_id(), "state": onoff}, "help": "HDMI output on/off."},
         "dec_output_freeze": {"label": "Decoder: Output Freeze", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Freezes the picture on the decoder's output, or unfreezes it."},
         "dec_output_mute": {"label": "Decoder: Output Mute", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Mutes the decoder's HDMI output to a black screen, or unmutes it."},
         "dec_output_osd": {"label": "Decoder: ID OSD", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Shows or hides the decoder's ID on its display."},
         "dec_output_resolution": {"label": "Decoder: Output Resolution", "params": {
             "decoder_id": dec_id(), "resolution": {"type": "string", "required": True,
-                                                   "help": "Resolution index (00-17)."}}},
+                                                   "help": "Resolution index (00-17)."}},
+            "help": "Sets the resolution the decoder sends to its "
+                    "display: 00 Bypass, or a fixed resolution (01-17)."},
         "dec_output_colorspace": {"label": "Decoder: Output Color Space", "params": {
             "decoder_id": dec_id(), "colorspace": {"type": "enum",
                                                    "values": ["00", "01", "02", "03"],
@@ -2156,54 +2268,85 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                                                    "help": "00:RGB 01:YUV444 02:YUV422 03:YUV420. "
                                                            "YUV420 needs a 4K50/4K60 output; requires "
                                                            "endpoint firmware that supports it (older "
-                                                           "firmware returns 'does not support this command')."}}},
+                                                           "firmware returns 'does not support this command')."}},
+            "help": "Sets the color space of the decoder's output: RGB, YUV "
+                    "4:4:4, YUV 4:2:2, or YUV 4:2:0 (4:2:0 only at 4K50 or 4K60)."},
         "dec_output_rotate": {"label": "Decoder: Output Rotate", "params": {
             "decoder_id": dec_id(), "rotate": {"type": "enum", "values": ["0", "1", "2", "3"],
-                                               "required": True, "help": "0:0 1:90 2:180 3:270"}}},
+                                               "required": True, "help": "0:0 1:90 2:180 3:270"}},
+            "help": "Rotates the decoder's picture by 0, 90, 180, or 270 degrees."},
         "dec_output_flip": {"label": "Decoder: Output Flip", "params": {
             "decoder_id": dec_id(), "flip": {"type": "enum", "values": ["HOR", "VER", "OFF"],
-                                             "required": True}}},
+                                             "required": True}},
+            "help": "Flips the decoder's picture horizontally "
+                    "or vertically, or turns flipping off."},
         "dec_mode": {"label": "Decoder: Output Mode", "params": {
-            "decoder_id": dec_id(), "mode": {"type": "enum", "values": ["MX", "VW"], "required": True}}},
+            "decoder_id": dec_id(), "mode": {"type": "enum", "values": ["MX", "VW"], "required": True}},
+            "help": "For a decoder in a video wall, switches between showing the whole image "
+                    "(MX, matrix) and its own part of the wall image (VW, video wall)."},
         "dec_ir_vol": {"label": "Decoder: IR Voltage", "params": {
             "decoder_id": dec_id(), "voltage": {"type": "enum", "values": ["5V", "12V"],
-                                                "required": True}}},
+                                                "required": True}},
+            "help": "Sets the decoder's IR voltage to 5 V or 12 V, to match the IR cable in use."},
         "dec_io_vol": {"label": "Decoder: IO Voltage", "params": {
             "decoder_id": dec_id(), "voltage": {"type": "enum", "values": ["5V", "12V"],
-                                                "required": True}}},
+                                                "required": True}},
+            "help": "Sets the voltage of the decoder's IO ports to 5 V or 12 V."},
         "dec_io_dir": {"label": "Decoder: IO Direction", "params": {
             "decoder_id": dec_id(), "port": {"type": "enum", "values": ["1", "2"], "required": True},
-            "direction": {"type": "enum", "values": ["IN", "OUT"], "required": True}}},
+            "direction": {"type": "enum", "values": ["IN", "OUT"], "required": True}},
+            "help": "Sets the decoder's IO port 1 or 2 as an input or an output."},
         "dec_io_out": {"label": "Decoder: IO Output Level", "params": {
             "decoder_id": dec_id(), "port": {"type": "enum", "values": ["1", "2"], "required": True},
-            "level": {"type": "enum", "values": ["0", "1"], "required": True}}},
+            "level": {"type": "enum", "values": ["0", "1"], "required": True}},
+            "help": "Drives the decoder's IO port 1 or 2 low (0) or "
+                    "high (1). Works only on a port set as an output."},
         "dec_relay": {"label": "Decoder: Relay", "params": {
             "decoder_id": dec_id(), "relay": {"type": "enum", "values": ["1", "2"], "required": True},
-            "state": {"type": "enum", "values": ["OPEN", "CLOSE"], "required": True}}},
+            "state": {"type": "enum", "values": ["OPEN", "CLOSE"], "required": True}},
+            "help": "Opens or closes the decoder's relay 1 or 2."},
         "dec_arp": {"label": "Decoder: Audio Return Path", "params": {
             "decoder_id": dec_id(), "path": {"type": "enum", "values": ["ARC", "SPDIF"],
-                                             "required": True}}},
+                                             "required": True}},
+            "help": "Chooses where the decoder's return audio comes from: the "
+                    "display's ARC/eARC on HDMI, or the decoder's S/PDIF input. "
+                    "Works only when the decoder's shared pin is set to ARC."},
         "dec_earc_downgrade": {"label": "Decoder: eARC Downgrade", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "When on, the decoder returns audio as ARC instead of eARC, for an "
+                    "ARC-only amplifier on the encoder's HDMI input. It also applies "
+                    "to every encoder that takes its return audio from this decoder."},
         "dec_sac": {"label": "Decoder: Shared Audio Pin", "params": {
             "decoder_id": dec_id(), "mode": {"type": "enum", "values": ["ARC", "CEC", "OFF"],
-                                             "required": True}}},
+                                             "required": True}},
+            "help": "Sets the decoder's shared CEC/ARC pin to ARC, CEC, or off "
+                    "(neither). The decoder reboots if the setting changes."},
         "dec_net": {"label": "Decoder: Network PHY", "params": {
             "decoder_id": dec_id(), "phy": {"type": "enum", "values": ["FIBER", "COPPER"],
-                                            "required": True}}},
+                                            "required": True}},
+            "help": "Selects the decoder's network port: fiber "
+                    "or copper. Only on decoders that have both."},
         "dec_usb_data": {"label": "Decoder: USB Data", "params": {
-            "decoder_id": dec_id(), "state": onoff}},
+            "decoder_id": dec_id(), "state": onoff},
+            "help": "Allows (on) or blocks (off) USB storage and cameras on the "
+                    "decoder's USB route. Keyboards and mice pass either way."},
         "dec_cec_send": {"label": "Decoder: Send CEC", "params": {
-            "decoder_id": dec_id(), "data": {"type": "string", "required": True}}},
+            "decoder_id": dec_id(), "data": {"type": "string", "required": True}},
+            "help": "Sends a CEC message (hex bytes) from the decoder to its display over HDMI."},
         "dec_ir_send": {"label": "Decoder: Send IR", "params": {
-            "decoder_id": dec_id(), "data": {"type": "string", "required": True}}},
+            "decoder_id": dec_id(), "data": {"type": "string", "required": True}},
+            "help": "Sends an IR code (hex, CCF format) out of the decoder's IR port."},
         "dec_hotkey_del": {"label": "Decoder: Delete Hotkey", "params": {
-            "decoder_id": dec_id(), "hotkey": {"type": "integer", "required": True, "min": 1, "max": 20}}},
+            "decoder_id": dec_id(), "hotkey": {"type": "integer", "required": True, "min": 1, "max": 20}},
+            "help": "Deletes one of the decoder's KVM hotkeys (1-20)."},
         "dec_sendguest_ascii": {"label": "Decoder: Send Serial (ASCII)", "params": {
-            "decoder_id": dec_id(), "message": {"type": "string", "required": True}}},
+            "decoder_id": dec_id(), "message": {"type": "string", "required": True}},
+            "help": "Sends a text message out of the decoder's RS-232 port."},
         "dec_sendguest_hex": {"label": "Decoder: Send Serial (Hex)", "params": {
-            "decoder_id": dec_id(), "message": {"type": "string", "required": True}}},
-        "dec_led_timeout": {"label": "Decoder: Flash LED (90s)", "params": {"decoder_id": dec_id()}},
+            "decoder_id": dec_id(), "message": {"type": "string", "required": True}},
+            "help": "Sends hex bytes out of the decoder's RS-232 port."},
+        "dec_led_timeout": {"label": "Decoder: Flash LED (90s)", "params": {"decoder_id": dec_id()},
+            "help": "Flashes the decoder's power LED for 90 seconds, then leaves it steady."},
         "dec_hotkey": {"label": "Decoder: Set KVM Hotkey", "params": {
             "decoder_id": dec_id(),
             "hotkey": {"type": "integer", "required": True, "min": 1, "max": 20, "label": "Hotkey #"},
@@ -2214,144 +2357,235 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "k1": {"type": "string", "required": True, "label": "Key", "help": "ASCII code"},
             "action": {"type": "enum", "values": ["PULL", "PUSH"], "required": True},
             "src": {"type": "integer", "required": True, "label": "Source ID",
-                    "help": "Encoder or decoder ID"}}},
+                    "help": "Encoder or decoder ID"}},
+            "help": "Sets one of the decoder's 20 KVM hotkeys. Pressing the modifier "
+                    "and key together three times within a second on the decoder's "
+                    "keyboard either switches this decoder to the chosen source "
+                    "(Pull) or sends its source to the chosen decoder (Push)."},
         "dec_guest_config": {"label": "Decoder: Serial Guest Config", "params": {
             "decoder_id": dec_id(), "state": onoff, "baud": _baud(),
-            "bits": {"type": "string", "required": True, "help": "Data/parity/stop, e.g. 8n1"}}},
+            "bits": {"type": "string", "required": True, "help": "Data/parity/stop, e.g. 8n1"}},
+            "help": "Turns the decoder's RS-232 command relay (serial guest mode) "
+                    "on or off and sets its baud rate and data format. While it "
+                    "is on, the decoder's locked signal routing is disabled."},
         "dec_guest_start": {"label": "Decoder: Start Serial Guest", "params": {"decoder_id": dec_id()},
                             "help": "Enter interactive serial guest mode (exit with Exit Serial Guest)."},
         "dec_ipmode": {"label": "Decoder: IP Mode", "params": {
-            "decoder_id": dec_id(), "mode": _ipmode_ds()}},
+            "decoder_id": dec_id(), "mode": _ipmode_ds()},
+            "help": "Sets the decoder to get its IP address from DHCP or use a static one. "
+                    "Takes effect when the decoder's network restarts (Decoder: Reboot NIC)."},
         "dec_static_ip": {"label": "Decoder: Static IP", "params": {
-            "decoder_id": dec_id(), "ip": _ipparam()}},
+            "decoder_id": dec_id(), "ip": _ipparam()},
+            "help": "Sets the decoder's static IP address. Takes effect when "
+                    "the decoder's network restarts (Decoder: Reboot NIC)."},
         "dec_static_gateway": {"label": "Decoder: Static Gateway", "params": {
-            "decoder_id": dec_id(), "gateway": _ipparam("Gateway")}},
+            "decoder_id": dec_id(), "gateway": _ipparam("Gateway")},
+            "help": "Sets the decoder's static gateway address. Takes effect "
+                    "when the decoder's network restarts (Decoder: Reboot NIC)."},
         "dec_static_mask": {"label": "Decoder: Static Mask", "params": {
-            "decoder_id": dec_id(), "mask": _ipparam("Subnet Mask")}},
-        "dec_network_reboot": {"label": "Decoder: Reboot NIC", "params": {"decoder_id": dec_id()}},
+            "decoder_id": dec_id(), "mask": _ipparam("Subnet Mask")},
+            "help": "Sets the decoder's static subnet mask. Takes effect when "
+                    "the decoder's network restarts (Decoder: Reboot NIC)."},
+        "dec_network_reboot": {"label": "Decoder: Reboot NIC", "params": {"decoder_id": dec_id()},
+            "help": "Restarts the decoder's network connection and applies its new network "
+                    "settings. The decoder drops off the network until it reconnects."},
         "dec_lanmode": {"label": "Decoder: LAN Mode", "params": {
-            "decoder_id": dec_id(), "lanmode": {"type": "enum", "values": ["1", "2"], "required": True}}},
+            "decoder_id": dec_id(), "lanmode": {"type": "enum", "values": ["1", "2"], "required": True}},
+            "help": "Sets the decoder's LAN mode: 1 carries video and Dante "
+                    "audio on the LAN1 (PoE) port, 2 moves Dante audio to "
+                    "the LAN2 port. The decoder reboots to apply it."},
         "dec_lan2_ipmode": {"label": "Decoder: LAN2 IP Mode", "params": {
-            "decoder_id": dec_id(), "mode": _ipmode_ds()}},
+            "decoder_id": dec_id(), "mode": _ipmode_ds()},
+            "help": "Sets the decoder's LAN2 port to get its "
+                    "address from DHCP or use a static one."},
         "dec_lan2_static_ip": {"label": "Decoder: LAN2 Static IP", "params": {
-            "decoder_id": dec_id(), "ip": _ipparam()}},
+            "decoder_id": dec_id(), "ip": _ipparam()},
+            "help": "Sets the static IP address of the decoder's LAN2 port."},
         "dec_lan2_static_gateway": {"label": "Decoder: LAN2 Static Gateway", "params": {
-            "decoder_id": dec_id(), "gateway": _ipparam("Gateway")}},
+            "decoder_id": dec_id(), "gateway": _ipparam("Gateway")},
+            "help": "Sets the static gateway address of the decoder's LAN2 port."},
         "dec_lan2_static_mask": {"label": "Decoder: LAN2 Static Mask", "params": {
-            "decoder_id": dec_id(), "mask": _ipparam("Subnet Mask")}},
-        "dec_preset_ipmode": {"label": "Decoder Preset: IP Mode", "params": {"mode": _ipmode_012()}},
-        "dec_preset_start_ip": {"label": "Decoder Preset: Start IP", "params": {"ip": _ipparam()}},
-        "dec_preset_end_ip": {"label": "Decoder Preset: End IP", "params": {"ip": _ipparam()}},
-        "dec_preset_gw": {"label": "Decoder Preset: Gateway", "params": {"gateway": _ipparam("Gateway")}},
-        "dec_preset_sm": {"label": "Decoder Preset: Subnet Mask", "params": {"mask": _ipparam("Subnet Mask")}},
-        "dec_preset_apply": {"label": "Decoder Preset: Apply", "params": {}},
-        "dec_reboot": {"label": "Decoder: Reboot", "params": {"decoder_id": dec_id()}},
-        "dec_reset": {"label": "Decoder: Factory Reset", "params": {"decoder_id": dec_id()}},
+            "decoder_id": dec_id(), "mask": _ipparam("Subnet Mask")},
+            "help": "Sets the static subnet mask of the decoder's LAN2 port."},
+        "dec_preset_ipmode": {"label": "Decoder Preset: IP Mode", "params": {"mode": _ipmode_012()},
+            "help": "Sets the IP mode (Auto IP, DHCP, or static) the controller gives decoders "
+                    "when they are added to the system. Saved by Decoder Preset: Apply."},
+        "dec_preset_start_ip": {"label": "Decoder Preset: Start IP", "params": {"ip": _ipparam()},
+            "help": "Sets the first address of the range the controller gives decoders "
+                    "when they are added to the system. Saved by Decoder Preset: Apply."},
+        "dec_preset_end_ip": {"label": "Decoder Preset: End IP", "params": {"ip": _ipparam()},
+            "help": "Sets the last address of the range the controller gives decoders "
+                    "when they are added to the system. Saved by Decoder Preset: Apply."},
+        "dec_preset_gw": {"label": "Decoder Preset: Gateway", "params": {"gateway": _ipparam("Gateway")},
+            "help": "Sets the gateway address the controller gives decoders when "
+                    "they are added to the system. Saved by Decoder Preset: Apply."},
+        "dec_preset_sm": {"label": "Decoder Preset: Subnet Mask", "params": {"mask": _ipparam("Subnet Mask")},
+            "help": "Sets the subnet mask the controller gives decoders when they "
+                    "are added to the system. Saved by Decoder Preset: Apply."},
+        "dec_preset_apply": {"label": "Decoder Preset: Apply", "params": {},
+            "help": "Saves the decoder address preset (IP mode, address range, gateway, "
+                    "and mask) that the controller uses for decoders added to the system."},
+        "dec_reboot": {"label": "Decoder: Reboot", "params": {"decoder_id": dec_id()},
+            "help": "Reboots the decoder; its output drops until it is back."},
+        "dec_reset": {"label": "Decoder: Factory Reset", "params": {"decoder_id": dec_id()},
+            "help": "Resets the decoder to factory settings, erasing its configuration."},
         "exit_guest": {"label": "Exit Serial Guest Mode", "params": {},
                        "help": "Exit encoder/decoder RS-232 guest mode."},
 
         # ── Video wall ──
         "wall_create": {"label": "Video Wall: Create", "params": {
-            "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}}},
+            "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}},
+            "help": "Creates a video wall with this ID on the controller."},
         "wall_delete": {"label": "Video Wall: Delete", "params": {
-            "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}}},
+            "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}},
+            "help": "Deletes the video wall from the controller."},
         "wall_set_name": {"label": "Video Wall: Set Name", "params": {
-            "wall_id": _wall_id(), "name": {"type": "string", "required": True}}},
+            "wall_id": _wall_id(), "name": {"type": "string", "required": True}},
+            "help": "Renames the video wall."},
         "wall_set_size": {"label": "Video Wall: Set Size", "params": {
             "wall_id": _wall_id(), "columns": {"type": "integer", "required": True, "min": 1, "max": 9},
-            "rows": {"type": "integer", "required": True, "min": 1, "max": 9}}},
+            "rows": {"type": "integer", "required": True, "min": 1, "max": 9}},
+            "help": "Sets the video wall's size in columns and rows (up to 9 by 9)."},
         "wall_set_dec": {"label": "Video Wall: Place Decoder", "params": {
             "wall_id": _wall_id(), "decoder_id": dec_id("Decoder (0 = remove)"),
             "h": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Column"},
-            "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"}}},
+            "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"}},
+            "help": "Places the decoder at a column and row of the "
+                    "video wall. Decoder 0 empties that position."},
         "wall_create_preset": {"label": "Video Wall: Create Preset", "params": {
-            "wall_id": _wall_id(), "preset": _preset()}},
+            "wall_id": _wall_id(), "preset": _preset()},
+            "help": "Creates a preset (1-9) for the video wall."},
         "wall_delete_preset": {"label": "Video Wall: Delete Preset", "params": {
-            "wall_id": _wall_id(), "preset": _preset()}},
+            "wall_id": _wall_id(), "preset": _preset()},
+            "help": "Deletes one of the video wall's presets."},
         "wall_set_preset_name": {"label": "Video Wall: Set Preset Name", "params": {
-            "wall_id": _wall_id(), "preset": _preset(), "name": {"type": "string", "required": True}}},
+            "wall_id": _wall_id(), "preset": _preset(), "name": {"type": "string", "required": True}},
+            "help": "Renames one of the video wall's presets."},
         "wall_apply_preset": {"label": "Video Wall: Apply Preset", "params": {
-            "wall_id": _wall_id(), "preset": _preset()}},
+            "wall_id": _wall_id(), "preset": _preset()},
+            "help": "Switches the video wall to the chosen preset: "
+                    "the screen layout and the sources saved in it."},
         "wall_preset_class": {"label": "Video Wall: Preset Class Cell", "params": {
             "wall_id": _wall_id(), "preset": _preset(), "cls": _cls(),
             "h": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Column"},
-            "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"}}},
+            "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"}},
+            "help": "In a video wall preset, assigns the screen at this column and row to a "
+                    "class (A-G). Screens in the same class show one image spread across them."},
         "wall_preset_class_source": {"label": "Video Wall: Preset Class Source", "params": {
-            "wall_id": _wall_id(), "preset": _preset(), "cls": _cls(), "encoder_id": enc_id()}},
+            "wall_id": _wall_id(), "preset": _preset(), "cls": _cls(), "encoder_id": enc_id()},
+            "help": "In a video wall preset, sets which encoder "
+                    "a class (A-G) shows. Encoder 0 clears it."},
         "wall_preset_matrix": {"label": "Video Wall: Preset Matrix Cell", "params": {
             "wall_id": _wall_id(), "preset": _preset(),
             "h": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Column"},
-            "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"}}},
+            "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"}},
+            "help": "In a video wall preset, sets the screen at this column "
+                    "and row to matrix mode, showing a whole image of its own."},
         "wall_preset_matrix_source": {"label": "Video Wall: Preset Matrix Source", "params": {
             "wall_id": _wall_id(), "preset": _preset(),
             "h": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Column"},
             "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"},
-            "encoder_id": enc_id()}},
+            "encoder_id": enc_id()},
+            "help": "In a video wall preset, sets which encoder the matrix-mode "
+                    "screen at this column and row shows. Encoder 0 clears it."},
         "wall_bezel_width": {"label": "Video Wall: Bezel Width", "params": {
             "wall_id": _wall_id(),
             "h": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Column"},
             "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"},
             "bw": {"type": "integer", "required": True, "min": 100, "max": 1000, "label": "Base Width"},
-            "iw": {"type": "integer", "required": True, "min": 100, "max": 1000, "label": "Image Width"}}},
+            "iw": {"type": "integer", "required": True, "min": 100, "max": 1000, "label": "Image Width"}},
+            "help": "Sets bezel compensation for the screen at this column and row by cropping "
+                    "its image width (visible image width against base width, 100-1000)."},
         "wall_bezel_height": {"label": "Video Wall: Bezel Height", "params": {
             "wall_id": _wall_id(),
             "h": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Column"},
             "v": {"type": "integer", "required": True, "min": 1, "max": 9, "label": "Row"},
             "bh": {"type": "integer", "required": True, "min": 100, "max": 1000, "label": "Base Height"},
-            "ih": {"type": "integer", "required": True, "min": 100, "max": 1000, "label": "Image Height"}}},
+            "ih": {"type": "integer", "required": True, "min": 100, "max": 1000, "label": "Image Height"}},
+            "help": "Sets bezel compensation for the screen at this column and row by cropping "
+                    "its image height (visible image height against base height, 100-1000)."},
 
         # ── Media ──
         "media_add": {"label": "Media: Add Source", "params": {
-            "media_id": {"type": "integer", "required": True, "min": 1, "max": MEDIA_MAX, "label": "Media"}}},
-        "media_delete": {"label": "Media: Delete Source", "params": {"media_id": _media_id()}},
+            "media_id": {"type": "integer", "required": True, "min": 1, "max": MEDIA_MAX, "label": "Media"}},
+            "help": "Creates a media player with this ID. A media player shows "
+                    "an image from a network share on top of a decoder's video."},
+        "media_delete": {"label": "Media: Delete Source", "params": {"media_id": _media_id()},
+            "help": "Deletes the media player from the controller."},
         "media_addr_list": {"label": "Media: List NAS Files", "params": {
-            "address": {"type": "string", "required": True, "label": "NAS Path"}}},
+            "address": {"type": "string", "required": True, "label": "NAS Path"}},
+            "help": "Lists the files at a SAMBA or NFS share path, "
+                    "which shows whether the controller can reach it."},
         "media_addr_ping": {"label": "Media: Ping Address", "params": {
-            "address": {"type": "string", "required": True, "label": "NAS Path"}}},
+            "address": {"type": "string", "required": True, "label": "NAS Path"}},
+            "help": "Pings an address and reports whether the controller can reach it."},
         "media_set_id": {"label": "Media: Set ID", "params": {
             "media_id": _media_id(), "new_id": {"type": "integer", "required": True, "min": 1,
-                                                "max": MEDIA_MAX, "label": "New ID"}}},
+                                                "max": MEDIA_MAX, "label": "New ID"}},
+            "help": "Changes the media player's ID number."},
         "media_set_name": {"label": "Media: Set Name", "params": {
-            "media_id": _media_id(), "name": {"type": "string", "required": True}}},
+            "media_id": _media_id(), "name": {"type": "string", "required": True}},
+            "help": "Renames the media player."},
         "media_set_type": {"label": "Media: Set Type", "params": {
             "media_id": _media_id(), "media_type": {"type": "enum", "values": ["01", "02", "03"],
                                                     "required": True,
-                                                    "help": "01:SAMBA 02:NFS 03:FTP"}}},
+                                                    "help": "01:SAMBA 02:NFS 03:FTP"}},
+            "help": "Sets the kind of network share the media "
+                    "player reads from: SAMBA, NFS, or FTP."},
         "media_set_addr_file": {"label": "Media: Set Address + File", "params": {
             "media_id": _media_id(), "address": {"type": "string", "required": True},
-            "file": {"type": "string", "required": True}}},
+            "file": {"type": "string", "required": True}},
+            "help": "Sets the network share path and the image file the media player shows."},
         "media_set_user": {"label": "Media: Set NAS Credentials", "params": {
             "media_id": _media_id(), "user": {"type": "string", "required": True},
             "password": {"type": "string", "required": True, "secret": True},
-            "version": {"type": "string", "required": True, "label": "Protocol Version"}}},
+            "version": {"type": "string", "required": True, "label": "Protocol Version"}},
+            "help": "Sets the user name, password, and protocol version "
+                    "the media player uses to log in to the network share."},
         "media_transparency_on": {"label": "Media: Transparency On", "params": {
             "media_id": _media_id(), "transparency": {"type": "integer", "required": True,
-                                                      "min": 0, "max": 31}}},
-        "media_transparency_off": {"label": "Media: Transparency Off", "params": {"media_id": _media_id()}},
-        "media_reload": {"label": "Media: Reload", "params": {"media_id": _media_id()}},
+                                                      "min": 0, "max": 31}},
+            "help": "Turns on transparency for the media "
+                    "player's image, at a level from 0 to 31."},
+        "media_transparency_off": {"label": "Media: Transparency Off", "params": {"media_id": _media_id()},
+            "help": "Turns transparency off for the media player's image."},
+        "media_reload": {"label": "Media: Reload", "params": {"media_id": _media_id()},
+            "help": "Reloads the media player's file from the network share."},
 
         # ── Group ──
         "group_create": {"label": "Group: Create", "params": {
-            "group_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Group"}}},
+            "group_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Group"}},
+            "help": "Creates a decoder group with this ID. A "
+                    "group switches all of its decoders together."},
         "group_delete": {"label": "Group: Delete", "params": {
-            "group_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Group"}}},
+            "group_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Group"}},
+            "help": "Deletes the decoder group from the controller."},
         "group_set_name": {"label": "Group: Set Name", "params": {
-            "group_id": _group_id(), "name": {"type": "string", "required": True}}},
+            "group_id": _group_id(), "name": {"type": "string", "required": True}},
+            "help": "Renames the decoder group."},
         "group_add_dec": {"label": "Group: Add Decoder", "params": {
-            "group_id": _group_id(), "decoder_id": dec_id()}},
+            "group_id": _group_id(), "decoder_id": dec_id()},
+            "help": "Adds the decoder to the group."},
         "group_del_dec": {"label": "Group: Remove Decoder", "params": {
-            "group_id": _group_id(), "decoder_id": dec_id()}},
+            "group_id": _group_id(), "decoder_id": dec_id()},
+            "help": "Removes the decoder from the group."},
         "group_switch": {"label": "Group: Route Source", "params": {
             "group_id": _group_id(), "encoder_id": enc_id("Encoder (0 = clear)"),
-            "signal": {"type": "enum", "values": ["ALL", "MEDIA"], "required": True}}},
+            "signal": {"type": "enum", "values": ["ALL", "MEDIA"], "required": True}},
+            "help": "Routes the chosen encoder to every decoder in the group, for all signals "
+                    "(ALL) or media only (MEDIA). Encoder 0 sets the group to no source."},
 
         # ── Event ──
         "event_create": {"label": "Event: Create", "params": {
-            "event_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Event"}}},
+            "event_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Event"}},
+            "help": "Creates an event with this ID: a stored IR, RS-232, CEC, or "
+                    "network message the controller can send to another device."},
         "event_delete": {"label": "Event: Delete", "params": {
-            "event_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Event"}}},
+            "event_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Event"}},
+            "help": "Deletes the event from the controller."},
         "event_set_name": {"label": "Event: Set Name", "params": {
-            "event_id": _event_id(), "name": {"type": "string", "required": True}}},
+            "event_id": _event_id(), "name": {"type": "string", "required": True}},
+            "help": "Renames the event."},
         "event_set_type": {"label": "Event: Set Type", "params": {
             "event_id": _event_id(), "event_type": {"type": "enum",
                                                     "values": ["01", "02", "03", "04", "05",
@@ -2359,7 +2593,9 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                                                     "required": True,
                                                     "help": "01:IR 02:RS232 03:CEC 04:TCP 05:UDP "
                                                             "06:HTTP GET 07:HTTP POST 08:HTTPS GET "
-                                                            "09:HTTPS POST"}}},
+                                                            "09:HTTPS POST"}},
+            "help": "Sets what kind of message the event sends: IR, RS-232, "
+                    "CEC, TCP, UDP, HTTP GET or POST, or HTTPS GET or POST."},
         # Bare ADDR is only valid for IR/RS232/CEC events (types 01-03), where
         # `address` is the target TX/RX id. Network events (TCP/UDP/HTTP, types
         # 04-09) require the Address + Port form below — the firmware rejects a
@@ -2367,147 +2603,214 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "event_set_addr": {"label": "Event: Set Address (IR/RS232/CEC)", "params": {
             "event_id": _event_id(), "address": {"type": "string", "required": True,
                 "help": "IR/RS232/CEC events only — target TX/RX id. Network events "
-                        "(TCP/UDP/HTTP) must use 'Set Address + Port' instead."}}},
+                        "(TCP/UDP/HTTP) must use 'Set Address + Port' instead."}},
+            "help": "Sets which encoder or decoder an IR, RS-232, or CEC event is sent through."},
         "event_set_addr_port": {"label": "Event: Set Address + Port (network)", "params": {
             "event_id": _event_id(), "address": {"type": "string", "required": True,
                 "help": "For network events (TCP/UDP/HTTP). DEV selects the egress "
                         "interface: CLAN = Control LAN, VLAN = Video LAN."},
             "port": {"type": "integer", "required": True},
-            "dev": {"type": "enum", "values": ["CLAN", "VLAN"], "required": True}}},
+            "dev": {"type": "enum", "values": ["CLAN", "VLAN"], "required": True}},
+            "help": "Sets the IP address and port a TCP, UDP, or HTTP event is sent "
+                    "to, and whether it goes out the Control LAN or the Video LAN."},
         "event_set_data": {"label": "Event: Set Data (ASCII)", "params": {
             "event_id": _event_id(), "data": {"type": "string", "required": True,
-                                              "help": "Max 512 bytes."}}},
+                                              "help": "Max 512 bytes."}},
+            "help": "Sets the message the event sends, as ASCII text (up to 512 bytes)."},
         "event_set_data_hex": {"label": "Event: Set Data (Hex)", "params": {
-            "event_id": _event_id(), "data": {"type": "string", "required": True}}},
+            "event_id": _event_id(), "data": {"type": "string", "required": True}},
+            "help": "Sets the message the event sends, as hex bytes (up to 512 bytes)."},
         "event_set_params": {"label": "Event: Set Params", "params": {
-            "event_id": _event_id(), "params": {"type": "string", "required": True}}},
+            "event_id": _event_id(), "params": {"type": "string", "required": True}},
+            "help": "Sets the event's parameters (up to 512 bytes)."},
         "event_set_request": {"label": "Event: Set Request", "params": {
-            "event_id": _event_id(), "request": {"type": "string", "required": True}}},
+            "event_id": _event_id(), "request": {"type": "string", "required": True}},
+            "help": "Sets the event's request address (up to 512 bytes)."},
         "event_set_resend_delay": {"label": "Event: Set Resend Delay", "params": {
-            "event_id": _event_id(), "delay": {"type": "integer", "required": True, "min": 0, "max": 100}}},
-        "event_start": {"label": "Event: Start", "params": {"event_id": _event_id()}},
-        "event_stop": {"label": "Event: Stop", "params": {"event_id": _event_id()}},
+            "event_id": _event_id(), "delay": {"type": "integer", "required": True, "min": 0, "max": 100}},
+            "help": "Sets the event's resend delay, from 0 to 100 seconds."},
+        "event_start": {"label": "Event: Start", "params": {"event_id": _event_id()},
+            "help": "Starts the event, sending its message to its target."},
+        "event_stop": {"label": "Event: Stop", "params": {"event_id": _event_id()},
+            "help": "Stops the event."},
 
         # ── Schedule ──
         "schedule_create": {"label": "Schedule: Create", "params": {
             "schedule_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX,
-                            "label": "Schedule"}}},
+                            "label": "Schedule"}},
+            "help": "Creates a schedule with this ID. A schedule runs its actions (routes, "
+                    "media, Dante presets, events) at the dates and times set on it."},
         "schedule_delete": {"label": "Schedule: Delete", "params": {
             "schedule_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX,
-                            "label": "Schedule"}}},
+                            "label": "Schedule"}},
+            "help": "Deletes the schedule from the controller."},
         "schedule_set_name": {"label": "Schedule: Set Name", "params": {
-            "schedule_id": _schedule_id(), "name": {"type": "string", "required": True}}},
+            "schedule_id": _schedule_id(), "name": {"type": "string", "required": True}},
+            "help": "Renames the schedule."},
         "schedule_set_color": {"label": "Schedule: Set Color", "params": {
             "schedule_id": _schedule_id(), "color": {"type": "integer", "required": True,
-                                                     "min": 0, "max": 14}}},
+                                                     "min": 0, "max": 14}},
+            "help": "Sets the color the schedule is highlighted "
+                    "in on the controller's web calendar."},
         "schedule_set_time_type": {"label": "Schedule: Set Time Type", "params": {
             "schedule_id": _schedule_id(), "time_type": {"type": "enum", "values": ["00", "01", "02"],
                                                          "required": True,
-                                                         "help": "00:all-day 01:event-date 02:recurring"}}},
+                                                         "help": "00:all-day 01:event-date 02:recurring"}},
+            "help": "Sets when the schedule is active: all day every "
+                    "day, at a set date and time, or recurring."},
         "schedule_set_week_type": {"label": "Schedule: Set Week Type", "params": {
             "schedule_id": _schedule_id(), "week_type": {"type": "enum", "values": ["00", "01", "02", "03"],
                                                          "required": True,
                                                          "help": "00:all 01:weekends 02:weekdays 03:days"},
             "day": {"type": "string", "required": True,
-                    "help": "Days 0-6 (Sun-Sat), comma separated."}}},
+                    "help": "Days 0-6 (Sun-Sat), comma separated."}},
+            "help": "Sets which days the schedule runs: every "
+                    "day, weekends, weekdays, or the listed days."},
         "schedule_set_date": {"label": "Schedule: Set Date Range", "params": {
             "schedule_id": _schedule_id(), "start": {"type": "string", "required": True,
                                                      "label": "Start (YYYY-mm-dd)"},
-            "end": {"type": "string", "required": True, "label": "End (YYYY-mm-dd)"}}},
+            "end": {"type": "string", "required": True, "label": "End (YYYY-mm-dd)"}},
+            "help": "Sets the first and last dates the schedule is in effect."},
         "schedule_set_time": {"label": "Schedule: Set Time Range", "params": {
             "schedule_id": _schedule_id(), "start": {"type": "string", "required": True,
                                                      "label": "Start (HH:MM)"},
-            "end": {"type": "string", "required": True, "label": "End (HH:MM)"}}},
+            "end": {"type": "string", "required": True, "label": "End (HH:MM)"}},
+            "help": "Sets the start and end times of day the schedule is in effect."},
         "schedule_action_dec_enc": {"label": "Schedule: Action Route Decoder", "params": {
-            "schedule_id": _schedule_id(), "decoder_id": dec_id(), "encoder_id": enc_id()}},
+            "schedule_id": _schedule_id(), "decoder_id": dec_id(), "encoder_id": enc_id()},
+            "help": "Adds a schedule action that routes the encoder to the decoder."},
         "schedule_action_dec_media": {"label": "Schedule: Action Decoder Media", "params": {
-            "schedule_id": _schedule_id(), "decoder_id": dec_id(), "media_id": _media_id()}},
+            "schedule_id": _schedule_id(), "decoder_id": dec_id(), "media_id": _media_id()},
+            "help": "Adds a schedule action that shows the media player on the decoder."},
         "schedule_action_group_enc": {"label": "Schedule: Action Route Group", "params": {
-            "schedule_id": _schedule_id(), "group_id": _group_id(), "encoder_id": enc_id()}},
+            "schedule_id": _schedule_id(), "group_id": _group_id(), "encoder_id": enc_id()},
+            "help": "Adds a schedule action that routes the "
+                    "encoder to every decoder in the group."},
         "schedule_action_group_media": {"label": "Schedule: Action Group Media", "params": {
-            "schedule_id": _schedule_id(), "group_id": _group_id(), "media_id": _media_id()}},
+            "schedule_id": _schedule_id(), "group_id": _group_id(), "media_id": _media_id()},
+            "help": "Adds a schedule action that shows the media "
+                    "player on every decoder in the group."},
         "schedule_action_dante_preset": {"label": "Schedule: Action Dante Preset", "params": {
-            "schedule_id": _schedule_id(), "dante_preset_id": _dante_preset_id()}},
+            "schedule_id": _schedule_id(), "dante_preset_id": _dante_preset_id()},
+            "help": "Adds a schedule action that applies the Dante preset."},
         "schedule_action_event": {"label": "Schedule: Action Event", "params": {
-            "schedule_id": _schedule_id(), "event_id": _event_id()}},
+            "schedule_id": _schedule_id(), "event_id": _event_id()},
+            "help": "Adds a schedule action that sends the event."},
         "schedule_delete_action": {"label": "Schedule: Delete Actions", "params": {
-            "schedule_id": _schedule_id()}},
-        "schedule_start": {"label": "Schedule: Start", "params": {"schedule_id": _schedule_id()}},
-        "schedule_stop": {"label": "Schedule: Stop", "params": {"schedule_id": _schedule_id()}},
+            "schedule_id": _schedule_id()},
+            "help": "Removes every action from the schedule."},
+        "schedule_start": {"label": "Schedule: Start", "params": {"schedule_id": _schedule_id()},
+            "help": "Starts the schedule, so its actions run at the set times."},
+        "schedule_stop": {"label": "Schedule: Stop", "params": {"schedule_id": _schedule_id()},
+            "help": "Stops the schedule; its actions no longer run."},
 
         # ── Configuration presets ──
         "config_preset_save": {"label": "Config Preset: Save", "params": {
             "config_preset_id": {"type": "integer", "required": True, "min": 1, "max": CONFIG_PRESET_MAX,
                                  "label": "Preset"},
-            "name": {"type": "string", "required": True, "help": "Max 16 chars."}}},
+            "name": {"type": "string", "required": True, "help": "Max 16 chars."}},
+            "help": "Saves the controller's current configuration "
+                    "as a preset (1-10) with this name."},
         "config_preset_delete": {"label": "Config Preset: Delete", "params": {
             "config_preset_id": {"type": "integer", "required": True, "min": 1, "max": CONFIG_PRESET_MAX,
-                                 "label": "Preset"}}},
+                                 "label": "Preset"}},
+            "help": "Deletes the configuration preset."},
         "config_preset_apply": {"label": "Config Preset: Apply", "params": {
-            "config_preset_id": _config_preset_id()}},
+            "config_preset_id": _config_preset_id()},
+            "help": "Applies the saved configuration preset, changing "
+                    "the controller's current configuration to match it."},
 
         # ── Dante ──
         "dante_set_name": {"label": "Dante: Set Name", "params": {
-            "devname": _devname(), "name": {"type": "string", "required": True}}},
+            "devname": _devname(), "name": {"type": "string", "required": True}},
+            "help": "Renames a third-party Dante device. Chazy encoders "
+                    "and decoders are renamed with their own Set Name."},
         "dante_set_srate": {"label": "Dante: Set Sample Rate", "params": {
-            "devname": _devname(), "rate": {"type": "string", "required": True}}},
+            "devname": _devname(), "rate": {"type": "string", "required": True}},
+            "help": "Sets the Dante device's audio sample rate."},
         "dante_set_encoding": {"label": "Dante: Set Encoding", "params": {
-            "devname": _devname(), "encoding": {"type": "string", "required": True}}},
+            "devname": _devname(), "encoding": {"type": "string", "required": True}},
+            "help": "Sets the Dante device's audio encoding (PCM bit depth)."},
         "dante_set_latency": {"label": "Dante: Set Latency", "params": {
-            "devname": _devname(), "latency": {"type": "string", "required": True}}},
+            "devname": _devname(), "latency": {"type": "string", "required": True}},
+            "help": "Sets the Dante device's receive latency."},
         "dante_preferred": {"label": "Dante: Preferred Master", "params": {
-            "devname": _devname(), "state": onoff}},
+            "devname": _devname(), "state": onoff},
+            "help": "Turns the Dante device's preferred clock leader setting on or off."},
         "dante_aes67": {"label": "Dante: AES67", "params": {
-            "devname": _devname(), "state": onoff}},
+            "devname": _devname(), "state": onoff},
+            "help": "Turns AES67 on or off on a third-party Dante device."},
         "dante_aes67_prefix": {"label": "Dante: AES67 Prefix", "params": {
-            "devname": _devname(), "prefix": {"type": "integer", "required": True, "min": 0, "max": 255}}},
+            "devname": _devname(), "prefix": {"type": "integer", "required": True, "min": 0, "max": 255}},
+            "help": "Sets the Dante device's AES67 prefix (0-255)."},
         "dante_reboot": {"label": "Dante: Reboot", "params": {
             "devname": _devname(), "mode": {"type": "enum", "values": ["SOFT", "FACTORY"],
-                                            "required": True}}},
+                                            "required": True}},
+            "help": "Reboots the Dante device (Soft or Factory); "
+                    "its audio stops until it is back."},
         "dante_txchn_name": {"label": "Dante: TX Channel Name", "params": {
             "devname": _devname(), "flow": _flow(),
             "channel": {"type": "integer", "required": True, "label": "Channel"},
-            "name": {"type": "string", "required": True}}},
+            "name": {"type": "string", "required": True}},
+            "help": "Renames one of the Dante device's transmit channels (audio or video)."},
         "dante_txflow_add": {"label": "Dante: Add TX Flow", "params": {
             "devname": _devname(), "flow": _flow(), "name": {"type": "string", "required": True},
             "flow_id": {"type": "integer", "required": True, "label": "Flow ID"},
             "slot": {"type": "string", "required": True, "label": "Slots",
-                     "help": "Transmit channel IDs, e.g. 1:2:3"}}},
+                     "help": "Transmit channel IDs, e.g. 1:2:3"}},
+            "help": "Adds a multicast transmit flow to the Dante "
+                    "device, carrying the listed transmit channels."},
         "dante_txflow_delete": {"label": "Dante: Delete TX Flow", "params": {
             "devname": _devname(), "flow": _flow(),
-            "flow_id": {"type": "integer", "required": True, "label": "Flow ID"}}},
+            "flow_id": {"type": "integer", "required": True, "label": "Flow ID"}},
+            "help": "Deletes one of the Dante device's multicast transmit flows."},
         "dante_rxchn_name": {"label": "Dante: RX Channel Name", "params": {
             "devname": _devname(), "flow": _flow(),
             "channel": {"type": "integer", "required": True, "label": "Channel"},
-            "name": {"type": "string", "required": True}}},
+            "name": {"type": "string", "required": True}},
+            "help": "Renames one of the Dante device's receive channels (audio or video)."},
         "dante_rxchn_subscribe": {"label": "Dante: Subscribe RX Channel", "params": {
             "devname": _devname(), "flow": _flow(),
             "channel": {"type": "integer", "required": True, "label": "Channel"},
             "txdev": {"type": "string", "required": True, "label": "Source Device"},
-            "src_channel": {"type": "integer", "required": True, "label": "Source Channel"}}},
+            "src_channel": {"type": "integer", "required": True, "label": "Source Channel"}},
+            "help": "Subscribes one of the Dante device's receive channels to a channel on "
+                    "another Dante device. Source device 0 or channel 0 clears the subscription."},
         "dante_clear_config": {"label": "Dante: Clear Config", "params": {
             "devname": _devname(), "scope": {"type": "enum", "values": ["KEEPIP", "ALL"],
-                                             "required": True}}},
+                                             "required": True}},
+            "help": "Clears the Dante device's configuration, keeping its "
+                    "IP settings (KEEPIP) or clearing everything (ALL)."},
         "dante_interface_static": {"label": "Dante: Interface Static IP", "params": {
             "devname": _devname(), "intf": {"type": "string", "required": True, "label": "Interface"},
             "ip": _ipparam(), "mask": _ipparam("Subnet Mask"), "gateway": _ipparam("Gateway"),
-            "dns": _ipparam("DNS")}},
+            "dns": _ipparam("DNS")},
+            "help": "Gives one of the Dante device's network interfaces a static IP address, "
+                    "mask, gateway, and DNS server. Its address changes to the one given."},
         "dante_interface_dynamic": {"label": "Dante: Interface DHCP", "params": {
-            "devname": _devname(), "intf": {"type": "string", "required": True, "label": "Interface"}}},
-        "dante_search": {"label": "Dante: Search Devices", "params": {}},
-        "dante_event_clear": {"label": "Dante: Clear Events", "params": {}},
+            "devname": _devname(), "intf": {"type": "string", "required": True, "label": "Interface"}},
+            "help": "Sets one of the Dante device's network interfaces to "
+                    "get its address from DHCP. Its address may change."},
+        "dante_search": {"label": "Dante: Search Devices", "params": {},
+            "help": "Searches the network for Dante devices and lists them."},
+        "dante_event_clear": {"label": "Dante: Clear Events", "params": {},
+            "help": "Clears the Dante event log shown on the controller's Dante Events page."},
 
         # ── Dante presets ──
         "dante_preset_create": {"label": "Dante Preset: Create", "params": {
             "dante_preset_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX,
-                                "label": "Preset"}}},
+                                "label": "Preset"}},
+            "help": "Saves the current Dante routing as a new Dante preset with this ID."},
         "dante_preset_delete": {"label": "Dante Preset: Delete", "params": {
             "dante_preset_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX,
-                                "label": "Preset"}}},
+                                "label": "Preset"}},
+            "help": "Deletes the Dante preset."},
         "dante_preset_set_name": {"label": "Dante Preset: Set Name", "params": {
-            "dante_preset_id": _dante_preset_id(), "name": {"type": "string", "required": True}}},
+            "dante_preset_id": _dante_preset_id(), "name": {"type": "string", "required": True}},
+            "help": "Renames the Dante preset."},
         "dante_preset_apply": {"label": "Dante Preset: Apply", "params": {
-            "dante_preset_id": _dante_preset_id()}},
+            "dante_preset_id": _dante_preset_id()},
+            "help": "Applies the Dante preset, restoring the Dante routing saved in it."},
 
         # ── Device management ──
         "search": {"label": "Search for Devices", "params": {},
@@ -2515,57 +2818,92 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "discover_add_all": {"label": "Find + Add All Devices", "params": {},
                              "help": "One step: search the Video LAN, add every new "
                                      "encoder/decoder, and refresh the list."},
-        "search_reset": {"label": "Reset Search Results", "params": {}},
+        "search_reset": {"label": "Reset Search Results", "params": {},
+            "help": "Clears the list of devices found by the last search."},
         "add_auto_all": {"label": "Add All New Devices", "params": {},
                          "help": "Add every newly-found encoder/decoder to the system."},
         "add_dev_enc": {"label": "Add Encoder from Search", "params": {
             "dev": {"type": "integer", "required": True, "min": 1, "label": "Search Index"},
             "encoder_id": {"type": "integer", "required": True, "min": 0, "max": ENC_MAX,
-                           "label": "Assign ID", "help": "0 = auto-assign the next free ID."}}},
+                           "label": "Assign ID", "help": "0 = auto-assign the next free ID."}},
+            "help": "Adds the new encoder at this position in the last search's results "
+                    "to the system, with the chosen ID (0 picks one automatically)."},
         "add_dev_dec": {"label": "Add Decoder from Search", "params": {
             "dev": {"type": "integer", "required": True, "min": 1, "label": "Search Index"},
             "decoder_id": {"type": "integer", "required": True, "min": 0, "max": DEC_MAX,
-                           "label": "Assign ID", "help": "0 = auto-assign the next free ID."}}},
+                           "label": "Assign ID", "help": "0 = auto-assign the next free ID."}},
+            "help": "Adds the new decoder at this position in the last search's results "
+                    "to the system, with the chosen ID (0 picks one automatically)."},
         "add_dev_reset": {"label": "Reset All Devices", "params": {},
                           "help": "Wipe all encoders/decoders/video walls/search from the system."},
 
         # ── GPIO ──
         "gpio_dir": {"label": "GPIO: Set Direction", "params": {
             "gpio": {"type": "enum", "values": ["1", "2", "3", "4"], "required": True},
-            "direction": {"type": "enum", "values": ["IN", "OUT"], "required": True}}},
+            "direction": {"type": "enum", "values": ["IN", "OUT"], "required": True}},
+            "help": "Sets one of the controller's rear-panel "
+                    "IO ports (1-4) as an input or an output."},
         "gpio_level": {"label": "GPIO: Set Output Level", "params": {
             "gpio": {"type": "enum", "values": ["1", "2", "3", "4"], "required": True},
-            "level": {"type": "enum", "values": ["Low", "High"], "required": True}}},
+            "level": {"type": "enum", "values": ["Low", "High"], "required": True}},
+            "help": "Drives one of the controller's IO ports low or "
+                    "high. Works only on a port set as an output."},
 
         # ── Network ──
         "net_dhcp": {"label": "Network: DHCP", "params": {
-            "lan": _lan(), "state": onoff}},
+            "lan": _lan(), "state": onoff},
+            "help": "Turns DHCP on or off for the controller's Video LAN (LAN1) "
+                    "or Control LAN (LAN2) port. Takes effect after Network: Reboot "
+                    "NIC or a power cycle, and the port's address may change."},
         "net_static_ip": {"label": "Network: Static IP", "params": {
-            "lan": _lan(), "ip": {"type": "string", "required": True}}},
+            "lan": _lan(), "ip": {"type": "string", "required": True}},
+            "help": "Sets the static IP address of the controller's Video LAN (LAN1) "
+                    "or Control LAN (LAN2) port. After Network: Reboot NIC or a "
+                    "power cycle, the port answers at the new address."},
         "net_static_gateway": {"label": "Network: Static Gateway", "params": {
-            "lan": _lan(), "gateway": {"type": "string", "required": True}}},
+            "lan": _lan(), "gateway": {"type": "string", "required": True}},
+            "help": "Sets the static gateway address of the controller's "
+                    "Video LAN (LAN1) or Control LAN (LAN2) port. Takes "
+                    "effect after Network: Reboot NIC or a power cycle."},
         "net_static_mask": {"label": "Network: Static Mask", "params": {
-            "lan": _lan(), "mask": {"type": "string", "required": True}}},
-        "net_reboot": {"label": "Network: Reboot NIC", "params": {}},
-        "net_telnet": {"label": "Network: Telnet", "params": {"state": onoff}},
+            "lan": _lan(), "mask": {"type": "string", "required": True}},
+            "help": "Sets the static subnet mask of the controller's Video LAN (LAN1) or Control "
+                    "LAN (LAN2) port. Takes effect after Network: Reboot NIC or a power cycle."},
+        "net_reboot": {"label": "Network: Reboot NIC", "params": {},
+            "help": "Restarts the controller's network ports and applies "
+                    "any new network settings. Control drops until the "
+                    "controller is back, at its new address if one was set."},
+        "net_telnet": {"label": "Network: Telnet", "params": {"state": onoff},
+            "help": "Turns Telnet access to the controller on or off. "
+                    "Turning it off cuts this Telnet control connection."},
         "net_telnet_port": {"label": "Network: Telnet Port", "params": {
-            "port": {"type": "integer", "required": True, "min": 22, "max": 65535}}},
-        "net_ssh": {"label": "Network: SSH", "params": {"state": onoff}},
+            "port": {"type": "integer", "required": True, "min": 22, "max": 65535}},
+            "help": "Changes the controller's Telnet port (default 23). "
+                    "This control connection then has to use the new port."},
+        "net_ssh": {"label": "Network: SSH", "params": {"state": onoff},
+            "help": "Turns SSH access to the controller on or off."},
         "net_ssh_port": {"label": "Network: SSH Port", "params": {
-            "port": {"type": "integer", "required": True, "min": 22, "max": 65535}}},
-        "net_https": {"label": "Network: HTTPS", "params": {"state": onoff}},
+            "port": {"type": "integer", "required": True, "min": 22, "max": 65535}},
+            "help": "Sets the controller's SSH port."},
+        "net_https": {"label": "Network: HTTPS", "params": {"state": onoff},
+            "help": "Turns HTTPS on or off for the controller's web interface."},
         "net_hostname": {"label": "Network: Hostname", "params": {
-            "hostname": {"type": "string", "required": True}}},
+            "hostname": {"type": "string", "required": True}},
+            "help": "Sets the controller's network name; it then answers as <name>.local."},
         "net_dns": {"label": "Network: DNS Servers", "params": {
             "mode": {"type": "enum", "values": ["0", "1"], "required": True,
                      "label": "DNS Mode", "help": "0:Auto 1:Manual"},
-            "prefer": _ipparam("Preferred DNS"), "backup": _ipparam("Backup DNS"), "lan": _lan()}},
+            "prefer": _ipparam("Preferred DNS"), "backup": _ipparam("Backup DNS"), "lan": _lan()},
+            "help": "Sets how the controller gets DNS servers (auto or manual), the preferred "
+                    "and backup servers, and which LAN port it uses for internet access."},
 
         # ── Date / time ──
         "set_date": {"label": "Set Date/Time", "params": {
-            "datetime": {"type": "string", "required": True, "label": "YYYY-mm-dd HH:MM:SS"}}},
+            "datetime": {"type": "string", "required": True, "label": "YYYY-mm-dd HH:MM:SS"}},
+            "help": "Sets the controller's date and time."},
         "set_ntp_server": {"label": "Set NTP Server", "params": {
-            "address": {"type": "string", "required": True}}},
+            "address": {"type": "string", "required": True}},
+            "help": "Sets the time server the controller syncs its clock from."},
     }
     return cmds
 

@@ -3,7 +3,12 @@
 # Controls Novastar H series video wall splicers via UDP (port 6000)
 # or RS-232 (9600 8N1). Covers H2, H5, H9, H15, H20, and related models.
 #
-# Protocol reference: "H Series Video Wall Splicers Control Protocol V1.0.18"
+# Protocol reference: "H Series Video Wall Splicers Control Protocol V1.0.7"
+# (NovaStar), the newest version published; this copy is a dealer's:
+# https://www.ezledvisual.com/storage/file/20240926/1727345521650113.pdf
+# R0401 (screen details), which the poll and the liveness check send, is not
+# in V1.0.7; per its section 2 a unit that does not support a command
+# answers "ack":"Error" with the command echoed.
 #
 # Communication: JSON arrays over UDP. Each command is a JSON array containing
 # one or more command objects. The device responds with a JSON array containing
@@ -23,7 +28,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.6.1
+version: 1.6.2
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -32,7 +37,7 @@ description: >
   device management. Compatible with H2, H5, H9, H15, H20, and similar
   models using the H Series Control Protocol.
 
-source_url: https://oss.novastar.tech/uploads/2023/02/H-Series-Video-Wall-Splicers-User-Manual-V1.8.0.pdf
+source_url: https://www.ezledvisual.com/storage/file/20240926/1727345521650113.pdf
 tags: [videowall, splicer, led-wall, video-processing]
 verified: false
 simulated: true
@@ -80,6 +85,9 @@ help:
     4. Device ID defaults to 0. If using multiple processors, set the
        device_id config field to match each unit's ID.
     5. Screen ID defaults to 0. Set screen_id for multi-screen setups.
+  connection: >
+    If the device keeps going offline, check that the Device ID matches
+    the processor's (0 unless you have set another).
 
 default_config:
   host: ""

@@ -211,15 +211,15 @@
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
       "category": "video",
-      "version": "1.6.1",
+      "version": "1.6.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
-      "source_url": "https://oss.novastar.tech/uploads/2023/02/H-Series-Video-Wall-Splicers-User-Manual-V1.8.0.pdf",
+      "source_url": "https://www.ezledvisual.com/storage/file/20240926/1727345521650113.pdf",
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/novastar_h_series.avcdriver": "c358d7f7390eae7d799efa66ab2e329f6bac35ed94d08f4866e67564520e520b"
+        "video/novastar_h_series.avcdriver": "a4aa28bef5045ec721ef8577036cf7730ddfbf67f47a3b53b53b24f067b5db07"
       },
       "ports": [
         6000
@@ -234,7 +234,8 @@
       ],
       "help": {
         "overview": "Controls Novastar H series LED video wall splicers. These processors manage LED wall layouts, input routing, presets, and screen settings. Common in large-format LED installations including houses of worship, corporate lobbies, broadcast studios, and live event stages.\n",
-        "setup": "1. Connect the processor to the network via Ethernet. 2. Set the processor's IP address via the front panel or web interface. 3. Enter the IP address and port 6000 (default) in the device config. 4. Device ID defaults to 0. If using multiple processors, set the\n   device_id config field to match each unit's ID.\n5. Screen ID defaults to 0. Set screen_id for multi-screen setups.\n"
+        "setup": "1. Connect the processor to the network via Ethernet. 2. Set the processor's IP address via the front panel or web interface. 3. Enter the IP address and port 6000 (default) in the device config. 4. Device ID defaults to 0. If using multiple processors, set the\n   device_id config field to match each unit's ID.\n5. Screen ID defaults to 0. Set screen_id for multi-screen setups.\n",
+        "connection": "If the device keeps going offline, check that the Device ID matches the processor's (0 unless you have set another).\n"
       },
       "compatible_models": [
         {

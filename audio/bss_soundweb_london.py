@@ -1142,7 +1142,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.3",
+        "version": "1.1.4",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1168,11 +1168,13 @@ class BSSSoundwebLondonDriver(BaseDriver):
             # "BSS Soundweb (London)\r\nUser-name: " (a BLU-100 on 6.0.5 and
             # again on 86.4.2, within 30 ms). Port 1023 cannot identify a
             # unit: it answers nothing for an object the loaded design does
-            # not have, not even an ACK.
+            # not have, not even an ACK. A scan shows a manufacturer only
+            # when something states one, so the probe names the maker.
             "tcp_probe": {
                 "port": 23,
                 "expect": "BSS Soundweb (London)",
                 "timeout_ms": 1500,
+                "extract_manufacturer": "BSS Audio",
             },
             "port_open": [1023],
             "manufacturer_alias": ["bss", "bss audio", "soundweb", "soundweb london"],

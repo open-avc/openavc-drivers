@@ -30,7 +30,8 @@ Covers:
   - the liveness probe resolved by the echo, timing out on a dead unit, and
     never dropping a unit that answers nothing;
   - node 0 learned from the reply; own writes read back; another
-    controller's percent write and bump read back rather than stored;
+    controller's percent write and bump read back rather than stored; a
+    preset recall's replies as a BLU-100 sent them (a device audit capture);
   - nothing acknowledged; reconnect re-subscribing; poll resyncing.
 
 The driver and simulator are loaded with the ``openavc.*`` imports stubbed so
@@ -829,6 +830,27 @@ async def test_node_zero_is_learned_from_the_reply():
 
 
 @pytest.mark.asyncio
+async def test_a_preset_recall_as_the_unit_sent_it():
+    # The bytes a BLU-100 sent after Recall Parameter Preset 0 in a device
+    # audit: the Gain object's level (-30 dB) and mute (on) and polarity,
+    # from node 0x6362, with the 0x03 virtual device escaped.
+    capture = (REPO_ROOT / "tests" / "fixtures" / "bss_soundweb_london"
+               / "recall_parameter_preset_0.response.txt").read_bytes()
+    drv, sim = _make(sim_config={"node_address": "0x6362", "controls": CONTROLS}, node_address="")
+    await drv.connect()
+    await _settle()
+    assert sim.set_value("Program", "mute", False)
+    await _settle()
+    assert _child(drv, "Program", "gain") == 0.0
+    assert _child(drv, "Program", "mute") is False
+    await drv.transport.deliver(capture)
+    await _settle()
+    assert _child(drv, "Program", "gain") == pytest.approx(-30.0)
+    assert _child(drv, "Program", "mute") is True
+    assert _child(drv, "Program", "polarity") is False
+
+
+@pytest.mark.asyncio
 async def test_another_controllers_percent_write_and_bump_are_read_back():
     drv, sim = _make()
     await drv.connect()
@@ -924,8 +946,10 @@ def test_catalog_surface():
     assert "help" not in info["commands"]["set_control"]["params"]["control"]
     assert "Nothing on the unit changes" in next(a for a in info["actions"] if a["id"] == "test_connection")["confirm"]
     # The Telnet greeting names the unit; port 1023 answers nothing it can match.
+    # The probe also names the maker, which the scan shows in its row.
     probe = info["discovery"]["tcp_probe"]
-    assert probe == {"port": 23, "expect": "BSS Soundweb (London)", "timeout_ms": 1500}
+    assert probe == {"port": 23, "expect": "BSS Soundweb (London)", "timeout_ms": 1500,
+                     "extract_manufacturer": "BSS Audio"}
     assert info["discovery"]["port_open"] == [1023]
     blu100 = next(m for m in info["compatible_models"] if "BLU-100" in m["models"])
     assert blu100["models"] == ["BLU-100"]

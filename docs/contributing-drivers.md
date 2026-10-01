@@ -346,6 +346,8 @@ declaration would punish the user rather than the author.
 
 Many drivers ship at `verified: false`, or with `compatible_models` entries marked `untested` — they are built from the protocol manual and the simulator but have not been confirmed against the specific hardware. If you run a driver against real equipment, please report what you find. There are two ways, depending on what you saw.
 
+**Run a device audit first, if you can.** OpenAVC's [Device Audit](https://docs.openavc.com/device-audit/) (Devices > Drivers > **Audit a Device**) tests a driver against your unit and writes a report zip: what the device sent on the network, every command you tried and what it did, the traffic both ways, and the exact driver files that ran. Its Report step opens the test report below with the results filled in. Download the zip first and attach it to the issue.
+
 **File a test report.** Use the [Driver test report](https://github.com/open-avc/openavc-drivers/issues/new?template=driver-test-report.yml) issue template (it carries the `test-report` label). Fill in the driver, the model(s) and firmware, what worked, and for anything that misbehaved, the command you sent, the response you expected, and the response you actually got. This is the right path when something did not work as documented, and the low-effort path if you would rather not edit YAML. The raw command/response detail lets the result be folded in correctly.
 
 **Open a pull request.** If you are comfortable editing the driver, a test report usually becomes one or two edits in the `.avcdriver` file:

@@ -1147,7 +1147,7 @@ class BSSSoundwebLondonDriver(BaseDriver):
         "name": "BSS Soundweb London (BLU)",
         "manufacturer": "BSS Audio",
         "category": "audio",
-        "version": "1.1.5",
+        "version": "1.1.6",
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
         "description": (
@@ -1313,9 +1313,22 @@ class BSSSoundwebLondonDriver(BaseDriver):
                 "type": "string", "label": "Reported Node Address",
                 "help": "The HiQnet node address the unit answers as.",
             },
-            "objects_declared": {"type": "integer", "label": "Objects Declared", "min": 0},
-            "objects_responding": {"type": "integer", "label": "Objects Responding", "min": 0},
-            "config_problems": {"type": "string", "label": "Object List Problems"},
+            # These three describe the Objects table and what has answered on
+            # this connection. They are written at connect, before the unit
+            # says anything, and a device audit reports them as set by the
+            # driver, not by the device.
+            "objects_declared": {
+                "type": "integer", "label": "Objects Declared", "min": 0,
+                "help": "How many objects the Objects table lists.",
+            },
+            "objects_responding": {
+                "type": "integer", "label": "Objects Responding", "min": 0,
+                "help": "How many of them the unit has answered for on this connection.",
+            },
+            "config_problems": {
+                "type": "string", "label": "Object List Problems",
+                "help": "What is wrong in the Objects table, if anything. Empty when every row is usable.",
+            },
             "last_error": {"type": "string", "label": "Last Error"},
         },
         "commands": COMMANDS,

@@ -240,6 +240,17 @@ async def _settle():
 
 # ── Codec ───────────────────────────────────────────────────────────────────
 
+def test_the_object_accounting_says_what_it_counts():
+    """Objects Declared, Responding and Object List Problems are written at
+    connect, before the unit answers; their help says they describe the
+    Objects table and this connection, not something the unit reported."""
+    info = DRV.BSSSoundwebLondonDriver.DRIVER_INFO
+    assert info["version"] == "1.1.6"
+    sv = info["state_variables"]
+    for key in ("objects_declared", "objects_responding", "config_problems"):
+        assert sv[key].get("help"), key
+
+
 def test_toolbar_example_from_the_interface_kit():
     # Interface Kit p.20: node 0x08AD, VD 3, object 0x11, SV 0, data 0 -> 0x3F.
     assert DRV.build_set(0x08AD, 3, 0x11, 0, 0).hex(" ") == \

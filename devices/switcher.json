@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 90,
+    "total_devices": 96,
     "shards": null,
     "category": "switcher"
   },
@@ -592,6 +592,78 @@
           "id": "crestron_nvx",
           "confidence": "full",
           "notes": "Verified on DM-NVX-E20 (encoder) + DM-NVX-D200 (decoder), firmware 7.1.5259, 2026-07-15. Re-verified on the newer DM-NVX-E30 (encoder, firmware 7.1.5259.00059) + DM-NVX-D30 (decoder) pair 2026-07-22: each connects, reports its DeviceMode, and presents the matching role surface. The E20/E30 are transmit-only and the D200/D30 receive-only; combo 35x/36x units flip via DeviceMode and expose whichever surface is active. Current firmware requires an admin account (use the Set Up NVX wizard on a factory-fresh unit)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "EMR routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "EQT routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "EQX routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "MAGNUM (Quartz interface)",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "Topaz routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "Xenon routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
         }
       ]
     },

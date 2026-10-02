@@ -1,0 +1,796 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Evertz Quartz Router Control Protocol Driver
+#
+# Controls Evertz routing systems over the Quartz protocol on TCP: EQX, EQT,
+# EMR, Xenon and Topaz routers, and Evertz MAGNUM through one of its Quartz
+# interfaces.
+#
+# Protocol reference: Evertz Application Note 65 (AN65), "Quartz Routing
+# Switcher Remote Control Protocol", Revision 1.4 (Nov 2012). Page numbers
+# below are the document's printed page numbers. MAGNUM's Quartz interface:
+# MAGNUM User Manual v1.2.2, pages 118-119.
+#
+# Why YAML: every message is one CR-terminated ASCII line and every reply can
+# be read with a regex, including an update that names several levels at once
+# (one rule below fans it out). Nothing here needs code.
+#
+# Framing (AN65 p6): upper case ASCII, every message starts with "." and ends
+# with CR (0x0D) only. Numbers are decimal and start at 1. A router pads the
+# numbers in its replies to three digits (001); MAGNUM does not. Every capture
+# below takes either, and "001" becomes child 1.
+#
+# Commands used (AN65 p6-11):
+#   .S{levels}{dest},{src}   Route. Several level letters may be sent at once
+#                            (.SVA1,2). There is NO acknowledgement: the only
+#                            reply is a .U update, sent only when a route
+#                            actually changed (AN65 p18). State is never set
+#                            from the send.
+#   .I{level}{dest}          Interrogate ONE level -> .A{level}{dest},{src}
+#                            (.IVA1 is an error, AN65 p20).
+#   .RD{dest} / .RS{src}     Read an 8-character name -> .RAD{dest},{name}
+#                            / .RAS{src},{name}. Supported on every product in
+#                            AN65 Appendix A, MAGNUM included.
+#   .BL / .BU / .BI{dest}    Lock, unlock, interrogate -> .BA{dest},{status}
+#                            (status 0 = unlocked, 1-254 = locked by the panel
+#                            at Q-Link address status-1, 255 = locked).
+#   .F{salvo}                Fire a stored salvo -> .A, then a .U per route.
+#
+# Push vs poll (AN65 p17, p19): the router sends .U{levels}{dest},{src} on
+# its own for every route that changes, including takes made from panels and
+# other control systems, on this same connection. No subscription is needed.
+# A panel take reports all its levels in one .U; older firmware sent one .U
+# per level. Both shapes are read. So the driver reads everything once (the
+# first poll runs as soon as it connects), follows .U updates from then on,
+# and polls slowly to pick up renamed sources and destinations and lock
+# changes, which the router does not announce.
+#
+# Levels (AN65 p6): V is level 1 (usually video); A to G are levels 2-8 on an
+# 8-level system and A to O are levels 2-16 on a 16-level system. Each level
+# is its own routing plane, so a Matrix control can be drawn per level, and
+# each has an on/off setting so only the levels a space uses are polled.
+# On MAGNUM the letters are the Quartz interface's Level Map.
+#
+# Router size: the protocol has no command that reports how many sources or
+# destinations there are (Evertz's own 7700R-SC-BRC asks for them by hand), so
+# both are settings. On MAGNUM the numbers are the Order column of the Quartz
+# interface's profile, not physical router ports.
+#
+# Keep-alive: ".RD1" (the name of destination 1). Every product in AN65
+# Appendix A answers .RD, destination 1 always exists and no level is
+# involved, so the answer does not depend on how a MAGNUM interface maps its
+# levels. The documented ping (.#01) is not supported by MAGNUM. A .E reply
+# counts too: any reply proves the link is up.
+#
+# Discovery: the same .RD1 on the telnet port (23), where most Quartz
+# controllers listen (AN65 p4), expecting the Quartz name reply. Other makers'
+# routers also speak Quartz, so the probe is cross_vendor and Evertz's IEEE
+# block (00:02:C5, Evertz Microsystems Ltd.) names the brand. EQT and EMR
+# routers serve Quartz on a port from 3737 to 3740 set in WinSetup, and a
+# MAGNUM Quartz interface on whatever port it was given; those are hints only.
+#
+# Redundant controllers (AN65 p4): each controller of a redundant pair has its
+# own address and only the active one accepts a connection. This driver
+# connects to one address.
+#
+# Not used: .M (multiple set), .L (list routes: missing on EQT, EMR and
+# SC500E/SC2000 controllers), .RL (level names: not on MAGNUM), the write-name
+# and queue-salvo commands, the tieline update form (SC-1000 only, obsolete),
+# and the engineering .# and .& commands, several of which reset or
+# re-address the router.
+
+id: evertz_quartz
+name: Evertz Quartz Router
+manufacturer: Evertz
+category: switcher
+version: 1.0.0
+author: OpenAVC
+min_platform_version: "0.27.0"
+description: >
+  Controls Evertz routers and Evertz MAGNUM over the Quartz protocol. Every
+  destination and source is named from the router, each destination shows
+  the source routed to it on every level in use and whether it is locked,
+  and routes made from panels or other control systems show up as they
+  happen.
+
+source_url: https://www.manualslib.com/manual/3326474/Evertz-Quartz-D9.html
+tags: [matrix-switcher, sdi, broadcast, evertz, quartz, magnum, telnet]
+verified: false
+simulated: true
+protocols: [quartz]
+ports: [23, 3737, 3738, 3739, 3740]
+compatible_models:
+  - manufacturer: Evertz
+    models:
+      - EQX routers
+      - EQT routers
+      - EMR routers
+      - Xenon routers
+      - Topaz routers
+      - MAGNUM (Quartz interface)
+    confidence: untested
+    notes: >
+      Any Evertz router or controller with a Quartz protocol port over
+      Ethernet. MAGNUM controls the routers behind it through a Quartz
+      interface, and the sources, destinations and level letters are the ones
+      that interface's profile and level map define.
+
+transport: tcp
+delimiter: "\r"
+
+help:
+  overview: >
+    Routes sources to destinations on an Evertz router, or through Evertz
+    MAGNUM, using the Quartz protocol. Each destination shows the source
+    routed to it on every level the space uses, and whether it is locked.
+    Source and destination names come from the router, and routes made from
+    panels or other control systems show up as they happen.
+  setup: >
+    1. Find the Quartz port. Routers that take Quartz on the telnet port use
+    23. EQT and EMR routers use a control port from 3737 to 3740, set to the
+    Quartz protocol in WinSetup. On MAGNUM, add a Quartz interface (Interfaces >
+    Quartz) with the sources and destinations this space needs, and use its
+    port.
+
+    2. Set Destination Count and Source Count to the size of the router, or of
+    the MAGNUM Quartz interface. On MAGNUM the numbers follow the interface's
+    Order column, so an interface made for this space keeps them small.
+
+    3. Turn on each level the space routes. Level V is usually video and the
+    letters after it are usually audio, but the router's configuration (on
+    MAGNUM, the interface's Level Map) decides.
+
+    4. If the router has redundant controllers, use the address of the active
+    one.
+
+discovery:
+  tcp_probe:
+    port: 23
+    send_ascii: ".RD1\r"
+    expect_regex: '\.RAD'
+    cross_vendor: true
+    timeout_ms: 1500
+  oui:
+    - "00:02:c5"
+  port_open: [3737, 3738, 3739, 3740]
+
+default_config:
+  host: ""
+  port: 23
+  destination_count: 16
+  source_count: 16
+  use_level_v: true
+  use_level_a: false
+  use_level_b: false
+  use_level_c: false
+  use_level_d: false
+  use_level_e: false
+  use_level_f: false
+  use_level_g: false
+  use_level_h: false
+  use_level_i: false
+  use_level_j: false
+  use_level_k: false
+  use_level_l: false
+  use_level_m: false
+  use_level_n: false
+  use_level_o: false
+  poll_interval: 60
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+  port:
+    type: integer
+    default: 23
+    label: Port
+    description: "The router's Quartz port: 23 on most routers, 3737 to 3740 on EQT and EMR, or the port of a MAGNUM Quartz interface."
+  destination_count:
+    type: integer
+    default: 16
+    min: 1
+    label: Destination Count
+    description: "Number of destinations to control. Each one becomes a Destination."
+  source_count:
+    type: integer
+    default: 16
+    min: 1
+    label: Source Count
+    description: "Number of sources on the router. Each one becomes a Source."
+  use_level_v:
+    type: boolean
+    default: true
+    label: Level V
+    description: "Read routes on level V (usually video)."
+  use_level_a:
+    type: boolean
+    default: false
+    label: Level A
+    description: "Read routes on level A."
+  use_level_b:
+    type: boolean
+    default: false
+    label: Level B
+    description: "Read routes on level B."
+  use_level_c:
+    type: boolean
+    default: false
+    label: Level C
+    description: "Read routes on level C."
+  use_level_d:
+    type: boolean
+    default: false
+    label: Level D
+    description: "Read routes on level D."
+  use_level_e:
+    type: boolean
+    default: false
+    label: Level E
+    description: "Read routes on level E."
+  use_level_f:
+    type: boolean
+    default: false
+    label: Level F
+    description: "Read routes on level F."
+  use_level_g:
+    type: boolean
+    default: false
+    label: Level G
+    description: "Read routes on level G."
+  use_level_h:
+    type: boolean
+    default: false
+    label: Level H
+    description: "Read routes on level H."
+  use_level_i:
+    type: boolean
+    default: false
+    label: Level I
+    description: "Read routes on level I."
+  use_level_j:
+    type: boolean
+    default: false
+    label: Level J
+    description: "Read routes on level J."
+  use_level_k:
+    type: boolean
+    default: false
+    label: Level K
+    description: "Read routes on level K."
+  use_level_l:
+    type: boolean
+    default: false
+    label: Level L
+    description: "Read routes on level L."
+  use_level_m:
+    type: boolean
+    default: false
+    label: Level M
+    description: "Read routes on level M."
+  use_level_n:
+    type: boolean
+    default: false
+    label: Level N
+    description: "Read routes on level N."
+  use_level_o:
+    type: boolean
+    default: false
+    label: Level O
+    description: "Read routes on level O."
+  poll_interval:
+    type: integer
+    default: 60
+    min: 10
+    label: Refresh Interval (sec)
+    description: "How often names, routes and locks are read again. Route changes arrive as they happen, so this mainly picks up renamed sources and destinations and lock changes."
+
+state_variables:
+  last_error:
+    type: string
+    label: Last Error
+    help: "Set when the router refuses a command (.E), usually a destination, source or level it does not have."
+
+liveness:
+  send: ".RD1\r"
+  expect: '^\.(RA|E)'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+# One plane per level. Every plane uses the same Route command, and the level
+# letter is the fixed parameter that picks the plane.
+routing:
+  destination_child_type: destination
+  source_child_type: source
+  command: route
+  destination_param: destination
+  source_param: source
+  planes:
+    - { label: "Level V", route_property: level_v, params: { level: "V" } }
+    - { label: "Level A", route_property: level_a, params: { level: "A" } }
+    - { label: "Level B", route_property: level_b, params: { level: "B" } }
+    - { label: "Level C", route_property: level_c, params: { level: "C" } }
+    - { label: "Level D", route_property: level_d, params: { level: "D" } }
+    - { label: "Level E", route_property: level_e, params: { level: "E" } }
+    - { label: "Level F", route_property: level_f, params: { level: "F" } }
+    - { label: "Level G", route_property: level_g, params: { level: "G" } }
+    - { label: "Level H", route_property: level_h, params: { level: "H" } }
+    - { label: "Level I", route_property: level_i, params: { level: "I" } }
+    - { label: "Level J", route_property: level_j, params: { level: "J" } }
+    - { label: "Level K", route_property: level_k, params: { level: "K" } }
+    - { label: "Level L", route_property: level_l, params: { level: "L" } }
+    - { label: "Level M", route_property: level_m, params: { level: "M" } }
+    - { label: "Level N", route_property: level_n, params: { level: "N" } }
+    - { label: "Level O", route_property: level_o, params: { level: "O" } }
+
+child_entity_types:
+  destination:
+    label: Destination
+    label_plural: Destinations
+    id_format: { type: integer, min: 1 }
+    # The router's own name becomes the destination's label, unless the
+    # integrator types one in the project.
+    label_field: name
+    state_variables:
+      name:
+        type: string
+        label: Name
+        help: "The destination's name in the router."
+      level_v:
+        type: integer
+        label: Level V Source
+        help: "Source routed to this destination on level V. 0 means nothing is routed."
+        control: true
+        cloud_priority: high
+      level_a:
+        type: integer
+        label: Level A Source
+        help: "Source routed to this destination on level A."
+        control: true
+      level_b:
+        type: integer
+        label: Level B Source
+        help: "Source routed to this destination on level B."
+        control: true
+      level_c:
+        type: integer
+        label: Level C Source
+        help: "Source routed to this destination on level C."
+        control: true
+      level_d:
+        type: integer
+        label: Level D Source
+        help: "Source routed to this destination on level D."
+        control: true
+      level_e:
+        type: integer
+        label: Level E Source
+        help: "Source routed to this destination on level E."
+        control: true
+      level_f:
+        type: integer
+        label: Level F Source
+        help: "Source routed to this destination on level F."
+        control: true
+      level_g:
+        type: integer
+        label: Level G Source
+        help: "Source routed to this destination on level G."
+        control: true
+      level_h:
+        type: integer
+        label: Level H Source
+        help: "Source routed to this destination on level H."
+        control: true
+      level_i:
+        type: integer
+        label: Level I Source
+        help: "Source routed to this destination on level I."
+        control: true
+      level_j:
+        type: integer
+        label: Level J Source
+        help: "Source routed to this destination on level J."
+        control: true
+      level_k:
+        type: integer
+        label: Level K Source
+        help: "Source routed to this destination on level K."
+        control: true
+      level_l:
+        type: integer
+        label: Level L Source
+        help: "Source routed to this destination on level L."
+        control: true
+      level_m:
+        type: integer
+        label: Level M Source
+        help: "Source routed to this destination on level M."
+        control: true
+      level_n:
+        type: integer
+        label: Level N Source
+        help: "Source routed to this destination on level N."
+        control: true
+      level_o:
+        type: integer
+        label: Level O Source
+        help: "Source routed to this destination on level O."
+        control: true
+      locked:
+        type: boolean
+        label: Locked
+        help: "True when the destination is locked and panels cannot change it on any level."
+        cloud_priority: high
+      lock_status:
+        type: integer
+        label: Lock Status
+        help: "The router's lock code: 0 unlocked, 255 locked, 1 to 254 locked by the panel at Q-Link address (this number minus 1)."
+    summary_fields: [level_v, locked]
+    instances:
+      count_from: destination_count
+      label: "Destination {id}"
+  source:
+    label: Source
+    label_plural: Sources
+    id_format: { type: integer, min: 1 }
+    label_field: name
+    state_variables:
+      name:
+        type: string
+        label: Name
+        help: "The source's name in the router."
+    instances:
+      count_from: source_count
+      label: "Source {id}"
+
+commands:
+  route:
+    label: Route
+    send: ".S{level}{destination},{source}\r"
+    help: "Routes a source to a destination on one level. The destination's source on that level changes, on the router's panels as well."
+    params:
+      level:
+        type: enum
+        values: ["V", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"]
+        default: "V"
+        required: true
+        label: Level
+      destination:
+        type: child_id
+        child_type: destination
+        required: true
+        label: Destination
+      source:
+        type: child_id
+        child_type: source
+        required: true
+        label: Source
+
+  route_levels:
+    label: Route Several Levels
+    send: ".S{levels}{destination},{source}\r"
+    help: "Routes a source to a destination on several levels at once, for example VA for video and its audio together."
+    params:
+      levels:
+        type: string
+        required: true
+        label: Levels
+        pattern: "^[A-Z]+$"
+        help: "Level letters with no spaces, for example VA or VABC."
+      destination:
+        type: child_id
+        child_type: destination
+        required: true
+        label: Destination
+      source:
+        type: child_id
+        child_type: source
+        required: true
+        label: Source
+
+  fire_salvo:
+    label: Fire Salvo
+    send: ".F{salvo}\r"
+    help: "Runs a salvo stored in the router, making all of its routes at once. Routers number salvos 1 to 32; on MAGNUM the numbers come from MAGNUM's configuration."
+    params:
+      salvo:
+        type: integer
+        required: true
+        label: Salvo Number
+        min: 1
+        max: 999
+
+  lock_destination:
+    label: Lock Destination
+    send: ".BL{destination}\r"
+    help: "Locks a destination so panels cannot change its route on any level."
+    params:
+      destination:
+        type: child_id
+        child_type: destination
+        required: true
+        label: Destination
+
+  unlock_destination:
+    label: Unlock Destination
+    send: ".BU{destination}\r"
+    help: "Unlocks a destination so panels can change its route again."
+    params:
+      destination:
+        type: child_id
+        child_type: destination
+        required: true
+        label: Destination
+
+actions:
+  - id: route
+    icon: shuffle
+  - id: fire_salvo
+    icon: bookmark
+
+responses:
+  # A single-level update: .U{level}{dest},{src}. Routes this driver makes
+  # and most panel takes on one level arrive this way.
+  - match: '^\.UV(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_v: "$2" } }
+  - match: '^\.UA(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_a: "$2" } }
+  - match: '^\.UB(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_b: "$2" } }
+  - match: '^\.UC(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_c: "$2" } }
+  - match: '^\.UD(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_d: "$2" } }
+  - match: '^\.UE(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_e: "$2" } }
+  - match: '^\.UF(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_f: "$2" } }
+  - match: '^\.UG(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_g: "$2" } }
+  - match: '^\.UH(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_h: "$2" } }
+  - match: '^\.UI(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_i: "$2" } }
+  - match: '^\.UJ(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_j: "$2" } }
+  - match: '^\.UK(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_k: "$2" } }
+  - match: '^\.UL(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_l: "$2" } }
+  - match: '^\.UM(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_m: "$2" } }
+  - match: '^\.UN(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_n: "$2" } }
+  - match: '^\.UO(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { level_o: "$2" } }
+
+  # Everything else that reports a route: an update naming several levels
+  # (.UVAB002,001, levels always in the order V,A,B,C...) and an interrogate
+  # reply (.AV005,002, always one level). A rule applies once per line, so this
+  # one rule fills every level the line names: each "(?:(?=...))?" piece looks
+  # ahead for one level letter and, when it is there, captures the source for
+  # that level. A level the line does not name captures nothing and is left
+  # alone. Groups 1-16 are levels V,A,B,...,O in that order; group 17 is the
+  # destination.
+  - match: '^\.[AU](?:(?=[A-Z]*V[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*A[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*B[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*C[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*D[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*E[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*F[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*G[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*H[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*I[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*J[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*K[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*L[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*M[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*N[A-Z]*\d+,(\d+)$))?(?:(?=[A-Z]*O[A-Z]*\d+,(\d+)$))?[A-Z]+(\d+),\d+$'
+    child_set:
+      - type: destination
+        id: "$17"
+        state:
+          level_v: "$1"
+          level_a: "$2"
+          level_b: "$3"
+          level_c: "$4"
+          level_d: "$5"
+          level_e: "$6"
+          level_f: "$7"
+          level_g: "$8"
+          level_h: "$9"
+          level_i: "$10"
+          level_j: "$11"
+          level_k: "$12"
+          level_l: "$13"
+          level_m: "$14"
+          level_n: "$15"
+          level_o: "$16"
+
+  # Names: .RAD{dest},{name} and .RAS{src},{name}. A name can hold spaces and
+  # dots, so it runs to the end of the line. Some firmware answers without the
+  # number (.RAD{name}); that form does not say which one it is, so it is not
+  # read.
+  - match: '^\.RAD(\d+),(.*?)\s*$'
+    child_set:
+      - { type: destination, id: "$1", state: { name: "$2" } }
+  - match: '^\.RAS(\d+),(.*?)\s*$'
+    child_set:
+      - { type: source, id: "$1", state: { name: "$2" } }
+
+  # Lock status: .BA{dest},{status}. The unlocked rule comes first because the
+  # first matching rule wins.
+  - match: '^\.BA(\d+),0+$'
+    child_set:
+      - { type: destination, id: "$1", state: { locked: "false", lock_status: "0" } }
+  - match: '^\.BA(\d+),(\d+)$'
+    child_set:
+      - { type: destination, id: "$1", state: { locked: "true", lock_status: "$2" } }
+
+  # A refused command
+  - match: '^\.E$'
+    set: { last_error: "The router refused a command (.E). Check the destination and source counts and the levels turned on." }
+
+polling:
+  queries:
+    - { each_child: destination, send: ".RD{child_id}\r", query_for: name }
+    - { each_child: source, send: ".RS{child_id}\r", query_for: name }
+    - { each_child: destination, send: ".IV{child_id}\r", query_for: level_v, when: use_level_v }
+    - { each_child: destination, send: ".IA{child_id}\r", query_for: level_a, when: use_level_a }
+    - { each_child: destination, send: ".IB{child_id}\r", query_for: level_b, when: use_level_b }
+    - { each_child: destination, send: ".IC{child_id}\r", query_for: level_c, when: use_level_c }
+    - { each_child: destination, send: ".ID{child_id}\r", query_for: level_d, when: use_level_d }
+    - { each_child: destination, send: ".IE{child_id}\r", query_for: level_e, when: use_level_e }
+    - { each_child: destination, send: ".IF{child_id}\r", query_for: level_f, when: use_level_f }
+    - { each_child: destination, send: ".IG{child_id}\r", query_for: level_g, when: use_level_g }
+    - { each_child: destination, send: ".IH{child_id}\r", query_for: level_h, when: use_level_h }
+    - { each_child: destination, send: ".II{child_id}\r", query_for: level_i, when: use_level_i }
+    - { each_child: destination, send: ".IJ{child_id}\r", query_for: level_j, when: use_level_j }
+    - { each_child: destination, send: ".IK{child_id}\r", query_for: level_k, when: use_level_k }
+    - { each_child: destination, send: ".IL{child_id}\r", query_for: level_l, when: use_level_l }
+    - { each_child: destination, send: ".IM{child_id}\r", query_for: level_m, when: use_level_m }
+    - { each_child: destination, send: ".IN{child_id}\r", query_for: level_n, when: use_level_n }
+    - { each_child: destination, send: ".IO{child_id}\r", query_for: level_o, when: use_level_o }
+    - { each_child: destination, send: ".BI{child_id}\r", query_for: lock_status }
+
+# ── SIMULATOR ──
+# A 16-level router sized by the device's Destination Count and Source Count.
+# One dispatcher answers every command, so the router's rules live in one
+# place: no reply to a route except a .U when something changed, one level per
+# interrogate, three-digit numbers, and .E for anything out of range. A route
+# changed from the simulator's own matrix goes out as a .U update, the way a
+# panel take does.
+simulator:
+  push_state: true
+  initial_state:
+    destination.1.name: "MON 1"
+    destination.2.name: "MON 2"
+    destination.3.name: "PROJ"
+    destination.4.name: "STREAM"
+    destination.1.level_v: 1
+    destination.2.level_v: 2
+    destination.3.level_v: 3
+    destination.4.level_v: 1
+    destination.1.level_a: 1
+    destination.2.level_a: 2
+    destination.3.level_a: 3
+    destination.4.level_a: 1
+    source.1.name: "CAM 1"
+    source.2.name: "CAM 2"
+    source.3.name: "LAPTOP"
+    source.4.name: "PLAYBACK"
+
+  delays:
+    command_response: 0.02
+
+  controls:
+    - type: matrix
+      label: Level V
+      inputs: 16
+      outputs: 16
+      state_pattern: "destination.{output}.level_v"
+    - type: matrix
+      label: Level A
+      inputs: 16
+      outputs: 16
+      state_pattern: "destination.{output}.level_a"
+
+  command_handlers:
+    - match: '\..*'
+      handler: |
+        LEVELS = "VABCDEFGHIJKLMNO"
+        DEST_MAX = int(config.get("destination_count") or 16)
+        SRC_MAX = int(config.get("source_count") or 16)
+
+        def route_key(level, dest):
+            return "destination." + str(dest) + ".level_" + level.lower()
+
+        def current(level, dest):
+            return state.get(route_key(level, dest)) or 0
+
+        def _run():
+            text = match.group(0).strip()
+
+            m = re.fullmatch(r"\.S([A-Z]+)(\d+),(\d+)", text)
+            if m:
+                levels, dest, src = m.group(1), int(m.group(2)), int(m.group(3))
+                for c in levels:
+                    if c not in LEVELS:
+                        respond(".E\r")
+                        return
+                if not (1 <= dest <= DEST_MAX and 1 <= src <= SRC_MAX):
+                    respond(".E\r")
+                    return
+                changed = ""
+                for c in LEVELS:
+                    if c in levels and current(c, dest) != src:
+                        state[route_key(c, dest)] = src
+                        changed += c
+                if changed:
+                    respond(".U" + changed + format(dest, "03d") + "," + format(src, "03d") + "\r")
+                return
+
+            m = re.fullmatch(r"\.I([A-Z]+)(\d+)", text)
+            if m:
+                level, dest = m.group(1), int(m.group(2))
+                if len(level) != 1 or level not in LEVELS or not (1 <= dest <= DEST_MAX):
+                    respond(".E\r")
+                    return
+                respond(".A" + level + format(dest, "03d") + "," + format(current(level, dest), "03d") + "\r")
+                return
+
+            m = re.fullmatch(r"\.R([DS])(\d+)", text)
+            if m:
+                kind, n = m.group(1), int(m.group(2))
+                limit = DEST_MAX if kind == "D" else SRC_MAX
+                if not (1 <= n <= limit):
+                    respond(".E\r")
+                    return
+                child = "destination" if kind == "D" else "source"
+                fallback = ("DST " if kind == "D" else "SRC ") + str(n)
+                name = state.get(child + "." + str(n) + ".name") or fallback
+                respond(".RA" + kind + format(n, "03d") + "," + str(name) + "\r")
+                return
+
+            m = re.fullmatch(r"\.B([LUI])(\d+)", text)
+            if m:
+                op, dest = m.group(1), int(m.group(2))
+                if not (1 <= dest <= DEST_MAX):
+                    respond(".E\r")
+                    return
+                key = "destination." + str(dest) + ".lock_status"
+                if op == "L":
+                    state[key] = 255
+                    state["destination." + str(dest) + ".locked"] = True
+                elif op == "U":
+                    state[key] = 0
+                    state["destination." + str(dest) + ".locked"] = False
+                respond(".BA" + format(dest, "03d") + "," + str(state.get(key) or 0) + "\r")
+                return
+
+            m = re.fullmatch(r"\.F(\d+)", text)
+            if m:
+                if 1 <= int(m.group(1)) <= 32:
+                    respond(".A\r")
+                else:
+                    respond(".E\r")
+                return
+
+            if text == ".#01":
+                respond(".A\r")
+                return
+
+            respond(".E\r")
+
+        _run()
+
+  error_modes:
+    communication_timeout:
+      description: "Router stops responding"
+      behavior: no_response

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 892,
+    "total_devices": 898,
     "shards": null
   },
   "devices": [
@@ -5291,6 +5291,78 @@
           "id": "sacn_e131",
           "confidence": "untested",
           "notes": "ETC's Response and Net3 gateway families translate sACN (and Art-Net) to physical DMX outputs. ETC's Eos console is also covered by the dedicated etc_eos OSC driver, which is the right choice when controlling cues directly rather than driving fixtures."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "EMR routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "EQT routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "EQX routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "MAGNUM (Quartz interface)",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "Topaz routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Evertz",
+      "model": "Xenon routers",
+      "category": "switcher",
+      "drivers": [
+        {
+          "id": "evertz_quartz",
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
         }
       ]
     },

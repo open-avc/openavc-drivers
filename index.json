@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 110,
+    "total_drivers": 111,
     "shards": null
   },
   "drivers": [
@@ -2966,6 +2966,80 @@
           "etc",
           "electronic theatre controls",
           "eos"
+        ]
+      }
+    },
+    {
+      "id": "evertz_quartz",
+      "name": "Evertz Quartz Router",
+      "manufacturer": "Evertz",
+      "category": "switcher",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Controls Evertz routers and Evertz MAGNUM over the Quartz protocol. Every destination and source is named from the router, each destination shows the source routed to it on every level in use and whether it is locked, and routes made from panels or other control systems show up as they happen.\n",
+      "source_url": "https://www.manualslib.com/manual/3326474/Evertz-Quartz-D9.html",
+      "file": "switchers/evertz_quartz.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "switchers/evertz_quartz.avcdriver": "0c1c96755a121448b05b39517ba3dfdbb7258c55b6dfc87800457cf0bea8ae99"
+      },
+      "ports": [
+        23,
+        3737,
+        3738,
+        3739,
+        3740
+      ],
+      "protocols": [
+        "quartz"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.27.0",
+      "tags": [
+        "matrix-switcher",
+        "sdi",
+        "broadcast",
+        "evertz",
+        "quartz",
+        "magnum",
+        "telnet"
+      ],
+      "help": {
+        "overview": "Routes sources to destinations on an Evertz router, or through Evertz MAGNUM, using the Quartz protocol. Each destination shows the source routed to it on every level the space uses, and whether it is locked. Source and destination names come from the router, and routes made from panels or other control systems show up as they happen.\n",
+        "setup": "1. Find the Quartz port. Routers that take Quartz on the telnet port use 23. EQT and EMR routers use a control port from 3737 to 3740, set to the Quartz protocol in WinSetup. On MAGNUM, add a Quartz interface (Interfaces > Quartz) with the sources and destinations this space needs, and use its port.\n2. Set Destination Count and Source Count to the size of the router, or of the MAGNUM Quartz interface. On MAGNUM the numbers follow the interface's Order column, so an interface made for this space keeps them small.\n3. Turn on each level the space routes. Level V is usually video and the letters after it are usually audio, but the router's configuration (on MAGNUM, the interface's Level Map) decides.\n4. If the router has redundant controllers, use the address of the active one.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Evertz",
+          "models": [
+            "EQX routers",
+            "EQT routers",
+            "EMR routers",
+            "Xenon routers",
+            "Topaz routers",
+            "MAGNUM (Quartz interface)"
+          ],
+          "confidence": "untested",
+          "notes": "Any Evertz router or controller with a Quartz protocol port over Ethernet. MAGNUM controls the routers behind it through a Quartz interface, and the sources, destinations and level letters are the ones that interface's profile and level map define.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 23,
+          "send_ascii": ".RD1\r",
+          "expect_regex": "\\.RAD",
+          "cross_vendor": true,
+          "timeout_ms": 1500
+        },
+        "oui": [
+          "00:02:c5"
+        ],
+        "port_open": [
+          3737,
+          3738,
+          3739,
+          3740
         ]
       }
     },

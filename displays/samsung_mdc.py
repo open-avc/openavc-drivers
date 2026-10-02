@@ -52,11 +52,14 @@ Why every request is correlated and awaited (measured on a DM75E):
         (Set ID, command) waiter, and an uncorrelated frame updates state but
         satisfies nobody's wait.
 
-    A GET the display NAKs is a model capability gap, not an error: MDC's
-    command set is nominally shared but 9 of 27 commands probed on the DM75E
-    are unsupported (colour tone among them). The first NAK marks that command
-    unsupported for that display and drops it from the poll, so an unsupported
-    setting costs one frame per connection instead of one warning every cycle.
+    A GET the display NAKs while it is on is a model capability gap, not an
+    error: MDC's command set is nominally shared but 9 of 27 commands probed on
+    the DM75E are unsupported (colour tone among them). That NAK marks the
+    command unsupported for that display and drops it from the poll, so an
+    unsupported setting costs one frame per connection instead of one warning
+    every cycle. In standby the same display NAKs its picture values too, so a
+    NAK while the display is not on retires nothing, and the list is cleared
+    when a display is seen going from off to on and by Refresh Status.
 """
 
 from __future__ import annotations
@@ -108,8 +111,9 @@ REPLY_TIMEOUT_S = 1.0
 VOLUME_MUTE_GUARD_S = 2.2
 
 # The commands poll() reads back, in order. STATUS fans out power/volume/mute/
-# input; the rest are one value each. A command the display NAKs is dropped
-# from this list for that Set ID until the next connect.
+# input; the rest are one value each. A command the display NAKs while on is
+# dropped from this list for that Set ID until the next connect, the next time
+# the display is seen turning on, or Refresh Status.
 POLL_COMMANDS = (
     CMD_STATUS,
     CMD_CONTRAST,
@@ -375,7 +379,7 @@ class SamsungMDCDriver(BaseDriver):
         "name": "Samsung MDC Display",
         "manufacturer": "Samsung",
         "category": "display",
-        "version": "1.7.3",
+        "version": "1.7.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # `restarts_device_for` on power_on and all_on needs 0.34.0.
@@ -784,9 +788,12 @@ class SamsungMDCDriver(BaseDriver):
         # can never overlap, but a command issued while a poll is in flight
         # can, and the display answers both.
         self._waiters: dict[tuple[int, int], list[asyncio.Future]] = {}
-        # (set_id, command) pairs this display NAKed. Reset on every connect,
-        # because the roster or the panel behind a Set ID may have changed.
+        # (set_id, command) pairs this display NAKed while on. Reset on every
+        # connect, because the roster or the panel behind a Set ID may have
+        # changed, when a display turns on, and by Refresh Status.
         self._unsupported: set[tuple[int, int]] = set()
+        # Each Set ID's power as the last poll read it, to see off to on.
+        self._polled_power: dict[int, str] = {}
         # When this driver last set volume on a Set ID (loop clock), for the
         # mute guard above. Best effort: a volume change from the IR remote or
         # another controller starts the same window and cannot be seen here,
@@ -849,6 +856,7 @@ class SamsungMDCDriver(BaseDriver):
         and a reconnect is the one moment that panel may have changed.
         """
         self._unsupported.clear()
+        self._polled_power.clear()
         self._answered_at.clear()
         self._reconcile_displays()
         await self._read_identity()
@@ -893,8 +901,13 @@ class SamsungMDCDriver(BaseDriver):
         list to enumerate), so this reconciles against the current config and
         re-polls, rather than discovering new units."""
         self._reconcile_displays()
+        self._unsupported.clear()
         await self.poll()
         return {"displays": len(self.list_children("display"))}
+
+    def _forget_unsupported(self, set_id: int) -> None:
+        """Ask this display everything again on the next query."""
+        self._unsupported = {k for k in self._unsupported if k[0] != set_id}
 
     def _coerce_child_ids(self, command: str, params: dict[str, Any]) -> None:
         """Coerce any child_id-typed param to a bare int (the IDE child picker
@@ -1065,6 +1078,8 @@ class SamsungMDCDriver(BaseDriver):
             case "all_off":
                 await self._drive_chain(0)
             case "refresh":
+                # A person asked for everything again, refused queries too.
+                self._unsupported.clear()
                 await self.poll()
             case _:
                 log.warning(f"[{self.device_id}] Unknown command: {command}")
@@ -1280,16 +1295,39 @@ class SamsungMDCDriver(BaseDriver):
                     return
                 answered = True
                 any_reply = True
+                name = _COMMAND_NAMES.get(cmd, f"0x{cmd:02X}")
                 if ack == NAK:
+                    power = updates.get(
+                        "power",
+                        self.get_child_state("display", set_id).get("power"),
+                    )
+                    if power != "on":
+                        # In standby a DM75E NAKs contrast, brightness,
+                        # backlight, sharpness and picture mode. That says
+                        # nothing about the model, so the query stays in the
+                        # poll and answers again once the display is on.
+                        log.debug(
+                            f"[{self.device_id}] Display {set_id} refused "
+                            f"{name} while not on; asking again next poll"
+                        )
+                        continue
                     self._unsupported.add((set_id, cmd))
-                    name = _COMMAND_NAMES.get(cmd, f"0x{cmd:02X}")
                     refused.append(f"display {set_id}: {name}")
                     log.info(
                         f"[{self.device_id}] Display {set_id} does not "
                         f"implement {name}; dropping it from the poll"
                     )
                     continue
-                updates.update(self._parse_values(cmd, values))
+                parsed = self._parse_values(cmd, values)
+                if cmd == CMD_STATUS and "power" in parsed:
+                    # Off to on: what this display refused may answer now.
+                    if (
+                        parsed["power"] == "on"
+                        and self._polled_power.get(set_id) == "off"
+                    ):
+                        self._forget_unsupported(set_id)
+                    self._polled_power[set_id] = parsed["power"]
+                updates.update(parsed)
 
             if answered:
                 self.set_child_state_batch(

@@ -422,7 +422,7 @@ def test_parse_frame_multiple():
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.3"
+    assert DRV.SamsungMDCDriver.DRIVER_INFO["version"] == "1.7.4"
     assert DRV.SamsungMDCDriver.DRIVER_INFO["min_platform_version"] == "0.34.0"
 
 
@@ -887,10 +887,12 @@ def test_a_naked_get_is_dropped_from_the_poll():
     """Colour tone is not implemented on a DM75E; it NAKs every time.
 
     Re-asking forever cost a warning per display per cycle and taught people to
-    ignore the log. The first NAK retires that command for that Set ID.
+    ignore the log. The first NAK while the display is on retires that
+    command for that Set ID.
     """
     async def go():
         driver, sim = await _make_pair()
+        sim.set_state("power", "on")
         await driver.connect()
         try:
             key = (1, DRV.CMD_COLOR_TONE)
@@ -910,6 +912,99 @@ def test_a_naked_get_is_dropped_from_the_poll():
             await driver.disconnect()
 
     asyncio.run(go())
+
+
+def _polled(driver) -> list[int]:
+    """Spy on the commands the driver sends from here on."""
+    sent: list[int] = []
+    original = driver._send_to
+
+    async def spy(display, cmd, data=b""):
+        sent.append(cmd)
+        await original(display, cmd, data)
+
+    driver._send_to = spy
+    return sent
+
+
+STANDBY_REFUSED = (
+    DRV.CMD_CONTRAST, DRV.CMD_BRIGHTNESS, DRV.CMD_BACKLIGHT,
+    DRV.CMD_SHARPNESS, DRV.CMD_PICTURE_MODE,
+)
+
+
+def test_a_display_in_standby_keeps_its_picture_values_in_the_poll():
+    """In standby a DM75E NAKs its picture values. That is not a model gap.
+
+    Retiring them on it kept contrast, brightness, backlight, sharpness and
+    picture mode stale until the next reconnect, so a display turned on by IR
+    or a schedule never read them again.
+    """
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()  # the simulated display starts in standby
+        try:
+            assert not any((1, cmd) in driver._unsupported for cmd in STANDBY_REFUSED)
+            assert "picture" not in driver.state.data.get("last_error", "")
+            sim.set_state("power", "on")  # turned on by its remote
+            sim.set_state("contrast", 61)
+            sent = _polled(driver)
+            await driver.poll()
+            assert all(cmd in sent for cmd in STANDBY_REFUSED)
+            assert driver.get_child_state("display", 1)["contrast"] == 61
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_turning_on_asks_again_what_the_display_refused():
+    """Off to on clears what a display refused, so one refused while it was
+    still waking answers again."""
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("power", "on")
+        await driver.connect()
+        try:
+            assert (1, DRV.CMD_COLOR_TONE) in driver._unsupported
+            sim.set_state("power", "off")
+            await driver.poll()
+            assert (1, DRV.CMD_COLOR_TONE) in driver._unsupported
+            sim.set_state("power", "on")
+            sent = _polled(driver)
+            await driver.poll()
+            assert DRV.CMD_COLOR_TONE in sent
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_refresh_asks_again_what_the_display_refused():
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("power", "on")
+        await driver.connect()
+        try:
+            assert (1, DRV.CMD_COLOR_TONE) in driver._unsupported
+            sent = _polled(driver)
+            await driver.send_command("refresh")
+            assert DRV.CMD_COLOR_TONE in sent
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_the_simulator_refuses_picture_queries_in_standby():
+    sim = SIM.SamsungMdcSimulator("sim1", {"set_ids": "1"})
+    for cmd in STANDBY_REFUSED:
+        frame, _ = _PARSE(sim.handle_command(_build_mdc_frame(cmd, 1)))
+        assert frame[3] == DRV.NAK, hex(cmd)
+    sim.set_state("power", "on")
+    for cmd in STANDBY_REFUSED:
+        frame, _ = _PARSE(sim.handle_command(_build_mdc_frame(cmd, 1)))
+        assert frame[3] == DRV.ACK, hex(cmd)
 
 
 def test_a_refused_command_raises_and_is_recorded():
@@ -1073,6 +1168,7 @@ def test_a_refused_set_does_not_retire_the_command():
     """
     async def go():
         driver, sim = await _make_pair()
+        sim.set_state("power", "on")
         await driver.connect()
         try:
             with pytest.raises(ValueError):

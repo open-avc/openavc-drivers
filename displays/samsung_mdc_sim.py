@@ -38,6 +38,8 @@ accepts nine of the twenty-two documented picture modes. So:
     driver's NAK path on the very first poll instead of only ever ACKing.
   * ``picture_modes`` lists the modes this simulated model accepts; anything
     else NAKs.
+  * In standby a query of contrast, brightness, backlight, sharpness or
+    picture mode answers NAK, as a DM75E's does.
 
 A simulator that answers everything is the reason a driver can pass its whole
 suite and still misbehave on a real panel, so the defaults here are the
@@ -86,6 +88,9 @@ DEFAULT_PICTURE_MODES = (
     "video_wall_video",
     "video_wall_text",
 )
+# The queries a DM75E refuses while in standby (measured: each poll of them
+# after Power Off answered NAK, and answered again once the display was on).
+STANDBY_REFUSED_QUERIES = (0x24, 0x25, 0x58, 0x26, 0x71)
 DEFAULT_MODEL_NAME = "DM75E"
 DEFAULT_SW_VERSION = "T-GFSLE2AKUC-1037.2"
 CMD_PICTURE_MODE = 0x71
@@ -389,6 +394,15 @@ class SamsungMdcSimulator(TCPSimulator):
         # display answers NAK with an error byte, which is a reply (the link is
         # fine) and not an outage.
         if cmd in self._unsupported:
+            return self._build_ack(
+                cmd, display_id, bytes([NAK_UNSUPPORTED]), ack=False
+            )
+
+        if (
+            not payload
+            and cmd in STANDBY_REFUSED_QUERIES
+            and self._get(display_id, "power") != "on"
+        ):
             return self._build_ack(
                 cmd, display_id, bytes([NAK_UNSUPPORTED]), ack=False
             )

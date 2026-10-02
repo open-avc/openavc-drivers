@@ -353,7 +353,11 @@ _parse_mdc_frame = DRV._parse_mdc_frame
 async def _make_pair(sim_config=None, driver_overrides=None):
     global _CURRENT_SIM, _SWALLOW
     _SWALLOW = False
-    sim = SIM.SamsungMdcSimulator("sim1", sim_config or {"set_ids": "1"})
+    # The simulated power-on restart is its own test; elsewhere a display
+    # that powers on keeps answering.
+    sim = SIM.SamsungMdcSimulator(
+        "sim1", {"power_on_restart_s": 0, **(sim_config or {"set_ids": "1"})}
+    )
     _CURRENT_SIM = sim
 
     cfg = {"host": "10.0.0.9", "port": 1515, "display_ids": "1", "poll_interval": 0}
@@ -1080,6 +1084,42 @@ def test_the_simulator_refuses_picture_queries_in_standby():
     for cmd in STANDBY_REFUSED:
         frame, _ = _PARSE(sim.handle_command(_build_mdc_frame(cmd, 1)))
         assert frame[3] == DRV.ACK, hex(cmd)
+
+
+def test_connect_reads_once_and_leaves_the_rest_to_the_poll_loop():
+    """The poll loop's first cycle runs as soon as connect returns, so a poll
+    in the connect as well read every display twice back to back."""
+    async def go():
+        for interval, expected in ((15, 0), (0, 1)):
+            driver, sim = await _make_pair(driver_overrides={"poll_interval": interval})
+            sent = _polled(driver)
+            await driver.connect()
+            try:
+                assert sent.count(DRV.CMD_STATUS) == expected, interval
+                assert DRV.CMD_MODEL_NAME in sent  # identity is still read
+            finally:
+                await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_the_simulator_restarts_on_power_on_and_acks_power_off_twice():
+    sim = SIM.SamsungMdcSimulator("sim1", {"set_ids": "1", "power_on_restart_s": 30})
+    reply = sim.handle_command(_build_mdc_frame(DRV.CMD_POWER, 1, bytes([1])))
+    frame, rest = _PARSE(reply)
+    assert frame[3] == DRV.ACK and rest == b""
+    # Restarting: nothing answers, not even status.
+    assert sim.handle_command(_build_mdc_frame(DRV.CMD_STATUS, 1)) is None
+    sim._restarting_until[1] = 0.0  # the restart is over
+    assert sim.handle_command(_build_mdc_frame(DRV.CMD_STATUS, 1))
+    reply = sim.handle_command(_build_mdc_frame(DRV.CMD_POWER, 1, bytes([0])))
+    first, rest = _PARSE(reply)
+    second, rest = _PARSE(rest)
+    assert first == second and first[3] == DRV.ACK and rest == b""
+    # A DM75E NAKs its serial number; the probe's AA FF still matches.
+    reply = sim.handle_command(_build_mdc_frame(0x0B, 1))
+    assert reply.startswith(bytes.fromhex("AAFF"))
+    assert _PARSE(reply)[0][3] == DRV.NAK
 
 
 def test_a_refused_command_raises_and_is_recorded():

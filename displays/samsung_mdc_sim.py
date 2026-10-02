@@ -40,6 +40,8 @@ accepts nine of the twenty-two documented picture modes. So:
     else NAKs.
   * In standby a query of contrast, brightness, backlight, sharpness or
     picture mode answers NAK, as a DM75E's does.
+  * Power On restarts the display: it ACKs, then answers nothing for
+    ``power_on_restart_s`` seconds (0 turns it off). Power Off is ACKed twice.
 
 A simulator that answers everything is the reason a driver can pass its whole
 suite and still misbehave on a real panel, so the defaults here are the
@@ -76,7 +78,11 @@ NAK_UNSUPPORTED = 0x01
 DEFAULT_VOLUME_MUTE_GUARD_S = 2.0
 
 # What a DM75E accepts, measured on the unit this driver was verified against.
-DEFAULT_UNSUPPORTED_COMMANDS = (0x3E,)  # colour tone
+DEFAULT_UNSUPPORTED_COMMANDS = (0x3E, 0x0B)  # colour tone, serial number
+# Powering on reboots a DM75E's SoC and its network goes with it: measured, the
+# port went 4s to 29.5s after the command and was back by 42s to 48s. The
+# simulated display goes quiet at once for the length of that outage.
+DEFAULT_POWER_ON_RESTART_S = 40.0
 DEFAULT_PICTURE_MODES = (
     "calibration",
     "shop_mall_video",
@@ -287,6 +293,12 @@ class SamsungMdcSimulator(TCPSimulator):
         )
         self._volume_set_at: dict[int, float] = {}
         self._model_name = str(self.config.get("model_name", DEFAULT_MODEL_NAME))
+        restart = self.config.get("power_on_restart_s")
+        self._power_on_restart_s = (
+            DEFAULT_POWER_ON_RESTART_S if restart is None else float(restart)
+        )
+        # Set ID -> monotonic time its power-on restart ends.
+        self._restarting_until: dict[int, float] = {}
         self._sw_version = str(self.config.get("sw_version", DEFAULT_SW_VERSION))
 
     @staticmethod
@@ -389,6 +401,8 @@ class SamsungMdcSimulator(TCPSimulator):
         if the addressed display isn't present (an absent display is silent)."""
         if display_id not in self._present_ids:
             return None
+        if time.monotonic() < self._restarting_until.get(display_id, 0.0):
+            return None  # restarting after Power On: nothing answers
 
         # A command this model does not implement is refused, not ignored: the
         # display answers NAK with an error byte, which is a reply (the link is
@@ -443,10 +457,18 @@ class SamsungMdcSimulator(TCPSimulator):
 
         # ── Power (0x11) ──
         if cmd == CMD_POWER:
+            was_on = self._get(display_id, "power") == "on"
             if payload:
                 self._put(display_id, "power", "on" if payload[0] == 0x01 else "off")
             byte = 0x01 if self._get(display_id, "power") == "on" else 0x00
-            return self._build_ack(CMD_POWER, display_id, bytes([byte]))
+            ack = self._build_ack(CMD_POWER, display_id, bytes([byte]))
+            if payload and payload[0] == 0x01 and not was_on and self._power_on_restart_s > 0:
+                self._restarting_until[display_id] = (
+                    time.monotonic() + self._power_on_restart_s
+                )
+            if payload and payload[0] == 0x00:
+                return ack + ack  # a DM75E ACKs Power Off twice
+            return ack
 
         # ── Volume (0x12) ──
         if cmd == CMD_VOLUME:

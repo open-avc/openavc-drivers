@@ -890,7 +890,8 @@ class SamsungMDCDriver(BaseDriver):
         return None
 
     async def _initial_sync(self) -> None:
-        """Register the roster, read identity, then take a first reading.
+        """Register the roster, read identity, then take a first reading
+        when polling is off (the poll loop takes it otherwise).
 
         The unsupported-command set is cleared here rather than in __init__:
         what a Set ID answers is a fact about the panel currently behind it,
@@ -903,7 +904,10 @@ class SamsungMDCDriver(BaseDriver):
         self._answered_at.clear()
         self._reconcile_displays()
         await self._read_identity()
-        await self.poll()
+        # With polling on, the poll loop's first cycle runs as soon as connect
+        # returns; a poll here too read every display twice back to back.
+        if not self.config.get("poll_interval", 0) > 0:
+            await self.poll()
 
     async def _read_identity(self) -> None:
         """Read model and firmware from the first display that answers.

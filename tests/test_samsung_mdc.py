@@ -1103,6 +1103,26 @@ def test_connect_reads_once_and_leaves_the_rest_to_the_poll_loop():
     asyncio.run(go())
 
 
+def test_a_connect_with_polling_on_still_needs_an_answer():
+    """With polling on, the connect reads identity and nothing else. A
+    socket the display does not answer (another controller holds it, or the
+    display is still restarting after Power On) must fail the connect, not
+    report connected for the poll loop to find out ~45 s later."""
+    async def go():
+        global _SWALLOW
+        driver, sim = await _make_pair(driver_overrides={"poll_interval": 15})
+        driver.REPLY_TIMEOUT_S = 0.05
+        _SWALLOW = True
+        try:
+            with pytest.raises(ConnectionError):
+                await driver.connect()
+        finally:
+            _SWALLOW = False
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
 def test_the_simulator_restarts_on_power_on_and_acks_power_off_twice():
     sim = SIM.SamsungMdcSimulator("sim1", {"set_ids": "1", "power_on_restart_s": 30})
     reply = sim.handle_command(_build_mdc_frame(DRV.CMD_POWER, 1, bytes([1])))

@@ -908,6 +908,14 @@ class SamsungMDCDriver(BaseDriver):
         # returns; a poll here too read every display twice back to back.
         if not self.config.get("poll_interval", 0) > 0:
             await self.poll()
+        elif not self._answered_at:
+            # The identity read was the connect's only question, and nothing
+            # answered it (another controller holds the display, or it is
+            # still restarting): the link is not up, whatever TCP says.
+            raise ConnectionError(
+                f"[{self.device_id}] No display answered "
+                f"({len(self.list_children('display'))} Set ID(s) asked)"
+            )
 
     async def _read_identity(self) -> None:
         """Read model and firmware from the first display that answers.

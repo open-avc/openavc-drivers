@@ -5856,7 +5856,7 @@
       "file": "displays/samsung_mdc.py",
       "format": "python",
       "files": {
-        "displays/samsung_mdc.py": "208dee5c56f13a9d833c373000f1c094d666aa5f1a9fdb7def6ab40d1809255d",
+        "displays/samsung_mdc.py": "50fd106bcd17594bf4b148fedccd256af0a2d6e3560119e762f994d431ec824d",
         "displays/samsung_mdc_sim.py": "1b1d7949ef8370566f69fa79a2c9cea7088dfb898903748b9c34c5d093e41970"
       },
       "ports": [

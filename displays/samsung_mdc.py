@@ -124,6 +124,14 @@ POLL_COMMANDS = (
     CMD_PICTURE_MODE,
 )
 
+# Queries a model is known not to implement, by the model name it reports
+# (0x8A). Skipped from the poll for the display that named the model, so the
+# known refusal is not reported as news on every connect and every power-on.
+# Measured: a DM75E NAKs colour tone (0x3E) whatever its state.
+MODEL_GAPS = {
+    "DM75E": (CMD_COLOR_TONE,),
+}
+
 # Valid Set ID range on the wire (the ID byte). 0xFF is reserved for broadcast
 # and is not an addressable unit.
 SET_ID_MIN = 0
@@ -794,6 +802,12 @@ class SamsungMDCDriver(BaseDriver):
         self._unsupported: set[tuple[int, int]] = set()
         # Each Set ID's power as the last poll read it, to see off to on.
         self._polled_power: dict[int, str] = {}
+        # (set_id, command) pairs the display's model is known not to
+        # implement (MODEL_GAPS), from the identity read on connect.
+        self._model_gaps: set[tuple[int, int]] = set()
+        # Set ID -> loop time its commanded restart (power on) ends. A display
+        # that goes quiet inside it is restarting as told, not missing.
+        self._restart_until: dict[int, float] = {}
         # When this driver last set volume on a Set ID (loop clock), for the
         # mute guard above. Best effort: a volume change from the IR remote or
         # another controller starts the same window and cannot be seen here,
@@ -857,6 +871,8 @@ class SamsungMDCDriver(BaseDriver):
         """
         self._unsupported.clear()
         self._polled_power.clear()
+        self._model_gaps.clear()
+        self._restart_until.clear()
         self._answered_at.clear()
         self._reconcile_displays()
         await self._read_identity()
@@ -878,7 +894,9 @@ class SamsungMDCDriver(BaseDriver):
                 continue
             except ConnectionError:
                 return
-            self._set_identity("model", ack, values)
+            model = self._set_identity("model", ack, values)
+            for cmd in MODEL_GAPS.get(model, ()):
+                self._model_gaps.add((set_id, cmd))
             try:
                 ack, values = await self._request(set_id, CMD_SW_VERSION)
             except (TimeoutError, ConnectionError):
@@ -886,12 +904,15 @@ class SamsungMDCDriver(BaseDriver):
             self._set_identity("firmware", ack, values)
             return
 
-    def _set_identity(self, prop: str, ack: int, values: bytes) -> None:
+    def _set_identity(self, prop: str, ack: int, values: bytes) -> str:
+        """Publish an identity field; returns the text, or "" for none."""
         if ack == ACK and values:
             # MDC pads these fields with NULs; keep the printable run.
             text = "".join(chr(b) for b in values if 32 <= b < 127).strip()
             if text:
                 self.set_state(prop, text)
+                return text
+        return ""
 
     async def refresh_children(self) -> dict[str, Any]:
         """Re-sync the display roster from config and re-read every display's
@@ -904,6 +925,11 @@ class SamsungMDCDriver(BaseDriver):
         self._unsupported.clear()
         await self.poll()
         return {"displays": len(self.list_children("display"))}
+
+    def _restarting(self, set_id: int) -> bool:
+        """Is this display inside the restart a Power On told it to make?"""
+        until = self._restart_until.get(set_id)
+        return until is not None and asyncio.get_running_loop().time() < until
 
     def _forget_unsupported(self, set_id: int) -> None:
         """Ask this display everything again on the next query."""
@@ -1110,6 +1136,12 @@ class SamsungMDCDriver(BaseDriver):
             # stop polling something the display answers perfectly well.
             raise ValueError(msg)
 
+        if cmd == CMD_POWER and data == bytes([1]):
+            # Powering on restarts the display: for the window Power On
+            # declares, a display that goes quiet is restarting, not missing.
+            seconds = self.DRIVER_INFO["commands"]["power_on"]["restarts_device_for"]
+            self._restart_until[set_id] = asyncio.get_running_loop().time() + seconds
+
         # The ACK echoes the value the display actually applied, and this
         # waiter consumed the frame, so on_data_received will not see it.
         # Applying it here is what makes a panel button light up on the press
@@ -1281,7 +1313,7 @@ class SamsungMDCDriver(BaseDriver):
             updates: dict[str, Any] = {}
             answered = False
             for cmd in POLL_COMMANDS:
-                if (set_id, cmd) in self._unsupported:
+                if (set_id, cmd) in self._unsupported or (set_id, cmd) in self._model_gaps:
                     continue
                 try:
                     ack, values = await self._request(set_id, cmd)
@@ -1333,6 +1365,11 @@ class SamsungMDCDriver(BaseDriver):
                 self.set_child_state_batch(
                     "display", set_id, {**updates, **self.child_fault()}
                 )
+            elif self._restarting(set_id):
+                # Away because Power On restarts it. Its child says nothing
+                # of a missing display; if the whole chain is quiet the poll
+                # below raises and the platform reports the device restarting.
+                continue
             else:
                 silent.append(set_id)
                 self.set_child_state_batch(

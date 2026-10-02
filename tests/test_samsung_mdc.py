@@ -883,6 +883,59 @@ def test_one_absent_set_id_does_not_condemn_the_link():
     asyncio.run(go())
 
 
+# A model that NAKs colour tone without the driver knowing in advance.
+OTHER_MODEL = {"set_ids": "1", "model_name": "QM55R"}
+
+
+def test_a_dm75e_is_never_asked_for_colour_tone():
+    """A DM75E refuses colour tone whatever its state. Asking on every connect
+    published the refusal as Last Error each time (a device audit put it on the
+    Power On that happened to be in flight)."""
+    async def go():
+        driver, sim = await _make_pair()  # the simulator reports a DM75E
+        sim.set_state("power", "on")
+        sent = _polled(driver)
+        await driver.connect()
+        try:
+            assert DRV.CMD_COLOR_TONE not in sent
+            assert DRV.CMD_STATUS in sent
+            assert not driver.state.data.get("last_error")
+            await driver.send_command("refresh")
+            assert DRV.CMD_COLOR_TONE not in sent
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_display_restarting_after_power_on_is_not_reported_missing():
+    """Powering on restarts the display. A poll inside the window Power On
+    declares finds it quiet; that is not "check the Set ID"."""
+    async def go():
+        global _SWALLOW
+        driver, sim = await _make_pair()
+        driver.REPLY_TIMEOUT_S = 0.05
+        await driver.connect()
+        try:
+            await driver.send_command("power_on", {"display": 1})
+            _SWALLOW = True  # the display's network goes with its restart
+            with pytest.raises(ConnectionError):
+                await driver.poll()
+            child = driver.get_child_state("display", 1)
+            assert child.get("offline_reason") != "not_responding"
+            assert "Set ID" not in (driver.state.data.get("last_error") or "")
+            # Past the window the same silence is a missing display again.
+            driver._restart_until[1] = 0.0
+            with pytest.raises(ConnectionError):
+                await driver.poll()
+            assert driver.get_child_state("display", 1)["offline_reason"] == "not_responding"
+        finally:
+            _SWALLOW = False
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
 def test_a_naked_get_is_dropped_from_the_poll():
     """Colour tone is not implemented on a DM75E; it NAKs every time.
 
@@ -891,7 +944,7 @@ def test_a_naked_get_is_dropped_from_the_poll():
     command for that Set ID.
     """
     async def go():
-        driver, sim = await _make_pair()
+        driver, sim = await _make_pair(OTHER_MODEL)
         sim.set_state("power", "on")
         await driver.connect()
         try:
@@ -962,7 +1015,7 @@ def test_turning_on_asks_again_what_the_display_refused():
     """Off to on clears what a display refused, so one refused while it was
     still waking answers again."""
     async def go():
-        driver, sim = await _make_pair()
+        driver, sim = await _make_pair(OTHER_MODEL)
         sim.set_state("power", "on")
         await driver.connect()
         try:
@@ -982,7 +1035,7 @@ def test_turning_on_asks_again_what_the_display_refused():
 
 def test_refresh_asks_again_what_the_display_refused():
     async def go():
-        driver, sim = await _make_pair()
+        driver, sim = await _make_pair(OTHER_MODEL)
         sim.set_state("power", "on")
         await driver.connect()
         try:

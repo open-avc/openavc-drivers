@@ -460,9 +460,10 @@ class SamsungMDCDriver(BaseDriver):
             ),
         },
         "discovery": {
-            # Samsung MDC is binary on TCP/1515. Get-Serial-Number
-            # (AA 0B 01 00 0C) elicits a fixed-prefix ACK starting with
-            # AA FF on any MDC-speaking display, regardless of model.
+            # Samsung MDC is binary on TCP/1515. Every reply to
+            # Get-Serial-Number (AA 0B 01 00 0C) starts AA FF, the response
+            # header an ACK and a NAK share, on any MDC-speaking display. A
+            # DM75E NAKs it (AA FF 01 03 4E 0B 01 5D), which still matches.
             "tcp_probe": {
                 "port": 1515,
                 "send_hex": "AA0B01000C",
@@ -513,7 +514,11 @@ class SamsungMDCDriver(BaseDriver):
             },
         },
         "state_variables": {
-            "display_count": {"type": "integer", "label": "Displays"},
+            "display_count": {
+                "type": "integer",
+                "label": "Displays",
+                "help": "The number of Set IDs listed in Display Set IDs.",
+            },
             "model": {
                 "type": "string",
                 "label": "Model",
@@ -559,12 +564,14 @@ class SamsungMDCDriver(BaseDriver):
             "power_on": {
                 "label": "Power On",
                 # Powering ON reboots the display's main SoC and its network
-                # interface goes with it: measured on a DM75E with bare TCP
-                # connects and nothing else touching port 1515, the port stopped
-                # answering 4s after the command (SYN dropped, not refused) and
-                # came back 48s after it. 60 covers that with room for a slower
-                # model. Powering OFF needs nothing here -- the display stays
-                # fully reachable in standby and keeps reporting power=0.
+                # interface goes with it. Measured twice on a DM75E: with bare
+                # TCP connects and nothing else touching port 1515 the port
+                # stopped answering 4s after the command (SYN dropped, not
+                # refused) and came back 48s after it; in a device audit it went
+                # at 29.5s and the driver was back at 41.9s. 60 covers both with
+                # room for a slower model. Powering OFF needs nothing here --
+                # the display stays fully reachable in standby and keeps
+                # reporting power=0.
                 "restarts_device_for": 60,
                 "params": {
                     "display": {
@@ -574,6 +581,7 @@ class SamsungMDCDriver(BaseDriver):
                         "label": "Display",
                     },
                 },
+                "sets": {"power": "on"},
                 "help": "Turn on a display.",
             },
             "power_off": {
@@ -586,6 +594,7 @@ class SamsungMDCDriver(BaseDriver):
                         "label": "Display",
                     },
                 },
+                "sets": {"power": "off"},
                 "help": "Turn off a display (standby).",
             },
             "set_volume": {
@@ -601,10 +610,12 @@ class SamsungMDCDriver(BaseDriver):
                         "type": "integer",
                         "min": 0,
                         "max": 100,
+                        "label": "Volume",
                         "required": True,
                         "help": "Volume level 0-100",
                     },
                 },
+                "sets": {"volume": "{level}"},
                 "help": "Set a display's speaker volume.",
             },
             "mute_on": {
@@ -617,6 +628,7 @@ class SamsungMDCDriver(BaseDriver):
                         "label": "Display",
                     },
                 },
+                "sets": {"mute": True},
                 "help": "Mute a display's audio.",
             },
             "mute_off": {
@@ -629,6 +641,7 @@ class SamsungMDCDriver(BaseDriver):
                         "label": "Display",
                     },
                 },
+                "sets": {"mute": False},
                 "help": "Unmute a display's audio.",
             },
             "set_input": {
@@ -643,10 +656,12 @@ class SamsungMDCDriver(BaseDriver):
                     "input": {
                         "type": "enum",
                         "values": list(INPUT_MAP.keys()),
+                        "label": "Input",
                         "required": True,
                         "help": "Input source to switch to",
                     },
                 },
+                "sets": {"input": "{input}"},
                 "help": "Switch a display's input source.",
             },
             "set_brightness": {
@@ -662,10 +677,12 @@ class SamsungMDCDriver(BaseDriver):
                         "type": "integer",
                         "min": 0,
                         "max": 100,
+                        "label": "Brightness",
                         "required": True,
                         "help": "Brightness 0-100",
                     },
                 },
+                "sets": {"brightness": "{level}"},
                 "help": "Set a display's picture brightness (0-100).",
             },
             "set_contrast": {
@@ -681,10 +698,12 @@ class SamsungMDCDriver(BaseDriver):
                         "type": "integer",
                         "min": 0,
                         "max": 100,
+                        "label": "Contrast",
                         "required": True,
                         "help": "Contrast 0-100",
                     },
                 },
+                "sets": {"contrast": "{level}"},
                 "help": "Set a display's picture contrast (0-100).",
             },
             "set_backlight": {
@@ -700,10 +719,12 @@ class SamsungMDCDriver(BaseDriver):
                         "type": "integer",
                         "min": 0,
                         "max": 100,
+                        "label": "Backlight",
                         "required": True,
                         "help": "Backlight 0-100",
                     },
                 },
+                "sets": {"backlight": "{level}"},
                 "help": (
                     "Set a display's backlight / panel brightness (0-100). "
                     "Some models only accept this when Eco / auto-brightness "
@@ -723,10 +744,12 @@ class SamsungMDCDriver(BaseDriver):
                         "type": "integer",
                         "min": 0,
                         "max": 100,
+                        "label": "Sharpness",
                         "required": True,
                         "help": "Sharpness 0-100",
                     },
                 },
+                "sets": {"sharpness": "{level}"},
                 "help": "Set a display's picture sharpness (0-100).",
             },
             "set_picture_mode": {
@@ -741,10 +764,12 @@ class SamsungMDCDriver(BaseDriver):
                     "mode": {
                         "type": "enum",
                         "values": list(PICTURE_MODE_SET.keys()),
+                        "label": "Picture Mode",
                         "required": True,
                         "help": "Picture preset",
                     },
                 },
+                "sets": {"picture_mode": "{mode}"},
                 "help": (
                     "Set a display's picture mode. Models differ sharply in "
                     "which presets they offer. Signage panels typically take "
@@ -765,10 +790,12 @@ class SamsungMDCDriver(BaseDriver):
                     "tone": {
                         "type": "enum",
                         "values": list(COLOR_TONE_SET.keys()),
+                        "label": "Color Tone",
                         "required": True,
                         "help": "Color tone preset (cool to warm)",
                     },
                 },
+                "sets": {"color_tone": "{tone}"},
                 "help": "Set a display's color tone preset (Cool 2 through Warm 2).",
             },
             "all_on": {

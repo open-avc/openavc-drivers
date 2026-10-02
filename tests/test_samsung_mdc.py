@@ -484,6 +484,28 @@ def test_commands_use_child_id():
         assert cmds[cmd]["params"] == {}
 
 
+def test_every_display_command_says_what_it_sets_and_names_its_fields():
+    """A device audit confirms a command by reading back what it ``sets``;
+    without it every command read "Not confirmed" beside its own change, and
+    a parameter with no label showed its raw name (``level *``)."""
+    info = DRV.SamsungMDCDriver.DRIVER_INFO
+    child_vars = info["child_entity_types"]["display"]["state_variables"]
+    for name, cdef in info["commands"].items():
+        params = cdef["params"]
+        for pname, pdef in params.items():
+            assert pdef.get("label"), f"{name}.{pname} has no label"
+        if "display" not in params:
+            continue  # the whole-chain commands address no one display
+        sets = cdef.get("sets")
+        assert sets, f"{name} declares no sets"
+        for var, value in sets.items():
+            assert var in child_vars, (name, var)
+            if isinstance(value, str) and value.startswith("{"):
+                assert value.strip("{}") in params, (name, value)
+    assert info["commands"]["power_on"]["sets"] == {"power": "on"}
+    assert info["commands"]["set_volume"]["sets"] == {"volume": "{level}"}
+
+
 def test_discovery_probe_and_actions_present():
     info = DRV.SamsungMDCDriver.DRIVER_INFO
     probe = info["discovery"]["tcp_probe"]

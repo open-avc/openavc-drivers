@@ -147,7 +147,7 @@ class SoundCoreHeroDriver(BaseDriver):
         "name": "SoundCoreHero Audio System",
         "manufacturer": "Hero AV",
         "category": "audio",
-        "version": "1.0.3",
+        "version": "1.0.4",
         "author": "Wiktor Myszolow (Hero AV)",
         "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
         "source_url": "https://soundcorehero.com",
@@ -156,7 +156,8 @@ class SoundCoreHeroDriver(BaseDriver):
         # which the platform only invokes from 0.24.0 on — an earlier build
         # would never open the session. (Child entities need 0.13.0 and the
         # tls: discovery probe 0.15.0; both are subsumed by this floor.)
-        "min_platform_version": "0.25.0",
+        # confirm on users_delete and users_create_api_key needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "transport": "tcp",  # nominal; real I/O is custom httpx + websockets
         "help": {
             "overview": (
@@ -1520,6 +1521,7 @@ class SoundCoreHeroDriver(BaseDriver):
             "users_delete": {
                 "label": "Users: Delete",
                 "params": {"user_name": {"type": "string", "required": True}},
+                "confirm": "Deletes this user account from the unit.",
             },
             "users_generate_token": {
                 "label": "Users: Generate Password Token",
@@ -1528,6 +1530,7 @@ class SoundCoreHeroDriver(BaseDriver):
             "users_create_api_key": {
                 "label": "Users: Create/Rotate API Key",
                 "params": {"user_name": {"type": "string", "required": True}},
+                "confirm": "Creates a new API key for this user and replaces the one it had.",
             },
             "users_remove_api_key": {
                 "label": "Users: Remove API Key",

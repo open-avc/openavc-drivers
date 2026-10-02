@@ -211,7 +211,7 @@
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
       "category": "video",
-      "version": "1.6.2",
+      "version": "1.6.3",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
@@ -219,13 +219,13 @@
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/novastar_h_series.avcdriver": "a4aa28bef5045ec721ef8577036cf7730ddfbf67f47a3b53b53b24f067b5db07"
+        "video/novastar_h_series.avcdriver": "e6c0fc3249b49e41a55f9743dbef90bdbe0665d975409e3de7f6ef094c07946e"
       },
       "ports": [
         6000
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "videowall",
         "splicer",

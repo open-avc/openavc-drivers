@@ -28,7 +28,7 @@ id: novastar_h_series
 name: Novastar H Series Video Wall Splicer
 manufacturer: Novastar
 category: video
-version: 1.6.2
+version: 1.6.3
 author: OpenAVC
 description: >
   Controls Novastar H series video wall splicers via UDP JSON commands.
@@ -45,7 +45,7 @@ ports: [6000]
 # 0.23.0 ships the driver-validation fix that accepts json-body response
 # rules (the runtime json parsing and the liveness watchdog landed in
 # 0.22.0, but its validator refused to load a driver declaring them).
-min_platform_version: 0.23.0
+min_platform_version: 0.36.0
 compatible_models:
   - manufacturer: Novastar
     models: [H2, H5, H9, H15, H20]
@@ -755,6 +755,7 @@ commands:
     label: Factory Reset
     send: '[{"cmd":"W010B","deviceId":{device_id},"type":{reset_type}}]'
     help: "Reset the device to factory settings."
+    confirm: "Returns the device to its factory settings. Reset Type 0 also erases its communication settings and user data."
     params:
       reset_type:
         type: integer

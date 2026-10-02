@@ -12,7 +12,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
@@ -20,7 +20,7 @@
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
       "files": {
-        "switchers/atlona_ome_ms.py": "099b383a26e51b1e7ef8323ae97fefe337799ee675468721cb24eb2707ad627a",
+        "switchers/atlona_ome_ms.py": "be2c0f24ffc275593e316dd5615e6e4c6a8f1337ba12bcd84166b88b381f4dfb",
         "switchers/atlona_ome_ms_sim.py": "dbcdaa385c4849e22e10d1f8dcb3a60391c0793e4d1e5250f8ba3069882228ea"
       },
       "ports": [
@@ -30,7 +30,7 @@
         "atlona_ome_ms"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -71,7 +71,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -79,7 +79,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "2fb449693337e9496edb7af165249302651f733e58b3ef753610591d23d16546"
+        "switchers/atlona_ome_ps62.avcdriver": "66612992aa9180f502fe76df8b2c49777f353f0adabe8e06e8a9a0e2e94ed172"
       },
       "ports": [
         23
@@ -88,7 +88,7 @@
         "atlona_ome_ps62"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -244,7 +244,7 @@
       "name": "AVPro Edge AC-MX Matrix",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed video and extracted-audio source, sync and HPD status, scaling mode, stream enable and the full balanced-audio chain; every input a child tracking signal presence, assigned EDID, port power and detected video format. Also covers the extracted-audio matrix mode, front-panel lock, LCD timeout, fan speed, IR code setup and the unit's network configuration.\n",
@@ -252,7 +252,7 @@
       "file": "switchers/avproedge_acmx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/avproedge_acmx.avcdriver": "da1f1cc9206bbb03d347bca659542d97c96eda44a56c25aeb4e86ae0ec52c417"
+        "switchers/avproedge_acmx.avcdriver": "da9a95b38a912d5f2b3393c139b5b9f30610c0f5059d0fd9dd18aed4e6e1f854"
       },
       "ports": [
         23
@@ -262,7 +262,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.32.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "hdmi",

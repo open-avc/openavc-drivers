@@ -20,7 +20,7 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "ca546db7155c34d8a548fdaf2a63aa0c89f9b2809fa90bf48d2a40992fc62fbd",
+        "cameras/aver_ptz.py": "1a053d0be1375c28be2873a2d78e40b54076ccd34d6fdcdc6dfd1be09555bfb0",
         "cameras/aver_ptz_sim.py": "3e978c9424061f2eb353da408fa6a46d9cc8da49fa2ccfe854dffe782d7dbd37"
       },
       "ports": [
@@ -32,7 +32,7 @@
         "aver-cgi"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "ptz",
         "camera",

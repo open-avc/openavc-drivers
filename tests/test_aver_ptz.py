@@ -163,7 +163,7 @@ async def _close(driver):
 
 def test_version_bumped():
     assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.3"
-    assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+    assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"
 
 
 def test_the_rtmp_stream_key_is_a_secret():

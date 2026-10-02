@@ -542,7 +542,7 @@
       "name": "Atlona AT-OME-MS Series Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-MS family of 4K/UHD matrix presentation switchers (MS42 / MS42-HDBT / MS52 / MS52W / MS52W-EU) over Telnet on TCP port 23. Routes any of five inputs (USB-C / DisplayPort / HDMI / HDMI / BYOD) to two outputs (HDBaseT and HDMI), with audio volume / mute (HDMI and analog independently), CEC display control, USB host switching, and per-input signal detection. Use this driver for the Display:Matrix:Set protocol family; the older PS62 with its xNAVxM syntax is covered by atlona_ome_ps62.",
@@ -550,7 +550,7 @@
       "file": "switchers/atlona_ome_ms.py",
       "format": "python",
       "files": {
-        "switchers/atlona_ome_ms.py": "099b383a26e51b1e7ef8323ae97fefe337799ee675468721cb24eb2707ad627a",
+        "switchers/atlona_ome_ms.py": "be2c0f24ffc275593e316dd5615e6e4c6a8f1337ba12bcd84166b88b381f4dfb",
         "switchers/atlona_ome_ms_sim.py": "dbcdaa385c4849e22e10d1f8dcb3a60391c0793e4d1e5250f8ba3069882228ea"
       },
       "ports": [
@@ -560,7 +560,7 @@
         "atlona_ome_ms"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -601,7 +601,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -609,7 +609,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "2fb449693337e9496edb7af165249302651f733e58b3ef753610591d23d16546"
+        "switchers/atlona_ome_ps62.avcdriver": "66612992aa9180f502fe76df8b2c49777f353f0adabe8e06e8a9a0e2e94ed172"
       },
       "ports": [
         23
@@ -618,7 +618,7 @@
         "atlona_ome_ps62"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "presentation",
@@ -1106,7 +1106,7 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "ca546db7155c34d8a548fdaf2a63aa0c89f9b2809fa90bf48d2a40992fc62fbd",
+        "cameras/aver_ptz.py": "1a053d0be1375c28be2873a2d78e40b54076ccd34d6fdcdc6dfd1be09555bfb0",
         "cameras/aver_ptz_sim.py": "3e978c9424061f2eb353da408fa6a46d9cc8da49fa2ccfe854dffe782d7dbd37"
       },
       "ports": [
@@ -1118,7 +1118,7 @@
         "aver-cgi"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "ptz",
         "camera",
@@ -1157,7 +1157,7 @@
       "name": "AVPro Edge AC-MX Matrix",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every output is a child entity tracking its routed video and extracted-audio source, sync and HPD status, scaling mode, stream enable and the full balanced-audio chain; every input a child tracking signal presence, assigned EDID, port power and detected video format. Also covers the extracted-audio matrix mode, front-panel lock, LCD timeout, fan speed, IR code setup and the unit's network configuration.\n",
@@ -1165,7 +1165,7 @@
       "file": "switchers/avproedge_acmx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/avproedge_acmx.avcdriver": "da1f1cc9206bbb03d347bca659542d97c96eda44a56c25aeb4e86ae0ec52c417"
+        "switchers/avproedge_acmx.avcdriver": "da9a95b38a912d5f2b3393c139b5b9f30610c0f5059d0fd9dd18aed4e6e1f854"
       },
       "ports": [
         23
@@ -1175,7 +1175,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.32.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "hdmi",
@@ -4118,7 +4118,7 @@
       "name": "SoundCoreHero Audio System",
       "manufacturer": "Hero AV",
       "category": "audio",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Wiktor Myszolow (Hero AV)",
       "transport": "tcp",
       "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
@@ -4126,12 +4126,12 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "35c3f3355e028eccb99165f6ec96c459f83f40b45e4074d8149df308185c483a"
+        "audio/soundcorehero.py": "85f2626815148b0567d2c894880fe6334342af833792ee23cb818514ec0aaf21"
       },
       "protocols": [
         "soundcorehero"
       ],
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "help": {
         "overview": "SoundCoreHero is a professional multi-zone audio distribution and management system. This driver exposes its zones, players, speakers and inputs as child entities, controls volume/mute/transport, and plays announcements.",
         "setup": "1. Note the device IP. By default only HTTPS (port 443) is enabled.\n2. Create or pick a user account in Settings -> Users. The driver logs in with that account's email and password to obtain a session (required by the control WebSocket).\n3. Enter IP, email and password. Leave 'Verify SSL' off if the device uses its default self-signed certificate."
@@ -4861,7 +4861,7 @@
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
       "category": "video",
-      "version": "1.6.2",
+      "version": "1.6.3",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
@@ -4869,13 +4869,13 @@
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/novastar_h_series.avcdriver": "a4aa28bef5045ec721ef8577036cf7730ddfbf67f47a3b53b53b24f067b5db07"
+        "video/novastar_h_series.avcdriver": "e6c0fc3249b49e41a55f9743dbef90bdbe0665d975409e3de7f6ef094c07946e"
       },
       "ports": [
         6000
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "videowall",
         "splicer",

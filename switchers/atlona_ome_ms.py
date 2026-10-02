@@ -153,9 +153,10 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.4.0",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "version": "1.4.1",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0;
+        # confirm on factory_reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls the Atlona AT-OME-MS family of 4K/UHD matrix "
@@ -474,6 +475,7 @@ class AtlonaOmeMsDriver(BaseDriver):
             "factory_reset": {
                 "label": "Factory Reset",
                 "params": {},
+                "confirm": "Resets every setting on the switcher to its factory default.",
                 "help": (
                     "WARNING: Resets every setting including network "
                     "config to factory defaults. Network preserved by "

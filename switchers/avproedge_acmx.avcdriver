@@ -67,9 +67,9 @@ id: avproedge_acmx
 name: AVPro Edge AC-MX Matrix
 manufacturer: AVPro Edge
 category: switcher
-version: 2.2.0
+version: 2.2.1
 author: OpenAVC
-min_platform_version: "0.32.0"
+min_platform_version: "0.36.0"
 description: >
   Controls AVPro Edge AC-MX series HDMI/HDBaseT matrix switchers (4x2 up
   to 16x16, AUHD/UHD generations) via Telnet on port 23 or RS-232. Every
@@ -1031,7 +1031,8 @@ commands:
   factory_reset:
     label: Reset to Factory Defaults
     send: "SET RST\r"
-    help: "DESTRUCTIVE — clears routing, EDID assignments and network settings. The unit returns to DHCP."
+    help: "Clears routing, EDID assignments and network settings. The unit returns to DHCP."
+    confirm: "Erases routing, EDID assignments and network settings. The unit returns to DHCP, and OpenAVC loses it until its new address is entered here."
 
   # ── Network configuration ──
 

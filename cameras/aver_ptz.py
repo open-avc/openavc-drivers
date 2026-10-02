@@ -170,8 +170,9 @@ class AVerPTZDriver(BaseDriver):
         "manufacturer": "AVer",
         "category": "camera",
         "version": "1.3.3",
-        # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        # The connection lifecycle hooks this driver overrides landed in 0.24.0;
+        # confirm on factory_reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP "
@@ -903,6 +904,7 @@ class AVerPTZDriver(BaseDriver):
             "factory_reset": {
                 "label": "Factory Reset",
                 "params": {},
+                "confirm": "Returns the camera to its factory settings.",
                 "help": "Requires Basic auth (PTZ-S310/S330 only).",
             },
         },

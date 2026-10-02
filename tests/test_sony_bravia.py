@@ -424,8 +424,15 @@ def _make_driver(sim, psk="secret"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.4"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.5"
     assert DRV.SonyBraviaDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+
+
+def test_the_pre_shared_key_is_a_secret():
+    # A secret config field is masked on the device page, in the server log
+    # and in a device audit's report, X-Auth-PSK header included.
+    psk = DRV.SonyBraviaDriver.DRIVER_INFO["config_schema"]["psk"]
+    assert psk.get("secret") is True
 
 
 def test_device_settings_declared_and_backed():

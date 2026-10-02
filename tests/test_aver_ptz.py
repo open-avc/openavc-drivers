@@ -162,8 +162,16 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.2"
+    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.3"
     assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
+
+
+def test_the_rtmp_stream_key_is_a_secret():
+    # A secret parameter is masked in the server log, on the device page and
+    # in a device audit's report, the URL-quoted form on the wire included.
+    params = DRV.AVerPTZDriver.DRIVER_INFO["commands"]["rtmp_start"]["params"]
+    assert params["key"].get("secret") is True
+    assert not params["server"].get("secret")
 
 
 def test_device_settings_declared():

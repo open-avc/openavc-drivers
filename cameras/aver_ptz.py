@@ -169,7 +169,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.2",
+        "version": "1.3.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -885,7 +885,8 @@ class AVerPTZDriver(BaseDriver):
                 "label": "Start RTMP Stream",
                 "params": {
                     "server": {"type": "string", "required": True, "label": "RTMP Server URL"},
-                    "key":    {"type": "string", "required": True, "label": "Stream Key"},
+                    "key":    {"type": "string", "required": True, "secret": True,
+                               "label": "Stream Key"},
                 },
             },
             "rtmp_stop": {"label": "Stop RTMP Stream", "params": {}},

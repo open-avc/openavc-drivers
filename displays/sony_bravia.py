@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.4",
+        "version": "1.5.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -250,6 +250,7 @@ class SonyBraviaDriver(BaseDriver):
             "psk": {
                 "type": "string",
                 "required": True,
+                "secret": True,
                 "label": "Pre-Shared Key",
                 "description": (
                     "The PSK configured on the TV under Settings > Network > "

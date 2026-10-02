@@ -121,7 +121,7 @@ class HisenseVidaaDriver(BaseDriver):
         "name": "Hisense VIDAA TV",
         "manufacturer": "Hisense",
         "category": "display",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -250,6 +250,7 @@ class HisenseVidaaDriver(BaseDriver):
             "submit_pin": {
                 "label": "Submit Pairing PIN",
                 "params": {"pin": {"type": "string", "required": True,
+                                   "secret": True,
                                    "label": "PIN from TV",
                                    "help": "The 4-digit number shown on the TV."}},
             },

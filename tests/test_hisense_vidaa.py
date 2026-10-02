@@ -313,6 +313,14 @@ def _make_driver(mod, **config):
     return drv
 
 
+def test_the_pairing_pin_is_a_secret(mod):
+    # A secret parameter is masked in the server log, on the device page and
+    # in a device audit's report.
+    info = mod.HisenseVidaaDriver.DRIVER_INFO
+    assert info["version"] == "1.0.4"
+    assert info["commands"]["submit_pin"]["params"]["pin"].get("secret") is True
+
+
 # ── Connection lifecycle (hook-driven connect/disconnect) ──
 
 def test_connect_runs_hook_lifecycle(mod):

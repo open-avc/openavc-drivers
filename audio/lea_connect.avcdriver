@@ -66,11 +66,11 @@ id: lea_connect
 name: LEA Connect Series Amplifier
 manufacturer: LEA Professional
 category: audio
-version: "1.0.4"
+version: "1.0.5"
 author: OpenAVC
 transport: tcp
 delimiter: "\n"
-min_platform_version: "0.23.0"
+min_platform_version: "0.24.0"
 
 description: >
   Controls LEA Professional Connect Series smart amplifiers (Network Connect and
@@ -871,6 +871,7 @@ commands:
   mute_on:
     label: "Mute Channel"
     send: "set /amp/channels/{channel}/output/mute true\n"
+    sets: { mute: true }
     help: "Mute one amplifier channel"
     params:
       channel:
@@ -882,6 +883,7 @@ commands:
   mute_off:
     label: "Unmute Channel"
     send: "set /amp/channels/{channel}/output/mute false\n"
+    sets: { mute: false }
     help: "Unmute one amplifier channel"
     params:
       channel:
@@ -893,6 +895,7 @@ commands:
   set_fader:
     label: "Set Output Level"
     send: "set /amp/channels/{channel}/output/fader {level}\n"
+    sets: { fader: "{level}" }
     help: "Set a channel's output gain attenuation in dB (0 = unity, -80 = off)"
     params:
       channel:
@@ -911,6 +914,7 @@ commands:
   set_channel_name:
     label: "Set Channel Name"
     send: 'set /amp/channels/{channel}/output/name "{name}"\n'
+    sets: { name: "{name}" }
     help: "Name a channel on the amplifier (e.g. Bar Speakers)"
     params:
       channel:
@@ -926,6 +930,7 @@ commands:
   channel_enable:
     label: "Enable Channel"
     send: "set /amp/channels/{channel}/output/enable true\n"
+    sets: { enable: true }
     help: "Arm a channel to pass audio"
     params:
       channel:
@@ -937,6 +942,7 @@ commands:
   channel_disable:
     label: "Disable Channel"
     send: "set /amp/channels/{channel}/output/enable false\n"
+    sets: { enable: false }
     help: "Stop a channel passing audio"
     params:
       channel:
@@ -948,6 +954,7 @@ commands:
   set_output_mode:
     label: "Set Output Mode"
     send: 'set /amp/channels/{channel}/output/hiZLoZ "{mode}"\n'
+    sets: { hiz_loz: "{mode}" }
     help: "Constant-voltage (70 V / 100 V) or low-impedance output. Must match the speaker system on this channel."
     params:
       channel:
@@ -967,6 +974,7 @@ commands:
   set_hiz_hpf:
     label: "Set Hi-Z High Pass"
     send: "set /amp/channels/{channel}/output/hiZHpfFrequency {frequency}\n"
+    sets: { hiz_hpf_frequency: "{frequency}" }
     help: "High-pass frequency applied in Hi-Z mode, protecting the distribution transformer"
     params:
       channel:
@@ -986,6 +994,7 @@ commands:
   set_primary_source:
     label: "Set Primary Source"
     send: 'set /amp/channels/{channel}/inputSelector/primary "{source}"\n'
+    sets: { primary_source: "{source}" }
     help: >
       Route an input to a channel. Analog sources beyond the amp's channel count
       and every Dante source exist only on the models that have them; picking one
@@ -1031,6 +1040,7 @@ commands:
   set_secondary_source:
     label: "Set Secondary Source"
     send: 'set /amp/channels/{channel}/inputSelector/secondary "{source}"\n'
+    sets: { secondary_source: "{source}" }
     help: "Backup / override source for a channel, or None to disable it"
     params:
       channel:
@@ -1073,6 +1083,7 @@ commands:
     label: "Set Primary Input Level"
     help: "Sets the level of a channel's primary input in dB (0 = full level, -80 = off)"
     send: "set /amp/channels/{channel}/inputSelector/primaryFader {level}\n"
+    sets: { primary_fader: "{level}" }
     params:
       channel:
         type: child_id
@@ -1091,6 +1102,7 @@ commands:
     label: "Set Secondary Input Level"
     help: "Sets the level of a channel's secondary (backup or override) input in dB (0 = full level, -80 = off)"
     send: "set /amp/channels/{channel}/inputSelector/secondaryFader {level}\n"
+    sets: { secondary_fader: "{level}" }
     params:
       channel:
         type: child_id
@@ -1108,6 +1120,7 @@ commands:
   set_primary_threshold:
     label: "Set Primary Override Threshold"
     send: "set /amp/channels/{channel}/inputSelector/primaryThreshold {level}\n"
+    sets: { primary_threshold: "{level}" }
     help: "Signal level below which the primary input counts as absent"
     params:
       channel:
@@ -1127,6 +1140,7 @@ commands:
     label: "Set Secondary Override Threshold"
     help: "Sets the secondary input's override threshold for a channel, in dB"
     send: "set /amp/channels/{channel}/inputSelector/secondaryThreshold {level}\n"
+    sets: { secondary_threshold: "{level}" }
     params:
       channel:
         type: child_id
@@ -1144,6 +1158,7 @@ commands:
   set_input_mode:
     label: "Set Priority Mode"
     send: 'set /amp/channels/{channel}/inputSelector/mode "{mode}"\n'
+    sets: { input_mode: "{mode}" }
     help: "Override = auto-override the primary input. Backup = switch on loss of signal."
     params:
       channel:
@@ -1162,6 +1177,7 @@ commands:
   set_input_sensitivity:
     label: "Set Analog Input Sensitivity"
     send: 'set /amp/inputs/analog/{input}/sensitivity "{sensitivity}"\n'
+    sets: { sensitivity: "{sensitivity}" }
     help: "Input gain staging: 26 dB for consumer/line level, 34 dB for professional line level"
     params:
       input:
@@ -1178,6 +1194,7 @@ commands:
   set_dante_on_ramp:
     label: "Set Dante On Ramp"
     send: 'set /amp/channels/{channel}/inputSelector/danteOnRamp "{tap}"\n'
+    sets: { dante_on_ramp: "{tap}" }
     help: "Dante models only — where this channel's Dante transmit signal is tapped from"
     params:
       channel:
@@ -1196,6 +1213,7 @@ commands:
   signal_gen_on:
     label: "Signal Generator On"
     send: "set /amp/channels/{channel}/inputSelector/signalGeneratorEnable true\n"
+    sets: { signal_gen_enable: true }
     help: "Feed the amp-wide signal generator into one channel (for commissioning)"
     params:
       channel:
@@ -1208,6 +1226,7 @@ commands:
     label: "Signal Generator Off"
     help: "Stops the signal generator feeding a channel"
     send: "set /amp/channels/{channel}/inputSelector/signalGeneratorEnable false\n"
+    sets: { signal_gen_enable: false }
     params:
       channel:
         type: child_id
@@ -1219,6 +1238,7 @@ commands:
     label: "Set Signal Generator Level"
     help: "Sets the signal generator's level on a channel in dB (0 = full level, -80 = off)"
     send: "set /amp/channels/{channel}/inputSelector/signalGeneratorFader {level}\n"
+    sets: { signal_gen_fader: "{level}" }
     params:
       channel:
         type: child_id
@@ -1239,6 +1259,7 @@ commands:
     label: "Set Crossover Gain"
     help: "Sets a channel's crossover band gain, -15 to +15 dB"
     send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/gain {gain}\n"
+    sets: { xover_gain: "{gain}" }
     params:
       channel:
         type: child_id
@@ -1256,6 +1277,7 @@ commands:
   set_output_delay:
     label: "Set Output Delay"
     send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/delay {delay}\n"
+    sets: { xover_delay: "{delay}" }
     help: "Time-align this channel's speakers with the rest of the system"
     params:
       channel:
@@ -1275,6 +1297,7 @@ commands:
     label: "Set Polarity"
     help: "Sets a channel's output polarity: normal, or inverted"
     send: "set /amp/channels/{channel}/crossover/bandGainAndDelay/invert {invert}\n"
+    sets: { xover_invert: "{invert}" }
     params:
       channel:
         type: child_id
@@ -1293,6 +1316,7 @@ commands:
     label: "Set Low Pass Filter"
     help: "Turns a channel's crossover low-pass filter on or off"
     send: "set /amp/channels/{channel}/crossover/lowPassFilter/enable {enable}\n"
+    sets: { lpf_enable: "{enable}" }
     params:
       channel:
         type: child_id
@@ -1311,6 +1335,7 @@ commands:
     label: "Set Low Pass Type"
     help: "Sets the slope and alignment of a channel's crossover low-pass filter"
     send: 'set /amp/channels/{channel}/crossover/lowPassFilter/type "{type}"\n'
+    sets: { lpf_type: "{type}" }
     params:
       channel:
         type: child_id
@@ -1339,6 +1364,7 @@ commands:
     label: "Set Low Pass Frequency"
     help: "Sets a channel's crossover low-pass filter frequency, 20 Hz to 20 kHz"
     send: "set /amp/channels/{channel}/crossover/lowPassFilter/frequency {frequency}\n"
+    sets: { lpf_frequency: "{frequency}" }
     params:
       channel:
         type: child_id
@@ -1356,6 +1382,7 @@ commands:
     label: "Set High Pass Filter"
     help: "Turns a channel's crossover high-pass filter on or off"
     send: "set /amp/channels/{channel}/crossover/highPassFilter/enable {enable}\n"
+    sets: { hpf_enable: "{enable}" }
     params:
       channel:
         type: child_id
@@ -1374,6 +1401,7 @@ commands:
     label: "Set High Pass Type"
     help: "Sets the slope and alignment of a channel's crossover high-pass filter"
     send: 'set /amp/channels/{channel}/crossover/highPassFilter/type "{type}"\n'
+    sets: { hpf_type: "{type}" }
     params:
       channel:
         type: child_id
@@ -1390,6 +1418,7 @@ commands:
     label: "Set High Pass Frequency"
     help: "Sets a channel's crossover high-pass filter frequency, 20 Hz to 20 kHz"
     send: "set /amp/channels/{channel}/crossover/highPassFilter/frequency {frequency}\n"
+    sets: { hpf_frequency: "{frequency}" }
     params:
       channel:
         type: child_id
@@ -1536,6 +1565,7 @@ commands:
     label: "Set RMS Limiter"
     help: "Turns a channel's RMS limiter on or off"
     send: "set /amp/channels/{channel}/rmsLimiter/enable {enable}\n"
+    sets: { rms_enable: "{enable}" }
     params:
       channel:
         type: child_id
@@ -1553,6 +1583,7 @@ commands:
   set_rms_threshold:
     label: "Set RMS Limiter Threshold"
     send: "set /amp/channels/{channel}/rmsLimiter/threshold {threshold}\n"
+    sets: { rms_threshold: "{threshold}" }
     help: "Speaker's continuous voltage rating"
     params:
       channel:
@@ -1572,6 +1603,7 @@ commands:
     label: "Set RMS Limiter Attack"
     help: "Sets a channel's RMS limiter attack time in ms (1000 to 10000)"
     send: "set /amp/channels/{channel}/rmsLimiter/attackTime {time}\n"
+    sets: { rms_attack: "{time}" }
     params:
       channel:
         type: child_id
@@ -1590,6 +1622,7 @@ commands:
     label: "Set RMS Limiter Release"
     help: "Sets a channel's RMS limiter release time in ms (1000 to 10000)"
     send: "set /amp/channels/{channel}/rmsLimiter/releaseTime {time}\n"
+    sets: { rms_release: "{time}" }
     params:
       channel:
         type: child_id
@@ -1608,6 +1641,7 @@ commands:
     label: "Set Peak Limiter"
     help: "Turns a channel's peak limiter on or off"
     send: "set /amp/channels/{channel}/peakLimiter/enable {enable}\n"
+    sets: { peak_enable: "{enable}" }
     params:
       channel:
         type: child_id
@@ -1625,6 +1659,7 @@ commands:
   set_peak_threshold:
     label: "Set Peak Limiter Threshold"
     send: "set /amp/channels/{channel}/peakLimiter/threshold {threshold}\n"
+    sets: { peak_threshold: "{threshold}" }
     help: "Speaker's peak voltage rating"
     params:
       channel:
@@ -1644,6 +1679,7 @@ commands:
     label: "Set Peak Limiter Attack"
     help: "Sets a channel's peak limiter attack time in ms (1 to 1000)"
     send: "set /amp/channels/{channel}/peakLimiter/attackTime {time}\n"
+    sets: { peak_attack: "{time}" }
     params:
       channel:
         type: child_id
@@ -1662,6 +1698,7 @@ commands:
     label: "Set Peak Limiter Release"
     help: "Sets a channel's peak limiter release time in ms (1 to 1000)"
     send: "set /amp/channels/{channel}/peakLimiter/releaseTime {time}\n"
+    sets: { peak_release: "{time}" }
     params:
       channel:
         type: child_id
@@ -1681,6 +1718,7 @@ commands:
   set_load_monitor:
     label: "Set Load Monitor"
     send: "set /amp/channels/{channel}/loadMonitor/enable {enable}\n"
+    sets: { load_monitor_enable: "{enable}" }
     help: "Watch this channel's speaker load for a short or an open circuit"
     params:
       channel:
@@ -1699,6 +1737,7 @@ commands:
   set_load_high_limit:
     label: "Set Load High Limit"
     send: "set /amp/channels/{channel}/loadMonitor/highLimit {limit}\n"
+    sets: { load_high_limit: "{limit}" }
     help: "Impedance above this reads as an open circuit (a disconnected speaker)"
     params:
       channel:
@@ -1717,6 +1756,7 @@ commands:
   set_load_low_limit:
     label: "Set Load Low Limit"
     send: "set /amp/channels/{channel}/loadMonitor/lowLimit {limit}\n"
+    sets: { load_low_limit: "{limit}" }
     help: "Impedance below this reads as a short circuit"
     params:
       channel:
@@ -1738,6 +1778,7 @@ commands:
     label: "Set Auto Standby"
     help: "Turns the amplifier's auto standby on or off. With it on, the amp goes to standby once its input stays below the standby threshold for the set wait time"
     send: "set /amp/autoStandby/enable {enable}\n"
+    sets: { auto_standby_enable: "{enable}" }
     params:
       enable:
         type: enum
@@ -1751,6 +1792,7 @@ commands:
     label: "Set Signal Generator Type"
     help: "Chooses what the signal generator plays: pink noise, white noise or a sine tone"
     send: 'set /amp/signalGenerator/type "{type}"\n'
+    sets: { signal_gen_type: "{type}" }
     params:
       type:
         type: enum
@@ -1762,6 +1804,7 @@ commands:
     label: "Set Signal Generator Tone"
     help: "Sets the signal generator's sine tone frequency, 20 Hz to 20 kHz"
     send: "set /amp/signalGenerator/frequency {frequency}\n"
+    sets: { signal_gen_frequency: "{frequency}" }
     params:
       frequency:
         type: integer

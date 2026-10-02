@@ -4265,7 +4265,7 @@
       "name": "LEA Connect Series Amplifier",
       "manufacturer": "LEA Professional",
       "category": "audio",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LEA Professional Connect Series smart amplifiers (Network Connect and Dante Connect) over the LEA Open API on TCP 4321. Each amplifier channel is a child entity with output mute, gain, Hi-Z/Lo-Z mode, input source selection with backup/override, crossover, RMS and peak limiters, load monitoring, and live meters. Amp-wide auto-standby, signal generator, power-supply monitoring, and fault reporting. State is push-driven: the driver subscribes to every element and the amp reports changes as they happen, including changes made from its own web UI.\n",
@@ -4273,7 +4273,7 @@
       "file": "audio/lea_connect.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/lea_connect.avcdriver": "98b2bfc0bbf1db6ab859f5fd5c3b0ae52fe882a25bfcf98dc704ebbb65a8de97"
+        "audio/lea_connect.avcdriver": "ea0066ce0ba4490fd69296a4639b08295ace8b734ebcbd0b5281d84492328f66"
       },
       "ports": [
         4321
@@ -4283,7 +4283,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.24.0",
       "tags": [
         "amplifier",
         "dsp",

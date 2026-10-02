@@ -65,3 +65,67 @@ def test_serial_and_mac_scopes_are_read_when_a_camera_publishes_them():
     assert response["serial_number"] == "ACCC8E123456"
     assert response["mac_address"] == "ac:cc:8e:12:34:56"
     assert response["manufacturer"] == "Acme Cameras"
+
+
+# ── Where the Probe goes ──
+#
+# The multicast reaches every camera on this host's segment. A scan that
+# covers the segment sends it; a scan of addresses elsewhere, one camera's
+# for a device audit included, sends each of them a unicast Probe instead.
+
+MULTICAST = [(COMPANION.WSD_GROUP, COMPANION.WSD_PORT)]
+
+
+def test_a_scan_of_this_segment_multicasts():
+    assert COMPANION._destinations("192.168.4.10", ("192.168.4.0/22",)) == MULTICAST
+
+
+def test_a_scan_of_one_camera_probes_that_camera_only():
+    assert COMPANION._destinations("192.168.4.10", ("192.168.4.50/32",)) == [
+        ("192.168.4.50", COMPANION.WSD_PORT)
+    ]
+
+
+def test_a_wide_range_off_this_segment_sends_nothing():
+    assert COMPANION._destinations("192.168.4.10", ("10.20.0.0/16",)) == []
+
+
+def test_no_range_or_no_source_keeps_the_multicast():
+    assert COMPANION._destinations("192.168.4.10", ()) == MULTICAST
+    assert COMPANION._destinations("", ("192.168.4.50/32",)) == MULTICAST
+
+
+def test_the_probe_sends_where_the_scan_points(monkeypatch):
+    import asyncio
+    import logging
+    import socket
+
+    sent: list[tuple[str, int]] = []
+
+    class _Sock:
+        def sendto(self, data, addr):
+            assert b"MessageID" in data
+            sent.append(addr)
+
+        def settimeout(self, _t):
+            pass
+
+        def recvfrom(self, _n):
+            raise socket.timeout()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(COMPANION, "_make_socket", lambda _ip: _Sock())
+    monkeypatch.setattr(COMPANION, "LISTEN_DURATION", 0.05)
+
+    class _Ctx:
+        source_ip = "192.168.4.10"
+        target_subnets = ("192.168.4.50/32",)
+        log = logging.getLogger("test")
+
+        async def emit_broadcast(self, **_kw):
+            raise AssertionError("no camera answered")
+
+    asyncio.run(COMPANION.probe(_Ctx()))
+    assert sent == [("192.168.4.50", COMPANION.WSD_PORT)]

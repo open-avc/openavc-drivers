@@ -5134,7 +5134,7 @@
       "name": "ONVIF Camera",
       "manufacturer": "ONVIF",
       "category": "camera",
-      "version": "2.0.5",
+      "version": "2.0.6",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls any ONVIF Profile S or Profile T camera or video encoder: pan, tilt, zoom and focus, presets and home, image settings, relay outputs and digital inputs, plus the camera's RTSP stream and snapshot addresses for the Video Panel. Motion, tamper, signal-loss and input changes arrive as events. Use a brand's own driver when the catalog has one; this one covers everything else.",
@@ -5142,8 +5142,8 @@
       "file": "cameras/onvif_camera.py",
       "format": "python",
       "files": {
-        "cameras/onvif_camera.py": "bc7102af74465436a4521bbf0430d353b763069ab0055bb7a6f802a5673585b3",
-        "cameras/onvif_camera_discovery.py": "274b89c3a799d65ee923225ec45bc81420a164b372504fcbd91c8845489b5d47",
+        "cameras/onvif_camera.py": "879fcfa2fc1578f64323191e7010488ba86d3b5bdab98f54d6a53e46363fda91",
+        "cameras/onvif_camera_discovery.py": "603d479e24b1a6a140e8a697d687c56e832f7f80186cfdc5676cd59cfa6dcc76",
         "cameras/onvif_camera_sim.py": "722023e4ed54b3b8c4d4160e23a5492f896a217bbe6a869bf552f30db02c7a58"
       },
       "ports": [

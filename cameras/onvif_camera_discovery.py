@@ -22,7 +22,10 @@ express it, so this companion ships as the Python escape hatch.
 Network safety: the socket binds to ``ctx.source_ip`` and the
 multicast outbound interface is pinned to the same address, so on
 multi-homed hosts the probe leaves through the right NIC and replies
-route back the same way.
+route back the same way. The multicast reaches every camera on that
+segment, so it is sent only when the scan covers the segment; a scan
+of addresses elsewhere, one camera's included, sends each of them a
+unicast Probe instead (``_destinations``).
 
 Reference for envelope shape: OASIS WS-Discovery 1.1 specification
 (the wire format ONVIF requires). No third-party code is copied.
@@ -33,6 +36,7 @@ License: MIT (matches the OpenAVC drivers repo).
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import re
 import socket
 import struct
@@ -71,6 +75,10 @@ _SCOPE_RE = re.compile(
 # with slow firmware may delay; 4 seconds is the sweet spot used by
 # the original built-in scanner.
 LISTEN_DURATION = 4.0
+
+# The most addresses a scan that does not cover this host's own segment
+# sends a unicast Probe to. A wider range is left to the scan's other signals.
+MAX_UNICAST_TARGETS = 256
 
 # TTL ceiling for the multicast send. Spec recommends 1; some routed
 # networks need more, but 4 is a safe ceiling that won't escape the
@@ -204,6 +212,40 @@ def _parse_probe_match(data: bytes, sender_ip: str) -> _ProbeMatch | None:
     return result
 
 
+def _destinations(source_ip: str, target_subnets) -> list[tuple[str, int]]:
+    """Where the Probe goes.
+
+    The multicast reaches every camera on this host's segment, so it is sent
+    only when a scanned subnet holds this host's address, or when the scan
+    names no range or no source to judge by (as before). Otherwise each
+    scanned address gets its own unicast Probe, which WS-Discovery 1.1 lets
+    a target service answer ("MAY also accept and respond to unicast Probe
+    messages sent to its transport address"), up to MAX_UNICAST_TARGETS;
+    past that, nothing is sent.
+    """
+    nets = []
+    for cidr in target_subnets or ():
+        try:
+            nets.append(ipaddress.ip_network(cidr, strict=False))
+        except ValueError:
+            continue
+    if not nets or not source_ip:
+        return [(WSD_GROUP, WSD_PORT)]
+    try:
+        source = ipaddress.ip_address(source_ip)
+    except ValueError:
+        return [(WSD_GROUP, WSD_PORT)]
+    if any(source in net for net in nets):
+        return [(WSD_GROUP, WSD_PORT)]
+    if sum(net.num_addresses for net in nets) > MAX_UNICAST_TARGETS:
+        return []
+    hosts: list[tuple[str, int]] = []
+    for net in nets:
+        addrs = [net.network_address] if net.num_addresses <= 2 else net.hosts()
+        hosts.extend((str(a), WSD_PORT) for a in addrs)
+    return hosts
+
+
 def _make_socket(source_ip: str):
     """Create a UDP socket pinned to the control interface for multicast."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -299,18 +341,31 @@ async def probe(ctx: ProbeContext) -> None:
         return
 
     loop = asyncio.get_event_loop()
-    addr = (WSD_GROUP, WSD_PORT)
+    destinations = _destinations(ctx.source_ip, ctx.target_subnets)
+    if not destinations:
+        ctx.log.debug(
+            "onvif_camera companion: the scanned range is off this segment "
+            "and too wide for unicast probes; nothing sent",
+        )
+        sock.close()
+        return
 
     try:
-        envelope = _build_probe_envelope()
-        try:
-            await loop.run_in_executor(
-                None, lambda: sock.sendto(envelope, addr),
-            )
-        except OSError as exc:
-            ctx.log.debug(
-                "onvif_camera companion: probe send failed: %s", exc,
-            )
+        sent = 0
+        for addr in destinations:
+            # A fresh MessageID per envelope: strict firmware drops a repeat.
+            envelope = _build_probe_envelope()
+            try:
+                await loop.run_in_executor(
+                    None, lambda a=addr, e=envelope: sock.sendto(e, a),
+                )
+                sent += 1
+            except OSError as exc:
+                ctx.log.debug(
+                    "onvif_camera companion: probe send to %s failed: %s",
+                    addr[0], exc,
+                )
+        if not sent:
             return
 
         end = loop.time() + LISTEN_DURATION

@@ -314,8 +314,8 @@
       "drivers": [
         {
           "id": "avproedge_mxnet_1g",
-          "confidence": "untested",
-          "notes": "Add the CONTROL BOX as the device \u2014 the encoders and decoders it manages appear as children. Endpoints covered: AC-MXNET-1G-E / -EV2 / -EWP / -AVDM-E / -DANTE-E encoders and AC-MXNET-1G-D / -DV2 / -AVDM-D / -DANTE-D decoders. The CBOX-HA's high-availability pairing and the MV41V2 multiview companion are configured in MENTOR, not here."
+          "confidence": "full",
+          "notes": "Run against a CBOX-B on firmware 4.32 with a 1G encoder and decoder. The signal fields (resolution, audio format, HDCP, display connected) have not yet been seen with a source and display attached."
         }
       ]
     },
@@ -998,7 +998,7 @@
       "drivers": [
         {
           "id": "chazy_control_pro",
-          "confidence": "untested",
+          "confidence": "full",
           "notes": "Telnet API confirmed against FW 1.10.11."
         }
       ]

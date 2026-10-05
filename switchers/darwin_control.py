@@ -203,7 +203,7 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -216,7 +216,7 @@ class DarwinControlDriver(BaseDriver):
         ),
         "source_url": "https://turtleav.com/",
         "tags": ["av-over-ip", "matrix", "encoder", "decoder", "video-wall", "h265"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["darwin_telnet"],
         "ports": [23],

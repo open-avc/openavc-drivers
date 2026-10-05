@@ -387,7 +387,7 @@
       "name": "AVPro Edge MXNet 1G",
       "manufacturer": "AVPro Edge",
       "category": "switcher",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls an AVPro Edge MXNet 1G AV-over-IP system through its MXNet Control Box (CBOX). Encoders and decoders appear as child entities with per-stream routing, EDID, scaling, CEC/IR/RS-232 passthrough, and video wall, scene, KVM and matrix preset recall.",
@@ -395,7 +395,7 @@
       "file": "switchers/avproedge_mxnet_1g.py",
       "format": "python",
       "files": {
-        "switchers/avproedge_mxnet_1g.py": "1f4a6ab3ecd078566ac1950ace50745b7e653e36864a44e9bb02baa1afcaa5f4",
+        "switchers/avproedge_mxnet_1g.py": "42d1244b8ae430fb803502c9203a29ba79f8fd711b7e5dc1a16f6a8bea4f4b9d",
         "switchers/avproedge_mxnet_1g_sim.py": "95affbb8da8db55d0397ea543172311a5caf03658573587371cf48b34e47693a"
       },
       "ports": [
@@ -405,6 +405,7 @@
         "mxnet_api"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.29.0",
       "tags": [
         "av-over-ip",
@@ -423,8 +424,15 @@
         {
           "manufacturer": "AVPro Edge",
           "models": [
+            "AC-MXNET-CBOX-B"
+          ],
+          "confidence": "full",
+          "notes": "Run against a CBOX-B on firmware 4.32 with a 1G encoder and decoder. The signal fields (resolution, audio format, HDCP, display connected) have not yet been seen with a source and display attached."
+        },
+        {
+          "manufacturer": "AVPro Edge",
+          "models": [
             "AC-MXNET-CBOX",
-            "AC-MXNET-CBOX-B",
             "AC-MXNET-CBOX-HA"
           ],
           "confidence": "untested",
@@ -1110,7 +1118,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.6.3",
+      "version": "1.6.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -1118,7 +1126,7 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "b0aeced1115a403679ab2b799b1be66f8690b4733c860d54e7cbc2f058d30c94",
+        "switchers/chazy_control_pro.py": "cfb0ff2e2acb7c647be8013d4ce666236d4042182d4ed4653be3a487596a5ba8",
         "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
         "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
@@ -1129,6 +1137,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
@@ -1148,7 +1157,7 @@
           "models": [
             "Chazy Control Pro (TAV-CHAZY-CLTPRO)"
           ],
-          "confidence": "untested",
+          "confidence": "full",
           "notes": "Telnet API confirmed against FW 1.10.11."
         }
       ],
@@ -1190,7 +1199,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -1198,7 +1207,7 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "2477d5a6a940f4c814ddc0314c9f66c2017ce8479a3add0a15ec23d2d916145f",
+        "switchers/darwin_control.py": "3db299920cde16787215b476bb4b888e5afa8b61853af737f93d514d9b46d52f",
         "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
         "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
       },
@@ -1209,6 +1218,7 @@
         "darwin_telnet"
       ],
       "simulated": true,
+      "verified": true,
       "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",

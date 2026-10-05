@@ -211,7 +211,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.6.3",
+        "version": "1.6.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -231,7 +231,7 @@ class ChazyControlProDriver(BaseDriver):
         ),
         "source_url": "https://turtleav.com/portfolio/chazy-4k/",
         "tags": ["av-over-ip", "matrix", "encoder", "decoder", "video-wall", "dante"],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["chazy_telnet"],
         "ports": [23],
@@ -303,7 +303,7 @@ class ChazyControlProDriver(BaseDriver):
             {
                 "manufacturer": "TurtleAV",
                 "models": ["Chazy Control Pro (TAV-CHAZY-CLTPRO)"],
-                "confidence": "untested",
+                "confidence": "full",
                 "notes": "Telnet API confirmed against FW 1.10.11.",
             },
         ],

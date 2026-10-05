@@ -299,7 +299,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "name": "AVPro Edge MXNet 1G",
         "manufacturer": "AVPro Edge",
         "category": "switcher",
-        "version": "1.4.1",
+        "version": "1.4.2",
         # Gated on the platform surface this driver actually calls, which is
         # the newest thing it needs -- currently BaseDriver.child_fault(), the
         # child fault vocabulary. On an older box that call is an
@@ -323,7 +323,7 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
             "encoder",
             "decoder",
         ],
-        "verified": False,
+        "verified": True,
         "simulated": True,
         "protocols": ["mxnet_api"],
         "ports": [24],
@@ -383,9 +383,18 @@ class AVProEdgeMXNet1GDriver(BaseDriver):
         "compatible_models": [
             {
                 "manufacturer": "AVPro Edge",
+                "models": ["AC-MXNET-CBOX-B"],
+                "confidence": "full",
+                "notes": (
+                    "Run against a CBOX-B on firmware 4.32 with a 1G encoder and decoder. "
+                    "The signal fields (resolution, audio format, HDCP, display connected) "
+                    "have not yet been seen with a source and display attached."
+                ),
+            },
+            {
+                "manufacturer": "AVPro Edge",
                 "models": [
                     "AC-MXNET-CBOX",
-                    "AC-MXNET-CBOX-B",
                     "AC-MXNET-CBOX-HA",
                 ],
                 "confidence": "untested",

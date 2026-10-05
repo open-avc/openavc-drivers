@@ -424,7 +424,7 @@ def test_metadata():
     assert info["manufacturer"] == "AVPro Edge"
     assert info["transport"] == "tcp"
     assert info["ports"] == [24]
-    assert info["version"] == "1.4.1"
+    assert info["version"] == "1.4.2"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     # 0.27.0 was the routing: block. 0.28.0 is the combined "All streams"

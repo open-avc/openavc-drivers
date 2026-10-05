@@ -37,6 +37,7 @@ from .avcdriver_semantic import (
     platform_version_errors,
     routing_block_errors,
     validate_actions,
+    value_conversion_errors,
 )
 
 
@@ -333,6 +334,10 @@ def python_driver_info_issues(
     # coverage, not a verdict, so it must never reach a caller as an issue.
     reference_errors, _ = child_param_reference_errors(info)
     issues.extend(reference_errors)
+
+    # scale / offset / unknown are converted by the YAML runtime only; on a
+    # Python driver they would silently do nothing, so they are refused.
+    issues.extend(value_conversion_errors(info, python=True))
 
     return issues
 

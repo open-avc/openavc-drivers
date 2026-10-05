@@ -14,7 +14,11 @@ One fixture per driver, named by driver id:
 `index.json` and, **for every driver that has a fixture here**, replays it
 through a small stdlib matcher (mirroring openavc's
 `openavc/discovery/probe_runner`) to confirm the declaration matches the capture
-and each extract rule pulls a value.
+and each extract rule pulls a value. It also replays the capture through every
+other driver whose probe sends the same bytes to the same port: none of them
+may match it, or a scan of that device would offer those drivers as well.
+Drivers that are meant to share a device are listed in `INTENDED_OVERLAPS` in
+the test, each with its reason.
 
 A driver may declare a probe without shipping a fixture (e.g. no hardware to
 capture from) — it simply isn't replayed. Capturing one is how you add

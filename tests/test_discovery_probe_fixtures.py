@@ -152,3 +152,93 @@ def test_fixture_matches_declared_probe(driver_id, kind, probe, aliases):
             f"{driver_id}: extracted vendor {vendor!r} is not in manufacturer_alias "
             f"{aliases}; cross-vendor narrowing won't fire."
         )
+
+
+# ---------------------------------------------------------------------------
+# One captured reply, one driver
+# ---------------------------------------------------------------------------
+#
+# Drivers whose probes ask a device the same thing (same port, same bytes
+# sent, same TLS) all receive that device's one reply, so a capture is
+# evidence against every one of them. When another driver's matcher also
+# hits a driver's capture, a scan of that device offers both drivers, and the
+# second one is usually wrong (a sibling product's reply that the probe was
+# too loose to tell apart). A capture is only checked against probes that
+# send what it was captured in reply to; a probe with a ``then:`` step or a
+# ``cert_subject`` is not judged as the other side, since this mirror cannot
+# replay either.
+
+# Driver pairs whose probes are meant to match the same device: a scan offers
+# both and the integrator picks. Each entry quotes the driver that says so.
+INTENDED_OVERLAPS = {
+    # panasonic_display: "NTCONTROL is shared with Panasonic projectors, so a
+    # projector scan may surface both this driver and panasonic_pt".
+    frozenset({"panasonic_display", "panasonic_pt"}),
+}
+
+
+def _send_bytes(probe: dict) -> bytes:
+    """The bytes a probe sends (mirrors openavc/discovery/hints)."""
+    if probe.get("send_hex"):
+        return bytes.fromhex(probe["send_hex"].replace(" ", "").replace(":", ""))
+    if probe.get("send_ascii"):
+        return probe["send_ascii"].encode("utf-8")
+    return b""
+
+
+def _exchange(kind: str, probe: dict) -> tuple:
+    return (kind, probe.get("port"), _send_bytes(probe), bool(probe.get("tls")))
+
+
+def _same_exchange() -> dict[tuple, list[tuple[str, dict]]]:
+    groups: dict[tuple, list[tuple[str, dict]]] = {}
+    for driver_id, kind, probe, _aliases in _PROBE_SPECS:
+        groups.setdefault(_exchange(kind, probe), []).append((driver_id, probe))
+    return {key: drivers for key, drivers in groups.items() if len(drivers) > 1}
+
+
+_SHARED = _same_exchange()
+_SHARED_WITH_FIXTURE = [
+    s for s in _WITH_FIXTURE if _exchange(s[1], s[2]) in _SHARED
+]
+
+
+@pytest.mark.parametrize(
+    ("driver_id", "kind", "probe"),
+    [
+        pytest.param(driver_id, kind, probe, id=f"{driver_id}-{kind}")
+        for driver_id, kind, probe, _aliases in _SHARED_WITH_FIXTURE
+    ],
+)
+def test_a_captured_reply_matches_no_other_driver_asking_the_same_thing(driver_id, kind, probe):
+    fixture = _fixture_for(driver_id)
+    payload = fixture.read_bytes()
+    also = [
+        other
+        for other, other_probe in _SHARED[_exchange(kind, probe)]
+        if other != driver_id
+        and not other_probe.get("then")
+        and not other_probe.get("cert_subject")
+        and frozenset({driver_id, other}) not in INTENDED_OVERLAPS
+        and _matches(payload, other_probe)
+    ]
+
+    assert not also, (
+        f"{driver_id}: the captured reply {fixture.name!r} also matches the {kind} of "
+        f"{also}, which send the same bytes to port {probe.get('port')}. A scan of this "
+        "device would offer those drivers too. Make each probe expect something only "
+        "its own device says, or, if both drivers are meant to be offered, add the "
+        "pair to INTENDED_OVERLAPS with the driver's own words for why."
+    )
+
+
+@pytest.mark.parametrize(
+    "pair", [pytest.param(p, id="+".join(sorted(p))) for p in INTENDED_OVERLAPS],
+)
+def test_an_intended_overlap_names_two_drivers_asking_the_same_thing(pair):
+    assert any(
+        pair <= {driver_id for driver_id, _probe in drivers} for drivers in _SHARED.values()
+    ), (
+        f"INTENDED_OVERLAPS lists {sorted(pair)}, but those drivers no longer declare "
+        "probes that send the same bytes to the same port. Remove the entry."
+    )

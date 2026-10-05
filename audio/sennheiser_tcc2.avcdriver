@@ -64,9 +64,9 @@ id: sennheiser_tcc2
 name: Sennheiser TeamConnect Ceiling 2
 manufacturer: Sennheiser
 category: audio
-version: "1.1.0"
+version: "1.1.1"
 author: OpenAVC
-min_platform_version: "0.34.0"
+min_platform_version: "0.36.0"
 description: >
   Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone
   over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity,
@@ -1121,6 +1121,7 @@ commands:
     help: "Reboot the microphone. Audio drops for about a minute."
   restore:
     label: Restore Defaults
+    confirm: "Puts the chosen settings back to their defaults. Factory Defaults and Dante Factory Defaults also reset the network settings and reboot the microphone."
     send: '{"device":{"restore":"{scope}"}}'
     help: >
       Audio Defaults resets the audio settings and keeps the microphone

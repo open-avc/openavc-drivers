@@ -43,7 +43,7 @@ id: viewsonic_cde
 name: ViewSonic Commercial Display
 manufacturer: ViewSonic
 category: display
-version: 2.0.0
+version: 2.0.1
 author: OpenAVC
 description: >-
   Controls ViewSonic CDE-series commercial displays (and other ViewSonic
@@ -59,7 +59,7 @@ tags: [display, viewsonic, cde, signage, lfd, rs232, lan-control]
 verified: false
 simulated: true
 ports: [5000]
-min_platform_version: "0.34.0"
+min_platform_version: "0.36.0"
 compatible_models:
   - manufacturer: ViewSonic
     models:
@@ -733,6 +733,7 @@ commands:
       key: { type: integer, required: true, label: Hot Key (1-999), min: 1, max: 999 }
   restore_default:
     label: Restore Factory Defaults
+    confirm: "Returns the display to its factory settings, erasing its own configuration."
     help: Recover the display to factory settings. This wipes the display's own configuration; use with care.
     send: "s~000"
   raw_command:

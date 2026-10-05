@@ -179,4 +179,5 @@ def test_awhe_registration_commands():
 
 def test_awhe_gates_on_platform_with_tcp_listener():
     driver = load_driver()
-    assert driver["min_platform_version"] == "0.23.0"
+    # tcp_listener needs 0.23.0; confirm on Preset Delete raised it to 0.36.0.
+    assert driver["min_platform_version"] == "0.36.0"

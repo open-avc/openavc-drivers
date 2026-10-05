@@ -344,10 +344,10 @@ def test_driver_identity():
     assert INFO["id"] == "darwin_control"
     assert INFO["manufacturer"] == "TurtleAV"
     assert INFO["transport"] == "tcp"
-    assert INFO["version"] == "1.2.0"
+    assert INFO["version"] == "1.2.1"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert INFO["min_platform_version"] == "0.27.0"
+    assert INFO["min_platform_version"] == "0.36.0"
 
 
 # ── Command surface consistency ──
@@ -616,3 +616,32 @@ async def test_transport_drop_also_clears_receive_state():
     assert transport.connected is False
     assert d._rx_buffer == b""
     assert "device.disconnected.ctl1" in d.events.emitted
+
+
+# ── A command that erases, deletes or resets asks first ─────────────────────
+#
+# Sent by hand (the device page, Live Test, a device audit) each of these asks
+# before it goes; macros, triggers and panel buttons send it as before. The
+# commands are built in code, so this file, which loads the class, pins them.
+
+_ASKS_FIRST = (
+    "reset_system_confirm",
+    "reset_network_confirm",
+    "reset_all_confirm",
+    "enc_reset",
+    "dec_reset",
+    "add_dev_reset",
+    "enc_delete",
+    "dec_delete",
+    "dec_hotkey_del",
+    "wall_delete",
+    "wall_preset_delete",
+)
+
+
+@pytest.mark.parametrize("command", _ASKS_FIRST)
+def test_a_command_that_erases_or_deletes_asks_first(command):
+    confirm = INFO["commands"][command].get("confirm")
+    assert isinstance(confirm, str) and confirm.strip(), command
+    assert "—" not in confirm
+

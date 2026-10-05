@@ -157,7 +157,7 @@
       "name": "QLab Show Control",
       "manufacturer": "Figure 53",
       "category": "video",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
@@ -165,7 +165,7 @@
       "file": "video/qlab.py",
       "format": "python",
       "files": {
-        "video/qlab.py": "1ecf8486c9a7b376cb7774282683fb82c4e50e976a5e686d75696b8bbd163a18",
+        "video/qlab.py": "a9ce27f7c330e042cf59117e58bd7cd7d7f9ddf9232b29c8ae38b6b6bf472348",
         "video/qlab_sim.py": "4bdfdfae05c5405a7115959182e93a93c88c9cfb07748008f1761766af35cf29"
       },
       "ports": [
@@ -173,7 +173,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.29.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "osc",
         "show-control",
@@ -211,7 +211,7 @@
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
       "category": "video",
-      "version": "1.6.3",
+      "version": "1.6.4",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
@@ -219,7 +219,7 @@
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/novastar_h_series.avcdriver": "e6c0fc3249b49e41a55f9743dbef90bdbe0665d975409e3de7f6ef094c07946e"
+        "video/novastar_h_series.avcdriver": "55c1b64f07126f70284c99898d37d9cecaf6a6ea913728421509aef2e14e4a21"
       },
       "ports": [
         6000
@@ -408,7 +408,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.3.3",
+      "version": "2.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
@@ -416,7 +416,7 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "47e93264483da3ccb524b7cd6e4d65aeba208085c4dcbd9f742f35d43ad36115",
+        "video/vmix.py": "f38df8195508d449a2297bef52259e75438e8fb31d947abbfb084eefe4ac046b",
         "video/vmix_sim.py": "825c876a8ef02d87b5ffc3d19251b4e9a9f4505c58d1b8f33ab45414d00e2035"
       },
       "ports": [
@@ -424,7 +424,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "video-production",
         "streaming",

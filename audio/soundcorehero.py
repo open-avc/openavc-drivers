@@ -147,7 +147,7 @@ class SoundCoreHeroDriver(BaseDriver):
         "name": "SoundCoreHero Audio System",
         "manufacturer": "Hero AV",
         "category": "audio",
-        "version": "1.0.4",
+        "version": "1.0.5",
         "author": "Wiktor Myszolow (Hero AV)",
         "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
         "source_url": "https://soundcorehero.com",
@@ -601,6 +601,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "player_remove": {
                 "label": "Player: Remove",
+                "confirm": "Deletes this player from the unit.",
                 "params": {"player_id": {"type": "child_id", "child_type": "player", "required": True}},
             },
 
@@ -764,6 +765,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "zone_remove": {
                 "label": "Zone: Remove",
+                "confirm": "Deletes this zone from the unit.",
                 "params": {"zone_id": {"type": "child_id", "child_type": "zone", "required": True}},
             },
             "zone_announcement_abort": {
@@ -907,6 +909,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "speaker_remove": {
                 "label": "Speaker: Remove",
+                "confirm": "Deletes this speaker from the unit.",
                 "params": {"speaker_id": {"type": "child_id", "child_type": "speaker", "required": True}},
             },
 
@@ -1036,6 +1039,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "input_remove": {
                 "label": "Input: Remove",
+                "confirm": "Deletes this input from the unit.",
                 "params": {"input_id": {"type": "child_id", "child_type": "input", "required": True}},
             },
 
@@ -1094,6 +1098,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "playlist_remove": {
                 "label": "Playlist: Remove",
+                "confirm": "Deletes this playlist from the unit.",
                 "params": {"playlist_id": {"type": "string", "required": True, "help": "Playlist UUID."}},
             },
             "playlist_rename": {
@@ -1127,6 +1132,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "playlist_remove_item": {
                 "label": "Playlist: Remove Item(s)",
+                "confirm": "Removes these items from the playlist.",
                 "params": {
                     "playlist_id": {"type": "string", "required": True},
                     "positions": {"type": "string", "required": True,
@@ -1189,6 +1195,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "announcement_remove": {
                 "label": "Announcement: Remove",
+                "confirm": "Deletes this announcement from the unit.",
                 "params": {"announcement_id": {"type": "string", "required": True}},
             },
             "announcement_play_to_zones": {
@@ -1233,6 +1240,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "preset_remove": {
                 "label": "Preset: Remove",
+                "confirm": "Deletes this preset from the unit.",
                 "params": {
                     "kind": {"type": "enum", "required": True,
                              "values": ["eq", "gate", "ducker", "limiter", "compressor"]},
@@ -1285,6 +1293,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "action_remove": {
                 "label": "Action: Remove",
+                "confirm": "Deletes this action from the unit.",
                 "params": {"action_id": {"type": "string", "required": True}},
             },
             "action_get_all": {
@@ -1310,6 +1319,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "action_group_remove": {
                 "label": "Action Group: Remove",
+                "confirm": "Deletes this action group from the unit.",
                 "params": {"action_group_id": {"type": "string", "required": True}},
             },
             "action_group_get_all": {
@@ -1423,6 +1433,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "project_remove": {
                 "label": "Project: Remove",
+                "confirm": "Deletes this project from the unit.",
                 "params": {"project_name": {"type": "string", "required": True}},
             },
             "project_get_all": {
@@ -1485,6 +1496,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "software_update_remove": {
                 "label": "Update: Remove Downloaded",
+                "confirm": "Deletes the downloaded software update. It has to be downloaded again to install it.",
                 "params": {},
             },
             "software_update_install": {
@@ -1534,6 +1546,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "users_remove_api_key": {
                 "label": "Users: Remove API Key",
+                "confirm": "Removes this user's API key. Anything using it loses access.",
                 "params": {"user_name": {"type": "string", "required": True}},
             },
             "users_logout": {
@@ -1585,6 +1598,7 @@ class SoundCoreHeroDriver(BaseDriver):
             },
             "file_remove": {
                 "label": "Files: Remove",
+                "confirm": "Deletes these files from the unit.",
                 "params": {
                     "path": {"type": "string", "required": True, "help": "Comma-separated paths."},
                     "force": {"type": "boolean", "required": False},

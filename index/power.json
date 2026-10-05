@@ -12,7 +12,7 @@
       "name": "APC Switched Rack PDU",
       "manufacturer": "APC",
       "category": "power",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "snmp",
       "description": "Controls APC Switched Rack PDUs over SNMP v2c. Outlets, banks, phases and the temperature/humidity sensor are addressable children read off the device, with named on/off/reboot commands, per-outlet delays, load thresholds and energy metering. Covers both the Rack PDU 2G MIB (AP84xx/86xx/88xx/89xx) and the first-generation one (AP79xx), detected on connect.",
@@ -20,7 +20,7 @@
       "file": "power/apc_rack_pdu.py",
       "format": "python",
       "files": {
-        "power/apc_rack_pdu.py": "6306eadcfc7fc7816b59ceb3e2722cfea12987c98012bd2cfdf5eb9f99851293",
+        "power/apc_rack_pdu.py": "819132d516c948bf7100b6b6e862c05b42bd3d841ec892997c15746ab6cee87c",
         "power/apc_rack_pdu_sim.py": "41db84a0b888b7d67979d15fe21f3964a2d810fc45cd3efe80f6f544ab12462f"
       },
       "ports": [
@@ -31,7 +31,7 @@
         "powernet-mib"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "pdu",
         "power",
@@ -183,7 +183,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Outlets are addressable children with per-outlet state, name, and power metering. Supports on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
@@ -191,7 +191,7 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "9b1c20940c6bba18b70c2a0c4492461b1372571a698f6284eb615f14265f1b6c",
+        "power/wattbox_ip.py": "c399291200bb7426505b7fde7fd15462169f81551501b37afe7969f60c73d88e",
         "power/wattbox_ip_sim.py": "e6306a9adaaea62b0729ad8e022c9fff7bc7d488efa1cbb37884891c83eec981"
       },
       "ports": [
@@ -201,7 +201,7 @@
         "wattbox-integration-v1.7"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "pdu",
         "power",

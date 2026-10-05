@@ -262,10 +262,10 @@ async def _settle(drv):
 def test_version_and_platform_gate():
     info = DRV.QLabDriver.DRIVER_INFO
     assert info["id"] == "qlab"
-    assert info["version"] == "2.0.1"
+    assert info["version"] == "2.0.2"
     assert info["transport"] == "osc"
-    # LAST_ERROR_PROPERTY is the newest platform surface the driver uses.
-    assert info["min_platform_version"] == "0.29.0"
+    # confirm on Reset Workspace is the newest platform field it declares.
+    assert info["min_platform_version"] == "0.36.0"
 
 
 def test_every_declared_command_is_dispatched_and_nothing_else():

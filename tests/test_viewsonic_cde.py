@@ -123,14 +123,15 @@ def _reply32(code: str, value: str, mid: int = 1) -> bytes:
 
 def test_metadata_shape():
     assert INFO["id"] == "viewsonic_cde"
-    assert INFO["version"] == "2.0.0"
+    assert INFO["version"] == "2.0.1"
     assert INFO["transport"] == "tcp"
     assert INFO["transports"] == ["tcp", "serial"]
     assert INFO["delimiter"] == "\r"
     assert INFO["command_prefix"] == "8{monitor_id:02d}"
     assert INFO["command_suffix"] == "\r"
-    # The udp: block is a 0.34.0 field, and the floor says so.
-    assert INFO["min_platform_version"] == "0.34.0"
+    # The udp: block is a 0.34.0 field and confirm a 0.36.0 one; the floor
+    # says so.
+    assert INFO["min_platform_version"] == "0.36.0"
     for cid in INFO["quick_actions"]:
         assert cid in INFO["commands"], cid
     for key, setting in INFO["device_settings"].items():

@@ -185,14 +185,15 @@ class ExtronNavDriver(BaseDriver):
         "name": "Extron NAV Pro AV-over-IP (NAVigator)",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "author": "OpenAVC",
         # Computed by `python -m openavc.drivers.check` from restarts_device_for
         # (0.34.0). BaseDriver.child_fault() -- which this driver calls on every
         # endpoint poll -- needs 0.29.0 and the check cannot see a method call,
         # so 0.34.0 covers both. On an older box child_fault() would be an
         # AttributeError in the middle of a poll and take the roster down.
-        "min_platform_version": "0.34.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "description": (
             "Route and monitor an Extron NAV Pro AV-over-IP system through its "
             "NAVigator System Manager: video, audio and USB ties, WindoWall "
@@ -695,11 +696,13 @@ class ExtronNavDriver(BaseDriver):
             },
             "clear_av_ties": {
                 "label": "Clear All AV Ties",
+                "confirm": "Unties every output on the system, so every display loses its source.",
                 "help": "Untie every output on the system.",
                 "params": {},
             },
             "clear_usb_ties": {
                 "label": "Clear All USB Ties",
+                "confirm": "Unties every USB connection on the system.",
                 "params": {},
             },
             "quick_tie": {
@@ -784,6 +787,7 @@ class ExtronNavDriver(BaseDriver):
             },
             "reset_device_name": {
                 "label": "Reset Name To Factory Default",
+                "confirm": "Replaces the NAVigator's name with its factory name.",
                 "help": "Set the NAVigator's name back to \"NAVigator-\" plus "
                         "the last three pairs of its MAC address.",
                 "params": {},
@@ -810,6 +814,7 @@ class ExtronNavDriver(BaseDriver):
             },
             "factory_reset": {
                 "label": "Full Factory Reset",
+                "confirm": "Erases the NAVigator: every setting, endpoint assignment and file. Video stops until it is set up again.",
                 "help": "Absolute system reset. This ERASES the NAVigator: "
                         "every setting, every endpoint assignment and every "
                         "file, and the passwords revert to the factory "

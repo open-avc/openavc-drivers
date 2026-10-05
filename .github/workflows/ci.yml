@@ -102,4 +102,5 @@ jobs:
           python -m pytest \
             tests/test_platform_stub_fidelity.py \
             tests/test_doc_python_examples.py \
+            tests/test_commands_that_erase_ask_first.py \
             tests/test_connect_lifecycle.py -v

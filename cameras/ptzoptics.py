@@ -109,10 +109,11 @@ class PTZOpticsDriver(BaseDriver):
         "name": "PTZOptics Camera",
         "manufacturer": "PTZOptics",
         "category": "camera",
-        "version": "1.3.2",
+        "version": "1.3.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "description": (
             "Controls PTZOptics PTZ cameras over the VISCA-over-IP "
             "protocol on TCP port 5678. Pan, tilt, zoom, focus, "
@@ -621,6 +622,7 @@ class PTZOpticsDriver(BaseDriver):
             },
             "reset_preset": {
                 "label": "Delete Preset",
+                "confirm": "Deletes this preset from the camera.",
                 "params": {
                     "number": {
                         "type": "integer",

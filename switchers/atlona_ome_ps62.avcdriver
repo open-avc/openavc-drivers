@@ -59,7 +59,7 @@ id: atlona_ome_ps62
 name: Atlona AT-OME-PS62 Matrix Switcher
 manufacturer: Atlona
 category: switcher
-version: 1.5.1
+version: 1.5.2
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
@@ -301,6 +301,7 @@ commands:
 
   route_reset:
     label: Reset Routing (1-to-1)
+    confirm: "Routes input 1 to output 1 and input 2 to output 2, replacing the current routes."
     send: "All#\r"
     help: "Route input 1 to output 1 and input 2 to output 2."
 

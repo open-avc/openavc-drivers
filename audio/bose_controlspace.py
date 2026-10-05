@@ -1724,6 +1724,7 @@ COMMANDS: dict[str, dict[str, Any]] = {
     },
     "reset_network_defaults": {
         "label": "Reset Network Settings to Defaults",
+        "confirm": "Returns every network setting to its factory default at the next reboot, so the unit may come back on a different address.",
         "help": "Return every network setting to the factory default (an ESP-00 becomes "
                 "192.168.0.16; the others go to DHCP). Takes effect after a reboot.",
     },
@@ -1748,8 +1749,9 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.2",
-        "min_platform_version": "0.25.0",
+        "version": "1.0.3",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls Bose Professional ControlSpace EX, ESP and CSP processors "

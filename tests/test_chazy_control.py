@@ -389,11 +389,11 @@ def test_driver_identity():
     assert INFO["id"] == "chazy_control"
     assert INFO["manufacturer"] == "TurtleAV"
     assert INFO["transport"] == "tcp"
-    assert INFO["version"] == "1.4.1"
+    assert INFO["version"] == "1.4.2"
     # The floor is the newest platform surface the driver CALLS. That was the
     # 0.25.0 package move until it began asserting a child fault code, which
     # is BaseDriver.child_fault() and arrived in 0.29.0.
-    assert INFO["min_platform_version"] == "0.29.0"
+    assert INFO["min_platform_version"] == "0.36.0"
     assert INFO["simulated"] is True
 
 
@@ -809,4 +809,32 @@ def test_a_config_child_is_in_service_and_claims_nothing():
     st = d.get_child_state("video_wall", 1)
     assert st["online"] is True
     assert st["offline_reason"] is None and st["offline_detail"] is None
+
+
+# ── A command that erases, deletes or resets asks first ─────────────────────
+#
+# Sent by hand (the device page, Live Test, a device audit) each of these asks
+# before it goes; macros, triggers and panel buttons send it as before. The
+# commands are built in code, so this file, which loads the class, pins them.
+
+_ASKS_FIRST = (
+    "reset_system_confirm",
+    "reset_network_confirm",
+    "reset_all_confirm",
+    "enc_reset",
+    "dec_reset",
+    "add_dev_reset",
+    "enc_delete",
+    "dec_delete",
+    "wall_delete",
+    "wall_delete_preset",
+    "dante_txflow_delete",
+)
+
+
+@pytest.mark.parametrize("command", _ASKS_FIRST)
+def test_a_command_that_erases_or_deletes_asks_first(command):
+    confirm = INFO["commands"][command].get("confirm")
+    assert isinstance(confirm, str) and confirm.strip(), command
+    assert "—" not in confirm
 

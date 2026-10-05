@@ -171,7 +171,7 @@ class QLabDriver(BaseDriver):
         "name": "QLab Show Control",
         "manufacturer": "Figure 53",
         "category": "video",
-        "version": "2.0.1",
+        "version": "2.0.2",
         "author": "OpenAVC",
         "description": "Controls Figure 53's QLab show-control / playback "
                        "software (macOS) over OSC. GO, STOP, PANIC, "
@@ -187,7 +187,8 @@ class QLabDriver(BaseDriver):
         "simulated": True,
         "transport": "osc",
         "ports": [53000],
-        "min_platform_version": "0.29.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "compatible_models": [
             {
                 "manufacturer": "Figure 53",
@@ -335,6 +336,7 @@ class QLabDriver(BaseDriver):
             },
             "reset": {
                 "label": "Reset Workspace",
+                "confirm": "Stops every running cue and moves the playhead back to the top of the cue list.",
                 "help": "Stop everything and move the playhead back to the top "
                         "of the cue list.",
             },

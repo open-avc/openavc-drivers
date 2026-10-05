@@ -198,8 +198,8 @@ def pair():
 
 def test_metadata_shape():
     info = DRV.BenqDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.1.0"
-    assert info["min_platform_version"] == "0.34.0"
+    assert info["version"] == "1.1.1"
+    assert info["min_platform_version"] == "0.36.0"
     assert info["ports"] == [4660]
     assert info["transports"] == ["tcp", "serial"]
     # Every device setting reads back through a declared state variable.

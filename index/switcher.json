@@ -71,7 +71,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -79,7 +79,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "66612992aa9180f502fe76df8b2c49777f353f0adabe8e06e8a9a0e2e94ed172"
+        "switchers/atlona_ome_ps62.avcdriver": "1c524cf7ec5c3ea65d3492f02c69c5f18ac14041c357194b94fb27ae05c7f656"
       },
       "ports": [
         23
@@ -126,7 +126,7 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Every output is a child entity tracking its routed source, and every HDBaseT audio zone a child with volume and mute \u2014 the Output IDs / Audio Zone IDs config lists match the roster to the model (defaults describe the 88M, including its HDMI mirror outputs). Also covers power, presets (save / recall / clear), HDMI output mirroring, front-panel lock, and identify.\n",
@@ -134,7 +134,7 @@
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_uhd_pro3.avcdriver": "a25fb96ff4e48ac6056199036dbe1696c8817d684cdc999367f0864b0114cca2"
+        "switchers/atlona_uhd_pro3.avcdriver": "35d7041930cbce234bc5821262aae397c32a1637c4a1cf009b03a6816589d926"
       },
       "ports": [
         23
@@ -143,7 +143,7 @@
         "atlona_pro3"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -695,7 +695,7 @@
       "name": "Extron NAV Pro AV-over-IP (NAVigator)",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Route and monitor an Extron NAV Pro AV-over-IP system through its NAVigator System Manager: video, audio and USB ties, WindoWall video-wall presets and windows, KVM workstation presets, system alarms, and every managed encoder and decoder as a child entity. Requires the free LinkLicense for Third-Party Control on the NAVigator.",
@@ -703,7 +703,7 @@
       "file": "switchers/extron_nav.py",
       "format": "python",
       "files": {
-        "switchers/extron_nav.py": "e354dcc2bc84db0bdad66b719d70e4808426bb5f3aece4cc023818488c7080d6",
+        "switchers/extron_nav.py": "53208f48e0656345ddd0af18d2f0fc1a9cb38f7e09c85c291cd27b7e6806c4c6",
         "switchers/extron_nav_sim.py": "62f8618d94e8560234dc4c83df2b1dcdee3ad7e281d5dde604efce7d12fe6cc4"
       },
       "ports": [
@@ -713,7 +713,7 @@
         "extron_sis"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -957,7 +957,7 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each configured output and input is a child entity tracking its routed source, mute, lock, HDCP, 5V and signal-type state per port, updated in real time via change-notification subscriptions with a keep-alive watchdog guarding the link. Provides video and audio crosspoint switching, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
@@ -965,7 +965,7 @@
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "3545f8155f192750ee6d50f3d083031fb0435fa32315eb61cd3eb65c330036af"
+        "switchers/lightware_lw3.avcdriver": "4b775efd52328678c26d700e661067638bb597d5706388d51e74c5b42e442b0d"
       },
       "ports": [
         6107
@@ -974,7 +974,7 @@
         "lightware_lw3"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -1033,7 +1033,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -1041,7 +1041,7 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "d439bfbc99e89b345292a814fe0a2eae294fece4778c9b862c3b132efd9e454b",
+        "switchers/chazy_control.py": "11433daff57098afcc7d885dc76b26390046fdfd9450bc648298c99408c2811d",
         "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
         "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
       },
@@ -1052,7 +1052,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.29.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -1110,7 +1110,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.6.2",
+      "version": "1.6.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -1118,7 +1118,7 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "f8a0a5d57b6b7cb0f8f4b2fb4bd74bf4494ff584ef19218d553dc90085556fe7",
+        "switchers/chazy_control_pro.py": "b0aeced1115a403679ab2b799b1be66f8690b4733c860d54e7cbc2f058d30c94",
         "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
         "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
@@ -1129,7 +1129,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.29.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -1190,7 +1190,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -1198,7 +1198,7 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "bad378a2e34530dbe732b99170b755c037f5a92c3193c4d3b3500bcdac98a3d0",
+        "switchers/darwin_control.py": "2477d5a6a940f4c814ddc0314c9f66c2017ce8479a3add0a15ec23d2d916145f",
         "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
         "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
       },
@@ -1209,7 +1209,7 @@
         "darwin_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",

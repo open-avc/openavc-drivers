@@ -295,3 +295,13 @@ def test_discovery_hints_declared():
     assert "netgear" in disc["manufacturer_alias"]
     # The generic UPnP device type must NOT be declared as an ssdp fingerprint.
     assert "ssdp" not in disc
+
+
+def test_reset_all_poe_ports_asks_first():
+    # Sent by hand (the device page, Live Test, a device audit) it asks before
+    # it power-cycles every PoE device on the switch; macros, triggers and panel
+    # buttons send it as before. Built in code, so this file pins it.
+    confirm = INFO["commands"]["poe_reset_all"].get("confirm")
+    assert isinstance(confirm, str) and confirm.strip()
+    assert "—" not in confirm
+    assert INFO["min_platform_version"] == "0.36.0"

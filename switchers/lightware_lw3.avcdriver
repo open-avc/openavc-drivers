@@ -59,9 +59,9 @@ id: lightware_lw3
 name: Lightware LW3
 manufacturer: Lightware
 category: switcher
-version: 1.6.0
+version: 1.6.1
 author: OpenAVC
-min_platform_version: "0.27.0"
+min_platform_version: "0.36.0"
 description: >
   Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over
   TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each
@@ -670,6 +670,7 @@ commands:
 
   reset_edid:
     label: Reset Emulated EDIDs
+    confirm: "Replaces every emulated EDID with the factory default."
     send: "CALL /V1/EDID:reset()\r\n"
     help: "Reset all emulated EDIDs to factory defaults."
 

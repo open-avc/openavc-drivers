@@ -44,9 +44,9 @@ id: turtle_bt_wallplate
 name: Turtle AV Dante Bluetooth Wallplate
 manufacturer: TurtleAV
 category: audio
-version: 1.2.1
+version: 1.2.2
 author: OpenAVC
-min_platform_version: "0.23.0"
+min_platform_version: "0.36.0"
 description: >
   Controls the Turtle AV Dante Bluetooth Wallplate (WPD20BUS) over Telnet.
   Bridges a stereo Bluetooth source into Dante. Input gain/mute/stereo,
@@ -463,6 +463,7 @@ commands:
 
   bt_clear_paired:
     label: Clear Paired Devices
+    confirm: "Forgets the stored Bluetooth pairings. Each device has to be paired again."
     send: 'set bt paired clear {target}\r\n'
     help: "Clear stored Bluetooth pairings."
     params:
@@ -578,6 +579,7 @@ commands:
 
   eq_clear:
     label: Clear EQ
+    confirm: "Sets every EQ band on the channel back to flat, losing its settings."
     send: 'set {channel} eq clear\r\n'
     help: "Reset all EQ bands on a channel to flat."
     params:

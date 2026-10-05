@@ -68,9 +68,9 @@ id: atlona_uhd_pro3
 name: Atlona AT-UHD-PRO3 Matrix
 manufacturer: Atlona
 category: switcher
-version: 1.5.0
+version: 1.5.1
 author: OpenAVC
-min_platform_version: "0.27.0"
+min_platform_version: "0.36.0"
 description: >
   Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers
   (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Every output is a
@@ -326,6 +326,7 @@ commands:
 
   route_reset:
     label: Reset Routing (1-to-1)
+    confirm: "Routes each input to the output of the same number, replacing every current route."
     send: "All#\r"
     help: "Reset routing to one-to-one (Input 1 → Output 1, Input 2 → Output 2, etc.). Other settings unchanged."
 
@@ -516,6 +517,7 @@ commands:
 
   clear_preset:
     label: Clear Preset
+    confirm: "Deletes this saved preset."
     send: "Clear{preset}\r"
     params:
       preset:

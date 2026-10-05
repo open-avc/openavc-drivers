@@ -45,7 +45,7 @@ id: benq_projector
 name: BenQ Projector
 manufacturer: BenQ
 category: projector
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 description: >-
   Controls BenQ projectors using BenQ's RS232 Command Control protocol
@@ -63,7 +63,7 @@ tags: [projector, benq, rs232, lan-control, laser, install]
 verified: false
 simulated: true
 ports: [8000]
-min_platform_version: "0.23.0"
+min_platform_version: "0.36.0"
 compatible_models:
   - manufacturer: BenQ
     models:
@@ -580,6 +580,7 @@ commands:
 
   lens_reset_center:
     label: Reset Lens to Center
+    confirm: "Moves the lens back to center, so the picture loses its current alignment on the screen."
     send: "\r*lensreset=center#\r"
 
   digital_zoom_in:

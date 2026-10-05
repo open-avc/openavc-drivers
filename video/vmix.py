@@ -390,9 +390,10 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.3.3",
+        "version": "2.3.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls vMix video production software via the TCP API. "
@@ -1423,6 +1424,7 @@ class VMixDriver(BaseDriver):
             },
             "remove_input": {
                 "label": "Remove Input",
+                "confirm": "Removes the input from the production, with its settings.",
                 "params": {"input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"}},
                 "help": "Remove an input from the production.",
             },

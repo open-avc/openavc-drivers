@@ -297,8 +297,9 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.4",
-        "min_platform_version": "0.34.0",
+        "version": "1.0.5",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Monitors and controls BrightSign signage players through the "
@@ -590,6 +591,7 @@ class BrightSignPlayerDriver(BaseDriver):
             },
             "factory_reset": {
                 "label": "Factory Reset",
+                "confirm": "Erases the player's network, security and application settings and reboots it. It has to be set up again.",
                 "params": {},
                 # The player is off the network while it boots; the platform reports
                 # it as restarting rather than as a fault for this long. Unmeasured
@@ -674,6 +676,7 @@ class BrightSignPlayerDriver(BaseDriver):
             },
             "delete_registry_key": {
                 "label": "Delete Registry Key",
+                "confirm": "Deletes this registry value from the player.",
                 "params": {
                     "section": {"type": "string", "required": True, "label": "Section"},
                     "key": {"type": "string", "required": True, "label": "Key"},

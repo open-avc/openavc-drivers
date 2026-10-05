@@ -94,7 +94,7 @@
       "name": "BenQ Projector",
       "manufacturer": "BenQ",
       "category": "projector",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ projectors using BenQ's RS232 Command Control protocol over the network (TCP 8000) or direct RS-232. Covers the install and large-venue families (LK / LU / LH / PU / PW / PX / L series) and the wider BenQ line that shares the same command table. Power, source select, volume and mute, picture mode, picture adjustment steps, color temperature, aspect ratio, blank, freeze, OSD menu navigation, light source mode and custom light level, lens memories, and installer settings (direct power on, quick auto search, high altitude, standby network). Polls for status.",
@@ -102,13 +102,13 @@
       "file": "projectors/benq_projector.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/benq_projector.avcdriver": "b466179c42ec54088ac5d19b902dc96953c3024f43d141efe0f1641fc8509616"
+        "projectors/benq_projector.avcdriver": "7d5e75b56de565733d7c251187f883db2057b7dd3306c06616230f9ad8cf3b90"
       },
       "ports": [
         8000
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "projector",
         "benq",

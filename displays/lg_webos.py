@@ -123,7 +123,7 @@ class LgWebosDriver(BaseDriver):
         "name": "LG webOS TV",
         "manufacturer": "LG",
         "category": "display",
-        "version": "4.2.3",
+        "version": "4.2.4",
         "author": "OpenAVC",
         "description": "Controls LG webOS TVs over the SSAP WebSocket protocol "
                        "with live power/volume/input feedback.",
@@ -135,7 +135,8 @@ class LgWebosDriver(BaseDriver):
         # driver overrides connect() and never uses a platform transport.
         "transport": "tcp",
         "ports": [3001],
-        "min_platform_version": "0.34.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
 
         "default_config": {
             "host": "",
@@ -211,7 +212,8 @@ class LgWebosDriver(BaseDriver):
             "menu": {"label": "Menu"},
             "info": {"label": "Info"},
             "clear_pairing": {"label": "Clear Pairing Key",
-                              "help": "Forget the stored key and re-prompt on next connect."},
+                              "help": "Forget the stored key and re-prompt on next connect.",
+                              "confirm": "Forgets the stored pairing key. Someone has to accept the pairing prompt on the TV before it can be controlled again."},
         },
 
         "quick_actions": ["power_on", "power_off", "mute"],

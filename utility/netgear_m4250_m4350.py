@@ -539,9 +539,10 @@ class NetgearM4250M4350Driver(BaseDriver):
         "name": "NETGEAR M4250 / M4350 AV Line Switch",
         "manufacturer": "NETGEAR",
         "category": "utility",
-        "version": "1.4.6",
+        "version": "1.4.7",
         "author": "OpenAVC",
-        "min_platform_version": "0.25.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "description": (
             "Monitor and control NETGEAR M4250 and M4350 AV Line managed "
             "switches over their CLI: per-port PoE power-cycling and draw, "
@@ -1565,6 +1566,7 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         },
         "poe_reset_all": {
             "label": "Reset All PoE Ports",
+            "confirm": "Power-cycles PoE on every port, so every powered device restarts.",
             "params": {},
             "help": "Reset PoE on every port (bulk recovery).",
         },

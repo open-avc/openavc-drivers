@@ -162,7 +162,7 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.3"
+    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.4"
     assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"
 
 

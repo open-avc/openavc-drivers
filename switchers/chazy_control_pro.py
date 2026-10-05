@@ -211,7 +211,7 @@ class ChazyControlProDriver(BaseDriver):
         "name": "TurtleAV Chazy Control Pro",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.6.2",
+        "version": "1.6.3",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -220,7 +220,8 @@ class ChazyControlProDriver(BaseDriver):
         # AttributeError in the middle of a poll, so the gate is what
         # keeps a working system from being handed a driver that takes
         # its endpoint roster down.
-        "min_platform_version": "0.29.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "description": (
             "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix "
             "controller and every sub-unit it manages: video encoders (TX) "
@@ -2012,11 +2013,14 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                          "help": "0:115200 1:57600 2:38400 3:19200 4:9600"},
             }, "help": "Set the controller RS-232 baud rate."},
         "reset_system_confirm": {"label": "Factory Reset: System Settings", "params": {},
-                                 "help": "Reset controller system settings to default (auto-confirms)."},
+                                 "help": "Resets the controller's system settings to their factory defaults.",
+                                 "confirm": "Resets the controller's system settings to their factory defaults."},
         "reset_network_confirm": {"label": "Factory Reset: Network Settings", "params": {},
-                                  "help": "Reset controller network settings to default (auto-confirms)."},
+                                  "help": "Resets the controller's network settings to their factory defaults, so it may come back on a different address.",
+                                  "confirm": "Resets the controller's network settings to their factory defaults, so it may come back on a different address."},
         "reset_all_confirm": {"label": "Factory Reset: System + Network", "params": {},
-                              "help": "Reset all controller settings to default (auto-confirms)."},
+                              "help": "Resets all of the controller's settings, system and network, to their factory defaults.",
+                              "confirm": "Resets all of the controller's settings, system and network, to their factory defaults."},
 
         # ── Encoder ──
         "enc_set_name": {"label": "Encoder: Set Name", "params": {
@@ -2027,7 +2031,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                                                "max": ENC_MAX, "label": "New ID"}},
             "help": "Change an encoder's index ID."},
         "enc_delete": {"label": "Encoder: Delete", "params": {"encoder_id": enc_id()},
-                       "help": "Remove an encoder from the controller config."},
+                       "help": "Remove an encoder from the controller config.",
+                       "confirm": "Removes the encoder from the system configuration."},
         "enc_switch_arc": {"label": "Encoder: Route ARC", "params": {
             "encoder_id": enc_id(), "decoder_id": dec_id("Decoder (0 = clear)")},
             "help": "Selects which decoder the encoder takes its ARC/eARC return "
@@ -2197,7 +2202,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "enc_reboot": {"label": "Encoder: Reboot", "params": {"encoder_id": enc_id()},
             "help": "Reboots the encoder; its video to every decoder drops until it is back."},
         "enc_reset": {"label": "Encoder: Factory Reset", "params": {"encoder_id": enc_id()},
-            "help": "Resets the encoder to factory settings, erasing its configuration."},
+            "help": "Resets the encoder to factory settings, erasing its configuration.",
+            "confirm": "Returns the encoder to its factory settings, erasing its configuration."},
 
         # ── Decoder ──
         "dec_set_name": {"label": "Decoder: Set Name", "params": {
@@ -2209,7 +2215,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "help": "Changes the decoder's ID number (1-762). "
                     "The new ID must not already be in use."},
         "dec_delete": {"label": "Decoder: Delete", "params": {"decoder_id": dec_id()},
-            "help": "Removes the decoder from the system configuration."},
+            "help": "Removes the decoder from the system configuration.",
+            "confirm": "Removes the decoder from the system configuration."},
         "dec_route": {"label": "Decoder: Route Source", "params": {
             "decoder_id": dec_id(), "encoder_id": enc_id("Encoder (0 = clear/follow)"),
             "signal": {"type": "enum", "values": SIGNAL_TYPES, "required": True}},
@@ -2338,7 +2345,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "help": "Sends an IR code (hex, CCF format) out of the decoder's IR port."},
         "dec_hotkey_del": {"label": "Decoder: Delete Hotkey", "params": {
             "decoder_id": dec_id(), "hotkey": {"type": "integer", "required": True, "min": 1, "max": 20}},
-            "help": "Deletes one of the decoder's KVM hotkeys (1-20)."},
+            "help": "Deletes one of the decoder's KVM hotkeys (1-20).",
+            "confirm": "Deletes this KVM hotkey from the decoder."},
         "dec_sendguest_ascii": {"label": "Decoder: Send Serial (ASCII)", "params": {
             "decoder_id": dec_id(), "message": {"type": "string", "required": True}},
             "help": "Sends a text message out of the decoder's RS-232 port."},
@@ -2428,7 +2436,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_reboot": {"label": "Decoder: Reboot", "params": {"decoder_id": dec_id()},
             "help": "Reboots the decoder; its output drops until it is back."},
         "dec_reset": {"label": "Decoder: Factory Reset", "params": {"decoder_id": dec_id()},
-            "help": "Resets the decoder to factory settings, erasing its configuration."},
+            "help": "Resets the decoder to factory settings, erasing its configuration.",
+            "confirm": "Returns the decoder to its factory settings, erasing its configuration."},
         "exit_guest": {"label": "Exit Serial Guest Mode", "params": {},
                        "help": "Exit encoder/decoder RS-232 guest mode."},
 
@@ -2438,7 +2447,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "help": "Creates a video wall with this ID on the controller."},
         "wall_delete": {"label": "Video Wall: Delete", "params": {
             "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}},
-            "help": "Deletes the video wall from the controller."},
+            "help": "Deletes the video wall from the controller.",
+            "confirm": "Deletes the video wall from the controller."},
         "wall_set_name": {"label": "Video Wall: Set Name", "params": {
             "wall_id": _wall_id(), "name": {"type": "string", "required": True}},
             "help": "Renames the video wall."},
@@ -2457,7 +2467,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "help": "Creates a preset (1-9) for the video wall."},
         "wall_delete_preset": {"label": "Video Wall: Delete Preset", "params": {
             "wall_id": _wall_id(), "preset": _preset()},
-            "help": "Deletes one of the video wall's presets."},
+            "help": "Deletes one of the video wall's presets.",
+            "confirm": "Deletes this video wall preset."},
         "wall_set_preset_name": {"label": "Video Wall: Set Preset Name", "params": {
             "wall_id": _wall_id(), "preset": _preset(), "name": {"type": "string", "required": True}},
             "help": "Renames one of the video wall's presets."},
@@ -2511,7 +2522,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "help": "Creates a media player with this ID. A media player shows "
                     "an image from a network share on top of a decoder's video."},
         "media_delete": {"label": "Media: Delete Source", "params": {"media_id": _media_id()},
-            "help": "Deletes the media player from the controller."},
+            "help": "Deletes the media player from the controller.",
+            "confirm": "Deletes the media source from the controller."},
         "media_addr_list": {"label": "Media: List NAS Files", "params": {
             "address": {"type": "string", "required": True, "label": "NAS Path"}},
             "help": "Lists the files at a SAMBA or NFS share path, "
@@ -2559,7 +2571,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                     "group switches all of its decoders together."},
         "group_delete": {"label": "Group: Delete", "params": {
             "group_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Group"}},
-            "help": "Deletes the decoder group from the controller."},
+            "help": "Deletes the decoder group from the controller.",
+            "confirm": "Deletes the decoder group from the controller."},
         "group_set_name": {"label": "Group: Set Name", "params": {
             "group_id": _group_id(), "name": {"type": "string", "required": True}},
             "help": "Renames the decoder group."},
@@ -2582,7 +2595,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                     "network message the controller can send to another device."},
         "event_delete": {"label": "Event: Delete", "params": {
             "event_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Event"}},
-            "help": "Deletes the event from the controller."},
+            "help": "Deletes the event from the controller.",
+            "confirm": "Deletes the event from the controller."},
         "event_set_name": {"label": "Event: Set Name", "params": {
             "event_id": _event_id(), "name": {"type": "string", "required": True}},
             "help": "Renames the event."},
@@ -2643,7 +2657,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "schedule_delete": {"label": "Schedule: Delete", "params": {
             "schedule_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX,
                             "label": "Schedule"}},
-            "help": "Deletes the schedule from the controller."},
+            "help": "Deletes the schedule from the controller.",
+            "confirm": "Deletes the schedule from the controller."},
         "schedule_set_name": {"label": "Schedule: Set Name", "params": {
             "schedule_id": _schedule_id(), "name": {"type": "string", "required": True}},
             "help": "Renames the schedule."},
@@ -2698,7 +2713,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "help": "Adds a schedule action that sends the event."},
         "schedule_delete_action": {"label": "Schedule: Delete Actions", "params": {
             "schedule_id": _schedule_id()},
-            "help": "Removes every action from the schedule."},
+            "help": "Removes every action from the schedule.",
+            "confirm": "Removes every action from the schedule."},
         "schedule_start": {"label": "Schedule: Start", "params": {"schedule_id": _schedule_id()},
             "help": "Starts the schedule, so its actions run at the set times."},
         "schedule_stop": {"label": "Schedule: Stop", "params": {"schedule_id": _schedule_id()},
@@ -2714,7 +2730,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "config_preset_delete": {"label": "Config Preset: Delete", "params": {
             "config_preset_id": {"type": "integer", "required": True, "min": 1, "max": CONFIG_PRESET_MAX,
                                  "label": "Preset"}},
-            "help": "Deletes the configuration preset."},
+            "help": "Deletes the configuration preset.",
+            "confirm": "Deletes the configuration preset."},
         "config_preset_apply": {"label": "Config Preset: Apply", "params": {
             "config_preset_id": _config_preset_id()},
             "help": "Applies the saved configuration preset, changing "
@@ -2747,7 +2764,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "devname": _devname(), "mode": {"type": "enum", "values": ["SOFT", "FACTORY"],
                                             "required": True}},
             "help": "Reboots the Dante device (Soft or Factory); "
-                    "its audio stops until it is back."},
+                    "its audio stops until it is back.",
+            "confirm": "Reboots the Dante device, and its audio stops until it is back. FACTORY may also return it to its factory settings."},
         "dante_txchn_name": {"label": "Dante: TX Channel Name", "params": {
             "devname": _devname(), "flow": _flow(),
             "channel": {"type": "integer", "required": True, "label": "Channel"},
@@ -2763,7 +2781,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dante_txflow_delete": {"label": "Dante: Delete TX Flow", "params": {
             "devname": _devname(), "flow": _flow(),
             "flow_id": {"type": "integer", "required": True, "label": "Flow ID"}},
-            "help": "Deletes one of the Dante device's multicast transmit flows."},
+            "help": "Deletes one of the Dante device's multicast transmit flows.",
+            "confirm": "Deletes this multicast transmit flow from the Dante device."},
         "dante_rxchn_name": {"label": "Dante: RX Channel Name", "params": {
             "devname": _devname(), "flow": _flow(),
             "channel": {"type": "integer", "required": True, "label": "Channel"},
@@ -2780,7 +2799,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "devname": _devname(), "scope": {"type": "enum", "values": ["KEEPIP", "ALL"],
                                              "required": True}},
             "help": "Clears the Dante device's configuration, keeping its "
-                    "IP settings (KEEPIP) or clearing everything (ALL)."},
+                    "IP settings (KEEPIP) or clearing everything (ALL).",
+            "confirm": "Clears the Dante device's configuration. ALL also clears its IP settings."},
         "dante_interface_static": {"label": "Dante: Interface Static IP", "params": {
             "devname": _devname(), "intf": {"type": "string", "required": True, "label": "Interface"},
             "ip": _ipparam(), "mask": _ipparam("Subnet Mask"), "gateway": _ipparam("Gateway"),
@@ -2804,7 +2824,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dante_preset_delete": {"label": "Dante Preset: Delete", "params": {
             "dante_preset_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX,
                                 "label": "Preset"}},
-            "help": "Deletes the Dante preset."},
+            "help": "Deletes the Dante preset.",
+            "confirm": "Deletes the Dante preset."},
         "dante_preset_set_name": {"label": "Dante Preset: Set Name", "params": {
             "dante_preset_id": _dante_preset_id(), "name": {"type": "string", "required": True}},
             "help": "Renames the Dante preset."},
@@ -2835,7 +2856,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "help": "Adds the new decoder at this position in the last search's results "
                     "to the system, with the chosen ID (0 picks one automatically)."},
         "add_dev_reset": {"label": "Reset All Devices", "params": {},
-                          "help": "Wipe all encoders/decoders/video walls/search from the system."},
+                          "help": "Wipe all encoders/decoders/video walls/search from the system.",
+                          "confirm": "Removes every encoder, decoder and video wall from the system, and the search results."},
 
         # ── GPIO ──
         "gpio_dir": {"label": "GPIO: Set Direction", "params": {

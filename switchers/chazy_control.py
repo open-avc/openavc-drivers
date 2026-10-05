@@ -211,7 +211,7 @@ class ChazyControlDriver(BaseDriver):
         "name": "TurtleAV Chazy Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.4.1",
+        "version": "1.4.2",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # Gated on the newest platform surface this driver CALLS:
@@ -220,7 +220,8 @@ class ChazyControlDriver(BaseDriver):
         # AttributeError in the middle of a poll, so the gate is what
         # keeps a working system from being handed a driver that takes
         # its endpoint roster down.
-        "min_platform_version": "0.29.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "description": (
             "Controls a TurtleAV Chazy Control AV-over-IP matrix controller "
             "and the sub-units it manages: video encoders (TX), decoders (RX), "
@@ -1540,11 +1541,14 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                          "help": "0:115200 1:57600 2:38400 3:19200 4:9600"},
             }, "help": "Set the controller RS-232 baud rate."},
         "reset_system_confirm": {"label": "Factory Reset: System Settings", "params": {},
-                                 "help": "Reset controller system settings to default (auto-confirms)."},
+                                 "help": "Resets the controller's system settings to their factory defaults.",
+                                 "confirm": "Resets the controller's system settings to their factory defaults."},
         "reset_network_confirm": {"label": "Factory Reset: Network Settings", "params": {},
-                                  "help": "Reset controller network settings to default (auto-confirms)."},
+                                  "help": "Resets the controller's network settings to their factory defaults, so it may come back on a different address.",
+                                  "confirm": "Resets the controller's network settings to their factory defaults, so it may come back on a different address."},
         "reset_all_confirm": {"label": "Factory Reset: System + Network", "params": {},
-                              "help": "Reset all controller settings to default (auto-confirms)."},
+                              "help": "Resets all of the controller's settings, system and network, to their factory defaults.",
+                              "confirm": "Resets all of the controller's settings, system and network, to their factory defaults."},
 
         # ── Encoder ──
         "enc_set_name": {"label": "Encoder: Set Name", "params": {
@@ -1555,7 +1559,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                                                "max": ENC_MAX, "label": "New ID"}},
             "help": "Change an encoder's index ID."},
         "enc_delete": {"label": "Encoder: Delete", "params": {"encoder_id": enc_id()},
-                       "help": "Remove an encoder from the controller config."},
+                       "help": "Remove an encoder from the controller config.",
+                       "confirm": "Removes the encoder from the system configuration."},
         "enc_switch_arc": {"label": "Encoder: Route ARC", "params": {
             "encoder_id": enc_id(), "decoder_id": dec_id("Decoder (0 = clear)")},
             "help": "Selects which decoder the encoder takes its ARC/eARC return "
@@ -1629,7 +1634,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "enc_preset_sm": {"label": "Encoder Preset: Subnet Mask", "params": {"mask": _ipparam("Subnet Mask")}},
         "enc_preset_apply": {"label": "Encoder Preset: Apply", "params": {}},
         "enc_reboot": {"label": "Encoder: Reboot", "params": {"encoder_id": enc_id()}},
-        "enc_reset": {"label": "Encoder: Factory Reset", "params": {"encoder_id": enc_id()}},
+        "enc_reset": {"label": "Encoder: Factory Reset", "params": {"encoder_id": enc_id()},
+                      "confirm": "Returns the encoder to its factory settings, erasing its configuration."},
 
         # ── Decoder ──
         "dec_set_name": {"label": "Decoder: Set Name", "params": {
@@ -1637,7 +1643,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_set_id": {"label": "Decoder: Renumber", "params": {
             "decoder_id": dec_id(), "new_id": {"type": "integer", "required": True, "min": 1,
                                                "max": DEC_MAX, "label": "New ID"}}},
-        "dec_delete": {"label": "Decoder: Delete", "params": {"decoder_id": dec_id()}},
+        "dec_delete": {"label": "Decoder: Delete", "params": {"decoder_id": dec_id()},
+                       "confirm": "Removes the decoder from the system configuration."},
         "dec_route": {"label": "Decoder: Route Source", "params": {
             "decoder_id": dec_id(), "encoder_id": enc_id("Encoder (0 = clear/follow)"),
             "signal": {"type": "enum", "values": SIGNAL_TYPES, "required": True}},
@@ -1725,7 +1732,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_preset_sm": {"label": "Decoder Preset: Subnet Mask", "params": {"mask": _ipparam("Subnet Mask")}},
         "dec_preset_apply": {"label": "Decoder Preset: Apply", "params": {}},
         "dec_reboot": {"label": "Decoder: Reboot", "params": {"decoder_id": dec_id()}},
-        "dec_reset": {"label": "Decoder: Factory Reset", "params": {"decoder_id": dec_id()}},
+        "dec_reset": {"label": "Decoder: Factory Reset", "params": {"decoder_id": dec_id()},
+                      "confirm": "Returns the decoder to its factory settings, erasing its configuration."},
         "exit_guest": {"label": "Exit Serial Guest Mode", "params": {},
                        "help": "Exit encoder/decoder RS-232 guest mode."},
 
@@ -1733,7 +1741,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "wall_create": {"label": "Video Wall: Create", "params": {
             "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}}},
         "wall_delete": {"label": "Video Wall: Delete", "params": {
-            "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}}},
+            "wall_id": {"type": "integer", "required": True, "min": 1, "max": HDL_MAX, "label": "Wall"}},
+            "confirm": "Deletes the video wall from the controller."},
         "wall_set_name": {"label": "Video Wall: Set Name", "params": {
             "wall_id": _wall_id(), "name": {"type": "string", "required": True}}},
         "wall_set_size": {"label": "Video Wall: Set Size", "params": {
@@ -1746,7 +1755,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "wall_create_preset": {"label": "Video Wall: Create Preset", "params": {
             "wall_id": _wall_id(), "preset": _preset()}},
         "wall_delete_preset": {"label": "Video Wall: Delete Preset", "params": {
-            "wall_id": _wall_id(), "preset": _preset()}},
+            "wall_id": _wall_id(), "preset": _preset()},
+            "confirm": "Deletes this video wall preset."},
         "wall_set_preset_name": {"label": "Video Wall: Set Preset Name", "params": {
             "wall_id": _wall_id(), "preset": _preset(), "name": {"type": "string", "required": True}}},
         "wall_apply_preset": {"label": "Video Wall: Apply Preset", "params": {
@@ -1799,7 +1809,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                      "help": "Transmit channel IDs, e.g. 1:2:3"}}},
         "dante_txflow_delete": {"label": "Dante: Delete TX Flow", "params": {
             "devname": _devname(), "flow": _flow(),
-            "flow_id": {"type": "integer", "required": True, "label": "Flow ID"}}},
+            "flow_id": {"type": "integer", "required": True, "label": "Flow ID"}},
+            "confirm": "Deletes this multicast transmit flow from the Dante device."},
         "dante_rxchn_name": {"label": "Dante: RX Channel Name", "params": {
             "devname": _devname(), "flow": _flow(),
             "channel": {"type": "integer", "required": True, "label": "Channel"},
@@ -1826,7 +1837,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": {"type": "integer", "required": True, "min": 0, "max": DEC_MAX,
                            "label": "Assign ID", "help": "0 = auto-assign next free ID."}}},
         "add_dev_reset": {"label": "Reset All Devices", "params": {},
-                          "help": "Wipe all encoders/decoders/video walls/search from the system."},
+                          "help": "Wipe all encoders/decoders/video walls/search from the system.",
+                          "confirm": "Removes every encoder, decoder and video wall from the system, and the search results."},
 
         # ── GPIO ──
         "gpio_dir": {"label": "GPIO: Set Direction", "params": {

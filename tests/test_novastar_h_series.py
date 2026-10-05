@@ -35,7 +35,7 @@ def _answers(reply: str) -> bool:
 
 
 def test_version_bumped():
-    assert str(INFO["version"]) == "1.6.3"
+    assert str(INFO["version"]) == "1.6.4"
 
 
 def test_the_probe_asks_for_the_configured_screen():

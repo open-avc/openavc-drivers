@@ -81,7 +81,7 @@
       "name": "BrightSign Player (Local DWS)",
       "manufacturer": "BrightSign",
       "category": "streaming",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Monitors and controls BrightSign signage players through the player's Local Diagnostic Web Server API: identity, health, clock, every HDMI output with its display and video mode, HDMI power-save, reboot, snapshot, CEC, registry and log level, plus the Moka display's own panel controls. Drives the presentation with UDP messages and sets its User Variables.",
@@ -89,7 +89,7 @@
       "file": "streaming/brightsign_player.py",
       "format": "python",
       "files": {
-        "streaming/brightsign_player.py": "27827c1a9a5ebf996bcdd2cb0d6317708969d25a8cb43607bf2fc536b32c84a7",
+        "streaming/brightsign_player.py": "320b4d80a3f033a7852f4477c5409f4b483fc66721fe14a6c00101c1a2133e80",
         "streaming/brightsign_player_sim.py": "9801057f981eff0414a4fb604c2f5b863904951ed0ad67a8f5098f04bc21e6d1"
       },
       "ports": [
@@ -100,7 +100,7 @@
         "brightsign_ldws"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "brightsign",
         "signage",
@@ -187,7 +187,7 @@
       "name": "Epiphan Pearl",
       "manufacturer": "Epiphan",
       "category": "streaming",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Epiphan Pearl Nano, Mini, Nexus and Pearl-2 lecture-capture and live production systems over the Pearl REST API: start and stop recording and streaming for the whole unit, a channel or one stream, switch layouts, add bookmarks, set input gain, mute and phantom power, pick the HDMI output source, run CMS events (Kaltura, Panopto, Opencast), apply configuration presets, and watch storage, uploads, CPU and temperature.",
@@ -195,7 +195,7 @@
       "file": "streaming/epiphan_pearl.py",
       "format": "python",
       "files": {
-        "streaming/epiphan_pearl.py": "6b2c2c9bba22daddad16167ed01a81fe94237f884b57493bacc0403b28277f1c",
+        "streaming/epiphan_pearl.py": "afa7cca1ac7a6492ee86cdf5eb5cefaf6b9ecd4627933d1db6812861d9196f2e",
         "streaming/epiphan_pearl_sim.py": "65f0376f014d0015a4fca6c2cc7e54c7a0401efa861e35ee2ab896cceb91d077"
       },
       "ports": [
@@ -206,7 +206,7 @@
         "epiphan-rest"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "encoder",
         "recorder",

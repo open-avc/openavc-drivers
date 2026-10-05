@@ -903,7 +903,7 @@
       "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
       "manufacturer": "Bose Professional",
       "category": "audio",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Bose Professional ControlSpace EX, ESP and CSP processors through the ControlSpace Serial Control Protocol on TCP port 10055 or the RS-232 port. Declare the modules from your ControlSpace Designer design (gains, inputs, outputs, selectors, routers, mixers, automatic mic mixers, EQs, dynamics, delays, logic, telephone and VoIP lines, signal-level meters, or any parameter by index) and each becomes a child entity whose controls panels bind to. Groups carry master level, mute and source; parameter sets recall by number or name; room combine groups join and split. Every control is subscribed on a processor that supports subscriptions, so changes made from a CC-16 or CC-64 wall controller or from Designer appear at once.",
@@ -911,7 +911,7 @@
       "file": "audio/bose_controlspace.py",
       "format": "python",
       "files": {
-        "audio/bose_controlspace.py": "d81e68fcd77f0dcea183a94a1a1dcd39f62e63e3441b287ea598e8fa961ff15d",
+        "audio/bose_controlspace.py": "4e5abc641302e689fc08610c697fc9ddabbb6d896f987e72016f6d1d6783b872",
         "audio/bose_controlspace_sim.py": "80cfe3aed3debec7ed012d979fe33bd27b5d223d62a5bea85cfb3e60fc567166"
       },
       "ports": [
@@ -921,7 +921,7 @@
         "bose-controlspace-serial"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "dsp",
         "bose",
@@ -1111,7 +1111,7 @@
       "name": "SoundCoreHero Audio System",
       "manufacturer": "Hero AV",
       "category": "audio",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Wiktor Myszolow (Hero AV)",
       "transport": "tcp",
       "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
@@ -1119,7 +1119,7 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "85f2626815148b0567d2c894880fe6334342af833792ee23cb818514ec0aaf21"
+        "audio/soundcorehero.py": "a5bc20c535d327d9ba0def6910f7da3074ed7897c274ae3fb67bb4d8d2e7f839"
       },
       "protocols": [
         "soundcorehero"
@@ -1476,7 +1476,7 @@
       "name": "Sennheiser EW-DX Receiver",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Evolution Wireless Digital rack receivers (EW-DX EM 2, EM 2 Dante, EM 4 Dante) over SSCv2, the HTTPS REST API with Server-Sent Events. Per-channel mute, gain and output level, RF frequency and presets, warnings (no link, low signal, RF and AF peak, encryption), the linked transmitter's mute, battery and warnings, sync settings, opt-in RF and audio meters. Every change streams in as it happens.\n",
@@ -1484,7 +1484,7 @@
       "file": "audio/sennheiser_ewdx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_ewdx.avcdriver": "3dff1dea266056108f032200847b5f27b163d91a966bb715b658ec2bcfa3356c"
+        "audio/sennheiser_ewdx.avcdriver": "aa722699665721c81be09108fecacc01b8cb5ac700ab801b1ebb6400310c6de0"
       },
       "ports": [
         443
@@ -1493,7 +1493,7 @@
         "sscv2"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "sennheiser",
         "ew-dx",
@@ -1547,7 +1547,7 @@
       "name": "Sennheiser TeamConnect Ceiling 2",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity, analog and Dante output levels, AEC reference gain, the 7-band equalizer, noise gate, Voice Lift, priority and exclusion zones, installation type, the LED ring colours and brightness, device naming, identify, restart and restore. The microphone reports where the active talker is (beam azimuth and elevation) and live input and reference meters; both feeds are opt-in and can be switched from a macro or panel. State is push-driven: the driver subscribes and the microphone reports every change as it happens, including changes made from Sennheiser Control Cockpit.\n",
@@ -1555,7 +1555,7 @@
       "file": "audio/sennheiser_tcc2.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_tcc2.avcdriver": "5344413aa2d7f761165e9f58d3401aa59bba2e9a14a0ce4512060bd93ea623d3"
+        "audio/sennheiser_tcc2.avcdriver": "cd647cd0dc48be6215a89b64d8da4601be724f23a5284bdb4a507d00e35792f0"
       },
       "ports": [
         45
@@ -1564,7 +1564,7 @@
         "ssc"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "microphone",
         "ceiling-mic",
@@ -2042,7 +2042,7 @@
       "name": "Turtle AV Dante Bluetooth Wallplate",
       "manufacturer": "TurtleAV",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Turtle AV Dante Bluetooth Wallplate (WPD20BUS) over Telnet. Bridges a stereo Bluetooth source into Dante. Input gain/mute/stereo, Bluetooth pairing window, volume, mute, audio bridging mode, transport (play/pause/skip) with now-playing metadata, connection status, and per-channel parametric EQ.\n",
@@ -2050,14 +2050,14 @@
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/turtle_bt_wallplate.avcdriver": "c9b45877857dcb60ee99c60adafa69ecfef38a96ee0d3831da195735daa7bae1"
+        "audio/turtle_bt_wallplate.avcdriver": "536d4fa7a39ee447c2b7622dab911843c0c8602700345a94eade556eff6976b0"
       },
       "ports": [
         23
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "bluetooth",
         "dante",

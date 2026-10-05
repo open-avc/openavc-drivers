@@ -346,11 +346,12 @@ class EpiphanPearlDriver(BaseDriver):
         "name": "Epiphan Pearl",
         "manufacturer": "Epiphan",
         "category": "streaming",
-        "version": "1.0.1",
+        "version": "1.0.2",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (the sibling HTTP drivers declare the same floor); the
         # channel_rtsp_ports table field alone would need 0.23.0.
-        "min_platform_version": "0.25.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls Epiphan Pearl Nano, Mini, Nexus and Pearl-2 lecture-capture "
@@ -745,7 +746,8 @@ class EpiphanPearlDriver(BaseDriver):
                 "params": {"publisher": {"type": "child_id", "child_type": "publisher", "required": True, "label": "Stream", "help": "A channel's publisher (stream destination)."},
                            "stream_key": {"type": "string", "required": True, "label": "Stream Key", "secret": True, "trim": False}},
             },
-            "delete_publisher": {"label": "Delete Stream", "params": {"publisher": {"type": "child_id", "child_type": "publisher", "required": True, "label": "Stream", "help": "A channel's publisher (stream destination)."}}},
+            "delete_publisher": {"label": "Delete Stream", "params": {"publisher": {"type": "child_id", "child_type": "publisher", "required": True, "label": "Stream", "help": "A channel's publisher (stream destination)."}},
+                                 "confirm": "Deletes this stream and its settings from the channel."},
             "add_rtmp_publisher": {
                 "label": "Add RTMP Stream",
                 "params": {

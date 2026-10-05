@@ -758,11 +758,12 @@ class APCRackPDUDriver(BaseDriver):
         "name": "APC Switched Rack PDU",
         "manufacturer": "APC",
         "category": "power",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         # transport: snmp is the floor the contract computes. An older
         # platform answers "Unsupported transport type" and never connects.
-        "min_platform_version": "0.34.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "description": (
             "Controls APC Switched Rack PDUs over SNMP v2c. Outlets, banks, "
             "phases and the temperature/humidity sensor are addressable "
@@ -1273,23 +1274,27 @@ class APCRackPDUDriver(BaseDriver):
             },
             "reset_peak_power": {
                 "label": "Reset Peak Power",
+                "confirm": "Replaces the recorded peak load with the present one.",
                 "params": {},
                 "help": "Replace the recorded peak load with the present "
                         "one and restart the measurement.",
             },
             "reset_energy": {
                 "label": "Reset Energy Meter",
+                "confirm": "Zeroes the PDU's energy meter. The recorded total cannot be recovered.",
                 "params": {},
                 "help": "Zero the Rack PDU's energy meter and restart it.",
             },
             "reset_outlet_energy": {
                 "label": "Reset Outlet Energy Meters",
+                "confirm": "Zeroes every outlet's energy meter. The recorded totals cannot be recovered.",
                 "params": {},
                 "help": "Zero every per-outlet energy meter. "
                         "Metered-by-outlet models only.",
             },
             "reset_outlet_peak_load": {
                 "label": "Reset Outlet Peak Loads",
+                "confirm": "Clears every outlet's recorded peak load.",
                 "params": {},
                 "help": "Clear every per-outlet recorded peak load. "
                         "Metered-by-outlet models only.",

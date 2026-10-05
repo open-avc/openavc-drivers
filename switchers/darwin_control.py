@@ -203,11 +203,12 @@ class DarwinControlDriver(BaseDriver):
         "name": "TurtleAV Darwin Control",
         "manufacturer": "TurtleAV",
         "category": "switcher",
-        "version": "1.2.0",
+        "version": "1.2.1",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
-        "min_platform_version": "0.27.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "description": (
             "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP "
             "matrix controller and every sub-unit it manages: video encoders "
@@ -1382,11 +1383,14 @@ def _build_commands() -> dict[str, dict[str, Any]]:
                      "help": "0:115200 1:57600 2:38400 3:19200 4:9600"}},
             "help": "Set the controller RS-232 baud rate."},
         "reset_system_confirm": {"label": "Factory Reset: System Settings", "params": {},
-                                 "help": "Reset controller system settings (auto-confirms with Yes)."},
+                                 "help": "Resets the controller's system settings to their factory defaults.",
+                                 "confirm": "Resets the controller's system settings to their factory defaults."},
         "reset_network_confirm": {"label": "Factory Reset: Network Settings", "params": {},
-                                  "help": "Reset controller network settings (auto-confirms with Yes)."},
+                                  "help": "Resets the controller's network settings to their factory defaults, so it may come back on a different address.",
+                                  "confirm": "Resets the controller's network settings to their factory defaults, so it may come back on a different address."},
         "reset_all_confirm": {"label": "Factory Reset: System + Network", "params": {},
-                              "help": "Reset all controller settings (auto-confirms with Yes)."},
+                              "help": "Resets all of the controller's settings, system and network, to their factory defaults.",
+                              "confirm": "Resets all of the controller's settings, system and network, to their factory defaults."},
         "gpio_dir": {"label": "GPIO: Direction", "params": {
             "gpio": {"type": "enum", "values": ["1", "2", "3", "4"], "required": True},
             "direction": {"type": "enum", "values": ["IN", "OUT"], "required": True}}},
@@ -1409,7 +1413,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": {"type": "integer", "required": True, "min": 0, "max": DEC_MAX,
                            "label": "Decoder ID (0 = auto)"}}},
         "add_dev_reset": {"label": "Clear All Devices", "params": {},
-                          "help": "Remove all encoders/decoders/walls/search from the controller."},
+                          "help": "Remove all encoders/decoders/walls/search from the controller.",
+                          "confirm": "Removes every encoder, decoder and video wall from the controller, and the search results."},
         "search_reset": {"label": "Clear Search Results", "params": {}},
 
         # ── Network (controller) ──
@@ -1440,7 +1445,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "enc_set_id": {"label": "Encoder: Renumber", "params": {
             "encoder_id": enc_id(), "new_id": {"type": "integer", "required": True, "min": 1,
                                                "max": ENC_MAX, "label": "New ID"}}},
-        "enc_delete": {"label": "Encoder: Delete", "params": {"encoder_id": enc_id()}},
+        "enc_delete": {"label": "Encoder: Delete", "params": {"encoder_id": enc_id()},
+                       "confirm": "Removes the encoder from the system configuration."},
         "enc_led": {"label": "Encoder: Power LED Flash", "params": {
             "encoder_id": enc_id(), "state": onoff}},
         "enc_led_timeout": {"label": "Encoder: Flash LED (90s)", "params": {"encoder_id": enc_id()}},
@@ -1488,7 +1494,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "encoder_id": enc_id(), "mask": {"type": "string", "required": True}}},
         "enc_network_reboot": {"label": "Encoder: Network Reboot", "params": {"encoder_id": enc_id()}},
         "enc_reboot": {"label": "Encoder: Reboot", "params": {"encoder_id": enc_id()}},
-        "enc_reset": {"label": "Encoder: Factory Reset", "params": {"encoder_id": enc_id()}},
+        "enc_reset": {"label": "Encoder: Factory Reset", "params": {"encoder_id": enc_id()},
+                      "confirm": "Returns the encoder to its factory settings, erasing its configuration."},
 
         # ── Decoder (RX) ──
         "dec_set_name": {"label": "Decoder: Set Name", "params": {
@@ -1497,7 +1504,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "dec_set_id": {"label": "Decoder: Renumber", "params": {
             "decoder_id": dec_id(), "new_id": {"type": "integer", "required": True, "min": 1,
                                                "max": DEC_MAX, "label": "New ID"}}},
-        "dec_delete": {"label": "Decoder: Delete", "params": {"decoder_id": dec_id()}},
+        "dec_delete": {"label": "Decoder: Delete", "params": {"decoder_id": dec_id()},
+                       "confirm": "Removes the decoder from the system configuration."},
         "dec_switch": {"label": "Decoder: Route Source", "params": {
             "decoder_id": dec_id(), "encoder_id": enc_id("Encoder (0 = clear/unlock)"),
             "signal": {"type": "enum", "values": SIGNAL_TYPES, "required": True,
@@ -1557,7 +1565,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "encoder_id": enc_id("Source Encoder")}},
         "dec_hotkey_del": {"label": "Decoder: Delete KVM Hotkey", "params": {
             "decoder_id": dec_id(),
-            "nn": {"type": "integer", "required": True, "min": 1, "max": 20, "label": "Slot (1-20)"}}},
+            "nn": {"type": "integer", "required": True, "min": 1, "max": 20, "label": "Slot (1-20)"}},
+            "confirm": "Deletes this KVM hotkey from the decoder."},
         "dec_guest_config": {"label": "Decoder: Serial Guest Config", "params": {
             "decoder_id": dec_id(), "state": onoff, "baud": baud, "bits": bits}},
         "dec_guest_start": {"label": "Decoder: Start Serial Guest", "params": {"decoder_id": dec_id()},
@@ -1572,7 +1581,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "decoder_id": dec_id(), "mask": {"type": "string", "required": True}}},
         "dec_network_reboot": {"label": "Decoder: Network Reboot", "params": {"decoder_id": dec_id()}},
         "dec_reboot": {"label": "Decoder: Reboot", "params": {"decoder_id": dec_id()}},
-        "dec_reset": {"label": "Decoder: Factory Reset", "params": {"decoder_id": dec_id()}},
+        "dec_reset": {"label": "Decoder: Factory Reset", "params": {"decoder_id": dec_id()},
+                      "confirm": "Returns the decoder to its factory settings, erasing its configuration."},
 
         # ── Shared ──
         "exit_guest": {"label": "Exit Serial Guest", "params": {},
@@ -1582,7 +1592,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
         "wall_create": {"label": "Video Wall: Create", "params": {
             "wall_id": {"type": "integer", "required": True, "min": 1, "max": WALL_MAX,
                         "label": "Wall Handle (1-9)"}}},
-        "wall_delete": {"label": "Video Wall: Delete", "params": {"wall_id": wall_id()}},
+        "wall_delete": {"label": "Video Wall: Delete", "params": {"wall_id": wall_id()},
+                        "confirm": "Deletes the video wall from the controller."},
         "wall_set_name": {"label": "Video Wall: Set Name", "params": {
             "wall_id": wall_id(), "name": {"type": "string", "required": True}}},
         "wall_set_size": {"label": "Video Wall: Set Size", "params": {
@@ -1598,7 +1609,8 @@ def _build_commands() -> dict[str, dict[str, Any]]:
             "preset": {"type": "integer", "required": True, "min": 1, "max": WALL_PRESET_MAX}}},
         "wall_preset_delete": {"label": "Video Wall: Delete Preset", "params": {
             "wall_id": wall_id(),
-            "preset": {"type": "integer", "required": True, "min": 1, "max": WALL_PRESET_MAX}}},
+            "preset": {"type": "integer", "required": True, "min": 1, "max": WALL_PRESET_MAX}},
+            "confirm": "Deletes this video wall preset."},
         "wall_preset_set_name": {"label": "Video Wall: Set Preset Name", "params": {
             "wall_id": wall_id(),
             "preset": {"type": "integer", "required": True, "min": 1, "max": WALL_PRESET_MAX},

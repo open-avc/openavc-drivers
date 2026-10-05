@@ -242,8 +242,9 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.3.2",
-        "min_platform_version": "0.25.0",
+        "version": "1.3.3",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port "
@@ -871,6 +872,7 @@ class SonyVISCADriver(BaseDriver):
             },
             "preset_reset": {
                 "label": "Preset Reset (Erase)",
+                "confirm": "Erases this preset from the camera.",
                 "params": {"number": {"type": "integer", "required": True, "min": 0, "max": 99}},
             },
 
@@ -909,6 +911,7 @@ class SonyVISCADriver(BaseDriver):
             },
             "ptz_trace_delete": {
                 "label": "PTZ TRACE Delete",
+                "confirm": "Deletes the PTZ trace recorded in this slot.",
                 "params": {"slot": {"type": "integer", "required": True, "min": 1, "max": 16}},
             },
 

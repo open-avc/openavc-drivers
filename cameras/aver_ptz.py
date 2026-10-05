@@ -169,7 +169,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.3",
+        "version": "1.3.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -841,6 +841,7 @@ class AVerPTZDriver(BaseDriver):
             },
             "image_defaults": {
                 "label": "Reset Image to Defaults",
+                "confirm": "Puts every image setting back to its factory value.",
                 "params": {},
             },
 

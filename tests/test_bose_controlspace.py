@@ -939,3 +939,25 @@ async def test_every_declared_command_has_a_branch():
             assert "Unknown command" not in str(exc), name
         except (KeyError, TypeError):
             pass
+
+
+# ── A command that erases, deletes or resets asks first ─────────────────────
+#
+# Sent by hand (the device page, Live Test, a device audit) each of these asks
+# before it goes; macros, triggers and panel buttons send it as before. The
+# commands are built in code, so this file, which loads the class, pins them.
+
+_ASKS_FIRST = (
+    "reset_network_defaults",
+)
+
+
+@pytest.mark.parametrize("command", _ASKS_FIRST)
+def test_a_command_that_erases_or_deletes_asks_first(command):
+    confirm = DRV.BoseControlSpaceDriver.DRIVER_INFO["commands"][command].get("confirm")
+    assert isinstance(confirm, str) and confirm.strip(), command
+    assert "—" not in confirm
+
+
+def test_asking_first_needs_platform_0_36_0():
+    assert DRV.BoseControlSpaceDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"

@@ -384,7 +384,7 @@
       "name": "APC Switched Rack PDU",
       "manufacturer": "APC",
       "category": "power",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "snmp",
       "description": "Controls APC Switched Rack PDUs over SNMP v2c. Outlets, banks, phases and the temperature/humidity sensor are addressable children read off the device, with named on/off/reboot commands, per-outlet delays, load thresholds and energy metering. Covers both the Rack PDU 2G MIB (AP84xx/86xx/88xx/89xx) and the first-generation one (AP79xx), detected on connect.",
@@ -392,7 +392,7 @@
       "file": "power/apc_rack_pdu.py",
       "format": "python",
       "files": {
-        "power/apc_rack_pdu.py": "6306eadcfc7fc7816b59ceb3e2722cfea12987c98012bd2cfdf5eb9f99851293",
+        "power/apc_rack_pdu.py": "819132d516c948bf7100b6b6e862c05b42bd3d841ec892997c15746ab6cee87c",
         "power/apc_rack_pdu_sim.py": "41db84a0b888b7d67979d15fe21f3964a2d810fc45cd3efe80f6f544ab12462f"
       },
       "ports": [
@@ -403,7 +403,7 @@
         "powernet-mib"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "pdu",
         "power",
@@ -601,7 +601,7 @@
       "name": "Atlona AT-OME-PS62 Matrix Switcher",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-OME-PS62 6x2 4K/UHD matrix presentation switcher over Telnet on port 23. Routes any of six inputs (HDMI / USB-C / HDBaseT) to two outputs (HDBaseT and HDMI). Independent four-zone audio with per-zone volume and mute, analog audio source routing, USB host switching, front-panel lock, and identify (POWER LED blink).\n",
@@ -609,7 +609,7 @@
       "file": "switchers/atlona_ome_ps62.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_ome_ps62.avcdriver": "66612992aa9180f502fe76df8b2c49777f353f0adabe8e06e8a9a0e2e94ed172"
+        "switchers/atlona_ome_ps62.avcdriver": "1c524cf7ec5c3ea65d3492f02c69c5f18ac14041c357194b94fb27ae05c7f656"
       },
       "ports": [
         23
@@ -656,7 +656,7 @@
       "name": "Atlona AT-UHD-PRO3 Matrix",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Atlona AT-UHD-PRO3 series of HDBaseT matrix switchers (PRO3-44M / 66M / 88M / 1616M) via Telnet on port 23. Every output is a child entity tracking its routed source, and every HDBaseT audio zone a child with volume and mute \u2014 the Output IDs / Audio Zone IDs config lists match the roster to the model (defaults describe the 88M, including its HDMI mirror outputs). Also covers power, presets (save / recall / clear), HDMI output mirroring, front-panel lock, and identify.\n",
@@ -664,7 +664,7 @@
       "file": "switchers/atlona_uhd_pro3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_uhd_pro3.avcdriver": "a25fb96ff4e48ac6056199036dbe1696c8817d684cdc999367f0864b0114cca2"
+        "switchers/atlona_uhd_pro3.avcdriver": "35d7041930cbce234bc5821262aae397c32a1637c4a1cf009b03a6816589d926"
       },
       "ports": [
         23
@@ -673,7 +673,7 @@
         "atlona_pro3"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -1098,7 +1098,7 @@
       "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
       "manufacturer": "AVer",
       "category": "camera",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "AVer Pro-AV PTZ310 / PTZ330 family. Combines VISCA-over-IP (UDP 52381) for power, PTZ motion, and position inquiries with AVer's HTTP CGI (port 80, /storks) for image quality (shutter, iris, gain, white balance, color temperature, saturation, contrast, sharpness), AI features (SmartShoot, SmartFraming), bulk status query, RTMP streaming, mirror/flip, and reboot. For other AVer models without a documented HTTP CGI guide, prefer the generic 'visca_ip' driver.",
@@ -1106,7 +1106,7 @@
       "file": "cameras/aver_ptz.py",
       "format": "python",
       "files": {
-        "cameras/aver_ptz.py": "1a053d0be1375c28be2873a2d78e40b54076ccd34d6fdcdc6dfd1be09555bfb0",
+        "cameras/aver_ptz.py": "a035f1a25c61231324ec46e7d0516f8d2e09cf0b76db7b223b95cde5c9bfad9b",
         "cameras/aver_ptz_sim.py": "3e978c9424061f2eb353da408fa6a46d9cc8da49fa2ccfe854dffe782d7dbd37"
       },
       "ports": [
@@ -1454,7 +1454,7 @@
       "name": "Axis Camera (VAPIX)",
       "manufacturer": "Axis",
       "category": "camera",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
@@ -1462,7 +1462,7 @@
       "file": "cameras/axis_vapix.py",
       "format": "python",
       "files": {
-        "cameras/axis_vapix.py": "2f971dac9517e0afb56785c63eb1fe8550c42ca7ac53205abae76738d1392098",
+        "cameras/axis_vapix.py": "6d084179503e7624dc2ef67d7e5ea5caa833a589b65338ac352d164e183f9def",
         "cameras/axis_vapix_sim.py": "2a5148a7efa84f7e3c04c61b6640d90c87f2a665d00866a942c64949b927a79a"
       },
       "ports": [
@@ -1475,6 +1475,7 @@
       ],
       "simulated": true,
       "verified": true,
+      "min_platform_version": "0.36.0",
       "tags": [
         "axis",
         "vapix",
@@ -1772,7 +1773,7 @@
       "name": "BenQ Display",
       "manufacturer": "BenQ",
       "category": "display",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, CP, CM series) and BenQ Smart Signage using BenQ's RS232 & LAN protocol on TCP port 4660 or direct RS-232. Power and screen off, source select, volume, mute and audio EQ, picture values and modes, backlight, color temperature, aspect, remote-key navigation, IR and keypad locks, power save, and a Power On that wakes a standby display over Wake-on-LAN. Polls for status.",
@@ -1780,7 +1781,7 @@
       "file": "displays/benq_display.py",
       "format": "python",
       "files": {
-        "displays/benq_display.py": "ca2ec1e5effd8b462f4c5f46498d9bc97eb4f52df2e9c096d244550424174300",
+        "displays/benq_display.py": "371ac996526d8148166a385f0aaf15406b89b174a9f108eb9ddab1b92f262c2c",
         "displays/benq_display_sim.py": "419940ec6fc818136d1d04dca4e53e20bad2ffb31c8a87ae6e34f17527673ffb"
       },
       "ports": [
@@ -1790,7 +1791,7 @@
         "benq_rs232_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "display",
         "benq",
@@ -1857,7 +1858,7 @@
       "name": "BenQ Projector",
       "manufacturer": "BenQ",
       "category": "projector",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls BenQ projectors using BenQ's RS232 Command Control protocol over the network (TCP 8000) or direct RS-232. Covers the install and large-venue families (LK / LU / LH / PU / PW / PX / L series) and the wider BenQ line that shares the same command table. Power, source select, volume and mute, picture mode, picture adjustment steps, color temperature, aspect ratio, blank, freeze, OSD menu navigation, light source mode and custom light level, lens memories, and installer settings (direct power on, quick auto search, high altitude, standby network). Polls for status.",
@@ -1865,13 +1866,13 @@
       "file": "projectors/benq_projector.avcdriver",
       "format": "avcdriver",
       "files": {
-        "projectors/benq_projector.avcdriver": "b466179c42ec54088ac5d19b902dc96953c3024f43d141efe0f1641fc8509616"
+        "projectors/benq_projector.avcdriver": "7d5e75b56de565733d7c251187f883db2057b7dd3306c06616230f9ad8cf3b90"
       },
       "ports": [
         8000
       ],
       "simulated": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "projector",
         "benq",
@@ -2222,7 +2223,7 @@
       "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
       "manufacturer": "Bose Professional",
       "category": "audio",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Bose Professional ControlSpace EX, ESP and CSP processors through the ControlSpace Serial Control Protocol on TCP port 10055 or the RS-232 port. Declare the modules from your ControlSpace Designer design (gains, inputs, outputs, selectors, routers, mixers, automatic mic mixers, EQs, dynamics, delays, logic, telephone and VoIP lines, signal-level meters, or any parameter by index) and each becomes a child entity whose controls panels bind to. Groups carry master level, mute and source; parameter sets recall by number or name; room combine groups join and split. Every control is subscribed on a processor that supports subscriptions, so changes made from a CC-16 or CC-64 wall controller or from Designer appear at once.",
@@ -2230,7 +2231,7 @@
       "file": "audio/bose_controlspace.py",
       "format": "python",
       "files": {
-        "audio/bose_controlspace.py": "d81e68fcd77f0dcea183a94a1a1dcd39f62e63e3441b287ea598e8fa961ff15d",
+        "audio/bose_controlspace.py": "4e5abc641302e689fc08610c697fc9ddabbb6d896f987e72016f6d1d6783b872",
         "audio/bose_controlspace_sim.py": "80cfe3aed3debec7ed012d979fe33bd27b5d223d62a5bea85cfb3e60fc567166"
       },
       "ports": [
@@ -2240,7 +2241,7 @@
         "bose-controlspace-serial"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "dsp",
         "bose",
@@ -2344,7 +2345,7 @@
       "name": "BrightSign Player (Local DWS)",
       "manufacturer": "BrightSign",
       "category": "streaming",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Monitors and controls BrightSign signage players through the player's Local Diagnostic Web Server API: identity, health, clock, every HDMI output with its display and video mode, HDMI power-save, reboot, snapshot, CEC, registry and log level, plus the Moka display's own panel controls. Drives the presentation with UDP messages and sets its User Variables.",
@@ -2352,7 +2353,7 @@
       "file": "streaming/brightsign_player.py",
       "format": "python",
       "files": {
-        "streaming/brightsign_player.py": "27827c1a9a5ebf996bcdd2cb0d6317708969d25a8cb43607bf2fc536b32c84a7",
+        "streaming/brightsign_player.py": "320b4d80a3f033a7852f4477c5409f4b483fc66721fe14a6c00101c1a2133e80",
         "streaming/brightsign_player_sim.py": "9801057f981eff0414a4fb604c2f5b863904951ed0ad67a8f5098f04bc21e6d1"
       },
       "ports": [
@@ -2363,7 +2364,7 @@
         "brightsign_ldws"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "brightsign",
         "signage",
@@ -2768,7 +2769,7 @@
       "name": "Epiphan Pearl",
       "manufacturer": "Epiphan",
       "category": "streaming",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Epiphan Pearl Nano, Mini, Nexus and Pearl-2 lecture-capture and live production systems over the Pearl REST API: start and stop recording and streaming for the whole unit, a channel or one stream, switch layouts, add bookmarks, set input gain, mute and phantom power, pick the HDMI output source, run CMS events (Kaltura, Panopto, Opencast), apply configuration presets, and watch storage, uploads, CPU and temperature.",
@@ -2776,7 +2777,7 @@
       "file": "streaming/epiphan_pearl.py",
       "format": "python",
       "files": {
-        "streaming/epiphan_pearl.py": "6b2c2c9bba22daddad16167ed01a81fe94237f884b57493bacc0403b28277f1c",
+        "streaming/epiphan_pearl.py": "afa7cca1ac7a6492ee86cdf5eb5cefaf6b9ecd4627933d1db6812861d9196f2e",
         "streaming/epiphan_pearl_sim.py": "65f0376f014d0015a4fca6c2cc7e54c7a0401efa861e35ee2ab896cceb91d077"
       },
       "ports": [
@@ -2787,7 +2788,7 @@
         "epiphan-rest"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "encoder",
         "recorder",
@@ -3048,7 +3049,7 @@
       "name": "Extron NAV Pro AV-over-IP (NAVigator)",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Route and monitor an Extron NAV Pro AV-over-IP system through its NAVigator System Manager: video, audio and USB ties, WindoWall video-wall presets and windows, KVM workstation presets, system alarms, and every managed encoder and decoder as a child entity. Requires the free LinkLicense for Third-Party Control on the NAVigator.",
@@ -3056,7 +3057,7 @@
       "file": "switchers/extron_nav.py",
       "format": "python",
       "files": {
-        "switchers/extron_nav.py": "e354dcc2bc84db0bdad66b719d70e4808426bb5f3aece4cc023818488c7080d6",
+        "switchers/extron_nav.py": "53208f48e0656345ddd0af18d2f0fc1a9cb38f7e09c85c291cd27b7e6806c4c6",
         "switchers/extron_nav_sim.py": "62f8618d94e8560234dc4c83df2b1dcdee3ad7e281d5dde604efce7d12fe6cc4"
       },
       "ports": [
@@ -3066,7 +3067,7 @@
         "extron_sis"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -3184,7 +3185,7 @@
       "name": "QLab Show Control",
       "manufacturer": "Figure 53",
       "category": "video",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "OpenAVC",
       "transport": "osc",
       "description": "Controls Figure 53's QLab show-control / playback software (macOS) over OSC. GO, STOP, PANIC, pause/resume/reset, and per-cue start/stop/load/preview by number or unique ID, plus select, playhead, level, arm, color, and load-at. Live feedback: current cue id/number/name, running state, and QLab version. OSC remote control is free in QLab 5. UDP or reliable TCP+SLIP transport.",
@@ -3192,7 +3193,7 @@
       "file": "video/qlab.py",
       "format": "python",
       "files": {
-        "video/qlab.py": "1ecf8486c9a7b376cb7774282683fb82c4e50e976a5e686d75696b8bbd163a18",
+        "video/qlab.py": "a9ce27f7c330e042cf59117e58bd7cd7d7f9ddf9232b29c8ae38b6b6bf472348",
         "video/qlab_sim.py": "4bdfdfae05c5405a7115959182e93a93c88c9cfb07748008f1761766af35cf29"
       },
       "ports": [
@@ -3200,7 +3201,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.29.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "osc",
         "show-control",
@@ -3493,7 +3494,7 @@
       "name": "Generic VISCA-IP PTZ Camera",
       "manufacturer": "Generic",
       "category": "camera",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Generic Sony-specification VISCA-over-IP driver (UDP port 52381). Pan/tilt/zoom/focus, presets, auto-exposure, white balance, backlight, power. Covers Sony SRG/BRC, AVer, Marshall, Lumens and many other pro PTZ cameras that adopt Sony's wire format. PTZOptics uses a different framing on TCP/5678 -- prefer the dedicated `ptzoptics` driver for those.",
@@ -3501,7 +3502,7 @@
       "file": "cameras/visca_ip.py",
       "format": "python",
       "files": {
-        "cameras/visca_ip.py": "72a700a3273370929f9062c0524c3dccbfe8fa9bce54aaf7d512db989f0f2c47",
+        "cameras/visca_ip.py": "995fc6df2ea8b1661efadb93c543def6c45777a9bfdc9d920538e14cb81f94f5",
         "cameras/visca_ip_discovery.py": "e303ef39607c842dfc2de68747e4a8c8b98695257db2ccf07434798126558ede",
         "cameras/visca_ip_sim.py": "6828c91c1b8354591b0a0c60c312398f562cee4d303a92855db17b6d1c0905f9"
       },
@@ -3512,7 +3513,7 @@
         "visca-ip"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "visca",
         "visca-ip",
@@ -4192,7 +4193,7 @@
       "name": "SoundCoreHero Audio System",
       "manufacturer": "Hero AV",
       "category": "audio",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Wiktor Myszolow (Hero AV)",
       "transport": "tcp",
       "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
@@ -4200,7 +4201,7 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "85f2626815148b0567d2c894880fe6334342af833792ee23cb818514ec0aaf21"
+        "audio/soundcorehero.py": "a5bc20c535d327d9ba0def6910f7da3074ed7897c274ae3fb67bb4d8d2e7f839"
       },
       "protocols": [
         "soundcorehero"
@@ -4510,7 +4511,7 @@
       "name": "LG webOS TV",
       "manufacturer": "LG",
       "category": "display",
-      "version": "4.2.3",
+      "version": "4.2.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls LG webOS TVs over the SSAP WebSocket protocol with live power/volume/input feedback.",
@@ -4518,14 +4519,14 @@
       "file": "displays/lg_webos.py",
       "format": "python",
       "files": {
-        "displays/lg_webos.py": "f36ab6d1046e8a71e3bdd7d13138124ba56215e449ebbdaf2495214cec639de5",
+        "displays/lg_webos.py": "7c09d7758bbfc0ffe4a9ab82b1e072218f85ff287f71b4cc4c8c974d41155ed4",
         "displays/lg_webos_sim.py": "bdf3e7d51d6edf5019a79e7bb7ca4016847c1faf44fef8d26ba5cb8db4732f98"
       },
       "ports": [
         3001
       ],
       "verified": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "tv",
         "display",
@@ -4584,7 +4585,7 @@
       "name": "Lightware LW3",
       "manufacturer": "Lightware",
       "category": "switcher",
-      "version": "1.6.0",
+      "version": "1.6.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Lightware switchers and matrix routers via Protocol #3 (LW3) over TCP port 6107. Covers UCX, Taurus UCX, MMX2, MMX, and MX2M products. Each configured output and input is a child entity tracking its routed source, mute, lock, HDCP, 5V and signal-type state per port, updated in real time via change-notification subscriptions with a keep-alive watchdog guarding the link. Provides video and audio crosspoint switching, EDID switching, analog audio level/mute/balance, and CEC command sending.\n",
@@ -4592,7 +4593,7 @@
       "file": "switchers/lightware_lw3.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/lightware_lw3.avcdriver": "3545f8155f192750ee6d50f3d083031fb0435fa32315eb61cd3eb65c330036af"
+        "switchers/lightware_lw3.avcdriver": "4b775efd52328678c26d700e661067638bb597d5706388d51e74c5b42e442b0d"
       },
       "ports": [
         6107
@@ -4601,7 +4602,7 @@
         "lightware_lw3"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "matrix-switcher",
         "hdbaset",
@@ -4859,7 +4860,7 @@
       "name": "NETGEAR M4250 / M4350 AV Line Switch",
       "manufacturer": "NETGEAR",
       "category": "utility",
-      "version": "1.4.6",
+      "version": "1.4.7",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Monitor and control NETGEAR M4250 and M4350 AV Line managed switches over their CLI: per-port PoE power-cycling and draw, link state, multicast/IGMP health, system health (temperature, fans, PSU, CPU), reboot, and config save. Each port is a child entity.",
@@ -4867,7 +4868,7 @@
       "file": "utility/netgear_m4250_m4350.py",
       "format": "python",
       "files": {
-        "utility/netgear_m4250_m4350.py": "30b4dc1d2293cbd500ed9c75ba284b56dc29de70935e29897a1de2770ebd41a6",
+        "utility/netgear_m4250_m4350.py": "e4377ad322e06b9ba2fc2e848cb9367dd9f74f5c8a0c43e874030aeba326ed5b",
         "utility/netgear_m4250_m4350_sim.py": "903c955b16528ad958f5ba6f6e58d0b3785a0e9592552e358e385ca3bf53830c"
       },
       "ports": [
@@ -4879,7 +4880,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "network",
         "switch",
@@ -4935,7 +4936,7 @@
       "name": "Novastar H Series Video Wall Splicer",
       "manufacturer": "Novastar",
       "category": "video",
-      "version": "1.6.3",
+      "version": "1.6.4",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls Novastar H series video wall splicers via UDP JSON commands. Covers layer operations, preset management, input switching, brightness, fade-to-black, freeze, volume, test patterns, screen color, OSD, and device management. Compatible with H2, H5, H9, H15, H20, and similar models using the H Series Control Protocol.\n",
@@ -4943,7 +4944,7 @@
       "file": "video/novastar_h_series.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/novastar_h_series.avcdriver": "e6c0fc3249b49e41a55f9743dbef90bdbe0665d975409e3de7f6ef094c07946e"
+        "video/novastar_h_series.avcdriver": "55c1b64f07126f70284c99898d37d9cecaf6a6ea913728421509aef2e14e4a21"
       },
       "ports": [
         6000
@@ -5208,7 +5209,7 @@
       "name": "ONVIF Camera",
       "manufacturer": "ONVIF",
       "category": "camera",
-      "version": "2.0.6",
+      "version": "2.0.7",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls any ONVIF Profile S or Profile T camera or video encoder: pan, tilt, zoom and focus, presets and home, image settings, relay outputs and digital inputs, plus the camera's RTSP stream and snapshot addresses for the Video Panel. Motion, tamper, signal-loss and input changes arrive as events. Use a brand's own driver when the catalog has one; this one covers everything else.",
@@ -5216,7 +5217,7 @@
       "file": "cameras/onvif_camera.py",
       "format": "python",
       "files": {
-        "cameras/onvif_camera.py": "879fcfa2fc1578f64323191e7010488ba86d3b5bdab98f54d6a53e46363fda91",
+        "cameras/onvif_camera.py": "a1e0b40f2b126bbc6ab8a3fb6e245c72f1b4ade45014dd6213e77a55f29b4f72",
         "cameras/onvif_camera_discovery.py": "603d479e24b1a6a140e8a697d687c56e832f7f80186cfdc5676cd59cfa6dcc76",
         "cameras/onvif_camera_sim.py": "722023e4ed54b3b8c4d4160e23a5492f896a217bbe6a869bf552f30db02c7a58"
       },
@@ -5228,6 +5229,7 @@
       ],
       "simulated": true,
       "verified": true,
+      "min_platform_version": "0.36.0",
       "tags": [
         "onvif",
         "ptz",
@@ -5338,7 +5340,7 @@
       "name": "Panasonic AW-HE/UE/UN PTZ Camera",
       "manufacturer": "Panasonic",
       "category": "camera",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Panasonic AW-HE, AW-UE, and AW-UN series professional PTZ cameras via the documented HTTP CGI protocol (port 80). Covers power, pan/tilt drive and absolute positioning, zoom, focus (auto/manual), iris (auto/ manual), 100 presets, tally, wireless remote enable, and zoom-linked pan/tilt speed, with state changes pushed instantly by the camera's update-notification channel. Image-quality controls (gain, white balance, scene files, gamma) are install-time setup left to the camera's web UI.\n",
@@ -5346,7 +5348,7 @@
       "file": "cameras/panasonic_awhe.avcdriver",
       "format": "avcdriver",
       "files": {
-        "cameras/panasonic_awhe.avcdriver": "4878d76db787d8d216b3565db1f1602ffb1999846adbcea994b94322c00dfc33"
+        "cameras/panasonic_awhe.avcdriver": "13fe289ac55de82f26b13315853c0562c1a9b76caf5885a529584a7b45f3d6e0"
       },
       "ports": [
         80
@@ -5356,7 +5358,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "ptz",
         "camera",
@@ -5658,7 +5660,7 @@
       "name": "PTZOptics Camera",
       "manufacturer": "PTZOptics",
       "category": "camera",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls PTZOptics PTZ cameras over the VISCA-over-IP protocol on TCP port 5678. Pan, tilt, zoom, focus, preset recall / save / reset, tally light, image flip, auto-exposure mode, white balance mode, and backlight. Polled state covers pan / tilt / zoom / focus position, focus mode, AE mode, WB mode, backlight, and flip settings.",
@@ -5666,7 +5668,7 @@
       "file": "cameras/ptzoptics.py",
       "format": "python",
       "files": {
-        "cameras/ptzoptics.py": "14eb4cd1346d21fb77c8538063d8bf8d31463b5cf58557802d98bccd3932bcb4",
+        "cameras/ptzoptics.py": "f28c6248514db2a5b15268f721ef2b28461fcc5c5d55ed0bd7867d176dab9f14",
         "cameras/ptzoptics_sim.py": "b5e34e295da3ba8412881ad1629264ff9dde4a28a5dee0529bfde43ad1adff03"
       },
       "ports": [
@@ -5676,7 +5678,7 @@
         "visca"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "ptz",
         "camera",
@@ -6078,7 +6080,7 @@
       "name": "Sennheiser EW-DX Receiver",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Evolution Wireless Digital rack receivers (EW-DX EM 2, EM 2 Dante, EM 4 Dante) over SSCv2, the HTTPS REST API with Server-Sent Events. Per-channel mute, gain and output level, RF frequency and presets, warnings (no link, low signal, RF and AF peak, encryption), the linked transmitter's mute, battery and warnings, sync settings, opt-in RF and audio meters. Every change streams in as it happens.\n",
@@ -6086,7 +6088,7 @@
       "file": "audio/sennheiser_ewdx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_ewdx.avcdriver": "3dff1dea266056108f032200847b5f27b163d91a966bb715b658ec2bcfa3356c"
+        "audio/sennheiser_ewdx.avcdriver": "aa722699665721c81be09108fecacc01b8cb5ac700ab801b1ebb6400310c6de0"
       },
       "ports": [
         443
@@ -6095,7 +6097,7 @@
         "sscv2"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "sennheiser",
         "ew-dx",
@@ -6149,7 +6151,7 @@
       "name": "Sennheiser TeamConnect Ceiling 2",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity, analog and Dante output levels, AEC reference gain, the 7-band equalizer, noise gate, Voice Lift, priority and exclusion zones, installation type, the LED ring colours and brightness, device naming, identify, restart and restore. The microphone reports where the active talker is (beam azimuth and elevation) and live input and reference meters; both feeds are opt-in and can be switched from a macro or panel. State is push-driven: the driver subscribes and the microphone reports every change as it happens, including changes made from Sennheiser Control Cockpit.\n",
@@ -6157,7 +6159,7 @@
       "file": "audio/sennheiser_tcc2.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_tcc2.avcdriver": "5344413aa2d7f761165e9f58d3401aa59bba2e9a14a0ce4512060bd93ea623d3"
+        "audio/sennheiser_tcc2.avcdriver": "cd647cd0dc48be6215a89b64d8da4601be724f23a5284bdb4a507d00e35792f0"
       },
       "ports": [
         45
@@ -6166,7 +6168,7 @@
         "ssc"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "microphone",
         "ceiling-mic",
@@ -6869,7 +6871,7 @@
       "name": "Sony VISCA-IP PTZ Camera",
       "manufacturer": "Sony",
       "category": "camera",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Dedicated Sony SRG / BRC / EVI VISCA-over-IP driver (UDP port 52381). Adds Sony picture profiles, R/B gain, color matrix, defog, visibility enhancer, low-light, chroma suppress, PRESET MODE + PTZ TRACE (BRC-X400/X401), tally, IR correction, ICR, AF mode, AE speed, min/max shutter, high sensitivity, and OSD on/off \u2014 on top of the standard PTZ + AE/WB command set.",
@@ -6877,7 +6879,7 @@
       "file": "cameras/sony_visca.py",
       "format": "python",
       "files": {
-        "cameras/sony_visca.py": "73a99e56467e786898a6c5f9c045f5a827693b4c111a73d41e7cda96c4faedb1",
+        "cameras/sony_visca.py": "a001b0e464bbbb21855fa0a58959ed340c740d64e53f726534b8fe497fb862be",
         "cameras/sony_visca_sim.py": "a7f7224b3127909f777db7874b69bccf97f58f2c75bfbffe71ed1a71def02c30"
       },
       "ports": [
@@ -6887,7 +6889,7 @@
         "visca-ip"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "visca",
         "visca-ip",
@@ -7007,7 +7009,7 @@
       "name": "vMix",
       "manufacturer": "StudioCoast",
       "category": "video",
-      "version": "2.3.3",
+      "version": "2.3.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls vMix video production software via the TCP API. Supports transitions, input switching, audio, overlays, recording, streaming, titles, replay, PTZ, and the numbered outputs including their SRT streams.",
@@ -7015,7 +7017,7 @@
       "file": "video/vmix.py",
       "format": "python",
       "files": {
-        "video/vmix.py": "47e93264483da3ccb524b7cd6e4d65aeba208085c4dcbd9f742f35d43ad36115",
+        "video/vmix.py": "f38df8195508d449a2297bef52259e75438e8fb31d947abbfb084eefe4ac046b",
         "video/vmix_sim.py": "825c876a8ef02d87b5ffc3d19251b4e9a9f4505c58d1b8f33ab45414d00e2035"
       },
       "ports": [
@@ -7023,7 +7025,7 @@
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "video-production",
         "streaming",
@@ -7200,7 +7202,7 @@
       "name": "Turtle AV Dante Bluetooth Wallplate",
       "manufacturer": "TurtleAV",
       "category": "audio",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Turtle AV Dante Bluetooth Wallplate (WPD20BUS) over Telnet. Bridges a stereo Bluetooth source into Dante. Input gain/mute/stereo, Bluetooth pairing window, volume, mute, audio bridging mode, transport (play/pause/skip) with now-playing metadata, connection status, and per-channel parametric EQ.\n",
@@ -7208,14 +7210,14 @@
       "file": "audio/turtle_bt_wallplate.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/turtle_bt_wallplate.avcdriver": "c9b45877857dcb60ee99c60adafa69ecfef38a96ee0d3831da195735daa7bae1"
+        "audio/turtle_bt_wallplate.avcdriver": "536d4fa7a39ee447c2b7622dab911843c0c8602700345a94eade556eff6976b0"
       },
       "ports": [
         23
       ],
       "simulated": true,
       "verified": true,
-      "min_platform_version": "0.23.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "bluetooth",
         "dante",
@@ -7276,7 +7278,7 @@
       "name": "TurtleAV Chazy Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control AV-over-IP matrix controller and the sub-units it manages: video encoders (TX), decoders (RX), and video walls. The standard Control's command set; for the Media Player, Groups, Events, Scheduler, Dante Presets, Configuration Presets and Date/Time modules, use the Chazy Control Pro driver.",
@@ -7284,7 +7286,7 @@
       "file": "switchers/chazy_control.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control.py": "d439bfbc99e89b345292a814fe0a2eae294fece4778c9b862c3b132efd9e454b",
+        "switchers/chazy_control.py": "11433daff57098afcc7d885dc76b26390046fdfd9450bc648298c99408c2811d",
         "switchers/chazy_control_discovery.py": "17ec5c484f808f084eea83e859b9ede4e5a808bbbfb0f38280602c0224e716b9",
         "switchers/chazy_control_sim.py": "0c41f64c2831ac3cc52761a2dcac382e0e2902e104a356e9947d2b3d984bac6f"
       },
@@ -7295,7 +7297,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.29.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -7353,7 +7355,7 @@
       "name": "TurtleAV Chazy Control Pro",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.6.2",
+      "version": "1.6.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Chazy Control Pro AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX) and decoders (RX), video walls, decoder groups, events, schedules, NAS/FTP media sources, Dante presets, and configuration presets.",
@@ -7361,7 +7363,7 @@
       "file": "switchers/chazy_control_pro.py",
       "format": "python",
       "files": {
-        "switchers/chazy_control_pro.py": "f8a0a5d57b6b7cb0f8f4b2fb4bd74bf4494ff584ef19218d553dc90085556fe7",
+        "switchers/chazy_control_pro.py": "b0aeced1115a403679ab2b799b1be66f8690b4733c860d54e7cbc2f058d30c94",
         "switchers/chazy_control_pro_discovery.py": "3e1bf2542c36a4ed265dff4b74c97afe57a25b52ae69b0c62d70755ed06eec7b",
         "switchers/chazy_control_pro_sim.py": "b2e092b1122b885c8efdb7df98cdd316282112aac946898d2de389c312468fbe"
       },
@@ -7372,7 +7374,7 @@
         "chazy_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.29.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -7433,7 +7435,7 @@
       "name": "TurtleAV Darwin Control",
       "manufacturer": "TurtleAV",
       "category": "switcher",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls a TurtleAV Darwin Control (CTL100AL) H.265 AV-over-IP matrix controller and every sub-unit it manages: video encoders (TX), decoders (RX), and video walls.",
@@ -7441,7 +7443,7 @@
       "file": "switchers/darwin_control.py",
       "format": "python",
       "files": {
-        "switchers/darwin_control.py": "bad378a2e34530dbe732b99170b755c037f5a92c3193c4d3b3500bcdac98a3d0",
+        "switchers/darwin_control.py": "2477d5a6a940f4c814ddc0314c9f66c2017ce8479a3add0a15ec23d2d916145f",
         "switchers/darwin_control_discovery.py": "8c9153c34d0400a3710755a2d3847affea9f0233d8a6bda1f64effa583d9d628",
         "switchers/darwin_control_sim.py": "353f2aed0143289d858c3a69f059bd1da712645fa6691bc29e176a8cc6484632"
       },
@@ -7452,7 +7454,7 @@
         "darwin_telnet"
       ],
       "simulated": true,
-      "min_platform_version": "0.27.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "av-over-ip",
         "matrix",
@@ -7792,7 +7794,7 @@
       "name": "ViewSonic Commercial Display",
       "manufacturer": "ViewSonic",
       "category": "display",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, ambient sensor readings, and a Power On that wakes a display whose standby closes the network port over Wake-on-LAN. Listens for the display's own status pushes and polls for the rest.",
@@ -7800,7 +7802,7 @@
       "file": "displays/viewsonic_cde.avcdriver",
       "format": "avcdriver",
       "files": {
-        "displays/viewsonic_cde.avcdriver": "4a72f8014240276fb022d9292cf461b932f82c89b0d2d650c86f1dd70c75949c"
+        "displays/viewsonic_cde.avcdriver": "ed6ee53753acb5748d004387ea49be318ffc4976f90f3f85592bcc36d9ed0602"
       },
       "ports": [
         5000
@@ -7809,7 +7811,7 @@
         "viewsonic_lfd_rs232_lan"
       ],
       "simulated": true,
-      "min_platform_version": "0.34.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "display",
         "viewsonic",
@@ -7866,7 +7868,7 @@
       "name": "WattBox IP-Controlled PDU",
       "manufacturer": "WattBox",
       "category": "power",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls SnapAV WattBox IP-controlled power distribution units over the WattBox Integration Protocol (Telnet, port 23). Outlets are addressable children with per-outlet state, name, and power metering. Supports on/off/toggle/reset, per-outlet naming, auto-reboot configuration, system + per-outlet power metering, and UPS status reporting on units with a connected UPS.",
@@ -7874,7 +7876,7 @@
       "file": "power/wattbox_ip.py",
       "format": "python",
       "files": {
-        "power/wattbox_ip.py": "9b1c20940c6bba18b70c2a0c4492461b1372571a698f6284eb615f14265f1b6c",
+        "power/wattbox_ip.py": "c399291200bb7426505b7fde7fd15462169f81551501b37afe7969f60c73d88e",
         "power/wattbox_ip_sim.py": "e6306a9adaaea62b0729ad8e022c9fff7bc7d488efa1cbb37884891c83eec981"
       },
       "ports": [
@@ -7884,7 +7886,7 @@
         "wattbox-integration-v1.7"
       ],
       "simulated": true,
-      "min_platform_version": "0.25.0",
+      "min_platform_version": "0.36.0",
       "tags": [
         "pdu",
         "power",

@@ -344,7 +344,9 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.3",
+        "version": "1.1.4",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls Axis network cameras through VAPIX, Axis's own API: remote "
@@ -1090,6 +1092,7 @@ class AxisVapixDriver(BaseDriver):
             },
             "preset_delete": {
                 "label": "Delete Preset",
+                "confirm": "Deletes this preset position from the camera.",
                 "params": {"preset": {"type": "string", "label": "Preset", "required": True,
                                       "options_state": "preset_options"}},
             },

@@ -77,10 +77,10 @@ id: sennheiser_ewdx
 name: Sennheiser EW-DX Receiver
 manufacturer: Sennheiser
 category: audio
-version: 1.0.0
+version: 1.0.1
 # The push block's session handshake, its register list and the json
 # `contains` mapping all arrived in 0.34.0.
-min_platform_version: "0.34.0"
+min_platform_version: "0.36.0"
 author: OpenAVC
 description: >
   Evolution Wireless Digital rack receivers (EW-DX EM 2, EM 2 Dante,
@@ -859,6 +859,7 @@ commands:
     sets: { identifying: false }
   restore_channel_audio:
     label: Restore Channel Audio Defaults
+    confirm: "Puts the channel's gain, output level and mute back to their factory values."
     method: PUT
     path: /api/channel/{channel}/restore
     body: '{"mode": "AudioDefault"}'

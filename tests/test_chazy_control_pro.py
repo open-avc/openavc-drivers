@@ -672,11 +672,11 @@ def test_encoder_declares_stream_urls():
 def test_driver_identity():
     assert INFO["id"] == "chazy_control_pro"
     assert INFO["transport"] == "tcp"
-    assert INFO["version"] == "1.6.2"
+    assert INFO["version"] == "1.6.3"
     # The floor is the newest platform surface the driver CALLS. That was the
     # 0.25.0 package move until it began asserting a child fault code, which
     # is BaseDriver.child_fault() and arrived in 0.29.0.
-    assert INFO["min_platform_version"] == "0.29.0"
+    assert INFO["min_platform_version"] == "0.36.0"
 
 
 # ── Connection lifecycle ────────────────────────────────────────────────────
@@ -881,4 +881,42 @@ async def test_the_decoder_detail_poll_clears_a_live_one(monkeypatch):
     out = await d._fetch_decoder_detail([1])
     assert out[1]["online"] is True
     assert out[1]["offline_reason"] is None and out[1]["offline_detail"] is None
+
+
+# ── A command that erases, deletes or resets asks first ─────────────────────
+#
+# Sent by hand (the device page, Live Test, a device audit) each of these asks
+# before it goes; macros, triggers and panel buttons send it as before. The
+# commands are built in code, so this file, which loads the class, pins them.
+
+_ASKS_FIRST = (
+    "reset_system_confirm",
+    "reset_network_confirm",
+    "reset_all_confirm",
+    "enc_reset",
+    "dec_reset",
+    "add_dev_reset",
+    "dante_clear_config",
+    "dante_reboot",
+    "enc_delete",
+    "dec_delete",
+    "dec_hotkey_del",
+    "wall_delete",
+    "wall_delete_preset",
+    "media_delete",
+    "group_delete",
+    "event_delete",
+    "schedule_delete",
+    "schedule_delete_action",
+    "config_preset_delete",
+    "dante_txflow_delete",
+    "dante_preset_delete",
+)
+
+
+@pytest.mark.parametrize("command", _ASKS_FIRST)
+def test_a_command_that_erases_or_deletes_asks_first(command):
+    confirm = INFO["commands"][command].get("confirm")
+    assert isinstance(confirm, str) and confirm.strip(), command
+    assert "—" not in confirm
 

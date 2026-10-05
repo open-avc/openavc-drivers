@@ -116,9 +116,10 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.4",
+        "version": "1.3.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls SnapAV WattBox IP-controlled power distribution units "
@@ -356,6 +357,7 @@ class WattBoxIPDriver(BaseDriver):
             },
             "reset_all": {
                 "label": "Reset All Outlets",
+                "confirm": "Power-cycles every outlet on the WattBox at once, so everything plugged in turns off and on.",
                 "params": {},
                 "help": (
                     "Reset (power-cycle) every outlet on the WattBox at once."

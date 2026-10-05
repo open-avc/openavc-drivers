@@ -238,7 +238,7 @@ class BenqDisplayDriver(BaseDriver):
         "name": "BenQ Display",
         "manufacturer": "BenQ",
         "category": "display",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls BenQ interactive flat panels (BenQ Boards: RM, RP, RE, "
@@ -254,7 +254,8 @@ class BenqDisplayDriver(BaseDriver):
         "verified": False,
         "simulated": True,
         "ports": [4660],
-        "min_platform_version": "0.34.0",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "transport": "tcp",
         "transports": ["tcp", "serial"],
         "delimiter": "\r",
@@ -661,10 +662,12 @@ class BenqDisplayDriver(BaseDriver):
             },
             "picture_reset": {
                 "label": "Reset Picture Settings",
+                "confirm": "Puts every picture setting back to its factory value.",
                 "params": {},
             },
             "sound_reset": {
                 "label": "Reset Sound Settings",
+                "confirm": "Puts every sound setting back to its factory value.",
                 "params": {},
             },
             "raw_command": {

@@ -458,7 +458,9 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.6",
+        "version": "2.0.7",
+        # confirm on the commands that erase, delete or reset needs 0.36.0.
+        "min_platform_version": "0.36.0",
         "author": "OpenAVC",
         "description": (
             "Controls any ONVIF Profile S or Profile T camera or video encoder: "
@@ -973,6 +975,7 @@ class OnvifCameraDriver(BaseDriver):
             },
             "preset_delete": {
                 "label": "Delete Preset",
+                "confirm": "Deletes this preset from the camera.",
                 "params": {
                     "preset": {"type": "string", "label": "Preset", "required": True,
                                "options_state": "preset_options"},

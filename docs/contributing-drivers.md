@@ -27,7 +27,9 @@ Guide for contributing device drivers to the OpenAVC community library.
 
 6. **Add metadata fields to your driver file** (NOT `index.json` — see below)
 
-7. **Rebuild the catalog and validate.** The catalog is generated from the driver files, and it belongs in the same commit as the driver:
+7. **Make anything that erases ask first.** A command that factory-resets the device, deletes something stored on it (a preset, a user, a file), puts a group of tuned settings back to factory values, or stops or reroutes the whole system declares `confirm` with the sentence to ask, saying what is lost ("Erases every preset and returns the unit to DHCP."). CI fails a command whose id or label says factory, erase, wipe, delete or remove, reset or clear all, or reset or restore defaults when it has no `confirm`.
+
+8. **Rebuild the catalog and validate.** The catalog is generated from the driver files, and it belongs in the same commit as the driver:
    ```bash
    pip install -r requirements-dev.txt
    python scripts/build_index.py          # regenerate index.json, devices.json, shards
@@ -42,7 +44,7 @@ Guide for contributing device drivers to the OpenAVC community library.
    ```
    See [Checking one driver file](#checking-one-driver-file) below.
 
-8. **Submit a pull request** with your driver file, the regenerated catalog files, and a `manufacturers.json` entry if your manufacturer is new.
+9. **Submit a pull request** with your driver file, the regenerated catalog files, and a `manufacturers.json` entry if your manufacturer is new.
 
 ## Driver Metadata
 

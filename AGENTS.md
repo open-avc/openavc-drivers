@@ -961,6 +961,7 @@ These are common errors that produce drivers that fail validation or don't work 
 | Putting command parameters in `default_config` | `default_config` is for connection settings. Command parameters go in `commands.<cmd>.params`. |
 | Category doesn't match directory | A driver in `audio/` must have `category: audio`. |
 | YAML single-quote escaping for regex | In YAML, use `'\*Q'` not `'\\*Q'` for regex special chars in simulator command_handlers. |
+| A factory reset or a delete with no `confirm` | Declare `confirm` with the sentence to ask, saying what is lost. `tests/test_commands_that_erase_ask_first.py` fails a command whose id or label says factory, erase, wipe, delete or remove (or reset or clear all, or reset or restore defaults) without it; a name that matches and erases nothing goes in that test's `SENDS_WITHOUT_ASKING` with the reason, since `confirm: false` would still raise the computed `min_platform_version`. |
 | Simulator handler pattern ending in a space | The simulator strips whitespace off an incoming frame before matching, so a `command_handlers` pattern that ends in a literal space can never fire -- and it fails silently, with the simulated device answering an error to every such command while the driver works fine on hardware. If the protocol puts a space before its terminator, end the pattern `NC ?` (optional) rather than `NC `. |
 
 ### Python Drivers
@@ -973,6 +974,7 @@ These are common errors that produce drivers that fail validation or don't work 
 | Writing to state outside device namespace | Use `self.set_state("key", val)` which auto-prefixes with `device.<id>.`. |
 | Missing DRIVER_INFO | Required class attribute. Without it, the driver won't load. |
 | Missing `send_command` override | Required method. The base class raises `NotImplementedError`. |
+| A factory reset or a delete with no `confirm` | Same rule as YAML. A command table built in code is read with the class loaded, in CI's platform job, so building it at runtime does not hide it. |
 
 ### index.json
 

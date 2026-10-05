@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 898,
+    "total_devices": 904,
     "shards": null
   },
   "devices": [
@@ -9129,6 +9129,78 @@
           "id": "shure_network",
           "confidence": "untested",
           "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SLXD4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_slxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SLXD4+",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_slxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SLXD4D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_slxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SLXD4D+",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_slxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SLXD4Q+",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_slxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "SLXD4QDAN+",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_slxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
         }
       ]
     },

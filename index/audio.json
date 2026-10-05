@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 30,
+    "total_drivers": 31,
     "shards": null,
     "category": "audio"
   },
@@ -1833,6 +1833,82 @@
           "^MXW",
           "^P300",
           "^IMX"
+        ],
+        "port_open": [
+          2202
+        ],
+        "manufacturer_alias": [
+          "shure",
+          "shure incorporated"
+        ]
+      }
+    },
+    {
+      "id": "shure_slxd",
+      "name": "Shure SLX-D Receiver",
+      "manufacturer": "Shure",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "SLX-D and SLX-D+ digital wireless receivers over Shure command strings. Per-channel gain, name, frequency and group/channel presets, the transmitter's model, battery bars and runtime, opt-in audio and RF meters, and on SLX-D+ the link status, interference and encryption warnings and remote pairing. Every change on the receiver shows up as it happens.\n",
+      "source_url": "https://www.shure.com/en-US/docs/commandstrings/SLXD",
+      "file": "audio/shure_slxd.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/shure_slxd.avcdriver": "09797c16a05abd218ff009010b3d38fb4ca4974e0087e139aaafdd59401b551a"
+      },
+      "ports": [
+        2202
+      ],
+      "protocols": [
+        "shure_command_strings"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "shure",
+        "slx-d",
+        "slxd",
+        "wireless-microphone",
+        "receiver",
+        "dante"
+      ],
+      "help": {
+        "overview": "Shows what a Shure SLX-D or SLX-D+ receiver and its wireless microphones are doing, and controls the receiver's channels. Each channel reports the transmitter's model and battery, so a panel can show a rack at a glance and a trigger can alert on a low battery or a lost transmitter. Set gain, names, frequencies and group/channel presets. On SLX-D+ receivers each channel also reports its link status and interference or encryption warnings, and a transmitter can be paired remotely.\n",
+        "setup": "1. Connect the receiver's network port to the control network and note its IP address (front panel: Network menu, or Wireless Workbench).\n2. Enter that address here. The port is 2202 on every receiver.\n3. Set Receiver Channels to the receiver's channel count (1, 2 or 4). Once connected, the receiver's model sets it.\n4. Turn on Meter Interval only if a panel shows audio or RF levels. The receiver then sends levels for every channel at that interval.\n",
+        "connection": "TCP port 2202, no password. The receiver accepts control from any address on its network.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Shure",
+          "models": [
+            "SLXD4",
+            "SLXD4D",
+            "SLXD4+",
+            "SLXD4D+",
+            "SLXD4Q+",
+            "SLXD4QDAN+"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 2202,
+          "send_ascii": "< GET MODEL >\r\n",
+          "expect_regex": "<\\s*REP\\s+MODEL\\s+\\{\\s*SLXD4",
+          "extract_manufacturer": "Shure",
+          "extract": {
+            "model": {
+              "regex": "<\\s*REP\\s+MODEL\\s+\\{\\s*(SLXD4[^}\\s]*)"
+            }
+          }
+        },
+        "oui": [
+          "00:0e:dd",
+          "d8:34:ee"
         ],
         "port_open": [
           2202

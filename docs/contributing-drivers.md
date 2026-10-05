@@ -153,7 +153,9 @@ The schema parser auto-registers two synthetic probe IDs (`custom_<driver_id>_co
 
 ### Cross-vendor anchors
 
-Some discovery signals identify a *protocol class* shared by many vendors (a multi-vendor projector control protocol, a multi-vendor camera discovery beacon, a control-system family beacon). Drivers hosting those signals declare `cross_vendor: true` on the relevant fingerprint. When a `cross_vendor: true` fingerprint matches, the matcher consults peer drivers' hints — a vendor-specific peer matching via `oui`, `hostname`, `manufacturer_alias`, or `port_open` becomes the primary driver, and the cross-vendor anchor moves to `alternatives[0]` in the dropdown on the Discovery card.
+Some discovery signals identify a *protocol class* shared by many vendors (a multi-vendor projector control protocol, a multi-vendor camera discovery beacon, a control-system family beacon). Drivers hosting those signals declare `cross_vendor: true` on the relevant fingerprint. When only cross-vendor fingerprints match, the matcher consults peer drivers' hints: a vendor-specific peer matching via `oui`, `hostname`, `manufacturer_alias`, or `port_open` becomes the primary driver, and the cross-vendor anchor follows it in the dropdown on the Discovery card. When your driver's own fingerprint also matches, your driver leads without the hints, whatever kind of signal found the cross-vendor match.
+
+When fingerprints from two drivers both match one device, the Discovery card offers both, so a probe should expect something only your device says. CI replays each captured probe reply in `tests/fixtures/discovery/` through every other driver whose probe sends the same bytes to the same port, and fails if one of them matches it too.
 
 When you bump a driver to use a field your platform target may lack, set `min_platform_version` so older OpenAVC instances grey out the driver instead of trying to parse fields they don't understand.
 

@@ -242,7 +242,7 @@ class SonyVISCADriver(BaseDriver):
         "name": "Sony VISCA-IP PTZ Camera",
         "manufacturer": "Sony",
         "category": "camera",
-        "version": "1.3.3",
+        "version": "1.3.4",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -805,9 +805,14 @@ class SonyVISCADriver(BaseDriver):
                         "pan_speed":  {"type": "integer", "min": 1, "max": 24},
                         "tilt_speed": {"type": "integer", "min": 1, "max": 23},
                     },
-                    "help": "Continuous-movement command. Send 'pt_stop' to halt.",
+                    "help": "Moves continuously until Pan/Tilt Stop is sent.",
                 }
-                for cmd in _PT_DIR
+                for cmd in _PT_DIR if cmd != "pt_stop"
+            },
+            "pt_stop": {
+                "label": "Pan/Tilt Stop",
+                "params": {},
+                "help": "Stops pan/tilt movement.",
             },
 
             "pt_home":  {"label": "Pan/Tilt Home",  "params": {}},
@@ -999,7 +1004,7 @@ class SonyVISCADriver(BaseDriver):
             "rgain_down":  {"label": "R Gain: Down",  "params": {}},
             "rgain_direct": {
                 "label": "R Gain: Direct",
-                "params": {"value": {"type": "integer", "required": True, "min": 0, "max": 255}},
+                "params": {"value": {"type": "integer", "label": "Red Gain", "required": True, "min": 0, "max": 255}},
                 "help": "0 = -128, 128 = neutral, 255 = +127.",
             },
             "bgain_reset": {"label": "B Gain: Reset", "params": {}},
@@ -1007,7 +1012,7 @@ class SonyVISCADriver(BaseDriver):
             "bgain_down":  {"label": "B Gain: Down",  "params": {}},
             "bgain_direct": {
                 "label": "B Gain: Direct",
-                "params": {"value": {"type": "integer", "required": True, "min": 0, "max": 255}},
+                "params": {"value": {"type": "integer", "label": "Blue Gain", "required": True, "min": 0, "max": 255}},
             },
             "set_chroma_suppress": {
                 "label": "Set Chroma Suppress",
@@ -1034,7 +1039,7 @@ class SonyVISCADriver(BaseDriver):
                 "label": "Set Color Matrix Coefficient (BRC-X400/X401)",
                 "params": {
                     "axis": {
-                        "type": "enum",
+                        "type": "enum", "label": "Color Pair",
                         "required": True,
                         "values": list(_COLOR_MATRIX_OPS.keys()),
                     },

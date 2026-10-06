@@ -150,7 +150,7 @@ async def _make_pair(sim_state=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SharpNECProjectorDriver.DRIVER_INFO["version"] == "2.5.3"
+    assert DRV.SharpNECProjectorDriver.DRIVER_INFO["version"] == "2.5.4"
 
 
 def test_device_settings_declared():

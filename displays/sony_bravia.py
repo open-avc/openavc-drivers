@@ -169,7 +169,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.5",
+        "version": "1.5.6",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -470,7 +470,7 @@ class SonyBraviaDriver(BaseDriver):
                 "label": "Set Picture Mode",
                 "params": {
                     "value": {
-                        "type": "string",
+                        "type": "string", "label": "Preset Name",
                         "required": True,
                         "help": (
                             "Picture preset name (model-specific, e.g. "

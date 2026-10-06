@@ -385,7 +385,7 @@
       "name": "AtlasIED Atmosphere",
       "manufacturer": "AtlasIED",
       "category": "audio",
-      "version": "2.0.2",
+      "version": "2.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls AtlasIED Atmosphere AZM4 and AZM8 audio processing and control systems over the third-party JSON-RPC protocol on TCP port 5321. Models sources, zones, mixes, groups, messages, routines, scenes, GPO presets, GPOs, and bell schedules as child entities labelled with the names from the Atmosphere configuration. Covers gain and mute per source / zone / mix / group, zone and group source select, group combine, message / routine / scene / GPO-preset triggers, GPO pin state, and today's bell schedule. Subscribes for state updates on connect.",
@@ -393,7 +393,7 @@
       "file": "audio/atlasied_atmosphere.py",
       "format": "python",
       "files": {
-        "audio/atlasied_atmosphere.py": "571a80a2e2954c01bc9b50cde9336778f7a354c5b85cd7d21fbeee1650b03563",
+        "audio/atlasied_atmosphere.py": "95670646f3ece0425f46083258a3fea260bdaadc7e390ada3062266bdbe41da1",
         "audio/atlasied_atmosphere_sim.py": "5abeef1019aa4a3780f6997008c020b9721294d1ea853a3b857dcfdd8d43c9a4"
       },
       "ports": [
@@ -1690,7 +1690,7 @@
       "name": "Shure Axient Digital Receivers",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls and monitors Shure Axient Digital AD4D and AD4Q wireless receivers over Shure's command strings on TCP port 2202. Each receiver channel is a child entity with mute, gain, frequency and group/channel preset, interference and encryption warnings, the decoded transmitter's battery, RF power, lock and mute switch, and opt-in audio and RF meters. Each of a channel's eight transmitter slots is a child entity; a linked ADX transmitter's RF mute, power mode, gain offset, polarity, input pad and name are remote-controllable. State pushes live as it changes.",
@@ -1698,7 +1698,7 @@
       "file": "audio/shure_axient_digital.py",
       "format": "python",
       "files": {
-        "audio/shure_axient_digital.py": "4ffa94bdc1f9375455b8c4454b60c2b97d6d42d889577020aaec6938455158ec",
+        "audio/shure_axient_digital.py": "dbaa411ccbd1b4df7b39e536095023d25bd745910b51e0b62a4742dc7f72e50c",
         "audio/shure_axient_digital_sim.py": "a3327e803887ea6e79d7de68e79fcef1cf91f32ff280a7a944ec309d9b453d7e"
       },
       "ports": [
@@ -2062,7 +2062,7 @@
       "name": "Symetrix Composer DSP",
       "manufacturer": "Symetrix",
       "category": "audio",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Symetrix Edge, Radius, Radius AEC, Radius NX, Prism, Solus NX, and xControl DSPs via the Composer Control Protocol on TCP port 48631. Generic controller model: assign controller numbers (1\u201310000) in Composer to faders, mutes, selectors, and meters; this driver reads / writes those numbers and subscribes to push-enabled value changes.",
@@ -2070,7 +2070,7 @@
       "file": "audio/symetrix_composer.py",
       "format": "python",
       "files": {
-        "audio/symetrix_composer.py": "b05f89368347ad170054702ef6f678b0f1281596d59d505e7d27d87cc56eadd2",
+        "audio/symetrix_composer.py": "dfb58ce0b92a0aeef8943bd13cc1ee041207f34174a129c41dd5df8bfd8e0232",
         "audio/symetrix_composer_sim.py": "55075a2e9fb32b84db0015dba6084d95f9a0dc974ab4874db60f4f865bca458e"
       },
       "ports": [

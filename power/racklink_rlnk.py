@@ -240,7 +240,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.5",
+        "version": "1.3.6",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -442,7 +442,7 @@ class RackLinkRLNKDriver(BaseDriver):
                         "label": "Outlet",
                     },
                     "delay": {
-                        "type": "integer",
+                        "type": "integer", "label": "Delay (sec)",
                         "required": False,
                         "min": 0,
                         "max": 3600,
@@ -467,7 +467,7 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Sequence Outlets Up",
                 "params": {
                     "delay": {
-                        "type": "integer",
+                        "type": "integer", "label": "Delay (sec)",
                         "required": False,
                         "min": 0,
                         "max": 999,
@@ -484,7 +484,7 @@ class RackLinkRLNKDriver(BaseDriver):
                 "label": "Sequence Outlets Down",
                 "params": {
                     "delay": {
-                        "type": "integer",
+                        "type": "integer", "label": "Delay (sec)",
                         "required": False,
                         "min": 0,
                         "max": 999,

@@ -205,7 +205,7 @@ class ShureAxientDigitalDriver(BaseDriver):
         "name": "Shure Axient Digital Receivers",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "min_platform_version": "0.33.0",
         "author": "OpenAVC",
         "description": (
@@ -916,7 +916,7 @@ class ShureAxientDigitalDriver(BaseDriver):
                     "channel": {"type": "child_id", "child_type": "channel", "required": True,
                                 "label": "Channel"},
                     "rate_ms": {
-                        "type": "integer", "required": False, "default": 500,
+                        "type": "integer", "label": "Interval (ms)", "required": False, "default": 500,
                         "min": 100, "max": 65535, "unit": "ms",
                         "help": "Interval between meter frames.",
                     },

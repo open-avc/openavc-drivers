@@ -219,7 +219,17 @@ async def _make_pair(sim_state=None, driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.VISCAIPDriver.DRIVER_INFO["version"] == "1.3.3"
+    assert DRV.VISCAIPDriver.DRIVER_INFO["version"] == "1.3.4"
+
+
+def test_pan_tilt_stop_has_no_speed_fields():
+    # The eight moves take a speed; Stop takes none, and its help is its own.
+    commands = DRV.VISCAIPDriver.DRIVER_INFO["commands"]
+    assert commands["pt_stop"]["params"] == {}
+    assert "Stop" in commands["pt_stop"]["label"]
+    assert "pt_stop" not in commands["pt_stop"].get("help", "")
+    assert set(commands["pt_up"]["params"]) == {"pan_speed", "tilt_speed"}
+    assert "Pan/Tilt Stop" in commands["pt_up"]["help"]
 
 
 def test_zoom_and_preset_bounds_widened():

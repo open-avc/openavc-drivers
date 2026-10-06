@@ -116,7 +116,7 @@ class WattBoxIPDriver(BaseDriver):
         "name": "WattBox IP-Controlled PDU",
         "manufacturer": "WattBox",
         "category": "power",
-        "version": "1.3.5",
+        "version": "1.3.6",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -343,7 +343,7 @@ class WattBoxIPDriver(BaseDriver):
                         "label": "Outlet",
                     },
                     "delay": {
-                        "type": "integer",
+                        "type": "integer", "label": "Delay (sec)",
                         "required": False,
                         "min": 1,
                         "max": 600,
@@ -386,7 +386,7 @@ class WattBoxIPDriver(BaseDriver):
                         "label": "Outlet",
                     },
                     "delay": {
-                        "type": "integer",
+                        "type": "integer", "label": "Delay (sec)",
                         "required": True,
                         "min": 1,
                         "max": 600,

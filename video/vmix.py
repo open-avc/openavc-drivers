@@ -390,7 +390,7 @@ class VMixDriver(BaseDriver):
         "name": "vMix",
         "manufacturer": "StudioCoast",
         "category": "video",
-        "version": "2.3.4",
+        "version": "2.3.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -848,7 +848,7 @@ class VMixDriver(BaseDriver):
                 "label": "Fade",
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "help": "Input number or name (optional)"},
-                    "duration": {"type": "integer", "min": 0, "max": 60000, "help": "Fade duration in milliseconds"},
+                    "duration": {"type": "integer", "label": "Duration (ms)", "min": 0, "max": 60000, "help": "Fade duration in milliseconds"},
                     "mix": MIX_PARAM,
                 },
                 "help": "Fade transition to the specified input.",
@@ -871,7 +871,7 @@ class VMixDriver(BaseDriver):
                         "help": "Transition effect to use",
                     },
                     "input": {"type": "string", "options_state": "input_list", "help": "Input number or name"},
-                    "duration": {"type": "integer", "min": 0, "max": 60000, "help": "Duration in milliseconds"},
+                    "duration": {"type": "integer", "label": "Duration (ms)", "min": 0, "max": 60000, "help": "Duration in milliseconds"},
                     "mix": MIX_PARAM,
                 },
                 "help": "Transition to an input using a named effect.",
@@ -958,7 +958,7 @@ class VMixDriver(BaseDriver):
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
                     "value": {"type": "number", "required": True, "min": 0, "max": 100, "unit": "%", "help": "Target fader position 0-100"},
-                    "duration": {"type": "integer", "required": True, "min": 0, "max": 60000, "help": "Fade duration in ms"},
+                    "duration": {"type": "integer", "label": "Duration (ms)", "required": True, "min": 0, "max": 60000, "help": "Fade duration in ms"},
                 },
                 "help": "Fade an input's volume to a target position over a duration.",
             },
@@ -1054,7 +1054,7 @@ class VMixDriver(BaseDriver):
                 "label": "Set Master Volume (Fade)",
                 "params": {
                     "value": {"type": "number", "required": True, "min": 0, "max": 100, "unit": "%", "help": "Target fader position 0-100"},
-                    "duration": {"type": "integer", "required": True, "min": 0, "max": 60000, "help": "Fade duration in ms"},
+                    "duration": {"type": "integer", "label": "Duration (ms)", "required": True, "min": 0, "max": 60000, "help": "Fade duration in ms"},
                 },
                 "help": "Fade the master volume to a target position over a duration.",
             },
@@ -1219,14 +1219,14 @@ class VMixDriver(BaseDriver):
             },
             "snapshot": {
                 "label": "Snapshot",
-                "params": {"value": {"type": "string", "help": "Filename (optional)"}},
+                "params": {"value": {"type": "string", "label": "Filename", "help": "Filename (optional)"}},
                 "help": "Save a still image of the program output.",
             },
             "snapshot_input": {
                 "label": "Snapshot Input",
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
-                    "value": {"type": "string", "help": "Filename (optional)"},
+                    "value": {"type": "string", "label": "Filename", "help": "Filename (optional)"},
                 },
                 "help": "Save a still image of an input.",
             },
@@ -1255,7 +1255,7 @@ class VMixDriver(BaseDriver):
                     # vMix has no activator for a text field, so a change made in
                     # the vMix window shows up on the next state read rather than
                     # immediately. Writing it from here is instant either way.
-                    "value": {"type": "string", "required": True, "trim": False, "help": "Text to display"},
+                    "value": {"type": "string", "label": "Text", "required": True, "trim": False, "help": "Text to display"},
                 },
                 "help": "Set a text field in a title input.",
             },
@@ -1269,7 +1269,7 @@ class VMixDriver(BaseDriver):
                         "help": "The image field's name as vMix's Title Editor shows it, "
                                 "e.g. Image1.Source on a GT title.",
                     },
-                    "value": {"type": "string", "required": True, "help": "Image filename, or empty to clear"},
+                    "value": {"type": "string", "label": "Filename", "required": True, "help": "Image filename, or empty to clear"},
                 },
                 "help": "Set an image field in a title input.",
             },
@@ -1277,7 +1277,7 @@ class VMixDriver(BaseDriver):
                 "label": "Set Countdown",
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
-                    "value": {"type": "string", "required": True, "pattern": r"^\d{1,2}:\d{2}:\d{2}$", "help": "Duration as hh:mm:ss"},
+                    "value": {"type": "string", "label": "Duration (hh:mm:ss)", "required": True, "pattern": r"^\d{1,2}:\d{2}:\d{2}$", "help": "Duration as hh:mm:ss"},
                 },
                 "help": "Set a countdown duration (hh:mm:ss).",
             },
@@ -1326,7 +1326,7 @@ class VMixDriver(BaseDriver):
                 "label": "Set Position",
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
-                    "position": {"type": "integer", "required": True, "min": 0, "help": "Position in milliseconds"},
+                    "position": {"type": "integer", "label": "Position (ms)", "required": True, "min": 0, "help": "Position in milliseconds"},
                 },
                 "help": "Seek an input to a position in milliseconds.",
             },
@@ -1334,7 +1334,7 @@ class VMixDriver(BaseDriver):
                 "label": "Set Rate",
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
-                    "value": {"type": "number", "required": True, "min": 0.1, "max": 4, "help": "Playback rate (1 = normal, 0.5 = half, 2 = double)"},
+                    "value": {"type": "number", "label": "Playback Rate", "required": True, "min": 0.1, "max": 4, "help": "Playback rate (1 = normal, 0.5 = half, 2 = double)"},
                 },
                 "help": "Set the playback speed of an input.",
             },
@@ -1363,7 +1363,7 @@ class VMixDriver(BaseDriver):
             "replay_mark_out": {"label": "Replay Mark Out", "params": {}, "help": "Set the replay out point."},
             "replay_mark_in_out": {
                 "label": "Replay Mark In/Out",
-                "params": {"value": {"type": "integer", "min": 1, "max": 3600, "help": "Seconds before now to mark in"}},
+                "params": {"value": {"type": "integer", "label": "Seconds Back", "min": 1, "max": 3600, "help": "Seconds before now to mark in"}},
                 "help": "Mark an event ending now, starting the given number of seconds back.",
             },
             "replay_live": {"label": "Replay Live", "params": {}, "help": "Switch the replay channel to live."},
@@ -1419,7 +1419,7 @@ class VMixDriver(BaseDriver):
             # --- Input management ---
             "add_input": {
                 "label": "Add Input",
-                "params": {"value": {"type": "string", "required": True, "help": "Type|Filename, e.g. Colour|Red or Video|c:\\clip.mp4"}},
+                "params": {"value": {"type": "string", "label": "Type and Filename", "required": True, "help": "Type|Filename, e.g. Colour|Red or Video|c:\\clip.mp4"}},
                 "help": "Add a new input to the production.",
             },
             "remove_input": {
@@ -1432,7 +1432,7 @@ class VMixDriver(BaseDriver):
                 "label": "Rename Input",
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Input number or name"},
-                    "value": {"type": "string", "required": True, "help": "New name"},
+                    "value": {"type": "string", "label": "New Name", "required": True, "help": "New name"},
                 },
                 "help": "Rename an input.",
             },
@@ -1440,18 +1440,18 @@ class VMixDriver(BaseDriver):
                 "label": "Browser Navigate",
                 "params": {
                     "input": {"type": "string", "options_state": "input_list", "required": True, "help": "Browser input number or name"},
-                    "value": {"type": "string", "required": True, "help": "URL to open"},
+                    "value": {"type": "string", "label": "URL", "required": True, "help": "URL to open"},
                 },
                 "help": "Point a browser input at a URL.",
             },
             "script_start": {
                 "label": "Start Script",
-                "params": {"value": {"type": "string", "required": True, "help": "Script name"}},
+                "params": {"value": {"type": "string", "label": "Script Name", "required": True, "help": "Script name"}},
                 "help": "Start a vMix script by name.",
             },
             "script_stop": {
                 "label": "Stop Script",
-                "params": {"value": {"type": "string", "required": True, "help": "Script name"}},
+                "params": {"value": {"type": "string", "label": "Script Name", "required": True, "help": "Script name"}},
                 "help": "Stop a running vMix script.",
             },
             "raw_function": {

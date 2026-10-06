@@ -153,7 +153,7 @@ class AtlonaOmeMsDriver(BaseDriver):
         "name": "Atlona AT-OME-MS Series Matrix Switcher",
         "manufacturer": "Atlona",
         "category": "switcher",
-        "version": "1.4.1",
+        "version": "1.4.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -361,7 +361,7 @@ class AtlonaOmeMsDriver(BaseDriver):
                 "label": "Set Volume",
                 "params": {
                     "level": {
-                        "type": "integer",
+                        "type": "integer", "label": "Level (dB)",
                         "required": True,
                         "min": VOLUME_MIN,
                         "max": VOLUME_MAX,
@@ -374,7 +374,7 @@ class AtlonaOmeMsDriver(BaseDriver):
                 "label": "Volume Up",
                 "params": {
                     "amount": {
-                        "type": "integer",
+                        "type": "integer", "label": "Amount (dB)",
                         "required": False,
                         "min": 1,
                         "max": 80,
@@ -387,7 +387,7 @@ class AtlonaOmeMsDriver(BaseDriver):
                 "label": "Volume Down",
                 "params": {
                     "amount": {
-                        "type": "integer",
+                        "type": "integer", "label": "Amount (dB)",
                         "required": False,
                         "min": 1,
                         "max": 80,
@@ -399,7 +399,7 @@ class AtlonaOmeMsDriver(BaseDriver):
                 "label": "Mute Audio",
                 "params": {
                     "channel": {
-                        "type": "enum",
+                        "type": "enum", "label": "Audio Output",
                         "required": True,
                         "values": ["hdmi", "analog"],
                     },
@@ -410,7 +410,7 @@ class AtlonaOmeMsDriver(BaseDriver):
                 "label": "Unmute Audio",
                 "params": {
                     "channel": {
-                        "type": "enum",
+                        "type": "enum", "label": "Audio Output",
                         "required": True,
                         "values": ["hdmi", "analog"],
                     },

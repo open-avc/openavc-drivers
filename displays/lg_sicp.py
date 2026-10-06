@@ -281,7 +281,7 @@ class LGSICPDriver(BaseDriver):
         "name": "LG SICP Display",
         "manufacturer": "LG",
         "category": "display",
-        "version": "2.0.4",
+        "version": "2.0.5",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -609,7 +609,7 @@ class LGSICPDriver(BaseDriver):
                 "params": {
                     "display": _display_param(),
                     "code": {
-                        "type": "string",
+                        "type": "string", "label": "Key Code (hex)",
                         "required": True,
                         "pattern": "^[0-9A-Fa-f]{2}$",
                         "help": (
@@ -632,7 +632,7 @@ class LGSICPDriver(BaseDriver):
                         "help": "Two-character SICP command, e.g. kc, dd, fe.",
                     },
                     "data": {
-                        "type": "string",
+                        "type": "string", "label": "Data (hex)",
                         "required": True,
                         "help": (
                             "Hex data field(s), space-separated when the "

@@ -192,7 +192,7 @@ class VISCAIPDriver(BaseDriver):
         "name": "Generic VISCA-IP PTZ Camera",
         "manufacturer": "Generic",
         "category": "camera",
-        "version": "1.3.3",
+        "version": "1.3.4",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -487,9 +487,14 @@ class VISCAIPDriver(BaseDriver):
                         "pan_speed":  {"type": "integer", "min": 1, "max": 24},
                         "tilt_speed": {"type": "integer", "min": 1, "max": 23},
                     },
-                    "help": "Continuous-movement command. Send 'pt_stop' to halt.",
+                    "help": "Moves continuously until Pan/Tilt Stop is sent.",
                 }
-                for cmd in _PT_DIR
+                for cmd in _PT_DIR if cmd != "pt_stop"
+            },
+            "pt_stop": {
+                "label": "Pan/Tilt Stop",
+                "params": {},
+                "help": "Stops pan/tilt movement.",
             },
 
             "pt_home":  {"label": "Pan/Tilt Home",  "params": {}},

@@ -80,7 +80,7 @@ class SymetrixComposerDriver(BaseDriver):
         "name": "Symetrix Composer DSP",
         "manufacturer": "Symetrix",
         "category": "audio",
-        "version": "1.3.4",
+        "version": "1.3.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -236,7 +236,7 @@ class SymetrixComposerDriver(BaseDriver):
                         "max": 10000,
                     },
                     "value": {
-                        "type": "integer",
+                        "type": "integer", "label": "Position",
                         "required": True,
                         "min": 0,
                         "max": 65535,
@@ -257,7 +257,7 @@ class SymetrixComposerDriver(BaseDriver):
                         "max": 10000,
                     },
                     "value": {
-                        "type": "integer",
+                        "type": "integer", "label": "Position",
                         "required": True,
                         "min": 0,
                         "max": 65535,

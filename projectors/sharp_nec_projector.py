@@ -241,7 +241,7 @@ class SharpNECProjectorDriver(BaseDriver):
         "name": "Sharp NEC Projector",
         "manufacturer": "Sharp NEC",
         "category": "projector",
-        "version": "2.5.3",
+        "version": "2.5.4",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
@@ -548,7 +548,7 @@ class SharpNECProjectorDriver(BaseDriver):
                 "label": "Set Aspect Ratio",
                 "params": {
                     "aspect": {
-                        "type": "integer",
+                        "type": "integer", "label": "Aspect Code",
                         "required": True,
                         "help": (
                             "Aspect code. Common values vary by model. "
@@ -562,7 +562,7 @@ class SharpNECProjectorDriver(BaseDriver):
                 "label": "Set Eco Mode",
                 "params": {
                     "mode": {
-                        "type": "integer",
+                        "type": "integer", "label": "Mode Code",
                         "required": True,
                         "help": (
                             "Eco/light mode value. Values vary by model."

@@ -263,7 +263,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
         "name": "AtlasIED Atmosphere",
         "manufacturer": "AtlasIED",
         "category": "audio",
-        "version": "2.0.2",
+        "version": "2.0.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -605,7 +605,7 @@ class AtlasIEDAtmosphereDriver(BaseDriver):
                 "params": {
                     "group": _child_param("group"),
                     "active": {
-                        "type": "boolean",
+                        "type": "boolean", "label": "Combine Zones",
                         "required": True,
                         "help": "True = combine zones, False = uncombine.",
                     },

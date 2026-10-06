@@ -334,7 +334,7 @@ def test_parse_frame_multiple_and_garbage():
 
 def test_version_and_platform_floor():
     info = DRV.LGSICPDriver.DRIVER_INFO
-    assert info["version"] == "2.0.4"
+    assert info["version"] == "2.0.5"
     # Child entities + child-prop cloud tiers are the hard runtime need.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"

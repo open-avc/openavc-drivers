@@ -178,7 +178,7 @@ class ShureNetworkDriver(BaseDriver):
         "name": "Shure Networked Devices",
         "manufacturer": "Shure",
         "category": "audio",
-        "version": "2.0.3",
+        "version": "2.0.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -203,21 +203,21 @@ class ShureNetworkDriver(BaseDriver):
             # standard mDNS (`_http._tcp`) plus hostname/TXT filters — there
             # is no registered `_shure._tcp` service type. We do an active
             # query on TCP/2202 plus OUI / hostname / manufacturer-alias
-            # hints. MODEL answers on the MXA, ANI and P300 documents; the
-            # SCM820 documents no MODEL and answers `< REP ERR >`, which only
-            # a Shure command-strings device sends, so that reply matches too.
-            # The wireless receivers (Axient Digital, ULX-D, SLX-D, QLX-D)
+            # hints. MODEL answers on the MXA, ANI and P300 documents. The
+            # wireless systems (Axient Digital, ULX-D, SLX-D, QLX-D, MXW neXt)
             # answer on the same port with the same grammar and have their
-            # own drivers, so this probe declines their model names: two
-            # active-probe matches are settled by arrival order, and a
-            # receiver must never be handed the conferencing driver.
+            # own drivers, so this probe declines their model names: a
+            # receiver or access point must never be offered the
+            # conferencing driver. A bare `< REP ERR >` is not matched: the
+            # SCM820 answers MODEL that way, but so does every Shure device
+            # whose document has no MODEL (QLX-D, MXW neXt), so the reply
+            # identifies nothing. An SCM820 is found by its OUI and port.
             #   Common IP ports: content-files.shure.com/FileRepository/common-ip-ports-v2.pdf
             "tcp_probe": {
                 "port": 2202,
                 "send_ascii": "< GET MODEL >\r\n",
                 "expect_regex": (
-                    r"<\s*REP\s+(?:MODEL\s+\{\s*(?!AD4|AD6|ULXD|SLXD|QLXD|AXT|P10T)"
-                    r"|ERR\s*>)"
+                    r"<\s*REP\s+MODEL\s+\{\s*(?!AD4|AD6|ULXD|SLXD|QLXD|AXT|P10T|MXW)"
                 ),
                 "extract_manufacturer": "Shure",
                 "extract": {
@@ -230,7 +230,7 @@ class ShureNetworkDriver(BaseDriver):
                 "00:0e:dd",   # Shure Incorporated (legacy MA-L)
                 "d8:34:ee",   # Shure Incorporated (current MXA / AD blocks)
             ],
-            "hostname": ["^MXA", "^ANI", "^MXW", "^P300", "^IMX"],
+            "hostname": ["^MXA", "^ANI", "^P300", "^IMX"],
             "port_open": [2202],
             "manufacturer_alias": ["shure", "shure incorporated"],
         },

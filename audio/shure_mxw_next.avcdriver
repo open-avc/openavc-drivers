@@ -1,0 +1,1732 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Shure MXW neXt Access Point Driver
+#
+# Controls and monitors Shure Microflex Wireless neXt access points
+# (MXWAPX4, MXWAPX8, MXWAPXD2) and the MXW1X / MXW2X / MXW6X / MXW8X
+# microphones linked to them, over Shure's ASCII command strings on TCP 2202.
+#
+# Protocol reference (the manufacturer's own, read 2026-10-06):
+#   - "MXWneXt Command Strings", shure.com/en-US/docs/commandstrings/MXWneXt
+#   - "Microflex Wireless Command Strings", shure.com/en-US/docs/commandstrings/MXW
+#     (the neXt page: "MXW neXt devices support MXW Legacy command strings,
+#     except where noted"; a legacy string is used here only where the neXt
+#     page keeps it)
+#   - "MXW neXt" user guide (pubs.shure.com) for the operation modes, the
+#     audio inputs and outputs per model, and the mute preferences
+#
+# Framing: every message is "< TYPE [index] PROPERTY value... >" in ASCII,
+# with spaces inside the brackets. ">" ends a frame. Three index spaces:
+#   - Wireless channels 1-8 (2 on an APXD2, 4 on an APX4, 8 on an APX8): the
+#     channel name, the microphone, its battery, button and LEDs, and the
+#     meters. Transmitter strings take a "CH x" (channel) or "BAY x" (docking
+#     bay) prefix; this driver asks with CH, reads a report with CH or with
+#     no prefix, and ignores BAY reports (a docking bay is not an audio
+#     channel). "When unspecified, APXD2 assumes BAY" for TX_AVAILABLE.
+#   - DSP inputs: 1-2 Dante, 21-28 the wireless microphones, 41 analog
+#     (APXD2 only), 51 USB.
+#   - DSP outputs: 1-N Dante (N = 4 on an APXD2, 5 on an APX4, 9 on an
+#     APX8), 41 analog (APXD2 only), 42 analog, 51 USB, 61 back-channel.
+# Strings are brace-wrapped and space-padded (CHAN_NAME to 31, TX_DEVICE_ID
+# to 12, FW_VER to 24). A refused command answers "< REP ERR >" (the legacy
+# page's codes section; the neXt page writes it "REP < ERROR >" once).
+#
+# Mic input 21 is read as channel 1's microphone, 22 as channel 2's, and so
+# on. The page lists 21-39 as "wireless microphone inputs" and never says
+# which channel each is; this is the driver's reading, and the first thing
+# to check on an access point.
+#
+# The device's numbers are not the real values. INPUT_CH_GAIN and
+# OUTPUT_CH_GAIN are 0-1400 for -110.0 to +30.0 dB (gain x 10 + 1100);
+# INT_AUDIO_GAIN is 000-060 for -25 to +35 dB; a SAMPLE's RF level is the
+# dBm value plus 110 and its audio level the dB value plus 120. 252-255 (and
+# 65532-65535 on the five-digit fields) mean the microphone is not
+# available, and the battery runtime and time-to-full use them for distinct
+# reasons. The state variables and parameters declare those conversions.
+#
+# Push vs poll: push, with a slow resync. "Most parameters will send an
+# acknowledgement in the form of a REP string when they change", so the
+# driver reads everything once on connect (GET ALL, plus the four DSP
+# tables) and mirrors the REPs after that. The legacy page adds that a
+# microphone's values can change while it is not available and should be
+# read again when TX_AVAILABLE returns to YES; a YAML driver cannot send on
+# a report, so the transmitter status, model, name and battery are read
+# again every Resync Interval (60 s by default). The meters travel in SAMPLE
+# frames only while METER_RATE is set, which is opt-in. Liveness is an
+# awaited < GET DEVICE_MODEL > every 30 s.
+#
+# Not used, because the neXt page drops or changes them: the secondary link
+# (SEC / PRI), STANDBY, a channel-indexed FLASH (neXt answers an error),
+# AUDIO_GAIN (the legacy view of the microphone input's gain, 000-040 with
+# 253 outside it; INPUT_CH_GAIN is the same value in full) and its INC / DEC
+# steps. The MXWNDX chargers are separate devices with their own address.
+#
+# Why YAML: one line per message, every reply readable with a regex, the
+# conversions and "not available" codes declared on the state variables,
+# the wire numbers translated to children by id maps, and the access
+# point's words declared on the setting's map. Nothing here needs code.
+
+id: shure_mxw_next
+name: Shure MXW neXt Access Point
+manufacturer: Shure
+category: audio
+version: 1.0.0
+author: OpenAVC
+# scale / offset / unknown on state variables and command parameters, and
+# map on a device setting.
+min_platform_version: "0.37.0"
+description: >
+  Microflex Wireless neXt access points (MXWAPX4, MXWAPX8, MXWAPXD2) over
+  Shure command strings. Per-channel gain, mute and name, each microphone's
+  model, status, name, battery, button and LEDs, opt-in RF and audio
+  meters, gain and mute on every Dante, analog and USB input and output,
+  the automixer mute and the operation mode. Every change on the access
+  point shows up as it happens.
+source_url: https://www.shure.com/en-US/docs/commandstrings/MXWneXt
+tags: [shure, mxw-next, microflex-wireless, wireless-microphone, access-point, dante]
+verified: false
+simulated: true
+protocols: [shure_command_strings]
+ports: [2202]
+
+compatible_models:
+  - manufacturer: Shure
+    models:
+      - MXWAPX4
+      - MXWAPX8
+      - MXWAPXD2
+    confidence: untested
+    notes: >
+      Built from Shure's MXW neXt and MXW command strings pages; not yet run
+      against an access point. The microphones (MXW1X, MXW2X in every head,
+      MXW6X, MXW8X) are reported through the access point channel they are
+      linked to. The MXWNDX charging stations are separate devices and are
+      not controlled by this driver.
+
+transport: tcp
+delimiter: ">"
+
+help:
+  overview: >
+    Shows what an MXW neXt access point and its wireless microphones are
+    doing, and controls the access point's audio. Each channel reports its
+    microphone's model, status, name and battery, so a panel can show every
+    microphone at a glance and a trigger can alert on a low battery or a
+    microphone that goes missing. Set gain and mute on each channel and on
+    every Dante, analog and USB input and output, mute the automixer
+    output, name channels and microphones, and change the operation mode.
+  setup: >
+    1. Connect the access point to the control network and note its IP
+    address (Shure Designer or the MXW neXt web application).
+
+    2. Enter that address here. The port is 2202 on every access point.
+
+    3. Set Access Point Channels to the access point's channel count: 2 for
+    an MXWAPXD2, 4 for an MXWAPX4, 8 for an MXWAPX8. Once connected, the
+    access point sets it.
+
+    4. To mute microphones from a control system or DSP, set the Mute
+    Preference to External Mute in the web application or Designer. The
+    microphones' buttons are then reported instead of muting, and the
+    microphone LEDs take commands.
+
+    5. Turn on Meter Interval only if a panel shows RF or audio levels.
+  connection: >
+    TCP port 2202, no password. Shure recommends one control system per MXW
+    neXt system, so messages from two controllers do not conflict.
+
+discovery:
+  # DEVICE_MODEL is on the MXW neXt page and on no other Shure command
+  # strings page (the receivers, mics and DSPs answer MODEL). The access
+  # points' names start MXWAPX; an MXWNDX charger answers DEVICE_MODEL too
+  # and is not matched.
+  tcp_probe:
+    port: 2202
+    send_ascii: "< GET DEVICE_MODEL >\r\n"
+    expect_regex: '<\s*REP\s+DEVICE_MODEL\s+\{\s*MXWAPX'
+    extract_manufacturer: "Shure"
+    extract:
+      model:
+        regex: '<\s*REP\s+DEVICE_MODEL\s+\{\s*(MXWAPX[^}\s]*)'
+  # Shure Incorporated (IEEE registry).
+  oui:
+    - "00:0e:dd"
+    - "d8:34:ee"
+  port_open: [2202]
+  manufacturer_alias:
+    - "shure"
+    - "shure incorporated"
+
+default_config:
+  host: ""
+  port: 2202
+  channel_count: 4
+  meter_interval_ms: 0
+  poll_interval: 60
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    help: "The access point's IP address, from Shure Designer or the MXW neXt web application."
+  port:
+    type: integer
+    default: 2202
+    label: Port
+    advanced: true
+    help: "2202 on every access point."
+  channel_count:
+    type: enum
+    values: [2, 4, 8]
+    default: 4
+    label: Access Point Channels
+    help: >
+      2 for an MXWAPXD2, 4 for an MXWAPX4, 8 for an MXWAPX8. Once connected,
+      the access point sets the channel count.
+  meter_interval_ms:
+    type: integer
+    default: 0
+    min: 0
+    max: 99999
+    label: Meter Interval (ms)
+    help: >
+      How often the access point sends RF and audio levels for every
+      channel, in milliseconds: 0 for off, otherwise 100 or more. Leave it
+      off unless a panel shows levels.
+  poll_interval:
+    type: integer
+    default: 60
+    min: 0
+    label: Resync Interval (sec)
+    advanced: true
+    help: >
+      How often every microphone's status, model, name and battery are read
+      again, in seconds; 0 for never. Changes are reported as they happen;
+      this also catches a value that changed while a microphone was off or
+      out of range.
+
+state_variables:
+  model:
+    type: string
+    label: Model
+    help: "The access point's model: MXWAPX4, MXWAPX8 or MXWAPXD2."
+  channel_count_reported:
+    type: integer
+    label: Channels
+    help: "The number of wireless channels the access point has."
+  device_name:
+    type: string
+    label: Device ID
+    help: "The access point's name on the network (DEVICE_ID)."
+  firmware:
+    type: string
+    label: Firmware
+  firmware_self_test_failed:
+    type: boolean
+    label: Firmware Self Test Failed
+    cloud_priority: high
+    help: "The access point reports that its firmware self test failed. Update the firmware with Shure Designer or Shure Update Utility."
+  serial_number:
+    type: string
+    label: Serial Number
+  identifying:
+    type: boolean
+    label: Identifying
+    help: "The access point's lights are flashing to identify it."
+  operation_mode:
+    type: enum
+    values: [presentation, conference, direct, custom]
+    label: Operation Mode
+    help: >
+      How the access point routes audio and mutes microphones: presentation,
+      conference, direct or custom.
+  automix_mute:
+    type: boolean
+    label: Automixer Mute
+    control: true
+    cloud_priority: high
+    help: "The automixer output is muted."
+
+liveness:
+  # DEVICE_MODEL is answered by every access point; an error reply still
+  # proves the link is up.
+  send: "< GET DEVICE_MODEL >"
+  expect: '<\s*REP\s+(DEVICE_MODEL|ERR)'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+child_entity_types:
+  channel:
+    label: Channel
+    label_plural: Channels
+    id_format:
+      type: integer
+      min: 1
+      max: 8
+    instances:
+      # DECT_CHANNEL_COUNT sets the count (APXD2 2, APX4 4, APX8 8); the
+      # config field is the count before the access point has reported.
+      count_from_state: channel_count_reported
+      count_from: channel_count
+      label: "Channel {id}"
+    label_field: name
+    summary_fields: [name, mute, gain, tx_status, tx_battery_percent, tx_battery_minutes]
+    state_variables:
+      # ── Audio (the channel's microphone input, 21-28, on the DSP) ──
+      name:
+        type: string
+        label: Channel Name
+        help: "The access point's name for this channel, up to 31 characters."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "The access point mutes this channel's microphone input."
+      gain:
+        type: number
+        label: Gain
+        min: -110
+        max: 30
+        step: 0.1
+        unit: dB
+        scale: 0.1
+        offset: -110
+        control: true
+        help: "The channel's microphone input gain, -110 to +30 dB."
+
+      # ── Microphone ──
+      tx_status:
+        type: enum
+        values: [active, muted, on_charger, unknown]
+        label: Microphone Status
+        cloud_priority: high
+        help: >
+          active (on and unmuted), muted (on and muted at the microphone),
+          on_charger (docked) or unknown (off, unlinked or out of range).
+      tx_mute_status:
+        type: enum
+        values: [muted, unmuted, unknown]
+        label: Microphone Muted
+        help: "Whether the microphone itself is muted; unknown when it is docked, off or unlinked."
+      tx_available:
+        type: boolean
+        label: Microphone Available
+        help: "The microphone is on and talking to the access point."
+      tx_model:
+        type: string
+        label: Microphone Model
+        help: "MXW1X, MXW2X, MXW6X or MXW8X; empty when no microphone is linked or it is off."
+      tx_linked:
+        type: boolean
+        label: Microphone Linked
+        cloud_priority: high
+        help: "A microphone is linked to this channel and turned on."
+      no_link:
+        type: boolean
+        label: No Link
+        help: "No microphone is linked, or it is off (the opposite of Microphone Linked)."
+      tx_name:
+        type: string
+        label: Microphone Name
+        help: "The microphone's own name, up to 12 characters; empty when no microphone is linked or it is off."
+      tx_mute_button:
+        type: enum
+        values: [pressed, released]
+        label: Microphone Button
+        help: "pressed while the microphone's button is held. Under External Mute the button is reported and does not mute."
+      led_red:
+        type: enum
+        values: ["on", "off", strobe, flash, pulse]
+        label: Red LED
+        help: "The microphone's red LED. Set only under External Mute."
+      led_green:
+        type: enum
+        values: ["on", "off", strobe, flash, pulse]
+        label: Green LED
+        help: "The microphone's green LED. Set only under External Mute."
+      bodypack_input:
+        type: enum
+        values: [internal, external, auto, not_bodypack, unknown]
+        label: Bodypack Input
+        help: >
+          Which microphone an MXW1X bodypack uses: internal, external (the
+          input jack) or auto; not_bodypack for other microphones; unknown
+          when none is linked or it is off.
+      internal_mic_gain:
+        type: integer
+        label: Bodypack Internal Mic Gain
+        min: -25
+        max: 35
+        step: 1
+        unit: dB
+        offset: -25
+        unknown: [255, 254, 253, 252]
+        help: "Gain of an MXW1X bodypack's internal microphone, -25 to +35 dB; empty when unknown."
+
+      # ── Battery ──
+      tx_battery_percent:
+        type: integer
+        label: Battery Charge
+        min: 0
+        max: 100
+        unit: "%"
+        unknown: [255, 254, 253, 252]
+        cloud_priority: high
+        help: "Charge left in the microphone's battery; empty when unknown."
+      tx_battery_health_percent:
+        type: integer
+        label: Battery Health
+        min: 0
+        max: 100
+        unit: "%"
+        unknown: [255, 254, 253, 252]
+        help: "Battery capacity compared with when it was new; empty when unknown."
+      tx_battery_minutes:
+        type: integer
+        label: Battery Runtime
+        unit: min
+        unknown: [65535, 65534, 65533, 65532]
+        cloud_priority: high
+        help: "Minutes until the microphone turns itself off; empty when there is no estimate (see Battery Runtime State)."
+      tx_battery_state:
+        type: enum
+        values: [ok, external_power, on_charger, calculating, "off"]
+        label: Battery Runtime State
+        help: >
+          Why the runtime is or is not known: ok, external_power (powered
+          by a wall charger), on_charger (docked), calculating (just turned
+          on) or off.
+      tx_charge_minutes:
+        type: integer
+        label: Time to Full Charge
+        unit: min
+        unknown: [65535, 65534, 65533, 65532]
+        help: "MXWAPXD2 only: minutes until a docked microphone is fully charged; empty otherwise (see Charge State)."
+      tx_charge_state:
+        type: enum
+        values: [charging, full, not_on_charger, "off", unknown]
+        label: Charge State
+        help: "MXWAPXD2 only: charging, full, not_on_charger, off or unknown."
+
+      # ── Meters (only while metering is on) ──
+      metering:
+        type: boolean
+        label: Metering
+        help: "The access point is sending levels for this channel."
+      meter_rate_ms:
+        type: integer
+        label: Meter Interval
+        unit: ms
+        help: "How often the access point sends this channel's levels; 0 when metering is off."
+      rssi_dbm:
+        type: number
+        label: RF Level
+        min: -110
+        max: 17
+        unit: dBm
+        offset: -110
+        cloud_priority: low
+        help: "The RF level received from the microphone."
+      level_db:
+        type: number
+        label: Audio Level
+        min: -120
+        max: 0
+        unit: dB
+        offset: -120
+        cloud_priority: low
+        help: "The channel's audio level, -120 dB (muted) to 0 dB (maximum)."
+
+  input:
+    label: Input
+    label_plural: Inputs
+    id_format:
+      type: string
+    instances:
+      # Every input any model has. Each one comes online when the access
+      # point reports it; the analog input exists on an MXWAPXD2 only.
+      ids: [dante_1, dante_2, analog, usb]
+      label: "Input {id}"
+      presence: reported
+    label_field: name
+    summary_fields: [gain, mute]
+    state_variables:
+      name:
+        type: string
+        label: Name
+        help: "Dante In 1, Dante In 2, Analog In or USB In."
+      gain:
+        type: number
+        label: Gain
+        min: -110
+        max: 30
+        step: 0.1
+        unit: dB
+        scale: 0.1
+        offset: -110
+        control: true
+        help: "The input's gain, -110 to +30 dB."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "The input is muted."
+
+  output:
+    label: Output
+    label_plural: Outputs
+    id_format:
+      type: string
+    instances:
+      # Every output any model has: Dante 1-4 on an MXWAPXD2, 1-5 on an
+      # MXWAPX4, 1-9 on an MXWAPX8; Analog Out 1 on an MXWAPXD2 only. Each
+      # one comes online when the access point reports it.
+      ids: [dante_1, dante_2, dante_3, dante_4, dante_5, dante_6, dante_7, dante_8, dante_9, analog_1, analog_2, usb, back_channel]
+      label: "Output {id}"
+      presence: reported
+    label_field: name
+    summary_fields: [gain, mute]
+    state_variables:
+      name:
+        type: string
+        label: Name
+        help: >
+          Dante Out 1 to 9, Analog Out 1 (MXWAPXD2), Analog Out 2 (an
+          MXWAPX4 or MXWAPX8's analog output), USB Out or Back-Channel.
+      gain:
+        type: number
+        label: Gain
+        min: -110
+        max: 30
+        step: 0.1
+        unit: dB
+        scale: 0.1
+        offset: -110
+        control: true
+        help: "The output's gain, -110 to +30 dB."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "The output is muted."
+
+device_settings:
+  device_name:
+    type: string
+    label: Device ID
+    help: >
+      The access point's name on the network, 1 to 31 letters, digits and
+      hyphens, not starting or ending with a hyphen. It must be unique on
+      the network.
+    state_key: device_name
+    default: ""
+    setup: false
+    regex: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,29}[A-Za-z0-9])?$'
+    write:
+      send: "< SET DEVICE_ID {{value}} >"
+  operation_mode:
+    type: enum
+    values:
+      - { value: presentation, label: "Presentation" }
+      - { value: conference, label: "Conference" }
+      - { value: direct, label: "Direct" }
+      - { value: custom, label: "Custom" }
+    label: Operation Mode
+    help: >
+      Changes how the access point routes audio and mutes microphones.
+      Presentation and Conference run the automixer and echo cancellation,
+      Direct sends each microphone to its own Dante output, and Custom uses
+      the routing set in the control software.
+    state_key: operation_mode
+    default: conference
+    setup: false
+    map: { "presentation": "PRESENTATION", "conference": "CONFERENCE", "direct": "DIRECT", "custom": "CUSTOM" }
+    write:
+      send: "< SET SYSTEM_OPERATION_MODE {value} >"
+
+commands:
+  identify:
+    label: Identify Access Point
+    help: "Flashes the access point's lights so it can be found. It stops by itself."
+    send: "< SET FLASH ON >"
+    sets: { identifying: true }
+
+  identify_off:
+    label: Stop Identifying
+    help: "Stops the access point's lights flashing."
+    send: "< SET FLASH OFF >"
+    sets: { identifying: false }
+
+  mute_automix:
+    label: Mute Automixer
+    help: "Mutes the automixer output."
+    send: "< SET AUTOMIX_OUT_MUTE MUTED >"
+    sets: { automix_mute: true }
+
+  unmute_automix:
+    label: Unmute Automixer
+    help: "Unmutes the automixer output."
+    send: "< SET AUTOMIX_OUT_MUTE ACTIVE >"
+    sets: { automix_mute: false }
+
+  set_channel_mute:
+    label: Set Channel Mute
+    help: "Mutes or unmutes the channel's microphone input at the access point."
+    send: "< SET {channel} INPUT_CH_MUTE {mute} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 21, "2": 22, "3": 23, "4": 24, "5": 25, "6": 26, "7": 27, "8": 28 }
+      mute:
+        type: boolean
+        required: true
+        label: Mute
+        map: { "true": "MUTED", "false": "ACTIVE" }
+
+  set_channel_gain:
+    label: Set Channel Gain
+    help: "Sets the gain of the channel's microphone input."
+    send: "< SET {channel} INPUT_CH_GAIN {gain} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+        map: { "1": 21, "2": 22, "3": 23, "4": 24, "5": 25, "6": 26, "7": 27, "8": 28 }
+      gain:
+        type: number
+        required: true
+        label: Gain
+        min: -110
+        max: 30
+        unit: dB
+        scale: 0.1
+        offset: -110
+
+  set_channel_name:
+    label: Set Channel Name
+    help: "Renames the channel."
+    send: "< SET {channel} CHAN_NAME {{name}} >"
+    sets: { name: "{name}" }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[A-Za-z0-9 !"#$%&''()*+,./:;<=?@\[\\\]^_`~-]{1,31}'
+        help: "1 to 31 characters: letters, digits, space and most punctuation (not > or braces)."
+
+  mute_microphone:
+    label: Mute Microphone
+    help: "Mutes the microphone itself, as its own button does."
+    send: "< SET CH {channel} TX_STATUS MUTED >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+
+  unmute_microphone:
+    label: Unmute Microphone
+    help: "Unmutes the microphone itself."
+    send: "< SET CH {channel} TX_STATUS ACTIVE >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+
+  turn_off_microphone:
+    label: Turn Off Microphone
+    help: "Turns the microphone off. It can be turned on again only at the microphone."
+    confirm: >
+      The microphone turns off and can be turned on again only at the
+      microphone. Turn it off?
+    send: "< SET CH {channel} TX_STATUS OFF >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+
+  set_microphone_name:
+    label: Set Microphone Name
+    help: "Renames the microphone linked to the channel."
+    send: "< SET CH {channel} TX_DEVICE_ID {{name}} >"
+    sets: { tx_name: "{name}" }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[A-Za-z0-9](?:[A-Za-z0-9-]{0,10}[A-Za-z0-9])?'
+        help: "1 to 12 letters, digits and hyphens, not starting or ending with a hyphen."
+
+  set_bodypack_input:
+    label: Set Bodypack Input
+    help: "Chooses the internal microphone or the input jack on an MXW1X bodypack. Other microphones refuse it."
+    send: "< SET {channel} BP_MIC_SELECT {source} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      source:
+        type: enum
+        required: true
+        label: Source
+        values:
+          - { value: INT, label: Internal microphone }
+          - { value: EXT, label: External input }
+
+  set_internal_mic_gain:
+    label: Set Bodypack Internal Mic Gain
+    help: "Sets the gain of an MXW1X bodypack's internal microphone."
+    send: "< SET {channel} INT_AUDIO_GAIN {gain:03d} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      gain:
+        type: integer
+        required: true
+        label: Gain
+        min: -25
+        max: 35
+        unit: dB
+        offset: -25
+
+  set_microphone_led:
+    label: Set Microphone LEDs
+    help: >
+      Sets the microphone's red and green LEDs, to show a mute made by a DSP
+      or control system. Works only when the Mute Preference is External
+      Mute.
+    send: "< SET {channel} LED_STATUS {red} {green} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      red:
+        type: enum
+        required: true
+        label: Red LED
+        values:
+          - { value: "ON", label: "On" }
+          - { value: OF, label: "Off" }
+          - { value: ST, label: Strobe }
+          - { value: FL, label: Flash }
+          - { value: PU, label: Pulse }
+          - { value: NC, label: No change }
+      green:
+        type: enum
+        required: true
+        label: Green LED
+        values:
+          - { value: "ON", label: "On" }
+          - { value: OF, label: "Off" }
+          - { value: ST, label: Strobe }
+          - { value: FL, label: Flash }
+          - { value: PU, label: Pulse }
+          - { value: NC, label: No change }
+
+  unlink_microphone:
+    label: Unlink Microphone
+    help: >
+      Unlinks the microphone from the channel. Link a microphone again by
+      docking it and pressing Link, or from Shure Designer.
+    confirm: >
+      The microphone stops working on this channel until a microphone is
+      linked again by docking it and pressing Link. Unlink it?
+    send: "< SET {channel} UNLINK >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+
+  channel_meters_on:
+    label: Channel Meters On
+    help: "Starts the access point sending a channel's RF and audio levels at an interval. Channel 0 is every channel."
+    send: "< SET {channel} METER_RATE {interval_ms:05d} >"
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Channel
+        min: 0
+        max: 8
+        help: "1 to 8, or 0 for every channel."
+      interval_ms:
+        type: integer
+        required: true
+        label: Interval
+        min: 100
+        max: 99999
+        unit: ms
+        default: 1000
+
+  channel_meters_off:
+    label: Channel Meters Off
+    help: "Stops the access point sending a channel's levels. Channel 0 is every channel."
+    send: "< SET {channel} METER_RATE 00000 >"
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Channel
+        min: 0
+        max: 8
+        help: "1 to 8, or 0 for every channel."
+
+  set_input_gain:
+    label: Set Input Gain
+    help: "Sets a Dante, analog or USB input's gain."
+    send: "< SET {input} INPUT_CH_GAIN {gain} >"
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "dante_1": 1, "dante_2": 2, "analog": 41, "usb": 51 }
+      gain:
+        type: number
+        required: true
+        label: Gain
+        min: -110
+        max: 30
+        unit: dB
+        scale: 0.1
+        offset: -110
+
+  set_input_mute:
+    label: Set Input Mute
+    help: "Mutes or unmutes a Dante, analog or USB input."
+    send: "< SET {input} INPUT_CH_MUTE {mute} >"
+    params:
+      input:
+        type: child_id
+        child_type: input
+        required: true
+        label: Input
+        map: { "dante_1": 1, "dante_2": 2, "analog": 41, "usb": 51 }
+      mute:
+        type: boolean
+        required: true
+        label: Mute
+        map: { "true": "MUTED", "false": "ACTIVE" }
+
+  set_output_gain:
+    label: Set Output Gain
+    help: "Sets a Dante, analog, USB or back-channel output's gain."
+    send: "< SET {output} OUTPUT_CH_GAIN {gain} >"
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map:
+          "dante_1": 1
+          "dante_2": 2
+          "dante_3": 3
+          "dante_4": 4
+          "dante_5": 5
+          "dante_6": 6
+          "dante_7": 7
+          "dante_8": 8
+          "dante_9": 9
+          "analog_1": 41
+          "analog_2": 42
+          "usb": 51
+          "back_channel": 61
+      gain:
+        type: number
+        required: true
+        label: Gain
+        min: -110
+        max: 30
+        unit: dB
+        scale: 0.1
+        offset: -110
+
+  set_output_mute:
+    label: Set Output Mute
+    help: "Mutes or unmutes a Dante, analog, USB or back-channel output."
+    send: "< SET {output} OUTPUT_CH_MUTE {mute} >"
+    params:
+      output:
+        type: child_id
+        child_type: output
+        required: true
+        label: Output
+        map:
+          "dante_1": 1
+          "dante_2": 2
+          "dante_3": 3
+          "dante_4": 4
+          "dante_5": 5
+          "dante_6": 6
+          "dante_7": 7
+          "dante_8": 8
+          "dante_9": 9
+          "analog_1": 41
+          "analog_2": 42
+          "usb": 51
+          "back_channel": 61
+      mute:
+        type: boolean
+        required: true
+        label: Mute
+        map: { "true": "MUTED", "false": "ACTIVE" }
+
+  reboot:
+    label: Reboot Access Point
+    help: >
+      Restarts the access point. Every microphone on it stops passing audio
+      until it has started again, and the access point reconnects by itself.
+    # Off the network while it boots; the platform reports it as restarting
+    # rather than as a fault for this long. Unmeasured (no hardware): round
+    # the real gap up on the bench.
+    restarts_device_for: 120
+    send: "< SET REBOOT >"
+
+  raw_command:
+    label: Send Raw Command
+    help: "Sends any command string from Shure's MXW neXt page, brackets included, e.g. < GET 21 INPUT_CH_GAIN >."
+    send: "{command}"
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+quick_actions: [mute_automix, unmute_automix, identify, identify_off]
+
+on_connect:
+  # The channel count first: it sizes the channel roster before the channel
+  # REPs arrive. GET ALL is every report the access point has; the four DSP
+  # tables are asked for too, because each report is what brings an input or
+  # output online.
+  - { send: "< GET DECT_CHANNEL_COUNT >", query_for: channel_count_reported }
+  - { send: "< GET DEVICE_MODEL >", query_for: model }
+  - "< GET ALL >"
+  - "< GET 0 INPUT_CH_GAIN >"
+  - "< GET 0 INPUT_CH_MUTE >"
+  - "< GET 0 OUTPUT_CH_GAIN >"
+  - "< GET 0 OUTPUT_CH_MUTE >"
+  - { send: "< SET 0 METER_RATE {meter_interval_ms:05d} >", when: meter_interval_ms }
+
+polling:
+  # The microphone readings again, every Resync Interval: the legacy page
+  # warns that they can change while a microphone is not available.
+  queries:
+    - "< GET CH 0 TX_STATUS >"
+    - "< GET CH 0 TX_AVAILABLE >"
+    - "< GET CH 0 TX_MODEL >"
+    - "< GET CH 0 TX_DEVICE_ID >"
+    - "< GET 0 BATT_CHARGE >"
+    - "< GET 0 BATT_RUN_TIME >"
+    - "< GET 0 BATT_HEALTH >"
+
+responses:
+  # ── Device ──
+  - match: '^<\s+REP\s+DEVICE_MODEL\s+\{(.*?)\s*\}$'
+    set: { model: "$1" }
+  - match: '^<\s+REP\s+DECT_CHANNEL_COUNT\s+(\d+)$'
+    set: { channel_count_reported: "$1" }
+  - match: '^<\s+REP\s+DEVICE_ID\s+\{(.*?)\s*\}$'
+    set: { device_name: "$1" }
+  # "2.0.15.2*": the asterisk means the firmware self test failed.
+  - match: '^<\s+REP\s+FW_VER\s+\{\s*([^*}\s]*)(\*?)\s*\}$'
+    set: { firmware: "$1" }
+    mappings:
+      - { group: 2, state: firmware_self_test_failed, map: { "*": true, "": false } }
+  - match: '^<\s+REP\s+SERIAL_NUM\s+\{(.*?)\s*\}$'
+    set: { serial_number: "$1" }
+  - match: '^<\s+REP\s+FLASH\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: identifying, map: { "ON": true, "OFF": false } }
+  - match: '^<\s+REP\s+SYSTEM_OPERATION_MODE\s+(PRESENTATION|CONFERENCE|DIRECT|CUSTOM)$'
+    mappings:
+      - group: 1
+        state: operation_mode
+        map: { "PRESENTATION": presentation, "CONFERENCE": conference, "DIRECT": direct, "CUSTOM": custom }
+  - match: '^<\s+REP\s+AUTOMIX_OUT_MUTE\s+(MUTED|ACTIVE)$'
+    mappings:
+      - { group: 1, state: automix_mute, map: { "MUTED": true, "ACTIVE": false } }
+
+  # ── DSP inputs: 21-28 are the channels' microphones, the rest are the
+  #    Dante, analog and USB inputs. An id a map does not cover skips that
+  #    entry, so one rule serves both. Reporting an input is what brings it
+  #    online. ──
+  - match: '^<\s+REP\s+(\d{1,2})\s+INPUT_CH_GAIN\s+(\d{1,4})$'
+    child_set:
+      - type: channel
+        id: { group: 1, map: { "21": 1, "22": 2, "23": 3, "24": 4, "25": 5, "26": 6, "27": 7, "28": 8 } }
+        state: { gain: $2 }
+      - type: input
+        id: { group: 1, map: { "1": dante_1, "2": dante_2, "41": analog, "51": usb } }
+        state:
+          gain: $2
+          name: { group: 1, map: { "1": "Dante In 1", "2": "Dante In 2", "41": "Analog In", "51": "USB In" } }
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
+  - match: '^<\s+REP\s+(\d{1,2})\s+INPUT_CH_MUTE\s+(MUTED|ACTIVE)$'
+    child_set:
+      - type: channel
+        id: { group: 1, map: { "21": 1, "22": 2, "23": 3, "24": 4, "25": 5, "26": 6, "27": 7, "28": 8 } }
+        state: { mute: { group: 2, map: { "MUTED": true, "ACTIVE": false } } }
+      - type: input
+        id: { group: 1, map: { "1": dante_1, "2": dante_2, "41": analog, "51": usb } }
+        state:
+          mute: { group: 2, map: { "MUTED": true, "ACTIVE": false } }
+          name: { group: 1, map: { "1": "Dante In 1", "2": "Dante In 2", "41": "Analog In", "51": "USB In" } }
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
+
+  # ── DSP outputs ──
+  - match: '^<\s+REP\s+(\d{1,2})\s+OUTPUT_CH_GAIN\s+(\d{1,4})$'
+    child_set:
+      - type: output
+        id:
+          group: 1
+          map: { "1": dante_1, "2": dante_2, "3": dante_3, "4": dante_4, "5": dante_5, "6": dante_6, "7": dante_7, "8": dante_8, "9": dante_9, "41": analog_1, "42": analog_2, "51": usb, "61": back_channel }
+        state:
+          gain: $2
+          name:
+            group: 1
+            map: { "1": "Dante Out 1", "2": "Dante Out 2", "3": "Dante Out 3", "4": "Dante Out 4", "5": "Dante Out 5", "6": "Dante Out 6", "7": "Dante Out 7", "8": "Dante Out 8", "9": "Dante Out 9", "41": "Analog Out 1", "42": "Analog Out 2", "51": "USB Out", "61": "Back-Channel" }
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
+  - match: '^<\s+REP\s+(\d{1,2})\s+OUTPUT_CH_MUTE\s+(MUTED|ACTIVE)$'
+    child_set:
+      - type: output
+        id:
+          group: 1
+          map: { "1": dante_1, "2": dante_2, "3": dante_3, "4": dante_4, "5": dante_5, "6": dante_6, "7": dante_7, "8": dante_8, "9": dante_9, "41": analog_1, "42": analog_2, "51": usb, "61": back_channel }
+        state:
+          mute: { group: 2, map: { "MUTED": true, "ACTIVE": false } }
+          name:
+            group: 1
+            map: { "1": "Dante Out 1", "2": "Dante Out 2", "3": "Dante Out 3", "4": "Dante Out 4", "5": "Dante Out 5", "6": "Dante Out 6", "7": "Dante Out 7", "8": "Dante Out 8", "9": "Dante Out 9", "41": "Analog Out 1", "42": "Analog Out 2", "51": "USB Out", "61": "Back-Channel" }
+          online: "true"
+          offline_reason: ""
+          offline_detail: ""
+
+  # ── Channel (a "CH x" prefix or none; "BAY x" reports are not read) ──
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+CHAN_NAME\s+\{(.*?)\s*\}$'
+    child_set:
+      - { type: channel, id: $1, state: { name: $2 } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_STATUS\s+(ACTIVE|MUTED|ON_CHARGER|UNKNOWN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_status: { group: 2, map: { "ACTIVE": active, "MUTED": muted, "ON_CHARGER": on_charger, "UNKNOWN": unknown } }
+          tx_mute_status: { group: 2, map: { "ACTIVE": unmuted, "MUTED": muted, "ON_CHARGER": unknown, "UNKNOWN": unknown } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_AVAILABLE\s+(YES|NO)$'
+    child_set:
+      - type: channel
+        id: $1
+        state: { tx_available: { group: 2, map: { "YES": true, "NO": false } } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_DEVICE_ID\s+\{(.*?)\s*\}$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_name: $2 } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_DEVICE_ID\s+UNKNOWN$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_name: "" } }
+  # TX_MODEL is neXt's name for the legacy TX_TYPE; both are read.
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_(?:MODEL|TYPE)\s+UNKNOWN$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_model: "", tx_linked: false, no_link: true } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+TX_(?:MODEL|TYPE)\s+(MXW[0-9A-Z]+)$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_model: $2, tx_linked: true, no_link: false } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BUTTON_STS\s+(ON|OFF)$'
+    child_set:
+      - type: channel
+        id: $1
+        state: { tx_mute_button: { group: 2, map: { "ON": pressed, "OFF": released } } }
+  # The legacy page's example writes OFF where the code is OF; both are read.
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+LED_STATUS\s+(ON|OFF?|ST|FL|PU)\s+(ON|OFF?|ST|FL|PU)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          led_red: { group: 2, map: { "ON": "on", "OF": "off", "OFF": "off", "ST": strobe, "FL": flash, "PU": pulse } }
+          led_green: { group: 3, map: { "ON": "on", "OF": "off", "OFF": "off", "ST": strobe, "FL": flash, "PU": pulse } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BP_MIC_SELECT\s+(INT|EXT|AUTO|ERR|UNKNOWN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          bodypack_input: { group: 2, map: { "INT": internal, "EXT": external, "AUTO": auto, "ERR": not_bodypack, "UNKNOWN": unknown } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+INT_AUDIO_GAIN\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { internal_mic_gain: $2 } }
+
+  # ── Channel: battery ──
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BATT_CHARGE\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_percent: $2 } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BATT_HEALTH\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_health_percent: $2 } }
+  # The runtime's four codes first: dispatch stops at the first match, and
+  # the general rule below would read them as minutes.
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BATT_RUN_TIME\s+(6553[2-5])$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_battery_minutes: $2
+          tx_battery_state:
+            group: 2
+            map: { "65532": external_power, "65533": on_charger, "65534": calculating, "65535": "off" }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BATT_RUN_TIME\s+(\d{5})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_minutes: $2, tx_battery_state: ok } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BATT_TIME_TO_FULL\s+(6553[2-5])$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_charge_minutes: $2
+          tx_charge_state:
+            group: 2
+            map: { "65532": unknown, "65533": not_on_charger, "65534": full, "65535": "off" }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+BATT_TIME_TO_FULL\s+(\d{5})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_charge_minutes: $2, tx_charge_state: charging } }
+
+  # ── Channel: meters ──
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+METER_RATE\s+(00000)$'
+    child_set:
+      - { type: channel, id: $1, state: { meter_rate_ms: $2, metering: false } }
+  - match: '^<\s+REP\s+(?:CH\s+)?(\d)\s+METER_RATE\s+(\d{5})$'
+    child_set:
+      - { type: channel, id: $1, state: { meter_rate_ms: $2, metering: true } }
+  # < SAMPLE x aaa eee >: RF level, audio level, at the METER_RATE interval.
+  - match: '^<\s+SAMPLE\s+(?:CH\s+)?(\d)\s+(\d{3})\s+(\d{3})$'
+    throttle: 0.5
+    child_set:
+      - { type: channel, id: $1, state: { rssi_dbm: $2, level_db: $3 } }
+
+simulator:
+  push_state: true
+  initial_state:
+    model: "MXWAPX8"
+    channel_count_reported: 8
+    device_name: "Boardroom-APX"
+    firmware: "2.0.15.2"
+    firmware_self_test_failed: false
+    serial_number: "2WK4D0012AB"
+    identifying: false
+    operation_mode: conference
+    automix_mute: false
+    # Channel 1: an MXW2X handheld, on and unmuted.
+    channel.1.name: "Presenter"
+    channel.1.gain: 0.0
+    channel.1.mute: false
+    channel.1.tx_status: active
+    channel.1.tx_mute_status: unmuted
+    channel.1.tx_available: true
+    channel.1.tx_model: "MXW2X"
+    channel.1.tx_name: "HH-1"
+    channel.1.tx_mute_button: released
+    channel.1.bodypack_input: not_bodypack
+    channel.1.internal_mic_gain: null
+    channel.1.tx_battery_percent: 82
+    channel.1.tx_battery_health_percent: 97
+    channel.1.tx_battery_minutes: 435
+    channel.1.tx_battery_state: ok
+    channel.1.tx_charge_minutes: null
+    channel.1.tx_charge_state: not_on_charger
+    channel.1.meter_rate_ms: 0
+    channel.1.rssi_dbm: -48
+    channel.1.level_db: -32
+    # Channel 2: an MXW1X bodypack on its internal mic, muted at the mic, low.
+    channel.2.name: "Lectern Lav"
+    channel.2.gain: 3.5
+    channel.2.mute: false
+    channel.2.tx_status: muted
+    channel.2.tx_mute_status: muted
+    channel.2.tx_available: true
+    channel.2.tx_model: "MXW1X"
+    channel.2.tx_name: "BP-2"
+    channel.2.tx_mute_button: released
+    channel.2.bodypack_input: internal
+    channel.2.internal_mic_gain: 6
+    channel.2.tx_battery_percent: 15
+    channel.2.tx_battery_health_percent: 88
+    channel.2.tx_battery_minutes: 52
+    channel.2.tx_battery_state: ok
+    channel.2.tx_charge_minutes: null
+    channel.2.tx_charge_state: not_on_charger
+    channel.2.meter_rate_ms: 0
+    channel.2.rssi_dbm: -61
+    channel.2.level_db: -120
+    # Channel 3: an MXW6X boundary, docked and charging.
+    channel.3.name: "Table 1"
+    channel.3.gain: 0.0
+    channel.3.mute: false
+    channel.3.tx_status: on_charger
+    channel.3.tx_mute_status: unknown
+    channel.3.tx_available: false
+    channel.3.tx_model: "MXW6X"
+    channel.3.tx_name: "BND-3"
+    channel.3.tx_mute_button: released
+    channel.3.bodypack_input: not_bodypack
+    channel.3.internal_mic_gain: null
+    channel.3.tx_battery_percent: 64
+    channel.3.tx_battery_health_percent: 99
+    channel.3.tx_battery_minutes: null
+    channel.3.tx_battery_state: on_charger
+    channel.3.tx_charge_minutes: 38
+    channel.3.tx_charge_state: charging
+    channel.3.meter_rate_ms: 0
+    channel.3.rssi_dbm: -110
+    channel.3.level_db: -120
+    # Channel 4: no microphone linked.
+    channel.4.name: "Spare"
+    channel.4.gain: 0.0
+    channel.4.mute: false
+    channel.4.tx_status: unknown
+    channel.4.tx_mute_status: unknown
+    channel.4.tx_available: false
+    channel.4.tx_model: ""
+    channel.4.tx_name: ""
+    channel.4.tx_mute_button: released
+    channel.4.bodypack_input: unknown
+    channel.4.internal_mic_gain: null
+    channel.4.tx_battery_percent: null
+    channel.4.tx_battery_health_percent: null
+    channel.4.tx_battery_minutes: null
+    channel.4.tx_battery_state: "off"
+    channel.4.tx_charge_minutes: null
+    channel.4.tx_charge_state: "off"
+    channel.4.meter_rate_ms: 0
+    channel.4.rssi_dbm: -110
+    channel.4.level_db: -120
+    # Channel 5: an MXW8X gooseneck under External Mute, button held, LEDs set.
+    channel.5.name: "Table 2"
+    channel.5.gain: -2.0
+    channel.5.mute: true
+    channel.5.tx_status: active
+    channel.5.tx_mute_status: unmuted
+    channel.5.tx_available: true
+    channel.5.tx_model: "MXW8X"
+    channel.5.tx_name: "GN-5"
+    channel.5.tx_mute_button: pressed
+    channel.5.led_red: "off"
+    channel.5.led_green: "on"
+    channel.5.bodypack_input: not_bodypack
+    channel.5.internal_mic_gain: null
+    channel.5.tx_battery_percent: 91
+    channel.5.tx_battery_health_percent: 100
+    channel.5.tx_battery_minutes: 600
+    channel.5.tx_battery_state: ok
+    channel.5.tx_charge_minutes: null
+    channel.5.tx_charge_state: not_on_charger
+    channel.5.meter_rate_ms: 0
+    channel.5.rssi_dbm: -55
+    channel.5.level_db: -40
+    # Channel 6: an MXW8X gooseneck, half charged.
+    channel.6.name: "Table 3"
+    channel.6.gain: 0.0
+    channel.6.mute: false
+    channel.6.tx_status: active
+    channel.6.tx_mute_status: unmuted
+    channel.6.tx_available: true
+    channel.6.tx_model: "MXW8X"
+    channel.6.tx_name: "GN-6"
+    channel.6.tx_mute_button: released
+    channel.6.bodypack_input: not_bodypack
+    channel.6.internal_mic_gain: null
+    channel.6.tx_battery_percent: 45
+    channel.6.tx_battery_health_percent: 95
+    channel.6.tx_battery_minutes: 230
+    channel.6.tx_battery_state: ok
+    channel.6.tx_charge_minutes: null
+    channel.6.tx_charge_state: not_on_charger
+    channel.6.meter_rate_ms: 0
+    channel.6.rssi_dbm: -58
+    channel.6.level_db: -45
+    # Channel 7: an MXW8X just turned on, runtime still being calculated.
+    channel.7.name: "Table 4"
+    channel.7.gain: 0.0
+    channel.7.mute: false
+    channel.7.tx_status: active
+    channel.7.tx_mute_status: unmuted
+    channel.7.tx_available: true
+    channel.7.tx_model: "MXW8X"
+    channel.7.tx_name: "GN-7"
+    channel.7.tx_mute_button: released
+    channel.7.bodypack_input: not_bodypack
+    channel.7.internal_mic_gain: null
+    channel.7.tx_battery_percent: 70
+    channel.7.tx_battery_health_percent: 93
+    channel.7.tx_battery_minutes: null
+    channel.7.tx_battery_state: calculating
+    channel.7.tx_charge_minutes: null
+    channel.7.tx_charge_state: not_on_charger
+    channel.7.meter_rate_ms: 0
+    channel.7.rssi_dbm: -66
+    channel.7.level_db: -50
+    # Channel 8: an MXW6X boundary on a wall charger.
+    channel.8.name: "Table 5"
+    channel.8.gain: 1.5
+    channel.8.mute: false
+    channel.8.tx_status: active
+    channel.8.tx_mute_status: unmuted
+    channel.8.tx_available: true
+    channel.8.tx_model: "MXW6X"
+    channel.8.tx_name: "BND-8"
+    channel.8.tx_mute_button: released
+    channel.8.bodypack_input: not_bodypack
+    channel.8.internal_mic_gain: null
+    channel.8.tx_battery_percent: 100
+    channel.8.tx_battery_health_percent: 98
+    channel.8.tx_battery_minutes: null
+    channel.8.tx_battery_state: external_power
+    channel.8.tx_charge_minutes: null
+    channel.8.tx_charge_state: not_on_charger
+    channel.8.meter_rate_ms: 0
+    channel.8.rssi_dbm: -52
+    channel.8.level_db: -38
+    # DSP inputs and outputs (Analog In and Analog Out 1 answer on an
+    # MXWAPXD2 only; Dante Out 5-9 by model).
+    input.dante_1.gain: 0.0
+    input.dante_1.mute: false
+    input.dante_2.gain: -6.0
+    input.dante_2.mute: false
+    input.analog.gain: 0.0
+    input.analog.mute: true
+    input.usb.gain: 0.0
+    input.usb.mute: false
+    output.dante_1.gain: 0.0
+    output.dante_1.mute: false
+    output.dante_2.gain: 0.0
+    output.dante_2.mute: false
+    output.dante_3.gain: -3.0
+    output.dante_3.mute: false
+    output.dante_4.gain: 0.0
+    output.dante_4.mute: false
+    output.dante_5.gain: 0.0
+    output.dante_5.mute: false
+    output.dante_6.gain: 0.0
+    output.dante_6.mute: false
+    output.dante_7.gain: 0.0
+    output.dante_7.mute: false
+    output.dante_8.gain: 0.0
+    output.dante_8.mute: false
+    output.dante_9.gain: 0.0
+    output.dante_9.mute: false
+    output.analog_1.gain: 0.0
+    output.analog_1.mute: false
+    output.analog_2.gain: -10.0
+    output.analog_2.mute: false
+    output.usb.gain: 0.0
+    output.usb.mute: false
+    output.back_channel.gain: -20.0
+    output.back_channel.mute: true
+
+  delays:
+    command_response: 0.02
+
+  # The simulated access point's model follows Access Point Channels:
+  # MXWAPXD2 (2), MXWAPX4 (4) or MXWAPX8 (8), with that model's inputs and
+  # outputs. One handler answers the whole grammar. Assumptions where the
+  # pages are silent, stated so they are not mistaken for the device's:
+  # mic input 21 is channel 1's microphone; a command the pages do not have
+  # (MODEL, MAC_ADDR) answers < REP ERR >, the legacy page's error string; an
+  # MXWAPXD2's GET ALL also reports its two docking bays, empty, with a BAY
+  # prefix; turning a microphone off pushes TX_AVAILABLE NO and TX_STATUS
+  # UNKNOWN. Fidelity gaps: METER_RATE sends one SAMPLE when it is set and
+  # does not keep sending; LED_STATUS is accepted whatever the mute
+  # preference; REBOOT is not acknowledged and the connection stays up; BAY
+  # queries answer < REP ERR >.
+  command_handlers:
+    - match: '<\s*(GET|SET)\s+([^>]*?)\s*>'
+      handler: |
+        def _run():
+            count = int(config.get("channel_count") or 4)
+            if count not in (2, 4, 8):
+                count = 4
+            model = {2: "MXWAPXD2", 4: "MXWAPX4", 8: "MXWAPX8"}[count]
+            state["model"] = model
+            state["channel_count_reported"] = count
+            ctx = {"count": count, "d2": count == 2, "model": model}
+            words = match.group(2).split()
+            if not words:
+                respond("< REP ERR >")
+                return
+            if match.group(1) == "GET":
+                respond(GET(ctx, words) or "< REP ERR >")
+                return
+            out = SET(ctx, match.group(2).strip(), words)
+            if out is not None:
+                respond(out)
+
+        STATUS = {"active": "ACTIVE", "muted": "MUTED", "on_charger": "ON_CHARGER"}
+        LED = {"on": "ON", "off": "OF", "strobe": "ST", "flash": "FL", "pulse": "PU"}
+        LED_BACK = {"ON": "on", "OF": "off", "ST": "strobe", "FL": "flash", "PU": "pulse"}
+        BP = {"internal": "INT", "external": "EXT", "auto": "AUTO", "not_bodypack": "ERR"}
+        RUN_CODES = {"external_power": 65532, "on_charger": 65533, "calculating": 65534}
+        FULL_CODES = {"unknown": 65532, "not_on_charger": 65533, "full": 65534}
+        CH_PROPS = ["METER_RATE", "AUDIO_GAIN", "CHAN_NAME", "TX_STATUS", "TX_AVAILABLE",
+                    "TX_DEVICE_ID", "TX_MODEL", "BP_MIC_SELECT", "INT_AUDIO_GAIN", "LED_STATUS",
+                    "BUTTON_STS", "BATT_CHARGE", "BATT_HEALTH", "BATT_RUN_TIME", "BATT_TIME_TO_FULL"]
+
+        def input_keys(ctx):
+            keys = {1: "input.dante_1.", 2: "input.dante_2.", 51: "input.usb."}
+            if ctx["d2"]:
+                keys[41] = "input.analog."
+            for n in range(1, ctx["count"] + 1):
+                keys[20 + n] = "channel." + str(n) + "."
+            return keys
+
+        def output_keys(ctx):
+            keys = {}
+            for n in range(1, {2: 4, 4: 5, 8: 9}[ctx["count"]] + 1):
+                keys[n] = "output.dante_" + str(n) + "."
+            if ctx["d2"]:
+                keys[41] = "output.analog_1."
+            keys[42] = "output.analog_2."
+            keys[51] = "output.usb."
+            keys[61] = "output.back_channel."
+            return keys
+
+        def gain_wire(db):
+            return str(int(round((float(db if db is not None else 0) + 110) * 10)))
+
+        def pad(text, width):
+            text = str(text or "")
+            return text + " " * max(0, width - len(text))
+
+        def device_line(ctx, prop):
+            if prop == "DECT_CHANNEL_COUNT":
+                return "< REP DECT_CHANNEL_COUNT " + str(ctx["count"]) + " >"
+            if prop == "DEVICE_MODEL":
+                return "< REP DEVICE_MODEL {" + pad(ctx["model"], 31) + "} >"
+            if prop == "DEVICE_ID":
+                return "< REP DEVICE_ID {" + str(state.get("device_name") or "") + "} >"
+            if prop == "FW_VER":
+                fw = str(state.get("firmware") or "") + ("*" if state.get("firmware_self_test_failed") else "")
+                return "< REP FW_VER {" + pad(fw, 24) + "} >"
+            if prop == "SERIAL_NUM":
+                return "< REP SERIAL_NUM {" + str(state.get("serial_number") or "") + " } >"
+            if prop == "SYSTEM_OPERATION_MODE":
+                return "< REP SYSTEM_OPERATION_MODE " + str(state.get("operation_mode") or "conference").upper() + " >"
+            if prop == "AUTOMIX_OUT_MUTE":
+                return "< REP AUTOMIX_OUT_MUTE " + ("MUTED" if state.get("automix_mute") else "ACTIVE") + " >"
+            return None
+
+        def channel_line(ctx, n, prop, in_all):
+            p = "channel." + str(n) + "."
+            x = str(n)
+            present = bool(state.get(p + "tx_model"))
+            if prop == "CHAN_NAME":
+                return "< REP " + x + " CHAN_NAME {" + pad(state.get(p + "name"), 31) + "} >"
+            if prop == "TX_STATUS":
+                word = STATUS.get(state.get(p + "tx_status"), "UNKNOWN") if present else "UNKNOWN"
+                return "< REP CH " + x + " TX_STATUS " + word + " >"
+            if prop == "TX_AVAILABLE":
+                return "< REP " + x + " TX_AVAILABLE " + ("YES" if state.get(p + "tx_available") else "NO") + " >"
+            if prop == "TX_DEVICE_ID":
+                if not present or not state.get(p + "tx_name"):
+                    return "< REP CH " + x + " TX_DEVICE_ID UNKNOWN >"
+                return "< REP CH " + x + " TX_DEVICE_ID {" + pad(state.get(p + "tx_name"), 12) + "} >"
+            if prop in ("TX_MODEL", "TX_TYPE"):
+                return "< REP CH " + x + " " + prop + " " + (state.get(p + "tx_model") or "UNKNOWN") + " >"
+            if prop == "BUTTON_STS":
+                return "< REP " + x + " BUTTON_STS " + ("ON" if state.get(p + "tx_mute_button") == "pressed" else "OFF") + " >"
+            if prop == "LED_STATUS":
+                red = LED.get(state.get(p + "led_red"))
+                green = LED.get(state.get(p + "led_green"))
+                if red is None or green is None:
+                    return None
+                return "< REP CH " + x + " LED_STATUS " + red + " " + green + " >"
+            if prop == "BP_MIC_SELECT":
+                word = BP.get(state.get(p + "bodypack_input"), "UNKNOWN") if present else "UNKNOWN"
+                return "< REP " + x + " BP_MIC_SELECT " + word + " >"
+            if prop == "INT_AUDIO_GAIN":
+                g = state.get(p + "internal_mic_gain")
+                return "< REP " + x + " INT_AUDIO_GAIN " + ("255" if g is None else format(int(g) + 25, "03d")) + " >"
+            if prop == "BATT_CHARGE":
+                v = state.get(p + "tx_battery_percent")
+                return "< REP " + x + " BATT_CHARGE " + format(255 if v is None else int(v), "03d") + " >"
+            if prop == "BATT_HEALTH":
+                v = state.get(p + "tx_battery_health_percent")
+                return "< REP " + x + " BATT_HEALTH " + format(255 if v is None else int(v), "03d") + " >"
+            if prop == "BATT_RUN_TIME":
+                v = state.get(p + "tx_battery_minutes")
+                if v is None:
+                    v = RUN_CODES.get(state.get(p + "tx_battery_state"), 65535)
+                return "< REP " + x + " BATT_RUN_TIME " + format(int(v), "05d") + " >"
+            if prop == "BATT_TIME_TO_FULL":
+                if not ctx["d2"]:
+                    return None
+                v = state.get(p + "tx_charge_minutes")
+                if v is None:
+                    v = FULL_CODES.get(state.get(p + "tx_charge_state"), 65535)
+                return "< REP " + x + " BATT_TIME_TO_FULL " + format(int(v), "05d") + " >"
+            if prop == "METER_RATE":
+                return "< REP " + x + " METER_RATE " + format(int(state.get(p + "meter_rate_ms") or 0), "05d") + " >"
+            if prop == "AUDIO_GAIN":
+                g = state.get(p + "gain") or 0
+                z = int(round(g)) + 25 if -25 <= g <= 15 else 253
+                return "< REP " + ("CH " if in_all else "") + x + " AUDIO_GAIN " + format(z, "03d") + " >"
+            return None
+
+        def dsp_get(ctx, prop, x):
+            keys = input_keys(ctx) if prop.startswith("INPUT") else output_keys(ctx)
+            ids = sorted(keys) if x == 0 else [x]
+            out = []
+            for wid in ids:
+                p = keys.get(wid)
+                if p is None:
+                    return None
+                if prop.endswith("GAIN"):
+                    value = gain_wire(state.get(p + "gain"))
+                else:
+                    value = "MUTED" if state.get(p + "mute") else "ACTIVE"
+                out.append("< REP " + str(wid) + " " + prop + " " + value + " >")
+            return "".join(out)
+
+        def every(ctx):
+            out = [device_line(ctx, p) for p in ("DECT_CHANNEL_COUNT", "DEVICE_MODEL", "DEVICE_ID",
+                                                  "FW_VER", "SERIAL_NUM", "SYSTEM_OPERATION_MODE",
+                                                  "AUTOMIX_OUT_MUTE")]
+            out.append("< REP FLASH " + ("ON" if state.get("identifying") else "OFF") + " >")
+            for n in range(1, ctx["count"] + 1):
+                for prop in CH_PROPS:
+                    line = channel_line(ctx, n, prop, True)
+                    if line:
+                        out.append(line)
+            if ctx["d2"]:
+                for bay in ("1", "2"):
+                    out.append("< REP BAY " + bay + " TX_STATUS UNKNOWN >")
+                    out.append("< REP BAY " + bay + " TX_AVAILABLE NO >")
+            for prop in ("INPUT_CH_GAIN", "INPUT_CH_MUTE", "OUTPUT_CH_GAIN", "OUTPUT_CH_MUTE"):
+                out.append(dsp_get(ctx, prop, 0))
+            return "".join(out)
+
+        def GET(ctx, w):
+            if len(w) == 1:
+                if w[0] == "ALL":
+                    return every(ctx)
+                return device_line(ctx, w[0])
+            if w[0] == "BAY":
+                return None
+            if w[0] == "CH":
+                w = w[1:]
+            if len(w) != 2 or not w[0].isdigit():
+                return None
+            x = int(w[0])
+            prop = w[1]
+            if prop in ("INPUT_CH_GAIN", "INPUT_CH_MUTE", "OUTPUT_CH_GAIN", "OUTPUT_CH_MUTE"):
+                return dsp_get(ctx, prop, x)
+            if x > ctx["count"]:
+                return None
+            out = []
+            for n in (range(1, ctx["count"] + 1) if x == 0 else [x]):
+                line = channel_line(ctx, n, prop, False)
+                if line is None:
+                    return None
+                out.append(line)
+            return "".join(out)
+
+        def dsp_set(ctx, prop, x, rest):
+            keys = input_keys(ctx) if prop.startswith("INPUT") else output_keys(ctx)
+            p = keys.get(x)
+            if p is None:
+                return "< REP ERR >"
+            if prop.endswith("GAIN"):
+                if not re.match(r"^\d{1,4}$", rest) or int(rest) > 1400:
+                    return "< REP ERR >"
+                state[p + "gain"] = (int(rest) - 1100) / 10.0
+                return "< REP " + str(x) + " " + prop + " " + str(int(rest)) + " >"
+            if rest not in ("MUTED", "ACTIVE"):
+                return "< REP " + str(x) + " " + prop + " ERR >"
+            state[p + "mute"] = rest == "MUTED"
+            return "< REP " + str(x) + " " + prop + " " + rest + " >"
+
+        def mic_gone(p, x, unlinked):
+            state[p + "tx_status"] = "unknown"
+            state[p + "tx_mute_status"] = "unknown"
+            state[p + "tx_available"] = False
+            state[p + "tx_battery_minutes"] = None
+            state[p + "tx_battery_state"] = "off"
+            notify("< REP " + x + " TX_AVAILABLE NO ")
+            notify("< REP CH " + x + " TX_STATUS UNKNOWN ")
+            if unlinked:
+                state[p + "tx_model"] = ""
+                state[p + "tx_name"] = ""
+                state[p + "tx_battery_percent"] = None
+                state[p + "tx_battery_health_percent"] = None
+                notify("< REP CH " + x + " TX_MODEL UNKNOWN ")
+
+        def device_set(ctx, prop, rest):
+            if prop == "FLASH" and rest in ("ON", "OFF"):
+                state["identifying"] = rest == "ON"
+                return "< REP FLASH " + rest + " >"
+            if prop == "DEVICE_ID":
+                m = re.match(r"^\{\s*([A-Za-z0-9-]{1,31})\s*\}$", rest)
+                if not m or m.group(1).startswith("-") or m.group(1).endswith("-"):
+                    return "< REP ERR >"
+                state["device_name"] = m.group(1)
+                return device_line(ctx, "DEVICE_ID")
+            if prop == "SYSTEM_OPERATION_MODE":
+                if rest not in ("PRESENTATION", "CONFERENCE", "DIRECT", "CUSTOM"):
+                    return "< REP SYSTEM_OPERATION_MODE ERR >"
+                state["operation_mode"] = rest.lower()
+                return device_line(ctx, "SYSTEM_OPERATION_MODE")
+            if prop == "AUTOMIX_OUT_MUTE" and rest in ("MUTED", "ACTIVE"):
+                state["automix_mute"] = rest == "MUTED"
+                return device_line(ctx, "AUTOMIX_OUT_MUTE")
+            if prop == "REBOOT" and not rest:
+                return None
+            return "< REP ERR >"
+
+        def SET(ctx, raw, w):
+            m = re.match(r"^(?:(CH|BAY)\s+)?(\d+)\s+(\w+)\s*(.*)$", raw)
+            if not m:
+                return device_set(ctx, w[0], raw[len(w[0]):].strip())
+            if m.group(1) == "BAY":
+                return "< REP ERR >"
+            x = int(m.group(2))
+            prop = m.group(3)
+            rest = m.group(4).strip()
+            if prop in ("INPUT_CH_GAIN", "INPUT_CH_MUTE", "OUTPUT_CH_GAIN", "OUTPUT_CH_MUTE"):
+                return dsp_set(ctx, prop, x, rest)
+            if prop == "FLASH":
+                return "< REP ERROR >"
+            if prop == "METER_RATE":
+                if not re.match(r"^\d{5}$", rest) or x > ctx["count"] or 0 < int(rest) < 100:
+                    return "< REP ERR >"
+                rate = int(rest)
+                chans = range(1, ctx["count"] + 1) if x == 0 else [x]
+                out = []
+                for n in chans:
+                    q = "channel." + str(n) + "."
+                    state[q + "meter_rate_ms"] = rate
+                    state[q + "metering"] = rate > 0
+                    out.append(channel_line(ctx, n, "METER_RATE", False))
+                respond("".join(out))
+                if rate:
+                    for n in chans:
+                        q = "channel." + str(n) + "."
+                        rf = max(0, min(127, int(round((state.get(q + "rssi_dbm") or -110) + 110))))
+                        au = max(0, min(120, int(round((state.get(q + "level_db") or -120) + 120))))
+                        notify("< SAMPLE " + str(n) + " " + format(rf, "03d") + " " + format(au, "03d") + " ")
+                return None
+            if x < 1 or x > ctx["count"]:
+                return "< REP ERR >"
+            p = "channel." + str(x) + "."
+            xs = str(x)
+            present = bool(state.get(p + "tx_model"))
+            if prop == "CHAN_NAME":
+                n = re.match(r"^\{([^{}]{1,31}?)\s*\}$", rest)
+                if not n:
+                    return "< REP ERR >"
+                state[p + "name"] = n.group(1)
+                return channel_line(ctx, x, "CHAN_NAME", False)
+            if prop == "TX_STATUS":
+                if rest not in ("ACTIVE", "MUTED", "OFF"):
+                    return "< REP ERR >"
+                if not present or state.get(p + "tx_status") in (None, "unknown"):
+                    return "< REP CH " + xs + " TX_STATUS UNKNOWN >"
+                if state.get(p + "tx_status") == "on_charger":
+                    return channel_line(ctx, x, "TX_STATUS", False)
+                if rest == "OFF":
+                    mic_gone(p, xs, False)
+                    return None
+                state[p + "tx_status"] = "muted" if rest == "MUTED" else "active"
+                state[p + "tx_mute_status"] = "muted" if rest == "MUTED" else "unmuted"
+                return channel_line(ctx, x, "TX_STATUS", False)
+            if prop == "TX_DEVICE_ID":
+                if not present:
+                    return "< REP CH " + xs + " TX_DEVICE_ID UNKNOWN >"
+                n = re.match(r"^\{\s*([A-Za-z0-9-]+)\s*\}$", rest)
+                if not n or len(n.group(1)) > 12 or n.group(1).startswith("-") or n.group(1).endswith("-"):
+                    return "< REP ERR >"
+                state[p + "tx_name"] = n.group(1)
+                return channel_line(ctx, x, "TX_DEVICE_ID", False)
+            if prop == "BP_MIC_SELECT":
+                if rest not in ("INT", "EXT"):
+                    return "< REP ERR >"
+                if not present:
+                    return "< REP " + xs + " BP_MIC_SELECT UNKNOWN >"
+                if not str(state.get(p + "tx_model")).startswith("MXW1"):
+                    return "< REP " + xs + " BP_MIC_SELECT ERR >"
+                state[p + "bodypack_input"] = "internal" if rest == "INT" else "external"
+                return channel_line(ctx, x, "BP_MIC_SELECT", False)
+            if prop == "INT_AUDIO_GAIN":
+                if not re.match(r"^\d{1,3}$", rest) or int(rest) > 60:
+                    return "< REP ERR >"
+                state[p + "internal_mic_gain"] = int(rest) - 25
+                return channel_line(ctx, x, "INT_AUDIO_GAIN", False)
+            if prop == "LED_STATUS":
+                n = re.match(r"^(ON|OF|ST|FL|PU|NC)\s+(ON|OF|ST|FL|PU|NC)$", rest)
+                if not n:
+                    return "< REP ERR >"
+                if n.group(1) != "NC":
+                    state[p + "led_red"] = LED_BACK[n.group(1)]
+                if n.group(2) != "NC":
+                    state[p + "led_green"] = LED_BACK[n.group(2)]
+                red = LED.get(state.get(p + "led_red"), "OF")
+                green = LED.get(state.get(p + "led_green"), "OF")
+                return "< REP " + xs + " LED_STATUS " + red + " " + green + " >"
+            if prop == "UNLINK":
+                if rest:
+                    return "< REP ERR >"
+                mic_gone(p, xs, True)
+                return "< REP " + xs + " UNLINK SUCCESS >"
+            if prop == "AUDIO_GAIN":
+                if not re.match(r"^\d{1,3}$", rest) or int(rest) > 40:
+                    return "< REP " + xs + " AUDIO_GAIN 253 >"
+                state[p + "gain"] = float(int(rest) - 25)
+                return ("< REP " + str(20 + x) + " INPUT_CH_GAIN " + gain_wire(state.get(p + "gain")) + " >"
+                        + channel_line(ctx, x, "AUDIO_GAIN", False))
+            return "< REP ERR >"
+
+        _run()
+
+  error_modes:
+    communication_timeout:
+      description: "Access point stops responding"
+      behavior: no_response

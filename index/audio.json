@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 33,
+    "total_drivers": 34,
     "shards": null,
     "category": "audio"
   },
@@ -1760,11 +1760,84 @@
       }
     },
     {
+      "id": "shure_mxw_next",
+      "name": "Shure MXW neXt Access Point",
+      "manufacturer": "Shure",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Microflex Wireless neXt access points (MXWAPX4, MXWAPX8, MXWAPXD2) over Shure command strings. Per-channel gain, mute and name, each microphone's model, status, name, battery, button and LEDs, opt-in RF and audio meters, gain and mute on every Dante, analog and USB input and output, the automixer mute and the operation mode. Every change on the access point shows up as it happens.\n",
+      "source_url": "https://www.shure.com/en-US/docs/commandstrings/MXWneXt",
+      "file": "audio/shure_mxw_next.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/shure_mxw_next.avcdriver": "4dc1b7158a28c40f7af04caeae9633fe5d35b07b6af1d879ba68c3225040bf7d"
+      },
+      "ports": [
+        2202
+      ],
+      "protocols": [
+        "shure_command_strings"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "shure",
+        "mxw-next",
+        "microflex-wireless",
+        "wireless-microphone",
+        "access-point",
+        "dante"
+      ],
+      "help": {
+        "overview": "Shows what an MXW neXt access point and its wireless microphones are doing, and controls the access point's audio. Each channel reports its microphone's model, status, name and battery, so a panel can show every microphone at a glance and a trigger can alert on a low battery or a microphone that goes missing. Set gain and mute on each channel and on every Dante, analog and USB input and output, mute the automixer output, name channels and microphones, and change the operation mode.\n",
+        "setup": "1. Connect the access point to the control network and note its IP address (Shure Designer or the MXW neXt web application).\n2. Enter that address here. The port is 2202 on every access point.\n3. Set Access Point Channels to the access point's channel count: 2 for an MXWAPXD2, 4 for an MXWAPX4, 8 for an MXWAPX8. Once connected, the access point sets it.\n4. To mute microphones from a control system or DSP, set the Mute Preference to External Mute in the web application or Designer. The microphones' buttons are then reported instead of muting, and the microphone LEDs take commands.\n5. Turn on Meter Interval only if a panel shows RF or audio levels.\n",
+        "connection": "TCP port 2202, no password. Shure recommends one control system per MXW neXt system, so messages from two controllers do not conflict.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Shure",
+          "models": [
+            "MXWAPX4",
+            "MXWAPX8",
+            "MXWAPXD2"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt and MXW command strings pages; not yet run against an access point. The microphones (MXW1X, MXW2X in every head, MXW6X, MXW8X) are reported through the access point channel they are linked to. The MXWNDX charging stations are separate devices and are not controlled by this driver.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 2202,
+          "send_ascii": "< GET DEVICE_MODEL >\r\n",
+          "expect_regex": "<\\s*REP\\s+DEVICE_MODEL\\s+\\{\\s*MXWAPX",
+          "extract_manufacturer": "Shure",
+          "extract": {
+            "model": {
+              "regex": "<\\s*REP\\s+DEVICE_MODEL\\s+\\{\\s*(MXWAPX[^}\\s]*)"
+            }
+          }
+        },
+        "oui": [
+          "00:0e:dd",
+          "d8:34:ee"
+        ],
+        "port_open": [
+          2202
+        ],
+        "manufacturer_alias": [
+          "shure",
+          "shure incorporated"
+        ]
+      }
+    },
+    {
       "id": "shure_network",
       "name": "Shure Networked Devices",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "2.0.3",
+      "version": "2.0.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Shure networked audio devices over the Device Control Strings protocol on TCP port 2202 \u2014 MXA910 / MXA920 / MXA710 ceiling arrays, ANI interfaces, the P300 IntelliMix processor, and the SCM820 automixer. Each audio channel is a child entity with mute, gain, name, and live metering; device-level mute, presets, and status LED are controlled directly. Channel state pushes live as it changes on the device or another controller.",
@@ -1772,7 +1845,7 @@
       "file": "audio/shure_network.py",
       "format": "python",
       "files": {
-        "audio/shure_network.py": "220c5f532c4f4ffb0f07ea52fe85c5d2fa9912e0b1d39e0dff6e7b91e2514b2c",
+        "audio/shure_network.py": "c30277401571d08a1b8a7a010d14d23a87aa3a2fcf59e92c0eb4afb2a3169fd3",
         "audio/shure_network_sim.py": "911f6177bbf6e066a7aa86ad80c26e5c12d29247f82eaf2c692a8060fd616b28"
       },
       "ports": [
@@ -1815,7 +1888,7 @@
         "tcp_probe": {
           "port": 2202,
           "send_ascii": "< GET MODEL >\r\n",
-          "expect_regex": "<\\s*REP\\s+(?:MODEL\\s+\\{\\s*(?!AD4|AD6|ULXD|SLXD|QLXD|AXT|P10T)|ERR\\s*>)",
+          "expect_regex": "<\\s*REP\\s+MODEL\\s+\\{\\s*(?!AD4|AD6|ULXD|SLXD|QLXD|AXT|P10T|MXW)",
           "extract_manufacturer": "Shure",
           "extract": {
             "model": {
@@ -1830,7 +1903,6 @@
         "hostname": [
           "^MXA",
           "^ANI",
-          "^MXW",
           "^P300",
           "^IMX"
         ],

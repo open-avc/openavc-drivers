@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 199,
+    "total_devices": 202,
     "shards": null,
     "category": "audio"
   },
@@ -1770,6 +1770,42 @@
           "id": "shure_network",
           "confidence": "untested",
           "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWAPX4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxw_next",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt and MXW command strings pages; not yet run against an access point. The microphones (MXW1X, MXW2X in every head, MXW6X, MXW8X) are reported through the access point channel they are linked to. The MXWNDX charging stations are separate devices and are not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWAPX8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxw_next",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt and MXW command strings pages; not yet run against an access point. The microphones (MXW1X, MXW2X in every head, MXW6X, MXW8X) are reported through the access point channel they are linked to. The MXWNDX charging stations are separate devices and are not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWAPXD2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxw_next",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt and MXW command strings pages; not yet run against an access point. The microphones (MXW1X, MXW2X in every head, MXW6X, MXW8X) are reported through the access point channel they are linked to. The MXWNDX charging stations are separate devices and are not controlled by this driver.\n"
         }
       ]
     },

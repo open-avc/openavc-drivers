@@ -376,7 +376,7 @@ def _run(coro):
 
 def test_metadata_and_actions_shape():
     info = DRV.ShureNetworkDriver.DRIVER_INFO
-    assert info["version"] == "2.0.3"
+    assert info["version"] == "2.0.4"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -386,6 +386,21 @@ def test_metadata_and_actions_shape():
     # Device-level flat state; per-channel values live on children.
     assert set(info["state_variables"]) == {
         "device_name", "mute", "audio_mute", "led_brightness", "firmware"}
+
+
+def test_discovery_probe_claims_only_this_drivers_devices():
+    import re
+    disc = DRV.ShureNetworkDriver.DRIVER_INFO["discovery"]
+    probe = re.compile(disc["tcp_probe"]["expect_regex"])
+    assert probe.search("< REP MODEL {MXA920                          } >")
+    assert probe.search("< REP MODEL {P300} >")
+    # The wireless systems have their own drivers.
+    for model in ("AD4Q", "ULXD4D", "SLXD4", "QLXD4", "MXWAPX8"):
+        assert not probe.search("< REP MODEL {" + model + "} >"), model
+    # Every Shure device whose document has no MODEL answers this way, so it
+    # identifies nothing.
+    assert not probe.search("< REP ERR >")
+    assert not any(h.upper().startswith("^MXW") for h in disc["hostname"])
 
 
 def test_child_type_shape_and_pickers():

@@ -1,0 +1,1 @@
+< REP DEVICE_MODEL {MXWAPX8                        } >

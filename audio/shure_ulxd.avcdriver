@@ -1,0 +1,1512 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Shure ULX-D Receiver Driver
+#
+# Controls and monitors Shure ULX-D digital wireless receivers (ULXD4,
+# ULXD4D, ULXD4Q) over Shure's ASCII command strings on TCP port 2202.
+#
+# Protocol reference (the manufacturer's own, read 2026-10-05):
+#   - "ULX-D Command Strings", shure.com/en-US/docs/commandstrings/ULXD
+#
+# Framing: every message is "< TYPE [x] PROPERTY value... >" in ASCII, with
+# spaces inside the brackets. ">" ends a frame. x is the channel: 1 to 4, or
+# 0 for every channel. Strings are brace-wrapped and padded with spaces to a
+# fixed width (DEVICE_ID and CHAN_NAME to 8, NA_CHAN_NAME to 31, MODEL to
+# 32); numbers are zero-padded to a fixed width (AUDIO_GAIN 030,
+# BATT_RUN_TIME 00125). The group/channel preset is bare: "GROUP_CHAN 01,05".
+# A refused command answers "< REP ERR >".
+#
+# The device's numbers are not the real values. AUDIO_GAIN is 000-060 for
+# -18 to +42 dB (offset 18); RX_RF_LVL is the dBm value plus 128 and
+# AUDIO_LVL the dBFS value plus 50; BATT_TEMP_C / _F are offset by 40 and
+# TX_OFFSET by 12. 255 (and 65535 on the five-digit fields) is "unknown",
+# and BATT_RUN_TIME uses 65533-65535 for three kinds of "no reading". The
+# state variables and command parameters below declare those offsets and
+# codes, so state holds dB, dBm, dBFS, degrees and minutes, and a gain set
+# to -6 dB goes out as 12.
+#
+# Push vs poll: push. "With the exception of the metered properties, the
+# device sends a REPORT when a value changes", whoever made the change: the
+# front panel, Wireless Workbench, another controller, a transmitter coming
+# into range. So the driver reads everything once on connect (GET 0 ALL)
+# and mirrors the REPs after that. There is no polling. The metered values
+# (antenna, RF level, audio level) travel in SAMPLE frames only while
+# METER_RATE is set, which is opt-in: the Meter Interval setting, or the
+# channel meter commands. Liveness is an awaited < GET MODEL > every 30 s.
+#
+# Why YAML: one line per message, every reply readable with a regex, the
+# offsets and "no reading" codes declared on the state variables, and the
+# receiver's ON / OFF words declared on the settings' maps (platform 0.37.0).
+# Nothing here needs code.
+
+id: shure_ulxd
+name: Shure ULX-D Receiver
+manufacturer: Shure
+category: audio
+version: 1.0.0
+author: OpenAVC
+# scale / offset / unknown on state variables and command parameters, and
+# map on device settings.
+min_platform_version: "0.37.0"
+description: >
+  ULX-D digital wireless receivers over Shure command strings. Per-channel
+  mute, gain, name, frequency and group/channel presets, the transmitter's
+  model, battery, locks and mute switch, interference and encryption
+  warnings, and opt-in RF and audio meters. Receiver settings for
+  encryption, audio summing, frequency diversity, high density and the scan
+  and sync locks. Every change on the receiver shows up as it happens.
+source_url: https://www.shure.com/en-US/docs/commandstrings/ULXD
+tags: [shure, ulx-d, ulxd, wireless-microphone, receiver, dante]
+verified: false
+simulated: true
+protocols: [shure_command_strings]
+ports: [2202]
+
+compatible_models:
+  - manufacturer: Shure
+    models:
+      - ULXD4
+      - ULXD4D
+      - ULXD4Q
+    confidence: untested
+    notes: >
+      Built from Shure's ULX-D command strings document; not yet run against
+      a receiver. The Dante names exist on the ULXD4D and ULXD4Q only. The
+      transmitters (ULXD1, ULXD2, ULXD6, ULXD8, QLXD1, QLXD2) are reported
+      through the receiver channel they are received on; the mute switch and
+      power source readings come from ULXD6 and ULXD8 transmitters only.
+
+transport: tcp
+delimiter: ">"
+
+help:
+  overview: >
+    Shows what a Shure ULX-D receiver and its wireless microphones are
+    doing, and controls the receiver's channels. Each channel reports the
+    transmitter's model, battery and locks, so a panel can show a rack at a
+    glance and a trigger can alert on a low battery, a lost transmitter,
+    interference or an encryption mismatch. Mute channels, set gain, names,
+    frequencies and group/channel presets, and change the receiver's
+    encryption, audio summing, frequency diversity, high density and lock
+    settings.
+  setup: >
+    1. Connect the receiver's network port to the control network and note
+    its IP address (front panel: Network menu, or Wireless Workbench).
+
+    2. Enter that address here. The port is 2202 on every receiver.
+
+    3. Set Receiver Channels to the receiver's channel count (1, 2 or 4).
+    Once connected, the receiver's model sets it.
+
+    4. Turn on Meter Interval only if a panel shows RF or audio levels. The
+    receiver then sends levels for every channel at that interval.
+  connection: >
+    TCP port 2202, no password. The receiver accepts control from any
+    address on its network.
+
+discovery:
+  # Every ULX-D receiver answers MODEL on 2202 with a ULXD4-prefixed name.
+  # shure_network, shure_axient_digital and shure_slxd send the same probe
+  # to the same port and decline this model.
+  tcp_probe:
+    port: 2202
+    send_ascii: "< GET MODEL >\r\n"
+    expect_regex: '<\s*REP\s+MODEL\s+\{\s*ULXD4'
+    extract_manufacturer: "Shure"
+    extract:
+      model:
+        regex: '<\s*REP\s+MODEL\s+\{\s*(ULXD4[^}\s]*)'
+  # Shure Incorporated (IEEE registry).
+  oui:
+    - "00:0e:dd"
+    - "d8:34:ee"
+  port_open: [2202]
+  manufacturer_alias:
+    - "shure"
+    - "shure incorporated"
+
+default_config:
+  host: ""
+  port: 2202
+  channel_count: 2
+  meter_interval_ms: 0
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    help: "The receiver's IP address, from its Network menu or Wireless Workbench."
+  port:
+    type: integer
+    default: 2202
+    label: Port
+    advanced: true
+    help: "2202 on every receiver."
+  channel_count:
+    type: enum
+    values: [1, 2, 4]
+    default: 2
+    label: Receiver Channels
+    help: >
+      1 for a ULXD4, 2 for a ULXD4D, 4 for a ULXD4Q. Once connected, the
+      receiver's model sets the channel count.
+  meter_interval_ms:
+    type: integer
+    default: 0
+    min: 0
+    max: 99999
+    label: Meter Interval (ms)
+    help: >
+      How often the receiver sends RF and audio levels for every channel, in
+      milliseconds: 0 for off, otherwise 100 or more. Leave it off unless a
+      panel shows levels.
+
+state_variables:
+  model:
+    type: string
+    label: Model
+    help: "The receiver's model, e.g. ULXD4Q."
+  channel_count_reported:
+    type: integer
+    label: Channels
+    help: "The number of channels the receiver's model has."
+  device_name:
+    type: string
+    label: Device ID
+    help: "The receiver's name (DEVICE_ID), up to 8 characters."
+  firmware:
+    type: string
+    label: Firmware
+  firmware_update_incomplete:
+    type: boolean
+    label: Firmware Update Incomplete
+    cloud_priority: high
+    help: "The receiver's last firmware update did not finish. Run the update again with Shure Update Utility."
+  identifying:
+    type: boolean
+    label: Identifying
+    help: "The receiver's front panel is flashing to identify it."
+  encryption_mode:
+    type: enum
+    values: ["off", auto, manual]
+    label: Encryption
+    help: "off, auto (the receiver manages the key) or manual (a key you regenerate on demand)."
+  encryption_key_status:
+    type: enum
+    values: [inactive, requested, completed]
+    label: Key Regeneration
+    help: >
+      Where a key regeneration is: requested (accepted), completed (the new
+      key exists) or inactive (ready for another request).
+  audio_summing_mode:
+    type: enum
+    values: ["off", "1+2", "3+4", "1+2/3+4", "1+2+3+4"]
+    label: Audio Summing
+    help: "Which channels the receiver sums: off, a pair (1+2, 3+4), both pairs (1+2/3+4) or all four (1+2+3+4)."
+  frequency_diversity_mode:
+    type: enum
+    values: ["off", "1+2", "3+4", "1+2/3+4"]
+    label: Frequency Diversity
+    help: "Which channel pairs run frequency diversity: off, 1+2, 3+4 or both pairs (1+2/3+4)."
+  high_density:
+    type: boolean
+    label: High Density
+    help: "High density mode is on."
+  scan_lock:
+    type: boolean
+    label: Scan Lock
+    help: "The front panel scan button is ignored, and a group scan from another receiver changes nothing here."
+  sync_lock:
+    type: boolean
+    label: Sync Lock
+    help: "The front panel sync buttons are ignored, so nothing can be synced to a transmitter by IR."
+  dante_device_name:
+    type: string
+    label: Dante Device Name
+    help: "ULXD4D and ULXD4Q only: the receiver's Dante device name."
+  network_mode:
+    type: enum
+    values: [auto, manual]
+    label: Network Mode
+    help: "Whether the control interface takes its address automatically or uses a manual one."
+  mac_address:
+    type: string
+    label: MAC Address
+    help: "The control interface's MAC address."
+
+liveness:
+  # MODEL is answered by every ULX-D receiver; an error reply still proves
+  # the link is up.
+  send: "< GET MODEL >"
+  expect: '<\s*REP\s+(MODEL|ERR)\b'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+child_entity_types:
+  channel:
+    label: Channel
+    label_plural: Channels
+    id_format:
+      type: integer
+      min: 1
+      max: 4
+    instances:
+      # The receiver's MODEL sets the count (ULXD4 1, ULXD4D 2, ULXD4Q 4);
+      # the config field is the count before the receiver has reported.
+      count_from_state: channel_count_reported
+      count_from: channel_count
+      label: "Channel {id}"
+    label_field: name
+    summary_fields: [name, mute, gain, tx_linked, tx_battery_bars, tx_battery_minutes]
+    state_variables:
+      # ── Audio and RF ──
+      name:
+        type: string
+        label: Channel Name
+        help: "The receiver's name for this channel, up to 8 characters."
+      mute:
+        type: boolean
+        label: Mute
+        control: true
+        cloud_priority: high
+        help: "The channel's audio output is muted at the receiver."
+      gain:
+        type: integer
+        label: Gain
+        min: -18
+        max: 42
+        step: 1
+        unit: dB
+        offset: -18
+        control: true
+        help: "Channel audio gain, -18 to +42 dB."
+      frequency_khz:
+        type: integer
+        label: Frequency
+        unit: kHz
+        control: true
+        help: "The channel's carrier frequency in kHz. Setting a frequency clears the group/channel preset."
+      preset_bank:
+        type: integer
+        label: Group
+        unknown: ["--"]
+        help: "The group of the channel's group/channel preset; empty when the frequency was set directly."
+      preset_channel:
+        type: integer
+        label: Preset Channel
+        unknown: ["--"]
+        help: "The channel number within the group; empty when the frequency was set directly."
+      identifying:
+        type: boolean
+        label: Identifying
+        help: "The channel's display is flashing to show which channel this is."
+      interference:
+        type: boolean
+        label: Interference
+        cloud_priority: high
+        help: "The receiver detected interference on this channel."
+      aes256_error:
+        type: boolean
+        label: Encryption Mismatch
+        cloud_priority: high
+        help: "The transmitter's encryption does not match the receiver's, so no audio passes. Sync the transmitter to the receiver."
+      dante_channel_name:
+        type: string
+        label: Dante Channel Name
+        help: "ULXD4D and ULXD4Q only: this channel's Dante name."
+
+      # ── Transmitter ──
+      tx_model:
+        type: string
+        label: Transmitter Model
+        help: "The transmitter on this channel (ULXD1, ULXD2, ULXD6, ULXD8, QLXD1 or QLXD2); empty when there is none."
+      tx_linked:
+        type: boolean
+        label: Transmitter Linked
+        cloud_priority: high
+        help: "A transmitter is being received on this channel."
+      no_link:
+        type: boolean
+        label: No Link
+        cloud_priority: high
+        help: "No transmitter is being received (the opposite of Transmitter Linked)."
+      tx_name:
+        type: string
+        label: Transmitter Name
+        help: "The transmitter's device ID; empty when there is no transmitter."
+      tx_firmware:
+        type: string
+        label: Transmitter Firmware
+        help: "The transmitter's firmware version; empty when unknown."
+      tx_firmware_update_incomplete:
+        type: boolean
+        label: Transmitter Update Incomplete
+        help: "The transmitter's last firmware update did not finish. Run the update again with Shure Update Utility."
+      tx_battery_type:
+        type: string
+        label: Battery Type
+        help: >
+          LION (a Shure rechargeable), ALKA (alkaline), NIMH, LITH (lithium
+          primary) or WARN (the transmitter is charging on a dock or over
+          USB with a battery that is not a Shure rechargeable); empty when
+          unknown.
+      tx_battery_bars:
+        type: integer
+        label: Battery Bars
+        min: 0
+        max: 5
+        unknown: [255]
+        help: "The transmitter's battery as the receiver's five-bar indicator shows it; empty when unknown."
+      tx_low_battery:
+        type: boolean
+        label: Low Battery
+        cloud_priority: high
+        help: "The transmitter's battery is down to one bar or none."
+      tx_battery_percent:
+        type: integer
+        label: Battery Charge
+        min: 0
+        max: 100
+        unit: "%"
+        unknown: [255]
+        cloud_priority: high
+        help: "Charge left in a Shure rechargeable battery; empty for other batteries or when unknown."
+      tx_battery_minutes:
+        type: integer
+        label: Battery Runtime
+        unit: min
+        unknown: [65535, 65533, 65534]
+        cloud_priority: high
+        help: "Estimated minutes of runtime left on a Shure rechargeable battery; empty when the receiver has no estimate (see Battery Runtime State)."
+      tx_battery_state:
+        type: enum
+        values: [ok, calculating, communication_warning, unknown]
+        label: Battery Runtime State
+        help: >
+          Why the runtime is or is not known: ok, calculating (a transmitter
+          just came on), communication_warning (check the battery contacts)
+          or unknown (no transmitter, not a rechargeable, or on the charger).
+      tx_battery_health_percent:
+        type: integer
+        label: Battery Health
+        min: 0
+        max: 100
+        unit: "%"
+        unknown: [255]
+        help: "Health of a Shure rechargeable battery; empty when unknown."
+      tx_battery_cycles:
+        type: integer
+        label: Battery Cycles
+        unknown: [65535]
+        help: "Full charge cycles of a Shure rechargeable battery; empty when unknown."
+      tx_battery_temp_c:
+        type: integer
+        label: Battery Temperature
+        unit: "°C"
+        offset: -40
+        unknown: [255]
+        help: "Empty when unknown."
+      tx_battery_temp_f:
+        type: integer
+        label: Battery Temperature (°F)
+        unit: "°F"
+        offset: -40
+        unknown: [255]
+        help: "Empty when unknown."
+      tx_offset_db:
+        type: integer
+        label: Transmitter Gain Offset
+        min: -12
+        max: 21
+        step: 1
+        unit: dB
+        offset: -12
+        unknown: [255]
+        help: "The gain offset set on the transmitter, -12 to +21 dB; empty when unknown."
+      tx_rf_power:
+        type: enum
+        values: [low, normal, high, unknown]
+        label: Transmitter RF Power
+        help: "low, normal or high; unknown when there is no transmitter."
+      tx_menu_lock:
+        type: enum
+        values: ["on", "off", unknown]
+        label: Transmitter Menu Lock
+        help: "on when the transmitter's menu is locked; unknown when there is no transmitter."
+      tx_power_lock:
+        type: enum
+        values: ["on", "off", unknown]
+        label: Transmitter Power Lock
+        help: "on when the transmitter's power switch is disabled; unknown when there is no transmitter."
+      tx_mute_status:
+        type: enum
+        values: [muted, unmuted, unknown]
+        label: Transmitter Mute
+        cloud_priority: high
+        help: "ULXD6 and ULXD8 only: whether the transmitter is muting its audio; unknown for other transmitters or none."
+      tx_mute_button:
+        type: enum
+        values: [pressed, released, unknown]
+        label: Transmitter Mute Button
+        help: "ULXD6 and ULXD8 only: pressed while the mute button is on; unknown for other transmitters or none."
+      tx_power_source:
+        type: enum
+        values: [battery, external, unknown]
+        label: Transmitter Power Source
+        help: "ULXD6 and ULXD8 only: battery or external power; unknown for other transmitters or none."
+
+      # ── Meters (only while metering is on) ──
+      metering:
+        type: boolean
+        label: Metering
+        help: "The receiver is sending levels for this channel."
+      meter_rate_ms:
+        type: integer
+        label: Meter Interval
+        unit: ms
+        help: "How often the receiver sends this channel's levels; 0 when metering is off."
+      antenna_status:
+        type: string
+        label: Antennas
+        cloud_priority: low
+        help: "Which antennas are receiving: AX (A), XB (B), AB (both) or XX (neither)."
+      antenna_a:
+        type: boolean
+        label: Antenna A
+        cloud_priority: low
+        help: "Antenna A is receiving."
+      antenna_b:
+        type: boolean
+        label: Antenna B
+        cloud_priority: low
+        help: "Antenna B is receiving."
+      # The document's conversion spans -128 to +127 dBm and -50 to +205
+      # dBFS; the hints stop at 0, the most a receiver can read.
+      rssi_dbm:
+        type: number
+        label: RF Level
+        min: -128
+        max: 0
+        unit: dBm
+        offset: -128
+        cloud_priority: low
+        help: "The RF level received on the antenna in use."
+      level_dbfs:
+        type: number
+        label: Audio Level
+        min: -50
+        max: 0
+        unit: dBFS
+        offset: -50
+        cloud_priority: low
+        help: "RMS audio level."
+
+device_settings:
+  device_name:
+    type: string
+    label: Device ID
+    help: >
+      The receiver's name, 1 to 8 characters: letters, digits, space and
+      !"#$%&'()*+,-./:;<=?@[\]^_`~ (the receiver also allows >, which this
+      protocol uses to end a message).
+    state_key: device_name
+    default: ""
+    setup: false
+    regex: '^[A-Za-z0-9 !"#$%&''()*+,./:;<=?@\[\\\]^_`~-]{1,8}$'
+    write:
+      send: "< SET DEVICE_ID {{value}} >"
+  encryption_mode:
+    type: enum
+    values:
+      - { value: "off", label: "Off" }
+      - { value: auto, label: "Automatic" }
+      - { value: manual, label: "Manual" }
+    label: Encryption
+    help: >
+      Encrypts the audio between transmitters and this receiver. Manual lets
+      you regenerate the key. Sync every transmitter to the receiver after
+      changing it, or its audio stops.
+    state_key: encryption_mode
+    default: "off"
+    setup: false
+    map: { "off": "OFF", "auto": "AUTO", "manual": "MANUAL" }
+    write:
+      send: "< SET ENCRYPTION {value} >"
+  audio_summing_mode:
+    type: enum
+    values:
+      - { value: "off", label: "Off" }
+      - { value: "1+2", label: "Channels 1+2" }
+      - { value: "3+4", label: "Channels 3+4" }
+      - { value: "1+2/3+4", label: "Channels 1+2 and 3+4 (ULXD4Q)" }
+      - { value: "1+2+3+4", label: "All four channels (ULXD4Q)" }
+    label: Audio Summing
+    help: "Sums channels into one output. A mode the receiver's channel count cannot take is ignored."
+    state_key: audio_summing_mode
+    default: "off"
+    setup: false
+    map: { "off": "OFF" }
+    write:
+      send: "< SET AUDIO_SUMMING_MODE {value} >"
+  frequency_diversity_mode:
+    type: enum
+    values:
+      - { value: "off", label: "Off" }
+      - { value: "1+2", label: "Channels 1+2" }
+      - { value: "3+4", label: "Channels 3+4 (ULXD4Q)" }
+      - { value: "1+2/3+4", label: "Channels 1+2 and 3+4 (ULXD4Q)" }
+    label: Frequency Diversity
+    help: "Pairs channels for frequency diversity. A mode the receiver's channel count cannot take is ignored."
+    state_key: frequency_diversity_mode
+    default: "off"
+    setup: false
+    map: { "off": "OFF" }
+    write:
+      send: "< SET FREQUENCY_DIVERSITY_MODE {value} >"
+  high_density:
+    type: boolean
+    label: High Density
+    help: "Fits more channels into the available spectrum."
+    state_key: high_density
+    default: false
+    setup: false
+    map: { "true": "ON", "false": "OFF" }
+    write:
+      send: "< SET HIGH_DENSITY {value} >"
+  scan_lock:
+    type: boolean
+    label: Scan Lock
+    help: "Ignores the front panel scan button and any group scan another receiver deploys."
+    state_key: scan_lock
+    default: false
+    setup: false
+    map: { "true": "ON", "false": "OFF" }
+    write:
+      send: "< SET SCAN_LOCK {value} >"
+  sync_lock:
+    type: boolean
+    label: Sync Lock
+    help: "Ignores the front panel sync buttons, so no transmitter can be synced by IR."
+    state_key: sync_lock
+    default: false
+    setup: false
+    map: { "true": "ON", "false": "OFF" }
+    write:
+      send: "< SET SYNC_LOCK {value} >"
+
+commands:
+  identify:
+    label: Identify Receiver
+    help: "Flashes the receiver's front panel so it can be found in the rack."
+    send: "< SET FLASH ON >"
+    sets: { identifying: true }
+
+  identify_off:
+    label: Stop Identifying
+    help: "Stops the receiver's front panel flashing."
+    send: "< SET FLASH OFF >"
+    sets: { identifying: false }
+
+  identify_channel:
+    label: Identify Channel
+    help: "Flashes one channel's display on the receiver. It stops by itself."
+    send: "< SET {channel} FLASH ON >"
+    sets: { identifying: true }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+
+  set_channel_mute:
+    label: Set Channel Mute
+    help: "Mutes or unmutes the channel's audio output."
+    send: "< SET {channel} AUDIO_MUTE {mute} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      mute:
+        type: boolean
+        required: true
+        label: Mute
+        map: { "True": "ON", "False": "OFF" }
+
+  toggle_channel_mute:
+    label: Toggle Channel Mute
+    help: "Mutes the channel if it is unmuted, and unmutes it if it is muted."
+    send: "< SET {channel} AUDIO_MUTE TOGGLE >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+
+  set_channel_gain:
+    label: Set Channel Gain
+    help: "Sets the channel's audio gain."
+    send: "< SET {channel} AUDIO_GAIN {gain} >"
+    sets: { gain: "{gain}" }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      gain:
+        type: integer
+        required: true
+        label: Gain
+        min: -18
+        max: 42
+        unit: dB
+        offset: -18
+
+  step_channel_gain:
+    label: Step Channel Gain
+    help: "Raises or lowers the channel's audio gain by a number of dB."
+    send: "< SET {channel} AUDIO_GAIN {direction} {step} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      direction:
+        type: enum
+        required: true
+        label: Direction
+        values:
+          - { value: INC, label: Up }
+          - { value: DEC, label: Down }
+      step:
+        type: integer
+        required: true
+        label: Step
+        min: 1
+        max: 60
+        unit: dB
+        default: 1
+
+  set_channel_name:
+    label: Set Channel Name
+    help: "Renames the channel on the receiver's display."
+    send: "< SET {channel} CHAN_NAME {{name}} >"
+    sets: { name: "{name}" }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[A-Za-z0-9 !"#$%&''()*+,./:;<=?@\[\\\]^_`~-]{1,8}'
+        help: "1 to 8 characters: letters, digits, space and most punctuation (not > or braces)."
+
+  set_channel_frequency:
+    label: Set Channel Frequency
+    help: "Tunes the channel to a frequency in kHz. The receiver clears the group/channel preset and refuses a frequency outside its band."
+    send: "< SET {channel} FREQUENCY {frequency_khz} >"
+    sets: { frequency_khz: "{frequency_khz}" }
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      frequency_khz:
+        type: integer
+        required: true
+        label: Frequency
+        min: 100000
+        max: 999999
+        unit: kHz
+
+  set_channel_preset:
+    label: Set Group and Channel
+    help: "Tunes the channel to a group/channel preset of the receiver's band. The receiver reports the frequency it tuned to."
+    send: "< SET {channel} GROUP_CHAN {group:02d},{preset_channel:02d} >"
+    params:
+      channel:
+        type: child_id
+        child_type: channel
+        required: true
+        label: Channel
+      group:
+        type: integer
+        required: true
+        label: Group
+        min: 1
+        max: 99
+      preset_channel:
+        type: integer
+        required: true
+        label: Channel Number
+        min: 1
+        max: 99
+
+  channel_meters_on:
+    label: Channel Meters On
+    help: "Starts the receiver sending a channel's RF and audio levels at an interval. Channel 0 is every channel."
+    send: "< SET {channel} METER_RATE {interval_ms:05d} >"
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Channel
+        min: 0
+        max: 4
+        help: "1 to 4, or 0 for every channel."
+      interval_ms:
+        type: integer
+        required: true
+        label: Interval
+        min: 100
+        max: 99999
+        unit: ms
+        default: 1000
+
+  channel_meters_off:
+    label: Channel Meters Off
+    help: "Stops the receiver sending a channel's levels. Channel 0 is every channel."
+    send: "< SET {channel} METER_RATE 00000 >"
+    params:
+      channel:
+        type: integer
+        required: true
+        label: Channel
+        min: 0
+        max: 4
+        help: "1 to 4, or 0 for every channel."
+
+  regenerate_encryption_key:
+    label: Regenerate Encryption Key
+    help: >
+      Creates a new encryption key. Works only while Encryption is Manual.
+      Every transmitter stops passing audio until it is synced to the
+      receiver again.
+    confirm: >
+      Every transmitter on this receiver stops passing audio until it is
+      synced to the receiver again. Regenerate the key?
+    send: "< SET ENCRYPTION_REGENERATE_KEY REQUESTED >"
+
+  raw_command:
+    label: Send Raw Command
+    help: "Sends any command string from Shure's document, brackets included, e.g. < GET 1 AUDIO_GAIN >."
+    send: "{command}"
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+quick_actions: [identify, identify_off]
+
+on_connect:
+  # MODEL first: it sizes the channel roster before the channel REPs arrive.
+  - { send: "< GET MODEL >", query_for: model }
+  - "< GET 0 ALL >"
+  - "< GET NET_SETTINGS SC >"
+  - { send: "< SET 0 METER_RATE {meter_interval_ms:05d} >", when: meter_interval_ms }
+
+responses:
+  # ── Device ──
+  - match: '^<\s+REP\s+MODEL\s+\{(ULXD4([DQ]?)\S*?)\s*\}$'
+    set: { model: "$1" }
+    mappings:
+      - { group: 2, state: channel_count_reported, map: { "": 1, "D": 2, "Q": 4 } }
+  - match: '^<\s+REP\s+MODEL\s+\{(.*?)\s*\}$'
+    set: { model: "$1" }
+  - match: '^<\s+REP\s+DEVICE_ID\s+\{(.*?)\s*\}$'
+    set: { device_name: "$1" }
+  - match: '^<\s+REP\s+FW_VER\s+\{([^*}\s]*)(\*?)\s*\}$'
+    set: { firmware: "$1" }
+    mappings:
+      - { group: 2, state: firmware_update_incomplete, map: { "*": true, "": false } }
+  - match: '^<\s+REP\s+FLASH\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: identifying, map: { "ON": true, "OFF": false } }
+  # The ALL examples write "< REP x ENCRYPTION v >"; the ENCRYPTION section
+  # has no channel. Both are read.
+  - match: '^<\s+REP\s+(?:\d\s+)?ENCRYPTION\s+(OFF|AUTO|MANUAL)$'
+    mappings:
+      - { group: 1, state: encryption_mode, map: { "OFF": "off", "AUTO": auto, "MANUAL": manual } }
+  - match: '^<\s+REP\s+ENCRYPTION_REGENERATE_KEY\s+(REQUESTED|COMPLETED|INACTIVE)$'
+    mappings:
+      - group: 1
+        state: encryption_key_status
+        map: { "REQUESTED": requested, "COMPLETED": completed, "INACTIVE": inactive }
+  - match: '^<\s+REP\s+AUDIO_SUMMING_MODE\s+(OFF|1\+2|3\+4|1\+2/3\+4|1\+2\+3\+4)$'
+    mappings:
+      - group: 1
+        state: audio_summing_mode
+        map: { "OFF": "off", "1+2": "1+2", "3+4": "3+4", "1+2/3+4": "1+2/3+4", "1+2+3+4": "1+2+3+4" }
+  - match: '^<\s+REP\s+FREQUENCY_DIVERSITY_MODE\s+(OFF|1\+2|3\+4|1\+2/3\+4)$'
+    mappings:
+      - group: 1
+        state: frequency_diversity_mode
+        map: { "OFF": "off", "1+2": "1+2", "3+4": "3+4", "1+2/3+4": "1+2/3+4" }
+  - match: '^<\s+REP\s+HIGH_DENSITY\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: high_density, map: { "ON": true, "OFF": false } }
+  - match: '^<\s+REP\s+SCAN_LOCK\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: scan_lock, map: { "ON": true, "OFF": false } }
+  - match: '^<\s+REP\s+SYNC_LOCK\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: sync_lock, map: { "ON": true, "OFF": false } }
+  - match: '^<\s+REP\s+NA_DEVICE_NAME\s+\{(.*?)\s*\}$'
+    set: { dante_device_name: "$1" }
+  - match: '^<\s+REP\s+NET_SETTINGS\s+SC\s+(AUTO|MANUAL)\s+\S+\s+\S+\s+\S+\s+([0-9A-Fa-f:]{17})$'
+    set: { mac_address: "$2" }
+    mappings:
+      - { group: 1, state: network_mode, map: { "AUTO": auto, "MANUAL": manual } }
+
+  # ── Channel: audio and RF ──
+  - match: '^<\s+REP\s+(\d)\s+CHAN_NAME\s+\{(.*?)\s*\}$'
+    child_set:
+      - { type: channel, id: $1, state: { name: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+AUDIO_MUTE\s+(ON|OFF)$'
+    child_set:
+      - type: channel
+        id: $1
+        state: { mute: { group: 2, map: { "ON": true, "OFF": false } } }
+  - match: '^<\s+REP\s+(\d)\s+AUDIO_GAIN\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { gain: $2 } }
+  # The ALL examples write the gain with two digits; the AUDIO_GAIN section
+  # with three. Both are read.
+  - match: '^<\s+REP\s+(\d)\s+AUDIO_GAIN\s+(\d{1,2})$'
+    child_set:
+      - { type: channel, id: $1, state: { gain: $2 } }
+  # "gg,cc" in the GROUP_CHAN section, "gg cc" in the ALL examples; "--"
+  # when the frequency was set directly.
+  - match: '^<\s+REP\s+(\d)\s+GROUP_CHAN\s+(\d+|--)\s*[,\s]\s*(\d+|--)$'
+    child_set:
+      - { type: channel, id: $1, state: { preset_bank: $2, preset_channel: $3 } }
+  - match: '^<\s+REP\s+(\d)\s+FREQUENCY\s+(\d{6})$'
+    child_set:
+      - { type: channel, id: $1, state: { frequency_khz: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+FLASH\s+(ON|OFF)$'
+    child_set:
+      - type: channel
+        id: $1
+        state: { identifying: { group: 2, map: { "ON": true, "OFF": false } } }
+  - match: '^<\s+REP\s+(\d)\s+RF_INT_DET\s+(NONE|CRITICAL)$'
+    child_set:
+      - type: channel
+        id: $1
+        state: { interference: { group: 2, map: { "NONE": false, "CRITICAL": true } } }
+  - match: '^<\s+REP\s+(\d)\s+ENCRYPTION_WARNING\s+(ON|OFF)$'
+    child_set:
+      - type: channel
+        id: $1
+        state: { aes256_error: { group: 2, map: { "ON": true, "OFF": false } } }
+  - match: '^<\s+REP\s+(\d)\s+NA_CHAN_NAME\s+\{(.*?)\s*\}$'
+    child_set:
+      - { type: channel, id: $1, state: { dante_channel_name: $2 } }
+
+  # ── Channel: transmitter (side channel) ──
+  - match: '^<\s+REP\s+(\d)\s+TX_TYPE\s+UNKN$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_model: "", tx_linked: false, no_link: true } }
+  - match: '^<\s+REP\s+(\d)\s+TX_TYPE\s+(\S+)$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_model: $2, tx_linked: true, no_link: false } }
+  - match: '^<\s+REP\s+(\d)\s+TX_DEVICE_ID\s+\{(.*?)\s*\}$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_name: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+TX_FW_VER\s+\{\s*([^*}\s]*)(\*?)\s*\}$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_firmware: $2
+          tx_firmware_update_incomplete: { group: 3, map: { "*": true, "": false } }
+  - match: '^<\s+REP\s+(\d)\s+BATT_TYPE\s+(LION|ALKA|NIMH|LITH|WARN|UNKN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_battery_type:
+            group: 2
+            map: { "LION": LION, "ALKA": ALKA, "NIMH": NIMH, "LITH": LITH, "WARN": WARN, "UNKN": "" }
+  - match: '^<\s+REP\s+(\d)\s+BATT_BARS\s+(\d{3})$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_battery_bars: $2
+          tx_low_battery:
+            group: 2
+            map: { "000": true, "001": true, "002": false, "003": false, "004": false, "005": false, "255": false }
+  - match: '^<\s+REP\s+(\d)\s+BATT_CHARGE\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_percent: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+BATT_CYCLE\s+(\d{5})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_cycles: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+BATT_HEALTH\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_health_percent: $2 } }
+  # The runtime's three codes first: dispatch stops at the first match, and
+  # the general rule below would read them as minutes.
+  - match: '^<\s+REP\s+(\d)\s+BATT_RUN_TIME\s+(6553[345])$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_battery_minutes: $2
+          tx_battery_state:
+            group: 2
+            map: { "65533": communication_warning, "65534": calculating, "65535": unknown }
+  - match: '^<\s+REP\s+(\d)\s+BATT_RUN_TIME\s+(\d{5})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_minutes: $2, tx_battery_state: ok } }
+  - match: '^<\s+REP\s+(\d)\s+BATT_TEMP_C\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_temp_c: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+BATT_TEMP_F\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_battery_temp_f: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+TX_OFFSET\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { tx_offset_db: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+TX_RF_PWR\s+(LOW|NORMAL|HIGH|UNKN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_rf_power: { group: 2, map: { "LOW": low, "NORMAL": normal, "HIGH": high, "UNKN": unknown } }
+  - match: '^<\s+REP\s+(\d)\s+TX_MENU_LOCK\s+(ON|OFF|UNKN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_menu_lock: { group: 2, map: { "ON": "on", "OFF": "off", "UNKN": unknown } }
+  - match: '^<\s+REP\s+(\d)\s+TX_PWR_LOCK\s+(ON|OFF|UNKN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_power_lock: { group: 2, map: { "ON": "on", "OFF": "off", "UNKN": unknown } }
+  - match: '^<\s+REP\s+(\d)\s+TX_MUTE_STATUS\s+(ON|OFF|UNKN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_mute_status: { group: 2, map: { "ON": muted, "OFF": unmuted, "UNKN": unknown } }
+  - match: '^<\s+REP\s+(\d)\s+TX_MUTE_BUTTON_STATUS\s+(PRESSED|RELEASED|UNKN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_mute_button: { group: 2, map: { "PRESSED": pressed, "RELEASED": released, "UNKN": unknown } }
+  - match: '^<\s+REP\s+(\d)\s+TX_POWER_SOURCE\s+(BATTERY|EXTERNAL|UNKNOWN)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          tx_power_source: { group: 2, map: { "BATTERY": battery, "EXTERNAL": external, "UNKNOWN": unknown } }
+
+  # ── Channel: meters ──
+  # The single-value reports come before SAMPLE, so the simulator answers a
+  # GET of one level in the same form the receiver does.
+  - match: '^<\s+REP\s+(\d)\s+METER_RATE\s+(00000)$'
+    child_set:
+      - { type: channel, id: $1, state: { meter_rate_ms: $2, metering: false } }
+  - match: '^<\s+REP\s+(\d)\s+METER_RATE\s+(\d{5})$'
+    child_set:
+      - { type: channel, id: $1, state: { meter_rate_ms: $2, metering: true } }
+  - match: '^<\s+REP\s+(\d)\s+RF_ANTENNA\s+(AX|XB|AB|XX)$'
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          antenna_status: $2
+          antenna_a: { group: 2, map: { "AX": true, "XB": false, "AB": true, "XX": false } }
+          antenna_b: { group: 2, map: { "AX": false, "XB": true, "AB": true, "XX": false } }
+  - match: '^<\s+REP\s+(\d)\s+RX_RF_LVL\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { rssi_dbm: $2 } }
+  - match: '^<\s+REP\s+(\d)\s+AUDIO_LVL\s+(\d{3})$'
+    child_set:
+      - { type: channel, id: $1, state: { level_dbfs: $2 } }
+  # < SAMPLE x ALL nn aaa eee >: antennas, RF level, audio level, at the
+  # METER_RATE interval.
+  - match: '^<\s+SAMPLE\s+(\d)\s+ALL\s+(AX|XB|AB|XX)\s+(\d{3})\s+(\d{3})$'
+    throttle: 0.5
+    child_set:
+      - type: channel
+        id: $1
+        state:
+          antenna_status: $2
+          antenna_a: { group: 2, map: { "AX": true, "XB": false, "AB": true, "XX": false } }
+          antenna_b: { group: 2, map: { "AX": false, "XB": true, "AB": true, "XX": false } }
+          rssi_dbm: $3
+          level_dbfs: $4
+
+simulator:
+  push_state: true
+  initial_state:
+    model: "ULXD4Q"
+    channel_count_reported: 4
+    device_name: "Rack 1"
+    firmware: "2.7.6.0"
+    firmware_update_incomplete: false
+    identifying: false
+    encryption_mode: "off"
+    encryption_key_status: inactive
+    audio_summing_mode: "off"
+    frequency_diversity_mode: "off"
+    high_density: false
+    scan_lock: false
+    sync_lock: false
+    dante_device_name: "ULXD4Q-0a1b2c"
+    network_mode: auto
+    mac_address: "00:0E:DD:45:60:EB"
+    # Channel 1: a ULXD2 handheld on a Shure rechargeable, running.
+    channel.1.name: "Lead Vox"
+    channel.1.mute: false
+    channel.1.gain: 12
+    channel.1.frequency_khz: 482125
+    channel.1.preset_bank: 1
+    channel.1.preset_channel: 1
+    channel.1.interference: false
+    channel.1.aes256_error: false
+    channel.1.dante_channel_name: "Lead Vox"
+    channel.1.tx_model: "ULXD2"
+    channel.1.tx_name: "HH-01"
+    channel.1.tx_firmware: "2.7.6.0"
+    channel.1.tx_firmware_update_incomplete: false
+    channel.1.tx_battery_type: "LION"
+    channel.1.tx_battery_bars: 4
+    channel.1.tx_battery_percent: 78
+    channel.1.tx_battery_minutes: 405
+    channel.1.tx_battery_state: ok
+    channel.1.tx_battery_health_percent: 96
+    channel.1.tx_battery_cycles: 41
+    channel.1.tx_battery_temp_c: 27
+    channel.1.tx_battery_temp_f: 81
+    channel.1.tx_offset_db: 0
+    channel.1.tx_rf_power: normal
+    channel.1.tx_menu_lock: "off"
+    channel.1.tx_power_lock: "off"
+    channel.1.tx_mute_status: unknown
+    channel.1.tx_mute_button: unknown
+    channel.1.tx_power_source: unknown
+    channel.1.meter_rate_ms: 0
+    channel.1.antenna_status: "AX"
+    channel.1.rssi_dbm: -52
+    channel.1.level_dbfs: -20
+    # Channel 2: no transmitter.
+    channel.2.name: "Podium"
+    channel.2.mute: false
+    channel.2.gain: 0
+    channel.2.frequency_khz: 486500
+    channel.2.preset_bank: null
+    channel.2.preset_channel: null
+    channel.2.interference: false
+    channel.2.aes256_error: false
+    channel.2.dante_channel_name: "Podium"
+    channel.2.tx_model: ""
+    channel.2.tx_name: ""
+    channel.2.tx_firmware: ""
+    channel.2.tx_firmware_update_incomplete: false
+    channel.2.tx_battery_type: ""
+    channel.2.tx_battery_bars: null
+    channel.2.tx_battery_percent: null
+    channel.2.tx_battery_minutes: null
+    channel.2.tx_battery_state: unknown
+    channel.2.tx_battery_health_percent: null
+    channel.2.tx_battery_cycles: null
+    channel.2.tx_battery_temp_c: null
+    channel.2.tx_battery_temp_f: null
+    channel.2.tx_offset_db: null
+    channel.2.tx_rf_power: unknown
+    channel.2.tx_menu_lock: unknown
+    channel.2.tx_power_lock: unknown
+    channel.2.tx_mute_status: unknown
+    channel.2.tx_mute_button: unknown
+    channel.2.tx_power_source: unknown
+    channel.2.meter_rate_ms: 0
+    channel.2.antenna_status: "XX"
+    channel.2.rssi_dbm: -128
+    channel.2.level_dbfs: -50
+    # Channel 3: a ULXD1 bodypack on AA alkalines, one bar left.
+    channel.3.name: "Lectern"
+    channel.3.mute: false
+    channel.3.gain: 6
+    channel.3.frequency_khz: 490750
+    channel.3.preset_bank: 1
+    channel.3.preset_channel: 3
+    channel.3.interference: false
+    channel.3.aes256_error: false
+    channel.3.dante_channel_name: "Lectern"
+    channel.3.tx_model: "ULXD1"
+    channel.3.tx_name: "BP-03"
+    channel.3.tx_firmware: "2.7.6.0"
+    channel.3.tx_firmware_update_incomplete: false
+    channel.3.tx_battery_type: "ALKA"
+    channel.3.tx_battery_bars: 1
+    channel.3.tx_battery_percent: null
+    channel.3.tx_battery_minutes: null
+    channel.3.tx_battery_state: unknown
+    channel.3.tx_battery_health_percent: null
+    channel.3.tx_battery_cycles: null
+    channel.3.tx_battery_temp_c: null
+    channel.3.tx_battery_temp_f: null
+    channel.3.tx_offset_db: 3
+    channel.3.tx_rf_power: high
+    channel.3.tx_menu_lock: "on"
+    channel.3.tx_power_lock: "on"
+    channel.3.tx_mute_status: unknown
+    channel.3.tx_mute_button: unknown
+    channel.3.tx_power_source: unknown
+    channel.3.meter_rate_ms: 0
+    channel.3.antenna_status: "AB"
+    channel.3.rssi_dbm: -61
+    channel.3.level_dbfs: -32
+    # Channel 4: a ULXD8 gooseneck base on external power, muted at its button.
+    channel.4.name: "Table"
+    channel.4.mute: false
+    channel.4.gain: 0
+    channel.4.frequency_khz: 494000
+    channel.4.preset_bank: 1
+    channel.4.preset_channel: 4
+    channel.4.interference: false
+    channel.4.aes256_error: false
+    channel.4.dante_channel_name: "Table"
+    channel.4.tx_model: "ULXD8"
+    channel.4.tx_name: "BASE-04"
+    channel.4.tx_firmware: "2.7.6.0"
+    channel.4.tx_firmware_update_incomplete: false
+    channel.4.tx_battery_type: "LION"
+    channel.4.tx_battery_bars: 5
+    channel.4.tx_battery_percent: 100
+    channel.4.tx_battery_minutes: 600
+    channel.4.tx_battery_state: ok
+    channel.4.tx_battery_health_percent: 100
+    channel.4.tx_battery_cycles: 3
+    channel.4.tx_battery_temp_c: 25
+    channel.4.tx_battery_temp_f: 77
+    channel.4.tx_offset_db: 0
+    channel.4.tx_rf_power: normal
+    channel.4.tx_menu_lock: "off"
+    channel.4.tx_power_lock: "off"
+    channel.4.tx_mute_status: muted
+    channel.4.tx_mute_button: pressed
+    channel.4.tx_power_source: external
+    channel.4.meter_rate_ms: 0
+    channel.4.antenna_status: "XB"
+    channel.4.rssi_dbm: -58
+    channel.4.level_dbfs: -50
+
+  delays:
+    command_response: 0.02
+
+  # The simulated receiver's model follows the device's Receiver Channels
+  # setting: ULXD4, ULXD4D or ULXD4Q. Plain SETs (gain, name, identify, the
+  # receiver settings) are answered by the commands' and settings' own
+  # declarations; these handlers cover what the receiver does beyond
+  # echoing a value. Fidelity gaps: METER_RATE sends one SAMPLE when it is
+  # set and does not keep sending; any six-digit frequency is accepted; a
+  # group/channel preset tunes to a made-up frequency rather than the band's
+  # table; strings are not padded to their fixed width.
+  command_handlers:
+    # GET x ALL: device properties, then each channel's (x = 0: every one).
+    - match: '< GET (\d) ALL >'
+      handler: |
+        def _run():
+            count = int(config.get("channel_count") or 2)
+            x = int(match.group(1))
+            if x > count:
+                respond("< REP ERR >")
+                return
+            model = {1: "ULXD4", 2: "ULXD4D", 4: "ULXD4Q"}.get(count, "ULXD4D")
+            state["model"] = model
+            state["channel_count_reported"] = count
+            out = ["< REP MODEL {" + model + " " * (32 - len(model)) + "} >"]
+            keys = ["device_name", "firmware", "encryption_mode", "audio_summing_mode",
+                    "frequency_diversity_mode", "high_density", "scan_lock", "sync_lock"]
+            if count > 1:
+                keys.append("dante_device_name")
+            for key in keys:
+                text = reply(key)
+                if text:
+                    out.append(text + " >")
+            for ch in (range(1, count + 1) if x == 0 else [x]):
+                out.extend(CHANNEL_LINES(ch, count))
+            respond("".join(out))
+
+        def CHANNEL_LINES(ch, count):
+            p = "channel." + str(ch) + "."
+            lines = []
+            props = ["name", "mute", "gain", "frequency_khz", "interference", "aes256_error"]
+            if count > 1:
+                props.append("dante_channel_name")
+            props += ["meter_rate_ms", "antenna_status", "rssi_dbm", "level_dbfs",
+                      "tx_name", "tx_firmware", "tx_battery_type", "tx_battery_bars",
+                      "tx_battery_percent", "tx_battery_cycles", "tx_battery_health_percent",
+                      "tx_battery_temp_c", "tx_battery_temp_f", "tx_offset_db", "tx_rf_power",
+                      "tx_menu_lock", "tx_power_lock", "tx_mute_status", "tx_mute_button",
+                      "tx_power_source"]
+            for prop in props:
+                text = reply(p + prop)
+                if text:
+                    lines.append(text + " >")
+            lines.append(PRESET_LINE(ch))
+            lines.append(TYPE_LINE(ch))
+            lines.append(RUNTIME_LINE(ch))
+            return lines
+
+        def PRESET_LINE(ch):
+            p = "channel." + str(ch) + "."
+            g = state.get(p + "preset_bank")
+            c = state.get(p + "preset_channel")
+            if g is None or c is None:
+                return "< REP " + str(ch) + " GROUP_CHAN --,-- >"
+            return "< REP " + str(ch) + " GROUP_CHAN " + format(int(g), "02d") + "," + format(int(c), "02d") + " >"
+
+        def TYPE_LINE(ch):
+            return "< REP " + str(ch) + " TX_TYPE " + (state.get("channel." + str(ch) + ".tx_model") or "UNKN") + " >"
+
+        def RUNTIME_LINE(ch):
+            p = "channel." + str(ch) + "."
+            mins = state.get(p + "tx_battery_minutes")
+            if mins is None:
+                mins = {"communication_warning": 65533, "calculating": 65534}.get(
+                    state.get(p + "tx_battery_state"), 65535)
+            return "< REP " + str(ch) + " BATT_RUN_TIME " + format(int(mins), "05d") + " >"
+
+        _run()
+
+    # Every other channel GET: one channel, or every channel for x = 0.
+    - match: '< GET (\d) (\w+) >'
+      handler: |
+        PROPS = {
+            "CHAN_NAME": "name", "AUDIO_MUTE": "mute", "AUDIO_GAIN": "gain",
+            "FREQUENCY": "frequency_khz", "RF_INT_DET": "interference",
+            "ENCRYPTION_WARNING": "aes256_error", "NA_CHAN_NAME": "dante_channel_name",
+            "METER_RATE": "meter_rate_ms", "RF_ANTENNA": "antenna_status",
+            "RX_RF_LVL": "rssi_dbm", "AUDIO_LVL": "level_dbfs", "FLASH": "identifying",
+            "TX_DEVICE_ID": "tx_name", "TX_FW_VER": "tx_firmware", "BATT_TYPE": "tx_battery_type",
+            "BATT_BARS": "tx_battery_bars", "BATT_CHARGE": "tx_battery_percent",
+            "BATT_CYCLE": "tx_battery_cycles", "BATT_HEALTH": "tx_battery_health_percent",
+            "BATT_TEMP_C": "tx_battery_temp_c", "BATT_TEMP_F": "tx_battery_temp_f",
+            "TX_OFFSET": "tx_offset_db", "TX_RF_PWR": "tx_rf_power",
+            "TX_MENU_LOCK": "tx_menu_lock", "TX_PWR_LOCK": "tx_power_lock",
+            "TX_MUTE_STATUS": "tx_mute_status", "TX_MUTE_BUTTON_STATUS": "tx_mute_button",
+            "TX_POWER_SOURCE": "tx_power_source",
+        }
+
+        def one(ch, prop, count):
+            p = "channel." + str(ch) + "."
+            if prop in ("NA_CHAN_NAME",) and count < 2:
+                return None
+            if prop == "GROUP_CHAN":
+                g = state.get(p + "preset_bank")
+                c = state.get(p + "preset_channel")
+                if g is None or c is None:
+                    return "< REP " + str(ch) + " GROUP_CHAN --,-- >"
+                return "< REP " + str(ch) + " GROUP_CHAN " + format(int(g), "02d") + "," + format(int(c), "02d") + " >"
+            if prop == "TX_TYPE":
+                return "< REP " + str(ch) + " TX_TYPE " + (state.get(p + "tx_model") or "UNKN") + " >"
+            if prop == "BATT_RUN_TIME":
+                mins = state.get(p + "tx_battery_minutes")
+                if mins is None:
+                    mins = {"communication_warning": 65533, "calculating": 65534}.get(
+                        state.get(p + "tx_battery_state"), 65535)
+                return "< REP " + str(ch) + " BATT_RUN_TIME " + format(int(mins), "05d") + " >"
+            key = PROPS.get(prop)
+            text = reply(p + key) if key else None
+            return text + " >" if text else None
+
+        def _run():
+            count = int(config.get("channel_count") or 2)
+            x = int(match.group(1))
+            prop = match.group(2)
+            if x > count:
+                respond("< REP ERR >")
+                return
+            out = []
+            for ch in (range(1, count + 1) if x == 0 else [x]):
+                line = one(ch, prop, count)
+                if line is None:
+                    respond("< REP ERR >")
+                    return
+                out.append(line)
+            respond("".join(out))
+
+        _run()
+
+    # Device-level GETs.
+    - match: '< GET ([A-Z_]+)(?: SC)? >'
+      handler: |
+        KEYS = {
+            "DEVICE_ID": "device_name", "FW_VER": "firmware", "ENCRYPTION": "encryption_mode",
+            "AUDIO_SUMMING_MODE": "audio_summing_mode",
+            "FREQUENCY_DIVERSITY_MODE": "frequency_diversity_mode",
+            "HIGH_DENSITY": "high_density", "SCAN_LOCK": "scan_lock", "SYNC_LOCK": "sync_lock",
+            "NA_DEVICE_NAME": "dante_device_name", "FLASH": "identifying",
+        }
+
+        def _run():
+            prop = match.group(1)
+            count = int(config.get("channel_count") or 2)
+            if prop == "MODEL":
+                model = {1: "ULXD4", 2: "ULXD4D", 4: "ULXD4Q"}.get(count, "ULXD4D")
+                state["model"] = model
+                state["channel_count_reported"] = count
+                respond("< REP MODEL {" + model + " " * (32 - len(model)) + "} >")
+                return
+            if prop == "NET_SETTINGS":
+                mode = "MANUAL" if state.get("network_mode") == "manual" else "AUTO"
+                respond("< REP NET_SETTINGS SC " + mode + " 192.168.001.025 255.255.255.000 "
+                        "000.000.000.000 " + str(state.get("mac_address") or "00:0E:DD:00:00:01") + " >")
+                return
+            if prop == "NA_DEVICE_NAME" and count < 2:
+                respond("< REP ERR >")
+                return
+            key = KEYS.get(prop)
+            text = reply(key) if key else None
+            respond(text + " >" if text else "< REP ERR >")
+
+        _run()
+
+    # AUDIO_MUTE ON / OFF / TOGGLE.
+    - match: '< SET (\d) AUDIO_MUTE (ON|OFF|TOGGLE) >'
+      handler: |
+        def _run():
+            ch = match.group(1)
+            if int(ch) < 1 or int(ch) > int(config.get("channel_count") or 2):
+                respond("< REP ERR >")
+                return
+            key = "channel." + ch + ".mute"
+            word = match.group(2)
+            state[key] = (not state.get(key)) if word == "TOGGLE" else word == "ON"
+            respond(reply(key) + " >")
+
+        _run()
+
+    # AUDIO_GAIN INC n / DEC n.
+    - match: '< SET (\d) AUDIO_GAIN (INC|DEC) (\d+) >'
+      handler: |
+        ch = match.group(1)
+        key = "channel." + ch + ".gain"
+        step = int(match.group(3))
+        gain = (state.get(key) or 0) + (step if match.group(2) == "INC" else -step)
+        state[key] = max(-18, min(42, gain))
+        respond(reply(key) + " >")
+
+    # FREQUENCY clears the preset; a preset reports the frequency it tuned to.
+    # Each side reports the other only when it changed.
+    - match: '< SET (\d) (FREQUENCY|GROUP_CHAN) (?:(\d{6})|(\d{1,2}),(\d{1,2})) >'
+      handler: |
+        def _run():
+            ch = match.group(1)
+            p = "channel." + ch + "."
+            if int(ch) < 1 or int(ch) > int(config.get("channel_count") or 2):
+                respond("< REP ERR >")
+                return
+            if match.group(2) == "FREQUENCY" and match.group(3):
+                had_preset = state.get(p + "preset_bank") is not None
+                state[p + "frequency_khz"] = int(match.group(3))
+                state[p + "preset_bank"] = None
+                state[p + "preset_channel"] = None
+                out = "< REP " + ch + " GROUP_CHAN --,-- >" if had_preset else ""
+                respond(out + reply(p + "frequency_khz") + " >")
+                return
+            if match.group(2) == "GROUP_CHAN" and match.group(4):
+                g = int(match.group(4))
+                c = int(match.group(5))
+                if g < 1 or c < 1:
+                    respond("< REP ERR >")
+                    return
+                old = state.get(p + "frequency_khz")
+                freq = 470000 + g * 1000 + c * 125
+                state[p + "preset_bank"] = g
+                state[p + "preset_channel"] = c
+                state[p + "frequency_khz"] = freq
+                out = reply(p + "frequency_khz") + " >" if freq != old else ""
+                respond(out + "< REP " + ch + " GROUP_CHAN " + format(g, "02d") + "," + format(c, "02d") + " >")
+                return
+            respond("< REP ERR >")
+
+        _run()
+
+    # METER_RATE: report the rate, then one SAMPLE per metering channel.
+    - match: '< SET (\d) METER_RATE (\d{5}) >'
+      handler: |
+        def _run():
+            count = int(config.get("channel_count") or 2)
+            x = int(match.group(1))
+            rate = int(match.group(2))
+            if x > count or (0 < rate < 100):
+                respond("< REP ERR >")
+                return
+            out = []
+            for ch in (range(1, count + 1) if x == 0 else [x]):
+                p = "channel." + str(ch) + "."
+                state[p + "meter_rate_ms"] = rate
+                state[p + "metering"] = rate > 0
+                out.append(reply(p + "meter_rate_ms") + " >")
+            respond("".join(out))
+            if rate == 0:
+                return
+            for ch in (range(1, count + 1) if x == 0 else [x]):
+                p = "channel." + str(ch) + "."
+                rf = format(int(round((state.get(p + "rssi_dbm") or -128) + 128)), "03d")
+                af = format(int(round((state.get(p + "level_dbfs") or -50) + 50)), "03d")
+                notify("< SAMPLE " + str(ch) + " ALL " + (state.get(p + "antenna_status") or "XX")
+                       + " " + rf + " " + af + " ")
+
+        _run()
+
+    # The two pairing modes: a mode this receiver's channels cannot take is
+    # ignored, and the receiver reports the mode it already has.
+    - match: '< SET (AUDIO_SUMMING_MODE|FREQUENCY_DIVERSITY_MODE) (\S+) >'
+      handler: |
+        def _run():
+            prop = match.group(1)
+            word = match.group(2)
+            key = "audio_summing_mode" if prop == "AUDIO_SUMMING_MODE" else "frequency_diversity_mode"
+            words = ["OFF", "1+2", "3+4", "1+2/3+4"]
+            if prop == "AUDIO_SUMMING_MODE":
+                words.append("1+2+3+4")
+            if word not in words:
+                respond("< REP ERR >")
+                return
+            count = int(config.get("channel_count") or 2)
+            highest = max([int(d) for d in word if d.isdigit()] or [0])
+            if highest <= count:
+                state[key] = "off" if word == "OFF" else word
+            respond(reply(key) + " >")
+
+        _run()
+
+    # ENCRYPTION_REGENERATE_KEY: only in MANUAL; three reports, the last two
+    # as the key is made and the receiver is ready again.
+    - match: '< SET ENCRYPTION_REGENERATE_KEY REQUESTED >'
+      handler: |
+        if state.get("encryption_mode") != "manual":
+            respond("< REP ERR >")
+        else:
+            state["encryption_key_status"] = "inactive"
+            respond("< REP ENCRYPTION_REGENERATE_KEY REQUESTED >")
+            notify("< REP ENCRYPTION_REGENERATE_KEY COMPLETED ")
+            notify("< REP ENCRYPTION_REGENERATE_KEY INACTIVE ")
+
+  error_modes:
+    communication_timeout:
+      description: "Receiver stops responding"
+      behavior: no_response

@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 195,
+    "total_devices": 198,
     "shards": null,
     "category": "audio"
   },
@@ -1866,6 +1866,42 @@
           "id": "shure_slxd",
           "confidence": "untested",
           "notes": "Built from Shure's SLX-D and SLX-D+ command strings documents; not yet run against a receiver. The link status, interference, encryption, Dante name, app connection and remote pairing readings exist on SLX-D+ receivers only. The transmitters (SLXD1, SLXD2, SLXD1+, SLXD2+, SLXD3+) are reported through the receiver channel they are received on.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ULXD4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_ulxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's ULX-D command strings document; not yet run against a receiver. The Dante names exist on the ULXD4D and ULXD4Q only. The transmitters (ULXD1, ULXD2, ULXD6, ULXD8, QLXD1, QLXD2) are reported through the receiver channel they are received on; the mute switch and power source readings come from ULXD6 and ULXD8 transmitters only.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ULXD4D",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_ulxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's ULX-D command strings document; not yet run against a receiver. The Dante names exist on the ULXD4D and ULXD4Q only. The transmitters (ULXD1, ULXD2, ULXD6, ULXD8, QLXD1, QLXD2) are reported through the receiver channel they are received on; the mute switch and power source readings come from ULXD6 and ULXD8 transmitters only.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "ULXD4Q",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_ulxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's ULX-D command strings document; not yet run against a receiver. The Dante names exist on the ULXD4D and ULXD4Q only. The transmitters (ULXD1, ULXD2, ULXD6, ULXD8, QLXD1, QLXD2) are reported through the receiver channel they are received on; the mute switch and power source readings come from ULXD6 and ULXD8 transmitters only.\n"
         }
       ]
     },

@@ -242,3 +242,52 @@ def test_an_intended_overlap_names_two_drivers_asking_the_same_thing(pair):
         f"INTENDED_OVERLAPS lists {sorted(pair)}, but those drivers no longer declare "
         "probes that send the same bytes to the same port. Remove the entry."
     )
+
+
+# Replies captured from a device whose own driver identifies it some other way
+# (SSDP, an OUI), so it has no fixture above to be replayed. Each one is put
+# through every probe that sends what it was captured in reply to, and only
+# its own driver may match: any other is a driver a scan of that device would
+# wrongly offer.
+FOREIGN_REPLIES = [
+    {
+        "device": "Audio-Technica ATDM-0604a, fw 01.03.01, captured 2026-10-05",
+        "owner": "at_atdm_0604a",
+        "kind": "tcp_probe",
+        "port": 17300,
+        "sent": b"g_smart_mix O 0000 00 NC 0 \r",
+        "reply": b"g_smart_mix 0000 42 NC 0,1,30,0,0,20,10 \r",
+    },
+]
+
+
+@pytest.mark.parametrize(
+    "capture", FOREIGN_REPLIES, ids=[c["owner"] for c in FOREIGN_REPLIES],
+)
+def test_a_reply_from_a_device_found_another_way_matches_only_its_own_driver(capture):
+    asking = [
+        (driver_id, probe)
+        for driver_id, kind, probe, _aliases in _PROBE_SPECS
+        if kind == capture["kind"]
+        and probe.get("port") == capture["port"]
+        and _send_bytes(probe) == capture["sent"]
+        and not probe.get("tls")
+    ]
+    assert asking, (
+        f"No driver's {capture['kind']} sends {capture['sent']!r} to port "
+        f"{capture['port']} any more, so the {capture['device']} capture tests "
+        "nothing. Remove the entry."
+    )
+    also = [
+        driver_id
+        for driver_id, probe in asking
+        if driver_id != capture["owner"]
+        and not probe.get("then")
+        and not probe.get("cert_subject")
+        and _matches(capture["reply"], probe)
+    ]
+    assert not also, (
+        f"The {capture['device']} answered {capture['reply']!r}, which matches the "
+        f"{capture['kind']} of {also}. A scan of that device would offer them. Make "
+        "each probe expect something only its own device says."
+    )

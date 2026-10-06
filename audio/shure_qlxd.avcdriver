@@ -1,0 +1,924 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Shure QLX-D Receiver Driver
+#
+# Controls and monitors the Shure QLXD4 digital wireless receiver over
+# Shure's ASCII command strings on TCP port 2202.
+#
+# Protocol reference (the manufacturer's own, read 2026-10-06):
+#   - "Command Strings for QLX-D Receivers", Shure Applications Engineering
+#     technical bulletin, RW 11/2/2023 (5 pages)
+#   - "QLXD1, QLXD2, and QLXD4 user manual" (pubs.shure.com) for the
+#     frequency bands, the transmitter gain offset range and the port
+#
+# Framing: every message is "< TYPE [x] PROPERTY value... >" in ASCII, with
+# spaces inside the brackets. ">" ends a frame. The QLXD4 has one channel and
+# the bulletin addresses it as x = 1 everywhere (there is no x = 0). Strings
+# are brace-wrapped and padded with spaces to a fixed width (DEVICE_ID and
+# CHAN_NAME to 8); numbers are zero-padded to a fixed width (AUDIO_GAIN 030,
+# BATT_RUN_TIME 00125). The group/channel preset is bare: "GROUP_CHAN 01,05".
+#
+# One receiver, one channel, so the state is flat: no channel child entity.
+# The variable names are the ones shure_ulxd and shure_slxd use on their
+# channels (gain, frequency_khz, tx_battery_bars, ...), so a panel reads the
+# same words on every Shure receiver.
+#
+# The device's numbers are not always the real values. AUDIO_GAIN is 000-060
+# for -18 to +42 dB (offset 18); BATT_TEMP_C / _F are offset by 40. TX_OFFSET
+# is NOT offset on QLX-D (000, 003 ... 021 dB; the ULX-D document offsets it
+# by 12). The bulletin's error codes are 252-255 on a three-digit field and
+# 65532-65535 on a five-digit one ("the microphone might be off, not
+# responding, etc."); every transmitter reading declares all four as unknown.
+# The meters' RF level (000-115) and audio level (000-050) come with no unit
+# conversion in the bulletin, so they are published as the receiver's own
+# numbers, with no unit.
+#
+# What the bulletin does not have, so this driver does not either: MODEL (so
+# nothing to size or identify a receiver by), a receiver mute (AUDIO_MUTE),
+# identify (FLASH), interference detection (RF_INT_DET), the transmitter's
+# firmware, network settings beyond MAC_ADDR, and any "< REP ERR >".
+#
+# Push vs poll: push. "REPORT is also sent by the QLX-D receiver when a
+# parameter is changed via the front panel or via Wireless Workbench", and
+# "it is not necessary to constantly query battery or interference
+# parameters. The receiver will send a REPORT command when any of these
+# parameters change." So the driver reads everything once on connect
+# (GET 1 ALL plus the receiver-wide values) and mirrors the REPs after that.
+# There is no polling. The meters travel in SAMPLE frames only while
+# METER_RATE is set, which is opt-in: the Meter Interval setting, or the
+# meter commands. Liveness is an awaited < GET DEVICE_ID > every 30 s.
+#
+# Why YAML: one line per message, every reply readable with a regex, the
+# offsets and "no reading" codes declared on the state variables, and the
+# receiver's ON / OFF encryption word declared on the setting's map
+# (platform 0.37.0). Nothing here needs code.
+
+id: shure_qlxd
+name: Shure QLX-D Receiver
+manufacturer: Shure
+category: audio
+version: 1.0.0
+author: OpenAVC
+# offset / unknown on state variables and command parameters, and map on a
+# device setting.
+min_platform_version: "0.37.0"
+description: >
+  QLX-D digital wireless receivers (QLXD4) over Shure command strings. Gain,
+  channel name, frequency and group/channel presets, the transmitter's
+  model, battery, gain offset, locks and mute switch, the encryption
+  mismatch warning, and opt-in RF and audio meters. Receiver settings for
+  the device ID, channel name and encryption. Every change on the receiver
+  shows up as it happens.
+source_url: https://content-files.shure.com/Pubs/qlxd4/qlx-d-network-string-commands.pdf
+tags: [shure, qlx-d, qlxd, wireless-microphone, receiver]
+verified: false
+simulated: true
+protocols: [shure_command_strings]
+ports: [2202]
+
+compatible_models:
+  - manufacturer: Shure
+    models:
+      - QLXD4
+    confidence: untested
+    notes: >
+      Built from Shure's QLX-D command strings bulletin; not yet run against
+      a receiver. Covers the QLXD4 receiver in every band and the systems
+      built on it (QLXD14, QLXD24, QLXD124 and the rest). The transmitters
+      (QLXD1, QLXD2, ULXD1, ULXD2, ULXD6, ULXD8) are reported through the
+      receiver; the mute switch and power source readings come from ULXD6
+      and ULXD8 transmitters only.
+
+transport: tcp
+delimiter: ">"
+
+help:
+  overview: >
+    Shows what a Shure QLX-D receiver and its wireless microphone are doing,
+    and controls the receiver. The receiver reports the transmitter's model,
+    battery and locks, so a panel can show a rack at a glance and a trigger
+    can alert on a low battery, a lost transmitter or an encryption
+    mismatch. Set gain, the frequency or a group/channel preset, the
+    receiver's names and its encryption. The receiver has no mute or
+    identify command on this port.
+  setup: >
+    1. Connect the receiver's network port to the control network and note
+    its IP address (front panel: the advanced menu's IP screen, or Wireless
+    Workbench).
+
+    2. Enter that address here. The port is 2202 on every receiver.
+
+    3. Turn on Meter Interval only if a panel shows RF or audio levels. The
+    receiver then sends levels at that interval.
+  connection: >
+    TCP port 2202, no password. The receiver accepts control from any
+    address on its network.
+
+discovery:
+  # MAC_ADDR is in the QLX-D bulletin and in no other Shure command strings
+  # document (the networked mics and DSPs have CONTROL_MAC_ADDR; ULX-D,
+  # SLX-D and Axient Digital have NET_SETTINGS), and QLX-D has no MODEL to
+  # ask. Nothing in the reply names the model, so nothing is extracted.
+  tcp_probe:
+    port: 2202
+    send_ascii: "< GET MAC_ADDR >\r\n"
+    expect_regex: '<\s*REP\s+MAC_ADDR\s+[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}'
+    extract_manufacturer: "Shure"
+  # Shure Incorporated (IEEE registry).
+  oui:
+    - "00:0e:dd"
+    - "d8:34:ee"
+  port_open: [2202]
+  manufacturer_alias:
+    - "shure"
+    - "shure incorporated"
+
+default_config:
+  host: ""
+  port: 2202
+  meter_interval_ms: 0
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    help: "The receiver's IP address, from its advanced menu or Wireless Workbench."
+  port:
+    type: integer
+    default: 2202
+    label: Port
+    advanced: true
+    help: "2202 on every receiver."
+  meter_interval_ms:
+    type: integer
+    default: 0
+    min: 0
+    max: 99999
+    label: Meter Interval (ms)
+    help: >
+      How often the receiver sends its RF and audio levels, in milliseconds:
+      0 for off, otherwise 100 or more. Leave it off unless a panel shows
+      levels.
+
+state_variables:
+  # ── Receiver ──
+  device_name:
+    type: string
+    label: Device ID
+    help: "The receiver's name (DEVICE_ID), up to 8 characters."
+  firmware:
+    type: string
+    label: Firmware
+  firmware_corrupt:
+    type: boolean
+    label: Firmware Corrupt
+    cloud_priority: high
+    help: "The receiver reports its firmware as corrupt. Update it again with Shure Update Utility."
+  encryption_enabled:
+    type: boolean
+    label: Encryption
+    help: "The receiver encrypts its audio link (AES-256)."
+  mac_address:
+    type: string
+    label: MAC Address
+    help: "The receiver's MAC address."
+
+  # ── Audio and RF ──
+  channel_name:
+    type: string
+    label: Channel Name
+    help: "The receiver's name for its channel (CHAN_NAME), up to 8 characters."
+  gain:
+    type: integer
+    label: Gain
+    min: -18
+    max: 42
+    step: 1
+    unit: dB
+    offset: -18
+    control: true
+    help: "Audio gain, -18 to +42 dB."
+  frequency_khz:
+    type: integer
+    label: Frequency
+    unit: kHz
+    control: true
+    help: "The carrier frequency in kHz."
+  preset_bank:
+    type: integer
+    label: Group
+    unknown: ["--"]
+    help: "The group of the group/channel preset the frequency belongs to; empty when it lines up with none."
+  preset_channel:
+    type: integer
+    label: Preset Channel
+    unknown: ["--"]
+    help: "The channel number within the group; empty when the frequency lines up with no preset."
+  aes256_error:
+    type: boolean
+    label: Encryption Mismatch
+    cloud_priority: high
+    help: "The transmitter's encryption does not match the receiver's, so no audio passes. Sync the transmitter to the receiver."
+
+  # ── Transmitter ──
+  tx_model:
+    type: string
+    label: Transmitter Model
+    help: "The transmitter being received (QLXD1, QLXD2, ULXD1, ULXD2, ULXD6 or ULXD8); empty when there is none."
+  tx_linked:
+    type: boolean
+    label: Transmitter Linked
+    cloud_priority: high
+    help: "A transmitter is being received."
+  no_link:
+    type: boolean
+    label: No Link
+    cloud_priority: high
+    help: "No transmitter is being received (the opposite of Transmitter Linked)."
+  tx_name:
+    type: string
+    label: Transmitter Name
+    help: "The transmitter's device ID; empty when there is no transmitter."
+  tx_battery_type:
+    type: string
+    label: Battery Type
+    help: "LION (a Shure rechargeable), ALKA (alkaline), NIMH or LITH (lithium primary); empty when unknown."
+  tx_battery_bars:
+    type: integer
+    label: Battery Bars
+    min: 0
+    max: 5
+    unknown: [255, 254, 253, 252]
+    help: "The transmitter's battery as the bars on the transmitter show it, 0 to 5; empty when unknown."
+  tx_low_battery:
+    type: boolean
+    label: Low Battery
+    cloud_priority: high
+    help: "The transmitter's battery is down to one bar or none."
+  tx_battery_percent:
+    type: integer
+    label: Battery Charge
+    min: 0
+    max: 100
+    unit: "%"
+    unknown: [255, 254, 253, 252]
+    cloud_priority: high
+    help: "Charge left in a Shure rechargeable battery; empty for other batteries or when unknown."
+  tx_battery_minutes:
+    type: integer
+    label: Battery Runtime
+    unit: min
+    unknown: [65535, 65534, 65533, 65532]
+    cloud_priority: high
+    help: "Minutes until a Shure rechargeable battery turns the transmitter off; empty for AA batteries, a transmitter that is off, or when unknown."
+  tx_battery_health_percent:
+    type: integer
+    label: Battery Health
+    min: 0
+    max: 100
+    unit: "%"
+    unknown: [255, 254, 253, 252]
+    help: "A Shure rechargeable battery's capacity against its original capacity; empty when unknown."
+  tx_battery_cycles:
+    type: integer
+    label: Battery Cycles
+    unknown: [65535, 65534, 65533, 65532]
+    help: "Full charge cycles of a Shure rechargeable battery; empty when unknown."
+  tx_battery_temp_c:
+    type: integer
+    label: Battery Temperature
+    unit: "°C"
+    offset: -40
+    unknown: [255, 254, 253, 252]
+    help: "A Shure rechargeable battery's temperature; empty when unknown."
+  tx_battery_temp_f:
+    type: integer
+    label: Battery Temperature (°F)
+    unit: "°F"
+    offset: -40
+    unknown: [255, 254, 253, 252]
+    help: "Empty when unknown."
+  tx_offset_db:
+    type: integer
+    label: Transmitter Gain Offset
+    min: 0
+    max: 21
+    step: 3
+    unit: dB
+    unknown: [255, 254, 253, 252]
+    help: "The gain offset set on the transmitter, 0 to 21 dB in 3 dB steps; empty when unknown."
+  tx_rf_power:
+    type: enum
+    values: [low, normal, high, unknown]
+    label: Transmitter RF Power
+    help: "low (1 mW) or high (10 mW); unknown when there is no transmitter."
+  tx_menu_lock:
+    type: enum
+    values: ["on", "off", unknown]
+    label: Transmitter Menu Lock
+    help: "on when the transmitter's menu is locked; unknown when there is no transmitter."
+  tx_power_lock:
+    type: enum
+    values: ["on", "off", unknown]
+    label: Transmitter Power Lock
+    help: "on when the transmitter's power switch is locked; unknown when there is no transmitter."
+  tx_mute_status:
+    type: enum
+    values: [muted, unmuted, unknown]
+    label: Transmitter Mute
+    cloud_priority: high
+    help: "ULXD6 and ULXD8 only: whether the transmitter is muting its audio; unknown for other transmitters or none."
+  tx_mute_button:
+    type: enum
+    values: [pressed, released, unknown]
+    label: Transmitter Mute Button
+    help: "ULXD6 and ULXD8 only: pressed while the mute button is on; unknown for other transmitters or none."
+  tx_power_source:
+    type: enum
+    values: [battery, external, unknown]
+    label: Transmitter Power Source
+    help: "ULXD6 and ULXD8 only: battery or external power; unknown for other transmitters or none."
+
+  # ── Meters (only while metering is on) ──
+  metering:
+    type: boolean
+    label: Metering
+    help: "The receiver is sending levels."
+  meter_rate_ms:
+    type: integer
+    label: Meter Interval
+    unit: ms
+    help: "How often the receiver sends levels; 0 when metering is off."
+  antenna_status:
+    type: string
+    label: Antennas
+    cloud_priority: low
+    help: "Which antenna's RF light is on: AX (antenna A), XB (antenna B) or XX (neither)."
+  antenna_a:
+    type: boolean
+    label: Antenna A
+    cloud_priority: low
+    help: "Antenna A's RF light is on."
+  antenna_b:
+    type: boolean
+    label: Antenna B
+    cloud_priority: low
+    help: "Antenna B's RF light is on."
+  # The bulletin gives these ranges and no unit conversion, so they stay
+  # the receiver's own numbers.
+  rf_level:
+    type: integer
+    label: RF Level
+    min: 0
+    max: 115
+    cloud_priority: low
+    help: "The RF level received, 0 to 115 on the receiver's own scale (higher is stronger)."
+  audio_level:
+    type: integer
+    label: Audio Level
+    min: 0
+    max: 50
+    cloud_priority: low
+    help: "The audio level, 0 to 50 on the receiver's own scale (higher is louder)."
+
+liveness:
+  # DEVICE_ID is receiver-wide and answered by every QLX-D receiver
+  # whatever it is set to; an error reply still proves the link is up.
+  send: "< GET DEVICE_ID >"
+  expect: '<\s*REP\s+(DEVICE_ID|ERR)\b'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+device_settings:
+  # The bulletin gives no character set for either name; this is the one
+  # the ULX-D document lists, without > (it ends a message on this port)
+  # and the braces (they wrap the value).
+  device_name:
+    type: string
+    label: Device ID
+    help: "The receiver's name, 1 to 8 characters: letters, digits, space and most punctuation (not >, { or })."
+    state_key: device_name
+    default: ""
+    setup: false
+    regex: '^[A-Za-z0-9 !"#$%&''()*+,./:;<=?@\[\\\]^_`~-]{1,8}$'
+    write:
+      send: "< SET DEVICE_ID {{value}} >"
+  channel_name:
+    type: string
+    label: Channel Name
+    help: "The receiver's channel name, 1 to 8 characters: letters, digits, space and most punctuation (not >, { or })."
+    state_key: channel_name
+    default: ""
+    setup: false
+    regex: '^[A-Za-z0-9 !"#$%&''()*+,./:;<=?@\[\\\]^_`~-]{1,8}$'
+    write:
+      send: "< SET 1 CHAN_NAME {{value}} >"
+  encryption_enabled:
+    type: boolean
+    label: Encryption
+    help: >
+      Encrypts the audio between the transmitter and this receiver (AES-256).
+      After changing it, sync the transmitter to the receiver by IR, or its
+      audio stops.
+    state_key: encryption_enabled
+    default: false
+    setup: false
+    map: { "true": "ON", "false": "OFF" }
+    write:
+      send: "< SET ENCRYPTION {value} >"
+
+commands:
+  # The bulletin writes the value as three digits, 000 to 060.
+  set_gain:
+    label: Set Gain
+    help: "Sets the receiver's audio gain."
+    send: "< SET 1 AUDIO_GAIN {gain:03d} >"
+    sets: { gain: "{gain}" }
+    params:
+      gain:
+        type: integer
+        required: true
+        label: Gain
+        min: -18
+        max: 42
+        unit: dB
+        offset: -18
+
+  step_gain:
+    label: Step Gain
+    help: "Raises or lowers the receiver's audio gain by a number of dB."
+    send: "< SET 1 AUDIO_GAIN {direction} {step} >"
+    params:
+      direction:
+        type: enum
+        required: true
+        label: Direction
+        values:
+          - { value: INC, label: Up }
+          - { value: DEC, label: Down }
+      step:
+        type: integer
+        required: true
+        label: Step
+        min: 1
+        max: 60
+        unit: dB
+        default: 1
+
+  gain_up:
+    label: Gain Up 1 dB
+    help: "Raises the receiver's audio gain by 1 dB."
+    send: "< SET 1 AUDIO_GAIN INC 1 >"
+
+  gain_down:
+    label: Gain Down 1 dB
+    help: "Lowers the receiver's audio gain by 1 dB."
+    send: "< SET 1 AUDIO_GAIN DEC 1 >"
+
+  # The bulletin writes the frequency as six digits (yyy.yyy MHz); the user
+  # guide's bands run from 174 MHz (V50) to 1805 MHz (Z18), so the range is
+  # the bands' and a seven-digit report is read too.
+  set_frequency:
+    label: Set Frequency
+    help: "Tunes the receiver to a frequency in kHz. The receiver reports the frequency and the group/channel preset it belongs to, and refuses a frequency outside its band."
+    send: "< SET 1 FREQUENCY {frequency_khz} >"
+    sets: { frequency_khz: "{frequency_khz}" }
+    params:
+      frequency_khz:
+        type: integer
+        required: true
+        label: Frequency
+        min: 174000
+        max: 1805000
+        unit: kHz
+
+  set_preset:
+    label: Set Group and Channel
+    help: "Tunes the receiver to a group/channel preset of its band. The receiver reports the frequency it tuned to."
+    send: "< SET 1 GROUP_CHAN {group:02d},{preset_channel:02d} >"
+    params:
+      group:
+        type: integer
+        required: true
+        label: Group
+        min: 1
+        max: 99
+      preset_channel:
+        type: integer
+        required: true
+        label: Channel Number
+        min: 1
+        max: 99
+
+  meters_on:
+    label: Meters On
+    help: "Starts the receiver sending its antenna, RF and audio levels at an interval."
+    send: "< SET 1 METER_RATE {interval_ms:05d} >"
+    params:
+      interval_ms:
+        type: integer
+        required: true
+        label: Interval
+        min: 100
+        max: 99999
+        unit: ms
+        default: 1000
+
+  meters_off:
+    label: Meters Off
+    help: "Stops the receiver sending levels."
+    send: "< SET 1 METER_RATE 00000 >"
+
+  raw_command:
+    label: Send Raw Command
+    help: "Sends any command string from Shure's bulletin, brackets included, e.g. < GET 1 AUDIO_GAIN >."
+    send: "{command}"
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+quick_actions: [gain_up, gain_down]
+
+on_connect:
+  # GET 1 ALL is "intended to get all parameters on first power up". The
+  # receiver-wide values are asked as well: the bulletin's ALL example shows
+  # only channel values, and asking twice changes nothing.
+  - "< GET 1 ALL >"
+  - { send: "< GET DEVICE_ID >", query_for: device_name }
+  - { send: "< GET FW_VER >", query_for: firmware }
+  - { send: "< GET MAC_ADDR >", query_for: mac_address }
+  - { send: "< GET ENCRYPTION >", query_for: encryption_enabled }
+  - { send: "< SET 1 METER_RATE {meter_interval_ms:05d} >", when: meter_interval_ms }
+
+responses:
+  # ── Receiver ──
+  - match: '^<\s+REP\s+DEVICE_ID\s+\{(.*?)\s*\}$'
+    set: { device_name: "$1" }
+  # 18 characters on page 1, 24 with a trailing space or asterisk on page 4
+  # ("An asterisk indicates corrupt firmware"). Both are read.
+  - match: '^<\s+REP\s+FW_VER\s+\{\s*([^*}\s]*)(\*?)\s*\}$'
+    set: { firmware: "$1" }
+    mappings:
+      - { group: 2, state: firmware_corrupt, map: { "*": true, "": false } }
+  # The ALL example writes "< REP 1 ENCRYPTION yy >"; the ENCRYPTION section
+  # has no channel. Both are read.
+  - match: '^<\s+REP\s+(?:1\s+)?ENCRYPTION\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: encryption_enabled, map: { "ON": true, "OFF": false } }
+  - match: '^<\s+REP\s+MAC_ADDR\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})$'
+    set: { mac_address: "$1" }
+
+  # ── Audio and RF ──
+  - match: '^<\s+REP\s+1\s+CHAN_NAME\s+\{(.*?)\s*\}$'
+    set: { channel_name: "$1" }
+  - match: '^<\s+REP\s+1\s+AUDIO_GAIN\s+(\d{3})$'
+    set: { gain: "$1" }
+  # "--,--" when the frequency lines up with no group and channel.
+  - match: '^<\s+REP\s+1\s+GROUP_CHAN\s+(\d+|--)\s*,\s*(\d+|--)$'
+    set: { preset_bank: "$1", preset_channel: "$2" }
+  - match: '^<\s+REP\s+1\s+FREQUENCY\s+(\d{6,7})$'
+    set: { frequency_khz: "$1" }
+  - match: '^<\s+REP\s+1\s+ENCRYPTION_WARNING\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: aes256_error, map: { "ON": true, "OFF": false } }
+
+  # ── Transmitter ──
+  - match: '^<\s+REP\s+1\s+TX_TYPE\s+UNKN$'
+    set: { tx_model: "", tx_linked: false, no_link: true }
+  - match: '^<\s+REP\s+1\s+TX_TYPE\s+(\S+)$'
+    set: { tx_model: "$1", tx_linked: true, no_link: false }
+  - match: '^<\s+REP\s+1\s+TX_DEVICE_ID\s+\{(.*?)\s*\}$'
+    set: { tx_name: "$1" }
+  - match: '^<\s+REP\s+1\s+BATT_TYPE\s+(LION|ALKA|NIMH|LITH|UNKN)$'
+    mappings:
+      - group: 1
+        state: tx_battery_type
+        map: { "LION": LION, "ALKA": ALKA, "NIMH": NIMH, "LITH": LITH, "UNKN": "" }
+  - match: '^<\s+REP\s+1\s+BATT_BARS\s+(\d{3})$'
+    set: { tx_battery_bars: "$1" }
+    mappings:
+      - group: 1
+        state: tx_low_battery
+        map:
+          "000": true
+          "001": true
+          "002": false
+          "003": false
+          "004": false
+          "005": false
+          "252": false
+          "253": false
+          "254": false
+          "255": false
+  - match: '^<\s+REP\s+1\s+BATT_CHARGE\s+(\d{3})$'
+    set: { tx_battery_percent: "$1" }
+  - match: '^<\s+REP\s+1\s+BATT_CYCLE\s+(\d{5})$'
+    set: { tx_battery_cycles: "$1" }
+  - match: '^<\s+REP\s+1\s+BATT_HEALTH\s+(\d{3})$'
+    set: { tx_battery_health_percent: "$1" }
+  - match: '^<\s+REP\s+1\s+BATT_RUN_TIME\s+(\d{5})$'
+    set: { tx_battery_minutes: "$1" }
+  - match: '^<\s+REP\s+1\s+BATT_TEMP_C\s+(\d{3})$'
+    set: { tx_battery_temp_c: "$1" }
+  - match: '^<\s+REP\s+1\s+BATT_TEMP_F\s+(\d{3})$'
+    set: { tx_battery_temp_f: "$1" }
+  - match: '^<\s+REP\s+1\s+TX_OFFSET\s+(\d{3})$'
+    set: { tx_offset_db: "$1" }
+  # The bulletin lists LOW, HIGH and UNKN and says "one of the four strings";
+  # NORMAL (a ULX-D transmitter's middle setting) is read too.
+  - match: '^<\s+REP\s+1\s+TX_RF_PWR\s+(LOW|NORMAL|HIGH|UNKN)$'
+    mappings:
+      - group: 1
+        state: tx_rf_power
+        map: { "LOW": low, "NORMAL": normal, "HIGH": high, "UNKN": unknown }
+  - match: '^<\s+REP\s+1\s+TX_MENU_LOCK\s+(ON|OFF|UNKN)$'
+    mappings:
+      - { group: 1, state: tx_menu_lock, map: { "ON": "on", "OFF": "off", "UNKN": unknown } }
+  - match: '^<\s+REP\s+1\s+TX_PWR_LOCK\s+(ON|OFF|UNKN)$'
+    mappings:
+      - { group: 1, state: tx_power_lock, map: { "ON": "on", "OFF": "off", "UNKN": unknown } }
+  # The bulletin documents these three with the channel ("ULXD6 and ULXD8
+  # only") and without it. Both are read.
+  - match: '^<\s+REP\s+(?:1\s+)?TX_MUTE_STATUS\s+(ON|OFF|UNKN)$'
+    mappings:
+      - { group: 1, state: tx_mute_status, map: { "ON": muted, "OFF": unmuted, "UNKN": unknown } }
+  - match: '^<\s+REP\s+(?:1\s+)?TX_MUTE_BUTTON_STATUS\s+(PRESSED|RELEASED|UNKN)$'
+    mappings:
+      - group: 1
+        state: tx_mute_button
+        map: { "PRESSED": pressed, "RELEASED": released, "UNKN": unknown }
+  # UNKN in this bulletin, UNKNOWN in the ULX-D document.
+  - match: '^<\s+REP\s+(?:1\s+)?TX_POWER_SOURCE\s+(BATTERY|EXTERNAL|UNKN|UNKNOWN)$'
+    mappings:
+      - group: 1
+        state: tx_power_source
+        map: { "BATTERY": battery, "EXTERNAL": external, "UNKN": unknown, "UNKNOWN": unknown }
+
+  # ── Meters ──
+  - match: '^<\s+REP\s+1\s+METER_RATE\s+(00000)$'
+    set: { meter_rate_ms: "$1", metering: false }
+  - match: '^<\s+REP\s+1\s+METER_RATE\s+(\d{5})$'
+    set: { meter_rate_ms: "$1", metering: true }
+  # < SAMPLE 1 ALL nn aaa eee >: the RF lights, RF level, audio level, at the
+  # METER_RATE interval. The bulletin lists AX, XB and XX; AB is read too, so
+  # a sample with both lights on is not dropped whole.
+  - match: '^<\s+SAMPLE\s+1\s+ALL\s+(AX|XB|XX|AB)\s+(\d{3})\s+(\d{3})$'
+    throttle: 0.5
+    set: { antenna_status: "$1", rf_level: "$2", audio_level: "$3" }
+    mappings:
+      - { group: 1, state: antenna_a, map: { "AX": true, "XB": false, "XX": false, "AB": true } }
+      - { group: 1, state: antenna_b, map: { "AX": false, "XB": true, "XX": false, "AB": true } }
+
+simulator:
+  push_state: true
+  initial_state:
+    device_name: "Rack 1"
+    firmware: "2.6.3"
+    firmware_corrupt: false
+    encryption_enabled: false
+    mac_address: "00:0E:DD:3A:17:C2"
+    # A QLXD2 handheld on a Shure SB900 rechargeable, running.
+    channel_name: "Lead Vox"
+    gain: 12
+    frequency_khz: 482125
+    preset_bank: 1
+    preset_channel: 1
+    aes256_error: false
+    tx_model: "QLXD2"
+    tx_linked: true
+    no_link: false
+    tx_name: "HH-01"
+    tx_battery_type: "LION"
+    tx_battery_bars: 4
+    tx_low_battery: false
+    tx_battery_percent: 78
+    tx_battery_minutes: 405
+    tx_battery_health_percent: 96
+    tx_battery_cycles: 41
+    tx_battery_temp_c: 27
+    tx_battery_temp_f: 81
+    tx_offset_db: 0
+    tx_rf_power: high
+    tx_menu_lock: "off"
+    tx_power_lock: "off"
+    tx_mute_status: unknown
+    tx_mute_button: unknown
+    tx_power_source: unknown
+    metering: false
+    meter_rate_ms: 0
+    antenna_status: "AX"
+    antenna_a: true
+    antenna_b: false
+    rf_level: 63
+    audio_level: 30
+
+  delays:
+    command_response: 0.02
+
+  # Plain SETs (absolute gain, the names, encryption) are answered by the
+  # commands' and settings' own declarations; these handlers cover what the
+  # receiver does beyond echoing a value. "< REP ERR >" for a refused
+  # command is the Shure family's answer: this bulletin never mentions it.
+  # Fidelity gaps: METER_RATE sends one SAMPLE when it is set and does not
+  # keep sending; any frequency in the bands is accepted, and lines up with
+  # no preset; a preset tunes to a made-up frequency rather than the band's
+  # table; strings are not padded to their fixed width.
+  command_handlers:
+    # GET 1 ALL: every channel value, then the receiver-wide ones.
+    - match: '< GET (\d) ALL >'
+      handler: |
+        def _run():
+            if match.group(1) != "1":
+                respond("< REP ERR >")
+                return
+            out = []
+            for key in ["channel_name", "gain", "frequency_khz", "aes256_error",
+                        "tx_name", "tx_battery_type", "tx_battery_bars",
+                        "tx_battery_percent", "tx_battery_cycles", "tx_battery_minutes",
+                        "tx_battery_health_percent", "tx_battery_temp_c",
+                        "tx_battery_temp_f", "tx_offset_db", "tx_rf_power",
+                        "tx_menu_lock", "tx_power_lock", "meter_rate_ms"]:
+                text = reply(key)
+                if text:
+                    out.append(text + " >")
+            out.append(PRESET_LINE())
+            out.append(TYPE_LINE())
+            for prop in ["TX_MUTE_STATUS", "TX_MUTE_BUTTON_STATUS", "TX_POWER_SOURCE"]:
+                out.append(SIDE_LINE(prop, "1 "))
+            out.append("< REP 1 ENCRYPTION " + ("ON" if state.get("encryption_enabled") else "OFF") + " >")
+            for key in ["device_name", "firmware", "mac_address"]:
+                text = reply(key)
+                if text:
+                    out.append(text + " >")
+            respond("".join(out))
+
+        def PRESET_LINE():
+            g = state.get("preset_bank")
+            c = state.get("preset_channel")
+            if g is None or c is None:
+                return "< REP 1 GROUP_CHAN --,-- >"
+            return "< REP 1 GROUP_CHAN " + format(int(g), "02d") + "," + format(int(c), "02d") + " >"
+
+        def TYPE_LINE():
+            return "< REP 1 TX_TYPE " + (state.get("tx_model") or "UNKN") + " >"
+
+        def SIDE_LINE(prop, chan):
+            words = {
+                "TX_MUTE_STATUS": ("tx_mute_status", {"muted": "ON", "unmuted": "OFF"}),
+                "TX_MUTE_BUTTON_STATUS": ("tx_mute_button", {"pressed": "PRESSED", "released": "RELEASED"}),
+                "TX_POWER_SOURCE": ("tx_power_source", {"battery": "BATTERY", "external": "EXTERNAL"}),
+            }
+            key, mapping = words[prop]
+            return "< REP " + chan + prop + " " + mapping.get(state.get(key), "UNKN") + " >"
+
+        _run()
+
+    # Every other channel GET. The receiver has one channel.
+    - match: '< GET (\d) (\w+) >'
+      handler: |
+        PROPS = {
+            "CHAN_NAME": "channel_name", "AUDIO_GAIN": "gain", "FREQUENCY": "frequency_khz",
+            "ENCRYPTION_WARNING": "aes256_error", "TX_DEVICE_ID": "tx_name",
+            "BATT_TYPE": "tx_battery_type", "BATT_BARS": "tx_battery_bars",
+            "BATT_CHARGE": "tx_battery_percent", "BATT_CYCLE": "tx_battery_cycles",
+            "BATT_RUN_TIME": "tx_battery_minutes", "BATT_HEALTH": "tx_battery_health_percent",
+            "BATT_TEMP_C": "tx_battery_temp_c", "BATT_TEMP_F": "tx_battery_temp_f",
+            "TX_OFFSET": "tx_offset_db", "TX_RF_PWR": "tx_rf_power",
+            "TX_MENU_LOCK": "tx_menu_lock", "TX_PWR_LOCK": "tx_power_lock",
+            "METER_RATE": "meter_rate_ms",
+        }
+        SIDE = {
+            "TX_MUTE_STATUS": ("tx_mute_status", {"muted": "ON", "unmuted": "OFF"}),
+            "TX_MUTE_BUTTON_STATUS": ("tx_mute_button", {"pressed": "PRESSED", "released": "RELEASED"}),
+            "TX_POWER_SOURCE": ("tx_power_source", {"battery": "BATTERY", "external": "EXTERNAL"}),
+        }
+
+        def _run():
+            prop = match.group(2)
+            if match.group(1) != "1":
+                respond("< REP ERR >")
+                return
+            if prop == "GROUP_CHAN":
+                g = state.get("preset_bank")
+                c = state.get("preset_channel")
+                if g is None or c is None:
+                    respond("< REP 1 GROUP_CHAN --,-- >")
+                else:
+                    respond("< REP 1 GROUP_CHAN " + format(int(g), "02d") + "," + format(int(c), "02d") + " >")
+                return
+            if prop == "TX_TYPE":
+                respond("< REP 1 TX_TYPE " + (state.get("tx_model") or "UNKN") + " >")
+                return
+            if prop in SIDE:
+                key, mapping = SIDE[prop]
+                respond("< REP 1 " + prop + " " + mapping.get(state.get(key), "UNKN") + " >")
+                return
+            key = PROPS.get(prop)
+            text = reply(key) if key else None
+            respond(text + " >" if text else "< REP ERR >")
+
+        _run()
+
+    # Receiver-wide GETs, and the three transmitter readings the bulletin
+    # also writes without a channel.
+    - match: '< GET ([A-Z_]+) >'
+      handler: |
+        KEYS = {
+            "DEVICE_ID": "device_name", "FW_VER": "firmware", "MAC_ADDR": "mac_address",
+        }
+        SIDE = {
+            "TX_MUTE_STATUS": ("tx_mute_status", {"muted": "ON", "unmuted": "OFF"}),
+            "TX_MUTE_BUTTON_STATUS": ("tx_mute_button", {"pressed": "PRESSED", "released": "RELEASED"}),
+            "TX_POWER_SOURCE": ("tx_power_source", {"battery": "BATTERY", "external": "EXTERNAL"}),
+        }
+
+        def _run():
+            prop = match.group(1)
+            if prop == "ENCRYPTION":
+                respond("< REP ENCRYPTION " + ("ON" if state.get("encryption_enabled") else "OFF") + " >")
+                return
+            if prop in SIDE:
+                key, mapping = SIDE[prop]
+                respond("< REP " + prop + " " + mapping.get(state.get(key), "UNKN") + " >")
+                return
+            key = KEYS.get(prop)
+            text = reply(key) if key else None
+            respond(text + " >" if text else "< REP ERR >")
+
+        _run()
+
+    # AUDIO_GAIN INC n / DEC n, clamped to the receiver's range.
+    - match: '< SET (\d) AUDIO_GAIN (INC|DEC) (\d+) >'
+      handler: |
+        def _run():
+            step = int(match.group(3))
+            if match.group(1) != "1" or step < 1 or step > 60:
+                respond("< REP ERR >")
+                return
+            gain = (state.get("gain") or 0) + (step if match.group(2) == "INC" else -step)
+            state["gain"] = max(-18, min(42, gain))
+            respond(reply("gain") + " >")
+
+        _run()
+
+    # FREQUENCY and GROUP_CHAN each answer with both strings, frequency first.
+    - match: '< SET (\d) (FREQUENCY|GROUP_CHAN) (?:(\d{6,7})|(\d{1,2}),(\d{1,2})) >'
+      handler: |
+        def _run():
+            if match.group(1) != "1":
+                respond("< REP ERR >")
+                return
+            if match.group(2) == "FREQUENCY" and match.group(3):
+                freq = int(match.group(3))
+                if freq < 174000 or freq > 1805000:
+                    respond("< REP ERR >")
+                    return
+                state["frequency_khz"] = freq
+                state["preset_bank"] = None
+                state["preset_channel"] = None
+                respond(reply("frequency_khz") + " >< REP 1 GROUP_CHAN --,-- >")
+                return
+            if match.group(2) == "GROUP_CHAN" and match.group(4):
+                g = int(match.group(4))
+                c = int(match.group(5))
+                if g < 1 or c < 1:
+                    respond("< REP ERR >")
+                    return
+                state["preset_bank"] = g
+                state["preset_channel"] = c
+                state["frequency_khz"] = 470000 + g * 1000 + c * 125
+                respond(reply("frequency_khz") + " >< REP 1 GROUP_CHAN "
+                        + format(g, "02d") + "," + format(c, "02d") + " >")
+                return
+            respond("< REP ERR >")
+
+        _run()
+
+    # METER_RATE: report the rate (five digits; "0" is accepted for off),
+    # then one SAMPLE.
+    - match: '< SET (\d) METER_RATE (\d{1,5}) >'
+      handler: |
+        def _run():
+            rate = int(match.group(2))
+            if match.group(1) != "1" or (0 < rate < 100):
+                respond("< REP ERR >")
+                return
+            state["meter_rate_ms"] = rate
+            state["metering"] = rate > 0
+            respond(reply("meter_rate_ms") + " >")
+            if rate == 0:
+                return
+            notify("< SAMPLE 1 ALL " + (state.get("antenna_status") or "XX") + " "
+                   + format(int(state.get("rf_level") or 0), "03d") + " "
+                   + format(int(state.get("audio_level") or 0), "03d") + " ")
+
+        _run()
+
+  error_modes:
+    communication_timeout:
+      description: "Receiver stops responding"
+      behavior: no_response

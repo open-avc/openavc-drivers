@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 907,
+    "total_devices": 908,
     "shards": null
   },
   "devices": [
@@ -9117,6 +9117,18 @@
           "id": "shure_network",
           "confidence": "untested",
           "notes": "All speak the same Device Control Strings grammar. Channel counts differ by model \u2014 set Channel Count to match: MXA arrays have 8 mic channels plus the automixer output (9), the ANI4IN/4OUT have 4, the SCM820 has 8 inputs plus mixes, and the P300 has a large input/output matrix. Device mute and presets are MXA / P300 / ANI; the SCM820 mutes per channel and has no presets \u2014 unsupported properties answer a benign REP ERR."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "QLXD4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_qlxd",
+          "confidence": "untested",
+          "notes": "Built from Shure's QLX-D command strings bulletin; not yet run against a receiver. Covers the QLXD4 receiver in every band and the systems built on it (QLXD14, QLXD24, QLXD124 and the rest). The transmitters (QLXD1, QLXD2, ULXD1, ULXD2, ULXD6, ULXD8) are reported through the receiver; the mute switch and power source readings come from ULXD6 and ULXD8 transmitters only.\n"
         }
       ]
     },

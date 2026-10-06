@@ -317,8 +317,18 @@ def test_the_pairing_pin_is_a_secret(mod):
     # A secret parameter is masked in the server log, on the device page and
     # in a device audit's report.
     info = mod.HisenseVidaaDriver.DRIVER_INFO
-    assert info["version"] == "1.0.4"
+    assert info["version"] == "1.0.5"
     assert info["commands"]["submit_pin"]["params"]["pin"].get("secret") is True
+
+
+def test_the_setup_help_names_no_source_for_a_client_certificate(mod):
+    # Newer models require a client certificate that OpenAVC does not include.
+    # The help says so, and says nothing about where to get one.
+    setup = mod.HisenseVidaaDriver.DRIVER_INFO["help"]["setup"].lower()
+    assert "client certificate" in setup
+    assert "tls error" in setup
+    for word in ("github", "obtain", "publish", "paste"):
+        assert word not in setup, word
 
 
 # ── Connection lifecycle (hook-driven connect/disconnect) ──

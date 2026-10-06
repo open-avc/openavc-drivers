@@ -11,9 +11,8 @@ Krazy998/mqtt-hisensetv). Key facts this driver implements:
 
 - TLS on 36669 with a self-signed broker cert (no verification). Newer models
   also require a CLIENT certificate (mutual TLS). OpenAVC does not ship Hisense's
-  cert; if a TV needs one, paste the client cert + key into the device's
-  Connection settings (see the help text). The driver tries without a cert
-  first.
+  cert; if a TV needs one, the client cert + key go in the device's Connection
+  settings. The driver tries without a cert first.
 - Credentials: older TVs accept a static username/password; newer VIDAA TVs
   require dynamic, per-connection credentials derived from a device id +
   timestamp. The driver tries the dynamic scheme first, then the static one.
@@ -121,7 +120,7 @@ class HisenseVidaaDriver(BaseDriver):
         "name": "Hisense VIDAA TV",
         "manufacturer": "Hisense",
         "category": "display",
-        "version": "1.0.4",
+        "version": "1.0.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -162,13 +161,9 @@ class HisenseVidaaDriver(BaseDriver):
                 "3. Enter the TV's IP address and save.\n"
                 "4. Run 'Request Pairing', read the PIN on the TV, then run "
                 "'Submit Pairing PIN'.\n\n"
-                "Client certificate (only if pairing/connection fails): some "
-                "newer models require a client certificate for the TLS "
-                "connection. OpenAVC does not ship it. If the device stays "
-                "offline with a TLS error, obtain the VIDAA app client "
-                "certificate and key (the community publishes them, e.g. "
-                "github.com/tombabolewski/vidaa-control) and paste them into the "
-                "'Client Certificate (PEM)' and 'Client Key (PEM)' fields below."
+                "Some newer models only accept a connection that presents a "
+                "client certificate, which OpenAVC does not include. Those TVs "
+                "stay offline with a TLS error."
             ),
         },
         "default_config": {

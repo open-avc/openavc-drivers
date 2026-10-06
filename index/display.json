@@ -97,7 +97,7 @@
       "name": "Hisense VIDAA TV",
       "manufacturer": "Hisense",
       "category": "display",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "OpenAVC",
       "transport": "mqtt",
       "description": "Controls Hisense VIDAA OS TVs over the TV's embedded MQTT broker (the path the RemoteNOW/VIDAA app uses). Power, volume, input, key passthrough, and PIN pairing.",
@@ -105,7 +105,7 @@
       "file": "displays/hisense_vidaa.py",
       "format": "python",
       "files": {
-        "displays/hisense_vidaa.py": "94656613f7c3c94de6998ef017778c42bf34856d366d6ad7b1fe9b6d32c66bb2",
+        "displays/hisense_vidaa.py": "68b861c4c20885ced8a68b1e7dd0315b65443ff36f40d72941c99aa426ecd63e",
         "displays/hisense_vidaa_sim.py": "ba41e4d1077ce9d3cb6cddf4b6071f7fb28e206ab10ff7abd99b886bd69683e5"
       },
       "ports": [
@@ -123,7 +123,7 @@
       ],
       "help": {
         "overview": "Hisense VIDAA TVs are controlled over an MQTT broker built into the TV (port 36669), the same way the RemoteNOW phone app works. Enter the TV's IP address, then pair: run 'Request Pairing' (a 4-digit PIN appears on the TV), then 'Submit Pairing PIN' with that number. The pairing is remembered across restarts.\n\nPower On over the network is best-effort: a TV in deep standby turns its broker off, so it may be unreachable until switched on with the physical remote. Power Off and everything else work while the TV is on.",
-        "setup": "1. Make sure the TV and OpenAVC are on the same network.\n2. On the TV, enable mobile-app/remote control if it has such a setting (Settings > System > Mobile App / 'RemoteNOW').\n3. Enter the TV's IP address and save.\n4. Run 'Request Pairing', read the PIN on the TV, then run 'Submit Pairing PIN'.\n\nClient certificate (only if pairing/connection fails): some newer models require a client certificate for the TLS connection. OpenAVC does not ship it. If the device stays offline with a TLS error, obtain the VIDAA app client certificate and key (the community publishes them, e.g. github.com/tombabolewski/vidaa-control) and paste them into the 'Client Certificate (PEM)' and 'Client Key (PEM)' fields below."
+        "setup": "1. Make sure the TV and OpenAVC are on the same network.\n2. On the TV, enable mobile-app/remote control if it has such a setting (Settings > System > Mobile App / 'RemoteNOW').\n3. Enter the TV's IP address and save.\n4. Run 'Request Pairing', read the PIN on the TV, then run 'Submit Pairing PIN'.\n\nSome newer models only accept a connection that presents a client certificate, which OpenAVC does not include. Those TVs stay offline with a TLS error."
       },
       "compatible_models": [
         {

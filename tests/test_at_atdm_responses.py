@@ -445,3 +445,59 @@ def test_simulator_answers_mute_where_the_device_does(name, wire, stem, child, m
     assert result[f"{child}.mute"] is muted, (answer, result)
     assert result[f"{child}.level"] == 300.0, (answer, result)
 
+
+# ── What each channel command sets ─────────────────────────────────────────
+#
+# A command that changes one value the device reports says which (`sets`),
+# so a device audit can confirm it from the device's own report. Source
+# selects are left out: their parameter is the wire digit and the reported
+# value is the source's name.
+
+SETS_0604A = {
+    "set_input_level": {"level": "{level}"},
+    "input_mute_on": {"mute": True},
+    "input_mute_off": {"mute": False},
+    "set_input_gain": {"gain": "{gain}"},
+    "set_input_phantom": {"phantom": "{state}"},
+    "set_input_phase": {"phase": "{state}"},
+    "set_input_low_cut": {"low_cut": "{state}"},
+    "set_input_aec": {"aec_enabled": "{state}"},
+    "set_input_smart_mix": {"smart_mix_enabled": "{state}"},
+    "rename_input": {"name": "{name}"},
+    "set_st_input_level": {"level": "{level}"},
+    "st_input_mute_on": {"mute": True},
+    "st_input_mute_off": {"mute": False},
+    "set_st_input_gain": {"gain": "{gain}"},
+    "set_st_input_mono": {"mono": "{state}"},
+    "rename_st_input": {"name": "{name}"},
+    "set_output_level": {"level": "{level}"},
+    "output_mute_on": {"mute": True},
+    "output_mute_off": {"mute": False},
+    "rename_output": {"name": "{name}"},
+    "set_st_output_level": {"level": "{level}"},
+    "st_output_mute_on": {"mute": True},
+    "st_output_mute_off": {"mute": False},
+    "rename_st_output": {"name": "{name}"},
+    "recall_preset": {"last_recalled_preset": "{preset}"},
+    "oscillator_on": {"oscillator_on": True},
+    "oscillator_off": {"oscillator_on": False},
+}
+
+
+def test_at_atdm_0604a_commands_say_what_they_set():
+    driver = load_driver("at_atdm_0604a.avcdriver")
+    commands = driver["commands"]
+    declared = {name: c["sets"] for name, c in commands.items() if c.get("sets")}
+    assert declared == SETS_0604A
+    child_types = driver["child_entity_types"]
+    for name, sets in SETS_0604A.items():
+        params = commands[name].get("params") or {}
+        child = [p for p in params.values() if p.get("type") == "child_id"]
+        names = (
+            child_types[child[0]["child_type"]]["state_variables"] if child
+            else driver["state_variables"]
+        )
+        for key, value in sets.items():
+            assert key in names, (name, key)
+            if isinstance(value, str) and value.startswith("{"):
+                assert value[1:-1] in params, (name, value)

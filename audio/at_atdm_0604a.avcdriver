@@ -687,6 +687,7 @@ commands:
   set_input_level:
     label: Set Input Level
     send: 'SICL S 0000 00 NC {channel},{level} \r'
+    sets: { level: "{level}" }
     help: "Set the fader level for an input (0=mute, 411=0dB, 511=+10dB)."
     params:
       channel:
@@ -706,6 +707,7 @@ commands:
   input_mute_on:
     label: Input Mute On
     send: 'SICM S 0000 00 NC {channel},1 \r'
+    sets: { mute: true }
     help: "Mute an input."
     params:
       channel:
@@ -718,6 +720,7 @@ commands:
   input_mute_off:
     label: Input Mute Off
     send: 'SICM S 0000 00 NC {channel},0 \r'
+    sets: { mute: false }
     help: "Unmute an input."
     params:
       channel:
@@ -730,6 +733,7 @@ commands:
   set_input_gain:
     label: Set Input Gain
     send: 's_input_gain_level S 0000 00 NC {channel},{gain},{gain},,,,,,, \r'
+    sets: { gain: "{gain}" }
     help: >
       Set the preamp gain for an input. The fader level and the other input
       settings are left unchanged (omitted-parameter write).
@@ -775,6 +779,7 @@ commands:
   set_input_phantom:
     label: Set Input Phantom Power
     send: 's_input_channel_settings S 0000 00 NC {channel},,{state},,,,,,,,,,,,,,,,,,,,,,,, \r'
+    sets: { phantom: "{state}" }
     help: "Switch +48 V phantom power for an input (Mic source only)."
     params:
       channel:
@@ -794,6 +799,7 @@ commands:
   set_input_phase:
     label: Set Input Phase
     send: 's_input_channel_settings S 0000 00 NC {channel},,,{state},,,,,,,,,,,,,,,,,,,,,,, \r'
+    sets: { phase: "{state}" }
     help: "Set an input channel's polarity."
     params:
       channel:
@@ -813,6 +819,7 @@ commands:
   set_input_low_cut:
     label: Set Input Low Cut
     send: 's_input_channel_settings S 0000 00 NC {channel},,,,{state},,,,,,,,,,,,,,,,,,,,,, \r'
+    sets: { low_cut: "{state}" }
     help: "Engage or release the low-cut filter on an input."
     params:
       channel:
@@ -832,6 +839,7 @@ commands:
   set_input_aec:
     label: Set Input AEC
     send: 's_input_channel_settings S 0000 00 NC {channel},,,,,{state},,,,,,,,,,,,,,,,,,,,, \r'
+    sets: { aec_enabled: "{state}" }
     help: "Include or exclude an input from the acoustic echo canceller."
     params:
       channel:
@@ -851,6 +859,7 @@ commands:
   set_input_smart_mix:
     label: Set Input SmartMix
     send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,{state},,,,,,,,,,,,,,,,,,,, \r'
+    sets: { smart_mix_enabled: "{state}" }
     help: "Add or remove an input from the SmartMix automixer."
     params:
       channel:
@@ -870,6 +879,7 @@ commands:
   rename_input:
     label: Rename Input
     send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,,,,,,,,,,,,,,"{name}",,,,,,, \r'
+    sets: { name: "{name}" }
     help: "Set an input's channel name (labels the child entity)."
     params:
       channel:
@@ -889,6 +899,7 @@ commands:
   set_st_input_level:
     label: Set Stereo Input Level
     send: 'SICL S 0000 00 NC {channel},{level} \r'
+    sets: { level: "{level}" }
     help: "Set the stereo input's fader level (0=mute, 411=0dB, 511=+10dB)."
     params:
       channel:
@@ -908,6 +919,7 @@ commands:
   st_input_mute_on:
     label: Stereo Input Mute On
     send: 'SICM S 0000 00 NC {channel},1 \r'
+    sets: { mute: true }
     help: "Mute the stereo input."
     params:
       channel:
@@ -920,6 +932,7 @@ commands:
   st_input_mute_off:
     label: Stereo Input Mute Off
     send: 'SICM S 0000 00 NC {channel},0 \r'
+    sets: { mute: false }
     help: "Unmute the stereo input."
     params:
       channel:
@@ -932,6 +945,7 @@ commands:
   set_st_input_gain:
     label: Set Stereo Input Trim
     send: 's_input_gain_level S 0000 00 NC {channel},{gain},{gain},,,,,,, \r'
+    sets: { gain: "{gain}" }
     help: "Set the stereo input's trim (fader level unchanged)."
     params:
       channel:
@@ -973,6 +987,7 @@ commands:
   set_st_input_mono:
     label: Set Stereo Input Mono
     send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,,,,,,,,,,,,,,,,,,,,,{state} \r'
+    sets: { mono: "{state}" }
     help: "Sum the stereo input to mono, or return it to stereo."
     params:
       channel:
@@ -992,6 +1007,7 @@ commands:
   rename_st_input:
     label: Rename Stereo Input
     send: 's_input_channel_settings S 0000 00 NC {channel},,,,,,,,,,,,,,,,,,,"{name}",,,,,,, \r'
+    sets: { name: "{name}" }
     help: "Set the stereo input's channel name (labels the child entity)."
     params:
       channel:
@@ -1011,6 +1027,7 @@ commands:
   set_output_level:
     label: Set Output Level
     send: 'SOCL S 0000 00 NC {channel},{level} \r'
+    sets: { level: "{level}" }
     help: "Set the fader level for an output (0=mute, 411=0dB, 511=+10dB)."
     params:
       channel:
@@ -1030,6 +1047,7 @@ commands:
   output_mute_on:
     label: Output Mute On
     send: 'SOCM S 0000 00 NC {channel},1 \r'
+    sets: { mute: true }
     help: "Mute an output."
     params:
       channel:
@@ -1042,6 +1060,7 @@ commands:
   output_mute_off:
     label: Output Mute Off
     send: 'SOCM S 0000 00 NC {channel},0 \r'
+    sets: { mute: false }
     help: "Unmute an output."
     params:
       channel:
@@ -1054,6 +1073,7 @@ commands:
   rename_output:
     label: Rename Output
     send: 's_output_channel_settings S 0000 00 NC {channel},,"{name}",, \r'
+    sets: { name: "{name}" }
     help: "Set an output's name (labels the child entity)."
     params:
       channel:
@@ -1072,6 +1092,7 @@ commands:
   set_st_output_level:
     label: Set Stereo Output Level
     send: 'SOCL S 0000 00 NC {channel},{level} \r'
+    sets: { level: "{level}" }
     help: "Set the stereo output's fader level (0=mute, 411=0dB, 511=+10dB)."
     params:
       channel:
@@ -1091,6 +1112,7 @@ commands:
   st_output_mute_on:
     label: Stereo Output Mute On
     send: 'SOCM S 0000 00 NC {channel},1 \r'
+    sets: { mute: true }
     help: "Mute the stereo output."
     params:
       channel:
@@ -1103,6 +1125,7 @@ commands:
   st_output_mute_off:
     label: Stereo Output Mute Off
     send: 'SOCM S 0000 00 NC {channel},0 \r'
+    sets: { mute: false }
     help: "Unmute the stereo output."
     params:
       channel:
@@ -1115,6 +1138,7 @@ commands:
   rename_st_output:
     label: Rename Stereo Output
     send: 's_output_channel_settings S 0000 00 NC {channel},,"{name}",, \r'
+    sets: { name: "{name}" }
     help: "Set the stereo output's name (labels the child entity)."
     params:
       channel:
@@ -1184,6 +1208,7 @@ commands:
   recall_preset:
     label: Recall Preset
     send: 'call_preset S 0000 00 NC {preset} \r'
+    sets: { last_recalled_preset: "{preset}" }
     help: "Load a saved preset."
     params:
       preset:
@@ -1209,6 +1234,7 @@ commands:
   oscillator_on:
     label: Oscillator On
     send: 's_oscillator S 0000 00 NC 1,{source},{frequency},{level},{out1},{out2},{out_st} \r'
+    sets: { oscillator_on: true }
     help: >
       Start the built-in test oscillator into the selected outputs. Level
       1-121 maps to -120 dB ... 0 dB (81 = -40 dB, a safe check level).
@@ -1262,6 +1288,7 @@ commands:
   oscillator_off:
     label: Oscillator Off
     send: 's_oscillator S 0000 00 NC 0,,,,,, \r'
+    sets: { oscillator_on: false }
     help: "Stop the built-in test oscillator (other oscillator settings unchanged)."
 
   # ── System Commands ──

@@ -1,0 +1,1 @@
+< REP DEVICE_MODEL {MXWNDX8G                       } >

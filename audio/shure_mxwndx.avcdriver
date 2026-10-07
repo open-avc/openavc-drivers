@@ -1,0 +1,753 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/open-avc/openavc-drivers/main/avcdriver.schema.json
+#
+# Shure MXW neXt Networked Docking Station Driver
+#
+# Monitors the bays of a Shure Microflex Wireless neXt networked docking
+# station (MXWNDX2, MXWNDX4, MXWNDX8, MXWNDX4G, MXWNDX8G) and links docked
+# microphones to an access point channel, over Shure's ASCII command strings
+# on TCP 2202. The docking station has its own IP address; the access point
+# it charges microphones for is a separate device (shure_mxw_next).
+#
+# Protocol reference (the manufacturer's own, read 2026-10-06):
+#   - "MXWneXt Command Strings", shure.com/en-US/docs/commandstrings/MXWneXt.
+#     Used here: what that page lists for MXWNDX (FLASH, DEVICE_MODEL, FW_VER,
+#     SERIAL_NUM, DEVICE_ID, REBOOT, REMOTE_LINK, TX_STATUS, TX_AVAILABLE,
+#     BATT_HEALTH, BATT_TIME_TO_FULL, BATT_CHARGE), plus TX_DEVICE_ID, whose
+#     entry names no device types but is addressed by docking bay ("x does not
+#     match a valid channel or docking bay"); the legacy MXW page lists it for
+#     its networked charger too, and the neXt page says "MXW neXt devices
+#     support MXW Legacy command strings, except where noted".
+#   - "MXW neXt" user guide (pubs.shure.com) for the models and bay counts
+#     (NDX2 / NDX4 / NDX8 and NDX4G / NDX8G hold 2, 4 or 8 microphones) and
+#     port 2202.
+#
+# Framing: every message is "< TYPE [index] PROPERTY value... >" in ASCII,
+# with spaces inside the brackets. ">" ends a frame. The index is a docking
+# bay, 1 to the bay count, or 0 for every bay where the page allows it.
+# TX_STATUS and TX_DEVICE_ID take a "BAY x" prefix; TX_AVAILABLE's prefix is
+# "APXD2 only", and the battery strings show none, so they are sent bare.
+# Reports are read with a BAY prefix or without one. Strings are brace-wrapped
+# and space-padded (TX_DEVICE_ID to 12, FW_VER to 24). A refused command
+# answers "< REP ERR >"; DECT_CHANNEL_COUNT, an access point string, answers
+# that way on a docking station.
+#
+# The device's numbers are not the real values: a battery charge or health
+# of 252-255 means it is not known (253 an error), and the time to a full
+# charge uses 65533-65535 for a microphone that is in use, full or off. The
+# state variables declare those codes.
+#
+# Push vs poll: poll, with whatever the docking station reports on its own.
+# The page says "Most parameters will send an acknowledgement in the form of
+# a REP string when they change", but the sentence after it names the access
+# point, not the docking station. So every bay is read on connect and again
+# every Refresh Interval (30 s by default), and any report the docking
+# station sends between polls is applied as it arrives. Liveness is an
+# awaited < GET DEVICE_MODEL > every 30 s.
+#
+# Not used: TX_STATUS's SET (its header says GET and REP; a docked
+# microphone is charging), TX_MODEL and the other access point strings (the
+# page lists them for MXWAPX and MXWAPXD2 only), a bay-indexed FLASH (neXt
+# answers an error), and GET ALL (the page lists no device types for it, and
+# the queries below ask for every value it would carry).
+#
+# Why YAML: one line per message, every reply readable with a regex, the
+# bay count taken from the model name by a value map, and the "not known"
+# codes declared on the state variables. Nothing here needs code.
+
+id: shure_mxwndx
+name: Shure MXW neXt Networked Docking Station
+manufacturer: Shure
+category: audio
+version: 1.0.0
+author: OpenAVC
+# unknown on state variables.
+min_platform_version: "0.37.0"
+description: >
+  Microflex Wireless neXt networked docking stations (MXWNDX2, MXWNDX4,
+  MXWNDX8, MXWNDX4G, MXWNDX8G) over Shure command strings. Shows which bays
+  hold a microphone, each docked microphone's name, battery charge, battery
+  health and time to a full charge, and links a docked microphone to an
+  access point channel.
+source_url: https://www.shure.com/en-US/docs/commandstrings/MXWneXt
+tags: [shure, mxw-next, microflex-wireless, wireless-microphone, charging-station, docking-station]
+verified: false
+simulated: true
+protocols: [shure_command_strings]
+ports: [2202]
+
+compatible_models:
+  - manufacturer: Shure
+    models:
+      - MXWNDX2
+      - MXWNDX4
+      - MXWNDX8
+      - MXWNDX4G
+      - MXWNDX8G
+    confidence: untested
+    notes: >
+      Built from Shure's MXW neXt command strings page and user guide; not
+      yet run against a docking station. The NDX2, NDX4 and NDX8 charge
+      bodypack, handheld and boundary microphones; the NDX4G and NDX8G
+      charge gooseneck and boundary microphones. The access point is a
+      separate device (Shure MXW neXt Access Point driver).
+
+transport: tcp
+delimiter: ">"
+
+help:
+  overview: >
+    Shows what is in each bay of an MXW neXt networked docking station: whether
+    a microphone is docked, its name, its battery charge and health, and how
+    long until it is fully charged. A panel can show which microphones are
+    ready, and a trigger can warn when a microphone is put away without
+    charging or its battery health drops. Link Microphone links a docked
+    microphone to a channel on an access point.
+  setup: >
+    1. Connect the docking station to the control network and note its IP
+    address (Shure Designer, Shure Update Utility or the docking station's
+    web application).
+
+    2. Enter that address here. The port is 2202 on every docking station.
+
+    3. Set Docking Bays to the docking station's bay count: 2 for an MXWNDX2,
+    4 for an MXWNDX4 or MXWNDX4G, 8 for an MXWNDX8 or MXWNDX8G. Once
+    connected, the docking station's model sets it.
+
+    4. Add the access point as its own device with the Shure MXW neXt Access
+    Point driver to control the microphones' audio.
+  connection: >
+    TCP port 2202, no password. Shure recommends one control system per MXW
+    neXt system, so messages from two controllers do not conflict.
+
+discovery:
+  # DEVICE_MODEL is on the MXW neXt page and on no other Shure command
+  # strings page. The docking stations' names start MXWNDX; the access
+  # points answer MXWAPX and have their own driver.
+  tcp_probe:
+    port: 2202
+    send_ascii: "< GET DEVICE_MODEL >\r\n"
+    expect_regex: '<\s*REP\s+DEVICE_MODEL\s+\{\s*MXWNDX'
+    extract_manufacturer: "Shure"
+    extract:
+      model:
+        regex: '<\s*REP\s+DEVICE_MODEL\s+\{\s*(MXWNDX[^}\s]*)'
+  # Shure Incorporated (IEEE registry).
+  oui:
+    - "00:0e:dd"
+    - "d8:34:ee"
+  port_open: [2202]
+  manufacturer_alias:
+    - "shure"
+    - "shure incorporated"
+
+default_config:
+  host: ""
+  port: 2202
+  bay_count: 4
+  poll_interval: 30
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    help: "The docking station's IP address, from Shure Designer or Shure Update Utility."
+  port:
+    type: integer
+    default: 2202
+    label: Port
+    advanced: true
+    help: "2202 on every docking station."
+  bay_count:
+    type: enum
+    values: [2, 4, 8]
+    default: 4
+    label: Docking Bays
+    help: >
+      2 for an MXWNDX2, 4 for an MXWNDX4 or MXWNDX4G, 8 for an MXWNDX8 or
+      MXWNDX8G. Once connected, the docking station's model sets the bay
+      count.
+  poll_interval:
+    type: integer
+    default: 30
+    min: 0
+    label: Refresh Interval (sec)
+    advanced: true
+    help: >
+      How often every bay is read, in seconds. A microphone taken out of a
+      bay or put back shows up within this time; 0 reads the bays only on
+      connect.
+
+state_variables:
+  model:
+    type: string
+    label: Model
+    help: "The docking station's model: MXWNDX2, MXWNDX4, MXWNDX8, MXWNDX4G or MXWNDX8G."
+  bay_count_reported:
+    type: integer
+    label: Bays
+    help: "The number of docking bays, from the model."
+  device_name:
+    type: string
+    label: Device ID
+    help: "The docking station's name on the network (DEVICE_ID)."
+  firmware:
+    type: string
+    label: Firmware
+  firmware_self_test_failed:
+    type: boolean
+    label: Firmware Self Test Failed
+    cloud_priority: high
+    help: "The docking station reports that its firmware self test failed. Update the firmware with Shure Designer or Shure Update Utility."
+  serial_number:
+    type: string
+    label: Serial Number
+  identifying:
+    type: boolean
+    label: Identifying
+    help: "The docking station's lights are flashing to identify it."
+
+liveness:
+  # DEVICE_MODEL is answered by every docking station; an error reply still
+  # proves the link is up.
+  send: "< GET DEVICE_MODEL >"
+  expect: '<\s*REP\s+(DEVICE_MODEL|ERR)'
+  interval: 30
+  timeout: 5
+  max_failures: 2
+
+child_entity_types:
+  bay:
+    label: Bay
+    label_plural: Bays
+    id_format:
+      type: integer
+      min: 1
+      max: 8
+    instances:
+      # The model sets the count (NDX2 2, NDX4 / NDX4G 4, NDX8 / NDX8G 8);
+      # the config field is the count before the docking station has
+      # reported.
+      count_from_state: bay_count_reported
+      count_from: bay_count
+      label: "Bay {id}"
+    summary_fields: [docked, tx_name, tx_battery_percent, tx_charge_minutes, tx_charge_state]
+    state_variables:
+      tx_status:
+        type: enum
+        values: [active, muted, on_charger, unknown]
+        label: Microphone Status
+        cloud_priority: high
+        help: >
+          on_charger (a microphone is docked in this bay), unknown (no
+          microphone, or it is off or unlinked), active or muted (the
+          microphone is out of the bay and on).
+      docked:
+        type: boolean
+        label: Microphone Docked
+        cloud_priority: high
+        help: "A microphone is docked in this bay (Microphone Status is on_charger)."
+      tx_available:
+        type: boolean
+        label: Microphone Available
+        help: >
+          The docking station reports the microphone as available: on,
+          linked and talking. It is not available while it is off, unlinked
+          or still starting up.
+      tx_name:
+        type: string
+        label: Microphone Name
+        help: "The docked microphone's own name, up to 12 characters; empty when there is none or it is off."
+      tx_battery_percent:
+        type: integer
+        label: Battery Charge
+        min: 0
+        max: 100
+        unit: "%"
+        unknown: [255, 254, 253, 252]
+        cloud_priority: high
+        help: "Charge in the docked microphone's battery; empty when unknown."
+      tx_battery_health_percent:
+        type: integer
+        label: Battery Health
+        min: 0
+        max: 100
+        unit: "%"
+        unknown: [255, 254, 253, 252]
+        help: >
+          Battery capacity compared with when it was new; empty when unknown.
+          Shure suggests replacing a battery at 80 % or less.
+      tx_charge_minutes:
+        type: integer
+        label: Time to Full Charge
+        unit: min
+        unknown: [65535, 65534, 65533, 65532]
+        help: "Minutes until the docked microphone is fully charged; empty otherwise (see Charge State)."
+      tx_charge_state:
+        type: enum
+        values: [charging, full, not_on_charger, "off", unknown]
+        label: Charge State
+        help: >
+          charging, full, not_on_charger (the microphone is on and out of the
+          bay), off (no microphone, or it is off) or unknown.
+      link_result:
+        type: enum
+        values: [success, failed]
+        label: Last Link Result
+        help: >
+          What the docking station reported for the last Link Microphone sent
+          for this bay. Nothing reads which channel a bay is linked to now.
+      link_channel:
+        type: integer
+        label: Last Link Channel
+        help: "The access point channel the last Link Microphone for this bay named."
+      link_access_point:
+        type: string
+        label: Last Link Access Point
+        help: "The access point address the last Link Microphone for this bay named."
+
+device_settings:
+  device_name:
+    type: string
+    label: Device ID
+    help: >
+      The docking station's name on the network, 1 to 31 letters, digits and
+      hyphens, not starting or ending with a hyphen. It must be unique on
+      the network.
+    state_key: device_name
+    default: ""
+    setup: false
+    regex: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,29}[A-Za-z0-9])?$'
+    write:
+      send: "< SET DEVICE_ID {{value}} >"
+
+commands:
+  identify:
+    label: Identify Docking Station
+    help: "Flashes the docking station's lights so it can be found. It stops by itself."
+    send: "< SET FLASH ON >"
+
+  identify_off:
+    label: Stop Identifying
+    help: "Stops the docking station's lights flashing."
+    send: "< SET FLASH OFF >"
+
+  link_microphone:
+    label: Link Microphone
+    help: >
+      Links the microphone docked in the bay to a channel on an access point.
+      It replaces whichever microphone was linked to that channel. Last Link
+      Result shows whether it worked.
+    confirm: >
+      The microphone in this bay replaces whichever microphone is linked to
+      that access point channel, and that microphone stops working on it.
+      Link it?
+    send: "< SET {bay} REMOTE_LINK {channel} {{access_point}} >"
+    params:
+      bay:
+        type: child_id
+        child_type: bay
+        required: true
+        label: Bay
+      channel:
+        type: integer
+        required: true
+        label: Access Point Channel
+        min: 1
+        max: 8
+        help: "The access point channel to link the microphone to: 1 to 2, 4 or 8, by access point."
+      access_point:
+        type: string
+        required: true
+        label: Access Point IP Address
+        pattern: '(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}'
+        help: "The access point's IP address, for example 192.168.1.40."
+
+  set_microphone_name:
+    label: Set Microphone Name
+    help: "Renames the microphone docked in the bay."
+    send: "< SET BAY {bay} TX_DEVICE_ID {{name}} >"
+    params:
+      bay:
+        type: child_id
+        child_type: bay
+        required: true
+        label: Bay
+      name:
+        type: string
+        required: true
+        label: Name
+        pattern: '[A-Za-z0-9](?:[A-Za-z0-9-]{0,10}[A-Za-z0-9])?'
+        help: "1 to 12 letters, digits and hyphens, not starting or ending with a hyphen."
+
+  reboot:
+    label: Reboot Docking Station
+    help: >
+      Restarts the docking station. The microphones in it keep their charge
+      and links, and the docking station reconnects by itself.
+    # Off the network while it boots; the platform reports it as restarting
+    # rather than as a fault for this long. Unmeasured (no hardware): round
+    # the real gap up on the bench.
+    restarts_device_for: 120
+    send: "< SET REBOOT >"
+
+  raw_command:
+    label: Send Raw Command
+    help: "Sends any command string from Shure's MXW neXt page, brackets included, e.g. < GET 1 BATT_CHARGE >."
+    send: "{command}"
+    params:
+      command:
+        type: string
+        required: true
+        label: Command
+
+quick_actions: [identify, identify_off]
+
+on_connect:
+  # The model first: it sets the bay count before the bay reports arrive.
+  - { send: "< GET DEVICE_MODEL >", query_for: model }
+  - { send: "< GET DEVICE_ID >", query_for: device_name }
+  - { send: "< GET FW_VER >", query_for: firmware }
+  - { send: "< GET SERIAL_NUM >", query_for: serial_number }
+  - "< GET BAY 0 TX_STATUS >"
+  - "< GET 0 TX_AVAILABLE >"
+  - "< GET BAY 0 TX_DEVICE_ID >"
+  - "< GET 0 BATT_CHARGE >"
+  - "< GET 0 BATT_HEALTH >"
+  # The page gives "0 for GET all" on every bay string but this one.
+  - { each_child: bay, send: "< GET {child_id} BATT_TIME_TO_FULL >" }
+
+polling:
+  # Every bay again, every Refresh Interval: the page does not say the
+  # docking station reports a change on its own.
+  queries:
+    - "< GET BAY 0 TX_STATUS >"
+    - "< GET 0 TX_AVAILABLE >"
+    - "< GET BAY 0 TX_DEVICE_ID >"
+    - "< GET 0 BATT_CHARGE >"
+    - "< GET 0 BATT_HEALTH >"
+    - { each_child: bay, send: "< GET {child_id} BATT_TIME_TO_FULL >" }
+
+responses:
+  # ── Device ──
+  # The model's digit is the bay count: MXWNDX2, 4, 8, 4G, 8G.
+  - match: '^<\s+REP\s+DEVICE_MODEL\s+\{\s*(MXWNDX([248])G?)\s*\}$'
+    set: { model: "$1", bay_count_reported: "$2" }
+  - match: '^<\s+REP\s+DEVICE_MODEL\s+\{(.*?)\s*\}$'
+    set: { model: "$1" }
+  - match: '^<\s+REP\s+DEVICE_ID\s+\{(.*?)\s*\}$'
+    set: { device_name: "$1" }
+  # "2.0.15.2*": the asterisk means the firmware self test failed.
+  - match: '^<\s+REP\s+FW_VER\s+\{\s*([^*}\s]*)(\*?)\s*\}$'
+    set: { firmware: "$1" }
+    mappings:
+      - { group: 2, state: firmware_self_test_failed, map: { "*": true, "": false } }
+  - match: '^<\s+REP\s+SERIAL_NUM\s+\{(.*?)\s*\}$'
+    set: { serial_number: "$1" }
+  - match: '^<\s+REP\s+FLASH\s+(ON|OFF)$'
+    mappings:
+      - { group: 1, state: identifying, map: { "ON": true, "OFF": false } }
+
+  # ── Bays ("BAY x" prefix or none) ──
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+TX_STATUS\s+(ACTIVE|MUTED|ON_CHARGER|UNKNOWN)$'
+    child_set:
+      - type: bay
+        id: $1
+        state:
+          tx_status: { group: 2, map: { "ACTIVE": active, "MUTED": muted, "ON_CHARGER": on_charger, "UNKNOWN": unknown } }
+          docked: { group: 2, map: { "ON_CHARGER": true, "ACTIVE": false, "MUTED": false, "UNKNOWN": false } }
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+TX_AVAILABLE\s+(YES|NO)$'
+    child_set:
+      - type: bay
+        id: $1
+        state: { tx_available: { group: 2, map: { "YES": true, "NO": false } } }
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+TX_DEVICE_ID\s+\{(.*?)\s*\}$'
+    child_set:
+      - { type: bay, id: $1, state: { tx_name: $2 } }
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+TX_DEVICE_ID\s+UNKNOWN$'
+    child_set:
+      - { type: bay, id: $1, state: { tx_name: "" } }
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+BATT_CHARGE\s+(\d{3})$'
+    child_set:
+      - { type: bay, id: $1, state: { tx_battery_percent: $2 } }
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+BATT_HEALTH\s+(\d{3})$'
+    child_set:
+      - { type: bay, id: $1, state: { tx_battery_health_percent: $2 } }
+  # The four codes first: dispatch stops at the first match, and the
+  # general rule below would read them as minutes.
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+BATT_TIME_TO_FULL\s+(6553[2-5])$'
+    child_set:
+      - type: bay
+        id: $1
+        state:
+          tx_charge_minutes: $2
+          tx_charge_state:
+            group: 2
+            map: { "65532": unknown, "65533": not_on_charger, "65534": full, "65535": "off" }
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+BATT_TIME_TO_FULL\s+(\d{5})$'
+    child_set:
+      - { type: bay, id: $1, state: { tx_charge_minutes: $2, tx_charge_state: charging } }
+  # < REP x REMOTE_LINK y {zzz.zzz.zzz.zzz} SUCCESS | ERR >
+  - match: '^<\s+REP\s+(?:BAY\s+)?(\d)\s+REMOTE_LINK\s+(\d)\s+\{\s*([0-9.]+)\s*\}\s+(SUCCESS|ERR|ERROR)$'
+    child_set:
+      - type: bay
+        id: $1
+        state:
+          link_channel: $2
+          link_access_point: $3
+          link_result: { group: 4, map: { "SUCCESS": success, "ERR": failed, "ERROR": failed } }
+
+simulator:
+  push_state: true
+  initial_state:
+    model: "MXWNDX8"
+    bay_count_reported: 8
+    device_name: "Charging-Shelf"
+    firmware: "2.0.15.2"
+    firmware_self_test_failed: false
+    serial_number: "3XN7F0042CD"
+    identifying: false
+    # Bay 1: a microphone charging.
+    bay.1.tx_status: on_charger
+    bay.1.docked: true
+    bay.1.tx_available: true
+    bay.1.tx_name: "HH-1"
+    bay.1.tx_battery_percent: 47
+    bay.1.tx_battery_health_percent: 97
+    bay.1.tx_charge_minutes: 85
+    bay.1.tx_charge_state: charging
+    # Bay 2: a microphone fully charged.
+    bay.2.tx_status: on_charger
+    bay.2.docked: true
+    bay.2.tx_available: true
+    bay.2.tx_name: "BP-2"
+    bay.2.tx_battery_percent: 100
+    bay.2.tx_battery_health_percent: 92
+    bay.2.tx_charge_minutes: null
+    bay.2.tx_charge_state: full
+    # Bay 3: empty.
+    bay.3.tx_status: unknown
+    bay.3.docked: false
+    bay.3.tx_available: false
+    bay.3.tx_name: ""
+    bay.3.tx_battery_percent: null
+    bay.3.tx_battery_health_percent: null
+    bay.3.tx_charge_minutes: null
+    bay.3.tx_charge_state: "off"
+    # Bay 4: charging, with a worn battery (Shure: replace at 80 % or less).
+    bay.4.tx_status: on_charger
+    bay.4.docked: true
+    bay.4.tx_available: true
+    bay.4.tx_name: "BND-4"
+    bay.4.tx_battery_percent: 12
+    bay.4.tx_battery_health_percent: 78
+    bay.4.tx_charge_minutes: 160
+    bay.4.tx_charge_state: charging
+    # Bay 5: just docked, nearly full.
+    bay.5.tx_status: on_charger
+    bay.5.docked: true
+    bay.5.tx_available: true
+    bay.5.tx_name: "GN-5"
+    bay.5.tx_battery_percent: 90
+    bay.5.tx_battery_health_percent: 100
+    bay.5.tx_charge_minutes: 20
+    bay.5.tx_charge_state: charging
+    # Bay 6: empty.
+    bay.6.tx_status: unknown
+    bay.6.docked: false
+    bay.6.tx_available: false
+    bay.6.tx_name: ""
+    bay.6.tx_battery_percent: null
+    bay.6.tx_battery_health_percent: null
+    bay.6.tx_charge_minutes: null
+    bay.6.tx_charge_state: "off"
+    # Bay 7: a microphone fully charged.
+    bay.7.tx_status: on_charger
+    bay.7.docked: true
+    bay.7.tx_available: true
+    bay.7.tx_name: "GN-7"
+    bay.7.tx_battery_percent: 100
+    bay.7.tx_battery_health_percent: 99
+    bay.7.tx_charge_minutes: null
+    bay.7.tx_charge_state: full
+    # Bay 8: a microphone charging.
+    bay.8.tx_status: on_charger
+    bay.8.docked: true
+    bay.8.tx_available: true
+    bay.8.tx_name: "GN-8"
+    bay.8.tx_battery_percent: 63
+    bay.8.tx_battery_health_percent: 95
+    bay.8.tx_charge_minutes: 55
+    bay.8.tx_charge_state: charging
+
+  delays:
+    command_response: 0.02
+
+  # The simulated docking station's model follows Docking Bays: MXWNDX2 (2),
+  # MXWNDX4 (4) or MXWNDX8 (8). One handler answers the whole grammar, and a
+  # whole burst of commands in one read (the connect and refresh bursts run
+  # past the simulator's 256-character splitter on an eight-bay station).
+  # Assumptions where the page is silent, stated so they are not mistaken for
+  # the device's: a docked microphone is available and an empty bay is not;
+  # an empty bay reports UNKNOWN, 255 and 65535; REMOTE_LINK succeeds only
+  # with a microphone docked in the bay; GET 0 BATT_TIME_TO_FULL answers for
+  # every bay (the legacy page's "0 all channels"); a command the page does
+  # not list for the docking station (GET ALL, MODEL, MAC_ADDR, TX_MODEL, a
+  # TX_STATUS SET, a CH prefix) answers < REP ERR >, as DECT_CHANNEL_COUNT
+  # does by the page. Fidelity gaps: REBOOT is not acknowledged and the
+  # connection stays up; a SET REMOTE_LINK links nothing. Docked follows
+  # Microphone Status: to dock or undock a microphone here, change
+  # tx_status (on_charger or unknown), not docked.
+  command_handlers:
+    - match: '(?:<\s*(?:GET|SET)\s+[^<>]*>\s*)+'
+      handler: |
+        def _run():
+            count = int(config.get("bay_count") or 4)
+            if count not in (2, 4, 8):
+                count = 4
+            model = "MXWNDX" + str(count)
+            state["model"] = model
+            state["bay_count_reported"] = count
+            ctx = {"count": count, "model": model}
+            out = []
+            for m in re.finditer(r"<\s*(GET|SET)\s+([^<>]*?)\s*>", match.group(0)):
+                words = m.group(2).split()
+                if not words:
+                    out.append("< REP ERR >")
+                elif m.group(1) == "GET":
+                    out.append(GET(ctx, words) or "< REP ERR >")
+                else:
+                    line = SET(ctx, m.group(2).strip(), words)
+                    if line is not None:
+                        out.append(line)
+            if out:
+                respond("".join(out))
+
+        STATUS = {"active": "ACTIVE", "muted": "MUTED", "on_charger": "ON_CHARGER"}
+        FULL_CODES = {"unknown": 65532, "not_on_charger": 65533, "full": 65534}
+        IP = r"^\{\s*((?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3})\s*\}$"
+
+        def pad(text, width):
+            text = str(text or "")
+            return text + " " * max(0, width - len(text))
+
+        def device_line(ctx, prop):
+            if prop == "DEVICE_MODEL":
+                return "< REP DEVICE_MODEL {" + pad(ctx["model"], 31) + "} >"
+            if prop == "DEVICE_ID":
+                return "< REP DEVICE_ID {" + str(state.get("device_name") or "") + "} >"
+            if prop == "FW_VER":
+                fw = str(state.get("firmware") or "") + ("*" if state.get("firmware_self_test_failed") else "")
+                return "< REP FW_VER {" + pad(fw, 24) + "} >"
+            if prop == "SERIAL_NUM":
+                return "< REP SERIAL_NUM {" + str(state.get("serial_number") or "") + " } >"
+            return None
+
+        def bay_line(ctx, n, prop):
+            p = "bay." + str(n) + "."
+            x = str(n)
+            docked = state.get(p + "tx_status") == "on_charger"
+            if prop == "TX_STATUS":
+                return "< REP BAY " + x + " TX_STATUS " + STATUS.get(state.get(p + "tx_status"), "UNKNOWN") + " >"
+            if prop == "TX_AVAILABLE":
+                return "< REP " + x + " TX_AVAILABLE " + ("YES" if state.get(p + "tx_available") else "NO") + " >"
+            if prop == "TX_DEVICE_ID":
+                if not state.get(p + "tx_name"):
+                    return "< REP BAY " + x + " TX_DEVICE_ID UNKNOWN >"
+                return "< REP BAY " + x + " TX_DEVICE_ID {" + pad(state.get(p + "tx_name"), 12) + "} >"
+            if prop == "BATT_CHARGE":
+                v = state.get(p + "tx_battery_percent")
+                return "< REP " + x + " BATT_CHARGE " + format(255 if v is None else int(v), "03d") + " >"
+            if prop == "BATT_HEALTH":
+                v = state.get(p + "tx_battery_health_percent")
+                return "< REP " + x + " BATT_HEALTH " + format(255 if v is None else int(v), "03d") + " >"
+            if prop == "BATT_TIME_TO_FULL":
+                v = state.get(p + "tx_charge_minutes")
+                if v is None or not docked:
+                    v = FULL_CODES.get(state.get(p + "tx_charge_state"), 65535)
+                return "< REP " + x + " BATT_TIME_TO_FULL " + format(int(v), "05d") + " >"
+            return None
+
+        def GET(ctx, w):
+            if len(w) == 1:
+                return device_line(ctx, w[0])
+            prefixed = w[0] == "BAY"
+            if w[0] in ("BAY", "CH"):
+                if w[0] == "CH":
+                    return None
+                w = w[1:]
+            if len(w) != 2 or not w[0].isdigit():
+                return None
+            x = int(w[0])
+            prop = w[1]
+            # TX_STATUS and TX_DEVICE_ID are addressed "BAY x"; the rest bare
+            # (TX_AVAILABLE's prefix is APXD2 only), and a BAY prefix on them
+            # is accepted.
+            if prop not in ("TX_STATUS", "TX_AVAILABLE", "TX_DEVICE_ID",
+                            "BATT_CHARGE", "BATT_HEALTH", "BATT_TIME_TO_FULL"):
+                return None
+            if prop in ("TX_STATUS", "TX_DEVICE_ID") and not prefixed:
+                return None
+            if x > ctx["count"]:
+                return None
+            out = []
+            for n in (range(1, ctx["count"] + 1) if x == 0 else [x]):
+                out.append(bay_line(ctx, n, prop))
+            return "".join(out)
+
+        def device_set(ctx, prop, rest):
+            if prop == "FLASH" and rest in ("ON", "OFF"):
+                state["identifying"] = rest == "ON"
+                return "< REP FLASH " + rest + " >"
+            if prop == "DEVICE_ID":
+                m = re.match(r"^\{\s*([A-Za-z0-9-]{1,31})\s*\}$", rest)
+                if not m or m.group(1).startswith("-") or m.group(1).endswith("-"):
+                    return "< REP ERR >"
+                state["device_name"] = m.group(1)
+                return device_line(ctx, "DEVICE_ID")
+            if prop == "REBOOT" and not rest:
+                return None
+            return "< REP ERR >"
+
+        def SET(ctx, raw, w):
+            m = re.match(r"^(?:(CH|BAY)\s+)?(\d+)\s+(\w+)\s*(.*)$", raw)
+            if not m:
+                return device_set(ctx, w[0], raw[len(w[0]):].strip())
+            x = int(m.group(2))
+            prop = m.group(3)
+            rest = m.group(4).strip()
+            if prop == "FLASH":
+                return "< REP ERROR >"
+            if m.group(1) == "CH" or x < 1 or x > ctx["count"]:
+                return "< REP ERR >"
+            p = "bay." + str(x) + "."
+            xs = str(x)
+            docked = state.get(p + "tx_status") == "on_charger"
+            if prop == "REMOTE_LINK" and m.group(1) is None:
+                n = re.match(r"^([1-8])\s+(\{.*\})$", rest)
+                if not n:
+                    return "< REP ERR >"
+                ip = re.match(IP, n.group(2))
+                if not ip:
+                    return "< REP ERR >"
+                word = "SUCCESS" if docked else "ERR"
+                state[p + "link_channel"] = int(n.group(1))
+                state[p + "link_access_point"] = ip.group(1)
+                state[p + "link_result"] = "success" if docked else "failed"
+                return "< REP " + xs + " REMOTE_LINK " + n.group(1) + " {" + ip.group(1) + "} " + word + " >"
+            if prop == "TX_DEVICE_ID" and m.group(1) == "BAY":
+                if not docked:
+                    return "< REP BAY " + xs + " TX_DEVICE_ID UNKNOWN >"
+                n = re.match(r"^\{\s*([A-Za-z0-9-]+)\s*\}$", rest)
+                if not n or len(n.group(1)) > 12 or n.group(1).startswith("-") or n.group(1).endswith("-"):
+                    return "< REP ERR >"
+                state[p + "tx_name"] = n.group(1)
+                return bay_line(ctx, x, "TX_DEVICE_ID")
+            return "< REP ERR >"
+
+        _run()
+
+  error_modes:
+    communication_timeout:
+      description: "Docking station stops responding"
+      behavior: no_response

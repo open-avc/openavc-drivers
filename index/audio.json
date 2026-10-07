@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 34,
+    "total_drivers": 35,
     "shards": null,
     "category": "audio"
   },
@@ -1816,6 +1816,81 @@
           "extract": {
             "model": {
               "regex": "<\\s*REP\\s+DEVICE_MODEL\\s+\\{\\s*(MXWAPX[^}\\s]*)"
+            }
+          }
+        },
+        "oui": [
+          "00:0e:dd",
+          "d8:34:ee"
+        ],
+        "port_open": [
+          2202
+        ],
+        "manufacturer_alias": [
+          "shure",
+          "shure incorporated"
+        ]
+      }
+    },
+    {
+      "id": "shure_mxwndx",
+      "name": "Shure MXW neXt Networked Docking Station",
+      "manufacturer": "Shure",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "tcp",
+      "description": "Microflex Wireless neXt networked docking stations (MXWNDX2, MXWNDX4, MXWNDX8, MXWNDX4G, MXWNDX8G) over Shure command strings. Shows which bays hold a microphone, each docked microphone's name, battery charge, battery health and time to a full charge, and links a docked microphone to an access point channel.\n",
+      "source_url": "https://www.shure.com/en-US/docs/commandstrings/MXWneXt",
+      "file": "audio/shure_mxwndx.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "audio/shure_mxwndx.avcdriver": "8618d569d158431aea95a03a24f5710deccf69b1ae0714bafc87195767786c15"
+      },
+      "ports": [
+        2202
+      ],
+      "protocols": [
+        "shure_command_strings"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "shure",
+        "mxw-next",
+        "microflex-wireless",
+        "wireless-microphone",
+        "charging-station",
+        "docking-station"
+      ],
+      "help": {
+        "overview": "Shows what is in each bay of an MXW neXt networked docking station: whether a microphone is docked, its name, its battery charge and health, and how long until it is fully charged. A panel can show which microphones are ready, and a trigger can warn when a microphone is put away without charging or its battery health drops. Link Microphone links a docked microphone to a channel on an access point.\n",
+        "setup": "1. Connect the docking station to the control network and note its IP address (Shure Designer, Shure Update Utility or the docking station's web application).\n2. Enter that address here. The port is 2202 on every docking station.\n3. Set Docking Bays to the docking station's bay count: 2 for an MXWNDX2, 4 for an MXWNDX4 or MXWNDX4G, 8 for an MXWNDX8 or MXWNDX8G. Once connected, the docking station's model sets it.\n4. Add the access point as its own device with the Shure MXW neXt Access Point driver to control the microphones' audio.\n",
+        "connection": "TCP port 2202, no password. Shure recommends one control system per MXW neXt system, so messages from two controllers do not conflict.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Shure",
+          "models": [
+            "MXWNDX2",
+            "MXWNDX4",
+            "MXWNDX8",
+            "MXWNDX4G",
+            "MXWNDX8G"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt command strings page and user guide; not yet run against a docking station. The NDX2, NDX4 and NDX8 charge bodypack, handheld and boundary microphones; the NDX4G and NDX8G charge gooseneck and boundary microphones. The access point is a separate device (Shure MXW neXt Access Point driver).\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 2202,
+          "send_ascii": "< GET DEVICE_MODEL >\r\n",
+          "expect_regex": "<\\s*REP\\s+DEVICE_MODEL\\s+\\{\\s*MXWNDX",
+          "extract_manufacturer": "Shure",
+          "extract": {
+            "model": {
+              "regex": "<\\s*REP\\s+DEVICE_MODEL\\s+\\{\\s*(MXWNDX[^}\\s]*)"
             }
           }
         },

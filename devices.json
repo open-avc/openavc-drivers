@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 915,
+    "total_devices": 920,
     "shards": null
   },
   "devices": [
@@ -9189,6 +9189,66 @@
           "id": "shure_mxw_next",
           "confidence": "untested",
           "notes": "Built from Shure's MXW neXt and MXW command strings pages; not yet run against an access point. The microphones (MXW1X, MXW2X in every head, MXW6X, MXW8X) are reported through the access point channel they are linked to. The MXWNDX charging stations are separate devices and are not controlled by this driver.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWNDX2",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxwndx",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt command strings page and user guide; not yet run against a docking station. The NDX2, NDX4 and NDX8 charge bodypack, handheld and boundary microphones; the NDX4G and NDX8G charge gooseneck and boundary microphones. The access point is a separate device (Shure MXW neXt Access Point driver).\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWNDX4",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxwndx",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt command strings page and user guide; not yet run against a docking station. The NDX2, NDX4 and NDX8 charge bodypack, handheld and boundary microphones; the NDX4G and NDX8G charge gooseneck and boundary microphones. The access point is a separate device (Shure MXW neXt Access Point driver).\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWNDX4G",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxwndx",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt command strings page and user guide; not yet run against a docking station. The NDX2, NDX4 and NDX8 charge bodypack, handheld and boundary microphones; the NDX4G and NDX8G charge gooseneck and boundary microphones. The access point is a separate device (Shure MXW neXt Access Point driver).\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWNDX8",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxwndx",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt command strings page and user guide; not yet run against a docking station. The NDX2, NDX4 and NDX8 charge bodypack, handheld and boundary microphones; the NDX4G and NDX8G charge gooseneck and boundary microphones. The access point is a separate device (Shure MXW neXt Access Point driver).\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Shure",
+      "model": "MXWNDX8G",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "shure_mxwndx",
+          "confidence": "untested",
+          "notes": "Built from Shure's MXW neXt command strings page and user guide; not yet run against a docking station. The NDX2, NDX4 and NDX8 charge bodypack, handheld and boundary microphones; the NDX4G and NDX8G charge gooseneck and boundary microphones. The access point is a separate device (Shure MXW neXt Access Point driver).\n"
         }
       ]
     },

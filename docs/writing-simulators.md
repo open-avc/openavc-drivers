@@ -450,7 +450,7 @@ A UDP device has no connections to push to, so it pushes to the last peer it hea
 
 ### Notifications (Custom Push Format Override)
 
-When `push_state: true` is set, the default push format uses the driver's existing `responses:` patterns. If your device's unsolicited message format differs from the standard response format (for example, different prefixes for pushed vs. polled responses, or value-specific messages like `Amt1` vs. `Amt0`), add a `notifications` section to override the push format:
+When `push_state: true` is set, the default push format uses the driver's existing `responses:` patterns. When more than one response rule sets the same value (a rule for the device's special codes ahead of the general one), a push takes the form of the first rule that matches it, so 400 goes out as `00400` when the general rule reads five digits. If your device's unsolicited message format differs from the standard response format (for example, different prefixes for pushed vs. polled responses, or value-specific messages like `Amt1` vs. `Amt0`), add a `notifications` section to override the push format:
 
 ```yaml
 simulator:

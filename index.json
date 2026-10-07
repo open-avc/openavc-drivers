@@ -2,10 +2,129 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 118,
+    "total_drivers": 119,
     "shards": null
   },
   "drivers": [
+    {
+      "id": "algo_ip_endpoint",
+      "name": "Algo IP Endpoint",
+      "manufacturer": "Algo",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls Algo IP speakers, paging adapters, visual alerters, display speakers, intercoms, the 8063 door controller and the 8450 console over their RESTful API. Plays tones and test tones, starts and stops emergency alerts, calls and pages extensions, runs strobe patterns, shows images, slides, clocks and text on the 8410 and 8420, locks and unlocks doors, skips a day's scheduled bells on the 8301, and sets page, ring and speaker volume. Reports call, multicast, SIP and relay input status, ambient noise and the console's active events. Each device is offered only the commands its model has.",
+      "source_url": "https://docs.algosolutions.com/docs/restful-api-guide",
+      "file": "audio/algo_ip_endpoint.py",
+      "format": "python",
+      "files": {
+        "audio/algo_ip_endpoint.py": "d10684bccf2bd98d79b575817e7b504c3ee1a8e1496c9f8d10927f1ba9e6ec79",
+        "audio/algo_ip_endpoint_sim.py": "25fc68fb05857e944e1704ac68ceebc272c4d7c4bc3a368573bfdc7a551e3688"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "algo-rest-api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "paging",
+        "speaker",
+        "strobe",
+        "visual-alerter",
+        "signage",
+        "emergency-alert",
+        "intercom",
+        "bell-schedule"
+      ],
+      "help": {
+        "overview": "Controls one Algo IP endpoint: a speaker, a paging adapter, a visual alerter, a display speaker, an intercom, the 8063 door controller or the 8450 console. Use it to play class change tones and pages, start an emergency alert or a strobe pattern, put a message on a display, or unlock a door from a panel button or a schedule. Once connected, the device page offers only the commands its model has.",
+        "setup": "1. On the device's web interface, go to Advanced Settings > Admin and turn on RESTful API.\n2. Pick the Authentication Method there (Standard is Algo's recommendation) and set a RESTful API Password. Algo's factory password is algo.\n3. For Standard, turn on NTP on the device (Advanced Settings > Time): the device refuses requests when its clock and this server's are more than 30 seconds apart.\n4. Enter the device's IP address, the same authentication method and the password here.",
+        "connection": "HTTPS on port 443 with the RESTful API password. The device's certificate is self-signed, so certificate verification is off unless you turn it on."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Algo",
+          "models": [
+            "8180",
+            "8186",
+            "8188",
+            "8189",
+            "8190",
+            "8190S",
+            "8196",
+            "8197",
+            "8198",
+            "8199",
+            "8507"
+          ],
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        },
+        {
+          "manufacturer": "Algo",
+          "models": [
+            "8301",
+            "8305",
+            "8312",
+            "8373"
+          ],
+          "confidence": "untested",
+          "notes": "IP paging adapters. Skipping a day's scheduled events is on the 8301, 8305 and 8312 with firmware 5.7 or newer."
+        },
+        {
+          "manufacturer": "Algo",
+          "models": [
+            "8128",
+            "8138"
+          ],
+          "confidence": "untested",
+          "notes": "IP visual alerters: strobe patterns, test strobe, emergency alerts."
+        },
+        {
+          "manufacturer": "Algo",
+          "models": [
+            "8410",
+            "8420"
+          ],
+          "confidence": "untested",
+          "notes": "IP display speakers: everything a speaker does, plus strobes and the screen (images, slides, clocks, templates, text)."
+        },
+        {
+          "manufacturer": "Algo",
+          "models": [
+            "8028",
+            "8039",
+            "8201",
+            "8203",
+            "8063"
+          ],
+          "confidence": "untested",
+          "notes": "IP intercoms and the 8063 door controller: door lock and unlock (8028, 8039, 8201, 8063), the 8063's relays and inputs, tones and test tones on the intercoms. Calls placed from the intercom are the phone system's."
+        },
+        {
+          "manufacturer": "Algo",
+          "models": [
+            "8450"
+          ],
+          "confidence": "untested",
+          "notes": "IP console: press a configured button, stop active events, read which are active."
+        }
+      ],
+      "discovery": {
+        "oui": [
+          "00:22:ee"
+        ],
+        "snmp_pen": 41738,
+        "manufacturer_alias": [
+          "Algo",
+          "Algo Communication Products"
+        ]
+      }
+    },
     {
       "id": "allenheath_avantis",
       "name": "Allen & Heath Avantis Digital Mixer",

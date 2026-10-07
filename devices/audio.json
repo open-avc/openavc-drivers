@@ -2,11 +2,311 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 209,
+    "total_devices": 234,
     "shards": null,
     "category": "audio"
   },
   "devices": [
+    {
+      "manufacturer": "Algo",
+      "model": "8028",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP intercoms and the 8063 door controller: door lock and unlock (8028, 8039, 8201, 8063), the 8063's relays and inputs, tones and test tones on the intercoms. Calls placed from the intercom are the phone system's."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8039",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP intercoms and the 8063 door controller: door lock and unlock (8028, 8039, 8201, 8063), the 8063's relays and inputs, tones and test tones on the intercoms. Calls placed from the intercom are the phone system's."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8063",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP intercoms and the 8063 door controller: door lock and unlock (8028, 8039, 8201, 8063), the 8063's relays and inputs, tones and test tones on the intercoms. Calls placed from the intercom are the phone system's."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8128",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP visual alerters: strobe patterns, test strobe, emergency alerts."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8138",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP visual alerters: strobe patterns, test strobe, emergency alerts."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8180",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8186",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8188",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8189",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8190",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8190S",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8196",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8197",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8198",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8199",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8201",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP intercoms and the 8063 door controller: door lock and unlock (8028, 8039, 8201, 8063), the 8063's relays and inputs, tones and test tones on the intercoms. Calls placed from the intercom are the phone system's."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8203",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP intercoms and the 8063 door controller: door lock and unlock (8028, 8039, 8201, 8063), the 8063's relays and inputs, tones and test tones on the intercoms. Calls placed from the intercom are the phone system's."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8301",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP paging adapters. Skipping a day's scheduled events is on the 8301, 8305 and 8312 with firmware 5.7 or newer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8305",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP paging adapters. Skipping a day's scheduled events is on the 8301, 8305 and 8312 with firmware 5.7 or newer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8312",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP paging adapters. Skipping a day's scheduled events is on the 8301, 8305 and 8312 with firmware 5.7 or newer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8373",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP paging adapters. Skipping a day's scheduled events is on the 8301, 8305 and 8312 with firmware 5.7 or newer."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8410",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP display speakers: everything a speaker does, plus strobes and the screen (images, slides, clocks, templates, text)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8420",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP display speakers: everything a speaker does, plus strobes and the screen (images, slides, clocks, templates, text)."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8450",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP console: press a configured button, stop active events, read which are active."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Algo",
+      "model": "8507",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "algo_ip_endpoint",
+          "confidence": "untested",
+          "notes": "IP speakers. Built from Algo's RESTful API Guide; not yet run against a device. Firmware 5.4 or newer is needed for the status page and model detection, 5.7 for emergency alerts and play durations."
+        }
+      ]
+    },
     {
       "manufacturer": "Allen & Heath",
       "model": "Avantis",

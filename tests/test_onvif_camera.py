@@ -11,6 +11,9 @@ Covers:
   - both authentication paths of Core spec 5.9.1: WS-UsernameToken digest
     (with the camera's clock ten minutes off), the HTTP Digest fallback on a
     401, and a wrong password surfacing as a typed auth_failed fault;
+  - a login refused once connected: a camera clock that moved is read again
+    without the credential and the request signed again, while a refusal with
+    the clock unmoved is auth_failed with nothing re-sent;
   - the Media 1 path and the GetCapabilities path for older firmware, and the
     XAddr rewrite for a camera that announces an address it is not reached on;
   - PTZ: continuous drive changes the position read back by poll, stop, absolute
@@ -34,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
@@ -343,6 +347,110 @@ def test_camera_clock_ten_minutes_off_still_logs_in():
         try:
             assert _st(driver, "connected") is True
             assert 595 < _st(driver, "clock_offset_s") < 605
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def _watch_logins(sim):
+    """Record the operation of every request the simulated camera refused, and
+    for every GetSystemDateAndTime whether it carried a login."""
+    refused: list[str] = []
+    clock_reads: list[bool] = []
+    check = sim._check_auth
+
+    def watching(method, path, headers, root, op):
+        result = check(method, path, headers, root, op)
+        if op == "GetSystemDateAndTime":
+            clock_reads.append(SIM._descendant(root, "UsernameToken") is not None)
+        if result is not None:
+            refused.append(op)
+        return result
+
+    sim._check_auth = watching
+    return refused, clock_reads
+
+
+def test_camera_clock_moving_mid_session_signs_again_instead_of_failing():
+    """An NTP correction moves the camera's clock an hour while connected. The
+    next request is refused for its stale timestamp; the driver reads the
+    clock again without the login, signs the request in the new clock and
+    carries on, so a good password never reads as auth_failed. (Events off: a
+    returning PullMessages also carries the camera's time.)"""
+    async def scenario():
+        driver, sim = await _connected_pair({"require_auth": True}, {"events": False})
+        refused, clock_reads = _watch_logins(sim)
+        try:
+            sim._clock_skew = timedelta(hours=1)
+            await driver.poll()
+            assert _st(driver, "connected") is True
+            assert 3595 < _st(driver, "clock_offset_s") < 3605
+            assert refused == ["GetStatus"]
+            assert clock_reads == [False]
+            await driver.poll()
+            assert refused == ["GetStatus"]  # signed in the new clock from then on
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_password_changed_mid_session_is_auth_failed_with_nothing_resent():
+    """The camera's password changes while connected and its clock does not
+    move: the refusal stands after the clock check, so the poll raises the
+    typed auth_failed and the refused request is not sent again."""
+    async def scenario():
+        driver, sim = await _connected_pair({"require_auth": True}, {"events": False})
+        refused, clock_reads = _watch_logins(sim)
+        try:
+            sim._password = "changed-on-the-camera"
+            with pytest.raises(ConnectionFaultError) as exc_info:
+                await driver.poll()
+            assert exc_info.value.fault_code == "auth_failed"
+            assert refused == ["GetStatus"]
+            assert clock_reads == [False]
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_a_clock_another_request_already_read_again_is_not_read_twice():
+    """A poll and a command refused together after a clock jump: whichever
+    checks second finds the offset already moved past the one it signed with
+    and signs again without another read."""
+    async def scenario():
+        driver, sim = await _connected_pair({"require_auth": True}, {"events": False})
+        refused, clock_reads = _watch_logins(sim)
+        try:
+            signed_with = driver._clock_offset
+            driver._clock_offset = signed_with + timedelta(hours=1)
+            assert await driver._clock_moved_since(signed_with) is True
+            assert clock_reads == []
+            driver._clock_offset = signed_with
+            assert await driver._clock_moved_since(signed_with) is False
+            assert clock_reads == [False]
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_a_refusal_under_http_digest_does_not_read_the_clock():
+    """HTTP Digest carries no timestamp, so a refusal there is the password."""
+    async def scenario():
+        driver, sim = await _connected_pair(
+            {"require_auth": True, "auth_mode": "digest"}, {"events": False},
+        )
+        refused, clock_reads = _watch_logins(sim)
+        try:
+            assert driver._auth_mode == "digest"
+            sim._password = "changed-on-the-camera"
+            with pytest.raises(ConnectionFaultError) as exc_info:
+                await driver.poll()
+            assert exc_info.value.fault_code == "auth_failed"
+            assert clock_reads == []
         finally:
             await driver.disconnect()
 

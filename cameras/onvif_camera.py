@@ -38,7 +38,12 @@ and retries. The UsernameToken timestamp is generated in the DEVICE's clock:
 GetSystemDateAndTime is read unauthenticated at connect (it is PRE_AUTH by
 spec) and the offset is applied, so a camera whose clock is minutes off still
 accepts the login. The offset is published as ``clock_offset_s`` because a
-badly wrong clock is the commonest reason an ONVIF login fails.
+badly wrong clock is the commonest reason an ONVIF login fails. A login
+refused once connected is checked against the clock before it counts: the
+clock is read again (still without the credential), and when it has moved,
+an NTP correction on the camera or on this server, the request is signed in
+the new clock and sent once more. Only a refusal with the clock where it was
+is reported as ``auth_failed``, which stops OpenAVC reconnecting.
 
 Stream credentials
 ------------------
@@ -170,6 +175,14 @@ EVENT_RETRY_MAX_S = 60.0
 
 # Slow-cadence refresh inside poll(): imaging settings, preset lists.
 SLOW_POLL_EVERY = 12
+
+# How far the camera's clock has to have moved, against the offset a refused
+# request was signed with, before the refusal is put down to the clock and the
+# request is signed again. GetSystemDateAndTime has whole seconds and the read
+# takes a round trip, so two reads of an unchanged clock differ by a second or
+# so; the WSS UsernameToken Profile suggests a device accept timestamps up to
+# five minutes old, so a refusal on clock grounds means a move far bigger.
+CLOCK_MOVED_S = 5.0
 
 # Event topics (Device IO 5.10, Imaging 5.5, PTZ 5.11, Analytics Annex B).
 TOPIC_DIGITAL_INPUT = "Device/Trigger/DigitalInput"
@@ -458,7 +471,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.7",
+        "version": "2.0.8",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1225,7 +1238,56 @@ class OnvifCameraDriver(BaseDriver):
 
         Raises OnvifFault for a SOAP fault or a non-2xx answer with no fault
         body, and lets httpx transport errors propagate.
+
+        A login refused while the UsernameToken is in use is checked against
+        the camera's clock before it counts: the token's timestamp is in the
+        camera's clock, so a clock that moved since the request was signed
+        (an NTP correction on either side) refuses a good password. When it
+        has moved, the request is signed again and sent once more; a refusal
+        with the clock where it was stands, and nothing else is sent.
         """
+        signed_with = self._clock_offset
+        try:
+            return await self._post(
+                url, action, body, auth=auth, timeout=timeout, wsa_headers=wsa_headers,
+            )
+        except OnvifFault as exc:
+            signed = auth and self._username and self._auth_mode == "wsse"
+            if not exc.not_authorized or not signed:
+                raise
+            if not await self._clock_moved_since(signed_with):
+                raise
+        log.info(
+            f"[{self.device_id}] The camera's clock moved since the refused "
+            f"request was signed; signing it again"
+        )
+        return await self._post(
+            url, action, body, auth=auth, timeout=timeout, wsa_headers=wsa_headers,
+        )
+
+    async def _clock_moved_since(self, signed_with: timedelta) -> bool:
+        """Whether the camera's clock has moved since a request was signed
+        with the offset ``signed_with``. Another request may have read it
+        again already; otherwise it is read now, without the credential."""
+        if abs((self._clock_offset - signed_with).total_seconds()) < CLOCK_MOVED_S:
+            try:
+                await self._sync_clock(allow_login=False)
+            except (OnvifFault, httpx.HTTPError, ConnectionError):
+                return False
+        return abs((self._clock_offset - signed_with).total_seconds()) >= CLOCK_MOVED_S
+
+    async def _post(
+        self,
+        url: str,
+        action: str,
+        body: str,
+        *,
+        auth: bool = True,
+        timeout: float | None = None,
+        wsa_headers: str = "",
+    ):
+        """One SOAP request as :meth:`_call` describes it, without the clock
+        check: the switch to HTTP Digest happens here."""
         client = self._client
         if client is None:
             raise ConnectionError("Not connected")
@@ -1298,14 +1360,15 @@ class OnvifCameraDriver(BaseDriver):
 
     # ── Connect-time reads ──
 
-    async def _sync_clock(self) -> None:
+    async def _sync_clock(self, *, allow_login: bool = True) -> None:
         """Read the device clock (PRE_AUTH) and keep the offset. A camera that
         demands authentication even here gets one authenticated retry; the
-        offset stays at zero if that fails too."""
+        offset stays at zero if that fails too. ``allow_login=False`` never
+        sends the credential: the check after a refused login uses it."""
         try:
             resp = await self._service_call("device", "GetSystemDateAndTime", auth=False)
         except OnvifFault as exc:
-            if not exc.not_authorized or not self._username:
+            if not exc.not_authorized or not self._username or not allow_login:
                 raise
             resp = await self._service_call("device", "GetSystemDateAndTime", auth=True)
         utc = _child(resp, "SystemDateAndTime", "UTCDateTime")

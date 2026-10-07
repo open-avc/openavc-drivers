@@ -1783,6 +1783,16 @@ responses:
       - { type: output, id: 2, state: { meter: $10 } }
       - { type: stereo_output, id: 1, state: { meter_l: $11, meter_r: $12 } }
 
+  # ── Acknowledgements ──
+  # Every accepted set command answers "<command> ACK" (spec section 2.2.3).
+  # There is nothing in it to read, but a reply no rule matches is one the
+  # driver could not handle, so this rule says the acknowledgement is
+  # expected. Last, so every answer above is tried first; a NAK is left
+  # unmatched (NAK 93 aside, read above), so a refused command still shows
+  # as one.
+  - match: '^\S+ ACK\s*$'
+    set: {}
+
 polling:
   # Every query ends "<params> \r" — the trailing space is required by the
   # protocol grammar (verified on hardware: without it the mixer NAKs 04).

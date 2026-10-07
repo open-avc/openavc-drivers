@@ -446,6 +446,53 @@ def test_simulator_answers_mute_where_the_device_does(name, wire, stem, child, m
     assert result[f"{child}.level"] == 300.0, (answer, result)
 
 
+# ── Acknowledgements ───────────────────────────────────────────────────────
+#
+# Every accepted set command answers `<command> ACK` (each family document,
+# section 2.2.3). A reply no rule matches is one the driver could not handle,
+# which is what a device audit counts, so each driver reads the acknowledgement
+# (and writes nothing). A NAK stays unmatched, except where a driver reads a
+# specific one (the 0604a and 1012 read NAK 93, the Extension refusal).
+
+AT_DRIVERS = [
+    "at_atdm_0604a.avcdriver", "at_atdm_0604.avcdriver",
+    "at_atdm_1012.avcdriver", "at_atnd1061.avcdriver",
+]
+
+
+def _first_rule(driver: dict, frame: str) -> dict | None:
+    for resp in driver.get("responses", []):
+        pattern = resp.get("match") or resp.get("pattern")
+        if pattern and re.search(pattern, frame):
+            return resp
+    return None
+
+
+@pytest.mark.parametrize("name", AT_DRIVERS)
+@pytest.mark.parametrize(
+    "frame",
+    # Captured on the 0604a (the start-up step's, a command's, a setting's).
+    ["s_network ACK ", "SICM ACK ", "identify ACK ",
+     "s_input_channel_settings ACK ", "s_front_panel ACK ",
+     "factory_settings ACK \r"],
+)
+def test_acknowledgement_is_read_and_writes_nothing(name, frame):
+    driver = load_driver(name)
+    rule = _first_rule(driver, frame)
+    assert rule is not None, f"{name}: no rule reads {frame!r}"
+    assert not rule.get("set") and not rule.get("child_set") and not rule.get("mappings"), rule
+    assert dispatch(driver, frame) == {}
+
+
+@pytest.mark.parametrize("name", AT_DRIVERS)
+def test_acknowledgement_rule_leaves_refusals_alone(name):
+    driver = load_driver(name)
+    ack = _first_rule(driver, "SICM ACK ")
+    assert ack is not None
+    for nak in ("SICM NAK 04 ", "s_link NAK 93 \r", "g_input_gain_level NAK 04 \r"):
+        assert not re.search(ack["match"], nak), (name, nak)
+
+
 # ── What each channel command sets ─────────────────────────────────────────
 #
 # A command that changes one value the device reports says which (`sets`),

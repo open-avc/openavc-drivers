@@ -180,7 +180,7 @@ id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.4.2
+version: 1.4.3
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -2359,6 +2359,15 @@ responses:
       - type: output
         id: 2
         state: { meter: $9 }
+
+  # ── Acknowledgements ──
+  # Every accepted set command answers "<command> ACK" (spec section 2.2.3).
+  # There is nothing in it to read, but a reply no rule matches is one the
+  # driver could not handle, so this rule says the acknowledgement is
+  # expected. Last, so every answer above is tried first; a NAK is left
+  # unmatched, so a refused command still shows as one.
+  - match: '^\S+ ACK\s*$'
+    set: {}
 
 polling:
   # Every query ends "<params> \r" — the trailing space is part of the grammar.

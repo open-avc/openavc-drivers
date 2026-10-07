@@ -821,7 +821,7 @@
       "name": "Audio-Technica ATDM-0604",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604 Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, gain, mute, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, and AT-LINK mode.\n",
@@ -829,7 +829,7 @@
       "file": "audio/at_atdm_0604.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604.avcdriver": "1a2824d468de58b6ca3c82e40a92851bef55faafaf7a8d53303b55b37260423b"
+        "audio/at_atdm_0604.avcdriver": "f10c566a3b8a160112101498bdb1941a30bf2065f0f1f4ff3a07df834215f193"
       },
       "ports": [
         17300
@@ -889,7 +889,7 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "3f7e449ef74622c1c2ec738331febcd479a5486e8db057d626315e34d8eb361d"
+        "audio/at_atdm_0604a.avcdriver": "a17fc7f5da299e1553476ec6d2acb06f27538eedbc23237e7e5009457abeeacb"
       },
       "ports": [
         17300
@@ -951,7 +951,7 @@
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "0033ae1e3e82770d349c34aacd116f06819c3130323a9f145ab92ac73b8def70"
+        "audio/at_atdm_1012.avcdriver": "2c242bbd72e713ebaff2a7ee0720a0ba15d77008a1d01466153892c7aaba73f7"
       },
       "ports": [
         17300
@@ -1015,7 +1015,7 @@
       "name": "Audio-Technica ATND1061",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, room type, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation or read on demand. Live meters and talker position can each be switched on and off at runtime from a macro or panel button. Several microphones in one room can be linked so a mute, preset recall or power-save follows across all of them.\n",
@@ -1023,7 +1023,7 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "daf8afe92de1abcad5b1f9651d9c3bd908916d6106ea0494147ec2207603ffb1"
+        "audio/at_atnd1061.avcdriver": "029b491c0e795395651c905790fb465840249600a01c303c338b44804372e0dc"
       },
       "ports": [
         17300

@@ -1,7 +1,9 @@
-"""MD push-notice replay tests for the Audio-Technica ATDM family.
+"""Response-rule replay tests for the Audio-Technica ATDM family.
 
-The ATDM mixers multicast `MD <notice> ...` frames (push: block). These tests
-replay captured/spec-derived frames against each driver's declared response
+The ATDM mixers multicast `MD <notice> ...` frames (push: block), answer the
+polled `g_...` queries on the control connection, and acknowledge every
+accepted set command with `<command> ACK`. These tests replay
+captured/spec-derived frames against each driver's declared response
 rules with a minimal reimplementation of the platform's response matcher
 (first match wins; `$N` capture refs; an optional group that didn't match
 skips its mapping; values coerce by the state variable's declared type) —
@@ -18,8 +20,10 @@ captures two ways, and `dispatch` returns both in one flat dict:
 
 Frame provenance:
   - at_atdm_0604a: `MD output_mute_notice 0000 42 NC 0,0` and the full-form
-    input_gain_level_notice were captured on real hardware (fw 01.03.01);
-    the rest are built from IP Control Protocol Specifications Ver 1.0.
+    input_gain_level_notice were captured on real hardware (fw 01.03.01),
+    and so were the `g_input_gain_level` answers and the `ACK` replies
+    (a device audit of the same unit, 2026-10-06); the rest are built from
+    IP Control Protocol Specifications Ver 1.0.
   - at_atdm_0604 / at_atdm_1012: spec-derived (Ver 1.5 / Ver 1.0 documents).
 """
 
@@ -349,3 +353,95 @@ def test_family_meters_commands_and_quick_actions(name):
         assert all(f == "" for i, f in enumerate(fields) if i != 7), (name, cmd)
     action_ids = [a["id"] for a in driver.get("actions", [])]
     assert "meters_on" in action_ids and "meters_off" in action_ids
+
+
+# ── Poll answers: g_input_gain_level ───────────────────────────────────────
+#
+# The answer has ten fields: channel, mic gain, line gain, level, max-volume
+# enable, max-volume value, mute, virtual-mic gain, min-volume enable,
+# min-volume value (0604a and 1012 specs, Table 4-34). Mute is the SEVENTH
+# field. The MD input_gain_level_notice above is a different, five-field
+# layout whose fifth field is mute; the poll rules once read the answer's
+# fifth field (max-volume enable) as mute, so every poll reported every input
+# unmuted and an input muted from OpenAVC read unmuted again within one poll.
+
+CASES_0604A_ANSWERS = [
+    # Captured on hardware: input 2 muted, then unmuted, max volume off.
+    ("g_input_gain_level 0000 42 NC 1,0,0,211,0,511,1,0,0,0 ",
+     {"input.2.gain": 0, "input.2.level": 211.0, "input.2.mute": True}),
+    ("g_input_gain_level 0000 42 NC 1,0,0,211,0,511,0,0,0,0 ",
+     {"input.2.gain": 0, "input.2.level": 211.0, "input.2.mute": False}),
+    ("g_input_gain_level 0000 42 NC 10,20,20,0,0,511,0,0,0,0 ",
+     {"stereo_input.1.gain": 20, "stereo_input.1.level": 0.0,
+      "stereo_input.1.mute": False}),
+    # Spec example (max volume and mute both on), and the same with max
+    # volume on and mute off: the case the fifth-field reading got wrong.
+    ("g_input_gain_level 0000 00 NC 10,40,40,511,1,511,1,40,1,511 \r",
+     {"stereo_input.1.gain": 40, "stereo_input.1.level": 511.0,
+      "stereo_input.1.mute": True}),
+    ("g_input_gain_level 0000 00 NC 0,40,40,511,1,511,0,40,1,511 \r",
+     {"input.1.gain": 40, "input.1.level": 511.0, "input.1.mute": False}),
+]
+
+
+@pytest.mark.parametrize("frame, expected", CASES_0604A_ANSWERS)
+def test_at_atdm_0604a_input_gain_level_answer(frame, expected):
+    driver = load_driver("at_atdm_0604a.avcdriver")
+    result = dispatch(driver, frame)
+    assert result == expected, (frame, result)
+
+
+CASES_1012_ANSWERS = [
+    # Spec example frame (wire 11 = ST2).
+    ("g_input_gain_level 0000 00 NC 11,40,40,511,1,511,1,40,0,511 \r",
+     {"stereo_input.2.gain": 40, "stereo_input.2.level": 511.0,
+      "stereo_input.2.mute": True}),
+    ("g_input_gain_level 0000 00 NC 9,40,40,511,1,511,0,40,0,511 \r",
+     {"input.10.gain": 40, "input.10.level": 511.0, "input.10.mute": False}),
+    ("g_input_gain_level 0000 00 NC 0,10,10,300,0,511,1,10,0,0 \r",
+     {"input.1.gain": 10, "input.1.level": 300.0, "input.1.mute": True}),
+]
+
+
+@pytest.mark.parametrize("frame, expected", CASES_1012_ANSWERS)
+def test_at_atdm_1012_input_gain_level_answer(frame, expected):
+    driver = load_driver("at_atdm_1012.avcdriver")
+    result = dispatch(driver, frame)
+    assert result == expected, (frame, result)
+
+
+def _sim_answer(driver: dict, query: str, state: dict) -> str:
+    """Run the simulator's own handler for ``query`` the way the platform's
+    auto-simulator does (the handler sees ``match``, ``state``, ``config`` and
+    ``respond``) and return what it answered."""
+    for handler in driver["simulator"]["command_handlers"]:
+        m = re.fullmatch(handler["match"], query)
+        if m and "handler" in handler:
+            said: list[str] = []
+            exec(handler["handler"], {"match": m, "state": state, "config": {},
+                                      "respond": said.append})
+            return said[0]
+    raise AssertionError(f"no simulator handler answers {query!r}")
+
+
+@pytest.mark.parametrize(
+    "name, wire, stem, child",
+    [("at_atdm_0604a.avcdriver", "1", "input_2", "input.2"),
+     ("at_atdm_0604a.avcdriver", "10", "input_st", "stereo_input.1"),
+     ("at_atdm_1012.avcdriver", "1", "in2", "input.2"),
+     ("at_atdm_1012.avcdriver", "11", "st2", "stereo_input.2")],
+)
+@pytest.mark.parametrize("muted", [True, False])
+def test_simulator_answers_mute_where_the_device_does(name, wire, stem, child, muted):
+    """The simulator's answer puts mute in the seventh field, as the device
+    does, and the driver reads back what the simulator holds."""
+    driver = load_driver(name)
+    state = {f"{stem}_gain": 12, f"{stem}_level": 300, f"{stem}_mute": muted}
+    answer = _sim_answer(driver, f"g_input_gain_level O 0000 00 NC {wire} ", state)
+    fields = answer.split(" NC ", 1)[1].strip().split(",")
+    assert len(fields) == 10 and fields[6] == ("1" if muted else "0"), answer
+    assert fields[4] == "0", answer  # max volume off, so it cannot pass for mute
+    result = dispatch(driver, answer)
+    assert result[f"{child}.mute"] is muted, (answer, result)
+    assert result[f"{child}.level"] == 300.0, (answer, result)
+

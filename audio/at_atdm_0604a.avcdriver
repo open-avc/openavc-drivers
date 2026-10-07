@@ -103,7 +103,7 @@ id: at_atdm_0604a
 name: Audio-Technica ATDM-0604a
 manufacturer: Audio-Technica
 category: audio
-version: 2.3.0
+version: 2.4.0
 author: OpenAVC
 min_platform_version: "0.33.0"
 description: >
@@ -1583,13 +1583,17 @@ responses:
       gate_threshold: "$8"
 
   # ── Input gain/level/mute answers (g_input_gain_level, 10 fields: ch,
-  #    mic gain, line gain, level, mute, ...). One poll query per channel
-  #    covers gain + level + mute. ST channel (10) rules precede the
-  #    id-mapped 0-5 rules throughout this file. ──
-  - match: 'g_input_gain_level 0000 \S+ NC 10,(\d+),\d+,(\d+),([01])'
+  #    mic gain, line gain, level, max-volume enable, max-volume value,
+  #    MUTE, virtual-mic gain, min-volume enable, min-volume value; spec
+  #    Table 4-34). Mute is the seventh field, not the fifth: the MD
+  #    input_gain_level_notice below has a different five-field layout. Read
+  #    on the bench unit: input 2 muted answers 1,0,0,211,0,511,1,0,0,0. One
+  #    poll query per channel covers gain + level + mute. ST channel (10)
+  #    rules precede the id-mapped 0-5 rules throughout this file. ──
+  - match: 'g_input_gain_level 0000 \S+ NC 10,(\d+),\d+,(\d+),[01],\d+,([01])'
     child_set:
       - { type: stereo_input, id: 1, state: { gain: $1, level: $2, mute: $3 } }
-  - match: 'g_input_gain_level 0000 \S+ NC (\d+),(\d+),\d+,(\d+),([01])'
+  - match: 'g_input_gain_level 0000 \S+ NC (\d+),(\d+),\d+,(\d+),[01],\d+,([01])'
     child_set:
       - type: input
         id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6 } }
@@ -2133,8 +2137,9 @@ simulator:
                 state[keys[i]] = int(value)
         respond('s_smart_mix_general ACK \r')
 
-    # Input gain/level query (10-field answer: ch, mic, line, level, mute,
-    # then max-volume / virtual-mic fields the driver ignores)
+    # Input gain/level query (10-field answer: ch, mic, line, level,
+    # max-volume enable + value, mute, virtual-mic gain, min-volume enable +
+    # value; mute is the seventh field, as the bench unit answers)
     - match: 'g_input_gain_level O 0000 00 NC (\d+) ?'
       handler: |
         ch = match.group(1)
@@ -2145,7 +2150,7 @@ simulator:
             g = state[f'{stem}_gain']
             lv = state[f'{stem}_level']
             mu = 1 if state[f'{stem}_mute'] else 0
-            respond(f'g_input_gain_level 0000 00 NC {ch},{g},{g},{lv},{mu},511,0,{g},0,0 \r')
+            respond(f'g_input_gain_level 0000 00 NC {ch},{g},{g},{lv},0,511,{mu},{g},0,0 \r')
 
     # Preamp gain set (long form, omission write)
     - match: 's_input_gain_level S 0000 00 NC (\d+),(\d*),(\d*),?.*'

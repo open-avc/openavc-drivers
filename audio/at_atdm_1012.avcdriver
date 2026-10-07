@@ -108,7 +108,7 @@ id: at_atdm_1012
 name: Audio-Technica ATDM-1012
 manufacturer: Audio-Technica
 category: audio
-version: 2.2.0
+version: 2.2.1
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -2138,15 +2138,19 @@ responses:
           gate_threshold: $8
 
   # ── Input gain/level/mute answers (10 fields: ch, mic gain, line gain,
-  #    level, mute, ...). Channel classes are disambiguated in the REGEX
-  #    (single digit = input 1-10, 1[01] = ST) because dispatch stops at
-  #    the first matching rule. ──
-  - match: 'g_input_gain_level 0000 \S+ NC (1[01]),(\d+),\d+,(\d+),([01])'
+  #    level, max-volume enable, max-volume value, MUTE, virtual-mic gain,
+  #    min-volume enable, min-volume value; spec Table 4-34). Mute is the
+  #    seventh field: the MD input_gain_level_notice has a different
+  #    five-field layout. Read on an ATDM-0604a (same protocol generation):
+  #    a muted input answers ...,211,0,511,1,.... Channel classes are
+  #    disambiguated in the REGEX (single digit = input 1-10, 1[01] = ST)
+  #    because dispatch stops at the first matching rule. ──
+  - match: 'g_input_gain_level 0000 \S+ NC (1[01]),(\d+),\d+,(\d+),[01],\d+,([01])'
     child_set:
       - type: stereo_input
         id: { group: 1, map: { "10": 1, "11": 2 } }
         state: { gain: $2, level: $3, mute: $4 }
-  - match: 'g_input_gain_level 0000 \S+ NC ([0-9]),(\d+),\d+,(\d+),([01])'
+  - match: 'g_input_gain_level 0000 \S+ NC ([0-9]),(\d+),\d+,(\d+),[01],\d+,([01])'
     child_set:
       - type: input
         id: { group: 1, map: { "0": 1, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10 } }
@@ -3028,7 +3032,7 @@ simulator:
             g = state[f'{stem}_gain']
             lv = state[f'{stem}_level']
             mu = 1 if state[f'{stem}_mute'] else 0
-            respond(f'g_input_gain_level 0000 00 NC {ch},{g},{g},{lv},{mu},511,0,{g},0,0 \r')
+            respond(f'g_input_gain_level 0000 00 NC {ch},{g},{g},{lv},0,511,{mu},{g},0,0 \r')
 
     - match: 's_input_gain_level S 0000 00 NC (\d+),(\d*),(\d*),?.*'
       handler: |

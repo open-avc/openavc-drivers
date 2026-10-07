@@ -881,7 +881,7 @@
       "name": "Audio-Technica ATDM-0604a",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-0604a Digital SmartMixer via TCP with real-time multicast push updates. Inputs and outputs are child entities with fader, mute, preamp gain, source select, phantom power, and live meters, labelled by the mixer's own channel names. Preset recall, SmartMix and AEC configuration, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -889,7 +889,7 @@
       "file": "audio/at_atdm_0604a.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_0604a.avcdriver": "ce1ff24c79b9d4ee02b3145de5310e27153d57c571e3dbf076a3b28d85f670bb"
+        "audio/at_atdm_0604a.avcdriver": "34cecd1ac1637c6e142b184aaf9e49fb5ae5e0b416386988aa3995d6770ed6fe"
       },
       "ports": [
         17300
@@ -943,7 +943,7 @@
       "name": "Audio-Technica ATDM-1012",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATDM-1012 and ATDM-1012DAN Digital SmartMixers via TCP with real-time multicast push updates. Inputs, sub-inputs, outputs, and SmartMix groups are child entities with fader, mute, gain, source select, bus routing, and live meters, labelled by the mixer's own channel names. Preset recall, operator faders, USB output routing, test oscillator, and front-panel lockout. When mixers are chained over Audio-Technica LINK, the unit's role and what is connected on the chain are both reported.\n",
@@ -951,7 +951,7 @@
       "file": "audio/at_atdm_1012.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atdm_1012.avcdriver": "93617f14ec9bfc3fc910bfbe2d24e37bdb74da9892ddde73ca6e619f61cdbe71"
+        "audio/at_atdm_1012.avcdriver": "0033ae1e3e82770d349c34aacd116f06819c3130323a9f145ab92ac73b8def70"
       },
       "ports": [
         17300

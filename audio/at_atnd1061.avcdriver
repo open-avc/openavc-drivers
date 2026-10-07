@@ -180,7 +180,7 @@ id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.4.3
+version: 1.4.4
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -2324,8 +2324,8 @@ responses:
   #
   # Both this and the talker notice are continuous feeds — about 16 frames a
   # second at the microphone's factory interval — so each is throttled to a
-  # panel-friendly rate. Throttling is drop-style: the frame that arrives after
-  # the window carries the current value, so nothing goes stale.
+  # panel-friendly rate. The throttle writes the newest frame when each
+  # window ends, so nothing goes stale.
   - match: 'MD level_meter_notice \S+ \S+ \S+ (\d*),(\d*),(\d*),(\d*),(\d*),(\d*),(\d*),\d*,\d*,\d*,\d*,\d*,(\d*),(\d*),(\d*),\d*,\d*,\d*,\d*,\d*,\d*,\d*,(\d*),\d*,\d*,\d*,\d*,\d*,\d*,\d*,\d*,\d*,(\d*),(\d*),(\d*),(\d*),(\d*),(\d*)'
     throttle: 0.2
     set:

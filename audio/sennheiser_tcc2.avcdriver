@@ -64,7 +64,7 @@ id: sennheiser_tcc2
 name: Sennheiser TeamConnect Ceiling 2
 manufacturer: Sennheiser
 category: audio
-version: "1.1.1"
+version: "1.1.2"
 author: OpenAVC
 min_platform_version: "0.36.0"
 description: >
@@ -1963,8 +1963,8 @@ responses:
   # ── Talker position: a continuous feed while subscribed ──
   # The subscription already asks the microphone for no more than one update
   # per Talker Position Interval; this is the panel-friendly ceiling should
-  # the microphone ignore that (drop-style: the next frame carries the
-  # current value, so nothing goes stale).
+  # the microphone ignore that. The throttle writes the newest frame when
+  # each window ends, so the final position is never lost.
   - json: true
     throttle: 0.2
     set:

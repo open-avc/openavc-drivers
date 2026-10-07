@@ -1015,7 +1015,7 @@
       "name": "Audio-Technica ATND1061",
       "manufacturer": "Audio-Technica",
       "category": "audio",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array microphones via TCP with real-time multicast push updates. The six beam channels and the analog input are child entities carrying fader, mute, gain, gain-share weight and live meters, labelled by the names set on the microphone. Device mute, presets, AEC, AGC, beam sensitivity, auto attenuation, Voice Lift, room type, the ring indicator colours and the camera interlock are all controllable, and the microphone's talker-position reporting can be surfaced as state for camera automation or read on demand. Live meters and talker position can each be switched on and off at runtime from a macro or panel button. Several microphones in one room can be linked so a mute, preset recall or power-save follows across all of them.\n",
@@ -1023,7 +1023,7 @@
       "file": "audio/at_atnd1061.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/at_atnd1061.avcdriver": "029b491c0e795395651c905790fb465840249600a01c303c338b44804372e0dc"
+        "audio/at_atnd1061.avcdriver": "55c81a2d6a0704c59502c284899974558209051f232f310c7907967fd8057a2d"
       },
       "ports": [
         17300
@@ -6159,7 +6159,7 @@
       "name": "Sennheiser TeamConnect Bar",
       "manufacturer": "Sennheiser",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "TeamConnect Bar S and Bar M video bars over SSCv2, the HTTPS REST API with Server-Sent Events. Microphone mute, speaker volume, camera framing (auto framing, person tiling, pan, tilt, zoom, the stored preset), microphone and speaker equalizers, exclusion and priority zones, noise gate and suppression, Dante extension inputs, Bluetooth, LED ring, standby mode and the bar's own warnings. Talker position and level meters are opt-in feeds. Every change streams in as it happens.\n",
@@ -6167,7 +6167,7 @@
       "file": "video/sennheiser_tcbar.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/sennheiser_tcbar.avcdriver": "c175528d256aa842ab924d3a351734a9e2259c7a807d7ea282ea47444fae41dd"
+        "video/sennheiser_tcbar.avcdriver": "2024b63212fdd3f70f3f2a4ddd9f3213ab4a2c0152043cb2b1b6302f56ae935c"
       },
       "ports": [
         443
@@ -6233,7 +6233,7 @@
       "name": "Sennheiser TeamConnect Ceiling 2",
       "manufacturer": "Sennheiser",
       "category": "audio",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "udp",
       "description": "Controls the Sennheiser TeamConnect Ceiling 2 beamforming ceiling microphone over Sennheiser Sound Control (JSON over UDP, port 45). Mute, room activity, analog and Dante output levels, AEC reference gain, the 7-band equalizer, noise gate, Voice Lift, priority and exclusion zones, installation type, the LED ring colours and brightness, device naming, identify, restart and restore. The microphone reports where the active talker is (beam azimuth and elevation) and live input and reference meters; both feeds are opt-in and can be switched from a macro or panel. State is push-driven: the driver subscribes and the microphone reports every change as it happens, including changes made from Sennheiser Control Cockpit.\n",
@@ -6241,7 +6241,7 @@
       "file": "audio/sennheiser_tcc2.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/sennheiser_tcc2.avcdriver": "cd647cd0dc48be6215a89b64d8da4601be724f23a5284bdb4a507d00e35792f0"
+        "audio/sennheiser_tcc2.avcdriver": "92e66776dd57dec5b860b5a4ac5cbe294e4f9c87284d8ec0d4c33fbd2a6fc133"
       },
       "ports": [
         45

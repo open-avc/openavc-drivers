@@ -57,10 +57,10 @@
 #   and the level meters are FastResource feeds the spec says to subscribe
 #   only while the data is in use: "Report Talker Position" and "Report
 #   Level Meters" arm them on connect, and the Talker Position On/Off and
-#   Meters On/Off commands switch them at runtime. The meters are throttled
-#   to five updates a second each; the talker position is not throttled,
-#   because a dropped update would leave the last position stale. Both relay
-#   to the cloud at low priority.
+#   Meters On/Off commands switch them at runtime. Both are throttled to
+#   five updates a second per value, and the newest value in each window is
+#   written when it ends, so a talker's final position always lands. Both
+#   relay to the cloud at low priority.
 #
 # Why YAML:
 #   Everything on the wire is JSON over HTTPS with Basic auth, and the push
@@ -85,7 +85,7 @@ id: sennheiser_tcbar
 name: Sennheiser TeamConnect Bar
 manufacturer: Sennheiser
 category: video
-version: 1.0.0
+version: 1.0.1
 # Computed by the contract check: a device setting's `map` (the JSON
 # true / false the bar expects for a boolean) arrived in 0.37.0.
 min_platform_version: "0.37.0"
@@ -2271,20 +2271,21 @@ responses:
       priority_zone_right: "/api/audio/inputs/internalMic/priorityZones/0.right"
 
   # ── Stream bodies: talker position feed ──
-  # Not throttled: the beam reports a new angle when the talker moves, and a
-  # drop-style throttle would leave the final angle unwritten until the next
-  # move.
+  # Throttled like the meters. The beam reports a new angle as the talker
+  # moves; the throttle writes the newest angle when each window ends, so
+  # the angle the talker stopped at is the one a camera macro reads.
   - json: true
+    throttle: 0.2
     set:
       beam_azimuth: "/api/audio/inputs/internalMic/beam.position"
   - json: true
+    throttle: 0.2
     set:
       active_mic: "/api/audio/inputs/mixer/activity.activeChannel"
 
   # ── Stream bodies: level meters ──
   # One rule per meter: the throttle window is per rule, so a shared rule
-  # would let one meter starve the rest. A meter streams continuously, so
-  # the next frame carries the current level.
+  # would let one meter starve the rest.
   - json: true
     throttle: 0.2
     set:

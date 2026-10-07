@@ -408,7 +408,7 @@
       "name": "Sennheiser TeamConnect Bar",
       "manufacturer": "Sennheiser",
       "category": "video",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "TeamConnect Bar S and Bar M video bars over SSCv2, the HTTPS REST API with Server-Sent Events. Microphone mute, speaker volume, camera framing (auto framing, person tiling, pan, tilt, zoom, the stored preset), microphone and speaker equalizers, exclusion and priority zones, noise gate and suppression, Dante extension inputs, Bluetooth, LED ring, standby mode and the bar's own warnings. Talker position and level meters are opt-in feeds. Every change streams in as it happens.\n",
@@ -416,7 +416,7 @@
       "file": "video/sennheiser_tcbar.avcdriver",
       "format": "avcdriver",
       "files": {
-        "video/sennheiser_tcbar.avcdriver": "c175528d256aa842ab924d3a351734a9e2259c7a807d7ea282ea47444fae41dd"
+        "video/sennheiser_tcbar.avcdriver": "2024b63212fdd3f70f3f2a4ddd9f3213ab4a2c0152043cb2b1b6302f56ae935c"
       },
       "ports": [
         443

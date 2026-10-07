@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 115,
+    "total_drivers": 116,
     "shards": null
   },
   "drivers": [
@@ -6142,6 +6142,80 @@
           "extract": {
             "model": {
               "regex": "\"product\"\\s*:\\s*\"(EWDX[A-Z0-9]+)\"",
+              "group": 1
+            }
+          }
+        },
+        "oui": [
+          "00:1b:66"
+        ],
+        "manufacturer_alias": [
+          "sennheiser"
+        ]
+      }
+    },
+    {
+      "id": "sennheiser_tcbar",
+      "name": "Sennheiser TeamConnect Bar",
+      "manufacturer": "Sennheiser",
+      "category": "video",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "TeamConnect Bar S and Bar M video bars over SSCv2, the HTTPS REST API with Server-Sent Events. Microphone mute, speaker volume, camera framing (auto framing, person tiling, pan, tilt, zoom, the stored preset), microphone and speaker equalizers, exclusion and priority zones, noise gate and suppression, Dante extension inputs, Bluetooth, LED ring, standby mode and the bar's own warnings. Talker position and level meters are opt-in feeds. Every change streams in as it happens.\n",
+      "source_url": "https://docs.cloud.sennheiser.com/en-us/api-docs/api-docs/open-api-tc-bar.html",
+      "file": "video/sennheiser_tcbar.avcdriver",
+      "format": "avcdriver",
+      "files": {
+        "video/sennheiser_tcbar.avcdriver": "c175528d256aa842ab924d3a351734a9e2259c7a807d7ea282ea47444fae41dd"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "sscv2"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.37.0",
+      "tags": [
+        "sennheiser",
+        "teamconnect",
+        "tc-bar",
+        "video-bar",
+        "conferencing",
+        "camera",
+        "beamforming",
+        "dante",
+        "sscv2"
+      ],
+      "help": {
+        "overview": "Controls a Sennheiser TeamConnect Bar S or Bar M. Mute the microphones, set the speaker volume, switch the camera between auto framing, person tiling and a manual view, move and zoom it, and recall its stored preset. Commissioning settings (equalizers, exclusion and priority zones, noise gate, Dante extension microphones, LED ring, standby) are under Device Settings. The bar's own warnings (lens cap on, overheating, a failed camera or microphone) show as on/off values a trigger can watch. Everything the bar changes, from its remote, Control Cockpit or its web page, shows up here as it happens.\n",
+        "setup": "1. Open the bar's Local Web UI (https:// and its IP address), DeviceHub\n   or Sennheiser Control Cockpit, and go to Access & Security (Control\n   Cockpit: Devices > TC Bar > Access).\n2. Under 3rd Party Access, turn access on and set a password: at least\n   ten characters with a lowercase letter, a capital, a number and a\n   symbol.\n3. Enter the bar's IP address and that password here. The user name is\n   always \"api\".\n4. Turn on \"Report Talker Position\" if a macro follows who is talking,\n   and \"Report Level Meters\" if a panel shows levels. Both are\n   continuous feeds, so they stay off unless needed.\n",
+        "connection": "HTTPS on port 443 with the third-party password. The bar's own certificate is self-signed, so certificate verification is off unless you turn it on. Turning third-party access off on the bar deletes the password; set a new one here after turning it back on.\n"
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Sennheiser",
+          "models": [
+            "TeamConnect Bar S",
+            "TeamConnect Bar M",
+            "TC Bar S",
+            "TC Bar M"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TC Bar OpenAPI 1.16 schema, which covers both bars. Not yet run against a bar. The camera's zoom position goes to 500 on the Bar M (150 in the Microsoft Teams profile) and to 300 on the Bar S (400 in the Zoom profile, 200 in Microsoft Teams). The Split network mode exists only on the Bar M.\n"
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET /api/device/identity HTTP/1.1\r\nHost: tcbar\r\nConnection: close\r\n\r\n",
+          "expect_regex": "\"product\"\\s*:\\s*\"TCBar[SM]\"",
+          "extract_manufacturer": "Sennheiser",
+          "extract": {
+            "model": {
+              "regex": "\"product\"\\s*:\\s*\"(TCBar[SM])\"",
               "group": 1
             }
           }

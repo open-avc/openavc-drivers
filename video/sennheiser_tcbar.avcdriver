@@ -1,0 +1,3031 @@
+# Sennheiser TeamConnect Bar Driver (SSCv2, OpenAPI 1.16)
+#
+# Controls a Sennheiser TeamConnect Bar S or TeamConnect Bar M, the
+# all-in-one video bars (4K camera, beamforming microphone array, stereo
+# speakers), over Sennheiser Sound Control Protocol v2 (SSCv2): a REST API
+# over HTTPS on port 443, JSON bodies, HTTP Basic authentication as the fixed
+# user "api" with the third-party password set in the bar's Local Web UI,
+# DeviceHub or Sennheiser Control Cockpit.
+#
+# Protocol reference (the manufacturer's own):
+#   - "TCBar 3rd-party API", OpenAPI 1.16 (released 2026-07-06), the file the
+#     Sennheiser 3rd Party API site's TC Bar Swagger page renders
+#     (source_url below). One document covers both bars. This is the
+#     defining document for every path, field, range, enumeration and status
+#     code here. Archived in the workspace as
+#     driver-roadmap/reference-docs/sennheiser-tcbar-openapi-1.16.yaml.
+#   - "Sennheiser 3rd Party API" v6.2 (08/2026): the SSCv2 specification 2.3
+#     (subscriptions, notification syntax) and the TC Bar known issues.
+#     docs.cloud.sennheiser.com/en-us/api-docs/
+#   - TeamConnect Bar instruction manual (07/2026), for what differs between
+#     the S and the M and for the standby modes.
+#
+# Not hardware-verified: built from the documents above and checked against
+# the simulator below. What the documents leave open is listed in the
+# workspace record (driver-roadmap/shipped/sennheiser_tcbar.md).
+#
+# One driver for both bars: the S and the M share one OpenAPI document and
+# every path in it. What differs is a value's range, not the command surface:
+# the camera's zoom ceiling (per model and device profile), the Split network
+# mode (Bar M only), and the PoE direction (the S is powered over its one
+# Ethernet port; the M can power an extension microphone).
+#
+# Push, not polling (SSCv2 spec, "SSCv2 subscriptions"):
+#   The bar streams every change of a subscribed resource as a Server-Sent
+#   Event. GET /api/ssc/state/subscriptions opens the stream, the reply's
+#   Content-Location header (and the "open" event) names the session, and a
+#   PUT of a resource-path list to /api/ssc/state/subscriptions/{id}/add
+#   arms it. The bar then sends the current value of every listed resource
+#   and each later change, whether it came from the remote control, Control
+#   Cockpit, the Local Web UI or the API. The push block's register list
+#   runs once per (re)open, so a reopen (the bar's "close" event, a dropped
+#   stream, 300 s of silence) is also a full resync.
+#
+#   The subscription is one request per resource group: the bar refuses a
+#   whole list when one path in it is unknown to its firmware, so a group
+#   the firmware lacks costs only that group. Device state, mute and volume
+#   are in groups of their own.
+#
+#   Polling (30 s) reads the few resources whose bodies can be told apart
+#   without their path (device state, identify, firmware, naming, volume,
+#   user interaction), as the liveness baseline. Everything else is read
+#   from the stream only: a bare {"enabled": ..} or {"gain": ..} body says
+#   nothing about which resource it is, and the seven-band equalizers, zone
+#   lists and Dante lists are arrays.
+#
+#   The talker position (beam angle and which microphone the mixer selected)
+#   and the level meters are FastResource feeds the spec says to subscribe
+#   only while the data is in use: "Report Talker Position" and "Report
+#   Level Meters" arm them on connect, and the Talker Position On/Off and
+#   Meters On/Off commands switch them at runtime. The meters are throttled
+#   to five updates a second each; the talker position is not throttled,
+#   because a dropped update would leave the last position stale. Both relay
+#   to the cloud at low priority.
+#
+# Why YAML:
+#   Everything on the wire is JSON over HTTPS with Basic auth, and the push
+#   block's session handshake (platform 0.34.0) is the subscription
+#   mechanism, so nothing needs code. The TeamConnect Ceiling Medium driver
+#   is the same protocol in Python, written before the handshake was
+#   declarative.
+#
+# Scope: every resource the TC Bar OpenAPI 1.16 declares except the raw
+# address tree (/api/ssc/schema), the open-source licence download, 802.1X
+# configuration (certificates and secrets, a network-commissioning task), the
+# network interface list (its entries depend on the network mode and carry
+# no fixed position), the Bluetooth device list, and the deprecated
+# resources that have a replacement (/api/audio/inputs/internalMic/mute,
+# /api/audio/outputs/dante and the four deprecated camera fields). The
+# deprecated PoE output switch has no replacement, so it is read, never
+# written. The PUTs Sennheiser's known-issues page calls dead (HDMI output,
+# camera enable, video parameters, the Dante interface) are not in OpenAPI
+# 1.16 and are read-only here.
+
+id: sennheiser_tcbar
+name: Sennheiser TeamConnect Bar
+manufacturer: Sennheiser
+category: video
+version: 1.0.0
+# Computed by the contract check: a device setting's `map` (the JSON
+# true / false the bar expects for a boolean) arrived in 0.37.0.
+min_platform_version: "0.37.0"
+author: OpenAVC
+description: >
+  TeamConnect Bar S and Bar M video bars over SSCv2, the HTTPS REST API with
+  Server-Sent Events. Microphone mute, speaker volume, camera framing (auto
+  framing, person tiling, pan, tilt, zoom, the stored preset), microphone and
+  speaker equalizers, exclusion and priority zones, noise gate and
+  suppression, Dante extension inputs, Bluetooth, LED ring, standby mode and
+  the bar's own warnings. Talker position and level meters are opt-in feeds.
+  Every change streams in as it happens.
+
+source_url: https://docs.cloud.sennheiser.com/en-us/api-docs/api-docs/open-api-tc-bar.html
+tags: [sennheiser, teamconnect, tc-bar, video-bar, conferencing, camera, beamforming, dante, sscv2]
+verified: false
+simulated: true
+protocols: [sscv2]
+ports: [443]
+
+compatible_models:
+  - manufacturer: Sennheiser
+    models:
+      - TeamConnect Bar S
+      - TeamConnect Bar M
+      - TC Bar S
+      - TC Bar M
+    confidence: untested
+    notes: >
+      Built from Sennheiser's SSCv2 specification and the TC Bar OpenAPI
+      1.16 schema, which covers both bars. Not yet run against a bar. The
+      camera's zoom position goes to 500 on the Bar M (150 in the Microsoft
+      Teams profile) and to 300 on the Bar S (400 in the Zoom profile, 200
+      in Microsoft Teams). The Split network mode exists only on the Bar M.
+
+help:
+  overview: >
+    Controls a Sennheiser TeamConnect Bar S or Bar M. Mute the microphones,
+    set the speaker volume, switch the camera between auto framing, person
+    tiling and a manual view, move and zoom it, and recall its stored
+    preset. Commissioning settings (equalizers, exclusion and priority
+    zones, noise gate, Dante extension microphones, LED ring, standby) are
+    under Device Settings. The bar's own warnings (lens cap on, overheating, a failed
+    camera or microphone) show as on/off values a trigger can watch.
+    Everything the bar changes, from its remote, Control Cockpit or its web
+    page, shows up here as it happens.
+  setup: >
+    1. Open the bar's Local Web UI (https:// and its IP address), DeviceHub
+       or Sennheiser Control Cockpit, and go to Access & Security (Control
+       Cockpit: Devices > TC Bar > Access).
+    2. Under 3rd Party Access, turn access on and set a password: at least
+       ten characters with a lowercase letter, a capital, a number and a
+       symbol.
+    3. Enter the bar's IP address and that password here. The user name is
+       always "api".
+    4. Turn on "Report Talker Position" if a macro follows who is talking,
+       and "Report Level Meters" if a panel shows levels. Both are
+       continuous feeds, so they stay off unless needed.
+  connection: >
+    HTTPS on port 443 with the third-party password. The bar's own
+    certificate is self-signed, so certificate verification is off unless
+    you turn it on. Turning third-party access off on the bar deletes the
+    password; set a new one here after turning it back on.
+
+discovery:
+  # /api/device/identity answers without credentials (its OpenAPI entry
+  # declares no security), and only a TC Bar answers with a product code
+  # starting TCBar. HTTPS only, self-signed, so the probe is a TLS GET.
+  tcp_probe:
+    port: 443
+    tls: true
+    send_ascii: "GET /api/device/identity HTTP/1.1\r\nHost: tcbar\r\nConnection: close\r\n\r\n"
+    expect_regex: '"product"\s*:\s*"TCBar[SM]"'
+    extract_manufacturer: "Sennheiser"
+    extract:
+      model:
+        regex: '"product"\s*:\s*"(TCBar[SM])"'
+        group: 1
+  # Sennheiser electronic GmbH & Co. KG (IEEE registry).
+  oui:
+    - "00:1b:66"
+  manufacturer_alias:
+    - "sennheiser"
+
+transport: http
+
+default_config:
+  host: ""
+  port: 443
+  ssl: true
+  verify_ssl: false
+  auth_type: "basic"
+  username: "api"
+  password: ""
+  timeout: 5.0
+  poll_interval: 30
+  enable_talker_position: false
+  enable_meters: false
+
+config_schema:
+  host:
+    type: string
+    required: true
+    label: IP Address
+    help: "The bar's IP address, as shown in Control Cockpit or on its Local Web UI."
+  port:
+    type: integer
+    default: 443
+    label: HTTPS Port
+    advanced: true
+    help: "443 on every bar; change it only behind a port forward."
+  password:
+    type: string
+    secret: true
+    required: true
+    label: Third-party Password
+    help: >
+      The 3rd Party Access password set under Access & Security on the bar.
+      The user name is always "api" and needs no entry.
+  verify_ssl:
+    type: boolean
+    default: false
+    label: Verify TLS Certificate
+    advanced: true
+    help: >
+      Off by default: the bar ships a self-signed certificate. Turn on only
+      if a trusted certificate has been installed on it.
+  enable_talker_position:
+    type: boolean
+    default: false
+    label: Report Talker Position
+    help: >
+      Streams the microphone beam's angle and which microphone the mixer
+      picked (the bar's own, or a Dante extension) as people talk, for a
+      macro that follows the talker. Off by default because it is a
+      continuous feed; the Talker Position On/Off commands also switch it.
+  enable_meters:
+    type: boolean
+    default: false
+    label: Report Level Meters
+    help: >
+      Streams the microphone, USB, Bluetooth and Dante input levels. Off by
+      default because it is a continuous feed; the Meters On/Off commands
+      also switch it.
+
+# ── Push: the SSCv2 subscription session ──────────────────────────────
+# One stream, named by the bar; the register list arms it on every
+# (re)open, one group per request so a group the firmware refuses costs
+# only itself.
+push:
+  type: sse
+  path: /api/ssc/state/subscriptions
+  # The bar documents no keepalive. A reopen after five quiet minutes is a
+  # new session the bar answers with every value, so a quiet room gets a
+  # free full resync and a half-open stream is noticed.
+  idle_timeout: 300
+  session:
+    header: Content-Location
+    event: open
+    key: sessionUUID
+    pattern: "([0-9a-fA-F-]{36})$"
+    close_event: close
+  register:
+    - subscribe_device
+    - subscribe_audio
+    - subscribe_audio_processing
+    - subscribe_equalizers
+    - subscribe_zones
+    - subscribe_dante_inputs
+    - subscribe_camera
+    - subscribe_device_settings
+    - subscribe_network
+    - subscribe_poe_output
+    - { command: talker_position_on, when: enable_talker_position }
+    - { command: meters_on, when: enable_meters }
+  unregister: end_subscription
+
+quick_actions: [identify_on]
+actions:
+  - id: mute_on
+    icon: mic-off
+    visible_when: { key: "device.$id.mute", operator: falsy }
+  - id: mute_off
+    icon: mic
+    visible_when: { key: "device.$id.mute", operator: truthy }
+  - id: volume_down
+    icon: volume-1
+  - id: volume_up
+    icon: volume-2
+  - id: identify_on
+    icon: eye
+    visible_when: { key: "device.$id.identify_active", operator: falsy }
+  - id: identify_off
+    icon: eye-off
+    visible_when: { key: "device.$id.identify_active", operator: truthy }
+  - id: open_web_ui
+    kind: link
+    label: Open Web UI
+    icon: external-link
+
+state_variables:
+  # ── Identity ──
+  product:
+    type: string
+    label: Product Code
+    help: "TCBarS or TCBarM, as the bar identifies itself"
+  model:
+    type: string
+    label: Model
+  article_number:
+    type: string
+    label: Article Number
+  serial:
+    type: string
+    label: Serial Number
+  hardware_revision:
+    type: string
+    label: Hardware Revision
+  vendor:
+    type: string
+    label: Vendor
+  device_name:
+    type: string
+    label: Device Name
+    help: "Set in Control Cockpit or the Local Web UI; read-only on this API"
+  dante_name:
+    type: string
+    label: Dante Device Name
+  location:
+    type: string
+    label: Location
+  position:
+    type: string
+    label: Position
+  ssc_protocol_version:
+    type: string
+    label: SSC Protocol Version
+  ssc_schema_version:
+    type: string
+    label: API Schema Version
+
+  # ── Device state ──
+  device_state:
+    type: enum
+    values: ["Normal", "Identifying", "BluetoothPairing", "FirmwareUpdate", "Standby", "CriticalFailure"]
+    label: Device State
+    help: "Standby is the bar's energy-saving state; it still answers on the network"
+    cloud_priority: high
+  warning_count:
+    type: integer
+    label: Warnings
+    help: "How many warnings the bar reports right now"
+  warning_mic_muted:
+    type: boolean
+    label: "Warning: Microphones Muted"
+  warning_lens_cap_on:
+    type: boolean
+    label: "Warning: Lens Cap On"
+    cloud_priority: high
+  warning_camera_off:
+    type: boolean
+    label: "Warning: Camera Off"
+  warning_speaker_muted:
+    type: boolean
+    label: "Warning: Speaker Muted"
+  warning_no_device_connected:
+    type: boolean
+    label: "Warning: No Device Connected"
+    help: "Nothing is connected over USB-C to run the call"
+  warning_overheating:
+    type: boolean
+    label: "Warning: Overheating"
+    cloud_priority: high
+  warning_cpu_overloaded:
+    type: boolean
+    label: "Warning: CPU Overloaded"
+  warning_bluetooth_failure:
+    type: boolean
+    label: "Warning: Bluetooth Failure"
+    cloud_priority: high
+  warning_dante_failure:
+    type: boolean
+    label: "Warning: Dante Failure"
+    cloud_priority: high
+  warning_mic_failure:
+    type: boolean
+    label: "Warning: Microphone Failure"
+    cloud_priority: high
+  warning_speaker_failure:
+    type: boolean
+    label: "Warning: Speaker Failure"
+    cloud_priority: high
+  warning_voice_engine_failure:
+    type: boolean
+    label: "Warning: Voice Engine Failure"
+    cloud_priority: high
+  warning_camera_failure:
+    type: boolean
+    label: "Warning: Camera Failure"
+    cloud_priority: high
+  warning_usb_failure:
+    type: boolean
+    label: "Warning: USB Failure"
+    cloud_priority: high
+  warning_time_uninitialized:
+    type: boolean
+    label: "Warning: Clock Not Set"
+    help: "The bar's clock is not set"
+  warning_network_loop:
+    type: boolean
+    label: "Warning: Network Loop Detected"
+    cloud_priority: high
+  identify_active:
+    type: boolean
+    label: Identify
+    help: "True while the bar's LEDs flash to show which unit this is"
+  user_interaction:
+    type: boolean
+    label: User Interaction
+    help: "The bar reports someone is using it"
+    cloud_priority: high
+  device_profile:
+    type: enum
+    values: ["Custom", "Zoom", "MicrosoftTeams"]
+    label: Device Profile
+    help: "Custom, or the Zoom or Microsoft Teams profile, which limit the camera"
+  firmware_version:
+    type: string
+    label: Firmware Version
+  update_state:
+    type: enum
+    values: ["Idle", "Updating"]
+    label: Firmware Update
+    cloud_priority: high
+  update_progress:
+    type: integer
+    label: Firmware Update Progress
+    min: 0
+    max: 100
+    unit: "%"
+  update_last_status:
+    type: enum
+    values: ["None", "ServerUnreachable", "DownloadFailed", "SignatureFailed", "DowngradeProhibited", "UpdateFailed"]
+    label: Last Firmware Update Result
+  standby_mode:
+    type: enum
+    values: ["AlwaysOn", "EcoMode", "LowPowerMode"]
+    label: Standby Mode
+  led_brightness:
+    type: integer
+    label: LED Brightness
+    min: 0
+    max: 5
+  sound_prompts:
+    type: boolean
+    label: Sound Prompts
+    help: "The bar's sound prompts. The welcome sound plays at every boot regardless"
+  poe_output_enabled:
+    type: boolean
+    label: PoE Output
+    help: "Whether the bar supplies power over Ethernet to a connected device"
+
+  # ── Network ──
+  port_configuration:
+    type: enum
+    values: ["SingleDomain", "Split", "DualDomain"]
+    label: Network Mode
+    help: "Split is Bar M only. Set in Control Cockpit or the Local Web UI"
+  wifi_enabled:
+    type: boolean
+    label: Wi-Fi
+  wifi_connected:
+    type: boolean
+    label: Wi-Fi Connected
+  wifi_ssid:
+    type: string
+    label: Wi-Fi Network
+  wifi_signal:
+    type: integer
+    label: Wi-Fi Signal
+    min: 0
+    max: 100
+    unit: "%"
+  wifi_band:
+    type: string
+    label: Wi-Fi Band
+  bluetooth_enabled:
+    type: boolean
+    label: Bluetooth
+    control: true
+  bluetooth_pairing:
+    type: boolean
+    label: Bluetooth Pairing
+    help: "Pairing stays open for three minutes or until a device connects"
+  bluetooth_mac:
+    type: string
+    label: Bluetooth Address
+  dante_enabled:
+    type: boolean
+    label: Dante
+    help: "Whether Dante is turned on; set in Control Cockpit or the Local Web UI"
+  dante_continuous_stream:
+    type: boolean
+    label: Continuous Dante Stream
+  dante_speaker_output:
+    type: boolean
+    label: Dante Speaker Output
+
+  # ── Audio ──
+  mute:
+    type: boolean
+    label: Microphone Mute
+    help: "Mutes the bar's microphone and any Dante extension microphones"
+    control: true
+    cloud_priority: high
+  volume:
+    type: integer
+    label: Speaker Volume
+    min: 0
+    max: 100
+    unit: "%"
+    control: true
+  speaker_level_limit:
+    type: integer
+    label: Speaker Volume Limit
+    min: 0
+    max: 100
+    unit: "%"
+  mic_enabled:
+    type: boolean
+    label: Internal Microphone
+  mic_gain_db:
+    type: integer
+    label: Internal Microphone Gain
+    min: -60
+    max: 0
+    unit: dB
+  noise_gate_enabled:
+    type: boolean
+    label: Noise Gate
+  noise_gate_threshold_db:
+    type: integer
+    label: Noise Gate Threshold
+    min: -70
+    max: -30
+    unit: dB
+  noise_gate_hold_ms:
+    type: integer
+    label: Noise Gate Hold Time
+    min: 100
+    max: 500
+    unit: ms
+  noise_gate_range_db:
+    type: integer
+    label: Noise Gate Range
+    min: -80
+    max: 0
+    unit: dB
+  noise_suppression:
+    type: enum
+    values: ["Low", "Medium", "High"]
+    label: Noise Suppression
+  sound_profile:
+    type: enum
+    values: ["Wallmount", "TableTop", "AboveDisplay", "UnderDisplay", "FreeStanding", "Custom"]
+    label: Sound Profile
+  mixer_fade:
+    type: enum
+    values: ["Slow", "Medium", "Fast"]
+    label: Mic Selector Fade
+  conference_out_far_end_db:
+    type: integer
+    label: Conference Output Far End Gain
+    min: -60
+    max: 0
+    unit: dB
+  conference_out_near_end_db:
+    type: integer
+    label: Conference Output Near End Gain
+    min: -60
+    max: 0
+    unit: dB
+  dante_input_1_gain_db:
+    type: integer
+    label: Dante Input 1 Gain
+    min: -60
+    max: 0
+    unit: dB
+  dante_input_2_gain_db:
+    type: integer
+    label: Dante Input 2 Gain
+    min: -60
+    max: 0
+    unit: dB
+
+  # Seven-band custom equalizers, lowest band first
+  mic_eq_1:
+    type: integer
+    label: Mic EQ Band 1 (lowest)
+    min: -8
+    max: 8
+    unit: dB
+  mic_eq_2:
+    type: integer
+    label: Mic EQ Band 2
+    min: -8
+    max: 8
+    unit: dB
+  mic_eq_3:
+    type: integer
+    label: Mic EQ Band 3
+    min: -8
+    max: 8
+    unit: dB
+  mic_eq_4:
+    type: integer
+    label: Mic EQ Band 4
+    min: -8
+    max: 8
+    unit: dB
+  mic_eq_5:
+    type: integer
+    label: Mic EQ Band 5
+    min: -8
+    max: 8
+    unit: dB
+  mic_eq_6:
+    type: integer
+    label: Mic EQ Band 6
+    min: -8
+    max: 8
+    unit: dB
+  mic_eq_7:
+    type: integer
+    label: Mic EQ Band 7 (highest)
+    min: -8
+    max: 8
+    unit: dB
+  speaker_eq_1:
+    type: integer
+    label: Speaker EQ Band 1 (lowest)
+    min: -8
+    max: 8
+    unit: dB
+  speaker_eq_2:
+    type: integer
+    label: Speaker EQ Band 2
+    min: -8
+    max: 8
+    unit: dB
+  speaker_eq_3:
+    type: integer
+    label: Speaker EQ Band 3
+    min: -8
+    max: 8
+    unit: dB
+  speaker_eq_4:
+    type: integer
+    label: Speaker EQ Band 4
+    min: -8
+    max: 8
+    unit: dB
+  speaker_eq_5:
+    type: integer
+    label: Speaker EQ Band 5
+    min: -8
+    max: 8
+    unit: dB
+  speaker_eq_6:
+    type: integer
+    label: Speaker EQ Band 6
+    min: -8
+    max: 8
+    unit: dB
+  speaker_eq_7:
+    type: integer
+    label: Speaker EQ Band 7 (highest)
+    min: -8
+    max: 8
+    unit: dB
+
+  # Beam zones (degrees across the bar's pickup area, 15 to 165)
+  exclusion_zone_1_enabled:
+    type: boolean
+    label: Exclusion Zone 1
+  exclusion_zone_1_active:
+    type: boolean
+    label: Exclusion Zone 1 Active
+    help: "Sound is arriving from inside the zone right now"
+  exclusion_zone_1_left:
+    type: integer
+    label: Exclusion Zone 1 Left Edge
+    min: 15
+    max: 165
+    unit: "°"
+  exclusion_zone_1_right:
+    type: integer
+    label: Exclusion Zone 1 Right Edge
+    min: 15
+    max: 165
+    unit: "°"
+  exclusion_zone_2_enabled:
+    type: boolean
+    label: Exclusion Zone 2
+  exclusion_zone_2_active:
+    type: boolean
+    label: Exclusion Zone 2 Active
+    help: "Sound is arriving from inside the zone right now"
+  exclusion_zone_2_left:
+    type: integer
+    label: Exclusion Zone 2 Left Edge
+    min: 15
+    max: 165
+    unit: "°"
+  exclusion_zone_2_right:
+    type: integer
+    label: Exclusion Zone 2 Right Edge
+    min: 15
+    max: 165
+    unit: "°"
+  exclusion_zone_3_enabled:
+    type: boolean
+    label: Exclusion Zone 3
+  exclusion_zone_3_active:
+    type: boolean
+    label: Exclusion Zone 3 Active
+    help: "Sound is arriving from inside the zone right now"
+  exclusion_zone_3_left:
+    type: integer
+    label: Exclusion Zone 3 Left Edge
+    min: 15
+    max: 165
+    unit: "°"
+  exclusion_zone_3_right:
+    type: integer
+    label: Exclusion Zone 3 Right Edge
+    min: 15
+    max: 165
+    unit: "°"
+  priority_zone_enabled:
+    type: boolean
+    label: Priority Zone
+  priority_zone_active:
+    type: boolean
+    label: Priority Zone Active
+    help: "Sound is arriving from inside the zone right now"
+  priority_zone_gain:
+    type: enum
+    values: ["Low", "Medium", "High"]
+    label: Priority Zone Gain
+  priority_zone_left:
+    type: integer
+    label: Priority Zone Left Edge
+    min: 15
+    max: 165
+    unit: "°"
+  priority_zone_right:
+    type: integer
+    label: Priority Zone Right Edge
+    min: 15
+    max: 165
+    unit: "°"
+
+  # ── Talker position feed (opt-in) ──
+  beam_azimuth:
+    type: integer
+    label: Talker Azimuth
+    help: "The microphone beam's angle across the bar's pickup area, 15 to 165 degrees"
+    min: 15
+    max: 165
+    unit: "°"
+    cloud_priority: low
+  active_mic:
+    type: enum
+    values: ["InternalMic", "ExternalMic1", "ExternalMic2"]
+    label: Active Microphone
+    help: "The microphone the bar's mixer has selected: its own, or Dante input 1 or 2"
+    cloud_priority: low
+
+  # ── Level meters (opt-in) ──
+  max_peak_db:
+    type: integer
+    label: Loudest Input Level
+    min: -60
+    max: 10
+    unit: dB
+    cloud_priority: low
+  mic_peak_db:
+    type: integer
+    label: Microphone Level
+    min: -60
+    max: 10
+    unit: dB
+    cloud_priority: low
+  usb_level_db:
+    type: integer
+    label: USB Input Level
+    min: -60
+    max: 10
+    unit: dB
+    cloud_priority: low
+  bluetooth_level_db:
+    type: integer
+    label: Bluetooth Input Level
+    min: -60
+    max: 10
+    unit: dB
+    cloud_priority: low
+  dante_input_1_level_db:
+    type: integer
+    label: Dante Input 1 Level
+    min: -60
+    max: 10
+    unit: dB
+    cloud_priority: low
+  dante_input_2_level_db:
+    type: integer
+    label: Dante Input 2 Level
+    min: -60
+    max: 10
+    unit: dB
+    cloud_priority: low
+
+  # ── Camera ──
+  camera_active:
+    type: boolean
+    label: Camera Active
+    help: "The camera is streaming to the connected computer"
+  autoframing:
+    type: boolean
+    label: Auto Framing
+    control: true
+  person_tiling:
+    type: boolean
+    label: Person Tiling
+    control: true
+  autoframing_button_enabled:
+    type: boolean
+    label: Remote Auto Framing Button
+  person_tiling_button_enabled:
+    type: boolean
+    label: Remote Person Tiling Button
+  camera_pan:
+    type: integer
+    label: Camera Pan
+    min: -25
+    max: 25
+    control: true
+  camera_tilt:
+    type: integer
+    label: Camera Tilt
+    min: -25
+    max: 25
+    control: true
+  camera_zoom:
+    type: integer
+    label: Camera Zoom
+    help: "100 is no zoom. Bar M up to 500 (150 in the Microsoft Teams profile); Bar S up to 300 (400 in the Zoom profile, 200 in Microsoft Teams)"
+    min: 100
+    max: 500
+    control: true
+  camera_zoom_speed:
+    type: enum
+    values: ["Slow", "Medium", "Fast"]
+    label: Remote Zoom Speed
+  camera_pan_tilt_speed:
+    type: enum
+    values: ["Slow", "Medium", "Fast"]
+    label: Remote Pan and Tilt Speed
+  autoframing_speed:
+    type: enum
+    values: ["Slow", "Medium", "Fast"]
+    label: Auto Framing Speed
+  hdmi_enabled:
+    type: boolean
+    label: HDMI Output
+    help: "Set in Control Cockpit or the Local Web UI; the Microsoft Teams profile turns it off"
+  camera_compensation:
+    type: enum
+    values: ["Off", "Backlight", "Lowlight"]
+    label: Camera Light Compensation
+  camera_anti_flicker:
+    type: enum
+    values: ["Auto", "50Hz", "60Hz", "Off"]
+    label: Camera Anti-Flicker
+  camera_brightness:
+    type: integer
+    label: Camera Brightness
+    min: -12
+    max: 12
+  camera_contrast:
+    type: integer
+    label: Camera Contrast
+    min: 1
+    max: 10
+  camera_saturation:
+    type: integer
+    label: Camera Saturation
+    min: 0
+    max: 10
+  camera_sharpness:
+    type: integer
+    label: Camera Sharpness
+    min: 0
+    max: 6
+  camera_auto_white_balance:
+    type: boolean
+    label: Camera Auto White Balance
+  camera_white_balance_k:
+    type: integer
+    label: Camera White Balance
+    min: 2800
+    max: 6500
+    unit: K
+  camera_default_mode:
+    type: enum
+    values: ["ResumeLastView", "FullFieldOfView", "AutoFraming", "PersonTiling", "UserPreset"]
+    label: Camera Mode at Call Start
+
+# ── Device settings ──────────────────────────────────────────────────────
+# Room setup the bar stores and reports back over the stream. Every write is
+# a partial body (one field); the schema marks no field of these resources
+# required. A boolean is written as the JSON literal the bar expects.
+device_settings:
+  mic_enabled:
+    type: boolean
+    label: Internal Microphone
+    help: "Turns the bar's own microphone on or off; Dante extension microphones keep working"
+    state_key: mic_enabled
+    default: true
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic
+      body: '{"enabled": {value}}'
+  mic_gain_db:
+    type: integer
+    label: Internal Microphone Gain
+    help: "-60 to 0 dB."
+    state_key: mic_gain_db
+    default: 0
+    min: -60
+    max: 0
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic
+      body: '{"gain": {value}}'
+  speaker_level_limit:
+    type: integer
+    label: Speaker Volume Limit
+    help: "Caps the speaker volume, in percent: at 50 the bar plays no louder than 50% however high the volume is set."
+    state_key: speaker_level_limit
+    default: 100
+    min: 0
+    max: 100
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/outputs/speaker
+      body: '{"levelLimiter": {value}}'
+  sound_profile:
+    type: enum
+    values:
+      - { value: "Wallmount", label: "Wall mount" }
+      - { value: "TableTop", label: "Table top" }
+      - { value: "AboveDisplay", label: "Above display" }
+      - { value: "UnderDisplay", label: "Under display" }
+      - { value: "FreeStanding", label: "Free standing" }
+      - { value: "Custom", label: "Custom (uses the microphone EQ)" }
+    label: Sound Profile
+    help: "Tunes the microphone for how the bar is mounted. Custom uses the seven-band microphone EQ instead."
+    state_key: sound_profile
+    default: "Wallmount"
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/soundProfile
+      body: '{"preset": "{value}"}'
+  noise_gate_enabled:
+    type: boolean
+    label: Noise Gate
+    help: "Keeps background noise out between sentences."
+    state_key: noise_gate_enabled
+    default: false
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/noiseGate
+      body: '{"enabled": {value}}'
+  noise_gate_threshold_db:
+    type: integer
+    label: Noise Gate Threshold
+    help: "-70 to -30 dB: the level below which the gate closes."
+    state_key: noise_gate_threshold_db
+    default: -40
+    min: -70
+    max: -30
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/noiseGate
+      body: '{"threshold": {value}}'
+  noise_gate_hold_ms:
+    type: integer
+    label: Noise Gate Hold Time
+    help: "100 to 500 ms the gate stays open after the level drops."
+    state_key: noise_gate_hold_ms
+    default: 300
+    min: 100
+    max: 500
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/noiseGate
+      body: '{"holdTime": {value}}'
+  noise_gate_range_db:
+    type: integer
+    label: Noise Gate Range
+    help: "-80 to 0 dB: how far the gate turns the microphone down when it closes."
+    state_key: noise_gate_range_db
+    default: -40
+    min: -80
+    max: 0
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/noiseGate
+      body: '{"range": {value}}'
+  noise_suppression:
+    type: enum
+    values:
+      - { value: "Low", label: "Low" }
+      - { value: "Medium", label: "Medium" }
+      - { value: "High", label: "High" }
+    label: Noise Suppression
+    help: "How hard the bar filters steady background noise out of the microphones."
+    state_key: noise_suppression
+    default: "Medium"
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/noiseSuppression
+      body: '{"weighting": "{value}"}'
+  mixer_fade:
+    type: enum
+    values:
+      - { value: "Slow", label: "Slow" }
+      - { value: "Medium", label: "Medium" }
+      - { value: "Fast", label: "Fast" }
+    label: Mic Selector Fade
+    help: "How quickly the mixer fades between the bar's microphone and the Dante extension microphones."
+    state_key: mixer_fade
+    default: "Medium"
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/mixer
+      body: '{"fadeBehavior": "{value}"}'
+  conference_out_far_end_db:
+    type: integer
+    label: Conference Output Far End Gain
+    help: "-60 to 0 dB of the far end in the Dante conference output (the mix for an assistive listening system). Mind clipping: it adds to the near end."
+    state_key: conference_out_far_end_db
+    default: -6
+    min: -60
+    max: 0
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/outputs/conferenceOutput
+      body: '{"farEndGain": {value}}'
+  conference_out_near_end_db:
+    type: integer
+    label: Conference Output Near End Gain
+    help: "-60 to 0 dB of the bar's microphones in the Dante conference output. Mind clipping: it adds to the far end."
+    state_key: conference_out_near_end_db
+    default: -6
+    min: -60
+    max: 0
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/outputs/conferenceOutput
+      body: '{"nearEndGain": {value}}'
+  dante_input_1_gain_db:
+    type: integer
+    label: Dante Input 1 Gain
+    help: "-60 to 0 dB for the extension microphone on Dante input 1, as the mic selector hears it."
+    state_key: dante_input_1_gain_db
+    default: 0
+    min: -60
+    max: 0
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/dante/0
+      body: '{"gain": {value}}'
+  dante_input_2_gain_db:
+    type: integer
+    label: Dante Input 2 Gain
+    help: "-60 to 0 dB for the extension microphone on Dante input 2, as the mic selector hears it."
+    state_key: dante_input_2_gain_db
+    default: 0
+    min: -60
+    max: 0
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/dante/1
+      body: '{"gain": {value}}'
+  dante_continuous_stream:
+    type: boolean
+    label: Continuous Dante Stream
+    help: "Keeps the Dante outputs playing when no computer is connected over USB; otherwise they are muted."
+    state_key: dante_continuous_stream
+    default: false
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/interfaces/network/dante/settings
+      body: '{"continuousDanteStream": {value}}'
+  dante_speaker_output:
+    type: boolean
+    label: Dante Speaker Output
+    help: "Sends the far end to external Dante speakers and turns the bar's own speakers off."
+    state_key: dante_speaker_output
+    default: false
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/interfaces/network/dante/settings
+      body: '{"danteSpeakerOutput": {value}}'
+  exclusion_zone_1_enabled:
+    type: boolean
+    label: Exclusion Zone 1
+    help: "The beam ignores sound from inside the zone (a projector fan, a doorway)."
+    state_key: exclusion_zone_1_enabled
+    default: false
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/0
+      body: '{"enabled": {value}}'
+  exclusion_zone_1_left:
+    type: integer
+    label: Exclusion Zone 1 Left Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: exclusion_zone_1_left
+    default: 15
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/0
+      body: '{"left": {value}}'
+  exclusion_zone_1_right:
+    type: integer
+    label: Exclusion Zone 1 Right Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: exclusion_zone_1_right
+    default: 30
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/0
+      body: '{"right": {value}}'
+  exclusion_zone_2_enabled:
+    type: boolean
+    label: Exclusion Zone 2
+    help: "The beam ignores sound from inside the zone (a projector fan, a doorway)."
+    state_key: exclusion_zone_2_enabled
+    default: false
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/1
+      body: '{"enabled": {value}}'
+  exclusion_zone_2_left:
+    type: integer
+    label: Exclusion Zone 2 Left Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: exclusion_zone_2_left
+    default: 15
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/1
+      body: '{"left": {value}}'
+  exclusion_zone_2_right:
+    type: integer
+    label: Exclusion Zone 2 Right Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: exclusion_zone_2_right
+    default: 30
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/1
+      body: '{"right": {value}}'
+  exclusion_zone_3_enabled:
+    type: boolean
+    label: Exclusion Zone 3
+    help: "The beam ignores sound from inside the zone (a projector fan, a doorway)."
+    state_key: exclusion_zone_3_enabled
+    default: false
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/2
+      body: '{"enabled": {value}}'
+  exclusion_zone_3_left:
+    type: integer
+    label: Exclusion Zone 3 Left Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: exclusion_zone_3_left
+    default: 15
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/2
+      body: '{"left": {value}}'
+  exclusion_zone_3_right:
+    type: integer
+    label: Exclusion Zone 3 Right Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: exclusion_zone_3_right
+    default: 30
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/exclusionZones/2
+      body: '{"right": {value}}'
+  priority_zone_enabled:
+    type: boolean
+    label: Priority Zone
+    help: "Gives a talker inside the zone (a presenter's spot) priority in the mixer."
+    state_key: priority_zone_enabled
+    default: false
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/priorityZones/0
+      body: '{"enabled": {value}}'
+  priority_zone_gain:
+    type: enum
+    values:
+      - { value: "Low", label: "Low" }
+      - { value: "Medium", label: "Medium" }
+      - { value: "High", label: "High" }
+    label: Priority Zone Gain
+    help: "How strongly a talker in the priority zone is favoured."
+    state_key: priority_zone_gain
+    default: "Medium"
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/priorityZones/0
+      body: '{"gain": "{value}"}'
+  priority_zone_left:
+    type: integer
+    label: Priority Zone Left Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: priority_zone_left
+    default: 15
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/priorityZones/0
+      body: '{"left": {value}}'
+  priority_zone_right:
+    type: integer
+    label: Priority Zone Right Edge
+    help: "15 to 165 degrees across the bar's pickup area."
+    state_key: priority_zone_right
+    default: 30
+    min: 15
+    max: 165
+    setup: false
+    write:
+      method: PUT
+      path: /api/audio/inputs/internalMic/priorityZones/0
+      body: '{"right": {value}}'
+  camera_zoom_speed:
+    type: enum
+    values:
+      - { value: "Slow", label: "Slow" }
+      - { value: "Medium", label: "Medium" }
+      - { value: "Fast", label: "Fast" }
+    label: Remote Zoom Speed
+    help: "How fast the remote control's zoom buttons zoom."
+    state_key: camera_zoom_speed
+    default: "Medium"
+    setup: false
+    write:
+      method: PUT
+      path: /api/video/input/internalCamera/movement
+      body: '{"zoomSpeed": "{value}"}'
+  camera_pan_tilt_speed:
+    type: enum
+    values:
+      - { value: "Slow", label: "Slow" }
+      - { value: "Medium", label: "Medium" }
+      - { value: "Fast", label: "Fast" }
+    label: Remote Pan and Tilt Speed
+    help: "How fast the remote control's arrow buttons move the camera."
+    state_key: camera_pan_tilt_speed
+    default: "Medium"
+    setup: false
+    write:
+      method: PUT
+      path: /api/video/input/internalCamera/movement
+      body: '{"panTiltSpeed": "{value}"}'
+  autoframing_speed:
+    type: enum
+    values:
+      - { value: "Slow", label: "Slow" }
+      - { value: "Medium", label: "Medium" }
+      - { value: "Fast", label: "Fast" }
+    label: Auto Framing Speed
+    help: "How quickly auto framing follows the people in view."
+    state_key: autoframing_speed
+    default: "Medium"
+    setup: false
+    write:
+      method: PUT
+      path: /api/video/input/internalCamera/movement
+      body: '{"autoFramingSpeed": "{value}"}'
+  autoframing_button_enabled:
+    type: boolean
+    label: Remote Auto Framing Button
+    help: "Whether the remote control's auto framing button works."
+    state_key: autoframing_button_enabled
+    default: true
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/video/input/internalCamera/aiAccess
+      body: '{"autoFramingAccessEnabled": {value}}'
+  person_tiling_button_enabled:
+    type: boolean
+    label: Remote Person Tiling Button
+    help: "Whether the remote control's person tiling button works."
+    state_key: person_tiling_button_enabled
+    default: true
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/video/input/internalCamera/aiAccess
+      body: '{"personTilingAccessEnabled": {value}}'
+  led_brightness:
+    type: integer
+    label: LED Brightness
+    help: "0 (off) to 5."
+    state_key: led_brightness
+    default: 3
+    min: 0
+    max: 5
+    setup: false
+    write:
+      method: PUT
+      path: /api/device/leds/ring
+      body: '{"brightness": {value}}'
+  sound_prompts:
+    type: boolean
+    label: Sound Prompts
+    help: "The bar's own sound feedback. The welcome sound plays at every boot regardless."
+    state_key: sound_prompts
+    default: true
+    setup: false
+    map: { "true": "true", "false": "false" }
+    write:
+      method: PUT
+      path: /api/device/feedback
+      body: '{"soundPrompts": {value}}'
+  standby_mode:
+    type: enum
+    values:
+      - { value: "EcoMode", label: "Eco (network standby, wakes remotely)" }
+      - { value: "LowPowerMode", label: "Low power (deep sleep, wakes by hand)" }
+      - { value: "AlwaysOn", label: "Always on" }
+    label: Standby Mode
+    help: >
+      The lowest energy-saving state the bar may enter. Eco keeps it
+      reachable on the network. Low power lets it sleep only once nothing is
+      connected, Ethernet included, for up to 2.5 hours, and then it wakes
+      only from its own power button. Always on never saves energy.
+    state_key: standby_mode
+    default: "EcoMode"
+    setup: false
+    write:
+      method: PUT
+      path: /api/device/allowedStandbyMode
+      body: '{"mode": "{value}"}'
+
+commands:
+  # ── Queries (polled; the session covers everything else) ──
+  query_identity:
+    label: Query Identity
+    method: GET
+    path: /api/device/identity
+    query_for: product
+    help: "Reads the product code (Bar S or Bar M), article number, serial and hardware revision"
+  query_ssc_version:
+    label: Query API Version
+    method: GET
+    path: /api/ssc/version
+    query_for: ssc_schema_version
+    help: "Reads the SSC protocol and API schema versions the bar runs"
+  query_site:
+    label: Query Device Name
+    method: GET
+    path: /api/device/site
+    query_for: device_name
+    help: "Reads the bar's device name, Dante name, location and position"
+  query_state:
+    label: Query Device State
+    method: GET
+    path: /api/device/state
+    query_for: device_state
+    help: "Reads the bar's state and its warnings"
+  query_firmware:
+    label: Query Firmware
+    method: GET
+    path: /api/firmware/update/state
+    query_for: firmware_version
+    help: "Reads the firmware version and the state of any update"
+  query_identification:
+    label: Query Identify
+    method: GET
+    path: /api/device/identification
+    query_for: identify_active
+    help: "Reads whether the bar is flashing to identify itself"
+  query_speaker:
+    label: Query Volume
+    method: GET
+    path: /api/audio/outputs/speaker
+    query_for: volume
+    help: "Reads the speaker volume and its limit"
+  query_user_interaction:
+    label: Query User Interaction
+    method: GET
+    path: /api/device/hasUserInteraction
+    query_for: user_interaction
+    help: "Reads whether the bar reports someone using it"
+
+  # ── Device ──
+  identify_on:
+    label: Identify Bar
+    method: PUT
+    path: /api/device/identification
+    body: '{"visual": true}'
+    help: "Flashes the bar's LEDs so you can see which one this is"
+    sets: { identify_active: true }
+  identify_off:
+    label: Stop Identifying Bar
+    method: PUT
+    path: /api/device/identification
+    body: '{"visual": false}'
+    help: "Stops the identify flashing"
+    sets: { identify_active: false }
+  restart:
+    label: Restart Bar
+    method: PUT
+    path: /api/device/restart
+    help: "Restarts the bar. The camera, microphones and speakers drop out until it is back."
+    # Not measured: no TC Bar on the bench and no Sennheiser document gives a
+    # boot time. 120 s is a ceiling to be replaced by the measured time
+    # rounded up (the hardware checklist in the shipped record).
+    restarts_device_for: 120
+  set_device_profile:
+    label: Set Device Profile
+    method: PUT
+    path: /api/device/profile
+    body: '{"configuration": "{profile}"}'
+    help: "Switches the bar to its own Custom settings or to the Zoom or Microsoft Teams profile. Resets every camera setting and restarts the bar; Microsoft Teams also turns the HDMI output off."
+    confirm: "Resets every camera setting and restarts the bar."
+    # Same unmeasured window as restart: the profile change reboots the bar.
+    restarts_device_for: 120
+    params:
+      profile:
+        type: enum
+        required: true
+        label: Profile
+        values:
+          - { value: "Custom", label: "Custom" }
+          - { value: "Zoom", label: "Zoom" }
+          - { value: "MicrosoftTeams", label: "Microsoft Teams" }
+    sets: { device_profile: "{profile}" }
+
+  # ── Audio ──
+  mute_on:
+    label: Mute Microphones
+    method: PUT
+    path: /api/audio/inputs/mute
+    body: '{"enabled": true}'
+    help: "Mutes the bar's microphone and any Dante extension microphones"
+    sets: { mute: true }
+  mute_off:
+    label: Unmute Microphones
+    method: PUT
+    path: /api/audio/inputs/mute
+    body: '{"enabled": false}'
+    help: "Unmutes the bar's microphones"
+    sets: { mute: false }
+  set_volume:
+    label: Set Volume
+    method: PUT
+    path: /api/audio/outputs/speaker
+    body: '{"volume": {level}}'
+    help: "Sets the bar's speaker volume, 0 to 100%"
+    params:
+      level:
+        type: integer
+        required: true
+        label: Volume
+        min: 0
+        max: 100
+        unit: "%"
+    sets: { volume: "{level}" }
+  volume_up:
+    label: Volume Up
+    method: PUT
+    path: /api/audio/outputs/speaker/relative
+    body: '{"volumeUp": {steps}}'
+    help: "Turns the speaker volume up by the given steps; it stops at the top"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 5
+  volume_down:
+    label: Volume Down
+    method: PUT
+    path: /api/audio/outputs/speaker/relative
+    body: '{"volumeDown": {steps}}'
+    help: "Turns the speaker volume down by the given steps; it stops at 0"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 5
+  set_mic_eq:
+    label: Set Microphone EQ
+    method: PUT
+    path: /api/audio/inputs/internalMic/customEq
+    body: '[{band1}, {band2}, {band3}, {band4}, {band5}, {band6}, {band7}]'
+    help: "Sets all seven bands of the microphone's custom EQ, -8 to +8 dB each, lowest band first. The Custom sound profile uses it."
+    params:
+      band1:
+        type: integer
+        required: true
+        label: Band 1 (lowest)
+        min: -8
+        max: 8
+        unit: dB
+      band2:
+        type: integer
+        required: true
+        label: Band 2
+        min: -8
+        max: 8
+        unit: dB
+      band3:
+        type: integer
+        required: true
+        label: Band 3
+        min: -8
+        max: 8
+        unit: dB
+      band4:
+        type: integer
+        required: true
+        label: Band 4
+        min: -8
+        max: 8
+        unit: dB
+      band5:
+        type: integer
+        required: true
+        label: Band 5
+        min: -8
+        max: 8
+        unit: dB
+      band6:
+        type: integer
+        required: true
+        label: Band 6
+        min: -8
+        max: 8
+        unit: dB
+      band7:
+        type: integer
+        required: true
+        label: Band 7 (highest)
+        min: -8
+        max: 8
+        unit: dB
+    sets: { mic_eq_1: "{band1}", mic_eq_2: "{band2}", mic_eq_3: "{band3}", mic_eq_4: "{band4}", mic_eq_5: "{band5}", mic_eq_6: "{band6}", mic_eq_7: "{band7}" }
+  mic_eq_flat:
+    label: Flatten Microphone EQ
+    method: PUT
+    path: /api/audio/inputs/internalMic/customEq
+    body: '[0, 0, 0, 0, 0, 0, 0]'
+    help: "Sets every band of the microphone's custom EQ to 0 dB"
+    sets: { mic_eq_1: 0, mic_eq_2: 0, mic_eq_3: 0, mic_eq_4: 0, mic_eq_5: 0, mic_eq_6: 0, mic_eq_7: 0 }
+  set_speaker_eq:
+    label: Set Speaker EQ
+    method: PUT
+    path: /api/audio/outputs/speaker/customEq
+    body: '[{band1}, {band2}, {band3}, {band4}, {band5}, {band6}, {band7}]'
+    help: "Sets all seven bands of the speaker's custom EQ, -8 to +8 dB each, lowest band first"
+    params:
+      band1:
+        type: integer
+        required: true
+        label: Band 1 (lowest)
+        min: -8
+        max: 8
+        unit: dB
+      band2:
+        type: integer
+        required: true
+        label: Band 2
+        min: -8
+        max: 8
+        unit: dB
+      band3:
+        type: integer
+        required: true
+        label: Band 3
+        min: -8
+        max: 8
+        unit: dB
+      band4:
+        type: integer
+        required: true
+        label: Band 4
+        min: -8
+        max: 8
+        unit: dB
+      band5:
+        type: integer
+        required: true
+        label: Band 5
+        min: -8
+        max: 8
+        unit: dB
+      band6:
+        type: integer
+        required: true
+        label: Band 6
+        min: -8
+        max: 8
+        unit: dB
+      band7:
+        type: integer
+        required: true
+        label: Band 7 (highest)
+        min: -8
+        max: 8
+        unit: dB
+    sets: { speaker_eq_1: "{band1}", speaker_eq_2: "{band2}", speaker_eq_3: "{band3}", speaker_eq_4: "{band4}", speaker_eq_5: "{band5}", speaker_eq_6: "{band6}", speaker_eq_7: "{band7}" }
+  speaker_eq_flat:
+    label: Flatten Speaker EQ
+    method: PUT
+    path: /api/audio/outputs/speaker/customEq
+    body: '[0, 0, 0, 0, 0, 0, 0]'
+    help: "Sets every band of the speaker's custom EQ to 0 dB"
+    sets: { speaker_eq_1: 0, speaker_eq_2: 0, speaker_eq_3: 0, speaker_eq_4: 0, speaker_eq_5: 0, speaker_eq_6: 0, speaker_eq_7: 0 }
+  exclusion_zone_on:
+    label: Exclusion Zone On
+    method: PUT
+    path: /api/audio/inputs/internalMic/exclusionZones/{zone}
+    body: '{"enabled": true}'
+    help: "Turns an exclusion zone on: the beam ignores sound from inside it"
+    params:
+      zone:
+        type: enum
+        required: true
+        label: Zone
+        values:
+          - { value: "1", label: "Zone 1" }
+          - { value: "2", label: "Zone 2" }
+          - { value: "3", label: "Zone 3" }
+        map: { "1": 0, "2": 1, "3": 2 }
+  exclusion_zone_off:
+    label: Exclusion Zone Off
+    method: PUT
+    path: /api/audio/inputs/internalMic/exclusionZones/{zone}
+    body: '{"enabled": false}'
+    help: "Turns an exclusion zone off"
+    params:
+      zone:
+        type: enum
+        required: true
+        label: Zone
+        values:
+          - { value: "1", label: "Zone 1" }
+          - { value: "2", label: "Zone 2" }
+          - { value: "3", label: "Zone 3" }
+        map: { "1": 0, "2": 1, "3": 2 }
+  priority_zone_on:
+    label: Priority Zone On
+    method: PUT
+    path: /api/audio/inputs/internalMic/priorityZones/0
+    body: '{"enabled": true}'
+    help: "Turns the priority zone on: a talker inside it is favoured in the mixer"
+    sets: { priority_zone_enabled: true }
+  priority_zone_off:
+    label: Priority Zone Off
+    method: PUT
+    path: /api/audio/inputs/internalMic/priorityZones/0
+    body: '{"enabled": false}'
+    help: "Turns the priority zone off"
+    sets: { priority_zone_enabled: false }
+
+  # ── Camera ──
+  autoframing_on:
+    label: Auto Framing On
+    method: PUT
+    path: /api/video/input/internalCamera/aiAccess
+    body: '{"autoFramingEnabled": true}'
+    help: "The camera frames the people in view by itself"
+    sets: { autoframing: true }
+  autoframing_off:
+    label: Auto Framing Off
+    method: PUT
+    path: /api/video/input/internalCamera/aiAccess
+    body: '{"autoFramingEnabled": false}'
+    help: "Stops auto framing; the camera holds its view"
+    sets: { autoframing: false }
+  person_tiling_on:
+    label: Person Tiling On
+    method: PUT
+    path: /api/video/input/internalCamera/aiAccess
+    body: '{"personTilingEnabled": true}'
+    help: "Shows each person in view in a tile of their own"
+    sets: { person_tiling: true }
+  person_tiling_off:
+    label: Person Tiling Off
+    method: PUT
+    path: /api/video/input/internalCamera/aiAccess
+    body: '{"personTilingEnabled": false}'
+    help: "Stops person tiling"
+    sets: { person_tiling: false }
+  camera_full_view:
+    label: Camera Full View
+    method: PUT
+    path: /api/video/input/internalCamera/ffov
+    help: "Returns the camera to its full field of view"
+    sets: { camera_pan: 0, camera_tilt: 0, camera_zoom: 100 }
+  camera_preset_recall:
+    label: Recall Camera Preset
+    method: PUT
+    path: /api/video/input/internalCamera/preset/load
+    help: "Moves the camera to its stored preset view"
+  camera_preset_save:
+    label: Save Camera Preset
+    method: PUT
+    path: /api/video/input/internalCamera/preset/store
+    help: "Stores the camera's current view as its preset, replacing the one stored"
+  set_camera_pan:
+    label: Set Camera Pan
+    method: PUT
+    path: /api/video/input/internalCamera/movement
+    body: '{"panPosition": {pan}}'
+    help: "Pans the camera to a position from -25 to 25"
+    params:
+      pan:
+        type: integer
+        required: true
+        label: Pan
+        min: -25
+        max: 25
+    sets: { camera_pan: "{pan}" }
+  set_camera_tilt:
+    label: Set Camera Tilt
+    method: PUT
+    path: /api/video/input/internalCamera/movement
+    body: '{"tiltPosition": {tilt}}'
+    help: "Tilts the camera to a position from -25 to 25"
+    params:
+      tilt:
+        type: integer
+        required: true
+        label: Tilt
+        min: -25
+        max: 25
+    sets: { camera_tilt: "{tilt}" }
+  set_camera_zoom:
+    label: Set Camera Zoom
+    method: PUT
+    path: /api/video/input/internalCamera/movement
+    body: '{"zoomPosition": {zoom}}'
+    help: "Zooms the camera: 100 is no zoom. Bar M up to 500 (150 in the Microsoft Teams profile); Bar S up to 300 (400 in the Zoom profile, 200 in Microsoft Teams)"
+    params:
+      zoom:
+        type: integer
+        required: true
+        label: Zoom
+        min: 100
+        max: 500
+    sets: { camera_zoom: "{zoom}" }
+  camera_left:
+    label: Camera Left
+    method: PUT
+    path: /api/video/input/internalCamera/movement/relative
+    body: '{"left": {steps}}'
+    help: "Pans the camera left by the given steps; it stops at the end of its travel"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 1
+  camera_right:
+    label: Camera Right
+    method: PUT
+    path: /api/video/input/internalCamera/movement/relative
+    body: '{"right": {steps}}'
+    help: "Pans the camera right by the given steps; it stops at the end of its travel"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 1
+  camera_up:
+    label: Camera Up
+    method: PUT
+    path: /api/video/input/internalCamera/movement/relative
+    body: '{"up": {steps}}'
+    help: "Tilts the camera up by the given steps; it stops at the end of its travel"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 1
+  camera_down:
+    label: Camera Down
+    method: PUT
+    path: /api/video/input/internalCamera/movement/relative
+    body: '{"down": {steps}}'
+    help: "Tilts the camera down by the given steps; it stops at the end of its travel"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 1
+  camera_zoom_in:
+    label: Camera Zoom In
+    method: PUT
+    path: /api/video/input/internalCamera/movement/relative
+    body: '{"zoomIn": {steps}}'
+    help: "Zooms the camera in by the given steps (zoom runs 100 to 500); it stops at the model's limit"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 10
+  camera_zoom_out:
+    label: Camera Zoom Out
+    method: PUT
+    path: /api/video/input/internalCamera/movement/relative
+    body: '{"zoomOut": {steps}}'
+    help: "Zooms the camera out by the given steps; it stops at no zoom"
+    params:
+      steps:
+        type: integer
+        required: true
+        label: Steps
+        min: 1
+        max: 255
+        default: 10
+
+  # ── Bluetooth ──
+  bluetooth_on:
+    label: Bluetooth On
+    method: PUT
+    path: /api/interfaces/bluetooth
+    body: '{"enabled": true}'
+    help: "Turns the bar's Bluetooth on. Wait ten seconds before starting pairing."
+    sets: { bluetooth_enabled: true }
+  bluetooth_off:
+    label: Bluetooth Off
+    method: PUT
+    path: /api/interfaces/bluetooth
+    body: '{"enabled": false}'
+    help: "Turns Bluetooth off, which also stops pairing and forgets the paired devices"
+    sets: { bluetooth_enabled: false, bluetooth_pairing: false }
+  bluetooth_pairing_on:
+    label: Start Bluetooth Pairing
+    method: PUT
+    path: /api/interfaces/bluetooth
+    body: '{"pairing": true}'
+    help: "Makes the bar visible for pairing for three minutes or until a phone connects. Bluetooth must have been on for ten seconds."
+    sets: { bluetooth_pairing: true }
+  bluetooth_pairing_off:
+    label: Stop Bluetooth Pairing
+    method: PUT
+    path: /api/interfaces/bluetooth
+    body: '{"pairing": false}'
+    help: "Stops pairing"
+    sets: { bluetooth_pairing: false }
+
+  # ── Feeds (at runtime) ──
+  talker_position_on:
+    label: Talker Position On
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/audio/inputs/internalMic/beam", "/api/audio/inputs/mixer/activity"]'
+    help: "Starts streaming the beam angle and which microphone the mixer picked"
+  talker_position_off:
+    label: Talker Position Off
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/remove
+    body: '["/api/audio/inputs/internalMic/beam", "/api/audio/inputs/mixer/activity"]'
+    help: "Stops the talker position feed"
+  meters_on:
+    label: Meters On
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/audio/inputs/maxLevel", "/api/audio/inputs/internalMic/level", "/api/audio/inputs/usb", "/api/audio/inputs/bluetooth", "/api/audio/inputs/dante/0/level", "/api/audio/inputs/dante/1/level"]'
+    help: "Starts streaming the microphone, USB, Bluetooth and Dante input levels"
+  meters_off:
+    label: Meters Off
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/remove
+    body: '["/api/audio/inputs/maxLevel", "/api/audio/inputs/internalMic/level", "/api/audio/inputs/usb", "/api/audio/inputs/bluetooth", "/api/audio/inputs/dante/0/level", "/api/audio/inputs/dante/1/level"]'
+    help: "Stops the level meter feed"
+
+  # ── Subscription session (run by the push block; here so they are visible) ──
+  subscribe_device:
+    label: "Subscribe: device state"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/device/state", "/api/device/site", "/api/device/identification", "/api/firmware/update/state"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_audio:
+    label: "Subscribe: mute and volume"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/audio/inputs/mute", "/api/audio/outputs/speaker", "/api/audio/inputs/internalMic"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_audio_processing:
+    label: "Subscribe: audio processing"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/audio/inputs/internalMic/noiseGate", "/api/audio/inputs/noiseSuppression", "/api/audio/soundProfile", "/api/audio/inputs/mixer", "/api/audio/outputs/conferenceOutput"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_equalizers:
+    label: "Subscribe: equalizers"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/audio/inputs/internalMic/customEq", "/api/audio/outputs/speaker/customEq"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_zones:
+    label: "Subscribe: beam zones"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/audio/inputs/internalMic/exclusionZones/0", "/api/audio/inputs/internalMic/exclusionZones/1", "/api/audio/inputs/internalMic/exclusionZones/2", "/api/audio/inputs/internalMic/priorityZones/0"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_dante_inputs:
+    label: "Subscribe: Dante inputs"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/audio/inputs/dante/0", "/api/audio/inputs/dante/1"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_camera:
+    label: "Subscribe: camera"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/video/input/internalCamera/aiAccess", "/api/video/input/internalCamera/movement", "/api/video/input/internalCamera", "/api/video/input/internalCamera/videoParameters", "/api/video/output/hdmi"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_device_settings:
+    label: "Subscribe: device settings"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/device/hasUserInteraction", "/api/device/profile", "/api/device/allowedStandbyMode", "/api/device/leds/ring", "/api/device/feedback"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_network:
+    label: "Subscribe: network"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/interfaces/network/portConfiguration", "/api/interfaces/network/wifi", "/api/interfaces/bluetooth", "/api/interfaces/network/dante", "/api/interfaces/network/dante/settings"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  subscribe_poe_output:
+    label: "Subscribe: PoE output"
+    method: PUT
+    path: /api/ssc/state/subscriptions/{push_session}/add
+    body: '["/api/device/power/poe/output"]'
+    help: "Sent automatically each time the event stream opens; there is no need to send it by hand"
+  end_subscription:
+    label: "Subscribe: end session"
+    method: DELETE
+    path: /api/ssc/state/subscriptions/{push_session}
+    help: "Sent automatically when the device is disconnected on purpose"
+
+# ── Responses ──────────────────────────────────────────────────────────
+# Every body is JSON, so every rule is json: true and all of them run
+# against every body. Two shapes arrive:
+#   - a polled GET answers with the bare resource ({"volume": ..}). Only
+#     the resources whose bodies carry a key no other resource has are
+#     polled, and those rules are scoped with require: to it;
+#   - the subscription stream sends {"<resource path>": {..}} (SSCv2 spec,
+#     "Subscription notification syntax"), possibly several resources in
+#     one object, so those rules read the path as the leading JSON key. A
+#     path only ever appears in stream bodies, so they need no require:.
+responses:
+  # ── Polled bodies ──
+  # /api/device/identity
+  - json: true
+    require: product
+    set:
+      product: "product"
+      model: { key: "product", map: { "TCBarS": "TeamConnect Bar S", "TCBarM": "TeamConnect Bar M" } }
+      article_number: "articleNumber"
+      serial: "serial"
+      hardware_revision: "hardwareRevision"
+      vendor: "vendor"
+  # /api/ssc/version
+  - json: true
+    require: schema
+    set:
+      ssc_protocol_version: "protocol"
+      ssc_schema_version: "schema"
+  # /api/device/site
+  - json: true
+    require: deviceName
+    set:
+      device_name: "deviceName"
+      dante_name: "danteName"
+      location: "location"
+      position: "position"
+  # /api/device/state: the warnings array becomes one boolean per flag
+  - json: true
+    require: warnings
+    set:
+      device_state: "state"
+      warning_count: "warnings"
+      warning_mic_muted: { key: "warnings", contains: "MicMuted" }
+      warning_lens_cap_on: { key: "warnings", contains: "LensCapOn" }
+      warning_camera_off: { key: "warnings", contains: "CameraOff" }
+      warning_speaker_muted: { key: "warnings", contains: "SpeakerMuted" }
+      warning_no_device_connected: { key: "warnings", contains: "NoDeviceConnected" }
+      warning_overheating: { key: "warnings", contains: "DeviceOverheating" }
+      warning_cpu_overloaded: { key: "warnings", contains: "CpuOverloading" }
+      warning_bluetooth_failure: { key: "warnings", contains: "BluetoothFailure" }
+      warning_dante_failure: { key: "warnings", contains: "DanteFailure" }
+      warning_mic_failure: { key: "warnings", contains: "MicFailure" }
+      warning_speaker_failure: { key: "warnings", contains: "SpeakerFailure" }
+      warning_voice_engine_failure: { key: "warnings", contains: "VoiceEngineFailure" }
+      warning_camera_failure: { key: "warnings", contains: "CameraFailure" }
+      warning_usb_failure: { key: "warnings", contains: "UsbFailure" }
+      warning_time_uninitialized: { key: "warnings", contains: "TimeUninitialized" }
+      warning_network_loop: { key: "warnings", contains: "NetworkLoopDetected" }
+  # /api/firmware/update/state
+  - json: true
+    require: deviceVersion
+    set:
+      firmware_version: "deviceVersion"
+      update_state: "state"
+      update_progress: "progress"
+      update_last_status: "lastStatus"
+  # /api/device/identification
+  - json: true
+    require: visual
+    set:
+      identify_active: "visual"
+  # /api/audio/outputs/speaker
+  - json: true
+    require: [volume, levelLimiter]
+    set:
+      volume: "volume"
+      speaker_level_limit: "levelLimiter"
+  # /api/device/hasUserInteraction
+  - json: true
+    require: interaction
+    set:
+      user_interaction: "interaction"
+
+  # ── Stream bodies: device ──
+  - json: true
+    set:
+      device_state: "/api/device/state.state"
+      warning_count: "/api/device/state.warnings"
+      warning_mic_muted: { key: "/api/device/state.warnings", contains: "MicMuted" }
+      warning_lens_cap_on: { key: "/api/device/state.warnings", contains: "LensCapOn" }
+      warning_camera_off: { key: "/api/device/state.warnings", contains: "CameraOff" }
+      warning_speaker_muted: { key: "/api/device/state.warnings", contains: "SpeakerMuted" }
+      warning_no_device_connected: { key: "/api/device/state.warnings", contains: "NoDeviceConnected" }
+      warning_overheating: { key: "/api/device/state.warnings", contains: "DeviceOverheating" }
+      warning_cpu_overloaded: { key: "/api/device/state.warnings", contains: "CpuOverloading" }
+      warning_bluetooth_failure: { key: "/api/device/state.warnings", contains: "BluetoothFailure" }
+      warning_dante_failure: { key: "/api/device/state.warnings", contains: "DanteFailure" }
+      warning_mic_failure: { key: "/api/device/state.warnings", contains: "MicFailure" }
+      warning_speaker_failure: { key: "/api/device/state.warnings", contains: "SpeakerFailure" }
+      warning_voice_engine_failure: { key: "/api/device/state.warnings", contains: "VoiceEngineFailure" }
+      warning_camera_failure: { key: "/api/device/state.warnings", contains: "CameraFailure" }
+      warning_usb_failure: { key: "/api/device/state.warnings", contains: "UsbFailure" }
+      warning_time_uninitialized: { key: "/api/device/state.warnings", contains: "TimeUninitialized" }
+      warning_network_loop: { key: "/api/device/state.warnings", contains: "NetworkLoopDetected" }
+  - json: true
+    set:
+      device_name: "/api/device/site.deviceName"
+      dante_name: "/api/device/site.danteName"
+      location: "/api/device/site.location"
+      position: "/api/device/site.position"
+  - json: true
+    set:
+      identify_active: "/api/device/identification.visual"
+  - json: true
+    set:
+      firmware_version: "/api/firmware/update/state.deviceVersion"
+      update_state: "/api/firmware/update/state.state"
+      update_progress: "/api/firmware/update/state.progress"
+      update_last_status: "/api/firmware/update/state.lastStatus"
+  - json: true
+    set:
+      user_interaction: "/api/device/hasUserInteraction.interaction"
+  - json: true
+    set:
+      device_profile: "/api/device/profile.configuration"
+  - json: true
+    set:
+      standby_mode: "/api/device/allowedStandbyMode.mode"
+  - json: true
+    set:
+      led_brightness: "/api/device/leds/ring.brightness"
+  - json: true
+    set:
+      sound_prompts: "/api/device/feedback.soundPrompts"
+  - json: true
+    set:
+      poe_output_enabled: "/api/device/power/poe/output.enabled"
+
+  # ── Stream bodies: network ──
+  - json: true
+    set:
+      port_configuration: "/api/interfaces/network/portConfiguration.configuration"
+  - json: true
+    set:
+      wifi_enabled: "/api/interfaces/network/wifi.enabled"
+      wifi_connected: { key: "/api/interfaces/network/wifi.state", type: boolean, map: { "Connected": true, "Disconnected": false } }
+      wifi_ssid: "/api/interfaces/network/wifi.connection.ssid"
+      wifi_signal: "/api/interfaces/network/wifi.connection.signal"
+      wifi_band: "/api/interfaces/network/wifi.connection.frequency"
+  - json: true
+    set:
+      bluetooth_enabled: "/api/interfaces/bluetooth.enabled"
+      bluetooth_pairing: "/api/interfaces/bluetooth.pairing"
+      bluetooth_mac: "/api/interfaces/bluetooth.mac"
+  - json: true
+    set:
+      dante_enabled: "/api/interfaces/network/dante.enabled"
+  - json: true
+    set:
+      dante_continuous_stream: "/api/interfaces/network/dante/settings.continuousDanteStream"
+      dante_speaker_output: "/api/interfaces/network/dante/settings.danteSpeakerOutput"
+
+  # ── Stream bodies: audio ──
+  - json: true
+    set:
+      mute: "/api/audio/inputs/mute.enabled"
+  - json: true
+    set:
+      volume: "/api/audio/outputs/speaker.volume"
+      speaker_level_limit: "/api/audio/outputs/speaker.levelLimiter"
+  - json: true
+    set:
+      mic_enabled: "/api/audio/inputs/internalMic.enabled"
+      mic_gain_db: "/api/audio/inputs/internalMic.gain"
+  - json: true
+    set:
+      noise_gate_enabled: "/api/audio/inputs/internalMic/noiseGate.enabled"
+      noise_gate_threshold_db: "/api/audio/inputs/internalMic/noiseGate.threshold"
+      noise_gate_hold_ms: "/api/audio/inputs/internalMic/noiseGate.holdTime"
+      noise_gate_range_db: "/api/audio/inputs/internalMic/noiseGate.range"
+  - json: true
+    set:
+      noise_suppression: "/api/audio/inputs/noiseSuppression.weighting"
+  - json: true
+    set:
+      sound_profile: "/api/audio/soundProfile.preset"
+  - json: true
+    set:
+      mixer_fade: "/api/audio/inputs/mixer.fadeBehavior"
+  - json: true
+    set:
+      conference_out_far_end_db: "/api/audio/outputs/conferenceOutput.farEndGain"
+      conference_out_near_end_db: "/api/audio/outputs/conferenceOutput.nearEndGain"
+  - json: true
+    set:
+      dante_input_1_gain_db: "/api/audio/inputs/dante/0.gain"
+  - json: true
+    set:
+      dante_input_2_gain_db: "/api/audio/inputs/dante/1.gain"
+  - json: true
+    set:
+      mic_eq_1: "/api/audio/inputs/internalMic/customEq.0"
+      mic_eq_2: "/api/audio/inputs/internalMic/customEq.1"
+      mic_eq_3: "/api/audio/inputs/internalMic/customEq.2"
+      mic_eq_4: "/api/audio/inputs/internalMic/customEq.3"
+      mic_eq_5: "/api/audio/inputs/internalMic/customEq.4"
+      mic_eq_6: "/api/audio/inputs/internalMic/customEq.5"
+      mic_eq_7: "/api/audio/inputs/internalMic/customEq.6"
+  - json: true
+    set:
+      speaker_eq_1: "/api/audio/outputs/speaker/customEq.0"
+      speaker_eq_2: "/api/audio/outputs/speaker/customEq.1"
+      speaker_eq_3: "/api/audio/outputs/speaker/customEq.2"
+      speaker_eq_4: "/api/audio/outputs/speaker/customEq.3"
+      speaker_eq_5: "/api/audio/outputs/speaker/customEq.4"
+      speaker_eq_6: "/api/audio/outputs/speaker/customEq.5"
+      speaker_eq_7: "/api/audio/outputs/speaker/customEq.6"
+  - json: true
+    set:
+      exclusion_zone_1_enabled: "/api/audio/inputs/internalMic/exclusionZones/0.enabled"
+      exclusion_zone_1_active: "/api/audio/inputs/internalMic/exclusionZones/0.active"
+      exclusion_zone_1_left: "/api/audio/inputs/internalMic/exclusionZones/0.left"
+      exclusion_zone_1_right: "/api/audio/inputs/internalMic/exclusionZones/0.right"
+  - json: true
+    set:
+      exclusion_zone_2_enabled: "/api/audio/inputs/internalMic/exclusionZones/1.enabled"
+      exclusion_zone_2_active: "/api/audio/inputs/internalMic/exclusionZones/1.active"
+      exclusion_zone_2_left: "/api/audio/inputs/internalMic/exclusionZones/1.left"
+      exclusion_zone_2_right: "/api/audio/inputs/internalMic/exclusionZones/1.right"
+  - json: true
+    set:
+      exclusion_zone_3_enabled: "/api/audio/inputs/internalMic/exclusionZones/2.enabled"
+      exclusion_zone_3_active: "/api/audio/inputs/internalMic/exclusionZones/2.active"
+      exclusion_zone_3_left: "/api/audio/inputs/internalMic/exclusionZones/2.left"
+      exclusion_zone_3_right: "/api/audio/inputs/internalMic/exclusionZones/2.right"
+  - json: true
+    set:
+      priority_zone_enabled: "/api/audio/inputs/internalMic/priorityZones/0.enabled"
+      priority_zone_active: "/api/audio/inputs/internalMic/priorityZones/0.active"
+      priority_zone_gain: "/api/audio/inputs/internalMic/priorityZones/0.gain"
+      priority_zone_left: "/api/audio/inputs/internalMic/priorityZones/0.left"
+      priority_zone_right: "/api/audio/inputs/internalMic/priorityZones/0.right"
+
+  # ── Stream bodies: talker position feed ──
+  # Not throttled: the beam reports a new angle when the talker moves, and a
+  # drop-style throttle would leave the final angle unwritten until the next
+  # move.
+  - json: true
+    set:
+      beam_azimuth: "/api/audio/inputs/internalMic/beam.position"
+  - json: true
+    set:
+      active_mic: "/api/audio/inputs/mixer/activity.activeChannel"
+
+  # ── Stream bodies: level meters ──
+  # One rule per meter: the throttle window is per rule, so a shared rule
+  # would let one meter starve the rest. A meter streams continuously, so
+  # the next frame carries the current level.
+  - json: true
+    throttle: 0.2
+    set:
+      max_peak_db: "/api/audio/inputs/maxLevel.peak"
+  - json: true
+    throttle: 0.2
+    set:
+      mic_peak_db: "/api/audio/inputs/internalMic/level.peak"
+  - json: true
+    throttle: 0.2
+    set:
+      usb_level_db: "/api/audio/inputs/usb.level"
+  - json: true
+    throttle: 0.2
+    set:
+      bluetooth_level_db: "/api/audio/inputs/bluetooth.level"
+  - json: true
+    throttle: 0.2
+    set:
+      dante_input_1_level_db: "/api/audio/inputs/dante/0/level.value"
+  - json: true
+    throttle: 0.2
+    set:
+      dante_input_2_level_db: "/api/audio/inputs/dante/1/level.value"
+
+  # ── Stream bodies: camera ──
+  - json: true
+    set:
+      autoframing: "/api/video/input/internalCamera/aiAccess.autoFramingEnabled"
+      person_tiling: "/api/video/input/internalCamera/aiAccess.personTilingEnabled"
+      autoframing_button_enabled: "/api/video/input/internalCamera/aiAccess.autoFramingAccessEnabled"
+      person_tiling_button_enabled: "/api/video/input/internalCamera/aiAccess.personTilingAccessEnabled"
+  - json: true
+    set:
+      camera_pan: "/api/video/input/internalCamera/movement.panPosition"
+      camera_tilt: "/api/video/input/internalCamera/movement.tiltPosition"
+      camera_zoom: "/api/video/input/internalCamera/movement.zoomPosition"
+      camera_zoom_speed: "/api/video/input/internalCamera/movement.zoomSpeed"
+      camera_pan_tilt_speed: "/api/video/input/internalCamera/movement.panTiltSpeed"
+      autoframing_speed: "/api/video/input/internalCamera/movement.autoFramingSpeed"
+  - json: true
+    set:
+      camera_active: "/api/video/input/internalCamera.active"
+  - json: true
+    set:
+      camera_compensation: "/api/video/input/internalCamera/videoParameters.compensation"
+      camera_anti_flicker: "/api/video/input/internalCamera/videoParameters.antiFlickerFrequency"
+      camera_brightness: "/api/video/input/internalCamera/videoParameters.brightness"
+      camera_contrast: "/api/video/input/internalCamera/videoParameters.contrast"
+      camera_saturation: "/api/video/input/internalCamera/videoParameters.saturation"
+      camera_sharpness: "/api/video/input/internalCamera/videoParameters.sharpness"
+      camera_auto_white_balance: "/api/video/input/internalCamera/videoParameters.autoWhitebalanceEnabled"
+      camera_white_balance_k: "/api/video/input/internalCamera/videoParameters.whitebalance"
+      camera_default_mode: "/api/video/input/internalCamera/videoParameters.defaultCameraMode"
+  - json: true
+    set:
+      hdmi_enabled: "/api/video/output/hdmi.enabled"
+
+on_connect:
+  - query_identity
+  - query_ssc_version
+  - query_site
+  - query_state
+  - query_firmware
+  - query_identification
+  - query_speaker
+  - query_user_interaction
+
+# The resources whose bodies can be told apart without their path; the
+# session resends everything else on every reopen.
+polling:
+  queries:
+    - query_state
+    - query_speaker
+    - query_user_interaction
+    - query_identification
+    - query_firmware
+    - query_site
+
+# ── Simulator ──────────────────────────────────────────────────────────
+# One dispatcher handler plays the bar: it parses the synthesized request
+# line, answers GETs from state, applies PUTs to state and, like the real
+# bar, sends the changed resource on the subscription stream afterwards.
+# The subscription requests record what the driver asked for and answer
+# with the current value of every newly subscribed resource, which is what
+# makes the driver's state complete after a (re)open. The push block's
+# session header and opening event come from the platform.
+#
+# The model is the "product" state value (TCBarM or TCBarS, a selector in
+# the Simulator UI): it decides the camera's zoom ceiling and whether the
+# Split network mode exists. "hidden_paths" (comma-separated resource paths,
+# set from a script) plays an older firmware: a subscription list naming one
+# of them is refused whole, as the SSCv2 spec requires.
+#
+# Fidelity gaps, on purpose: the simulator answers only 200 or 404, so a
+# refusal the bar answers 400, 409 or 422 (a zoom past the model's ceiling,
+# a wrong session id, an identify conflict) is a 404 or, where it can be
+# applied, a clamped value. Any session id is accepted and Basic auth is not
+# checked. Restart and a device profile change answer and stay up (the bar
+# closes the stream and reboots). Changes made from the Simulator UI are
+# sent whether or not their resource is subscribed, and a warning toggled
+# there is sent as the only flag in the warnings array.
+simulator:
+  initial_state:
+    product: "TCBarM"
+    model: "TeamConnect Bar M"
+    article_number: "700111"
+    serial: "1023456789"
+    hardware_revision: "MP"
+    vendor: "Sennheiser electronic SE & Co. KG"
+    device_name: "TCBarM-c8ec48"
+    dante_name: "TCBarM-c8ec49"
+    location: "Building 5, Room 15"
+    position: "Above the display"
+    ssc_protocol_version: "2.3"
+    ssc_schema_version: "1.16"
+    device_state: "Normal"
+    warning_count: 0
+    warning_mic_muted: false
+    warning_lens_cap_on: false
+    warning_camera_off: false
+    warning_speaker_muted: false
+    warning_no_device_connected: false
+    warning_overheating: false
+    warning_cpu_overloaded: false
+    warning_bluetooth_failure: false
+    warning_dante_failure: false
+    warning_mic_failure: false
+    warning_speaker_failure: false
+    warning_voice_engine_failure: false
+    warning_camera_failure: false
+    warning_usb_failure: false
+    warning_time_uninitialized: false
+    warning_network_loop: false
+    identify_active: false
+    user_interaction: false
+    device_profile: "Custom"
+    firmware_version: "1.16.0"
+    update_state: "Idle"
+    update_progress: 0
+    update_last_status: "None"
+    standby_mode: "EcoMode"
+    led_brightness: 3
+    sound_prompts: true
+    poe_output_enabled: false
+    port_configuration: "Split"
+    wifi_enabled: false
+    wifi_connected: false
+    wifi_ssid: ""
+    wifi_signal: 0
+    wifi_band: ""
+    bluetooth_enabled: false
+    bluetooth_pairing: false
+    bluetooth_mac: "00:1b:66:c8:ec:53"
+    dante_enabled: true
+    dante_continuous_stream: false
+    dante_speaker_output: false
+    mute: false
+    volume: 50
+    speaker_level_limit: 100
+    mic_enabled: true
+    mic_gain_db: 0
+    noise_gate_enabled: false
+    noise_gate_threshold_db: -40
+    noise_gate_hold_ms: 300
+    noise_gate_range_db: -40
+    noise_suppression: "Medium"
+    sound_profile: "Wallmount"
+    mixer_fade: "Medium"
+    conference_out_far_end_db: -6
+    conference_out_near_end_db: -6
+    dante_input_1_gain_db: 0
+    dante_input_2_gain_db: 0
+    mic_eq_1: 0
+    mic_eq_2: 0
+    mic_eq_3: 0
+    mic_eq_4: 0
+    mic_eq_5: 0
+    mic_eq_6: 0
+    mic_eq_7: 0
+    speaker_eq_1: 0
+    speaker_eq_2: 0
+    speaker_eq_3: 0
+    speaker_eq_4: 0
+    speaker_eq_5: 0
+    speaker_eq_6: 0
+    speaker_eq_7: 0
+    exclusion_zone_1_enabled: false
+    exclusion_zone_1_active: false
+    exclusion_zone_1_left: 15
+    exclusion_zone_1_right: 30
+    exclusion_zone_2_enabled: false
+    exclusion_zone_2_active: false
+    exclusion_zone_2_left: 75
+    exclusion_zone_2_right: 90
+    exclusion_zone_3_enabled: false
+    exclusion_zone_3_active: false
+    exclusion_zone_3_left: 150
+    exclusion_zone_3_right: 165
+    priority_zone_enabled: false
+    priority_zone_active: false
+    priority_zone_gain: "Medium"
+    priority_zone_left: 80
+    priority_zone_right: 100
+    beam_azimuth: 90
+    active_mic: "InternalMic"
+    max_peak_db: -40
+    mic_peak_db: -40
+    usb_level_db: -60
+    bluetooth_level_db: -60
+    dante_input_1_level_db: -60
+    dante_input_2_level_db: -60
+    camera_active: false
+    autoframing: true
+    person_tiling: false
+    autoframing_button_enabled: true
+    person_tiling_button_enabled: true
+    camera_pan: 0
+    camera_tilt: 0
+    camera_zoom: 100
+    camera_zoom_speed: "Medium"
+    camera_pan_tilt_speed: "Medium"
+    autoframing_speed: "Medium"
+    hdmi_enabled: true
+    camera_compensation: "Backlight"
+    camera_anti_flicker: "Auto"
+    camera_brightness: 0
+    camera_contrast: 5
+    camera_saturation: 5
+    camera_sharpness: 2
+    camera_auto_white_balance: true
+    camera_white_balance_k: 4600
+    camera_default_mode: "ResumeLastView"
+    # Simulator bookkeeping, not driver state
+    subscribed_paths: ""
+    hidden_paths: ""
+    preset_pan: 0
+    preset_tilt: 0
+    preset_zoom: 100
+
+  delays:
+    command_response: 0.02
+
+  # Changes made from the Simulator UI reach the stream through these; a
+  # PUT from the driver is answered by the dispatcher below, which sends the
+  # whole resource.
+  notifications:
+    device_state: '{"/api/device/state": {"state": "{value}"}}'
+    mute:
+      "true": '{"/api/audio/inputs/mute": {"enabled": true}}'
+      "false": '{"/api/audio/inputs/mute": {"enabled": false}}'
+    volume: '{"/api/audio/outputs/speaker": {"volume": {value}}}'
+    identify_active:
+      "true": '{"/api/device/identification": {"visual": true}}'
+      "false": '{"/api/device/identification": {"visual": false}}'
+    user_interaction:
+      "true": '{"/api/device/hasUserInteraction": {"interaction": true}}'
+      "false": '{"/api/device/hasUserInteraction": {"interaction": false}}'
+    camera_active:
+      "true": '{"/api/video/input/internalCamera": {"active": true}}'
+      "false": '{"/api/video/input/internalCamera": {"active": false}}'
+    autoframing:
+      "true": '{"/api/video/input/internalCamera/aiAccess": {"autoFramingEnabled": true}}'
+      "false": '{"/api/video/input/internalCamera/aiAccess": {"autoFramingEnabled": false}}'
+    person_tiling:
+      "true": '{"/api/video/input/internalCamera/aiAccess": {"personTilingEnabled": true}}'
+      "false": '{"/api/video/input/internalCamera/aiAccess": {"personTilingEnabled": false}}'
+    camera_zoom: '{"/api/video/input/internalCamera/movement": {"zoomPosition": {value}}}'
+    bluetooth_pairing:
+      "true": '{"/api/interfaces/bluetooth": {"pairing": true}}'
+      "false": '{"/api/interfaces/bluetooth": {"pairing": false}}'
+    warning_lens_cap_on:
+      "true": '{"/api/device/state": {"warnings": ["LensCapOn"]}}'
+      "false": '{"/api/device/state": {"warnings": []}}'
+    warning_overheating:
+      "true": '{"/api/device/state": {"warnings": ["DeviceOverheating"]}}'
+      "false": '{"/api/device/state": {"warnings": []}}'
+    warning_camera_failure:
+      "true": '{"/api/device/state": {"warnings": ["CameraFailure"]}}'
+      "false": '{"/api/device/state": {"warnings": []}}'
+    warning_no_device_connected:
+      "true": '{"/api/device/state": {"warnings": ["NoDeviceConnected"]}}'
+      "false": '{"/api/device/state": {"warnings": []}}'
+    priority_zone_active:
+      "true": '{"/api/audio/inputs/internalMic/priorityZones/0": {"active": true}}'
+      "false": '{"/api/audio/inputs/internalMic/priorityZones/0": {"active": false}}'
+    beam_azimuth: '{"/api/audio/inputs/internalMic/beam": {"position": {value}}}'
+    active_mic: '{"/api/audio/inputs/mixer/activity": {"activeChannel": "{value}"}}'
+    max_peak_db: '{"/api/audio/inputs/maxLevel": {"peak": {value}}}'
+    mic_peak_db: '{"/api/audio/inputs/internalMic/level": {"peak": {value}}}'
+    usb_level_db: '{"/api/audio/inputs/usb": {"level": {value}}}'
+
+  controls:
+    - type: select
+      key: product
+      label: Model
+      options: ["TCBarM", "TCBarS"]
+    - type: indicator
+      key: subscribed_paths
+      label: Subscribed Resources
+    - type: select
+      key: device_state
+      label: Device State
+      options: ["Normal", "Identifying", "BluetoothPairing", "FirmwareUpdate", "Standby", "CriticalFailure"]
+    - type: toggle
+      key: identify_active
+      label: Identifying
+    - type: toggle
+      key: user_interaction
+      label: User Interaction
+    - type: group
+      label: "Audio"
+      controls:
+        - type: toggle
+          key: mute
+          label: Microphones Muted
+        - type: slider
+          key: volume
+          label: Speaker Volume
+          min: 0
+          max: 100
+          unit: "%"
+        - type: slider
+          key: beam_azimuth
+          label: Talker Azimuth
+          min: 15
+          max: 165
+          unit: "°"
+        - type: select
+          key: active_mic
+          label: Active Microphone
+          options: ["InternalMic", "ExternalMic1", "ExternalMic2"]
+        - type: toggle
+          key: priority_zone_active
+          label: Talker in Priority Zone
+        - type: slider
+          key: mic_peak_db
+          label: Microphone Level
+          min: -60
+          max: 10
+          unit: dB
+        - type: slider
+          key: max_peak_db
+          label: Loudest Input Level
+          min: -60
+          max: 10
+          unit: dB
+        - type: slider
+          key: usb_level_db
+          label: USB Input Level
+          min: -60
+          max: 10
+          unit: dB
+    - type: group
+      label: "Camera"
+      controls:
+        - type: toggle
+          key: camera_active
+          label: Camera Active
+        - type: toggle
+          key: autoframing
+          label: Auto Framing
+        - type: toggle
+          key: person_tiling
+          label: Person Tiling
+        - type: slider
+          key: camera_zoom
+          label: Zoom
+          min: 100
+          max: 500
+    - type: group
+      label: "Warnings"
+      controls:
+        - type: toggle
+          key: warning_lens_cap_on
+          label: Lens Cap On
+        - type: toggle
+          key: warning_overheating
+          label: Overheating
+        - type: toggle
+          key: warning_camera_failure
+          label: Camera Failure
+        - type: toggle
+          key: warning_no_device_connected
+          label: No Device Connected
+    - type: toggle
+      key: bluetooth_pairing
+      label: Bluetooth Pairing
+
+  command_handlers:
+    # One dispatcher for every request: the synthesized line is
+    # "METHOD /path|body". A matched script handler ends dispatch, so the
+    # whole protocol lives in this one block.
+    - match: '(?s:.+)'
+      handler: |
+        def _run():
+            line = match.group(0)
+            method, _sep, rest = line.partition(" ")
+            path, _sep, body = rest.partition("|")
+            path = path.split("?")[0]
+            data = None
+            if body:
+                try:
+                    data = json.loads(body)
+                except ValueError:
+                    data = None
+
+            def get(k, default=None):
+                return state.get(k, default)
+
+            def is_bar_m():
+                return str(get("product", "TCBarM")) != "TCBarS"
+
+            def zoom_ceiling():
+                # OpenAPI 1.16, movement.zoomPosition: Bar M Zoom 500,
+                # MicrosoftTeams 150, Custom 500; Bar S Zoom 400,
+                # MicrosoftTeams 200, Custom 300.
+                profile = str(get("device_profile", "Custom"))
+                if is_bar_m():
+                    return 150 if profile == "MicrosoftTeams" else 500
+                if profile == "MicrosoftTeams":
+                    return 200
+                if profile == "Zoom":
+                    return 400
+                return 300
+
+            def clamp(v, lo, hi):
+                return lo if v < lo else hi if v > hi else v
+
+            # Object resources: path -> ((wire field, state key), ...). The
+            # same table answers GETs and applies PUTs.
+            FIELDS = {
+                "/api/device/site": (("deviceName", "device_name"), ("danteName", "dante_name"),
+                                     ("location", "location"), ("position", "position")),
+                "/api/device/identification": (("visual", "identify_active"),),
+                "/api/firmware/update/state": (("deviceVersion", "firmware_version"), ("state", "update_state"),
+                                               ("progress", "update_progress"), ("lastStatus", "update_last_status")),
+                "/api/device/hasUserInteraction": (("interaction", "user_interaction"),),
+                "/api/device/profile": (("configuration", "device_profile"),),
+                "/api/device/allowedStandbyMode": (("mode", "standby_mode"),),
+                "/api/device/leds/ring": (("brightness", "led_brightness"),),
+                "/api/device/feedback": (("soundPrompts", "sound_prompts"),),
+                "/api/device/power/poe/output": (("enabled", "poe_output_enabled"),),
+                "/api/interfaces/bluetooth": (("enabled", "bluetooth_enabled"), ("pairing", "bluetooth_pairing"),
+                                              ("mac", "bluetooth_mac")),
+                "/api/interfaces/network/dante": (("enabled", "dante_enabled"),),
+                "/api/interfaces/network/dante/settings": (("continuousDanteStream", "dante_continuous_stream"),
+                                                           ("danteSpeakerOutput", "dante_speaker_output")),
+                "/api/audio/inputs/mute": (("enabled", "mute"),),
+                "/api/audio/outputs/speaker": (("volume", "volume"), ("levelLimiter", "speaker_level_limit")),
+                "/api/audio/inputs/internalMic": (("gain", "mic_gain_db"), ("enabled", "mic_enabled")),
+                "/api/audio/inputs/internalMic/noiseGate": (("enabled", "noise_gate_enabled"),
+                                                            ("threshold", "noise_gate_threshold_db"),
+                                                            ("holdTime", "noise_gate_hold_ms"),
+                                                            ("range", "noise_gate_range_db")),
+                "/api/audio/inputs/noiseSuppression": (("weighting", "noise_suppression"),),
+                "/api/audio/soundProfile": (("preset", "sound_profile"),),
+                "/api/audio/inputs/mixer": (("fadeBehavior", "mixer_fade"),),
+                "/api/audio/outputs/conferenceOutput": (("farEndGain", "conference_out_far_end_db"),
+                                                        ("nearEndGain", "conference_out_near_end_db")),
+                "/api/audio/inputs/dante/0": (("gain", "dante_input_1_gain_db"),),
+                "/api/audio/inputs/dante/1": (("gain", "dante_input_2_gain_db"),),
+                "/api/audio/inputs/internalMic/priorityZones/0": (("active", "priority_zone_active"),
+                                                                  ("enabled", "priority_zone_enabled"),
+                                                                  ("gain", "priority_zone_gain"),
+                                                                  ("left", "priority_zone_left"),
+                                                                  ("right", "priority_zone_right")),
+                "/api/audio/inputs/internalMic/beam": (("position", "beam_azimuth"),),
+                "/api/audio/inputs/mixer/activity": (("activeChannel", "active_mic"),),
+                "/api/audio/inputs/maxLevel": (("peak", "max_peak_db"),),
+                "/api/audio/inputs/internalMic/level": (("peak", "mic_peak_db"),),
+                "/api/audio/inputs/usb": (("level", "usb_level_db"),),
+                "/api/audio/inputs/bluetooth": (("level", "bluetooth_level_db"),),
+                "/api/audio/inputs/dante/0/level": (("value", "dante_input_1_level_db"),),
+                "/api/audio/inputs/dante/1/level": (("value", "dante_input_2_level_db"),),
+                "/api/video/input/internalCamera/aiAccess": (("autoFramingAccessEnabled", "autoframing_button_enabled"),
+                                                             ("autoFramingEnabled", "autoframing"),
+                                                             ("personTilingAccessEnabled", "person_tiling_button_enabled"),
+                                                             ("personTilingEnabled", "person_tiling")),
+                "/api/video/input/internalCamera/movement": (("panPosition", "camera_pan"), ("tiltPosition", "camera_tilt"),
+                                                             ("zoomPosition", "camera_zoom"), ("zoomSpeed", "camera_zoom_speed"),
+                                                             ("panTiltSpeed", "camera_pan_tilt_speed"),
+                                                             ("autoFramingSpeed", "autoframing_speed")),
+                "/api/video/input/internalCamera": (("active", "camera_active"),),
+                "/api/video/input/internalCamera/videoParameters": (("compensation", "camera_compensation"),
+                                                                    ("antiFlickerFrequency", "camera_anti_flicker"),
+                                                                    ("brightness", "camera_brightness"),
+                                                                    ("contrast", "camera_contrast"),
+                                                                    ("saturation", "camera_saturation"),
+                                                                    ("sharpness", "camera_sharpness"),
+                                                                    ("autoWhitebalanceEnabled", "camera_auto_white_balance"),
+                                                                    ("whitebalance", "camera_white_balance_k"),
+                                                                    ("defaultCameraMode", "camera_default_mode")),
+                "/api/video/output/hdmi": (("enabled", "hdmi_enabled"),),
+            }
+            for z in range(3):
+                n = str(z + 1)
+                FIELDS["/api/audio/inputs/internalMic/exclusionZones/" + str(z)] = (
+                    ("active", "exclusion_zone_" + n + "_active"), ("enabled", "exclusion_zone_" + n + "_enabled"),
+                    ("left", "exclusion_zone_" + n + "_left"), ("right", "exclusion_zone_" + n + "_right"))
+
+            # What a PUT may change, per resource (the OpenAPI request bodies).
+            WRITABLE = {
+                "/api/device/identification": ("visual",),
+                "/api/device/profile": ("configuration",),
+                "/api/device/allowedStandbyMode": ("mode",),
+                "/api/device/leds/ring": ("brightness",),
+                "/api/device/feedback": ("soundPrompts",),
+                "/api/device/power/poe/output": ("enabled",),
+                "/api/interfaces/bluetooth": ("enabled", "pairing"),
+                "/api/interfaces/network/dante/settings": ("continuousDanteStream", "danteSpeakerOutput"),
+                "/api/audio/inputs/mute": ("enabled",),
+                "/api/audio/outputs/speaker": ("volume", "levelLimiter"),
+                "/api/audio/inputs/internalMic": ("gain", "enabled"),
+                "/api/audio/inputs/internalMic/noiseGate": ("enabled", "threshold", "holdTime", "range"),
+                "/api/audio/inputs/noiseSuppression": ("weighting",),
+                "/api/audio/soundProfile": ("preset",),
+                "/api/audio/inputs/mixer": ("fadeBehavior",),
+                "/api/audio/outputs/conferenceOutput": ("farEndGain", "nearEndGain"),
+                "/api/audio/inputs/dante/0": ("gain",),
+                "/api/audio/inputs/dante/1": ("gain",),
+                "/api/audio/inputs/internalMic/priorityZones/0": ("enabled", "gain", "left", "right"),
+                "/api/audio/inputs/internalMic/exclusionZones/0": ("enabled", "left", "right"),
+                "/api/audio/inputs/internalMic/exclusionZones/1": ("enabled", "left", "right"),
+                "/api/audio/inputs/internalMic/exclusionZones/2": ("enabled", "left", "right"),
+                "/api/video/input/internalCamera/aiAccess": ("autoFramingAccessEnabled", "autoFramingEnabled",
+                                                             "personTilingAccessEnabled", "personTilingEnabled"),
+                "/api/video/input/internalCamera/movement": ("panPosition", "tiltPosition", "zoomPosition",
+                                                             "zoomSpeed", "panTiltSpeed", "autoFramingSpeed"),
+            }
+
+            WARNINGS = (("MicMuted", "warning_mic_muted"), ("LensCapOn", "warning_lens_cap_on"),
+                        ("CameraOff", "warning_camera_off"), ("SpeakerMuted", "warning_speaker_muted"),
+                        ("NoDeviceConnected", "warning_no_device_connected"),
+                        ("DeviceOverheating", "warning_overheating"), ("CpuOverloading", "warning_cpu_overloaded"),
+                        ("BluetoothFailure", "warning_bluetooth_failure"), ("DanteFailure", "warning_dante_failure"),
+                        ("MicFailure", "warning_mic_failure"), ("SpeakerFailure", "warning_speaker_failure"),
+                        ("VoiceEngineFailure", "warning_voice_engine_failure"),
+                        ("CameraFailure", "warning_camera_failure"), ("UsbFailure", "warning_usb_failure"),
+                        ("TimeUninitialized", "warning_time_uninitialized"),
+                        ("NetworkLoopDetected", "warning_network_loop"))
+
+            def hidden():
+                return [p for p in str(get("hidden_paths", "")).split(",") if p]
+
+            def eq(prefix):
+                return [get(prefix + str(i), 0) for i in range(1, 8)]
+
+            def resource(p):
+                """The GET body of one resource path, or None when the bar has no such resource."""
+                if p in hidden():
+                    return None
+                if p in FIELDS:
+                    return dict((wire, get(k)) for wire, k in FIELDS[p])
+                if p == "/api/device/identity":
+                    return {"articleNumber": "700111" if is_bar_m() else "700105",
+                            "hardwareRevision": get("hardware_revision"), "product": "TCBarM" if is_bar_m() else "TCBarS",
+                            "serial": get("serial"), "vendor": get("vendor")}
+                if p == "/api/ssc/version":
+                    return {"protocol": get("ssc_protocol_version"), "schema": get("ssc_schema_version")}
+                if p == "/api/device/state":
+                    return {"state": get("device_state"), "warnings": [w for w, k in WARNINGS if get(k)]}
+                if p == "/api/interfaces/network/portConfiguration":
+                    conf = str(get("port_configuration", "SingleDomain"))
+                    if conf == "Split" and not is_bar_m():
+                        conf = "SingleDomain"
+                    return {"configuration": conf}
+                if p == "/api/interfaces/network/wifi":
+                    out = {"enabled": get("wifi_enabled"),
+                           "state": "Connected" if get("wifi_connected") else "Disconnected", "connection": {}}
+                    if get("wifi_connected"):
+                        out["connection"] = {"ssid": get("wifi_ssid"), "security": "WPA/WPA2-Personal",
+                                             "signal": get("wifi_signal"), "frequency": get("wifi_band"), "channel": 6}
+                    return out
+                if p == "/api/audio/inputs/internalMic/customEq":
+                    return eq("mic_eq_")
+                if p == "/api/audio/outputs/speaker/customEq":
+                    return eq("speaker_eq_")
+                if p == "/api/audio/inputs/internalMic/exclusionZones":
+                    out = []
+                    for z in range(3):
+                        b = resource("/api/audio/inputs/internalMic/exclusionZones/" + str(z))
+                        b["id"] = z
+                        out.append(b)
+                    return out
+                if p == "/api/audio/inputs/internalMic/priorityZones":
+                    b = resource("/api/audio/inputs/internalMic/priorityZones/0")
+                    b["id"] = 0
+                    return [b]
+                if p == "/api/audio/inputs/dante":
+                    return [{"id": 0, "gain": get("dante_input_1_gain_db")}, {"id": 1, "gain": get("dante_input_2_gain_db")}]
+                if p == "/api/audio/inputs/dante/levels":
+                    return [{"id": 0, "value": get("dante_input_1_level_db")}, {"id": 1, "value": get("dante_input_2_level_db")}]
+                return None
+
+            def send(p):
+                """One subscription notification: {path: body}."""
+                b = resource(p)
+                if b is not None:
+                    notify(json.dumps({p: b}))
+
+            # ── Subscription session ──
+            m = re.match(r"^/api/ssc/state/subscriptions/([0-9a-fA-F-]{36})(/add|/remove)?$", path)
+            if m:
+                current = [p for p in str(get("subscribed_paths", "")).split(",") if p]
+                if method == "DELETE":
+                    state["subscribed_paths"] = ""
+                    respond("")
+                    return
+                if method == "GET" and not m.group(2):
+                    respond(json.dumps(current))
+                    return
+                if method == "PUT" and isinstance(data, list):
+                    wanted = [str(p) for p in data]
+                    if m.group(2) == "/remove":
+                        # The whole request is refused when one path is not
+                        # subscribed (SSCv2 spec, removing resources).
+                        for p in wanted:
+                            if p not in current:
+                                return
+                        state["subscribed_paths"] = ",".join([p for p in current if p not in wanted])
+                        respond("")
+                        return
+                    # A list naming one resource the bar lacks is refused whole.
+                    for p in wanted:
+                        if resource(p) is None:
+                            return
+                    if m.group(2) == "/add":
+                        new = [p for p in wanted if p not in current]
+                        current = current + new
+                    else:
+                        new = [p for p in wanted if p not in current]
+                        current = wanted
+                    state["subscribed_paths"] = ",".join(current)
+                    for p in new:
+                        send(p)
+                    respond("")
+                    return
+                return
+
+            # ── Reads ──
+            if method == "GET":
+                b = resource(path)
+                if b is not None:
+                    respond(json.dumps(b))
+                return
+
+            if method != "PUT" or path in hidden():
+                return
+
+            # ── Commands with no body of their own ──
+            if path == "/api/device/restart":
+                respond("")
+                return
+            if path == "/api/video/input/internalCamera/ffov":
+                state["camera_pan"] = 0
+                state["camera_tilt"] = 0
+                state["camera_zoom"] = 100
+                respond("")
+                send("/api/video/input/internalCamera/movement")
+                return
+            if path == "/api/video/input/internalCamera/preset/store":
+                state["preset_pan"] = get("camera_pan")
+                state["preset_tilt"] = get("camera_tilt")
+                state["preset_zoom"] = get("camera_zoom")
+                respond("")
+                return
+            if path == "/api/video/input/internalCamera/preset/load":
+                state["camera_pan"] = get("preset_pan", 0)
+                state["camera_tilt"] = get("preset_tilt", 0)
+                state["camera_zoom"] = min(int(get("preset_zoom", 100)), zoom_ceiling())
+                respond("")
+                send("/api/video/input/internalCamera/movement")
+                return
+
+            # ── Seven-band equalizers: the body is the whole array ──
+            if path in ("/api/audio/inputs/internalMic/customEq", "/api/audio/outputs/speaker/customEq"):
+                if not isinstance(data, list) or len(data) != 7:
+                    return
+                prefix = "mic_eq_" if "internalMic" in path else "speaker_eq_"
+                for i in range(7):
+                    state[prefix + str(i + 1)] = clamp(int(data[i]), -8, 8)
+                respond("")
+                send(path)
+                return
+
+            if not isinstance(data, dict):
+                return
+
+            # ── Relative moves: by steps, stopping at the end of travel ──
+            if path == "/api/audio/outputs/speaker/relative":
+                if "volumeUp" in data and "volumeDown" in data:
+                    return
+                v = int(get("volume", 0)) + int(data.get("volumeUp", 0)) - int(data.get("volumeDown", 0))
+                state["volume"] = clamp(v, 0, 100)
+                respond("")
+                send("/api/audio/outputs/speaker")
+                return
+            if path == "/api/video/input/internalCamera/movement/relative":
+                if ("zoomIn" in data and "zoomOut" in data) or ("left" in data and "right" in data) \
+                        or ("up" in data and "down" in data):
+                    return
+                pan = int(get("camera_pan", 0)) + int(data.get("right", 0)) - int(data.get("left", 0))
+                tilt = int(get("camera_tilt", 0)) + int(data.get("up", 0)) - int(data.get("down", 0))
+                zoom = int(get("camera_zoom", 100)) + int(data.get("zoomIn", 0)) - int(data.get("zoomOut", 0))
+                state["camera_pan"] = clamp(pan, -25, 25)
+                state["camera_tilt"] = clamp(tilt, -25, 25)
+                state["camera_zoom"] = clamp(zoom, 100, zoom_ceiling())
+                respond("")
+                send("/api/video/input/internalCamera/movement")
+                return
+
+            # ── Writes: apply, acknowledge, then notify the whole resource ──
+            allowed = WRITABLE.get(path)
+            if allowed is None:
+                return
+            keys = dict(FIELDS[path])
+            for wire in allowed:
+                if wire in data:
+                    state[keys[wire]] = data[wire]
+            if path == "/api/video/input/internalCamera/movement":
+                state["camera_pan"] = clamp(int(get("camera_pan", 0)), -25, 25)
+                state["camera_tilt"] = clamp(int(get("camera_tilt", 0)), -25, 25)
+                state["camera_zoom"] = clamp(int(get("camera_zoom", 100)), 100, zoom_ceiling())
+            if path == "/api/interfaces/bluetooth" and data.get("enabled") is False:
+                # Turning Bluetooth off also ends pairing (OpenAPI 1.16).
+                state["bluetooth_pairing"] = False
+            respond("")
+            send(path)
+            if path == "/api/device/profile":
+                # A profile change resets the camera settings (and reboots the
+                # bar, which the simulator does not); Microsoft Teams also
+                # turns the HDMI output off.
+                state["camera_pan"] = 0
+                state["camera_tilt"] = 0
+                state["camera_zoom"] = 100
+                state["camera_zoom_speed"] = "Medium"
+                state["camera_pan_tilt_speed"] = "Medium"
+                state["autoframing_speed"] = "Medium"
+                state["hdmi_enabled"] = str(get("device_profile")) != "MicrosoftTeams"
+                send("/api/video/input/internalCamera/movement")
+                send("/api/video/output/hdmi")
+
+        _run()

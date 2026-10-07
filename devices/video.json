@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 50,
+    "total_devices": 54,
     "shards": null,
     "category": "video"
   },
@@ -519,6 +519,54 @@
           "id": "poly_studio",
           "confidence": "untested",
           "notes": "VideoOS REST API is identical across the X-series and G7500. Per-model differences (mic count, integrated cameras, bundled mic pods) don't change the command surface \u2014 they just gate which features actually do anything when invoked."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "TC Bar M",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "sennheiser_tcbar",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TC Bar OpenAPI 1.16 schema, which covers both bars. Not yet run against a bar. The camera's zoom position goes to 500 on the Bar M (150 in the Microsoft Teams profile) and to 300 on the Bar S (400 in the Zoom profile, 200 in Microsoft Teams). The Split network mode exists only on the Bar M.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "TC Bar S",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "sennheiser_tcbar",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TC Bar OpenAPI 1.16 schema, which covers both bars. Not yet run against a bar. The camera's zoom position goes to 500 on the Bar M (150 in the Microsoft Teams profile) and to 300 on the Bar S (400 in the Zoom profile, 200 in Microsoft Teams). The Split network mode exists only on the Bar M.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "TeamConnect Bar M",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "sennheiser_tcbar",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TC Bar OpenAPI 1.16 schema, which covers both bars. Not yet run against a bar. The camera's zoom position goes to 500 on the Bar M (150 in the Microsoft Teams profile) and to 300 on the Bar S (400 in the Zoom profile, 200 in Microsoft Teams). The Split network mode exists only on the Bar M.\n"
+        }
+      ]
+    },
+    {
+      "manufacturer": "Sennheiser",
+      "model": "TeamConnect Bar S",
+      "category": "video",
+      "drivers": [
+        {
+          "id": "sennheiser_tcbar",
+          "confidence": "untested",
+          "notes": "Built from Sennheiser's SSCv2 specification and the TC Bar OpenAPI 1.16 schema, which covers both bars. Not yet run against a bar. The camera's zoom position goes to 500 on the Bar M (150 in the Microsoft Teams profile) and to 300 on the Bar S (400 in the Zoom profile, 200 in Microsoft Teams). The Split network mode exists only on the Bar M.\n"
         }
       ]
     },

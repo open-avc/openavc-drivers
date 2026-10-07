@@ -667,6 +667,6 @@ def test_the_shipped_default_actually_connects_without_editing():
     assert (defaults["transport"], defaults["port"]) in {("tcp", 23), ("ssh", 22)}
     assert defaults["transport"] == "tcp", (
         "telnet is the default until the SSH compat fix ships in a release "
-        "(backlog 27) -- otherwise a one-click install fails for everyone on "
+        "-- otherwise a one-click install fails for everyone on "
         "an older platform"
     )

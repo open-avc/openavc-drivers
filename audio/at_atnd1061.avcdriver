@@ -180,9 +180,11 @@ id: at_atnd1061
 name: Audio-Technica ATND1061
 manufacturer: Audio-Technica
 category: audio
-version: 1.4.4
+version: 1.4.5
 author: OpenAVC
-min_platform_version: "0.27.0"
+# The simulator's change notices fill their other fields with {state.<key>},
+# which simulators read from 0.37.0; the contract check cannot see that.
+min_platform_version: "0.37.0"
 description: >
   Controls Audio-Technica ATND1061DAN and ATND1061LK beamforming array
   microphones via TCP with real-time multicast push updates. The six beam
@@ -2579,6 +2581,65 @@ simulator:
       key: out0_mute
       label: Analog Out Mute
 
+  # The microphone's change notices (IP Control Setting Notification, armed
+  # on connect), sent whenever one of these values changes: from a command
+  # or from the Simulator UI. An input's notice reports gain, level and mute
+  # together (spec Table 5-3), so each template fills the other two from
+  # state; the line gain field is sent as 1, as the answers above do.
+  notifications:
+    device_mute:
+      '*': 'MD mute_notice 0000 00 NC {value:d} '
+    in0_gain:
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,{value},1,{state.in0_level},{state.in0_mute:d} '
+    in0_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,{state.in0_gain},1,{value},{state.in0_mute:d} '
+    in0_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 0,{state.in0_gain},1,{state.in0_level},{value:d} '
+    in1_gain:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,{value},1,{state.in1_level},{state.in1_mute:d} '
+    in1_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,{state.in1_gain},1,{value},{state.in1_mute:d} '
+    in1_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 1,{state.in1_gain},1,{state.in1_level},{value:d} '
+    in2_gain:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,{value},1,{state.in2_level},{state.in2_mute:d} '
+    in2_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,{state.in2_gain},1,{value},{state.in2_mute:d} '
+    in2_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 2,{state.in2_gain},1,{state.in2_level},{value:d} '
+    in3_gain:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,{value},1,{state.in3_level},{state.in3_mute:d} '
+    in3_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,{state.in3_gain},1,{value},{state.in3_mute:d} '
+    in3_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 3,{state.in3_gain},1,{state.in3_level},{value:d} '
+    in4_gain:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,{value},1,{state.in4_level},{state.in4_mute:d} '
+    in4_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,{state.in4_gain},1,{value},{state.in4_mute:d} '
+    in4_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 4,{state.in4_gain},1,{state.in4_level},{value:d} '
+    in5_gain:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,{value},1,{state.in5_level},{state.in5_mute:d} '
+    in5_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,{state.in5_gain},1,{value},{state.in5_mute:d} '
+    in5_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 5,{state.in5_gain},1,{state.in5_level},{value:d} '
+    in6_gain:
+      '*': 'MD input_gain_level_notice 0000 00 NC 6,{value},1,{state.in6_level},{state.in6_mute:d} '
+    in6_level:
+      '*': 'MD input_gain_level_notice 0000 00 NC 6,{state.in6_gain},1,{value},{state.in6_mute:d} '
+    in6_mute:
+      '*': 'MD input_gain_level_notice 0000 00 NC 6,{state.in6_gain},1,{state.in6_level},{value:d} '
+    out0_level:
+      '*': 'MD output_level_notice 0000 00 NC 0,{value} '
+    out0_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 0,{value:d} '
+    out1_level:
+      '*': 'MD output_level_notice 0000 00 NC 1,{value} '
+    out1_mute:
+      '*': 'MD output_mute_notice 0000 00 NC 1,{value:d} '
+
   command_handlers:
     # ── Simple system getters ──
     - receive: 'g_firmware_version O 0000 00 NC '
@@ -2615,12 +2676,11 @@ simulator:
 
     - match: 'g_mute O 0000 00 NC ?'
       handler: |
-        respond(f"g_mute 0000 00 NC {state['device_mute']} \r")
+        respond(f"g_mute 0000 00 NC {int(state['device_mute'])} \r")
     - match: 's_mute S 0000 00 NC ([01])'
       handler: |
         state["device_mute"] = int(match.group(1))
         respond("s_mute ACK \r")
-        notify(f"MD mute_notice 0000 00 NC {state['device_mute']} \r")
 
     - match: 'g_preset_number O 0000 00 NC ?'
       handler: |
@@ -2896,7 +2956,7 @@ simulator:
         ch = match.group(1)
         respond(
             f"g_input_gain_level 0000 00 NC {ch},{state['in%s_gain' % ch]},1,"
-            f"{state['in%s_level' % ch]},,,{state['in%s_mute' % ch]},,, \r"
+            f"{state['in%s_level' % ch]},,,{int(state['in%s_mute' % ch])},,, \r"
         )
     - match: 's_input_gain_level S 0000 00 NC ([0-6]),(.*)'
       handler: |
@@ -2909,11 +2969,6 @@ simulator:
         if len(f) > 5 and f[5] != "":
             state["in%s_mute" % ch] = int(f[5])
         respond("s_input_gain_level ACK \r")
-        notify(
-            f"MD input_gain_level_notice 0000 00 NC {ch},"
-            f"{state['in%s_gain' % ch]},1,{state['in%s_level' % ch]},"
-            f"{state['in%s_mute' % ch]} \r"
-        )
 
     - match: 'g_input_channel_settings O 0000 00 NC ([0-6])'
       handler: |
@@ -2955,23 +3010,15 @@ simulator:
         else:
             state["in%s_level" % ch] = lvl
             respond("SICL ACK \r")
-            notify(
-                f"MD input_gain_level_notice 0000 00 NC {ch},"
-                f"{state['in%s_gain' % ch]},1,{lvl},{state['in%s_mute' % ch]} \r"
-            )
     - match: 'GICM O 0000 00 NC ([0-6])'
       handler: |
         ch = match.group(1)
-        respond(f"GICM 0000 00 NC {ch},{state['in%s_mute' % ch]} \r")
+        respond(f"GICM 0000 00 NC {ch},{int(state['in%s_mute' % ch])} \r")
     - match: 'SICM S 0000 00 NC ([0-6]),([01])'
       handler: |
         ch, m = match.group(1), int(match.group(2))
         state["in%s_mute" % ch] = m
         respond("SICM ACK \r")
-        notify(
-            f"MD input_gain_level_notice 0000 00 NC {ch},"
-            f"{state['in%s_gain' % ch]},1,{state['in%s_level' % ch]},{m} \r"
-        )
 
     # ── Outputs ──
     - match: 'g_output_level O 0000 00 NC ([01])'
@@ -2986,17 +3033,15 @@ simulator:
         else:
             state["out%s_level" % ch] = lvl
             respond("SOCL ACK \r")
-            notify(f"MD output_level_notice 0000 00 NC {ch},{lvl} \r")
     - match: 'g_output_mute O 0000 00 NC ([01])'
       handler: |
         ch = match.group(1)
-        respond(f"g_output_mute 0000 00 NC {ch},{state['out%s_mute' % ch]} \r")
+        respond(f"g_output_mute 0000 00 NC {ch},{int(state['out%s_mute' % ch])} \r")
     - match: '(?:s_output_mute|SOCM) S 0000 00 NC ([01]),([01])'
       handler: |
         ch, m = match.group(1), int(match.group(2))
         state["out%s_mute" % ch] = m
         respond("SOCM ACK \r")
-        notify(f"MD output_mute_notice 0000 00 NC {ch},{m} \r")
     - match: 'GOCL O 0000 00 NC ([01])'
       handler: |
         ch = match.group(1)
@@ -3004,7 +3049,7 @@ simulator:
     - match: 'GOCM O 0000 00 NC ([01])'
       handler: |
         ch = match.group(1)
-        respond(f"GOCM 0000 00 NC {ch},{state['out%s_mute' % ch]} \r")
+        respond(f"GOCM 0000 00 NC {ch},{int(state['out%s_mute' % ch])} \r")
 
     - match: 'g_output_channel_settings O 0000 00 NC ([01])'
       handler: |

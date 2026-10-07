@@ -58,7 +58,7 @@ id: shure_mxwndx
 name: Shure MXW neXt Networked Docking Station
 manufacturer: Shure
 category: audio
-version: 1.0.0
+version: 1.0.1
 author: OpenAVC
 # unknown on state variables.
 min_platform_version: "0.37.0"
@@ -326,11 +326,13 @@ commands:
     label: Identify Docking Station
     help: "Flashes the docking station's lights so it can be found. It stops by itself."
     send: "< SET FLASH ON >"
+    sets: { identifying: true }
 
   identify_off:
     label: Stop Identifying
     help: "Stops the docking station's lights flashing."
     send: "< SET FLASH OFF >"
+    sets: { identifying: false }
 
   link_microphone:
     label: Link Microphone
@@ -338,6 +340,8 @@ commands:
       Links the microphone docked in the bay to a channel on an access point.
       It replaces whichever microphone was linked to that channel. Last Link
       Result shows whether it worked.
+    # No sets: the link itself is never reported, and the reply echoes the
+    # channel and address whether the link worked or not.
     confirm: >
       The microphone in this bay replaces whichever microphone is linked to
       that access point channel, and that microphone stops working on it.
@@ -367,6 +371,7 @@ commands:
     label: Set Microphone Name
     help: "Renames the microphone docked in the bay."
     send: "< SET BAY {bay} TX_DEVICE_ID {{name}} >"
+    sets: { tx_name: "{name}" }
     params:
       bay:
         type: child_id

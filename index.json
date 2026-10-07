@@ -6741,7 +6741,7 @@
       "name": "Shure MXW neXt Networked Docking Station",
       "manufacturer": "Shure",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Microflex Wireless neXt networked docking stations (MXWNDX2, MXWNDX4, MXWNDX8, MXWNDX4G, MXWNDX8G) over Shure command strings. Shows which bays hold a microphone, each docked microphone's name, battery charge, battery health and time to a full charge, and links a docked microphone to an access point channel.\n",
@@ -6749,7 +6749,7 @@
       "file": "audio/shure_mxwndx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "audio/shure_mxwndx.avcdriver": "8618d569d158431aea95a03a24f5710deccf69b1ae0714bafc87195767786c15"
+        "audio/shure_mxwndx.avcdriver": "3193d738d72077b4680382cb16dc6d871fe505b4afa2353e8c77a319f045cf39"
       },
       "ports": [
         2202

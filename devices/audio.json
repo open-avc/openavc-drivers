@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_devices": 207,
+    "total_devices": 209,
     "shards": null,
     "category": "audio"
   },
@@ -1419,6 +1419,30 @@
           "id": "behringer_x32",
           "confidence": "untested",
           "notes": "Identical OSC protocol to X32."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Nureva",
+      "model": "HDL310",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "nureva_hdl310_hdl410",
+          "confidence": "untested",
+          "notes": "Built from Nureva's local API documentation; not yet run against a connect module. Room profiles are HDL410 only. Some settings need newer firmware (dynamic boost and microphone ducking 1.9, the voice amplification gate and USB gain 2.0, microphone gain 1.3 to 1.x); the device refuses them on older firmware and the device page shows why."
+        }
+      ]
+    },
+    {
+      "manufacturer": "Nureva",
+      "model": "HDL410",
+      "category": "audio",
+      "drivers": [
+        {
+          "id": "nureva_hdl310_hdl410",
+          "confidence": "untested",
+          "notes": "Built from Nureva's local API documentation; not yet run against a connect module. Room profiles are HDL410 only. Some settings need newer firmware (dynamic boost and microphone ducking 1.9, the voice amplification gate and USB gain 2.0, microphone gain 1.3 to 1.x); the device refuses them on older firmware and the device page shows why."
         }
       ]
     },

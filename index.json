@@ -2,7 +2,7 @@
   "_meta": {
     "generator_version": "1.1.0",
     "schema_version": "1",
-    "total_drivers": 117,
+    "total_drivers": 118,
     "shards": null
   },
   "drivers": [
@@ -4990,6 +4990,71 @@
         "manufacturer_alias": [
           "novastar",
           "xi'an novastar"
+        ]
+      }
+    },
+    {
+      "id": "nureva_hdl310_hdl410",
+      "name": "Nureva HDL310 / HDL410",
+      "manufacturer": "Nureva",
+      "category": "audio",
+      "version": "1.0.0",
+      "author": "OpenAVC",
+      "transport": "http",
+      "description": "Controls a Nureva HDL310 or HDL410 audio conferencing system over the local API in its connect module (HTTPS, port 443). Microphone mute, audience mute, volume up and down, treble and bass, echo and noise reduction, Adaptive Voice Amplification, dynamic boost, microphone ducking, the auxiliary output, calibration and identify, HDL410 room profiles, the camera switcher's defaults, and its status lights. Reports where the loudest sound in the space is and which camera zone it falls in, so a trigger can recall a camera preset when a zone becomes active. Status and configuration changes arrive as they happen; audio settings are polled. Does not control the HDL200, HDL300 or Dual HDL300.",
+      "source_url": "https://developers-local.nureva.com",
+      "file": "audio/nureva_hdl310_hdl410.py",
+      "format": "python",
+      "files": {
+        "audio/nureva_hdl310_hdl410.py": "1746503a1f4ea5cf416449329cc59a0ebae42a83252c4825d46f2f3d8fcffed0",
+        "audio/nureva_hdl310_hdl410_sim.py": "6f58f158ce5240ea4177e9b8da6b5b96a56cda1016a552ae174e4f30fb806e92"
+      },
+      "ports": [
+        443
+      ],
+      "protocols": [
+        "nureva-local-api"
+      ],
+      "simulated": true,
+      "min_platform_version": "0.36.0",
+      "tags": [
+        "microphone",
+        "speaker-bar",
+        "conferencing",
+        "sound-location",
+        "camera-tracking",
+        "voice-amplification"
+      ],
+      "help": {
+        "overview": "Controls a Nureva HDL310 or HDL410 conferencing system: mute the microphones, step the volume, adjust treble and bass and the audio processing, run a calibration, switch HDL410 room profiles, and watch the system's network, Console, USB and speaker bar status. The system reports where the loudest sound in the space is; each camera zone set up in Nureva Console appears under Zones with an Active flag, so a trigger can recall a camera preset when someone talks in that zone.",
+        "setup": "1. Update the system's firmware and give the connect module a static IP address in the Nureva App.\n2. Enter that IP address here.\n3. Enter the password of the system's general account: the third-party password set in the Nureva App (Settings > Device password). A new or factory-reset system uses its enrollment code (XXX-XXX-XXX, on the bottom of the connect module); a system installed before Nureva introduced the enrollment-code default may still have a blank password, so leave the field empty for one of those.\n4. Camera zones and the camera switcher are set up in Nureva Console; they appear here once they exist.",
+        "connection": "HTTPS on port 443 to the connect module, with the general account's password. The connect module's certificate is self-signed, so certificate verification is off unless you turn it on."
+      },
+      "compatible_models": [
+        {
+          "manufacturer": "Nureva",
+          "models": [
+            "HDL310",
+            "HDL410"
+          ],
+          "confidence": "untested",
+          "notes": "Built from Nureva's local API documentation; not yet run against a connect module. Room profiles are HDL410 only. Some settings need newer firmware (dynamic boost and microphone ducking 1.9, the voice amplification gate and USB gain 2.0, microphone gain 1.3 to 1.x); the device refuses them on older firmware and the device page shows why."
+        }
+      ],
+      "discovery": {
+        "tcp_probe": {
+          "port": 443,
+          "tls": true,
+          "send_ascii": "GET /api/v1 HTTP/1.1\r\nHost: nureva\r\nNureva-Client-Id: OpenAVC\r\nNureva-Client-Version: 1.0.0\r\nConnection: close\r\n\r\n",
+          "expect_regex": "\"title\"\\s*:\\s*\"Nureva Developer Toolkit\"",
+          "extract_manufacturer": "Nureva",
+          "timeout_ms": 3000
+        },
+        "oui": [
+          "e0:e7:bb"
+        ],
+        "manufacturer_alias": [
+          "Nureva"
         ]
       }
     },

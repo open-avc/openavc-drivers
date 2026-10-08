@@ -11,7 +11,7 @@
       "name": "Algo IP Endpoint",
       "manufacturer": "Algo",
       "category": "audio",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Algo IP speakers, paging adapters, visual alerters, display speakers, intercoms, the 8063 door controller and the 8450 console over their RESTful API. Plays tones and test tones, starts and stops emergency alerts, calls and pages extensions, runs strobe patterns, shows images, slides, clocks and text on the 8410 and 8420, locks and unlocks doors, skips a day's scheduled bells on the 8301, and sets page, ring and speaker volume. Reports call, multicast, SIP and relay input status, ambient noise and the console's active events. Each device is offered only the commands its model has.",
@@ -19,7 +19,7 @@
       "file": "audio/algo_ip_endpoint.py",
       "format": "python",
       "files": {
-        "audio/algo_ip_endpoint.py": "d10684bccf2bd98d79b575817e7b504c3ee1a8e1496c9f8d10927f1ba9e6ec79",
+        "audio/algo_ip_endpoint.py": "b24b3b9c8a4286eb5eb7dbb8932c57642a819f0256470555511989e073c5fe88",
         "audio/algo_ip_endpoint_sim.py": "25fc68fb05857e944e1704ac68ceebc272c4d7c4bc3a368573bfdc7a551e3688"
       },
       "ports": [

@@ -629,7 +629,7 @@ async def test_device_settings_write_and_read_back(mocked_client):
         await driver.set_device_setting("microphone_mute", True)
     # A change made on the device shows up at the next settings read.
     sim.set_state("page_volume_db", -30)
-    driver._last_settings = 0.0
+    driver._last_settings = float("-inf")
     await driver.poll()
     assert driver.get_state("page_volume") == -30
 
@@ -774,11 +774,11 @@ async def test_an_unreachable_host_is_a_connection_error(mocked_client):
 async def test_liveness_probe_counts_any_answer(mocked_client):
     driver, sim, link = _make()
     await _connect(driver, link, mocked_client)
-    driver._last_reply = 0.0
+    driver._last_reply = float("-inf")
     sim.inject_error("password_changed")
     await driver._liveness_probe()   # a 401 is still an answer
     link.reachable = False
-    driver._last_reply = 0.0
+    driver._last_reply = float("-inf")
     with pytest.raises(httpx.ConnectError):
         await driver._liveness_probe()
 

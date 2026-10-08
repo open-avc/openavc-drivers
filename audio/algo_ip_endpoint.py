@@ -339,7 +339,7 @@ class AlgoIpEndpointDriver(BaseDriver):
         "name": "Algo IP Endpoint",
         "manufacturer": "Algo",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls Algo IP speakers, paging adapters, visual alerters, "
@@ -1263,9 +1263,12 @@ class AlgoIpEndpointDriver(BaseDriver):
         self._firmware: tuple[int, ...] = ()
         # Paths and setting parameters this device answered "not here" for.
         self._unsupported: set[str] = set()
-        self._last_reply = 0.0
-        self._last_settings = 0.0
-        self._last_resync = 0.0
+        # Monotonic times of the last answer, settings read and resync.
+        # Never is minus infinity: the monotonic clock starts near zero at
+        # boot, so 0.0 would read as "just now" on a freshly started host.
+        self._last_reply = float("-inf")
+        self._last_settings = float("-inf")
+        self._last_resync = float("-inf")
         # The tone played last from this driver, for Stop Tone on firmware
         # 5.4 and older (which must name it).
         self._last_tone = ""

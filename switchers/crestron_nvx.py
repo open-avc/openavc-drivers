@@ -36,7 +36,9 @@ Transport: HTTPS REST (JSON), port 443.
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -72,6 +74,16 @@ _DECODER_ONLY_STATES = frozenset({
     "scaler_resolution", "video_wall_mode", "rx_initiator",
 })
 
+# A sign-in or an API request refused. The API's Authentication topic answers
+# invalid credentials and a timed-out session with 403 Forbidden; 401 is read
+# the same way.
+_REFUSED = (401, 403)
+
+_SIGN_IN_REFUSED = (
+    "The NVX refused the username and password. Check them in the device "
+    "settings."
+)
+
 
 class CrestronNVXDriver(BaseDriver):
     """Crestron DM NVX AV-over-IP encoder/decoder (role-adaptive)."""
@@ -82,7 +94,7 @@ class CrestronNVXDriver(BaseDriver):
         "name": "Crestron DM NVX",
         "manufacturer": "Crestron",
         "category": "switcher",
-        "version": "2.1.1",
+        "version": "2.1.2",
         "author": "OpenAVC",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # the routing: block below needs 0.27.0.
@@ -370,6 +382,14 @@ class CrestronNVXDriver(BaseDriver):
         self._base_url: str = ""
         self._mode: str = ""  # "Transmitter" | "Receiver"
         self._applied_role: str = ""  # role the surface was last narrowed to
+        # One sign-in again at a time; the count tells a request whose session
+        # was refused whether someone has already signed in again since.
+        self._sign_in_lock = asyncio.Lock()
+        self._sign_ins = 0
+        # Set once the NVX refuses a sign-in on this connection, so no request
+        # sends the refused password again (the NVX blocks an address after a
+        # few failed sign-ins).
+        self._refused = ""
 
     # ── Role adaptation ─────────────────────────────────────────────────────
 
@@ -485,6 +505,7 @@ class CrestronNVXDriver(BaseDriver):
         await super().disconnect()
 
     async def _close_session(self) -> None:
+        self._refused = ""
         if self._client:
             try:
                 await self._client.aclose()
@@ -524,17 +545,55 @@ class CrestronNVXDriver(BaseDriver):
                 code="auth_failed",
             )
 
-        # Form-urlencoded login; the httpx cookie jar carries the six session
-        # cookies (TRACKID, userstr, userid, iv, tag, AuthByPasswd) afterward.
-        await self._client.post(
+        # Form-urlencoded login (the Authentication topic: the credentials go
+        # "in URL-encoded format", keys login and passwd); the httpx cookie jar
+        # carries the six session cookies (TRACKID, userstr, userid, iv, tag,
+        # AuthByPasswd) afterward.
+        resp = await self._client.post(
             "/userlogin.html",
-            content=f"login={username}&passwd={password}",
+            content=urlencode({"login": username, "passwd": password}),
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Origin": self._base_url,
                 "Referer": f"{self._base_url}/userlogin.html",
             },
         )
+        # Invalid credentials answer 403 Forbidden (Authentication topic). So
+        # does a unit that has blocked this address, which says so in the body.
+        if resp.status_code in _REFUSED:
+            raise ConnectionFaultError(
+                self._sign_in_refusal(resp.text), code="auth_failed"
+            )
+        self._sign_ins += 1
+
+    @staticmethod
+    def _sign_in_refusal(body: str) -> str:
+        """The sentence for a refused sign-in: the NVX's own words when it
+        says it has blocked this address, else the credentials."""
+        for line in re.sub(r"<[^>]*>", "\n", body or "").splitlines():
+            line = " ".join(line.split()).rstrip(".")
+            if "blocked" in line.lower() and len(line) <= 200:
+                return (
+                    f"The NVX refused the sign-in: {line}. Check the username "
+                    "and password, then press Reconnect once the NVX accepts "
+                    "this address again."
+                )
+        return _SIGN_IN_REFUSED
+
+    async def _sign_in_again(self, sign_ins_seen: int) -> None:
+        """Sign in again after a refused session, once for every request that
+        saw the refusal. A refused sign-in is ``auth_failed``, and nothing
+        sends the password again on this connection."""
+        async with self._sign_in_lock:
+            if self._refused:
+                raise ConnectionFaultError(self._refused, code="auth_failed")
+            if self._sign_ins != sign_ins_seen:
+                return  # another request has already signed in again
+            try:
+                await self._authenticate()
+            except ConnectionFaultError as exc:
+                self._refused = str(exc)
+                raise
 
     # ── Commands ────────────────────────────────────────────────────────────
 
@@ -847,27 +906,29 @@ class CrestronNVXDriver(BaseDriver):
         """GET + parse JSON. Transport failures raise ConnectionError (poll
         propagates them to the watchdog); HTTP errors return None — except a
         hard credential rejection, which raises a typed auth fault."""
+        sign_ins = self._sign_ins
         try:
             resp = await self._client.get(path)
             resp.raise_for_status()
             return resp.json()
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 401:
-                # Session expired — re-auth once and retry. If the retry is
-                # STILL unauthorized, the credentials themselves went bad
-                # (changed on the device mid-run): take the device offline
-                # with a typed fault instead of re-attempting a login on
-                # every poll cycle — that would trip the NVX's per-IP
-                # brute-force lockout within a minute.
+            if e.response.status_code in _REFUSED:
+                # Session refused (a timed-out one answers 403): sign in again
+                # once and retry. A refused sign-in raises auth_failed from
+                # _sign_in_again. If the retry is STILL refused, the
+                # credentials themselves went bad (changed on the device
+                # mid-run): take the device offline with a typed fault instead
+                # of re-attempting a login on every poll cycle, which would
+                # trip the NVX's per-IP brute-force lockout within a minute.
                 try:
-                    await self._authenticate()
+                    await self._sign_in_again(sign_ins)
                     resp = await self._client.get(path)
                     resp.raise_for_status()
                     return resp.json()
                 except ConnectionFaultError:
                     raise
                 except httpx.HTTPStatusError as retry_err:
-                    if retry_err.response.status_code == 401:
+                    if retry_err.response.status_code in _REFUSED:
                         msg = "The NVX rejected the configured credentials."
                         # Stash the fault too: when this surfaces through the
                         # poll watchdog the exception itself isn't classified.
@@ -905,16 +966,22 @@ class CrestronNVXDriver(BaseDriver):
 
     async def _post_device_results(self, obj: dict) -> list[dict]:
         """POST to /Device; return the per-property Results list (no raise).
-        Re-auths once on a 401. Every write goes to /Device."""
+        Signs in again once on a refused session. Every write goes to /Device."""
         body = {"Device": obj}
         headers = {"Content-Type": "application/json"}
+        sign_ins = self._sign_ins
         try:
             resp = await self._client.post("/Device", json=body, headers=headers)
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 401:
-                await self._authenticate()
+            if e.response.status_code in _REFUSED:
+                await self._sign_in_again(sign_ins)
                 resp = await self._client.post("/Device", json=body, headers=headers)
+                if resp.status_code in _REFUSED:
+                    raise ConnectionFaultError(
+                        "The NVX rejected the configured credentials.",
+                        code="auth_failed",
+                    )
                 resp.raise_for_status()
             else:
                 log.warning("[%s] POST /Device -> HTTP %s", self.device_id, e.response.status_code)

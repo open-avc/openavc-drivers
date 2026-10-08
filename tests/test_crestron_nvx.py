@@ -86,6 +86,14 @@ class _FakeHTTPSimulator:
         self.device_id = device_id
         self.config = config or {}
         self._state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
+        self._active_errors: set[str] = set()
+
+    @property
+    def active_errors(self) -> set[str]:
+        return set(self._active_errors)
+
+    def inject_error(self, mode):
+        self._active_errors.add(mode)
 
     def get_state(self, key, default=None):
         return self._state.get(key, default)
@@ -130,11 +138,13 @@ SIM = _load("crestron_nvx_sim_under_test", SIM_PATH)
 
 # ── Harness ─────────────────────────────────────────────────────────────────
 
-def _make_driver(sim, config=None):
+def _make_driver(sim, config=None, log=None):
     def handler(request: httpx.Request) -> httpx.Response:
         body = request.content.decode() if request.content else ""
         status, resp = sim.handle_request(request.method, request.url.path,
                                           dict(request.headers), body)
+        if log is not None:
+            log.append((request.method, request.url.path, status))
         if isinstance(resp, dict):
             return httpx.Response(status, json=resp)
         return httpx.Response(status, text=str(resp))
@@ -167,7 +177,7 @@ async def _connect(driver):
 
 def test_metadata_shape():
     info = DRV.CrestronNVXDriver.DRIVER_INFO
-    assert info["version"] == "2.1.1"
+    assert info["version"] == "2.1.2"
     assert info["min_platform_version"] == "0.27.0"
     assert info["category"] == "switcher"
     assert info["web_ui"] is True
@@ -474,6 +484,200 @@ def test_connect_auth_failure_raises_typed_fault():
                 if "DeviceInfo" not in info.get("Device", {}):
                     raise DRV.ConnectionFaultError("Login rejected", code="auth_failed")
             assert exc.value.fault_code == "auth_failed"
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+# ── Refused sign-ins ────────────────────────────────────────────────────────
+# The API's Authentication topic: a valid sign-in answers 200, and invalid
+# credentials or a timed-out session answer 403 Forbidden. A unit that has
+# blocked the controller's address answers the sign-in 403 with "Your IP
+# address is blocked" (seen on the bench), even with the right password.
+
+
+def _sign_ins(log):
+    return [row for row in log if row[:2] == ("POST", "/userlogin.html")]
+
+
+def test_refused_sign_in_raises_auth_failed():
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})
+        sim.inject_error("wrong_password")
+        log = []
+        d = _make_driver(sim, log=log)
+        try:
+            with pytest.raises(_ConnectionFaultError) as exc:
+                await d._authenticate()
+            assert exc.value.fault_code == "auth_failed"
+            assert "username and password" in str(exc.value)
+            assert _sign_ins(log) == [("POST", "/userlogin.html", 403)]
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_blocked_address_reports_the_units_own_sentence():
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})
+        sim.inject_error("ip_blocked")
+        d = _make_driver(sim)
+        try:
+            with pytest.raises(_ConnectionFaultError) as exc:
+                await d._authenticate()
+            assert exc.value.fault_code == "auth_failed"
+            assert "Your IP address is blocked" in str(exc.value)
+            assert "rejected the configured credentials" not in str(exc.value)
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_blocked_sentence_is_read_out_of_an_html_page():
+    async def go():
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                return httpx.Response(
+                    403,
+                    text="<html><head><title>403 Forbidden</title></head><body>"
+                         "<h1>Forbidden</h1><p>Your IP address is blocked.</p>"
+                         "</body></html>",
+                    headers={"Content-Type": "text/html"},
+                )
+            return httpx.Response(200, text="login page")
+
+        cfg = {"host": "sim", "port": 443, "username": "admin", "password": "x",
+               "poll_interval": 0}
+        d = DRV.CrestronNVXDriver("nvx", cfg, _FakeState(), _FakeEvents())
+        d._base_url = "https://sim"
+        d._client = httpx.AsyncClient(base_url="https://sim",
+                                      transport=httpx.MockTransport(handler))
+        try:
+            with pytest.raises(_ConnectionFaultError) as exc:
+                await d._authenticate()
+            assert "Your IP address is blocked" in str(exc.value)
+            assert "<" not in str(exc.value)
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_password_changed_mid_session_is_auth_failed_after_one_sign_in():
+    """The password is changed on the unit while connected: the poll's
+    refused request signs in again once, the sign-in is refused, and the poll
+    raises auth_failed, which drops the connection on the first one."""
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})
+        log = []
+        d = _make_driver(sim, log=log)
+        try:
+            await _connect(d)
+            sim.inject_error("wrong_password")
+            mark = len(log)
+            with pytest.raises(_ConnectionFaultError) as exc:
+                await d.poll()
+            assert exc.value.fault_code == "auth_failed"
+            assert log[mark:] == [
+                ("GET", "/Device/DeviceSpecific", 403),
+                ("GET", "/userlogin.html", 200),
+                ("POST", "/userlogin.html", 403),
+            ]
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_expired_session_signs_in_again_and_reads_the_unit():
+    """A session that times out (403, the password still good) is not a
+    refused credential: the driver signs in again once and reads on."""
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})
+        log = []
+        d = _make_driver(sim, log=log)
+        try:
+            await _connect(d)
+            sim._signed_in = False
+            sim.set_state("video_source", "Input1")
+            mark = len(log)
+            await d.poll()
+            assert d.get_state("video_source") == "Input1"
+            assert _sign_ins(log[mark:]) == [("POST", "/userlogin.html", 200)]
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_write_on_an_expired_session_signs_in_again():
+    async def go():
+        sim = SIM.CrestronNvxSimulator("s", {})
+        d = _make_driver(sim)
+        try:
+            await _connect(d)
+            sim._signed_in = False
+            await d.send_command("set_video_source", {"source": "Input1"})
+            assert sim.get_state("video_source") == "Input1"
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_refused_sign_in_after_a_401_is_typed():
+    """The existing 401 path: the session is refused, the driver signs in
+    again, and the unit refuses the sign-in. That is auth_failed at once,
+    without a second request on the refused session."""
+    async def go():
+        log = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            log.append((request.method, request.url.path))
+            if request.url.path.startswith("/Device"):
+                return httpx.Response(401, text="Unauthorized")
+            if request.method == "POST":
+                return httpx.Response(403, text="Forbidden")
+            return httpx.Response(200, text="login page")
+
+        cfg = {"host": "sim", "port": 443, "username": "admin", "password": "x",
+               "poll_interval": 0}
+        d = DRV.CrestronNVXDriver("nvx", cfg, _FakeState(), _FakeEvents())
+        d._base_url = "https://sim"
+        d._client = httpx.AsyncClient(base_url="https://sim",
+                                      transport=httpx.MockTransport(handler))
+        try:
+            with pytest.raises(_ConnectionFaultError) as exc:
+                await d._api_get("/Device/DeviceSpecific")
+            assert exc.value.fault_code == "auth_failed"
+            assert "username and password" in str(exc.value)
+            assert log == [
+                ("GET", "/Device/DeviceSpecific"),
+                ("GET", "/userlogin.html"),
+                ("POST", "/userlogin.html"),
+            ]
+        finally:
+            await d._client.aclose()
+
+    asyncio.run(go())
+
+
+def test_password_with_form_characters_reaches_the_unit_intact():
+    """The Authentication topic sends the credentials "in URL-encoded format".
+    A password holding the form's own characters must arrive as typed and
+    sign in."""
+    async def go():
+        password = "a&b+c%d=e f"
+        sim = SIM.CrestronNvxSimulator("s", {"password": password})
+        log = []
+        d = _make_driver(sim, {"password": password}, log=log)
+        try:
+            await d._authenticate()
+            assert sim._signed_in is True
+            assert _sign_ins(log) == [("POST", "/userlogin.html", 200)]
         finally:
             await d._client.aclose()
 

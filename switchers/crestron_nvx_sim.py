@@ -15,9 +15,19 @@ The NVX REST API is HTTPS-only and the unit ships a self-signed certificate, so
 the driver has an https:// base URL and leaves verification off. The simulator
 serves TLS to match (``"tls": True``), which lets the driver connect here the
 same way it connects to hardware.
+
+Sign-in follows the API's Authentication topic: a POST of the credentials to
+/userlogin.html opens the session, and a wrong password or a request without a
+session is answered 403 Forbidden. The form is read as the URL-encoded body
+the API asks for. A password of ``invalid`` is the wrong one, and so is any
+other when the simulator's config gives a ``password``.
+Two error modes refuse it on demand: ``wrong_password`` (the password was
+changed on the unit, which also ends the open session) and ``ip_blocked`` (the
+unit has blocked this address after failed sign-ins and says so).
 """
 
 import json
+from urllib.parse import parse_qsl
 
 from openavc.simulator.http_simulator import HTTPSimulator
 
@@ -71,6 +81,20 @@ class CrestronNvxSimulator(HTTPSimulator):
                 "description": "No sync on the HDMI input/output",
                 "set_state": {"input_sync": False, "h_res": 0, "v_res": 0},
             },
+            "wrong_password": {
+                "description": (
+                    "The admin password was changed on the NVX (the open "
+                    "session ends and every sign-in is refused, HTTP 403)"
+                ),
+                "behavior": "custom",
+            },
+            "ip_blocked": {
+                "description": (
+                    "The NVX has blocked this address after failed sign-ins "
+                    "(HTTP 403 \"Your IP address is blocked\")"
+                ),
+                "behavior": "custom",
+            },
         },
         "controls": [
             {"type": "indicator", "key": "device_mode", "label": "Mode"},
@@ -88,14 +112,41 @@ class CrestronNvxSimulator(HTTPSimulator):
         ],
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._signed_in = False
+
     def _is_tx(self) -> bool:
         return self.get_state("device_mode", "Receiver") == "Transmitter"
+
+    def _refusing(self) -> bool:
+        return bool({"wrong_password", "ip_blocked"} & set(self.active_errors))
+
+    def _sign_in(self, body: str):
+        if "ip_blocked" in self.active_errors:
+            self._signed_in = False
+            return 403, "Your IP address is blocked"
+        fields = dict(parse_qsl(body, keep_blank_values=True))
+        password = fields.get("passwd", "")
+        expected = str(self.config.get("password", "") or "")
+        if (
+            "wrong_password" in self.active_errors
+            or password == "invalid"
+            or (expected and password != expected)
+        ):
+            self._signed_in = False
+            return 403, "Forbidden"
+        self._signed_in = True
+        return 200, "<html><body>OK</body></html>"
 
     def handle_request(self, method, path, headers, body):
         # ── Auth ──
         if path == "/userlogin.html":
+            if method == "POST":
+                return self._sign_in(body)
             return 200, "<html><body>OK</body></html>"
         if path == "/logout":
+            self._signed_in = False
             return 200, "<html><body>bye</body></html>"
         if path == "/Device/Authentication" and method == "POST":
             # First-boot create-admin (wizard). Accept any well-formed request.
@@ -110,6 +161,13 @@ class CrestronNvxSimulator(HTTPSimulator):
                 pass
             return 200, {"Actions": [{"Operation": "SetPartial", "Results": [
                 {"StatusId": -4, "StatusInfo": "Invalid createuser"}]}]}
+
+        # ── Session gate: every API request needs a session ──
+        if path.startswith("/Device"):
+            if self._refusing():
+                self._signed_in = False
+            if not self._signed_in:
+                return 403, "Forbidden"
 
         # ── GET object tree ──
         if method == "GET" and path.startswith("/Device/"):

@@ -552,7 +552,7 @@
       "name": "Crestron DM NVX",
       "manufacturer": "Crestron",
       "category": "switcher",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Crestron DM NVX AV-over-IP encoders and decoders over the CresNext REST API. One driver adapts to the endpoint's role: transmit stream + bitrate + HDMI-in monitoring on encoders, stream routing + scaler output + video wall on decoders. Covers the E20/D20/D200, E30/D30, and combo 35x/36x lines.",
@@ -560,8 +560,8 @@
       "file": "switchers/crestron_nvx.py",
       "format": "python",
       "files": {
-        "switchers/crestron_nvx.py": "3726287b2943606f4b576f3ade2c0808782cdea4db9364d8f845b67ab0d43eba",
-        "switchers/crestron_nvx_sim.py": "47b270cbe9067875ea3b8f485a4794b6cbd9269d93220bb00a228bd5e586f6da"
+        "switchers/crestron_nvx.py": "fa5a68fb90a37ce0c401c96c3ff54f9fb0c1b59a7a1eabb70e60907d06b9d4a1",
+        "switchers/crestron_nvx_sim.py": "85f52b2a9642eb276b512ac1afc0c266c56f9af66ed6c2f45de1ea8fb972a8c1"
       },
       "ports": [
         443

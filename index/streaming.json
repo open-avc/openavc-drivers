@@ -187,7 +187,7 @@
       "name": "Epiphan Pearl",
       "manufacturer": "Epiphan",
       "category": "streaming",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Epiphan Pearl Nano, Mini, Nexus and Pearl-2 lecture-capture and live production systems over the Pearl REST API: start and stop recording and streaming for the whole unit, a channel or one stream, switch layouts, add bookmarks, set input gain, mute and phantom power, pick the HDMI output source, run CMS events (Kaltura, Panopto, Opencast), apply configuration presets, and watch storage, uploads, CPU and temperature.",
@@ -195,8 +195,8 @@
       "file": "streaming/epiphan_pearl.py",
       "format": "python",
       "files": {
-        "streaming/epiphan_pearl.py": "afa7cca1ac7a6492ee86cdf5eb5cefaf6b9ecd4627933d1db6812861d9196f2e",
-        "streaming/epiphan_pearl_sim.py": "65f0376f014d0015a4fca6c2cc7e54c7a0401efa861e35ee2ab896cceb91d077"
+        "streaming/epiphan_pearl.py": "92965a77e710fe969acf5521d089eb92d109b9d44988f54696cd07e8cb9238d1",
+        "streaming/epiphan_pearl_sim.py": "649c1fb4645a1a762e33e245c86afe173901513e819b59dc664ed0e0e5f0207c"
       },
       "ports": [
         80,

@@ -45,6 +45,15 @@ typed ``auth_failed`` fault so the platform waits for new credentials instead
 of retrying into a lockout. The API is served on the web port (80, or 443
 when HTTPS is enabled on the Pearl).
 
+The credential goes with every request, so only a 401 on the read that
+proves it is ``auth_failed``: the channel list, the first read of every poll,
+and the firmware version the liveness probe reads. A resource the Pearl
+refuses this account (a 403, or a 401 once the channel list has answered in
+the same poll) is skipped and named in ``last_error``; a 403 on the firmware
+read at connect leaves nothing to work with and pauses like a refused login.
+The ad-hoc session holds a CMS login (Kaltura, Panopto), not the Pearl's, so a
+refusal there is the CMS's.
+
 Previews
 --------
 Every channel is available as an RTSP stream at ``rtsp://<host>:<port>/
@@ -320,6 +329,10 @@ def coerce_setting_value(var_def: dict[str, Any], value: Any) -> Any:
     return str(value)
 
 
+# The read that proves the login: first in every poll.
+READ_CHANNELS = "channel list"
+
+
 class PearlError(Exception):
     """An answer the Pearl gave that is not the one asked for: a JSON
     ``status`` other than ``ok``, an HTTP error, or a body that is not JSON."""
@@ -331,7 +344,12 @@ class PearlError(Exception):
 
     @property
     def not_authorized(self) -> bool:
+        """Refused: the login (401) or the account's access (403)."""
         return self.http_status in (401, 403)
+
+    @property
+    def login_refused(self) -> bool:
+        return self.http_status == 401
 
     @property
     def not_found(self) -> bool:
@@ -346,7 +364,7 @@ class EpiphanPearlDriver(BaseDriver):
         "name": "Epiphan Pearl",
         "manufacturer": "Epiphan",
         "category": "streaming",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (the sibling HTTP drivers declare the same floor); the
         # channel_rtsp_ports table field alone would need 0.23.0.
@@ -993,6 +1011,9 @@ class EpiphanPearlDriver(BaseDriver):
         self._no_transfer: set[str] = set()
         self._connectivity_absent = False
         self._events_absent = False
+        # Reads the Pearl refused this account (label -> the Pearl's words),
+        # named in last_error by every poll while any is refused.
+        self._refused: dict[str, str] = {}
         for key in ("password", "stream_password"):
             secret = str(config.get(key, "") or "")
             if secret:
@@ -1068,6 +1089,27 @@ class EpiphanPearlDriver(BaseDriver):
             )
         return ConnectionFaultError(message, code="auth_failed")
 
+    def _access_fault(self, exc: PearlError) -> ConnectionFaultError:
+        """403 at connect: the login was accepted and the account may not
+        read the Pearl's firmware or identity. Not a refused password, but
+        retrying cannot help until a person changes the account, so it
+        pauses reconnecting like one."""
+        return ConnectionFaultError(
+            f"The Pearl accepted the login but does not let the account "
+            f"\"{self._username}\" read its firmware information (\"{exc}\"). "
+            f"Use the Pearl's admin account under Edit Device and press Reconnect.",
+            code="auth_failed",
+        )
+
+    def _refused_message(self) -> str:
+        what = ", ".join(self._refused)
+        reason = next((r for r in self._refused.values() if r), "")
+        detail = f' ("{reason}")' if reason else ""
+        return (
+            f"The Pearl does not let this account read the {what}{detail}; "
+            f"those values are not updated. The Pearl's admin account can read them."
+        )
+
     # ── Connection lifecycle ──
 
     async def _create_transport(self, transport_type: str) -> None:
@@ -1093,8 +1135,10 @@ class EpiphanPearlDriver(BaseDriver):
             await self._read_firmware()
             await self._read_identity()
         except PearlError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
+            if exc.not_authorized:
+                raise self._access_fault(exc) from exc
             raise ConnectionError(f"The Pearl answered with an error: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
@@ -1104,16 +1148,25 @@ class EpiphanPearlDriver(BaseDriver):
         )
 
     async def _initial_sync(self) -> None:
+        """Read everything once. The login is proven by now (_post_connect),
+        so a read the Pearl refuses is this account's access to that
+        resource: it is skipped and named in last_error, and the connect
+        goes on."""
         self._poll_count = 0
+        self._refused = {}
         try:
-            await self._read_fast()
-            await self._read_detail()
-        except PearlError as exc:
-            if exc.not_authorized:
-                raise self._auth_fault() from exc
-            raise ConnectionError(f"The Pearl answered with an error: {exc}") from exc
+            for label, read in self._fast_reads() + self._detail_reads():
+                try:
+                    await read()
+                except PearlError as exc:
+                    if exc.not_authorized:
+                        self._refused[label] = str(exc)
+                        continue
+                    raise ConnectionError(f"The Pearl answered with an error: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
+        if self._refused:
+            self.set_state("last_error", self._refused_message())
 
     def _link_alive(self) -> bool:
         return self._client is not None
@@ -1124,9 +1177,19 @@ class EpiphanPearlDriver(BaseDriver):
             await client.aclose()
 
     async def _liveness_probe(self) -> None:
+        """A 401 is the typed auth fault, which drops the connection at
+        once; a 403 is the Pearl answering about the account's access, so it
+        is alive (poll reports what it refuses)."""
         if self._client is None:
             raise ConnectionError("Not connected")
-        await self._get("/system/firmware/version")
+        try:
+            await self._get("/system/firmware/version")
+        except PearlError as exc:
+            if exc.login_refused:
+                raise self._auth_fault() from exc
+            if exc.not_authorized:
+                return
+            raise
 
     # ── HTTP plumbing ──
 
@@ -1149,12 +1212,22 @@ class EpiphanPearlDriver(BaseDriver):
         if timeout is not None:
             kwargs["timeout"] = httpx.Timeout(timeout, connect=5.0)
         resp = await client.request(method, API_PREFIX + path, **kwargs)
-        if resp.status_code in (401, 403):
-            raise PearlError("The Pearl refused the login", http_status=resp.status_code)
+        if resp.status_code == 401:
+            raise PearlError("The Pearl refused the login", http_status=401)
         try:
             payload = resp.json()
         except ValueError:
             payload = None
+        if resp.status_code == 403:
+            # The login was accepted; this account may not use the resource.
+            # Keep the Pearl's own words (the error envelope's message).
+            message = ""
+            if isinstance(payload, dict):
+                message = str(payload.get("message") or payload.get("status") or "")
+            if not message:
+                lines = resp.text.strip().splitlines()
+                message = lines[0][:160] if lines else "HTTP 403"
+            raise PearlError(message, status="forbidden", http_status=403)
         if not isinstance(payload, dict):
             raise PearlError(f"HTTP {resp.status_code} from {path}", http_status=resp.status_code)
         if bare and resp.status_code < 400 and "status" not in payload:
@@ -1205,40 +1278,69 @@ class EpiphanPearlDriver(BaseDriver):
     # ── Polling ──
 
     async def poll(self) -> None:
+        """The channel list first, which proves the login: a 401 there is
+        the typed auth fault. A read the Pearl refuses this account after
+        that (a 403, or a 401 now the login is proven) is skipped and named
+        in last_error, written again by every poll while it holds. Any other
+        Pearl error lands in last_error and ends the cycle, as before."""
         if self._client is None:
             return
         self._poll_count += 1
+        reads = self._fast_reads()
+        if self._poll_count % self._detail_every == 0:
+            reads += self._detail_reads()
         try:
-            await self._read_fast()
-            if self._poll_count % self._detail_every == 0:
-                await self._read_detail()
-        except PearlError as exc:
-            if exc.not_authorized:
-                raise self._auth_fault() from exc
-            self.set_state("last_error", str(exc))
-            log.warning(f"[{self.device_id}] Poll: {exc}")
+            for label, read in reads:
+                try:
+                    await read()
+                except PearlError as exc:
+                    if exc.login_refused and label == READ_CHANNELS:
+                        raise self._auth_fault() from exc
+                    if exc.not_authorized:
+                        self._refused[label] = str(exc)
+                        continue
+                    self.set_state("last_error", str(exc))
+                    log.warning(f"[{self.device_id}] Poll: {exc}")
+                    return
+                self._refused.pop(label, None)
         except httpx.TransportError as exc:
             raise ConnectionError(f"Pearl at {self._base_url()} not responding: {exc}") from exc
+        if self._refused:
+            self.set_state("last_error", self._refused_message())
+
+    def _fast_reads(self) -> list[tuple[str, Any]]:
+        """Every poll. The channel list is first: it proves the login."""
+        return [
+            (READ_CHANNELS, self._read_channels),
+            ("recorder status", self._read_recorder_status),
+            ("system status", self._read_system_status),
+            ("one-touch control state", self._read_single_touch_states),
+            ("automatic file upload", self._read_afu),
+        ]
+
+    def _detail_reads(self) -> list[tuple[str, Any]]:
+        """Every ``detail_poll_every`` polls."""
+        return [
+            ("inputs", self._read_inputs),
+            ("outputs", self._read_outputs),
+            ("recorders", self._read_recorders),
+            ("storages", self._read_storages),
+            ("one-touch controls", self._read_single_touch_roster),
+            ("configuration presets", self._read_presets),
+            ("CMS events", self._read_events),
+            ("ad-hoc session", self._read_adhoc_session),
+            ("network connectivity", self._read_connectivity),
+            ("recording archives", self._read_archives),
+            ("output sources", self._publish_output_sources),
+        ]
 
     async def _read_fast(self) -> None:
-        await self._read_channels()
-        await self._read_recorder_status()
-        await self._read_system_status()
-        await self._read_single_touch_states()
-        await self._read_afu()
+        for _label, read in self._fast_reads():
+            await read()
 
     async def _read_detail(self) -> None:
-        await self._read_inputs()
-        await self._read_outputs()
-        await self._read_recorders()
-        await self._read_storages()
-        await self._read_single_touch_roster()
-        await self._read_presets()
-        await self._read_events()
-        await self._read_adhoc_session()
-        await self._read_connectivity()
-        await self._read_archives()
-        await self._publish_output_sources()
+        for _label, read in self._detail_reads():
+            await read()
 
     # ── Channels and publishers ──
 
@@ -1927,11 +2029,12 @@ class EpiphanPearlDriver(BaseDriver):
         self.set_states(updates)
 
     async def _read_adhoc_session(self) -> None:
+        # The session holds a CMS login (Kaltura, Panopto), not the Pearl's,
+        # and the channel list has already proven the Pearl's this poll: a
+        # refusal here, like any other answer but a session, is no session.
         try:
             session = await self._request("GET", "/schedule/events/adhoc/session", bare=True)
-        except PearlError as exc:
-            if exc.not_authorized:
-                raise
+        except PearlError:
             session = None
         if isinstance(session, dict) and session.get("id"):
             self.set_states({
@@ -1950,7 +2053,7 @@ class EpiphanPearlDriver(BaseDriver):
             await self._read_detail()
             await self._read_all_publisher_settings()
         except PearlError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
             raise
         except httpx.TransportError as exc:
@@ -1976,8 +2079,15 @@ class EpiphanPearlDriver(BaseDriver):
         try:
             return await handler(self, params)
         except PearlError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
+            if exc.not_authorized:
+                message = (
+                    f"The Pearl does not let this account run {command} (\"{exc}\"). "
+                    f"Use the Pearl's admin account."
+                )
+                self.set_state("last_error", message)
+                raise ValueError(message) from exc
             self.set_state("last_error", str(exc))
             raise ValueError(f"The Pearl refused {command}: {exc}") from exc
         except httpx.TransportError as exc:
@@ -2414,7 +2524,18 @@ class EpiphanPearlDriver(BaseDriver):
             body["password"] = password
         elif cms != "kaltura":
             raise ValueError("Ad-hoc login is for Kaltura or Panopto.")
-        await self._request("POST", "/schedule/events/adhoc/session", json_body=body, bare=True)
+        try:
+            await self._request("POST", "/schedule/events/adhoc/session", json_body=body, bare=True)
+        except PearlError as exc:
+            if not exc.not_authorized:
+                raise
+            # The Pearl logs in to the CMS with these; a refusal is the CMS's
+            # answer, not the Pearl's own login.
+            name = "Panopto" if cms == "panopto" else "Kaltura"
+            raise ValueError(
+                f"The {name} login was refused (\"{exc}\"). Check the {name} user ID"
+                + (" and password." if cms == "panopto" else ".")
+            ) from exc
         await self._read_adhoc_session()
 
     async def _cmd_adhoc_logout(self, params: dict[str, Any]) -> None:

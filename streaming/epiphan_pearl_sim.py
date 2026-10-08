@@ -33,6 +33,12 @@ on, every request must carry HTTP Basic with the configured ``password``
 (default ``secret``); the username is not checked, as the API document does
 not say which accounts may use it.
 
+Two error modes model a refusal mid-session. ``wrong_password`` is the
+password changed on the Pearl: every request is answered 401 with the Basic
+challenge, whether or not ``require_auth`` is on. ``afu_forbidden`` is an
+account that may not read automatic file upload: ``/afu`` answers 403 with
+the API's error envelope, and everything else keeps working.
+
 Driver: epiphan_pearl
 Transport: http
 """
@@ -121,6 +127,17 @@ class EpiphanPearlSimulator(HTTPSimulator):
             "publisher_error": {
                 "description": "The RTMP stream on channel 1 reports an error",
                 "behavior": "publisher_error",
+            },
+            "wrong_password": {
+                "description": "Password changed on the Pearl: every request is refused (HTTP 401)",
+                "behavior": "custom",
+            },
+            "afu_forbidden": {
+                "description": (
+                    "The account may not read automatic file upload (HTTP 403 on "
+                    "/afu); the rest still answers"
+                ),
+                "behavior": "custom",
             },
         },
     }
@@ -374,6 +391,8 @@ class EpiphanPearlSimulator(HTTPSimulator):
     # ── Authentication ──
 
     def _authorized(self, headers: dict[str, str]) -> bool:
+        if "wrong_password" in self.active_errors:
+            return False
         if not self._require_auth:
             return True
         auth = ""
@@ -399,6 +418,8 @@ class EpiphanPearlSimulator(HTTPSimulator):
         route = route[len(API_PREFIX):]
         if not self._authorized(headers):
             return 401, "Unauthorized", {"WWW-Authenticate": 'Basic realm="Pearl"'}
+        if "afu_forbidden" in self.active_errors and route.startswith("/afu"):
+            return _error(403, "error", "Forbidden")
         self.calls.append(f"{method} {route}")
         try:
             data = json.loads(body) if body else None

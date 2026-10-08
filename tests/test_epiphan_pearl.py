@@ -28,7 +28,13 @@ Covers:
     port, stream credentials embedded on request;
   - a transport error in poll propagating as ConnectionError, a device error
     landing in last_error, the slow-cadence reads, refresh_children, the
-    liveness probe, and no secret ever reaching state.
+    liveness probe, and no secret ever reaching state;
+  - a refused login against a refused read: a 401 on the channel list (first
+    in every poll) or the liveness probe is auth_failed, while a resource the
+    account may not read (a 403, or a refusal once the login is proven) is
+    skipped, named in last_error on every poll, and does not stop the
+    connect; a 403 on the firmware read at connect pauses like a refused
+    login; a refusal of the ad-hoc session is the CMS, not the Pearl login.
 
 The driver is loaded with the ``openavc.*`` imports stubbed so the community
 CI stays self-contained (conftest.py rolls the stubs back).
@@ -937,7 +943,7 @@ def test_poll_transport_error_propagates_and_device_error_lands_in_last_error():
         assert _st(driver, "connected") is True
         assert _st(driver, "last_error") == "Recorder service down"
         failures.clear()
-        failures["/system/status"] = (401, "Unauthorized")
+        failures["/channels"] = (401, "Unauthorized")
         with pytest.raises(ConnectionFaultError) as exc:
             await driver.poll()
         assert exc.value.fault_code == "auth_failed"
@@ -1021,4 +1027,128 @@ def test_dotted_device_ids_become_safe_child_ids():
         assert "hdmi-a" not in driver.list_children("input")
         await driver.send_command("mute_input", {"input": "D2P496187_hdmi-a"})
         assert sim._inputs["D2P496187.hdmi-a"]["settings"]["hdmi"]["audio"]["mute"] is True
+    _run(scenario())
+
+
+# ── A refused login against a refused read ─────────────────────────────────
+
+
+def test_a_resource_the_account_may_not_read_is_reported_and_the_rest_still_polls():
+    async def scenario():
+        driver, sim = await _connected({"require_auth": True})
+        sim.inject_error("afu_forbidden")
+        sim.set_state("cpu_load", 77)
+        await driver.poll()
+        assert _st(driver, "connected") is True
+        error = _st(driver, "last_error")
+        assert "automatic file upload" in error and "Forbidden" in error
+        assert _st(driver, "cpu_load_percent") == 77          # the rest still reads
+        driver.set_state("last_error", None)                  # written again next poll
+        await driver.poll()
+        assert "automatic file upload" in _st(driver, "last_error")
+        sim.clear_error("afu_forbidden")
+        driver.set_state("last_error", "untouched")
+        await driver.poll()
+        assert _st(driver, "last_error") == "untouched"
+    _run(scenario())
+
+
+def test_a_refusal_after_the_channel_list_answered_is_not_the_password():
+    async def scenario():
+        failures: dict = {}
+        driver, sim, handler = _make(fail_paths=failures)
+        await _connect(driver, handler)
+        failures["/system/status"] = (401, "Unauthorized")
+        await driver.poll()
+        assert _st(driver, "connected") is True
+        assert "system status" in _st(driver, "last_error")
+    _run(scenario())
+
+
+def test_a_password_change_is_auth_failed_from_the_first_read_of_a_poll():
+    async def scenario():
+        driver, sim = await _connected({"require_auth": True})
+        refused: list[str] = []
+        inner = sim.handle_request
+
+        def counting(method, path, headers, body):
+            result = inner(method, path, headers, body)
+            if result[0] == 401:
+                refused.append(path.split("?", 1)[0])
+            return result
+
+        sim.handle_request = counting
+        sim.inject_error("wrong_password")
+        with pytest.raises(ConnectionFaultError) as exc:
+            await driver.poll()
+        assert exc.value.fault_code == "auth_failed"
+        assert refused == ["/api/v2.0/channels"]
+    _run(scenario())
+
+
+def test_the_liveness_probe_drops_on_a_refused_login_and_answers_on_a_refused_read():
+    async def scenario():
+        failures: dict = {}
+        driver, sim, handler = _make({"require_auth": True}, fail_paths=failures)
+        await _connect(driver, handler)
+        sim.inject_error("wrong_password")
+        with pytest.raises(ConnectionFaultError) as exc:
+            await driver._liveness_probe()
+        assert exc.value.fault_code == "auth_failed"
+        sim.clear_error("wrong_password")
+        failures["/system/firmware/version"] = (403, json.dumps({"status": "error", "message": "Forbidden"}))
+        await driver._liveness_probe()                       # the Pearl answered
+    _run(scenario())
+
+
+def test_a_resource_the_account_may_not_read_does_not_stop_the_connect():
+    async def scenario():
+        driver, sim, handler = _make({"require_auth": True})
+        sim.inject_error("afu_forbidden")
+        await _connect(driver, handler)
+        assert _st(driver, "connected") is True
+        assert "automatic file upload" in _st(driver, "last_error")
+        assert _st(driver, "channel_count") == 2
+    _run(scenario())
+
+
+def test_a_refused_adhoc_session_is_the_cms_not_the_pearl_login():
+    async def scenario():
+        failures: dict = {}
+        driver, sim, handler = _make(driver_config={"detail_poll_every": 1}, fail_paths=failures)
+        await _connect(driver, handler)
+        await driver.send_command("adhoc_login", {"cms": "kaltura", "user_id": "jdoe"})
+        assert _st(driver, "adhoc_user_id") == "jdoe"
+        failures["/schedule/events/adhoc/session"] = (401, "Unauthorized")
+        driver.set_state("last_error", "untouched")
+        await driver.poll()
+        assert _st(driver, "connected") is True
+        assert _st(driver, "adhoc_user_id") == ""
+        assert _st(driver, "last_error") == "untouched"
+        # The login command reports the CMS refusing, not the Pearl.
+        with pytest.raises(ValueError, match="Kaltura login was refused"):
+            await driver.send_command("adhoc_login", {"cms": "kaltura", "user_id": "jdoe"})
+    _run(scenario())
+
+
+def test_sim_error_modes_refuse_the_login_or_one_resource():
+    sim = SIM.EpiphanPearlSimulator("pearl-sim", {})
+    assert sim.handle_request("GET", "/api/v2.0/afu/status", {}, "")[0] == 200
+    sim.inject_error("afu_forbidden")
+    status, body = sim.handle_request("GET", "/api/v2.0/afu/status", {}, "")[:2]
+    assert status == 403 and json.loads(body)["message"] == "Forbidden"
+    assert sim.handle_request("GET", "/api/v2.0/channels", {}, "")[0] == 200
+    sim.clear_error("afu_forbidden")
+    sim.inject_error("wrong_password")
+    assert sim.handle_request("GET", "/api/v2.0/channels", {}, "")[0] == 401
+
+
+def test_a_403_on_the_firmware_read_at_connect_pauses_like_a_refused_login():
+    async def scenario():
+        failures = {"/system/firmware": (403, json.dumps({"status": "error", "message": "Forbidden"}))}
+        driver, sim, handler = _make(fail_paths=failures)
+        with pytest.raises(ConnectionFaultError) as exc:
+            await _connect(driver, handler)
+        assert exc.value.fault_code == "auth_failed"
+        assert "accepted the login" in str(exc.value) and "Forbidden" in str(exc.value)
     _run(scenario())

@@ -75,6 +75,13 @@ class SonyBraviaSimulator(HTTPSimulator):
                 "description": "Display enters standby (power off)",
                 "set_state": {"power": "off"},
             },
+            "wrong_password": {
+                "description": (
+                    "Pre-Shared Key changed on the display (generic and "
+                    "private level APIs refused, HTTP 403)"
+                ),
+                "behavior": "custom",
+            },
         },
         "controls": [
             {
@@ -177,10 +184,13 @@ class SonyBraviaSimulator(HTTPSimulator):
         # is configured (so untouched sim runs stay permissive): if the
         # request's X-Auth-PSK header doesn't match, return 403 — this is what
         # lets the driver's PSK auth-fault path and setup wizard be exercised.
-        configured_psk = str(self.config.get("psk", "") or "")
-        if configured_psk and clean_path.startswith("/sony/"):
-            sent = headers.get("X-Auth-PSK", headers.get("x-auth-psk", ""))
-            if str(sent) != configured_psk:
+        # The wrong_password error mode refuses every key, as if the key were
+        # changed on the display mid-session. Either way only the generic and
+        # private level APIs are refused: the REST API reference marks some
+        # methods "Authentication Level: none", and the display answers those
+        # whatever key is sent.
+        if clean_path.startswith("/sony/") and self._psk_refused(headers):
+            if not self._auth_level_none(clean_path, body):
                 return 403, {"error": [403, "Forbidden"]}
 
         # IRCC endpoint (SOAP XML) — accept anything and return 200
@@ -192,6 +202,37 @@ class SonyBraviaSimulator(HTTPSimulator):
             return self._handle_jsonrpc(clean_path, body)
 
         return 404, {"error": "Not Found"}
+
+    # Methods this simulator serves whose REST API reference entry says
+    # "Authentication Level: none". Everything else it serves is generic or
+    # private, and so is IRCC.
+    _AUTH_LEVEL_NONE = frozenset({
+        "getPowerStatus",
+        "getVolumeInformation",
+        "getPictureQualitySettings",
+        "getInterfaceInformation",
+        "getCurrentExternalInputsStatus",
+    })
+
+    def _psk_refused(self, headers: dict[str, str]) -> bool:
+        """True when the display would not accept the request's key."""
+        if "wrong_password" in self.active_errors:
+            return True
+        configured_psk = str(self.config.get("psk", "") or "")
+        if not configured_psk:
+            return False
+        sent = headers.get("X-Auth-PSK", headers.get("x-auth-psk", ""))
+        return str(sent) != configured_psk
+
+    def _auth_level_none(self, path: str, body: str) -> bool:
+        """True for a JSON-RPC method the display serves without a key."""
+        if path == "/sony/IRCC":
+            return False
+        try:
+            method = json.loads(body).get("method", "")
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            return False
+        return method in self._AUTH_LEVEL_NONE
 
     # ── IRCC (Remote Control) ──
 

@@ -19,9 +19,9 @@ Covers:
     _close_session on every teardown path);
   - device settings: LED indicator + picture mode / brightness / contrast /
     color / sharpness write and read back through the poll;
-  - a wrong Pre-Shared Key raises an auth-worded ConnectionError on connect
-    (classifier -> auth_failed) instead of silently connecting and then
-    failing every poll;
+  - a refused Pre-Shared Key raises the typed auth_failed fault, on connect
+    and from the poll at the first refused query (a key changed on the
+    display mid-session);
   - the Test Pre-Shared Key setup wizard accepts / rejects a key out-of-band.
 
 Loads the driver + sim with ``openavc.*`` imports stubbed so
@@ -43,6 +43,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -244,6 +245,11 @@ class _FakeHTTPSimulator:
         self.device_id = device_id
         self.config = config or {}
         self.state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
+        self.active_errors: set[str] = set()
+
+    def inject_error(self, mode) -> None:
+        assert mode in self.SIMULATOR_INFO.get("error_modes", {}), mode
+        self.active_errors.add(mode)
 
     def get_state(self, key, default=None):
         return self.state.get(key, default)
@@ -378,6 +384,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     http_client = ModuleType("openavc.transport.http_client")
     http_client.HTTPClientTransport = _FakeHTTPClientTransport
@@ -424,7 +431,7 @@ def _make_driver(sim, psk="secret"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.6"
+    assert DRV.SonyBraviaDriver.DRIVER_INFO["version"] == "1.5.7"
     assert DRV.SonyBraviaDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -634,15 +641,16 @@ def test_unknown_device_setting_raises():
     asyncio.run(go())
 
 
-# ── CF fix: wrong PSK -> auth-worded ConnectionError ───────────────────────
+# ── A refused Pre-Shared Key is the typed auth_failed fault ─────────────────
 
-def test_wrong_psk_raises_auth_worded_error():
+def test_wrong_psk_raises_auth_failed_on_connect():
     async def go():
         sim = _make_sim(psk="secret")
         driver = _make_driver(sim, psk="wrong")
-        with pytest.raises(ConnectionError) as exc:
+        with pytest.raises(ConnectionFaultError) as exc:
             await driver.connect()
-        assert "authentication failed" in str(exc.value).lower()
+        assert exc.value.fault_code == "auth_failed"
+        assert "Pre-Shared Key" in str(exc.value)
         # The failed handshake tore the transport down before the device was
         # ever declared connected.
         assert driver.transport is None
@@ -650,6 +658,41 @@ def test_wrong_psk_raises_auth_worded_error():
         assert driver.get_state("connected") is not True
         # _close_session ran for the clean-slate reset AND the teardown.
         assert driver.close_session_calls == 2
+
+    asyncio.run(go())
+
+
+def test_a_key_changed_on_the_display_ends_the_poll_at_the_first_refusal():
+    # The key is changed on the display while connected. getPowerStatus is an
+    # Authentication Level none API, so the display still answers it; the
+    # LED query (generic) is the first one refused, and the poll stops there
+    # with the typed fault instead of sending the key again on every query
+    # and every poll.
+    async def go():
+        sim = _make_sim(psk="secret", power="active")
+        driver = _make_driver(sim, psk="secret")
+        await driver.connect()
+        try:
+            await driver.poll()
+            assert driver.get_state("power") == "on"
+
+            refused = []
+            inner = sim.handle_request
+
+            def counting(method, path, headers, body):
+                status, resp = inner(method, path, headers, body)
+                if status in (401, 403):
+                    refused.append((path, status))
+                return status, resp
+
+            sim.handle_request = counting
+            sim.inject_error("wrong_password")
+            with pytest.raises(ConnectionFaultError) as exc:
+                await driver.poll()
+            assert exc.value.fault_code == "auth_failed"
+            assert refused == [("/sony/system", 403)]
+        finally:
+            await driver.disconnect()
 
     asyncio.run(go())
 

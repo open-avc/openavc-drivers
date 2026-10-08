@@ -30,11 +30,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.transport.http_client import HTTPClientTransport
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+# The HTTP statuses the REST API answers when the display does not accept the
+# request's key: 401 Unauthorized ("Request requires user authentication") and
+# 403 Forbidden ("The client does not have permission to access"), from the
+# REST API reference's Error Code table. With Pre-Shared Key authentication the
+# key opens every generic and private level API, so either status on a request
+# carrying the key means the key was refused.
+_KEY_REFUSED_STATUSES = (401, 403)
+
+_KEY_REFUSED_MESSAGE = (
+    "The display refused the Pre-Shared Key. Check the key in the display's "
+    "IP control settings, and that its Authentication setting includes "
+    "Pre-Shared Key."
+)
 
 # Map friendly input names to Sony URI format
 INPUT_URI_MAP = {
@@ -169,7 +183,7 @@ class SonyBraviaDriver(BaseDriver):
         "name": "Sony Bravia Display",
         "manufacturer": "Sony",
         "category": "display",
-        "version": "1.5.6",
+        "version": "1.5.7",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -609,18 +623,20 @@ class SonyBraviaDriver(BaseDriver):
 
     async def _post_connect(self) -> None:
         # Authenticated probe before the device is declared connected:
-        # getSystemInformation returns HTTP 403 when the Pre-Shared Key is
-        # wrong. The reachability check only HEADs "/", which isn't
-        # PSK-gated, so a bad key would otherwise connect and then fail
-        # every poll with no reason (the fault surfaced as "not
-        # responding"). Classify it as auth here. Also caches the model
-        # name on success.
+        # getSystemInformation is a private level API, refused when the
+        # Pre-Shared Key is wrong. The reachability check only HEADs "/",
+        # which isn't PSK-gated, so a bad key would otherwise connect and
+        # then fail every poll. A refusal is the typed auth_failed fault.
+        # Also caches the model name on success.
         probe = await self._fetch_system_info()
-        if probe is not None and probe.status_code in (401, 403):
-            raise ConnectionError(
-                "Sony Bravia authentication failed - check the "
-                "Pre-Shared Key (PSK)"
-            )
+        if probe is not None:
+            self._raise_if_key_refused(probe)
+
+    def _raise_if_key_refused(self, response: Any) -> None:
+        """Raise the typed auth_failed fault when the display refused the
+        request's Pre-Shared Key. Every other status is the caller's."""
+        if response.status_code in _KEY_REFUSED_STATUSES:
+            raise ConnectionFaultError(_KEY_REFUSED_MESSAGE, code="auth_failed")
 
     # --- JSON-RPC helper ---
 
@@ -642,6 +658,12 @@ class SonyBraviaDriver(BaseDriver):
 
         Returns:
             The "result" field from the response, or None on error.
+
+        Raises:
+            ConnectionFaultError: auth_failed, when the display refused the
+                Pre-Shared Key (HTTP 401 or 403). Raised from poll() it drops
+                the connection at the first refusal, so the refused key is not
+                sent again on every query of every poll.
         """
         if not self.transport or not self.transport.connected:
             return None
@@ -659,6 +681,7 @@ class SonyBraviaDriver(BaseDriver):
         # Only suppress protocol-level errors that indicate the TV is
         # reachable but in an expected non-queryable state.
         response = await self.transport.post(f"/sony/{service}", body=body)
+        self._raise_if_key_refused(response)
         if not response.ok:
             log.warning(
                 f"[{self.device_id}] {service}/{method} HTTP {response.status_code}"

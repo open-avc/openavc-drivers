@@ -8,7 +8,12 @@ bodies, and the subscription stream. Every resource of the TCC M OpenAPI 1.9
 schema is served with the schema's ranges, enumerations and refusals:
 
   - 401 without credentials, 403 while third-party access is off (an error
-    mode), 404 for an unknown resource, 405 for a method a resource lacks;
+    mode), 403 for a resource the account may not read (the
+    ``forbidden_paths`` config, or the ``resource_forbidden`` error mode),
+    404 for an unknown resource, 405 for a method a resource lacks;
+  - a changed password (the ``wrong_password`` error mode) refuses every
+    request with 401 and closes the open subscriptions, as the SSCv2
+    specification requires;
   - 400 for a body that is not JSON or names a field the resource lacks,
     422 for a value out of range, off its step, or an unknown enumeration
     (the spec's "Unprocessable Value");
@@ -22,7 +27,8 @@ opens an event stream whose Content-Location names the session, the stream's
 first event is ``open`` carrying the session UUID, PUT of a resource list to
 the session (or to /add and /remove) arms it, and the current value of every
 newly subscribed resource is sent at once. A path the device does not have
-refuses the whole list with 400 naming it; an unknown session is 422; DELETE
+refuses the whole list with 400 naming it (``error`` 404, or 403 for a path
+the account may not read); an unknown session is 422; DELETE
 sends ``close`` and ends the stream. A change to any subscribed resource,
 from the API or from the Simulator UI, is pushed as ``{"<path>": {...}}``.
 
@@ -42,6 +48,8 @@ from openavc.simulator.http_simulator import HTTPSimulator
 
 _SUBSCRIPTIONS = "/api/ssc/state/subscriptions"
 _API_USER = "api"
+# The one resource the ``resource_forbidden`` error mode refuses.
+_FORBIDDEN_IN_ERROR_MODE = "/api/firmware/update/state"
 _VENDOR = "Sennheiser electronic GmbH & Co. KG"
 
 _LED_COLORS = [
@@ -386,11 +394,21 @@ class SennheiserTccmSimulator(HTTPSimulator):
                 "behavior": "no_response",
             },
             "wrong_password": {
-                "description": "Microphone rejects every credential (HTTP 401)",
+                "description": (
+                    "Password changed on the microphone: every request is refused "
+                    "(HTTP 401) and open subscriptions close"
+                ),
                 "behavior": "custom",
             },
             "third_party_disabled": {
                 "description": "Third-party access switched off in Control Cockpit (HTTP 403)",
+                "behavior": "custom",
+            },
+            "resource_forbidden": {
+                "description": (
+                    "The third-party account may not read the firmware update "
+                    "state (HTTP 403 on that resource only)"
+                ),
                 "behavior": "custom",
             },
             "firmware_update": {
@@ -449,6 +467,19 @@ class SennheiserTccmSimulator(HTTPSimulator):
         self._hidden: set[str] = {
             self._normalize(str(p)) for p in (config or {}).get("hidden_paths", []) or []
         }
+        # Resources the third-party account may not read (403 on read,
+        # refused in a subscription list): ``"forbidden_paths": [...]``.
+        self._forbidden: set[str] = {
+            self._normalize(str(p)) for p in (config or {}).get("forbidden_paths", []) or []
+        }
+
+    def inject_error(self, mode: str) -> None:
+        super().inject_error(mode)
+        if mode == "wrong_password":
+            # A password change ends every subscription created with the old
+            # one (SSCv2 specification, "SSCv2 subscriptions").
+            for session_uuid in list(self._sessions):
+                self.close_session(session_uuid, notify=True)
 
     # ── Authentication ──
 
@@ -476,7 +507,17 @@ class SennheiserTccmSimulator(HTTPSimulator):
     def _auth_error(self, path: str) -> tuple[int, dict] | None:
         if "third_party_disabled" in self.active_errors and path not in _OPEN_PATHS:
             return 403, {"error": "third-party access is disabled"}
+        if self._is_forbidden(path):
+            return 403, {"error": "not allowed for this user"}
         return None
+
+    def _is_forbidden(self, path: str) -> bool:
+        if path in self._forbidden:
+            return True
+        return (
+            "resource_forbidden" in self.active_errors
+            and path == _FORBIDDEN_IN_ERROR_MODE
+        )
 
     # ── Bodies ──
 
@@ -669,6 +710,8 @@ class SennheiserTccmSimulator(HTTPSimulator):
         for p in wanted:
             if not self._subscribable(p):
                 return 400, {"path": p, "error": 404}
+            if self._is_forbidden(p):
+                return 400, {"path": p, "error": 403}
         if action == "add":
             new = [p for p in wanted if p not in session["paths"]]
             session["paths"].update(wanted)

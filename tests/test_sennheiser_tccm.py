@@ -22,8 +22,13 @@ Covers:
     subscription list, the rest still armed;
   - the stream reopening after the device closes the session, and re-arming;
   - faults: no password (never sent), a rejected password, third-party
-    access off, a wrong product, an unreachable host, a mid-session 401,
-    and poll propagating transport errors;
+    access off (a 403 on the status read at connect, which pauses like a
+    refused password, in the device's words), a wrong product, an
+    unreachable host, a mid-session 401, a password change seen first by
+    the subscription stream, and poll propagating transport errors;
+  - a resource the account may not read (403): skipped and named in
+    last_error on every poll, left off the subscription list, never taken
+    for a resource the firmware lacks;
   - the discovery probe matching the simulator's own identity reply;
   - the simulator's subscription and validation semantics on their own.
 
@@ -122,6 +127,12 @@ class _FakeBaseDriver(LifecycleFake, StubBaseDriver):
         self._connected = False
         self.set_state("connected", False)
         await self.events.emit(f"device.disconnected.{self.device_id}")
+
+    def _handle_transport_disconnect(self):
+        # The platform marks the device offline here and schedules the
+        # cleanup; the tests close the session themselves.
+        self._connected = False
+        self.set_state("connected", False)
 
 
 install_stubs(base_driver=_FakeBaseDriver)
@@ -802,14 +813,78 @@ async def test_rejected_password_is_auth_fault(mocked_client):
 
 
 @pytest.mark.asyncio
-async def test_third_party_access_off_is_auth_fault(mocked_client):
+async def test_a_forbidden_status_at_connect_pauses_like_a_refused_password(mocked_client):
+    # A 403 on the status read at connect: the password was accepted, but
+    # the driver has nothing to work with and retrying cannot help, so it
+    # pauses reconnecting like a refused password, in the device's words.
     driver, sim, link = _make()
     sim.inject_error("third_party_disabled")
     mocked_client(link)
     with pytest.raises(ConnectionFaultError) as excinfo:
         await driver.connect()
     assert excinfo.value.fault_code == "auth_failed"
+    assert "accepted the password" in str(excinfo.value)
     assert "third-party access" in str(excinfo.value)
+    assert "third-party access is disabled" in str(excinfo.value)
+    assert driver.get_state("connected") is False
+
+
+@pytest.mark.asyncio
+async def test_a_resource_the_account_may_not_read_is_skipped_and_reported(mocked_client):
+    driver, sim, link = _make()
+    await _connect(driver, link, mocked_client)
+    sim.inject_error("resource_forbidden")
+    sim.set_state("mute", True)
+    await driver.poll()
+    assert driver.get_state("connected") is True
+    error = driver.get_state("last_error")
+    assert "/api/firmware/update/state" in error and "HTTP 403" in error
+    assert "not allowed for this user" in error
+    assert driver.get_state("mute") is True        # the rest still reads
+    # Written again by every poll while it holds, so the platform's
+    # clean-poll clearing never blanks a condition that is still true.
+    driver.set_state("last_error", None)
+    await driver.poll()
+    assert "/api/firmware/update/state" in driver.get_state("last_error")
+    # Never taken for a firmware that lacks the resource.
+    assert "/api/firmware/update/state" not in driver._unsupported
+    # Once the resource reads again, poll writes nothing to last_error and
+    # leaves the clearing to the platform.
+    sim.clear_error("resource_forbidden")
+    driver.set_state("last_error", "untouched")
+    await driver.poll()
+    assert driver.get_state("last_error") == "untouched"
+    await driver.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_a_forbidden_subscription_path_is_left_off_the_stream(mocked_client):
+    forbidden = "/api/device/power/poe/daisychain"
+    driver, sim, link = _make(sim_config={"forbidden_paths": [forbidden]})
+    await _connect(driver, link, mocked_client)
+    assert driver.get_state("connected") is True
+    assert _session_paths(sim) == _expected_paths() - {forbidden}
+    assert forbidden not in driver._unsupported
+    assert forbidden in driver.get_state("last_error")
+    sim.set_state("mute", True)
+    await _settle()
+    assert driver.get_state("mute") is True
+    await driver.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_a_password_change_drops_from_the_stream_on_the_first_refusal(mocked_client):
+    driver, sim, link = _make()
+    await _connect(driver, link, mocked_client)
+    link.requests.clear()
+    sim.inject_error("wrong_password")    # closes the subscription, as the device does
+    await _settle(20)
+    reopens = [r for r in link.requests if r == ("GET", _SUBS)]
+    assert reopens == [("GET", _SUBS)]    # one refused reopen, no retry
+    assert driver.stashed_fault[0] == "auth_failed"
+    assert "Control Cockpit" in driver.stashed_fault[1]
+    assert driver.get_state("connected") is False
+    await driver.disconnect()
 
 
 @pytest.mark.asyncio
@@ -971,3 +1046,35 @@ async def test_sim_subscription_semantics():
     assert queue.get_nowait() is None
     assert sim.sessions == []
     assert sim.open_session(_auth("invalid"))[0] == 401
+
+
+def test_sim_forbidden_resources():
+    forbidden = "/api/device/power/poe/daisychain"
+    sim = SIM.SennheiserTccmSimulator("tccm-sim", {"forbidden_paths": [forbidden]})
+    assert sim.handle_request("GET", forbidden, _auth(), "")[0] == 403
+    assert sim.handle_request("GET", "/api/device/state", _auth(), "")[0] == 200
+    status, session_uuid, _queue = sim.open_session(_auth())
+    status, body = sim.handle_request(
+        "PUT", f"{_SUBS}/{session_uuid}", _auth(), json.dumps(["/api/device/state", forbidden]),
+    )[:2]
+    assert status == 400 and body == {"path": forbidden, "error": 403}
+
+    plain = SIM.SennheiserTccmSimulator("tccm-sim", {})
+    firmware = "/api/firmware/update/state"
+    assert plain.handle_request("GET", firmware, _auth(), "")[0] == 200
+    plain.inject_error("resource_forbidden")
+    assert plain.handle_request("GET", firmware, _auth(), "")[0] == 403
+    assert plain.handle_request("GET", "/api/device/state", _auth(), "")[0] == 200
+
+
+@pytest.mark.asyncio
+async def test_sim_password_change_closes_open_subscriptions():
+    sim = SIM.SennheiserTccmSimulator("tccm-sim", {})
+    status, session_uuid, queue = sim.open_session(_auth())
+    assert status == 200
+    queue.get_nowait()                     # the open event
+    sim.inject_error("wrong_password")
+    assert queue.get_nowait().startswith("event: close\n")
+    assert queue.get_nowait() is None
+    assert sim.sessions == []
+    assert sim.open_session(_auth())[0] == 401

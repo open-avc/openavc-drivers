@@ -82,6 +82,14 @@ _PRODUCT = "TCCM"
 # Subscription stream endpoints.
 _SUBSCRIPTIONS = "/api/ssc/state/subscriptions"
 
+# The resource that proves the password: the first authenticated read at
+# connect and the first read of every poll. A 401 anywhere is the password
+# (SSCv2: "a request without being authenticated"); a 403 is a resource the
+# account may not read. A 403 here at connect leaves the driver nothing to
+# work with and retrying cannot help, so it pauses like a refused password;
+# a 403 anywhere else is reported and skipped.
+_CORE_PATH = "/api/device/state"
+
 # The device sends no documented keepalive on the event stream. After this
 # much silence the stream is reopened, which re-arms the subscription and
 # makes the microphone resend every subscribed value (a free full resync).
@@ -314,6 +322,10 @@ _RESOURCES.append(
 )
 
 _RESOURCE_BY_PATH: dict[str, _Resource] = {r.path: r for r in _RESOURCES}
+# Poll order: the resource that proves the password first.
+_POLL_ORDER: list[_Resource] = [_RESOURCE_BY_PATH[_CORE_PATH]] + [
+    r for r in _RESOURCES if r.path != _CORE_PATH
+]
 # Which resource a state key belongs to, for the device-settings writer.
 _RESOURCE_BY_KEY: dict[str, _Resource] = {
     key: r for r in _RESOURCES for key in r.fields.values()
@@ -378,6 +390,21 @@ def _as_bool(value: Any) -> bool:
 
 
 
+class _Forbidden(Exception):
+    """403: the microphone accepted the password and will not let this
+    account read the resource (SSCv2 "Default Returns"). ``reason`` is the
+    device's own text when it gave one."""
+
+    def __init__(self, path: str, reason: str) -> None:
+        self.path = path
+        self.reason = reason
+        detail = f": {reason}" if reason else ""
+        super().__init__(
+            f"The microphone does not let the third-party account read "
+            f"{path} (HTTP 403{detail})."
+        )
+
+
 class SennheiserTccmDriver(BaseDriver):
     """Sennheiser TeamConnect Ceiling Medium over SSCv2 (HTTPS + SSE)."""
 
@@ -386,7 +413,7 @@ class SennheiserTccmDriver(BaseDriver):
         "name": "Sennheiser TeamConnect Ceiling Medium",
         "manufacturer": "Sennheiser",
         "category": "audio",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "author": "OpenAVC",
         "description": (
             "Controls the Sennheiser TeamConnect Ceiling Medium beamforming "
@@ -768,7 +795,10 @@ class SennheiserTccmDriver(BaseDriver):
             },
             "last_error": {
                 "type": "string", "label": "Last Error",
-                "help": "The microphone's most recent refusal of a command or setting.",
+                "help": (
+                    "The microphone's most recent refusal of a command or setting, "
+                    "or the resources the third-party account may not read."
+                ),
             },
         },
         "commands": {
@@ -1311,8 +1341,21 @@ class SennheiserTccmDriver(BaseDriver):
                     code="invalid_config",
                 )
             # First authenticated read: a wrong password is a 401 here.
-            state = await self._get_json("/api/device/state")
-            self._apply_body(_RESOURCE_BY_PATH["/api/device/state"], state)
+            state = await self._get_json(_CORE_PATH)
+            self._apply_body(_RESOURCE_BY_PATH[_CORE_PATH], state)
+        except _Forbidden as exc:
+            # 403: the password was accepted and the account may not read the
+            # microphone's status. Not a refused password, but retrying cannot
+            # help until a person changes the account in Control Cockpit, so
+            # it pauses reconnecting like one.
+            detail = f" (\"{exc.reason}\")" if exc.reason else ""
+            raise ConnectionFaultError(
+                f"The microphone accepted the password but will not let the "
+                f"third-party account read its status{detail}. Check that "
+                f"third-party access is on for this microphone in Sennheiser "
+                f"Control Cockpit, then press Reconnect.",
+                code="auth_failed",
+            ) from exc
         except httpx.ConnectError as exc:
             text = str(exc)
             if "CERTIFICATE_VERIFY_FAILED" in text or "certificate verify failed" in text:
@@ -1358,34 +1401,36 @@ class SennheiserTccmDriver(BaseDriver):
 
     # ── Requests ──
 
+    @staticmethod
+    def _password_refused() -> ConnectionFaultError:
+        return ConnectionFaultError(
+            "The microphone rejected the third-party password. Check it "
+            "on the microphone's device page in Sennheiser Control "
+            "Cockpit.",
+            code="auth_failed",
+        )
+
     async def _request(
         self, method: str, path: str, body: Any = None
     ) -> httpx.Response:
-        """One request. Transport errors propagate (the poll contract);
-        401/403 raise the typed auth fault; other statuses come back to the
-        caller, which knows what each means for its resource."""
+        """One request. Transport errors propagate (the poll contract); a
+        401 raises the typed auth fault, since the password goes with every
+        request and 401 is the SSCv2 answer to one that did not
+        authenticate. Every other status, 403 included, comes back to the
+        caller, which knows what it means for its resource."""
         if self._client is None:
             raise ConnectionError("Not connected")
         response = await self._client.request(method, path, json=body)
         if response.status_code == 401:
-            raise ConnectionFaultError(
-                "The microphone rejected the third-party password. Check it "
-                "on the microphone's device page in Sennheiser Control "
-                "Cockpit.",
-                code="auth_failed",
-            )
-        if response.status_code == 403:
-            raise ConnectionFaultError(
-                "The microphone refused third-party access. Enable it on the "
-                "microphone's device page in Sennheiser Control Cockpit.",
-                code="auth_failed",
-            )
+            raise self._password_refused()
         return response
 
     async def _get_json(self, path: str) -> dict[str, Any]:
         response = await self._request("GET", path)
         if response.status_code == 404:
             raise LookupError(path)
+        if response.status_code == 403:
+            raise _Forbidden(path, self._refusal_detail(response))
         if response.is_error:
             raise ConnectionError(
                 f"The microphone answered HTTP {response.status_code} for {path}"
@@ -1411,7 +1456,8 @@ class SennheiserTccmDriver(BaseDriver):
         raise ValueError(message)
 
     @staticmethod
-    def _refusal_reason(response: httpx.Response) -> str:
+    def _refusal_detail(response: httpx.Response) -> str:
+        """The device's own words from an error body, if any."""
         detail = ""
         text = (response.text or "").strip()
         if text:
@@ -1428,8 +1474,15 @@ class SennheiserTccmDriver(BaseDriver):
                 )
             if not detail:
                 detail = text[:160]
+        return detail
+
+    @classmethod
+    def _refusal_reason(cls, response: httpx.Response) -> str:
+        detail = cls._refusal_detail(response)
         code = response.status_code
-        if code == 409:
+        if code == 403:
+            base = "the third-party account may not change it"
+        elif code == 409:
             base = "the microphone's current state does not allow it"
         elif code == 422:
             base = "the value is out of range or conflicts with another setting"
@@ -1533,12 +1586,17 @@ class SennheiserTccmDriver(BaseDriver):
     # ── Polling ──
 
     async def poll(self) -> None:
-        """Resync every resource that is not a feed. Transport errors
-        propagate so the platform's missed-poll watchdog sees them; a
-        resource this firmware lacks is skipped after its first 404."""
+        """Resync every resource that is not a feed, the one that proves the
+        password first. Transport errors propagate so the platform's
+        missed-poll watchdog sees them, and a 401 is the typed auth fault; a
+        resource this firmware lacks is skipped after its first 404. A
+        resource the account may not read (403) is skipped for this cycle
+        and named in last_error, written again by every poll while it holds
+        so the platform's clean-poll clearing leaves a true condition alone."""
         if self._client is None:
             return
-        for resource in _RESOURCES:
+        forbidden: list[_Forbidden] = []
+        for resource in _POLL_ORDER:
             if not resource.poll or resource.fast or resource.path in self._unsupported:
                 continue
             try:
@@ -1550,7 +1608,26 @@ class SennheiserTccmDriver(BaseDriver):
                     f"microphone's firmware; skipping it"
                 )
                 continue
+            except _Forbidden as refused:
+                forbidden.append(refused)
+                continue
             self._apply_body(resource, body)
+        if forbidden:
+            self.set_state("last_error", self._forbidden_message(forbidden))
+
+    @staticmethod
+    def _forbidden_message(refusals: list[_Forbidden]) -> str:
+        if len(refusals) == 1:
+            return (
+                f"{refusals[0]} Its values are not updated; everything else is."
+            )
+        paths = ", ".join(r.path for r in refusals)
+        reason = refusals[0].reason
+        detail = f": {reason}" if reason else ""
+        return (
+            f"The microphone does not let the third-party account read {paths} "
+            f"(HTTP 403{detail}). Their values are not updated; everything else is."
+        )
 
     # ── Event stream (SSCv2 subscription) ──
 
@@ -1591,6 +1668,9 @@ class SennheiserTccmDriver(BaseDriver):
                     "GET", _SUBSCRIPTIONS,
                     headers={"Accept": "text/event-stream"}, timeout=timeout,
                 ) as response:
+                    if response.status_code == 401:
+                        await response.aread()
+                        raise self._password_refused()
                     if response.status_code != 200:
                         await response.aread()
                         raise ConnectionError(
@@ -1631,6 +1711,14 @@ class SennheiserTccmDriver(BaseDriver):
                 continue
             except Exception as exc:
                 if self._client is None:
+                    return
+                if getattr(exc, "fault_code", "") == "auth_failed":
+                    # The password goes with every request and the microphone
+                    # said no (it also ends the subscription when the
+                    # password changes). Nothing to raise into here, so drop
+                    # the connection once instead of reopening with it.
+                    log.warning(f"[{self.device_id}] Subscription stream refused the password")
+                    self._force_disconnect("auth_failed", str(exc))
                     return
                 attempts += 1
                 msg = (
@@ -1692,19 +1780,31 @@ class SennheiserTccmDriver(BaseDriver):
                 self._session_uuid = ""
                 return
             refused = ""
+            reason: Any = None
             try:
                 payload = response.json()
                 if isinstance(payload, dict):
                     refused = self._normalize_path(str(payload.get("path", "")))
+                    reason = payload.get("error")
             except ValueError:
                 pass
             if response.status_code == 400 and refused in wanted:
-                self._unsupported.add(refused)
+                # The refusal names the path and why: 404 not on this
+                # firmware, 403 not allowed for this account (SSCv2,
+                # "Error handling"). Only a 404 marks the resource missing;
+                # a 403 leaves it off this stream and poll keeps reading it.
                 wanted = [p for p in wanted if p != refused]
-                log.info(
-                    f"[{self.device_id}] {refused} cannot be subscribed on this "
-                    f"microphone's firmware; skipping it"
-                )
+                if str(reason) == "403":
+                    log.info(
+                        f"[{self.device_id}] The third-party account may not "
+                        f"subscribe to {refused}; leaving it off the stream"
+                    )
+                else:
+                    self._unsupported.add(refused)
+                    log.info(
+                        f"[{self.device_id}] {refused} cannot be subscribed on this "
+                        f"microphone's firmware; skipping it"
+                    )
                 continue
             log.warning(
                 f"[{self.device_id}] Subscription refused: HTTP "

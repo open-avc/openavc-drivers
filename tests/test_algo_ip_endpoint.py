@@ -193,6 +193,33 @@ def _commands(driver) -> set[str]:
     return set(driver.DRIVER_INFO["commands"])
 
 
+class _MonotonicFromBoot:
+    """The driver's ``time`` module as a host that booted ``start`` seconds
+    ago sees it: monotonic() starts there and runs with the real clock, plus
+    whatever a test moves it on by; everything else is the real module."""
+
+    def __init__(self, start: float) -> None:
+        self._origin = time.monotonic()
+        self._start = start
+        self.moved_on = 0.0
+
+    def monotonic(self) -> float:
+        return time.monotonic() - self._origin + self._start + self.moved_on
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
+
+@pytest.fixture
+def booted_ten_seconds_ago(monkeypatch):
+    """The monotonic clock starts near zero at boot, and a CI runner can start
+    a job seconds after it boots. The timing tests run on that clock and move
+    it on themselves, so they read the same on any host."""
+    clock = _MonotonicFromBoot(10.0)
+    monkeypatch.setattr(DRV, "time", clock)
+    return clock
+
+
 # ── The Standard method's signature (the guide's worked examples) ────────────
 
 
@@ -584,7 +611,15 @@ async def test_console(mocked_client):
 
 
 @pytest.mark.asyncio
-async def test_skip_and_restore_a_days_events(mocked_client):
+async def test_skip_and_restore_a_days_events(mocked_client, monkeypatch):
+    class _Today(DRV.date):
+        @classmethod
+        def today(cls):
+            return DRV.date(2026, 10, 9)
+
+    # One day for the whole test, so midnight cannot pass between the
+    # command and the assertion.
+    monkeypatch.setattr(DRV, "date", _Today)
     driver, sim, link = _make({"model": "8301"})
     await _connect(driver, link, mocked_client)
     await driver.send_command("skip_scheduled_events", {"date": "2026-12-01"})
@@ -596,7 +631,7 @@ async def test_skip_and_restore_a_days_events(mocked_client):
     await driver.send_command("restore_scheduled_events", {"date": "2026-12-01"})
     assert sim.get_state("skipped_dates") == ""
     await driver.send_command("skip_scheduled_events")
-    assert sim.get_state("skipped_dates") == DRV.date.today().isoformat()
+    assert sim.get_state("skipped_dates") == "2026-10-09"
 
 
 @pytest.mark.asyncio
@@ -618,7 +653,7 @@ async def test_volume_and_microphone(mocked_client):
 
 
 @pytest.mark.asyncio
-async def test_device_settings_write_and_read_back(mocked_client):
+async def test_device_settings_write_and_read_back(mocked_client, booted_ten_seconds_ago):
     driver, sim, link = _make({"model": "8301"})
     await _connect(driver, link, mocked_client)
     await driver.set_device_setting("ring_volume", -21)
@@ -633,9 +668,12 @@ async def test_device_settings_write_and_read_back(mocked_client):
         await driver.set_device_setting("input_volume", 9)
     with pytest.raises(ValueError, match="Unknown setting"):
         await driver.set_device_setting("microphone_mute", True)
-    # A change made on the device shows up at the next settings read.
+    # A change made on the device shows up at the next settings read, a
+    # minute after the last one.
     sim.set_state("page_volume_db", -30)
-    driver._last_settings = float("-inf")
+    await driver.poll()
+    assert driver.get_state("page_volume") == 0
+    booted_ten_seconds_ago.moved_on += 61
     await driver.poll()
     assert driver.get_state("page_volume") == -30
 
@@ -891,16 +929,34 @@ async def test_an_unreachable_host_is_a_connection_error(mocked_client):
 
 
 @pytest.mark.asyncio
-async def test_liveness_probe_counts_any_answer(mocked_client):
+async def test_liveness_probe_counts_any_answer(mocked_client, booted_ten_seconds_ago):
     driver, sim, link = _make()
     await _connect(driver, link, mocked_client)
-    driver._last_reply = float("-inf")
+    sent = len(link.requests)
+    await driver._liveness_probe()   # the connect just answered
+    assert len(link.requests) == sent
+    booted_ten_seconds_ago.moved_on += 31
     sim.inject_error("password_changed")
     await driver._liveness_probe()   # a 401 is still an answer
+    assert len(link.requests) == sent + 1
     link.reachable = False
-    driver._last_reply = float("-inf")
+    booted_ten_seconds_ago.moved_on += 31
     with pytest.raises(httpx.ConnectError):
         await driver._liveness_probe()
+
+
+@pytest.mark.asyncio
+async def test_a_device_never_heard_from_is_probed_on_a_fresh_host(mocked_client, booted_ten_seconds_ago):
+    """Ten seconds after boot, a driver that has had no answer yet asks the
+    device rather than reading "never" as "just now"."""
+    driver, sim, link = _make()
+    mocked_client(link)
+    await driver._create_transport("http")
+    try:
+        await driver._liveness_probe()
+    finally:
+        await driver._close_session()
+    assert [r[1] for r in link.requests] == ["/api/settings/admin.web.api"]
 
 
 def test_the_simulator_rejects_a_stale_or_tampered_signature():

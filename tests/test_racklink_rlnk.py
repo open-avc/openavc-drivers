@@ -11,7 +11,10 @@ Covers the v1.3.0 first-class adoption:
   - child entities: outlets / contacts registered + reconciled from the
     device's counts, status/name dispatch routed into child state;
   - child_id command params + coercion;
-  - connection-fault: a rejected login raises an auth-worded ConnectionError;
+  - connection-fault: a rejected login raises a typed auth_failed;
+  - a PDU that answers a command NACK 0x08 (log in again): the driver logs in
+    once on the connection; a rejected login drops it as auth_failed, an
+    accepted one carries on connected;
   - liveness: the awaited probe detects a silent device and forces reconnect.
 
 Loads the driver + simulator with the ``openavc.*`` imports
@@ -292,6 +295,14 @@ class _FakeTCPSimulator:
         self.config = config or {}
         self.state = _FakeSimState(self.SIMULATOR_INFO.get("initial_state", {}))
         self._clients: dict = {}
+        self._active_errors: set = set()
+
+    @property
+    def active_errors(self) -> set:
+        return set(self._active_errors)
+
+    def inject_error(self, mode) -> None:
+        self._active_errors.add(mode)
 
     async def push_to(self, client_id, data) -> None:  # overridden per pairing
         pass
@@ -406,7 +417,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.6"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.7"
 
 
 def test_child_entity_types_declared():
@@ -563,7 +574,7 @@ def test_rejected_login_raises_auth_error():
             await driver.connect()
         # The typed fault code maps straight to offline_reason=auth_failed.
         assert ei.value.fault_code == "auth_failed"
-        assert "authentication failed" in str(ei.value).lower()
+        assert "rejected the login" in str(ei.value)
         # The failed handshake tore the attempt down: transport closed and
         # nulled, session reset, and the device never reported connected.
         assert driver.transport is None
@@ -594,6 +605,126 @@ def test_login_timeout_raises_no_response_fault():
         finally:
             _SWALLOW = False
             DRV.LOGIN_TIMEOUT_S = old_timeout
+
+    asyncio.run(go())
+
+
+# ── NACK 0x08 once connected: log in again on the connection ────────────────
+#
+# The manual's NACK 0x08 is "Invalid Credentials (note: need to login again)"
+# (p.7), and a PDU that stops counting a controller as connected NACKs every
+# message but the Login command (p.3). So the refusal is not yet a verdict on
+# the password: the driver logs in once on the connection, and the Login
+# Response decides (0x00 rejected, 0x01 accepted, p.9).
+
+def _record_frames(sim):
+    """(cmd, sub, reply-verdict) for every frame the PDU receives: the
+    verdict is "rejected" / "accepted" for a login, "nack08" for a command
+    answered NACK 0x08, else None."""
+    seen: list[tuple[int, int, str | None]] = []
+    inner = sim.handle_command
+
+    def recording(data):
+        resp = inner(data)
+        sent = DRV.RackLinkRLNKDriver.__new__(DRV.RackLinkRLNKDriver)
+        sent._buffer = bytearray(bytes(data))
+        frames = DRV.RackLinkRLNKDriver._extract_frames(sent)
+        verdict = None
+        if resp:
+            body = DRV._unescape(resp[1:-1])
+            env = body[1:1 + body[0]]
+            if env[1] == DRV.CMD_LOGIN:
+                verdict = "accepted" if env[3:4] == b"\x01" else "rejected"
+            elif env[1] == DRV.CMD_NACK and env[3:4] == b"\x08":
+                verdict = "nack08"
+        for frame in frames:
+            body = DRV._unescape(frame[1:-1])
+            env = body[1:1 + body[0]]
+            seen.append((env[1], env[2], verdict))
+        return resp
+
+    sim.handle_command = recording
+    return seen
+
+
+async def _connected_pair():
+    driver, sim = await _make_pair()
+    await driver.connect()
+    driver._stop_health_loop()  # the 30 s watchdog is not under test here
+    assert driver._connected is True and driver._authenticated is True
+    return driver, sim
+
+
+def test_password_changed_logs_in_once_then_drops_as_auth_failed():
+    async def go():
+        driver, sim = await _connected_pair()
+        seen = _record_frames(sim)
+        sim.inject_error("password_changed")
+
+        await driver.poll()
+        await _settle(10)
+
+        logins = [v for c, s_, v in seen if c == DRV.CMD_LOGIN]
+        assert logins == ["rejected"], seen
+        assert driver.stashed_fault is not None, "the refusal left it connected"
+        assert driver.stashed_fault[0] == "auth_failed"
+        assert "rejected the login" in driver.stashed_fault[1]
+        assert driver._connected is False
+        # The poll stopped at the first NACK; nothing but the login followed.
+        assert [v for _, _, v in seen].count("nack08") == 1, seen
+        assert len(seen) == 2, seen
+
+    asyncio.run(go())
+
+
+def test_session_lost_logs_in_again_and_stays_connected():
+    """The case that must NOT be auth_failed: the PDU dropped the session but
+    the password is right, so the login on the connection is accepted and
+    the device stays connected, with no reconnect."""
+    async def go():
+        driver, sim = await _connected_pair()
+        seen = _record_frames(sim)
+        sim.inject_error("session_lost")
+
+        await driver.poll()
+        await _settle(10)
+
+        logins = [v for c, s_, v in seen if c == DRV.CMD_LOGIN]
+        assert logins == ["accepted"], seen
+        assert driver.stashed_fault is None
+        assert driver.disconnect_calls == 0
+        assert driver._connected is True and driver._authenticated is True
+        # Subscribed again and re-read after the login.
+        after_login = seen[[c for c, _, _ in seen].index(DRV.CMD_LOGIN) + 1:]
+        assert (DRV.CMD_REGISTER_STATUS, DRV.SUB_SET, None) in after_login
+        assert "nack08" not in [v for _, _, v in after_login], after_login
+        await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_commands_refused_again_after_an_accepted_login_is_auth_failed():
+    async def go():
+        driver, sim = await _connected_pair()
+        inner = sim._dispatch_command
+
+        def refuse_commands(client_id, cmd, sub, data):
+            if cmd != DRV.CMD_LOGIN:
+                return SIM.build_frame(
+                    SIM._build_envelope(SIM.CMD_NACK, SIM.SUB_RESPONSE, bytes([0x08])))
+            return inner(client_id, cmd, sub, data)
+
+        sim._dispatch_command = refuse_commands
+        seen = _record_frames(sim)
+
+        await driver.poll()
+        await _settle(10)
+
+        logins = [v for c, s_, v in seen if c == DRV.CMD_LOGIN]
+        assert logins == ["accepted"], seen
+        assert driver.stashed_fault[0] == "auth_failed"
+        assert "refuses its commands" in driver.stashed_fault[1]
+        assert driver._connected is False
 
     asyncio.run(go())
 

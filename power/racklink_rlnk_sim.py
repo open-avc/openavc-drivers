@@ -15,6 +15,10 @@ Implements the RackLink Control Protocol server side on TCP 60000:
   - Models a configurable outlet count (default 8 for an RLNK-915-shape
     unit) and 4 dry contacts, plus the full set of Premium telemetry
     sensors with believable defaults.
+  - Two error modes for a session the PDU stops honouring, both answering
+    every command with NACK 0x08 (invalid credentials, log in again):
+    ``password_changed`` also rejects every login; ``session_lost``
+    accepts the next one.
 
 Driver side: ``power/racklink_rlnk.py``.
 """
@@ -141,7 +145,28 @@ class RackLinkRLNKSimulator(TCPSimulator):
             {"type": "indicator", "key": "firmware", "label": "Firmware"},
         ],
         "delays": {"command_response": 0.005},
+        "error_modes": {
+            "password_changed": {
+                "description": (
+                    "The control protocol password was changed on the PDU "
+                    "(the session ends: every command is answered NACK 0x08 "
+                    "and every login is rejected)"
+                ),
+                "behavior": "custom",
+            },
+            "session_lost": {
+                "description": (
+                    "The PDU stopped counting this controller as connected "
+                    "(every command is answered NACK 0x08 until it logs in "
+                    "again; the login is accepted)"
+                ),
+                "behavior": "custom",
+            },
+        },
     }
+
+    # Error modes that end every client's login when they are injected.
+    _SESSION_ENDING_ERRORS = ("password_changed", "session_lost")
 
     def __init__(self, device_id: str, config: dict | None = None):
         super().__init__(device_id, config)
@@ -194,6 +219,14 @@ class RackLinkRLNKSimulator(TCPSimulator):
         # interleave their frame bytes when the sim pushes between
         # them.
         self._send_lock = asyncio.Lock()
+
+    def inject_error(self, mode: str) -> None:
+        super().inject_error(mode)
+        if mode in self._SESSION_ENDING_ERRORS:
+            # The PDU no longer counts anyone as logged in: every command
+            # is answered NACK 0x08 until a login (manual p.3).
+            for client_id in list(self._authenticated):
+                self._authenticated[client_id] = False
 
     # ── Connection ──
 
@@ -286,8 +319,10 @@ class RackLinkRLNKSimulator(TCPSimulator):
         if cmd == CMD_LOGIN and sub == SUB_SET:
             # `reject_auth` lets a test exercise the driver's auth-fault
             # path: reply with a rejected login (0x01 -> 0x00) and leave
-            # the client unauthenticated.
-            if self.config.get("reject_auth"):
+            # the client unauthenticated. `password_changed` does the same
+            # from the moment it is injected.
+            if (self.config.get("reject_auth")
+                    or "password_changed" in self.active_errors):
                 self._authenticated[client_id] = False
                 return build_frame(
                     _build_envelope(CMD_LOGIN, SUB_RESPONSE, bytes([0x00]))

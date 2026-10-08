@@ -54,6 +54,10 @@ MAX_CONTACTS = 8
 # watchdog (cadence/misses use the BaseDriver HEALTH_* defaults).
 LOGIN_TIMEOUT_S = 5.0
 KEEPALIVE_TIMEOUT_S = 5.0
+# A command refused for credentials this soon after logging in again on the
+# connection means the PDU accepts the login but not this account's commands;
+# another login would not change that.
+RELOGIN_INTERVAL_S = 15.0
 
 # Command codes
 CMD_NACK = 0x10
@@ -240,7 +244,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.6",
+        "version": "1.3.7",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -565,6 +569,16 @@ class RackLinkRLNKDriver(BaseDriver):
         self._buffer = bytearray()
         self._authenticated = False
         self._push_subscribed = False
+        # True once connect() has finished its initial sync. A NACK 0x08
+        # before then is dealt with by _initial_sync; after it, by a login
+        # on the connection (_relogin).
+        self._session_up = False
+        self._relogin_task: asyncio.Task | None = None
+        self._relogin_ok_at: float | None = None
+        # True while connect's own login is the only frame in flight, so a
+        # NACK 0x08 can only be its answer. Later logins wait for the Login
+        # Response: NACKs for frames sent before them arrive first.
+        self._connect_login = False
         # Awaited request/response correlation, keyed by command code.
         # The binary protocol has no per-message id, but only ONE awaiter
         # is ever outstanding per command (the login handshake and the
@@ -581,11 +595,30 @@ class RackLinkRLNKDriver(BaseDriver):
         kwargs["delimiter"] = None
         return kwargs
 
+    def _username(self) -> str:
+        return self.config.get("username", "user") or "user"
+
+    def _refused_message(self) -> str:
+        """The device card's sentence for a rejected login (Login Response
+        0x00, or NACK 0x08 Invalid Credentials in reply to the login)."""
+        return (
+            f"The PDU rejected the login for user '{self._username()}'. "
+            "Enter the control protocol username and password in this "
+            "device's settings."
+        )
+
+    async def _login(self) -> bytes:
+        """Send the login and await the PDU's verdict (its Login Response
+        data byte: 0x01 accepted, 0x00 rejected; a NACK 0x08 to the login
+        resolves it as rejected)."""
+        password = self.config.get("password", "") or ""
+        fut = self._prime_response(CMD_LOGIN)
+        await self._send_login(self._username(), password)
+        return await self._await_response(fut, CMD_LOGIN, LOGIN_TIMEOUT_S)
+
     async def _post_connect(self) -> None:
         host = self.config.get("host", "")
         port = int(self.config.get("port", 60000))
-        username = self.config.get("username", "user") or "user"
-        password = self.config.get("password", "") or ""
 
         # Authenticate and AWAIT the result. The login reply comes back
         # through the normal data path; resolving it here lets a bad
@@ -593,10 +626,9 @@ class RackLinkRLNKDriver(BaseDriver):
         # half-connected session that only fails on the next write. The
         # typed ConnectionFaultError codes map directly to offline_reason
         # (no_response / auth_failed) — no wording games needed.
+        self._connect_login = True
         try:
-            fut = self._prime_response(CMD_LOGIN)
-            await self._send_login(username, password)
-            login_data = await self._await_response(fut, CMD_LOGIN, LOGIN_TIMEOUT_S)
+            login_data = await self._login()
         except asyncio.TimeoutError as e:
             raise ConnectionFaultError(
                 f"RackLink at {host}:{port} accepted the connection but "
@@ -608,13 +640,11 @@ class RackLinkRLNKDriver(BaseDriver):
             raise ConnectionError(
                 f"RackLink login send failed for {host}:{port}: {e}"
             ) from e
+        finally:
+            self._connect_login = False
 
         if not (login_data and login_data[:1] == bytes([0x01])):
-            raise ConnectionFaultError(
-                f"RackLink authentication failed for {host}:{port} — check "
-                f"the username and password (control protocol account).",
-                code="auth_failed",
-            )
+            raise ConnectionFaultError(self._refused_message(), code="auth_failed")
         self._authenticated = True
 
     async def _initial_sync(self) -> None:
@@ -625,6 +655,21 @@ class RackLinkRLNKDriver(BaseDriver):
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
+        if not self._authenticated:
+            # The PDU asked for a new login (NACK 0x08) while connect() was
+            # still running: log in again here, so a rejection fails the
+            # connect rather than dropping it underneath.
+            try:
+                login_data = await self._login()
+            except asyncio.TimeoutError as e:
+                raise ConnectionFaultError(
+                    "The PDU asked for a new login and did not answer it.",
+                    code="no_response",
+                ) from e
+            if login_data[:1] != bytes([0x01]):
+                raise ConnectionFaultError(self._refused_message(), code="auth_failed")
+            self._authenticated = True
+        self._session_up = True
 
     async def _close_session(self) -> None:
         # Runs on every teardown path: cancel awaited replies and reset the
@@ -633,6 +678,12 @@ class RackLinkRLNKDriver(BaseDriver):
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
+        if self._relogin_task is not None and not self._relogin_task.done():
+            self._relogin_task.cancel()
+        self._relogin_task = None
+        self._relogin_ok_at = None
+        self._connect_login = False
+        self._session_up = False
         self._authenticated = False
         self._push_subscribed = False
         self._buffer.clear()
@@ -677,6 +728,13 @@ class RackLinkRLNKDriver(BaseDriver):
     async def _send_envelope(self, envelope: bytes) -> None:
         if not self.transport or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
+        if (self._session_up and not self._authenticated
+                and envelope[1:2] not in (bytes([CMD_LOGIN]), bytes([CMD_PING]))):
+            # The PDU answered NACK 0x08 and a login is under way; anything
+            # but the login and the ping reply would only draw another NACK.
+            raise ConnectionError(
+                f"[{self.device_id}] Not logged in to the PDU; logging in again"
+            )
         await self.transport.send(build_frame(envelope))
 
     async def _send_login(self, username: str, password: str) -> None:
@@ -989,17 +1047,83 @@ class RackLinkRLNKDriver(BaseDriver):
         reason = NACK_REASONS.get(data[0], f"reason 0x{data[0]:02x}")
         if data[0] == 0x08:
             self._authenticated = False
-            # If we're mid-login, fail the awaited handshake (rejected)
-            # so connect() raises the auth-worded ConnectionError rather
-            # than waiting for the login timeout.
+            # If connect's login is the frame in flight, fail the awaited
+            # handshake (rejected) so connect() raises the typed auth fault
+            # rather than waiting for the login timeout.
             fut = self._pending.get(CMD_LOGIN)
-            if fut is not None and not fut.done():
+            if self._connect_login and fut is not None and not fut.done():
                 fut.set_result(b"\x00")
-            log.warning(
-                f"[{self.device_id}] NACK: {reason} — will reconnect"
-            )
+                return
+            log.warning(f"[{self.device_id}] NACK: {reason}")
+            if self._session_up and self._connected:
+                self._on_login_needed()
         else:
             log.debug(f"[{self.device_id}] NACK: {reason}")
+
+    def _on_login_needed(self) -> None:
+        """The PDU answered a command NACK 0x08, Invalid Credentials (need
+        to login again), manual p.7. A PDU that no longer counts this
+        controller as connected NACKs every message but the Login command
+        (p.3), so the NACK alone is not a verdict on the password. Log in
+        again once on this connection: accepted, the session carries on;
+        rejected (Login Response 0x00, p.9), the credential was refused.
+        """
+        if self._relogin_task is not None and not self._relogin_task.done():
+            return  # a login is already under way
+        now = asyncio.get_running_loop().time()
+        if (self._relogin_ok_at is not None
+                and now - self._relogin_ok_at < RELOGIN_INTERVAL_S):
+            self._refused_after_login()
+            return
+        self._relogin_task = asyncio.ensure_future(self._relogin())
+
+    def _refused_after_login(self) -> None:
+        # Logged in again moments ago and refused again: the PDU takes this
+        # account's login but not its commands; another login would not
+        # change that.
+        log.warning(
+            f"[{self.device_id}] PDU refused commands again right after "
+            "accepting the login; dropping the connection"
+        )
+        self._force_disconnect(
+            "auth_failed",
+            f"The PDU accepted the login for user '{self._username()}' "
+            "but refuses its commands (invalid credentials). Check that "
+            "the account has admin rights and the control protocol "
+            "enabled.",
+        )
+
+    async def _relogin(self) -> None:
+        log.info(
+            f"[{self.device_id}] PDU asked for a new login (NACK 0x08); "
+            "logging in again"
+        )
+        try:
+            login_data = await self._login()
+        except asyncio.TimeoutError:
+            return  # no answer: the liveness probe deals with a silent PDU
+        except (ConnectionError, OSError):
+            return  # the link went; the platform's disconnect path has it
+        if login_data[:1] != bytes([0x01]):
+            log.warning(
+                f"[{self.device_id}] PDU rejected the login; dropping the "
+                "connection"
+            )
+            self._force_disconnect("auth_failed", self._refused_message())
+            return
+        self._authenticated = True
+        self._relogin_ok_at = asyncio.get_running_loop().time()
+        # A PDU that dropped the session stopped sending status changes
+        # (manual p.3): subscribe again and re-read what was NACKed.
+        try:
+            await self._register_status_change()
+            await self.poll()
+        except (ConnectionError, OSError):
+            pass
+        if not self._authenticated and self._connected:
+            # A NACK 0x08 for a command sent after the accepted login (one
+            # arriving after this task ends meets the interval check above).
+            self._refused_after_login()
 
     def _dispatch_outlet_status(self, data: bytes) -> None:
         # Format: <Outlet 1..16><State 0x00 OFF / 0x01 ON / 0x02 cycle / 0x03 not-controllable><cycle 4 ASCII>

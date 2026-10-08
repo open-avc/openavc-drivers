@@ -4320,7 +4320,7 @@
       "name": "SoundCoreHero Audio System",
       "manufacturer": "Hero AV",
       "category": "audio",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "Wiktor Myszolow (Hero AV)",
       "transport": "tcp",
       "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
@@ -4328,7 +4328,7 @@
       "file": "audio/soundcorehero.py",
       "format": "python",
       "files": {
-        "audio/soundcorehero.py": "a5bc20c535d327d9ba0def6910f7da3074ed7897c274ae3fb67bb4d8d2e7f839"
+        "audio/soundcorehero.py": "764336d03e6476cf003614eccba82138b7460a9af932926e12895136f6baab7d"
       },
       "protocols": [
         "soundcorehero"

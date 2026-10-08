@@ -40,7 +40,7 @@ from typing import Any, Optional
 import httpx
 import websockets
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -147,7 +147,7 @@ class SoundCoreHeroDriver(BaseDriver):
         "name": "SoundCoreHero Audio System",
         "manufacturer": "Hero AV",
         "category": "audio",
-        "version": "1.0.5",
+        "version": "1.0.6",
         "author": "Wiktor Myszolow (Hero AV)",
         "description": "Controls a SoundCoreHero multi-zone audio distribution system (zones, players, speakers, inputs) over its HTTPS/WebSocket API.",
         "source_url": "https://soundcorehero.com",
@@ -1783,6 +1783,11 @@ class SoundCoreHeroDriver(BaseDriver):
             pass
         if resp.status_code != 200:
             reason = body.get("error", f"HTTP {resp.status_code}")
+            if resp.status_code in (401, 403):
+                # Wrong email or password: typed, so the platform stops retrying.
+                raise ConnectionFaultError(
+                    f"SoundCoreHero refused the login: {str(reason).rstrip('.')}. Check the email and password in the device settings.",
+                    code="auth_failed")
             raise ConnectionError(f"[{self.device_id}] Login rejected: {reason}")
         self._session_id = body.get("sessionId")
         if not self._session_id:

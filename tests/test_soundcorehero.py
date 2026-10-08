@@ -32,7 +32,9 @@ from pathlib import Path
 from types import ModuleType
 
 import httpx
+import pytest
 from _platform_stubs import (
+    ConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -206,6 +208,7 @@ def _install_stubs() -> None:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
@@ -574,5 +577,64 @@ def test_connect_login_failure_aborts_and_closes_client(monkeypatch):
         assert d.get_state("connected") in (None, False)
         assert d._client is None  # torn down by _close_session
         assert d._ws_task is None
+
+    asyncio.run(go())
+
+
+@pytest.mark.parametrize("status,error", [(401, "bad credentials"), (403, "bad credentials.")])
+def test_refused_login_is_auth_failed(monkeypatch, status, error):
+    """A wrong email or password: the login answer is the typed auth_failed,
+    which stops the platform retrying, and it keeps the unit's own reason."""
+    d = _driver()
+
+    def handler(request):
+        return httpx.Response(status, json={"error": error})
+
+    real_client = _MOD.httpx.AsyncClient
+
+    def client_factory(*a, **k):
+        k.pop("verify", None)
+        k["transport"] = httpx.MockTransport(handler)
+        return real_client(*a, **k)
+
+    monkeypatch.setattr(_MOD.httpx, "AsyncClient", client_factory)
+    monkeypatch.setattr(_MOD.websockets, "connect",
+                        lambda *a, **k: _FakeWsConn([]))
+
+    async def go():
+        with pytest.raises(ConnectionFaultError) as exc:
+            await d.connect()
+        assert exc.value.fault_code == "auth_failed"
+        assert str(exc.value) == (
+            "SoundCoreHero refused the login: bad credentials. "
+            "Check the email and password in the device settings.")
+        assert d._ws_task is None
+
+    asyncio.run(go())
+
+
+def test_other_login_failure_is_not_auth_failed(monkeypatch):
+    """A login the unit could not process is not a refused credential."""
+    d = _driver()
+
+    def handler(request):
+        return httpx.Response(500, json={"error": "internal error"})
+
+    real_client = _MOD.httpx.AsyncClient
+
+    def client_factory(*a, **k):
+        k.pop("verify", None)
+        k["transport"] = httpx.MockTransport(handler)
+        return real_client(*a, **k)
+
+    monkeypatch.setattr(_MOD.httpx, "AsyncClient", client_factory)
+    monkeypatch.setattr(_MOD.websockets, "connect",
+                        lambda *a, **k: _FakeWsConn([]))
+
+    async def go():
+        with pytest.raises(ConnectionError) as exc:
+            await d.connect()
+        assert not isinstance(exc.value, ConnectionFaultError)
+        assert "internal error" in str(exc.value)
 
     asyncio.run(go())

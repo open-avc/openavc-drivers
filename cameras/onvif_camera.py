@@ -42,8 +42,10 @@ badly wrong clock is the commonest reason an ONVIF login fails. A login
 refused once connected is checked against the clock before it counts: the
 clock is read again (still without the credential), and when it has moved,
 an NTP correction on the camera or on this server, the request is signed in
-the new clock and sent once more. Only a refusal with the clock where it was
-is reported as ``auth_failed``, which stops OpenAVC reconnecting.
+the new clock and sent once more. A camera that refuses that read without a
+login still says its time in the refusal's HTTP Date header, which is used
+instead. Only a refusal with the clock where it was is reported as
+``auth_failed``, which stops OpenAVC reconnecting.
 
 Stream credentials
 ------------------
@@ -76,6 +78,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import email.utils
 import hashlib
 import json
 import os
@@ -247,13 +250,15 @@ class OnvifFault(Exception):
 
     ``code`` is the innermost ``ter:`` subcode without its prefix
     (``NotAuthorized``, ``NoProfile``, ``InvalidPosition`` ...), or the HTTP
-    status when the device answered with no fault body at all.
+    status when the device answered with no fault body at all. ``date`` is the
+    answer's HTTP Date header as sent (the camera's clock), or empty.
     """
 
-    def __init__(self, code: str, reason: str, *, http_status: int = 0):
+    def __init__(self, code: str, reason: str, *, http_status: int = 0, date: str = ""):
         self.code = code
         self.reason = reason
         self.http_status = http_status
+        self.date = date
         text = reason or code or f"HTTP {http_status}"
         super().__init__(text)
 
@@ -313,6 +318,19 @@ def _float(value: Any, default: float | None = None) -> float | None:
 
 def _bool_text(value: str) -> bool:
     return str(value).strip().lower() in ("true", "1")
+
+
+def _parse_http_date(text: str) -> datetime | None:
+    """An HTTP Date header (``Tue, 15 Nov 1994 08:12:31 GMT``) -> aware UTC."""
+    if not text:
+        return None
+    try:
+        value = email.utils.parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _parse_xs_datetime(text: str) -> datetime | None:
@@ -471,7 +489,7 @@ class OnvifCameraDriver(BaseDriver):
         "name": "ONVIF Camera",
         "manufacturer": "ONVIF",
         "category": "camera",
-        "version": "2.0.8",
+        "version": "2.0.9",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1325,6 +1343,7 @@ class OnvifCameraDriver(BaseDriver):
             break
         root = None
         text = resp.text
+        date = resp.headers.get("date", "")
         if text.strip():
             try:
                 root = _xml_fromstring(text)
@@ -1334,14 +1353,17 @@ class OnvifCameraDriver(BaseDriver):
             fault = _parse_fault(root)
             if fault is not None:
                 code, reason = fault
-                raise OnvifFault(code, reason, http_status=resp.status_code)
+                raise OnvifFault(code, reason, http_status=resp.status_code, date=date)
         if resp.status_code == 401:
-            raise OnvifFault("NotAuthorized", "The camera refused the login", http_status=401)
+            raise OnvifFault(
+                "NotAuthorized", "The camera refused the login", http_status=401, date=date,
+            )
         if resp.status_code >= 400 or root is None:
             raise OnvifFault(
                 f"HTTP{resp.status_code}",
                 f"HTTP {resp.status_code} with no usable SOAP answer",
                 http_status=resp.status_code,
+                date=date,
             )
         soap_body = _child(root, "Body")
         if soap_body is None or len(soap_body) == 0:
@@ -1364,11 +1386,22 @@ class OnvifCameraDriver(BaseDriver):
         """Read the device clock (PRE_AUTH) and keep the offset. A camera that
         demands authentication even here gets one authenticated retry; the
         offset stays at zero if that fails too. ``allow_login=False`` never
-        sends the credential: the check after a refused login uses it."""
+        sends the credential: the check after a refused login uses it, and
+        when the camera refuses the read without a login it takes the
+        camera's time from that refusal's HTTP Date header (whole seconds)."""
         try:
             resp = await self._service_call("device", "GetSystemDateAndTime", auth=False)
         except OnvifFault as exc:
-            if not exc.not_authorized or not self._username or not allow_login:
+            if not exc.not_authorized:
+                raise
+            if not allow_login:
+                device_time = _parse_http_date(exc.date)
+                if device_time is None:
+                    raise
+                self._clock_offset = device_time - datetime.now(timezone.utc)
+                self.set_state("clock_offset_s", round(self._clock_offset.total_seconds(), 1))
+                return
+            if not self._username:
                 raise
             resp = await self._service_call("device", "GetSystemDateAndTime", auth=True)
         utc = _child(resp, "SystemDateAndTime", "UTCDateTime")

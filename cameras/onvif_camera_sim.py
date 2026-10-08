@@ -14,7 +14,13 @@ Profile 1.1) against its configured password, including the Created timestamp
 against its own clock, and in ``auth_mode: "digest"`` it demands RFC 2617
 HTTP Digest instead — exactly the two paths Core spec 5.9.1 defines, so the
 driver's fallback is exercised. A configurable clock skew stands in for the
-camera whose clock is minutes wrong.
+camera whose clock is minutes wrong, and every answer carries the camera's
+clock in its HTTP Date header, as a web server with a clock does (RFC 9110
+section 6.6.1). ``clock_needs_login`` makes GetSystemDateAndTime need the
+login too, like a camera whose access policy no longer lets anyone read it
+(Core 5.9.4.4 makes the default policy a should, not a shall). The
+``password_changed`` error mode refuses every login, as a camera does once
+the ONVIF user's password is changed on it.
 
 Movement integrates continuous velocities over time so a joystick drive
 changes the position the driver reads back with GetStatus.
@@ -27,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import email.utils
 import hashlib
 import re
 import secrets
@@ -289,6 +296,12 @@ class OnvifCameraSimulator(HTTPSimulator):
             "last_aux": "",
             "rebooted": False,
         },
+        "error_modes": {
+            "password_changed": {
+                "description": "The ONVIF user's password was changed on the camera (every login refused)",
+                "behavior": "custom",
+            },
+        },
         "controls": [
             {"type": "toggle", "key": "motion", "label": "Motion Detected"},
             {"type": "toggle", "key": "input_1", "label": "Digital Input 1"},
@@ -314,6 +327,7 @@ class OnvifCameraSimulator(HTTPSimulator):
         self._events = bool(cfg.get("events", True))
         self._xaddr_host = cfg.get("xaddr_host")
         self._clock_skew = timedelta(seconds=float(cfg.get("clock_skew_s", 0) or 0))
+        self._clock_needs_login = bool(cfg.get("clock_needs_login", False))
         self._max_term_s = float(cfg.get("max_term_s", 120) or 120)
         self._require_reference_params = bool(cfg.get("require_reference_params", True))
         self._presets: dict[str, dict[str, Any]] = {
@@ -463,20 +477,31 @@ class OnvifCameraSimulator(HTTPSimulator):
         kind, payload = self._prepare(method, path, headers, body)
         if kind == "pull":
             pp, limit, _timeout = payload
-            return self._pull_response(pp, limit)
-        return payload
+            return self._dated(self._pull_response(pp, limit))
+        return self._dated(payload)
 
     async def handle_request_async(self, method: str, path: str, headers: dict[str, str], body: str):
         kind, payload = self._prepare(method, path, headers, body)
         if kind != "pull":
-            return payload
+            return self._dated(payload)
         pp, limit, timeout = payload
         if not pp.messages:
             try:
                 await asyncio.wait_for(pp.event.wait(), timeout)
             except asyncio.TimeoutError:
                 pass
-        return self._pull_response(pp, limit)
+        return self._dated(self._pull_response(pp, limit))
+
+    def _dated(self, result) -> tuple[int, str, dict[str, str]]:
+        """The answer with the camera's clock in its Date header."""
+        if len(result) == 3:
+            status, text, headers = result
+            headers = dict(headers)
+        else:
+            status, text = result
+            headers = {}
+        headers.setdefault("Date", email.utils.formatdate(self._now().timestamp(), usegmt=True))
+        return status, text, headers
 
     async def respond_http(self, request, method, path, headers, body):
         from aiohttp import web
@@ -539,9 +564,19 @@ class OnvifCameraSimulator(HTTPSimulator):
 
     # ── Authentication (Core spec 5.9.1) ──
 
+    def _pre_auth(self, op: str) -> bool:
+        if op == "GetSystemDateAndTime" and self._clock_needs_login:
+            return False
+        return op in PRE_AUTH_OPS
+
     def _check_auth(self, method, path, headers, root, op):
-        if not self._require_auth or op in PRE_AUTH_OPS:
+        changed = "password_changed" in self.active_errors
+        if (not self._require_auth and not changed) or self._pre_auth(op):
             return None
+        if changed:
+            if self._auth_mode == "digest":
+                return self._digest_challenge()
+            return _fault("Sender", "NotAuthorized", "Sender not authorized", 400)
         if self._auth_mode == "digest":
             return self._check_digest(method, path, headers)
         header = _child(root, "Header")

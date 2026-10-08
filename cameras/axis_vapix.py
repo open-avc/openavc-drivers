@@ -46,6 +46,19 @@ HTTP sends the password in the clear and the driver refuses it. A rejected
 login is a typed ``auth_failed`` fault so the platform waits for new
 credentials instead of retrying into a lockout.
 
+VAPIX keeps the login (authentication, a 401) apart from what the account may
+do (authorization by its Administrator, Operator or Viewer rights, a 403 or
+the general error 2105). Only a 401 on the read that proves the login is
+``auth_failed``: the time API's getDateTimeInfo (Viewer level, so any account
+may read it; basic device information on a camera without the time API),
+which is the first read of every poll and the liveness probe (the Properties
+group's firmware version on firmware without either). An API the
+account may not use (a 403, or a refusal of any other read once the login is
+proven) is skipped and named in ``last_error``. The one exception is a 403 on
+the device information at connect: the driver has nothing to work with and
+retrying cannot help until the account changes, so it pauses like a refused
+login.
+
 Stream credentials
 ------------------
 The RTSP, MJPEG and snapshot addresses the driver publishes carry no login by
@@ -138,6 +151,7 @@ API_LIGHT = "light-control"
 API_VIEW_AREA = "view-area"
 API_STREAM_PROFILES = "stream-profiles"
 API_TIME = "time-service"
+API_DEVICE_INFO = "basic-device-info"
 API_FIRMWARE = "fwmgr"
 API_EVENT_WS = "event-streaming-over-websocket"
 API_GUARD_TOUR = "guard-tour"
@@ -166,6 +180,23 @@ EVENT_OPEN_TIMEOUT_S = 10.0
 # Slow-cadence refresh inside poll(): image settings, overlays, lights,
 # audio, guard tours, stream profiles.
 SLOW_POLL_EVERY = 6
+
+# What each read is called in last_error when the camera refuses it to the
+# account. Connect and poll use the same name, so a read that works again
+# clears its own refusal.
+READ_CLOCK = "camera clock"
+READ_VIEWS = "view areas"
+READ_STREAM_PROFILES = "stream profiles"
+READ_LENS = "lens position"
+READ_DAYNIGHT = "day/night settings"
+READ_IMAGE = "image settings"
+READ_PTZ = "pan/tilt/zoom position"
+READ_PORTS = "I/O ports"
+READ_LIGHTS = "illuminators"
+READ_OVERLAYS = "overlays"
+READ_AUDIO = "audio settings"
+READ_PRESETS = "presets"
+READ_GUARD_TOURS = "guard tours"
 
 # Sensor parameters (ImageSource.I#.Sensor.*) read as state and written as
 # device settings: setting key -> (parameter name, kind).
@@ -216,7 +247,14 @@ class VapixError(Exception):
 
     @property
     def not_authorized(self) -> bool:
-        return self.http_status in (401, 403)
+        """Refused: the login (401) or the account's rights (403, or the
+        general error 2105 "Authorization failed" in a JSON answer)."""
+        return self.http_status in (401, 403) or str(self.code) == "2105"
+
+    @property
+    def login_refused(self) -> bool:
+        """401: the camera did not accept the login (VAPIX Authentication)."""
+        return self.http_status == 401
 
 
 class VapixCommandError(Exception):
@@ -344,7 +382,7 @@ class AxisVapixDriver(BaseDriver):
         "name": "Axis Camera (VAPIX)",
         "manufacturer": "Axis",
         "category": "camera",
-        "version": "1.1.4",
+        "version": "1.1.5",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -1252,6 +1290,9 @@ class AxisVapixDriver(BaseDriver):
         self._daynight_config: dict[str, Any] = {}
         self._hardware_faults: dict[str, bool] = {}
         self._poll_count = 0
+        # Reads the camera refused this account (label -> the camera's words),
+        # named in last_error by every poll while any is refused.
+        self._refused: dict[str, str] = {}
         self._event_task: asyncio.Task | None = None
         self._event_warned = False
         password = str(config.get("password", "") or "")
@@ -1309,6 +1350,29 @@ class AxisVapixDriver(BaseDriver):
             )
         return ConnectionFaultError(message, code="auth_failed")
 
+    def _rights_fault(self, exc: VapixError) -> ConnectionFaultError:
+        """403 at connect: the login was accepted and the account may not
+        read the camera's device information. Not a refused password, but
+        retrying cannot help until a person changes the account, so it
+        pauses reconnecting like one."""
+        return ConnectionFaultError(
+            f"The camera accepted the login but does not let the account "
+            f"\"{self._username}\" read its device information (\"{exc}\"). Use "
+            f"an account with operator or administrator rights from System > "
+            f"Accounts, or root, then press Reconnect.",
+            code="auth_failed",
+        )
+
+    def _refused_message(self) -> str:
+        what = ", ".join(self._refused)
+        reason = next((r for r in self._refused.values() if r), "")
+        detail = f' ("{reason}")' if reason else ""
+        return (
+            f"The camera does not let this account read the {what}{detail}; "
+            f"those values are not updated. An account with operator or "
+            f"administrator rights from System > Accounts, or root, can read them."
+        )
+
     # ── Connection lifecycle ──
 
     async def _create_transport(self, transport_type: str) -> None:
@@ -1333,8 +1397,10 @@ class AxisVapixDriver(BaseDriver):
             await self._read_api_list()
             await self._read_properties()
         except VapixError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
+            if exc.not_authorized:
+                raise self._rights_fault(exc) from exc
             raise ConnectionError(f"The camera answered with an error: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
@@ -1345,24 +1411,36 @@ class AxisVapixDriver(BaseDriver):
         )
 
     async def _initial_sync(self) -> None:
+        """Read everything once. The login is proven by now (_post_connect),
+        so a read the camera refuses is the account's rights for that API:
+        it is skipped and named in last_error, and the connect goes on."""
+        self._refused = {}
+        reads = (
+            (READ_VIEWS, self._read_views),
+            (READ_STREAM_PROFILES, self._read_stream_profiles),
+            (READ_LENS, lambda: self._read_optics(initial=True)),
+            (READ_DAYNIGHT, lambda: self._read_daynight(initial=True)),
+            (READ_IMAGE, self._read_image),
+            (READ_PTZ, lambda: self._read_ptz(initial=True)),
+            (READ_PORTS, self._read_ports),
+            (READ_LIGHTS, self._read_lights),
+            (READ_OVERLAYS, self._read_overlays),
+            (READ_AUDIO, lambda: self._read_audio(initial=True)),
+            (READ_CLOCK, self._read_time),
+        )
         try:
-            await self._read_views()
-            await self._read_stream_profiles()
-            await self._read_optics(initial=True)
-            await self._read_daynight(initial=True)
-            await self._read_image()
-            await self._read_ptz(initial=True)
-            await self._read_ports()
-            await self._read_lights()
-            await self._read_overlays()
-            await self._read_audio(initial=True)
-            await self._read_time()
-        except VapixError as exc:
-            if exc.not_authorized:
-                raise self._auth_fault() from exc
-            raise ConnectionError(f"The camera answered with an error: {exc}") from exc
+            for label, read in reads:
+                try:
+                    await read()
+                except VapixError as exc:
+                    if exc.not_authorized:
+                        self._refused[label] = str(exc)
+                        continue
+                    raise ConnectionError(f"The camera answered with an error: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
+        if self._refused:
+            self.set_state("last_error", self._refused_message())
         self._start_event_loop()
 
     def _link_alive(self) -> bool:
@@ -1378,15 +1456,35 @@ class AxisVapixDriver(BaseDriver):
         await super()._stop_push()
         await self._stop_event_loop()
 
-    async def _liveness_probe(self) -> None:
-        """The time API is cheap and keeps the clock offset fresh; a camera
-        without it answers basic device information instead."""
-        if self._client is None:
-            raise ConnectionError("Not connected")
+    async def _read_core(self) -> None:
+        """The read that proves the login: the time API's getDateTimeInfo
+        (Viewer level, so any account may read it; it keeps the clock offset
+        fresh), basic device information on a camera without the time API,
+        and the firmware version from the Properties group on firmware with
+        neither (param.cgi, which every account may use)."""
         if API_TIME in self._apis:
             await self._read_time()
-        else:
+        elif API_DEVICE_INFO in self._apis:
             await self._json(CGI_DEVICE_INFO, "getProperties", {"propertyList": ["Version"]})
+        else:
+            await self._param_list("Properties.Firmware.Version")
+
+    async def _liveness_probe(self) -> None:
+        """A 401 is the typed auth fault, which drops the connection at
+        once; a 403 is the camera answering about the account's rights, so
+        it is alive (poll reports the refusal)."""
+        if self._client is None:
+            raise ConnectionError("Not connected")
+        try:
+            await self._read_core()
+        except VapixError as exc:
+            if exc.login_refused:
+                raise ConnectionFaultError(
+                    "The camera stopped accepting the login.", code="auth_failed",
+                ) from exc
+            if exc.not_authorized:
+                return
+            raise
 
     # ── HTTP plumbing ──
 
@@ -1419,8 +1517,24 @@ class AxisVapixDriver(BaseDriver):
                 self._auth = httpx.BasicAuth(self._username, self._password)
                 kwargs["auth"] = self._auth
                 resp = await client.request(method, path, **kwargs)
-        if resp.status_code in (401, 403):
-            raise VapixError("The camera refused the login", http_status=resp.status_code)
+        if resp.status_code == 401:
+            raise VapixError("The camera refused the login", http_status=401)
+        if resp.status_code == 403:
+            # The login was accepted; the account may not use this API. Keep
+            # the camera's own words (a JSON error, 2105 "Authorization
+            # failed", or the first line of a text answer).
+            message, code = "", ""
+            try:
+                payload = resp.json()
+            except ValueError:
+                payload = None
+            if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+                message = str(payload["error"].get("message") or "")
+                code = payload["error"].get("code", "")
+            if not message:
+                lines = resp.text.strip().splitlines()
+                message = lines[0][:160] if lines else "HTTP 403"
+            raise VapixError(message, code=code, http_status=403)
         return resp
 
     async def _json(
@@ -2483,33 +2597,65 @@ class AxisVapixDriver(BaseDriver):
     # ── Polling ──
 
     async def poll(self) -> None:
+        """The read that proves the login first: a 401 there is the typed
+        auth fault. Then the camera's other reads; one the camera refuses
+        this account (a 403, or any refusal now that the login is proven)
+        is skipped and named in last_error, written again by every poll
+        while it holds. Any other camera error lands in last_error and ends
+        the cycle, as before."""
         if self._client is None:
             return
         self._poll_count += 1
         try:
-            if self._optics_id:
-                await self._read_optics()
-            if self._ptz:
-                await self._read_ptz()
-            if self._port_children or self._poll_count == 1:
-                await self._read_ports()
-            if self._poll_count % SLOW_POLL_EVERY == 1:
-                await self._read_image()
-                await self._read_daynight()
-                await self._read_overlays()
-                await self._read_lights()
-                await self._read_audio()
-                if self._ptz:
-                    await self._refresh_presets()
-                    await self._read_guard_tours()
+            await self._poll_reads()
+        except httpx.TransportError as exc:
+            raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
+
+    async def _poll_reads(self) -> None:
+        try:
+            await self._read_core()
+            self._refused.pop(READ_CLOCK, None)
         except VapixError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise ConnectionFaultError(
                     "The camera stopped accepting the login.", code="auth_failed",
                 ) from exc
-            self.set_state("last_error", str(exc))
-        except httpx.TransportError as exc:
-            raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
+            if exc.not_authorized:
+                self._refused[READ_CLOCK] = str(exc)
+            else:
+                self.set_state("last_error", str(exc))
+        reads: list[tuple[str, Any]] = []
+        if self._optics_id:
+            reads.append((READ_LENS, self._read_optics))
+        if self._ptz:
+            reads.append((READ_PTZ, self._read_ptz))
+        if self._port_children or self._poll_count == 1:
+            reads.append((READ_PORTS, self._read_ports))
+        if self._poll_count % SLOW_POLL_EVERY == 1:
+            reads += [
+                (READ_IMAGE, self._read_image),
+                (READ_DAYNIGHT, self._read_daynight),
+                (READ_OVERLAYS, self._read_overlays),
+                (READ_LIGHTS, self._read_lights),
+                (READ_AUDIO, self._read_audio),
+            ]
+            if self._ptz:
+                reads += [
+                    (READ_PRESETS, self._refresh_presets),
+                    (READ_GUARD_TOURS, self._read_guard_tours),
+                ]
+        for label, read in reads:
+            try:
+                await read()
+            except VapixError as exc:
+                if exc.not_authorized:
+                    self._refused[label] = str(exc)
+                    continue
+                self.set_state("last_error", str(exc))
+                return
+            self._refused.pop(label, None)
+        if self._refused:
+            self.set_state("last_error", self._refused_message())
 
     # ── Commands ──
 
@@ -2523,9 +2669,14 @@ class AxisVapixDriver(BaseDriver):
         try:
             return await handler(self, params)
         except VapixError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise ConnectionFaultError(
                     "The camera stopped accepting the login.", code="auth_failed",
+                ) from exc
+            if exc.not_authorized:
+                raise VapixCommandError(
+                    f"The camera does not let this account run {command} (\"{exc}\"). "
+                    f"Use an account with operator or administrator rights, or root."
                 ) from exc
             raise VapixCommandError(f"The camera refused {command}: {exc}") from exc
         except httpx.TransportError as exc:
@@ -3001,9 +3152,14 @@ class AxisVapixDriver(BaseDriver):
         try:
             await self._write_setting(key, value)
         except VapixError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise ConnectionFaultError(
                     "The camera stopped accepting the login.", code="auth_failed",
+                ) from exc
+            if exc.not_authorized:
+                raise DeviceSettingValueError(
+                    f"The camera does not let this account change {key} (\"{exc}\"). "
+                    f"Use an account with operator or administrator rights, or root."
                 ) from exc
             raise DeviceSettingValueError(f"The camera refused {key}: {exc}") from exc
         except VapixCommandError as exc:

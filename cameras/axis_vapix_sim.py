@@ -23,6 +23,13 @@ HTTP Digest against the configured password, the WebSocket handshake
 included, and ``auth_mode: "basic"`` models a camera whose authentication
 policy is Basic only.
 
+Two error modes model a refusal mid-session. ``wrong_password`` is the
+password changed on the camera: every request but the unrestricted device
+information is answered 401 with a fresh challenge, the WebSocket handshake
+included. ``optics_forbidden`` is an account whose rights stop at the optics
+control API: opticscontrol.cgi answers 403 with the general error 2105
+"Authorization failed" and everything else keeps working.
+
 Driver: axis_vapix
 Transport: http
 """
@@ -226,6 +233,22 @@ class AxisVapixSimulator(HTTPSimulator):
             "overlay_count": 0,
             "rebooted": False,
             "ws_clients": 0,
+        },
+        "error_modes": {
+            "wrong_password": {
+                "description": (
+                    "Password changed on the camera: every login is refused "
+                    "(HTTP 401 after the Digest challenge)"
+                ),
+                "behavior": "custom",
+            },
+            "optics_forbidden": {
+                "description": (
+                    "The account may not use the optics control API (HTTP 403, "
+                    "error 2105 Authorization failed); the rest still answers"
+                ),
+                "behavior": "custom",
+            },
         },
         "controls": [
             {"type": "toggle", "key": "input_0", "label": "Digital Input (port 0)"},
@@ -631,6 +654,8 @@ class AxisVapixSimulator(HTTPSimulator):
 
     def ws_authorized(self, path: str, headers: dict[str, str]) -> bool:
         """Digest on the handshake, or a fresh wssession token in the query."""
+        if "wrong_password" in self.active_errors:
+            return False
         if not self._require_auth:
             return True
         query = dict(parse_qsl(urlsplit(path).query))
@@ -753,9 +778,14 @@ class AxisVapixSimulator(HTTPSimulator):
         query = {k: v for k, v in parse_qsl(parts.query, keep_blank_values=True)}
         # Every CGI is authenticated except the unrestricted device information.
         anonymous = route == "/axis-cgi/basicdeviceinfo.cgi" and '"getAllUnrestrictedProperties"' in body.replace(" ", "")
+        if not anonymous and "wrong_password" in self.active_errors:
+            return self._challenge()
         if self._require_auth and not anonymous and not self._digest_ok(method, path, headers):
             return self._challenge()
         self.calls.append(route)
+        if route == "/axis-cgi/opticscontrol.cgi" and "optics_forbidden" in self.active_errors:
+            _, method_name, context, _params = self._parse_json(body)
+            return _json_error(method_name, 2105, "Authorization failed.", "1.2", context, status=403)
         if route == "/axis-cgi/basicdeviceinfo.cgi":
             return self._device_info(body)
         if route == "/axis-cgi/apidiscovery.cgi":

@@ -1581,7 +1581,7 @@
       "name": "Axis Camera (VAPIX)",
       "manufacturer": "Axis",
       "category": "camera",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Axis network cameras through VAPIX, Axis's own API: remote zoom and focus on fixed cameras, the IR cut filter and day/night switching, image settings, rotation, text and image overlays, the I/O ports, IR illuminators, audio, and the stream and snapshot addresses for the Video Panel. PTZ models add pan, tilt, zoom, presets and guard tours. Port changes, day/night mode, motion, tampering and hardware faults arrive as events.",
@@ -1589,8 +1589,8 @@
       "file": "cameras/axis_vapix.py",
       "format": "python",
       "files": {
-        "cameras/axis_vapix.py": "6d084179503e7624dc2ef67d7e5ea5caa833a589b65338ac352d164e183f9def",
-        "cameras/axis_vapix_sim.py": "2a5148a7efa84f7e3c04c61b6640d90c87f2a665d00866a942c64949b927a79a"
+        "cameras/axis_vapix.py": "d3f9929f34bcd442bacec82e59ce9438fd17f7bf82148b03149c3196f05aa95a",
+        "cameras/axis_vapix_sim.py": "f42ab97d40d6c76ceab31f9ae97d6d366087440acd97e32f782d8ffeef68113f"
       },
       "ports": [
         80,

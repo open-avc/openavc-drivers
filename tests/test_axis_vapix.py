@@ -23,7 +23,12 @@ Covers:
     IR cut filter through ptz.cgi, and the optics commands refusing;
   - an older camera without the JSON APIs (Brand group, port.cgi, restart.cgi);
   - stream credentials embedded only on request; a mid-session camera error
-    landing in last_error rather than offline.
+    landing in last_error rather than offline;
+  - a refused login against a refused right: a 401 on the read that proves
+    the login (first in every poll, and the liveness probe) is auth_failed,
+    while a 403 on one API (an account without the rights for it) is skipped,
+    named in last_error on every poll, and does not stop the connect; a 403
+    on the device information at connect pauses like a refused login.
 
 The driver is loaded with the ``openavc.*`` and ``websockets`` imports stubbed
 so the community CI stays self-contained (conftest.py rolls the stubs back).
@@ -893,6 +898,13 @@ def test_older_camera_without_the_json_apis():
             await driver.send_command("reboot", {})
             assert sim.get_state("rebooted") is True
             assert "/axis-cgi/restart.cgi" in sim.calls
+            # The read that proves the login is one this camera has: the
+            # Properties group, not the JSON device information it lacks.
+            sim.calls.clear()
+            await driver.poll()
+            await driver._liveness_probe()
+            assert _st(driver, "last_error") is None
+            assert "/axis-cgi/basicdeviceinfo.cgi" not in sim.calls
         finally:
             await driver.disconnect()
 
@@ -978,5 +990,134 @@ def test_without_the_daynight_api_the_shift_level_is_the_sensor_parameter():
             assert sim.get_state("ir_cut_filter") == "off"
         finally:
             await driver.disconnect()
+
+    _run(scenario())
+
+
+# ── A refused login against an account's rights ─────────────────────────────
+
+
+def test_an_api_the_account_may_not_use_is_reported_and_the_rest_still_polls():
+    async def scenario():
+        driver, sim, _ = await _connected({"require_auth": True})
+        try:
+            sim.inject_error("optics_forbidden")
+            sim._ports["0"]["state"] = "closed"
+            await driver.poll()
+            assert _st(driver, "connected") is True
+            error = _st(driver, "last_error")
+            assert "lens position" in error and "Authorization failed" in error
+            assert "operator or administrator" in error
+            assert _child(driver, "port", "0", "active") is True   # the rest still reads
+            # Written again by every poll while it holds.
+            driver.set_state("last_error", None)
+            await driver.poll()
+            assert "lens position" in _st(driver, "last_error")
+            # A command the account may not use is refused with the camera's
+            # words, not taken for a changed password.
+            with pytest.raises(DRV.VapixCommandError, match="Authorization failed"):
+                await driver.send_command("zoom_set", {"magnification": 2.0})
+            # Once it reads again, poll leaves last_error to the platform.
+            sim.clear_error("optics_forbidden")
+            driver.set_state("last_error", "untouched")
+            await driver.poll()
+            assert _st(driver, "last_error") == "untouched"
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_an_api_the_account_may_not_use_does_not_stop_the_connect():
+    async def scenario():
+        driver, sim, handler, fake_connect, _ = _make({"require_auth": True})
+        sim.inject_error("optics_forbidden")
+        await _connect(driver, handler, fake_connect)
+        try:
+            assert _st(driver, "connected") is True
+            assert "lens position" in _st(driver, "last_error")
+            assert _st(driver, "port_count") == 2
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_a_password_change_is_auth_failed_from_the_first_read_of_a_poll():
+    async def scenario():
+        driver, sim, _ = await _connected({"require_auth": True})
+        try:
+            seen: list[str] = []
+            inner = sim.handle_request
+
+            def counting(method, path, headers, body):
+                result = inner(method, path, headers, body)
+                if result[0] == 401 and any(k.lower() == "authorization" for k in headers):
+                    seen.append(path.split("?", 1)[0])
+                return result
+
+            sim.handle_request = counting
+            sim.inject_error("wrong_password")
+            with pytest.raises(ConnectionFaultError) as exc_info:
+                await driver.poll()
+            assert exc_info.value.fault_code == "auth_failed"
+            # One request, the read that proves the login (Digest retries it once).
+            assert set(seen) == {"/axis-cgi/time.cgi"}
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_the_liveness_probe_drops_on_a_refused_login_and_answers_on_a_refused_right():
+    async def scenario():
+        driver, sim, _ = await _connected({"require_auth": True})
+        try:
+            sim.inject_error("wrong_password")
+            with pytest.raises(ConnectionFaultError) as exc_info:
+                await driver._liveness_probe()
+            assert exc_info.value.fault_code == "auth_failed"
+            # A 403 is the camera answering about the account's rights: alive.
+            sim.clear_error("wrong_password")
+            sim._time_cgi = lambda body: (403, json.dumps({
+                "apiVersion": "1.0", "method": "getDateTimeInfo",
+                "error": {"code": 2105, "message": "Authorization failed."},
+            }))
+            await driver._liveness_probe()
+        finally:
+            await driver.disconnect()
+
+    _run(scenario())
+
+
+def test_sim_error_modes_refuse_the_login_or_one_api():
+    sim = SIM.AxisVapixSimulator("cam-sim", {})
+    body = json.dumps({"apiVersion": "1", "method": "getOptics"})
+    assert sim.handle_request("POST", "/axis-cgi/opticscontrol.cgi", {}, body)[0] == 200
+    sim.inject_error("optics_forbidden")
+    status, text = sim.handle_request("POST", "/axis-cgi/opticscontrol.cgi", {}, body)[:2]
+    assert status == 403 and json.loads(text)["error"]["code"] == 2105
+    assert sim.handle_request("GET", "/axis-cgi/param.cgi?action=list&group=Brand", {}, "")[0] == 200
+    sim.clear_error("optics_forbidden")
+    sim.inject_error("wrong_password")
+    assert sim.handle_request("GET", "/axis-cgi/param.cgi?action=list&group=Brand", {}, "")[0] == 401
+    anonymous = json.dumps({"apiVersion": "1.0", "method": "getAllUnrestrictedProperties"})
+    assert sim.handle_request("POST", "/axis-cgi/basicdeviceinfo.cgi", {}, anonymous)[0] == 200
+    assert sim.ws_authorized("/vapix/ws-data-stream?sources=events", {}) is False
+
+
+def test_a_403_on_the_device_information_at_connect_pauses_like_a_refused_login():
+    async def scenario():
+        driver, sim, handler, fake_connect, _ = _make({"require_auth": True})
+        sim._device_info = lambda body: (403, json.dumps({
+            "apiVersion": "1.3", "method": "getAllProperties",
+            "error": {"code": 2105, "message": "Authorization failed."},
+        }))
+        with pytest.raises(ConnectionFaultError) as exc_info:
+            await _connect(driver, handler, fake_connect)
+        assert exc_info.value.fault_code == "auth_failed"
+        assert "accepted the login" in str(exc_info.value)
+        assert "Authorization failed." in str(exc_info.value)
+        assert "operator or administrator" in str(exc_info.value)
 
     _run(scenario())

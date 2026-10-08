@@ -106,6 +106,13 @@ class PolyStudioSimulator(HTTPSimulator):
                 "description": "Reject /rest/session login attempts",
                 "set_state": {"force_auth_fail": True},
             },
+            "password_changed": {
+                "description": (
+                    "The admin password was changed on the bar (every open "
+                    "session and every login refused)"
+                ),
+                "behavior": "custom",
+            },
             "incoming_call": {
                 "description": (
                     "Inject a fake active call so hangup can be "
@@ -188,7 +195,10 @@ class PolyStudioSimulator(HTTPSimulator):
 
     def _handle_session(self, method: str, body_text: str) -> web.Response:
         if method == "POST":
-            if self.state.get("force_auth_fail"):
+            if (
+                self.state.get("force_auth_fail")
+                or "password_changed" in self.active_errors
+            ):
                 return web.json_response(
                     {"success": False, "loginStatus": {}}, status=403
                 )
@@ -243,6 +253,10 @@ class PolyStudioSimulator(HTTPSimulator):
     # ── Auth gate ──
 
     def _is_authenticated(self, request: web.Request) -> bool:
+        if "password_changed" in self.active_errors:
+            # A changed password ends every session opened with the old one.
+            self._sessions.clear()
+            return False
         cookie = request.cookies.get("session", "")
         if cookie and cookie in self._sessions:
             return True

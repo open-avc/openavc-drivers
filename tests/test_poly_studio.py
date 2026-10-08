@@ -46,6 +46,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -263,10 +264,22 @@ def _truthy(body: str) -> bool:
 
 
 class _PolyDevice:
-    def __init__(self, username="admin", password="secret", reachable=True):
+    def __init__(
+        self,
+        username="admin",
+        password="secret",
+        reachable=True,
+        session_refusal=401,
+    ):
         self.username = username
         self.password = password
         self.reachable = reachable
+        # The status a request without a valid session is answered with. The
+        # guide documents none for these paths; Table 3-1 gives 403 as
+        # "Forbidden, authentication denied", and the simulator answers 401.
+        self.session_refusal = session_refusal
+        # Accept the login but refuse every session request anyway.
+        self.refuse_sessions = False
         self.sessions: set[str] = set()
         self.audio_mute = False
         self.video_mute = False
@@ -324,8 +337,12 @@ class _PolyDevice:
 
         # Auth gate — every other path needs the session cookie.
         cookie = request.headers.get("cookie", "")
-        if not any(f"session={s}" in cookie for s in self.sessions):
-            return httpx.Response(401, json={"error": "Not authenticated"})
+        if self.refuse_sessions or not any(
+            f"session={s}" in cookie for s in self.sessions
+        ):
+            return httpx.Response(
+                self.session_refusal, json={"error": "Not authenticated"}
+            )
 
         if path == "/rest/audio/muted":
             if method == "GET":
@@ -404,6 +421,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     http_client = ModuleType("openavc.transport.http_client")
     http_client.HTTPClientTransport = _FakeHTTPClientTransport
@@ -439,7 +457,7 @@ def _make_driver(device: _PolyDevice, **cfg):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.4.1"
+    assert DRV.PolyStudioDriver.DRIVER_INFO["version"] == "1.4.2"
     assert DRV.PolyStudioDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -531,16 +549,133 @@ def test_poll_propagates_connection_error():
     asyncio.run(go())
 
 
-# ── CF fix: rejected login is auth-worded (classifier -> auth_failed) ───────
+# ── A refused credential is auth_failed ─────────────────────────────────────
 
-def test_bad_password_raises_auth_worded_error():
+def test_bad_password_raises_auth_failed():
+    """Table 2-74: POST /rest/session answers 403 LOG-IN ATTEMPT FAILED."""
     async def go():
         dev = _PolyDevice(password="secret")
         driver = _make_driver(dev, password="wrong")
-        with pytest.raises(ConnectionError) as exc:
+        with pytest.raises(ConnectionFaultError) as exc:
             await driver.connect()
-        # The shared classifier keys "authentication failed" -> auth_failed.
-        assert "authentication failed" in str(exc.value).lower()
+        assert exc.value.fault_code == "auth_failed"
+
+    asyncio.run(go())
+
+
+def _sent_since(dev: _PolyDevice, mark: int) -> list[tuple[str, str]]:
+    return [(m, p) for (m, p, _) in dev.requests[mark:]]
+
+
+def test_password_changed_mid_session_raises_auth_failed():
+    """The admin password is changed on the bar while connected: the open
+    session ends and the old password is refused. The poll signs in again
+    once, is refused, and raises auth_failed, which drops the connection on
+    the first one. Nothing more reaches the bar."""
+    async def go():
+        dev = _PolyDevice(password="secret")
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            dev.password = "changed"
+            dev.sessions.clear()
+            mark = len(dev.requests)
+            with pytest.raises(ConnectionFaultError) as exc:
+                await driver.poll()
+            assert exc.value.fault_code == "auth_failed"
+            assert _sent_since(dev, mark) == [
+                ("GET", "/rest/audio/muted"),
+                ("POST", "/rest/session"),
+            ]
+            # A command after the refusal reports it without asking the bar.
+            mark = len(dev.requests)
+            with pytest.raises(ConnectionFaultError):
+                await driver.send_command("mute_audio")
+            with pytest.raises(ConnectionFaultError):
+                await driver.poll()
+            assert _sent_since(dev, mark) == []
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+@pytest.mark.parametrize("refusal", [401, 403])
+def test_expired_session_signs_in_again_and_reads_the_bar(refusal):
+    """A session that ends while the password is still good (a timeout, a
+    restart of the bar's web service) is not a refused credential: the driver
+    signs in again once and the poll reads the bar's current values."""
+    async def go():
+        dev = _PolyDevice(session_refusal=refusal)
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            dev.sessions.clear()
+            dev.volume = 33
+            mark = len(dev.requests)
+            await driver.poll()
+            assert driver.get_state("volume") == 33
+            logins = [r for r in _sent_since(dev, mark)
+                      if r == ("POST", "/rest/session")]
+            assert logins == [("POST", "/rest/session")]
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_command_on_an_expired_session_signs_in_again():
+    async def go():
+        dev = _PolyDevice()
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            dev.sessions.clear()
+            await driver.send_command("mute_audio")
+            assert dev.audio_mute is True
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_session_refused_right_after_signing_in_is_auth_failed():
+    """The bar accepts the login and still refuses the session: one login,
+    then auth_failed, never a login per poll."""
+    async def go():
+        dev = _PolyDevice()
+        driver = _make_driver(dev)
+        await driver.connect()
+        try:
+            dev.refuse_sessions = True
+            mark = len(dev.requests)
+            with pytest.raises(ConnectionFaultError) as exc:
+                await driver.poll()
+            assert exc.value.fault_code == "auth_failed"
+            assert _sent_since(dev, mark) == [
+                ("GET", "/rest/audio/muted"),
+                ("POST", "/rest/session"),
+                ("GET", "/rest/audio/muted"),
+            ]
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_refusal_at_the_first_poll_fails_the_connect():
+    """The first poll runs inside connect; a refused session there fails the
+    connect as auth_failed instead of being logged and found again by the
+    next poll."""
+    async def go():
+        dev = _PolyDevice()
+        dev.refuse_sessions = True
+        driver = _make_driver(dev)
+        with pytest.raises(ConnectionFaultError) as exc:
+            await driver.connect()
+        assert exc.value.fault_code == "auth_failed"
+        logins = [r for r in _sent_since(dev, 0) if r == ("POST", "/rest/session")]
+        assert len(logins) == 2  # the connect's login and the one retry
 
     asyncio.run(go())
 

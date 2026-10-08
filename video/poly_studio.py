@@ -36,9 +36,9 @@ Why Python (not YAML):
     extension.
 
 Source:
-    Poly VideoOS REST API Reference Guide (Software 3.7.0,
-    September 2021), document 3725-86572-007A:
-    https://kaas.hpcloud.hp.com/pdf-public/pdf_9122216_en-US-1.pdf
+    Poly VideoOS REST API Reference Guide (VideoOS 4.4.0, last update
+    August 2025):
+    https://kaas.hpcloud.hp.com/pdf-public/pdf_11545198_en-US-1.pdf
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.transport.http_client import HTTPClientTransport
 from openavc.utils.logger import get_logger
 
@@ -77,6 +77,20 @@ _DIRECTION_TO_API = {
     "focus_far": "MOVE_FOCUSFAR",
 }
 
+# A request the bar refuses for want of a valid session. The guide gives 403
+# as "Forbidden, authentication denied" (Table 3-1) and documents no 401; the
+# simulator answers 401. Either one is read the same way.
+_SESSION_REFUSED = (401, 403)
+
+_LOGIN_REFUSED = (
+    "The Poly bar refused the admin username and password. Check them in the "
+    "device settings, or try them with Test Admin Login."
+)
+_SESSION_REFUSED_AFTER_LOGIN = (
+    "The Poly bar accepted the admin login and then refused the session. "
+    "Check the admin username and password, then press Reconnect."
+)
+
 
 class PolyStudioDriver(BaseDriver):
     """Poly Studio X / G7500 VideoOS driver."""
@@ -86,7 +100,7 @@ class PolyStudioDriver(BaseDriver):
         "name": "Poly Studio (VideoOS)",
         "manufacturer": "Poly",
         "category": "video",
-        "version": "1.4.1",
+        "version": "1.4.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -97,7 +111,7 @@ class PolyStudioDriver(BaseDriver):
             "and direction nudges, hangup, reboot — everything "
             "needed to wire Poly bars into a touch panel."
         ),
-        "source_url": "https://kaas.hpcloud.hp.com/pdf-public/pdf_9122216_en-US-1.pdf",
+        "source_url": "https://kaas.hpcloud.hp.com/pdf-public/pdf_11545198_en-US-1.pdf",
         "tags": ["poly", "hp", "videoconferencing", "studio", "x30", "x50", "x70", "g7500", "rest"],
         "verified": False,
         "simulated": True,
@@ -419,6 +433,13 @@ class PolyStudioDriver(BaseDriver):
     ) -> None:
         self._http: HTTPClientTransport | None = None
         self._authed = False
+        # One login again at a time; the count tells a request whose session
+        # was refused whether someone has already signed in again since.
+        self._login_lock = asyncio.Lock()
+        self._logins = 0
+        # Set once the bar refuses the credential on this connection; every
+        # later request reports it without asking the bar again.
+        self._refused = ""
         super().__init__(device_id, config, state, events)
 
     # ── Connection lifecycle hooks ──
@@ -455,6 +476,8 @@ class PolyStudioDriver(BaseDriver):
         # Initial status sweep.
         try:
             await self.poll()
+        except ConnectionFaultError:
+            raise
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
@@ -476,6 +499,7 @@ class PolyStudioDriver(BaseDriver):
         # the session flag.
         self._http = None
         self._authed = False
+        self._refused = ""
 
     async def _login(self) -> None:
         if self._http is None:
@@ -487,17 +511,11 @@ class PolyStudioDriver(BaseDriver):
             body={"user": username, "password": password},
         )
         if not resp.ok:
-            # 403 LOG-IN ATTEMPT FAILED (and 401) mean the credentials were
-            # rejected — word it so the shared classifier reads it as
-            # ``auth_failed`` and the device card says "check the password",
-            # not a generic drop. Anything else is a login failure we can't
-            # attribute to auth.
+            # 403 LOG-IN ATTEMPT FAILED (Table 2-74), and a 401, mean the
+            # credentials were refused. Anything else is a login failure that
+            # says nothing about them.
             if resp.status_code in (401, 403):
-                raise ConnectionError(
-                    f"[{self.device_id}] VideoOS authentication failed "
-                    f"(HTTP {resp.status_code}) — check the admin username "
-                    "and password"
-                )
+                raise ConnectionFaultError(_LOGIN_REFUSED, code="auth_failed")
             raise ConnectionError(
                 f"[{self.device_id}] VideoOS login failed: "
                 f"HTTP {resp.status_code}"
@@ -507,11 +525,54 @@ class PolyStudioDriver(BaseDriver):
         # status code alone.
         data = resp.json_data or {}
         if data.get("success") is False:
-            raise ConnectionError(
-                f"[{self.device_id}] VideoOS authentication failed — "
-                "check the admin username and password"
-            )
+            raise ConnectionFaultError(_LOGIN_REFUSED, code="auth_failed")
         self._authed = True
+        self._logins += 1
+
+    async def _login_again(self, logins_seen: int) -> None:
+        """Sign in again after the bar refused a session, once for every
+        request that saw the refusal. A refused login is ``auth_failed``."""
+        async with self._login_lock:
+            if self._refused:
+                raise ConnectionFaultError(self._refused, code="auth_failed")
+            if self._logins != logins_seen:
+                return  # another request has already signed in again
+            log.info(f"[{self.device_id}] Session refused; signing in again")
+            try:
+                await self._login()
+            except ConnectionFaultError as exc:
+                self._refused = str(exc)
+                raise
+
+    async def _send(self, method: str, path: str, body: Any = None) -> Any:
+        if self._http is None:
+            raise ConnectionError("HTTP client not open")
+        if method == "GET":
+            return await self._http.get(path)
+        if method == "DELETE":
+            return await self._http.delete(path)
+        return await self._http.post(path, body=body)
+
+    async def _request(self, method: str, path: str, body: Any = None) -> Any:
+        """One request on the session. A refused session signs in again once
+        on this connection and the request is sent again; a refused login, or
+        a session refused straight after a fresh one, raises ``auth_failed``.
+        Transport failures propagate, and other statuses come back to the
+        caller."""
+        if self._refused:
+            raise ConnectionFaultError(self._refused, code="auth_failed")
+        logins_seen = self._logins
+        resp = await self._send(method, path, body)
+        if resp.status_code not in _SESSION_REFUSED:
+            return resp
+        await self._login_again(logins_seen)
+        resp = await self._send(method, path, body)
+        if resp.status_code in _SESSION_REFUSED:
+            self._refused = _SESSION_REFUSED_AFTER_LOGIN
+            raise ConnectionFaultError(
+                _SESSION_REFUSED_AFTER_LOGIN, code="auth_failed"
+            )
+        return resp
 
     # ── Sending ──
 
@@ -527,24 +588,24 @@ class PolyStudioDriver(BaseDriver):
         params = params or {}
 
         if command == "mute_audio":
-            await self._http.post("/rest/audio/muted", body=True)
+            await self._request("POST", "/rest/audio/muted", True)
             self.set_state("audio_mute", True)
         elif command == "unmute_audio":
-            await self._http.post("/rest/audio/muted", body=False)
+            await self._request("POST", "/rest/audio/muted", False)
             self.set_state("audio_mute", False)
         elif command == "mute_video":
-            await self._http.post(
-                "/rest/video/local/mute", body={"mute": True}
+            await self._request(
+                "POST", "/rest/video/local/mute", {"mute": True}
             )
             self.set_state("video_mute", True)
         elif command == "unmute_video":
-            await self._http.post(
-                "/rest/video/local/mute", body={"mute": False}
+            await self._request(
+                "POST", "/rest/video/local/mute", {"mute": False}
             )
             self.set_state("video_mute", False)
         elif command == "set_volume":
             value = max(0, min(100, int(params.get("value", 0))))
-            await self._http.post("/rest/audio/volume", body=value)
+            await self._request("POST", "/rest/audio/volume", value)
             self.set_state("volume", value)
         elif command == "volume_up":
             await self._adjust_volume(self._VOLUME_STEP)
@@ -552,15 +613,17 @@ class PolyStudioDriver(BaseDriver):
             await self._adjust_volume(-self._VOLUME_STEP)
         elif command == "camera_preset_recall":
             index = int(params.get("index", 0))
-            await self._http.post(
+            await self._request(
+                "POST",
                 f"/rest/cameras/near/presets/{index}",
-                body={"action": "activate"},
+                {"action": "activate"},
             )
         elif command == "camera_preset_save":
             index = int(params.get("index", 0))
-            await self._http.post(
+            await self._request(
+                "POST",
                 f"/rest/cameras/near/presets/{index}",
-                body={"action": "store", "withImage": "Yes"},
+                {"action": "store", "withImage": "Yes"},
             )
         elif command == "camera_move":
             await self._camera_move(
@@ -570,9 +633,8 @@ class PolyStudioDriver(BaseDriver):
         elif command == "hangup":
             await self._hangup_all()
         elif command == "reboot":
-            await self._http.post(
-                "/rest/system/reboot",
-                body={"action": "reboot"},
+            await self._request(
+                "POST", "/rest/system/reboot", {"action": "reboot"}
             )
         elif command == "refresh":
             await self.poll()
@@ -582,7 +644,7 @@ class PolyStudioDriver(BaseDriver):
     async def _adjust_volume(self, delta: int) -> None:
         if self._http is None:
             return
-        resp = await self._http.get("/rest/audio/volume")
+        resp = await self._request("GET", "/rest/audio/volume")
         if not resp.ok:
             return
         try:
@@ -590,7 +652,7 @@ class PolyStudioDriver(BaseDriver):
         except ValueError:
             current = self.get_state("volume") or 25
         target = max(0, min(100, current + delta))
-        await self._http.post("/rest/audio/volume", body=target)
+        await self._request("POST", "/rest/audio/volume", target)
         self.set_state("volume", target)
 
     async def _camera_move(self, direction: str, duration_ms: int) -> None:
@@ -609,18 +671,18 @@ class PolyStudioDriver(BaseDriver):
         # uppercase SELECTED_PEOPLE token is a sourceID, and is documented
         # only for /rest/cameras/near/position/<sourceID>.
         path = "/rest/cameras/near/selectedpeople"
-        await self._http.post(
-            path,
-            body={"action": "moveStart", "direction": api_direction},
+        await self._request(
+            "POST", path, {"action": "moveStart", "direction": api_direction}
         )
         try:
             await asyncio.sleep(max(0.05, duration_ms / 1000.0))
         finally:
             # Always issue the stop, even if cancelled / errored mid-move.
             try:
-                await self._http.post(
+                await self._request(
+                    "POST",
                     path,
-                    body={"action": "moveStop", "direction": api_direction},
+                    {"action": "moveStop", "direction": api_direction},
                 )
             except Exception:  # noqa: BLE001
                 log.warning(
@@ -631,7 +693,7 @@ class PolyStudioDriver(BaseDriver):
     async def _hangup_all(self) -> None:
         if self._http is None:
             return
-        resp = await self._http.get("/rest/conferences")
+        resp = await self._request("GET", "/rest/conferences")
         if not resp.ok:
             return
         items = resp.json_data
@@ -644,7 +706,7 @@ class PolyStudioDriver(BaseDriver):
             log.info(f"[{self.device_id}] No active call to hang up")
             return
         for conf_id in ids:
-            await self._http.delete(f"/rest/conferences/{conf_id}")
+            await self._request("DELETE", f"/rest/conferences/{conf_id}")
         self.set_state("in_call", False)
         self.set_state("active_call_count", 0)
 
@@ -659,13 +721,13 @@ class PolyStudioDriver(BaseDriver):
         # ConnectionError here (the old behaviour) meant an unplugged bar stayed
         # shown online forever. Only the inner value-parse guards below are
         # caught — a malformed number is a protocol quirk, not a dead link.
-        audio = await self._http.get("/rest/audio/muted")
+        audio = await self._request("GET", "/rest/audio/muted")
         if audio.ok:
             self.set_state(
                 "audio_mute", _parse_bool(audio.text, audio.json_data)
             )
 
-        volume = await self._http.get("/rest/audio/volume")
+        volume = await self._request("GET", "/rest/audio/volume")
         if volume.ok:
             try:
                 self.set_state("volume", int(volume.text.strip()))
@@ -677,11 +739,11 @@ class PolyStudioDriver(BaseDriver):
         # Reading it as a bare boolean made video_mute permanently False:
         # json_data is a dict, so the fallback compared the whole JSON text
         # against "true" and never matched.
-        video = await self._http.get("/rest/video/local/mute")
+        video = await self._request("GET", "/rest/video/local/mute")
         if video.ok and isinstance(video.json_data, dict):
             self.set_state("video_mute", bool(video.json_data.get("result")))
 
-        confs = await self._http.get("/rest/conferences")
+        confs = await self._request("GET", "/rest/conferences")
         if confs.ok:
             items = confs.json_data
             if isinstance(items, list):
@@ -701,13 +763,13 @@ class PolyStudioDriver(BaseDriver):
         # Kept because absence from the guide is not absence from the device,
         # and this is best-effort: a 404 leaves the name unset and nothing
         # else changes. Do not build anything on it that has to work.
-        system = await self._http.get("/rest/system")
+        system = await self._request("GET", "/rest/system")
         if system.ok and isinstance(system.json_data, dict):
             name = system.json_data.get("systemName")
             if name:
                 self.set_state("system_name", str(name))
 
-        status = await self._http.get("/rest/system/status")
+        status = await self._request("GET", "/rest/system/status")
         if status.ok and isinstance(status.json_data, list):
             for item in status.json_data:
                 if item.get("name") == "system.status.ipnetwork":

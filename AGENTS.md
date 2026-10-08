@@ -931,9 +931,9 @@ When you set `body:` on an HTTP command, the runtime tries to parse it as JSON. 
 The liveness watchdog (a YAML `liveness:` block, or a Python `_liveness_probe()`) reconnects after enough misses. A check that a wrong setting can fail drops a working device every minute or so, reported as "stopped answering".
 
 - Ask something every unit answers however it is set up: a version or model query, a no-op, the protocol's own keep-alive. Never an address from the device's configuration (a table row, a zone, a register, an object, a display ID, a workspace).
-- Any reply counts, an error included. Python: catch your protocol's error reply (a NAK, an exception response, an error frame) and return; every exception the probe raises is a miss. YAML: make `expect` match the error reply as well as the normal one, with the whitespace and case the protocol allows.
+- Any reply counts, an error included. Python: catch your protocol's error reply (a NAK, an exception response, an error frame) and return; every exception the probe raises is a miss, except a typed `auth_failed`, which drops the connection at once. YAML: make `expect` match the error reply as well as the normal one, with the whitespace and case the protocol allows.
 - When every message is addressed to something configured (displays on a shared bus that each answer only their own ID), ask the one that answered most recently on this connection, then the others; fail only when none answers.
-- Never log back in from the watchdog. Log in again on the connection you have when the device's refusal arrives. A rejected password is `auth_failed`, which stops the retries.
+- Never log back in from the watchdog. Log in again on the connection you have when the device's refusal arrives. A rejected password is `auth_failed`, which stops the retries. Raise it typed (`ConnectionFaultError(..., code="auth_failed")`): from `poll()` or the probe it takes the device offline on the first refusal, while an untyped error that only reads like one ("401 Unauthorized") counts as a missed poll.
 
 The Creating Drivers guide has the long form, in "The liveness probe" and the `liveness` section.
 

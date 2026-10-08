@@ -50,20 +50,23 @@
 #   every push body, which arrives leaf-shaped anyway — hit exactly its rule.
 #
 # Authentication:
-#   Username and password are supplied in the Add Device dialog. A codec
-#   user with the Admin role (the default "admin" user qualifies) enables
-#   everything, including push feedback registration — xCommand HttpFeedback
-#   Register requires ADMIN per the API guide. An Integrator-role user can
-#   still control the codec fully, but the feedback registration is refused,
-#   leaving state updates at poll speed. xConfiguration writes are not
-#   included either way (settings live in the Cisco web UI, not the AV
-#   control surface).
+#   Username and password are supplied in the Add Device dialog, and the
+#   user needs the Admin role (the default "admin" user has it). The RoomOS
+#   11.27 API guide, "HTTP XMLAPI Authentication": "Access to the XMLAPI
+#   requires the user to authenticate using HTTP Basic Access Authentication
+#   as a user with 'ADMIN' role." The per-command role lists name INTEGRATOR
+#   on most commands and statuses, but they describe the API as a whole (SSH
+#   included); over HTTP the XMLAPI paragraph is the rule, so a user with
+#   only the Integrator role is refused on every request and the device goes
+#   offline with a sign-in fault. xCommand HttpFeedback Register is ADMIN
+#   only in its own entry too. xConfiguration writes are not included
+#   (settings live in the Cisco web UI, not the AV control surface).
 
 id: cisco_roomos_xapi
 name: Cisco Webex Codec / Room Series (xAPI)
 manufacturer: Cisco
 category: video
-version: 1.3.0
+version: 1.3.1
 author: OpenAVC
 description: >
   Controls Cisco Webex video-conferencing endpoints (Codec Pro / Plus / EQ,
@@ -132,11 +135,11 @@ help:
   setup: >
     1. Set a static IP (or DHCP reservation) on the codec.
     2. In the codec's web UI (https://<codec-ip>) go to Users and create
-       (or note) a local user with the "Admin" role — the default "admin"
-       user works. Admin is what allows the codec to register instant push
-       updates; a user with only the "Integrator" role still controls the
-       codec, but state updates then arrive at poll speed. This driver
-       uses HTTP Basic auth — SSO / single-sign-on users will not work.
+       (or note) a local user with the "Admin" role. The default "admin"
+       user works. The codec's HTTP API accepts only Admin users: a user
+       with only the "Integrator" role is refused, and the device shows a
+       sign-in fault. This driver uses HTTP Basic auth, so SSO
+       (single sign-on) users will not work.
     3. Confirm xAPI over HTTPS is enabled. In the web UI: Settings ->
        Configurations -> NetworkServices -> HTTP Mode. Default is
        HTTP+HTTPS, which is fine. (HTTP-only is also supported by toggling
@@ -214,7 +217,7 @@ config_schema:
     default: "admin"
     required: true
     label: Username
-    description: "A local codec user with at least Integrator role."
+    description: "A local codec user with the Admin role."
   password:
     type: string
     default: ""

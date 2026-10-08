@@ -9,6 +9,8 @@ Full-featured PJLink Class 1 simulator with:
   - Lamp hours tracking
   - Error status reporting
   - Device info queries (name, manufacturer, product, class, inputs)
+  - A ``password_changed`` error mode: every command is answered
+    ``PJLINK ERRA``, as when the password is changed on the projector
 
 This is the reference implementation for Python TCP simulators.
 """
@@ -72,6 +74,13 @@ class PjlinkClass1Simulator(TCPSimulator):
                 "description": "Air filter needs cleaning",
                 "set_state": {"error_status": "000020"},
             },
+            "password_changed": {
+                "description": (
+                    "The PJLink password was changed on the projector "
+                    "(every command is answered PJLINK ERRA)"
+                ),
+                "behavior": "custom",
+            },
         },
     }
 
@@ -101,6 +110,11 @@ class PjlinkClass1Simulator(TCPSimulator):
         cmd = data.decode("ascii", errors="ignore").strip()
         if not cmd:
             return None
+
+        # A digest made with the old password no longer matches: the
+        # projector answers the invalid-password reply (spec 5.1, (1-4)).
+        if "password_changed" in self.active_errors:
+            return b"PJLINK ERRA\r"
 
         # Handle authentication
         password = self.config.get("password", "")

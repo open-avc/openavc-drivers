@@ -9,8 +9,11 @@ Covers:
   - the connection-fault FIX: "PJLINK ERRA" (auth rejected) starts with
     "PJLINK", so the old greeting check swallowed it as a no-auth greeting and
     the device stayed "connected" on a bad password. connect() now probes and
-    fails with an auth_failed-worded ConnectionError (a regression that would
-    have caught the swallowed-ERRA bug);
+    fails with a typed auth_failed (a regression that would have caught the
+    swallowed-ERRA bug), and a blank password is refused before anything is
+    sent;
+  - a password changed on the projector while connected: the first PJLINK
+    ERRA drops the connection, typed auth_failed, and nothing more is sent;
   - the input param picker: INST is published as a {value,label} JSON list the
     Set Input dropdown reads via options_state;
   - quick actions; and that DS is (correctly) absent.
@@ -34,6 +37,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError as _FakeConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -237,12 +241,20 @@ class _FakeTCPSimulator:
         self.config = config or {}
         self.state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
         self._clients: dict = {}
+        self._active_errors: set = set()
 
     def set_state(self, key, value) -> None:
         self.state[key] = value
 
     def get_state(self, key, default=None):
         return self.state.get(key, default)
+
+    @property
+    def active_errors(self) -> set:
+        return set(self._active_errors)
+
+    def inject_error(self, mode) -> None:
+        self._active_errors.add(mode)
 
 
 def _load(name: str, path: Path) -> ModuleType:
@@ -255,6 +267,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = _FakeConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
@@ -296,7 +309,7 @@ async def _make_pair(driver_overrides=None, sim_password=""):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.1"
+    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.2"
     assert DRV.PJLinkDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -405,8 +418,9 @@ def test_wrong_password_is_auth_failed():
             sim_password="secret", driver_overrides={"password": "wrong"})
         with pytest.raises(ConnectionError) as exc:
             await driver.connect()
-        # The classifier maps "authentication failed" -> auth_failed.
-        assert "authentication failed" in str(exc.value).lower()
+        # Typed, so the platform reads auth_failed without guessing from text.
+        assert exc.value.fault_code == "auth_failed"
+        assert "PJLINK ERRA" in str(exc.value)
         # The bug: ERRA was swallowed as a no-auth greeting. The raise above
         # proves the fix flagged the failure. The failed _post_connect then
         # tore the attempt down — transport closed and _close_session
@@ -437,9 +451,113 @@ def test_missing_password_when_required_is_auth_failed():
         # Projector requires auth; user left the password blank.
         driver, sim = await _make_pair(
             sim_password="secret", driver_overrides={"password": ""})
+        sent = _record_sent(sim)
         with pytest.raises(ConnectionError) as exc:
             await driver.connect()
-        assert "authentication failed" in str(exc.value).lower()
+        assert exc.value.fault_code == "auth_failed"
+        # A projector that greets PJLINK 1 has a password set, so a blank one
+        # cannot pass: nothing is sent to it.
+        assert sent == []
+
+    asyncio.run(go())
+
+
+# ── A password changed on the projector while connected ─────────────────────
+#
+# The projector answers a refused digest with PJLINK ERRA and ignores the rest
+# of the line (spec 5.1). The refusal arrives in the reader, after the send
+# that drew it has returned, so the driver drops the connection there, typed,
+# and sends nothing more: one refused command, not three to five every poll.
+
+def _record_sent(sim):
+    """Every line the simulator receives, and whether it was refused."""
+    sent: list[tuple[str, bool]] = []
+    inner = sim.handle_command
+
+    def recording(data):
+        resp = inner(data)
+        sent.append((bytes(data).decode("ascii", "replace").strip(),
+                     resp is not None and resp.strip() == b"PJLINK ERRA"))
+        return resp
+
+    sim.handle_command = recording
+    return sent
+
+
+def test_password_changed_mid_session_drops_at_once_as_auth_failed():
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="secret", driver_overrides={"password": "secret"})
+        await driver.connect()
+        assert driver._connected is True
+        sent = _record_sent(sim)
+        sim.inject_error("password_changed")
+
+        await driver.poll()
+        await driver.poll()  # a second poll after the drop sends nothing
+        await asyncio.sleep(0)
+
+        assert getattr(driver, "stashed_fault", None) is not None, (
+            "a refused digest left the connection up")
+        code, message = driver.stashed_fault
+        assert code == "auth_failed"
+        assert "PJLINK ERRA" in message
+        assert driver._connected is False
+        assert driver.transport is None
+        assert [line for line, refused in sent if refused] == [
+            sent[0][0]], sent
+        assert len(sent) == 1, sent
+        assert "device.disconnected.proj1" in driver.events.emitted
+
+    asyncio.run(go())
+
+
+def test_password_changed_during_initial_sync_fails_the_connect_once():
+    """A refusal that lands while connect() is still reading device info is
+    raised from that stage, so the connect fails typed and is torn down once,
+    rather than dropped underneath a connect that then carries on."""
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="secret", driver_overrides={"password": "secret"})
+        inner = sim.handle_command
+
+        def change_on_name(data):
+            if b"%1NAME ?" in bytes(data):
+                sim.inject_error("password_changed")
+            return inner(data)
+
+        sim.handle_command = change_on_name
+        sent = _record_sent(sim)
+        with pytest.raises(ConnectionError) as exc:
+            await driver.connect()
+        await asyncio.sleep(0)
+
+        assert exc.value.fault_code == "auth_failed"
+        assert [refused for _, refused in sent].count(True) == 1, sent
+        assert getattr(driver, "stashed_fault", None) is None
+        assert driver.events.emitted.count("device.disconnected.proj1") == 1
+        assert driver._connected is False
+
+    asyncio.run(go())
+
+
+def test_command_refused_mid_session_drops_and_sends_no_follow_up():
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="secret", driver_overrides={"password": "secret"})
+        await driver.connect()
+        sent = _record_sent(sim)
+        sim.inject_error("password_changed")
+
+        # power_on sends POWR 1 then a POWR query and starts the 2 s
+        # warming monitor; only the first line goes out.
+        with pytest.raises(ConnectionError):
+            await driver.send_command("power_on")
+        await asyncio.sleep(0)
+
+        assert driver.stashed_fault[0] == "auth_failed"
+        assert len(sent) == 1, sent
+        assert driver._transition_task is None
 
     asyncio.run(go())
 

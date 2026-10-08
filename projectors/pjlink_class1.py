@@ -26,10 +26,21 @@ import hashlib
 import json
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+# What the device card says when the projector refuses the password. PJLink's
+# refusal is "PJLINK ERRA" (spec 1.04, 5.1 (1-4)).
+_REFUSED_MESSAGE = (
+    "The projector refused the PJLink password (PJLINK ERRA). Enter the "
+    "projector's PJLink password in this device's settings."
+)
+_NO_PASSWORD_MESSAGE = (
+    "The projector asks for a PJLink password and none is set. Enter the "
+    "projector's PJLink password in this device's settings."
+)
 
 
 class PJLinkDriver(BaseDriver):
@@ -40,7 +51,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.6.1",
+        "version": "2.6.2",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -518,6 +529,9 @@ class PJLinkDriver(BaseDriver):
         self._auth_required = False
         self._auth_failed = False
         self._auth_verdict = asyncio.Event()
+        # True once connect() has finished its initial sync; until then a
+        # refusal is raised from the connect stage that met it.
+        self._session_up = False
         self._transition_task: asyncio.Task | None = None
         super().__init__(device_id, config, state, events)
 
@@ -530,6 +544,7 @@ class PJLinkDriver(BaseDriver):
         self._auth_prefix = ""
         self._auth_required = False
         self._auth_failed = False
+        self._session_up = False
 
     async def _post_connect(self) -> None:
         # Wait for PJLink greeting (with timeout)
@@ -542,10 +557,14 @@ class PJLinkDriver(BaseDriver):
 
         # PJLink checks auth on the first command, not at the greeting. When the
         # projector requested auth, send a probe and wait for the verdict so a
-        # bad/absent password fails the connect with a classifier-worded reason
-        # instead of silently staying "connected" while every command is
-        # rejected. (No auth requested -> skip; this path is unchanged.)
+        # bad password fails the connect as auth_failed instead of staying
+        # "connected" while every command is rejected. (No auth requested ->
+        # skip; this path is unchanged.)
         if self._auth_required:
+            if not self.config.get("password", ""):
+                # A projector greets "PJLINK 1" only when it has a password
+                # saved (spec 5.2), so a blank one cannot pass: send nothing.
+                raise ConnectionFaultError(_NO_PASSWORD_MESSAGE, code="auth_failed")
             try:
                 await self._send_pjlink("%1POWR ?")
                 await asyncio.wait_for(self._auth_verdict.wait(), timeout=5.0)
@@ -557,14 +576,16 @@ class PJLinkDriver(BaseDriver):
             except ConnectionError:
                 pass
             if self._auth_failed:
-                raise ConnectionError(
-                    f"[{self.device_id}] PJLink authentication failed — check "
-                    "the password"
-                )
+                raise ConnectionFaultError(_REFUSED_MESSAGE, code="auth_failed")
 
     async def _initial_sync(self) -> None:
         # Query device info (name, manufacturer, product, class, available inputs)
         await self._query_device_info()
+        if self._auth_failed:
+            # Refused while connect() was still running: fail the connect
+            # here, so the platform's own teardown runs once.
+            raise ConnectionFaultError(_REFUSED_MESSAGE, code="auth_failed")
+        self._session_up = True
 
     async def _close_session(self) -> None:
         # Runs on every teardown path: stop the power-transition monitor and
@@ -579,11 +600,16 @@ class PJLinkDriver(BaseDriver):
         self._auth_prefix = ""
         self._auth_required = False
         self._auth_failed = False
+        self._session_up = False
 
     # --- Internal helpers ---
 
     async def _send_pjlink(self, cmd: str) -> None:
         """Send a PJLink command with optional auth prefix."""
+        if self._auth_failed:
+            # The projector refused this connection's digest and ignores
+            # everything after it (spec 5.1 step 5): send nothing more.
+            raise ConnectionFaultError(_REFUSED_MESSAGE, code="auth_failed")
         if not self.transport or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
         full_cmd = f"{self._auth_prefix}{cmd}\r"
@@ -683,12 +709,7 @@ class PJLinkDriver(BaseDriver):
         # rejected).
         if response.startswith("PJLINK"):
             if response == "PJLINK ERRA":
-                log.error(
-                    f"[{self.device_id}] PJLink authentication failed — check "
-                    "the password"
-                )
-                self._auth_failed = True
-                self._auth_verdict.set()
+                self._on_refused()
                 return
             self._parse_greeting(response)
             return
@@ -780,6 +801,34 @@ class PJLinkDriver(BaseDriver):
 
         elif code_part == "INST":
             self._parse_available_inputs(value)
+
+    def _on_refused(self) -> None:
+        """The projector answered PJLINK ERRA: the password was refused.
+
+        While connecting, _post_connect (waiting on the verdict) or
+        _initial_sync raises the typed fault itself. Once connected, the
+        refusal arrives here, after the send that drew it returned, whether
+        that was a poll, a command or the warming/cooling monitor, so this is
+        where the connection drops, typed auth_failed. The projector waits for
+        the controller to close after a refusal (spec 5.1 step 5); every later
+        send is refused locally.
+        """
+        first = not self._auth_failed
+        self._auth_failed = True
+        self._auth_verdict.set()
+        if not first:
+            return
+        if self._session_up and self._connected:
+            log.warning(
+                f"[{self.device_id}] Projector refused the PJLink password "
+                "(PJLINK ERRA); dropping the connection"
+            )
+            self._force_disconnect("auth_failed", _REFUSED_MESSAGE)
+        else:
+            log.error(
+                f"[{self.device_id}] Projector refused the PJLink password "
+                "(PJLINK ERRA)"
+            )
 
     def _parse_greeting(self, response: str) -> None:
         """Parse PJLink greeting and set up authentication if needed."""
@@ -907,8 +956,12 @@ class PJLinkDriver(BaseDriver):
             await self._send_pjlink("%1LAMP ?")
             await asyncio.sleep(0.2)
             await self._send_pjlink("%1ERST ?")
+        except ConnectionFaultError:
+            # The projector refused the password; _on_refused has already
+            # dropped the connection, typed. Nothing more to send.
+            return
         except ConnectionError:
-            log.warning(f"[{self.device_id}] Poll failed — not connected")
+            log.warning(f"[{self.device_id}] Poll failed: not connected")
 
     # --- Disconnect handler ---
 

@@ -9,8 +9,8 @@ enforces the admin password (401 on a mismatch) exactly like a real Pod.
 Covers the v1.4.0 adoption + fix:
   - device setting: display_name promoted from a command (already persisted +
     read back);
-  - connection-fault: a wrong admin password (HTTP 401/403) now raises an
-    auth-worded ConnectionError on connect (classifier -> auth_failed);
+  - connection-fault: a refused admin password (HTTP 401/403) is the typed
+    auth_failed fault, on connect and out of the poll at the first refusal;
   - the Test Admin Password setup wizard accepts / rejects out-of-band.
 
 Loads the driver + simulator with the ``openavc.*`` imports
@@ -33,6 +33,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -148,6 +149,11 @@ class _FakeHTTPSimulator:
         self.device_id = device_id
         self.config = config or {}
         self._state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
+        self.active_errors: set[str] = set()
+
+    def inject_error(self, mode) -> None:
+        assert mode in self.SIMULATOR_INFO.get("error_modes", {}), mode
+        self.active_errors.add(mode)
 
     def get_state(self, key, default=None):
         return self._state.get(key, default)
@@ -169,6 +175,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
@@ -258,7 +265,7 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SolsticeDriver.DRIVER_INFO["version"] == "1.4.2"
+    assert DRV.SolsticeDriver.DRIVER_INFO["version"] == "1.4.3"
     assert DRV.SolsticeDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -353,9 +360,9 @@ def test_connect_and_poll_populate_state():
     asyncio.run(go())
 
 
-# ── CF fix: wrong admin password -> auth-worded ConnectionError ─────────────
+# ── A refused admin password is the typed auth_failed fault ────────────────
 
-def test_wrong_password_raises_auth_worded_error():
+def test_wrong_password_raises_auth_failed_on_connect():
     async def go():
         sim = SIM.MersiveSolsticeSimulator("sim1", {})
         sim.set_state("admin_password", "secret")
@@ -366,9 +373,65 @@ def test_wrong_password_raises_auth_worded_error():
                  "poll_interval": 0},
                 _FakeState(), _FakeEvents(),
             )
-            with pytest.raises(ConnectionError) as exc:
+            with pytest.raises(ConnectionFaultError) as exc:
                 await driver.connect()
-            assert "authentication failed" in str(exc.value).lower()
+            assert exc.value.fault_code == "auth_failed"
+
+    asyncio.run(go())
+
+
+def test_a_password_changed_on_the_pod_ends_the_poll_at_the_first_refusal():
+    # The admin password is changed on the Pod while connected. The poll's
+    # first request is refused, and the typed fault leaves poll() so the
+    # platform drops the connection there instead of sending the refused
+    # password again every poll.
+    async def go():
+        sim = SIM.MersiveSolsticeSimulator("sim1", {})
+        sim.set_state("admin_password", "secret")
+        driver = _make_driver_bypass(sim, admin_password="secret")
+        try:
+            await driver.poll()
+            assert driver.get_state("display_name") == "Solstice Sim Room"
+
+            refused = []
+            inner = sim.handle_request
+
+            def counting(method, path, headers, body):
+                status, resp = inner(method, path, headers, body)
+                if status in (401, 403):
+                    refused.append((method, path.split("?", 1)[0], status))
+                return status, resp
+
+            sim.handle_request = counting
+            sim.inject_error("wrong_password")
+            with pytest.raises(ConnectionFaultError) as exc:
+                await driver.poll()
+            assert exc.value.fault_code == "auth_failed"
+            assert refused == [("GET", "/api/stats", 401)]
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def test_a_poll_that_is_not_refused_keeps_its_tolerance():
+    # Only the refusal leaves the poll: another HTTP error is logged and the
+    # poll returns, as before.
+    async def go():
+        sim = SIM.MersiveSolsticeSimulator("sim1", {})
+        driver = _make_driver_bypass(sim)
+        inner = sim.handle_request
+
+        def server_error(method, path, headers, body):
+            if path.startswith("/api/stats"):
+                return 500, {"error": "internal"}
+            return inner(method, path, headers, body)
+
+        sim.handle_request = server_error
+        try:
+            await driver.poll()
+        finally:
+            await _close(driver)
 
     asyncio.run(go())
 

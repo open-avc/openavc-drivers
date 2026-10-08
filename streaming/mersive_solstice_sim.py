@@ -99,6 +99,13 @@ class MersiveSolsticeSimulator(HTTPSimulator):
                 "description": "No Enterprise license installed",
                 "set_state": {"license_status": 0},
             },
+            "wrong_password": {
+                "description": (
+                    "Admin password changed on the Pod (every request "
+                    "refused, HTTP 401)"
+                ),
+                "behavior": "custom",
+            },
         },
         "controls": [
             {"type": "indicator", "key": "display_name", "label": "Display Name"},
@@ -167,6 +174,10 @@ class MersiveSolsticeSimulator(HTTPSimulator):
                 body_data = {}
 
         # ── Auth gate ──
+        # wrong_password: the admin password was changed on the Pod, so
+        # whatever the client sends is refused.
+        if "wrong_password" in self.active_errors:
+            return 401, {"error": "unauthorized"}
         admin_password = str(self.get_state("admin_password", "") or "")
         if admin_password:
             if method == "GET":

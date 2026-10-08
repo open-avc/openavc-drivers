@@ -256,7 +256,7 @@
       "name": "Mersive Solstice Pod",
       "manufacturer": "Mersive",
       "category": "streaming",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Mersive Solstice Pods (and Solstice Windows Software) over the OpenControl REST API. Boot users, clear posts, suspend and wake the display, reset the on-screen key, push bulletin or emergency banners, and monitor connected users and post counts.",
@@ -264,8 +264,8 @@
       "file": "streaming/mersive_solstice.py",
       "format": "python",
       "files": {
-        "streaming/mersive_solstice.py": "df586e6785f37e90edac25188e973707c7af11bac1713d6ac0ea144ab59f273b",
-        "streaming/mersive_solstice_sim.py": "855f0a5ee846a0dff3951601eb80e5b7288974185b9a6edff23623d20b950903"
+        "streaming/mersive_solstice.py": "91495233ce5734a4891a75f62218e9a9e7aefc9bfacfcff848135e3332f7b1f6",
+        "streaming/mersive_solstice_sim.py": "22e8c15ce4d658d88aa50ecba7f601c1cdb158843c7043476054c2af7cc81520"
       },
       "ports": [
         80,

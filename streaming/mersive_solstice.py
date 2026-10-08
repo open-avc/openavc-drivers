@@ -45,7 +45,7 @@ from typing import Any
 
 import httpx
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -53,6 +53,18 @@ log = get_logger(__name__)
 
 # OpenControl licenseStatus codes → human-readable strings
 _LICENSE_STATUS = {0: "No license", 1: "Error", 2: "OK", 3: "Expired"}
+
+# The statuses that mean the Pod refused the admin password. The OpenControl
+# guide says the password goes with every GET and POST when one is set, but
+# not which status a wrong one gets; the Pod has one admin password and no
+# other credential, so 401 or 403 on a request carrying it is that password
+# refused.
+_PASSWORD_REFUSED_STATUSES = (401, 403)
+
+_PASSWORD_REFUSED_MESSAGE = (
+    "The Pod refused the admin password. Enter the password set for this "
+    "Pod in the Solstice Dashboard."
+)
 
 
 class SolsticeDriver(BaseDriver):
@@ -63,7 +75,7 @@ class SolsticeDriver(BaseDriver):
         "name": "Mersive Solstice Pod",
         "manufacturer": "Mersive",
         "category": "streaming",
-        "version": "1.4.2",
+        "version": "1.4.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -518,16 +530,12 @@ class SolsticeDriver(BaseDriver):
         try:
             stats = await self._api_get("/api/stats")
         except httpx.HTTPStatusError as exc:
-            # A wrong (or missing-when-required) admin password is rejected at
-            # the HTTP layer. Word it so the shared classifier reads it as
-            # auth_failed instead of a generic drop. (The OpenControl guide
-            # documents the password mechanism but not the exact status; 401
-            # and 403 are the standard auth rejections, handled here robustly.)
+            # A wrong (or missing-when-required) admin password is refused
+            # at the HTTP layer: the typed auth_failed fault.
             status = exc.response.status_code
-            if status in (401, 403):
-                raise ConnectionError(
-                    f"[{self.device_id}] Solstice authentication failed - "
-                    "check the admin password"
+            if status in _PASSWORD_REFUSED_STATUSES:
+                raise ConnectionFaultError(
+                    _PASSWORD_REFUSED_MESSAGE, code="auth_failed"
                 ) from exc
             raise ConnectionError(
                 f"Solstice at {host}:{port} returned HTTP {status}"
@@ -771,7 +779,10 @@ class SolsticeDriver(BaseDriver):
         """Refresh state from /api/stats and /api/config.
 
         Transport errors propagate so the BaseDriver watchdog can flip
-        device.<id>.connected to False.
+        device.<id>.connected to False. A refused admin password is the
+        typed auth_failed fault, which drops the connection at the first
+        refusal instead of sending the password again every poll. Any other
+        error is logged and the poll returns.
         """
         if self._client is None:
             return
@@ -781,6 +792,12 @@ class SolsticeDriver(BaseDriver):
             raise ConnectionError(
                 f"Solstice at {self._base_url} not responding: {exc}"
             ) from exc
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in _PASSWORD_REFUSED_STATUSES:
+                raise ConnectionFaultError(
+                    _PASSWORD_REFUSED_MESSAGE, code="auth_failed"
+                ) from exc
+            log.exception("[%s] Poll error", self.device_id)
         except Exception:
             log.exception("[%s] Poll error", self.device_id)
 

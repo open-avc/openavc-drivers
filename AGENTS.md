@@ -113,12 +113,12 @@ The runtime decides "is this device actually online?" differently per transport.
 
 | Transport | How `connected` becomes `False` |
 |-----------|----------------------------------|
-| `tcp` | Socket open fails or the connection drops. |
+| `tcp` | Socket open fails or the connection drops. From OpenAVC 0.37.0, also when three polls in a row draw no reply at all, for a driver that polls, reads replies (YAML: any `responses` rule; Python: overrides `on_data_received` on the platform transport) and has no liveness probe; the reconnects then keep it offline until it answers a poll. A socket that opens proves only that something listens on the port. |
 | `serial` | The OS rejects the port open. |
 | `http` | Pre-connect `verify()` HEAD probe; periodic poll on `poll_interval`. |
-| `osc` | Pre-connect `verify()` probe (send + listen); periodic poll on `poll_interval`. |
+| `osc` | Pre-connect `verify()` probe (send + listen). After that, from OpenAVC 0.37.0, three polls in a row with no reply on any of its sockets, for a polled driver that reads replies and has no liveness probe; on earlier releases a fire-and-forget OSC poll never notices a console that went away, so keep a `liveness:` block (or an awaited Python poll that raises). |
 | `snmp` | **No transport-level probe** — it rides UDP. Override `_liveness_probe()` to read something every agent has (`1.3.6.1.2.1.1.1.0`, sysDescr), and make `poll()` await its reads so silence raises. |
-| `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. Give the runtime a liveness signal or the device will sit at `connected: True` forever no matter what's happening on the network. YAML drivers: declare a `liveness:` block (see section 2) -- a YAML driver's UDP poll queries are fire-and-forget, so polling alone proves nothing. Python drivers: override `_liveness_probe()` (see section 3), or implement a `poll()` that round-trips a status query **and raises when the reply doesn't come back** (a fire-and-forget send never fails). |
+| `udp` | **No transport-level probe.** UDP is purely connectionless and has no `verify()` method. Give the runtime a liveness signal or the device will sit at `connected: True` forever no matter what's happening on the network. YAML drivers: declare a `liveness:` block (see section 2). From OpenAVC 0.37.0 a polled driver with `responses` rules also goes offline when three polls in a row get no reply, but on 0.36.0 and earlier a YAML driver's UDP poll queries are fire-and-forget and polling alone proves nothing, so keep the `liveness:` block. Python drivers: override `_liveness_probe()` (see section 3), or implement a `poll()` that round-trips a status query **and raises when the reply doesn't come back**; from 0.37.0 a fire-and-forget poll whose replies arrive in `on_data_received` is watched the same way. |
 
 For UDP, picking a poll interval is a tradeoff: too tight wastes wire traffic on a connectionless protocol; too loose delays failure detection. 10–30 seconds is reasonable for most AV equipment.
 

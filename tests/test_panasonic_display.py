@@ -10,7 +10,9 @@ disconnect-after-every-response behaviour (VF1H / SF2 / EQ1 / SQ1 / VF2 / BQ1
 units).
 
 Covers: both protocols' framing and MD5 recipes (auto-detected from the
-greeting), protected / non-protected / wrong-password paths, standby query
+greeting), protected / non-protected / wrong-password paths (a refused or
+blank credential is a typed auth_failed, at connect and from a poll, on both
+protocols), standby query
 gating, every device-setting round trip, the input-code pass-through, poll
 propagation on an unreachable display (never-offline guard), and the
 "Test Admin Credentials" setup wizard end-to-end.
@@ -34,6 +36,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError as _FakeConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -177,12 +180,24 @@ class _FakeTCPSimulator:
         self.config = config or {}
         self.state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
         self._clients: dict = {}
+        self._active_errors: set = set()
 
     def set_state(self, key, value) -> None:
         self.state[key] = value
 
     def get_state(self, key, default=None):
         return self.state.get(key, default)
+
+    @property
+    def active_errors(self) -> set:
+        return set(self._active_errors)
+
+    def inject_error(self, mode) -> None:
+        # As the platform's: mark the mode active and apply its set_state.
+        self._active_errors.add(mode)
+        modes = self.SIMULATOR_INFO.get("error_modes", {})
+        for key, value in modes[mode].get("set_state", {}).items():
+            self.set_state(key, value)
 
 
 def _load(name: str, path: Path) -> ModuleType:
@@ -195,6 +210,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = _FakeConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
@@ -308,7 +324,7 @@ def test_metadata_shape():
     info = DRV.PanasonicDisplayDriver.DRIVER_INFO
     assert info["id"] == "panasonic_display"
     assert info["category"] == "display"
-    assert info["version"] == "1.0.2"
+    assert info["version"] == "1.0.3"
 
     ds = info["device_settings"]
     assert set(ds) == {
@@ -427,8 +443,13 @@ def test_connect_protected_accepts_correct_password(lan_protocol):
     asyncio.run(go())
 
 
+# The password-mismatch reply: "PDPCONTROL ERRA" on Protocol 1, "ERRA" on
+# Protocol 2 (LAN Control Protocol, Tables 2-4 and 3-4).
+_REFUSAL = {"1": "PDPCONTROL ERRA", "2": "ERRA"}
+
+
 @pytest.mark.parametrize("lan_protocol", ["1", "2"])
-def test_connect_wrong_password_raises_auth_worded(lan_protocol):
+def test_connect_wrong_password_is_typed_auth_failed(lan_protocol):
     async def go():
         driver, sim, server = await _make_pair(
             sim_config={"lan_protocol": lan_protocol, "password": "secret"},
@@ -437,12 +458,61 @@ def test_connect_wrong_password_raises_auth_worded(lan_protocol):
         try:
             with pytest.raises(ConnectionError) as exc:
                 await driver.connect()
-            assert "authentication failed" in str(exc.value).lower()
+            assert exc.value.fault_code == "auth_failed"
+            assert f"({_REFUSAL[lan_protocol]})" in str(exc.value)
             # _post_connect failed before the declare stage: never
             # connected, no connect event.
             assert driver.connected is False
             assert driver.get_state("connected") is not True
             assert "device.connected.disp1" not in driver.events.emitted
+        finally:
+            await server.stop()
+
+    asyncio.run(go())
+
+
+@pytest.mark.parametrize("lan_protocol", ["1", "2"])
+def test_password_changed_mid_session_is_typed_auth_failed_from_poll(lan_protocol):
+    """Every request opens a fresh session with a fresh hash of the
+    configured credential, so a refusal is certain: poll() raises the typed
+    fault on the first refused request, which the platform drops on at
+    once, instead of an untyped one it counts for three polls."""
+    async def go():
+        driver, sim, server = await _make_pair(
+            sim_config={"lan_protocol": lan_protocol, "password": "secret"},
+            driver_overrides={"password": "secret"},
+        )
+        await driver.connect()
+        try:
+            before = len(server.received)
+            sim.inject_error("auth_fail")
+            with pytest.raises(ConnectionError) as exc:
+                await driver.poll()
+            assert exc.value.fault_code == "auth_failed"
+            assert f"({_REFUSAL[lan_protocol]})" in str(exc.value)
+            # One request carried the hash and was refused; nothing after it.
+            assert len(server.received) - before == 1, server.received[before:]
+        finally:
+            await driver.disconnect()
+            await server.stop()
+
+    asyncio.run(go())
+
+
+@pytest.mark.parametrize("lan_protocol", ["1", "2"])
+def test_blank_password_on_a_protected_display_sends_nothing(lan_protocol):
+    """Protected mode means a password is set; clearing it puts the display
+    in non-protected mode. A blank one cannot pass, so nothing is sent."""
+    async def go():
+        driver, sim, server = await _make_pair(
+            sim_config={"lan_protocol": lan_protocol, "password": "secret"},
+            driver_overrides={"password": ""},
+        )
+        try:
+            with pytest.raises(ConnectionError) as exc:
+                await driver.connect()
+            assert exc.value.fault_code == "auth_failed"
+            assert server.received == []
         finally:
             await server.stop()
 
@@ -678,6 +748,22 @@ def test_setup_wizard_wrong_password_raises():
             with pytest.raises(ConnectionError) as exc:
                 await _run_wizard(driver, "admin1", "wrong")
             assert "reject" in str(exc.value).lower()
+        finally:
+            await server.stop()
+
+    asyncio.run(go())
+
+
+def test_setup_wizard_blank_password_on_a_protected_display_sends_nothing():
+    async def go():
+        driver, sim, server = await _make_pair(
+            sim_config={"password": "secret"},
+        )
+        try:
+            with pytest.raises(ConnectionError) as exc:
+                await _run_wizard(driver, "admin1", "")
+            assert "password set" in str(exc.value)
+            assert server.received == []
         finally:
             await server.stop()
 

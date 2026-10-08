@@ -5618,7 +5618,7 @@
       "name": "Panasonic Professional Display",
       "manufacturer": "Panasonic",
       "category": "display",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Panasonic TH-series professional displays (SQ / EQ / CQ / VF / SF / BQ lines) over the LAN command channel. Power, input, volume, audio / video mute, aspect, and the picture adjustment surface. Speaks both of Panasonic's LAN control protocols (auto-detected) and supports the MD5 challenge authentication, so the display works whichever way its service menu is set.",
@@ -5626,7 +5626,7 @@
       "file": "displays/panasonic_display.py",
       "format": "python",
       "files": {
-        "displays/panasonic_display.py": "cd6d6b9b92d981f9b2e15a026a3c519d66b8c0b5eb1fd37a577756e2fe9efbc4",
+        "displays/panasonic_display.py": "87d6e5d757420c71a98df0832277823f18622c79c1d18a9045fa549d14a85338",
         "displays/panasonic_display_sim.py": "34a023a6571d7dd1b8faa2904c1a95b33c0ae32b4bbfea8403e992127007d184"
       },
       "ports": [

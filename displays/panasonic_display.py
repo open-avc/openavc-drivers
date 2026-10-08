@@ -93,7 +93,7 @@ import hashlib
 import re
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -175,7 +175,28 @@ _REPLY_TIMEOUT = 5.0
 
 
 class _AuthRejected(Exception):
-    """The display rejected the session hash (ERRA)."""
+    """The display refused the credential: it answered the session hash
+    with its password-mismatch reply (``reply``: ``PDPCONTROL ERRA`` on
+    Protocol 1, ``ERRA`` on Protocol 2), or it is in protected mode and no
+    password is configured (``reply`` empty, nothing was sent)."""
+
+    def __init__(self, reply: str = "") -> None:
+        super().__init__(reply)
+        self.reply = reply
+
+    def message(self) -> str:
+        """The sentence the device card shows."""
+        if not self.reply:
+            return (
+                "The display has a Web Control admin password set and none "
+                "is entered. Enter the display's admin username and "
+                "password in this device's settings."
+            )
+        return (
+            f"The display refused the Web Control admin username and "
+            f"password ({self.reply}). Enter the display's admin username "
+            "and password in this device's settings."
+        )
 
 
 class _Session:
@@ -231,7 +252,7 @@ class PanasonicDisplayDriver(BaseDriver):
         "name": "Panasonic Professional Display",
         "manufacturer": "Panasonic",
         "category": "display",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -738,16 +759,15 @@ class PanasonicDisplayDriver(BaseDriver):
         # answers ERRA to the first command on a bad hash.
         try:
             results = await self._run_requests([("QPW", "power")])
-        except _AuthRejected:
-            raise ConnectionError(
-                f"[{self.device_id}] Authentication failed — check "
-                "the Web Control admin username and password"
-            ) from None
+        except _AuthRejected as exc:
+            raise ConnectionFaultError(exc.message(), code="auth_failed") from None
         self._apply_results(results)
 
     async def _initial_sync(self) -> None:
         try:
             await self.poll()
+        except ConnectionFaultError:
+            raise  # the credential was refused: fail the connect
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
 
@@ -817,6 +837,12 @@ class PanasonicDisplayDriver(BaseDriver):
             "lan_protocol", "protocol1" if protocol == 1 else "protocol2"
         )
         self.set_state("auth_required", protected)
+        if protected and not password:
+            # Protected mode means a password is set; clearing it puts the
+            # display in non-protected mode (LAN Control Protocol, section
+            # 5). A blank one cannot pass, so nothing is sent.
+            writer.close()
+            raise _AuthRejected()
         return _Session(reader, writer, protocol, protected, prefix)
 
     async def _run_requests(
@@ -872,7 +898,7 @@ class PanasonicDisplayDriver(BaseDriver):
         error tokens. Returns the content, or None when the response
         was a benign error (logged)."""
         if line == "PDPCONTROL ERRA":
-            raise _AuthRejected()
+            raise _AuthRejected(line)
 
         content = line
         if content.startswith(_STX):
@@ -883,7 +909,7 @@ class PanasonicDisplayDriver(BaseDriver):
         if content in _ERROR_TOKENS or line in _ERROR_TOKENS:
             token = content if content in _ERROR_TOKENS else line
             if token == "ERRA":
-                raise _AuthRejected()
+                raise _AuthRejected(token)
             if token == "ER401":
                 log.warning(
                     f"[{self.device_id}] Display reported a "
@@ -994,16 +1020,15 @@ class PanasonicDisplayDriver(BaseDriver):
         self._apply_results(results)
 
     async def _auth_guarded(self, coro):
-        """Convert a mid-session ERRA (password changed on the
-        display) into an auth-worded ConnectionError so the poll
-        watchdog surfaces the right offline reason."""
+        """Turn the display's password-mismatch reply (the password was
+        changed on the display, say) into the typed auth_failed. Every
+        request opens a fresh session with a fresh hash of the configured
+        credential, so the refusal is certain, and a typed fault from
+        poll() drops the connection on the first one."""
         try:
             return await coro
-        except _AuthRejected:
-            raise ConnectionError(
-                f"[{self.device_id}] Authentication failed — check "
-                "the Web Control admin username and password"
-            ) from None
+        except _AuthRejected as exc:
+            raise ConnectionFaultError(exc.message(), code="auth_failed") from None
 
     # ── Commands ──
 
@@ -1128,9 +1153,17 @@ class PanasonicDisplayDriver(BaseDriver):
             raise ValueError("No IP address configured")
 
         await progress(f"Connecting to {host}:{port}…", 20)
-        session = await self._open_session(
-            username=username, password=password
-        )
+        try:
+            session = await self._open_session(
+                username=username, password=password
+            )
+        except _AuthRejected:
+            # Only a blank password in protected mode is refused before a
+            # session exists.
+            raise ConnectionError(
+                "The display has a Web Control admin password set. Enter "
+                "it to test the credentials."
+            ) from None
         protocol = session.protocol
         protected = session.protected
 

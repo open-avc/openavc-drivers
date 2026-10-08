@@ -5,6 +5,11 @@ shape assertions, and a dual-proof round trip wiring the real driver to the real
 simulator over an in-memory TCP transport that mimics NTCONTROL's server-first
 greeting (same approach as test_sony_vpl.py).
 
+Covers a refused credential: a wrong or blank one fails the connect as a
+typed auth_failed, a refusal (ERRA) once connected drops the connection at
+once and nothing more is sent, and a greeting that is not NTCONTROL's is a
+protocol mismatch (no_response), not a refused credential.
+
 Covers the v1.4.0 additions:
   - device settings: input plus the full picture surface — brightness /
     contrast / color / tint / sharpness — write + read back through the
@@ -33,6 +38,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError as _FakeConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -246,12 +252,24 @@ class _FakeTCPSimulator:
         self.config = config or {}
         self.state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
         self._clients: dict = {}
+        self._active_errors: set = set()
 
     def set_state(self, key, value) -> None:
         self.state[key] = value
 
     def get_state(self, key, default=None):
         return self.state.get(key, default)
+
+    @property
+    def active_errors(self) -> set:
+        return set(self._active_errors)
+
+    def inject_error(self, mode) -> None:
+        # As the platform's: mark the mode active and apply its set_state.
+        self._active_errors.add(mode)
+        modes = self.SIMULATOR_INFO.get("error_modes", {})
+        for key, value in modes[mode].get("set_state", {}).items():
+            self.set_state(key, value)
 
 
 def _load(name: str, path: Path) -> ModuleType:
@@ -264,6 +282,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = _FakeConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     tcp = ModuleType("openavc.transport.tcp")
     tcp.TCPTransport = _FakeTCPTransport
@@ -308,7 +327,7 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.2"
+    assert DRV.PanasonicPTDriver.DRIVER_INFO["version"] == "1.4.3"
     assert DRV.PanasonicPTDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -372,6 +391,167 @@ def test_connect_populates_state():
         finally:
             await driver.disconnect()
         assert "device.disconnected.proj1" in driver.events.emitted
+
+    asyncio.run(go())
+
+
+# ── A refused credential ────────────────────────────────────────────────────
+#
+# Protocol 2 protected mode answers a hash it does not accept with the bare
+# token ERRA, "Mismatching state of a password" (LAN Control Protocol, Table
+# 3-4). The hash goes with every command, so ERRA is a refused credential.
+
+def _record_sent(sim):
+    """Every line the simulator receives, and whether it carried a session
+    hash and was refused."""
+    sent: list[tuple[str, bool]] = []
+    inner = sim.handle_command
+
+    def recording(data):
+        resp = inner(data)
+        line = bytes(data).decode("ascii", "replace").strip()
+        hashed = len(line) > 32 and all(
+            c in "0123456789abcdef" for c in line[:32])
+        sent.append((line[32:] if hashed else line,
+                     hashed and resp is not None and resp.strip() == b"ERRA"))
+        return resp
+
+    sim.handle_command = recording
+    return sent
+
+
+def test_refusal_mid_session_drops_at_once_as_auth_failed():
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="secret", power="on",
+            driver_overrides={"password": "secret"})
+        await driver.connect()
+        assert driver._connected is True
+        sent = _record_sent(sim)
+        sim.inject_error("auth_fail")
+
+        # With the projector on, a poll is ten queries; the power answer is
+        # awaited first, and it is the refusal.
+        await driver.poll()
+        await driver.poll()
+        await asyncio.sleep(0)
+
+        assert getattr(driver, "stashed_fault", None) is not None, (
+            "a refused hash left the connection up")
+        code, message = driver.stashed_fault
+        assert code == "auth_failed"
+        assert "ERRA" in message
+        assert sent == [("00QPW", True)], sent
+        assert driver._connected is False
+        assert driver.transport is None
+        assert "device.disconnected.proj1" in driver.events.emitted
+
+    asyncio.run(go())
+
+
+def test_command_refused_mid_session_drops_and_sends_no_follow_up():
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="secret", driver_overrides={"password": "secret"})
+        await driver.connect()
+        sent = _record_sent(sim)
+        sim.inject_error("auth_fail")
+
+        # power_on is PON then a QPW read-back; only PON goes out.
+        with pytest.raises(ConnectionError):
+            await driver.send_command("power_on")
+        await asyncio.sleep(0)
+
+        assert driver.stashed_fault[0] == "auth_failed"
+        assert sent == [("00PON", True)], sent
+
+    asyncio.run(go())
+
+
+def test_wrong_password_fails_the_connect_as_auth_failed():
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="secret", power="on",
+            driver_overrides={"password": "wrong"})
+        sent = _record_sent(sim)
+        with pytest.raises(ConnectionError) as exc:
+            await driver.connect()
+        assert exc.value.fault_code == "auth_failed"
+        assert "ERRA" in str(exc.value)
+        # One command judged the hash; the device never reported connected.
+        assert sent == [("00QPW", True)], sent
+        assert driver._connected is False
+        assert driver.transport is None
+        assert "device.connected.proj1" not in driver.events.emitted
+
+    asyncio.run(go())
+
+
+def test_blank_password_in_protected_mode_sends_nothing():
+    async def go():
+        # Protected mode means a password is set on the projector; clearing it
+        # puts the projector in non-protected mode. A blank one cannot pass.
+        driver, sim = await _make_pair(
+            sim_password="secret", driver_overrides={"password": ""})
+        sent = _record_sent(sim)
+        with pytest.raises(ConnectionError) as exc:
+            await driver.connect()
+        assert exc.value.fault_code == "auth_failed"
+        assert sent == []
+
+    asyncio.run(go())
+
+
+def test_refusal_during_initial_sync_fails_the_connect_once():
+    """A refusal that lands while connect() is still running its first sweep
+    is raised from that stage: the connect fails typed and is torn down once,
+    rather than dropped underneath a connect that then carries on."""
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="secret", power="on",
+            driver_overrides={"password": "secret"})
+        inner = sim.handle_command
+        seen_qpw = []
+
+        def change_on_second_qpw(data):
+            if bytes(data).endswith(b"00QPW\r"):
+                seen_qpw.append(1)
+                if len(seen_qpw) == 2:
+                    sim.inject_error("auth_fail")
+            return inner(data)
+
+        sim.handle_command = change_on_second_qpw
+        sent = _record_sent(sim)
+        with pytest.raises(ConnectionError) as exc:
+            await driver.connect()
+        await asyncio.sleep(0)
+
+        assert exc.value.fault_code == "auth_failed"
+        assert [refused for _, refused in sent].count(True) == 1, sent
+        assert getattr(driver, "stashed_fault", None) is None
+        assert driver.events.emitted.count("device.disconnected.proj1") == 1
+
+    asyncio.run(go())
+
+
+def test_a_greeting_that_is_not_ntcontrol_is_not_auth_failed():
+    """Something else answering on the port (here a Panasonic display left on
+    Protocol 1) is a protocol mismatch: no_response, which keeps reconnecting,
+    never auth_failed, which would pause it."""
+    async def go():
+        driver, sim = await _make_pair(
+            sim_password="", driver_overrides={"password": "secret"})
+
+        async def display_greeting(client_id):
+            return b"PDPCONTROL 0\r"
+
+        sim.on_client_connected = display_greeting
+        sent = _record_sent(sim)
+        with pytest.raises(ConnectionError) as exc:
+            await driver.connect()
+        assert exc.value.fault_code == "no_response"
+        assert "PDPCONTROL 0" in str(exc.value)
+        assert sent == []
 
     asyncio.run(go())
 

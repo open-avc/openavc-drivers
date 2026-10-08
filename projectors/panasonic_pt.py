@@ -70,10 +70,28 @@ import hashlib
 import re
 from typing import Any
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+# What the device card says when the projector refuses the credential. The
+# refusal is the bare token ERRA, "Mismatching state of a password" (LAN
+# Control Protocol, Protocol 2 protected mode, Table 3-4).
+_REFUSED_MESSAGE = (
+    "The projector refused the Web Control admin username and password "
+    "(ERRA). Enter the projector's admin username and password in this "
+    "device's settings."
+)
+_NO_PASSWORD_MESSAGE = (
+    "The projector has a Web Control admin password set and none is entered. "
+    "Enter the projector's admin username and password in this device's "
+    "settings."
+)
+
+# How long a poll waits for the power query's answer before the rest of its
+# queries: the answer is also the verdict on this connection's credential.
+_VERDICT_TIMEOUT_S = 2.0
 
 
 # Universal Panasonic input codes. The projector's `IIS:<code>` setter
@@ -122,7 +140,7 @@ class PanasonicPTDriver(BaseDriver):
         "name": "Panasonic PT-MZ / PT-RZ Projector",
         "manufacturer": "Panasonic",
         "category": "projector",
-        "version": "1.4.2",
+        "version": "1.4.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -538,6 +556,14 @@ class PanasonicPTDriver(BaseDriver):
         self._auth_prefix = ""
         self._auth_done = asyncio.Event()
         self._auth_failed = False
+        # Set by the first reply after the greeting: the projector has judged
+        # the session hash (accepted unless that reply is ERRA).
+        self._auth_verdict = asyncio.Event()
+        # The greeting line when it was not NTCONTROL's.
+        self._greeting_error = ""
+        # True once connect() has finished its initial sync; until then a
+        # refusal is raised from the connect stage that met it.
+        self._session_up = False
         self._pending_queries: list[str] = []
         super().__init__(device_id, config, state, events)
 
@@ -548,8 +574,11 @@ class PanasonicPTDriver(BaseDriver):
         # projector speaks first (NTCONTROL greeting with a challenge token)
         # and _handle_greeting resolves _auth_done from on_data.
         self._auth_done.clear()
+        self._auth_verdict.clear()
         self._auth_prefix = ""
         self._auth_failed = False
+        self._greeting_error = ""
+        self._session_up = False
         self._pending_queries.clear()
 
     async def _post_connect(self) -> None:
@@ -565,11 +594,40 @@ class PanasonicPTDriver(BaseDriver):
                 f"from {host}:{port} within 8s"
             )
 
-        if self._auth_failed:
-            raise ConnectionError(
-                f"[{self.device_id}] NTCONTROL authentication failed "
-                "— check the Web Control admin username and password"
+        if self._greeting_error:
+            # Something answered on the port, but not with NTCONTROL's
+            # greeting (LAN Control Protocol 4.1): a protocol mismatch, not a
+            # refused credential, so reconnecting carries on.
+            raise ConnectionFaultError(
+                f"{host}:{port} answered {self._greeting_error!r}, not a "
+                "Panasonic projector's NTCONTROL greeting. Check the IP "
+                "address and the command port.",
+                code="no_response",
             )
+
+        if not self._auth_prefix:
+            return  # Non-protected mode: no credential to check.
+
+        if not str(self.config.get("password", "") or ""):
+            # Protected mode means a password is set (clearing it puts the
+            # projector in non-protected mode), so a blank one cannot pass.
+            raise ConnectionFaultError(_NO_PASSWORD_MESSAGE, code="auth_failed")
+
+        # The projector judges the session hash on the first command, so ask
+        # for power and wait for the verdict: a wrong credential fails the
+        # connect instead of connecting and being refused on every poll.
+        try:
+            await self._send_query("QPW", "power")
+            await asyncio.wait_for(self._auth_verdict.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            log.warning(
+                f"[{self.device_id}] No answer to the first command within "
+                "5s; proceeding"
+            )
+        except ConnectionError:
+            pass
+        if self._auth_failed:
+            raise ConnectionFaultError(_REFUSED_MESSAGE, code="auth_failed")
 
     async def _initial_sync(self) -> None:
         # Initial status sweep so the UI populates immediately.
@@ -577,14 +635,22 @@ class PanasonicPTDriver(BaseDriver):
             await self.poll()
         except (ConnectionError, OSError):
             log.warning(f"[{self.device_id}] Initial poll failed")
+        if self._auth_failed:
+            # Refused while connect() was still running: fail the connect
+            # here, so the platform's own teardown runs once.
+            raise ConnectionFaultError(_REFUSED_MESSAGE, code="auth_failed")
+        self._session_up = True
 
     async def _close_session(self) -> None:
         # Runs on every teardown path: disarm the greeting/auth state so a
         # reconnect waits for a fresh challenge instead of reusing a stale
         # digest.
         self._auth_done.clear()
+        self._auth_verdict.clear()
         self._auth_prefix = ""
         self._auth_failed = False
+        self._greeting_error = ""
+        self._session_up = False
         self._pending_queries.clear()
 
     # ── Sending ──
@@ -594,6 +660,10 @@ class PanasonicPTDriver(BaseDriver):
         any), the literal ``00`` framing pair, and the trailing CR are
         added automatically.
         """
+        if self._auth_failed:
+            # The projector refused this session's hash; send nothing more
+            # with it.
+            raise ConnectionFaultError(_REFUSED_MESSAGE, code="auth_failed")
         if not self.transport or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
         line = f"{self._auth_prefix}00{body}\r".encode("ascii")
@@ -693,7 +763,18 @@ class PanasonicPTDriver(BaseDriver):
         if not self.transport or not self.transport.connected:
             return
         try:
+            # Wait for the power answer before the rest: it is also the
+            # projector's verdict on the session hash, so a refused
+            # credential costs one command, not the whole burst. A slow
+            # answer only delays the rest, as before.
+            self._auth_verdict.clear()
             await self._send_query("QPW", "power")
+            try:
+                await asyncio.wait_for(
+                    self._auth_verdict.wait(), timeout=_VERDICT_TIMEOUT_S
+                )
+            except asyncio.TimeoutError:
+                pass
             # Other queries only return meaningful values when the lamp
             # is on (the projector returns ``ERR3`` otherwise, which
             # we log at debug).
@@ -709,9 +790,13 @@ class PanasonicPTDriver(BaseDriver):
                 await self._send_query("QVT", "tint")
                 await self._send_query("QVS", "sharpness")
             await self._send_query("Q$S", "operating_hours")
+        except ConnectionFaultError:
+            # The projector refused the credential; _on_refused has already
+            # dropped the connection, typed (or _initial_sync raises it).
+            return
         except ConnectionError:
             log.warning(
-                f"[{self.device_id}] Poll failed — not connected"
+                f"[{self.device_id}] Poll failed: not connected"
             )
 
     # ── Receiving ──
@@ -726,6 +811,11 @@ class PanasonicPTDriver(BaseDriver):
         if not self._auth_done.is_set():
             self._handle_greeting(line)
             return
+
+        # Any reply after the greeting is the projector's verdict on the
+        # session hash: accepted, unless it is ERRA (_on_refused, below,
+        # before the waiter resumes).
+        self._auth_verdict.set()
 
         # Bare error tokens (ERRA, ERR2, ER401, …) — no ``00`` prefix.
         if line in self._ERROR_TOKENS:
@@ -743,7 +833,7 @@ class PanasonicPTDriver(BaseDriver):
             log.warning(
                 f"[{self.device_id}] Unrecognized greeting: {line!r}"
             )
-            self._auth_failed = True
+            self._greeting_error = line
             self._auth_done.set()
             return
 
@@ -790,11 +880,7 @@ class PanasonicPTDriver(BaseDriver):
             else None
         )
         if token == "ERRA":
-            log.error(
-                f"[{self.device_id}] NTCONTROL auth rejected — check "
-                "the Web Control admin username and password"
-            )
-            self._auth_failed = True
+            self._on_refused()
             return
         if token == "ER401":
             log.error(
@@ -811,6 +897,33 @@ class PanasonicPTDriver(BaseDriver):
             f"[{self.device_id}] NTCONTROL {token} on "
             f"{pending or 'last command'}"
         )
+
+    def _on_refused(self) -> None:
+        """The projector answered ERRA: the session hash, and so the
+        configured username and password, was refused.
+
+        While connecting, _post_connect (waiting on the verdict) or
+        _initial_sync raises the typed fault itself. Once connected the
+        refusal arrives here, after the send that drew it returned, whether
+        that was a poll or a command, so this is where the connection drops,
+        typed auth_failed. Every later send on this session is refused
+        locally.
+        """
+        first = not self._auth_failed
+        self._auth_failed = True
+        if not first:
+            return
+        if self._session_up and self._connected:
+            log.warning(
+                f"[{self.device_id}] Projector refused the admin username "
+                "and password (ERRA); dropping the connection"
+            )
+            self._force_disconnect("auth_failed", _REFUSED_MESSAGE)
+        else:
+            log.error(
+                f"[{self.device_id}] Projector refused the admin username "
+                "and password (ERRA)"
+            )
 
     def _dispatch_response(self, body: str) -> None:
         pending = (

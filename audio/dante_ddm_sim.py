@@ -108,6 +108,9 @@ class DanteDdmSimulator(HTTPSimulator):
             "auth_failure": {
                 "description": "API key rejected (401 Unauthorized)",
             },
+            "forbidden": {
+                "description": "Requests refused with 403 Forbidden",
+            },
         },
         "controls": [
             {
@@ -143,6 +146,8 @@ class DanteDdmSimulator(HTTPSimulator):
         # Auth failure error mode returns 401 for all requests
         if "auth_failure" in self.active_errors:
             return 401, {"error": "Unauthorized"}
+        if "forbidden" in self.active_errors:
+            return 403, {"error": "Forbidden"}
 
         if path != "/graphql" or method != "POST":
             return 404, {"error": "Not Found"}

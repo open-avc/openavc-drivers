@@ -33,10 +33,35 @@ from typing import Any
 
 import httpx
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+# The server answers 401 when it does not accept the API key. A 403 is not
+# taken for a refused key: the Managed API gives a key its user's permissions,
+# so a 403 is read as a key that works but may not do what was asked. In the
+# poll that stays in last_error with the device connected; at connect, where
+# the domain query is the whole point, it is auth_failed with its own remedy.
+_KEY_REFUSED_MESSAGE = (
+    "The server refused the API key. Check it, or create a new one in Dante "
+    "Domain Manager (Settings > Personalization & API Keys) or Dante Director "
+    "(Settings > API Keys)."
+)
+
+_KEY_MAY_NOT_READ_DOMAINS_MESSAGE = (
+    "The server accepted the API key, but its user may not read the domains. "
+    "Give that user access in Dante Domain Manager or Dante Director, then "
+    "press Reconnect."
+)
+
+
+class _KeyLacksPermission(ConnectionError):
+    """A 403: the key was accepted, but its user may not do what was asked.
+
+    A plain ConnectionError everywhere but connect, which turns it into the
+    typed fault, so the poll's tolerance for it is unchanged."""
+
 
 # --- GraphQL queries and mutations ---
 
@@ -105,7 +130,7 @@ class DanteDDMDriver(BaseDriver):
         "name": "Dante DDM / Director",
         "manufacturer": "Audinate",
         "category": "audio",
-        "version": "1.7.2",
+        "version": "1.7.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -425,6 +450,11 @@ class DanteDDMDriver(BaseDriver):
                 f"[{self.device_id}] Connected to DDM/Director at {host}, "
                 f"domain: {self._domain_name}"
             )
+        except _KeyLacksPermission as exc:
+            # Retrying cannot help: the user has to give the key's user access.
+            raise ConnectionFaultError(
+                _KEY_MAY_NOT_READ_DOMAINS_MESSAGE, code="auth_failed"
+            ) from exc
         except ConnectionError:
             raise
         except Exception as e:
@@ -535,13 +565,15 @@ class DanteDDMDriver(BaseDriver):
             resp = await self._client.post("/graphql", json=payload)
 
             if resp.status_code == 401:
-                # Worded for the shared connection-fault classifier -> auth_failed.
-                self.set_state("last_error", "Authentication failed — check API key")
-                raise ConnectionError("Authentication failed — check the API key")
+                # The key goes with every request, so a 401 is the key
+                # refused: the typed fault, which poll() lets out so the
+                # connection drops at the first refusal.
+                self.set_state("last_error", _KEY_REFUSED_MESSAGE)
+                raise ConnectionFaultError(_KEY_REFUSED_MESSAGE, code="auth_failed")
 
             if resp.status_code == 403:
                 self.set_state("last_error", "Access denied — check API key permissions")
-                raise ConnectionError("Access denied — the API key lacks permission")
+                raise _KeyLacksPermission("Access denied — the API key lacks permission")
 
             resp.raise_for_status()
             result = resp.json()
@@ -605,6 +637,9 @@ class DanteDDMDriver(BaseDriver):
 
         except (httpx.TimeoutException, httpx.ConnectError):
             # Let transport errors propagate so poll()/connect() can react.
+            raise
+        except ConnectionFaultError:
+            # A refused API key: sending it again every poll changes nothing.
             raise
         except Exception:
             log.exception(f"[{self.device_id}] Refresh error")

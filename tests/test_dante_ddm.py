@@ -11,8 +11,9 @@ Covers the v1.7.0 first-class adoption:
   - param pickers: rx_device / tx_device are device pickers, rx_channel
     cascades off the picked device's schema, tx_channel offers the published
     Tx-channel-name list;
-  - connection fault: a rejected API key surfaces as an auth-worded
-    ConnectionError the shared classifier tags auth_failed.
+  - connection fault: a rejected API key (HTTP 401) is the typed auth_failed
+    fault, on connect and out of the poll at the first refusal; a 403 is not
+    taken for a refused key and leaves the device connected.
 
 Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
@@ -33,6 +34,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -230,6 +232,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
@@ -312,7 +315,7 @@ async def _close(driver):
 
 def test_version_and_min_platform():
     info = DRV.DanteDDMDriver.DRIVER_INFO
-    assert info["version"] == "1.7.2"
+    assert info["version"] == "1.7.3"
     assert info["min_platform_version"] == "0.25.0"
 
 
@@ -514,16 +517,15 @@ def test_device_name_resolution():
 
 # ── Connection fault: rejected API key ───────────────────────────────────────
 
-def test_graphql_401_raises_auth_worded_error():
+def test_graphql_401_raises_auth_failed():
     async def go():
         link = _Link(SIM.DanteDdmSimulator("sim1", {}))
         link.sim.active_errors.add("auth_failure")  # sim returns 401
         driver = _make_driver(link)
         try:
-            with pytest.raises(ConnectionError) as ei:
+            with pytest.raises(ConnectionFaultError) as ei:
                 await driver._graphql("query { domains { id } }")
-            # Wording the shared connection-fault classifier maps to auth_failed.
-            assert "authentication failed" in str(ei.value).lower()
+            assert ei.value.fault_code == "auth_failed"
         finally:
             await _close(driver)
 
@@ -536,9 +538,84 @@ def test_connect_surfaces_auth_failure(monkeypatch):
         link.sim.active_errors.add("auth_failure")
         monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
         driver = DRV.DanteDDMDriver("dante1", dict(_CFG), _FakeState(), _FakeEvents())
-        with pytest.raises(ConnectionError) as ei:
+        with pytest.raises(ConnectionFaultError) as ei:
             await driver.connect()
-        assert "authentication failed" in str(ei.value).lower()
+        assert ei.value.fault_code == "auth_failed"
+
+    asyncio.run(go())
+
+
+def test_a_403_at_connect_is_auth_failed_with_its_own_sentence(monkeypatch):
+    # At connect the domain query is the whole point: a key whose user may
+    # not read the domains cannot run the driver, and retrying cannot help.
+    # The typed fault carries the remedy, not the generic password sentence.
+    async def go():
+        link = _Link(SIM.DanteDdmSimulator("sim1", {}))
+        link.sim.active_errors.add("forbidden")
+        monkeypatch.setattr(DRV.httpx, "AsyncClient", _client_factory(link))
+        driver = DRV.DanteDDMDriver("dante1", dict(_CFG), _FakeState(), _FakeEvents())
+        with pytest.raises(ConnectionFaultError) as ei:
+            await driver.connect()
+        assert ei.value.fault_code == "auth_failed"
+        assert "may not read the domains" in str(ei.value)
+        assert "Reconnect" in str(ei.value)
+
+    asyncio.run(go())
+
+
+def _counting(sim):
+    """Wrap the simulator's handler; return the list of refused statuses."""
+    refused: list[int] = []
+    inner = sim.handle_request
+
+    def counting(method, path, headers, body):
+        status, resp = inner(method, path, headers, body)
+        if status in (401, 403):
+            refused.append(status)
+        return status, resp
+
+    sim.handle_request = counting
+    return refused
+
+
+def test_a_key_refused_mid_session_leaves_the_poll_as_auth_failed():
+    # The key is revoked on the server while connected. The poll's one
+    # GraphQL request is refused with 401, and the typed fault leaves poll()
+    # so the platform drops the connection at the first refusal instead of
+    # sending the refused key again every poll.
+    async def go():
+        link = _Link(SIM.DanteDdmSimulator("sim1", {}))
+        driver = _make_driver(link)
+        try:
+            await driver.poll()
+            assert driver.get_state("device_count") == 3
+            refused = _counting(link.sim)
+            link.sim.active_errors.add("auth_failure")
+            with pytest.raises(ConnectionFaultError) as ei:
+                await driver.poll()
+            assert ei.value.fault_code == "auth_failed"
+            assert refused == [401]
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def test_a_403_is_not_taken_for_a_refused_key():
+    # The Managed API user guide gives a key its user's permissions and names
+    # no status for a refused key, so a 403 is not auth_failed: the poll keeps
+    # its tolerance, reports it in last_error, and the device stays connected.
+    async def go():
+        link = _Link(SIM.DanteDdmSimulator("sim1", {}))
+        driver = _make_driver(link)
+        try:
+            refused = _counting(link.sim)
+            link.sim.active_errors.add("forbidden")
+            await driver.poll()
+            assert refused == [403]
+            assert "permission" in str(driver.get_state("last_error"))
+        finally:
+            await _close(driver)
 
     asyncio.run(go())
 

@@ -88,6 +88,13 @@ class AverPtzSimulator(HTTPSimulator):
                 "description": "Camera stops responding to HTTP requests",
                 "behavior": "no_response",
             },
+            "wrong_password": {
+                "description": (
+                    "Password changed on the camera (every request carrying "
+                    "Basic credentials refused, HTTP 401)"
+                ),
+                "behavior": "custom",
+            },
         },
         "controls": [
             {"type": "indicator", "key": "model_name", "label": "Model"},
@@ -154,6 +161,14 @@ class AverPtzSimulator(HTTPSimulator):
         parsed = urlparse(path)
         if parsed.path != "/storks":
             return 404, "not found"
+
+        # wrong_password: the password was changed on the camera, so the
+        # Basic credentials a client sends are refused.
+        if "wrong_password" in self.active_errors and any(
+            k.lower() == "authorization" and str(v).lower().startswith("basic ")
+            for k, v in headers.items()
+        ):
+            return 401, "unauthorized"
 
         # Driver always sends "?cmd=<cmd>" as the only query key.
         cmd = (parse_qs(parsed.query).get("cmd") or [""])[0]

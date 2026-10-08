@@ -11,9 +11,9 @@ so the tests drive the HTTP image surface directly instead of through connect().
 Covers the v1.3.0 first-class adoption:
   - device settings: the 19-entry image / exposure / WB / picture / AI surface
     writes + reads back through the get_sys_stat poll;
-  - connection-fault: a 401 on the auth-required reboot / factory-reset CGI now
-    raises an auth-worded ConnectionError (classifier -> auth_failed) instead of
-    a silent no-op.
+  - connection-fault: a 401 (the camera refusing, or asking for, the Basic
+    credentials) is the typed auth_failed fault, from a command, from connect
+    and out of the poll at the first refusal; a 403 keeps its untyped error.
 
 Loads the driver + simulator with the ``openavc.*`` imports
 stubbed so the community CI stays self-contained (conftest.py rolls the stubs
@@ -34,6 +34,7 @@ import pytest
 
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
+    ConnectionFaultError,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
 )
@@ -77,6 +78,11 @@ class _FakeHTTPSimulator:
         self.device_id = device_id
         self.config = config or {}
         self._state = dict(self.SIMULATOR_INFO.get("initial_state", {}))
+        self.active_errors: set[str] = set()
+
+    def inject_error(self, mode) -> None:
+        assert mode in self.SIMULATOR_INFO.get("error_modes", {}), mode
+        self.active_errors.add(mode)
 
     def get_state(self, key, default=None):
         return self._state.get(key, default)
@@ -95,6 +101,7 @@ def _load(name: str, path: Path) -> ModuleType:
         sys.modules[f"openavc.{sub}"] = m
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
+    base.ConnectionFaultError = ConnectionFaultError
     sys.modules["openavc.drivers.base"] = base
     logger = ModuleType("openavc.utils.logger")
     logger.get_logger = lambda name="x": logging.getLogger(name)
@@ -120,12 +127,12 @@ SIM = _load("aver_ptz_sim_under_test", SIM_PATH)
 
 # ── Harness: wire the driver's httpx client to the sim CGI handler ──────────
 
-def _make_handler(sim, reject_paths=()):
+def _make_handler(sim, reject_paths=(), reject_status=401):
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         # Simulate the camera's HTTP 401 for auth-required commands.
         if any(p in url for p in reject_paths):
-            return httpx.Response(401, text="unauthorized")
+            return httpx.Response(reject_status, text="unauthorized")
         body = request.content.decode() if request.content else ""
         status, resp_body = sim.handle_request(
             request.method, url, dict(request.headers), body
@@ -137,17 +144,22 @@ def _make_handler(sim, reject_paths=()):
     return handler
 
 
-def _make_driver(sim, reject_paths=()):
+def _make_driver(sim, reject_paths=(), reject_status=401, username="",
+                 password=""):
     """Construct the driver and wire its httpx client to the sim, bypassing
     connect()'s VISCA-over-UDP setup (unchanged, out of scope)."""
     driver = DRV.AVerPTZDriver(
-        "cam1", {"host": "test", "port": 80, "poll_interval": 0},
+        "cam1",
+        {"host": "test", "port": 80, "poll_interval": 0,
+         "username": username, "password": password},
         _FakeState(), _FakeEvents(),
     )
     driver._base_url = "http://test"
     driver._http = httpx.AsyncClient(
         base_url="http://test",
-        transport=httpx.MockTransport(_make_handler(sim, reject_paths)),
+        auth=(username, password) if username else None,
+        transport=httpx.MockTransport(
+            _make_handler(sim, reject_paths, reject_status)),
     )
     driver._inquiry_lock = asyncio.Lock()
     driver._connected = True
@@ -162,7 +174,7 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.4"
+    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.5"
     assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"
 
 
@@ -271,19 +283,20 @@ def test_unknown_device_setting_raises():
     asyncio.run(go())
 
 
-# ── Connection-fault: 401 on auth-required command → auth-worded error ───────
+# ── Connection-fault: a 401 is the typed auth_failed fault ──────────────────
 
 def test_reboot_401_raises_auth_error():
-    """Regression for the CF fix: a 401 on reboot (Basic auth required on the
-    S-SKUs) must raise an auth-worded ConnectionError, not silently no-op."""
+    """A 401 on reboot (Basic auth required on the S-SKUs) raises the typed
+    auth_failed fault, not a silent no-op."""
     async def go():
         sim = SIM.AverPtzSimulator("sim1", {})
         driver = _make_driver(sim, reject_paths=("sys_reboot",))
         try:
-            with pytest.raises(ConnectionError) as ei:
+            with pytest.raises(ConnectionFaultError) as ei:
                 await driver.send_command("reboot")
-            # The shared connection-fault classifier maps this to auth_failed.
-            assert "authentication failed" in str(ei.value).lower()
+            assert ei.value.fault_code == "auth_failed"
+            # No username was configured, so the camera asked for one.
+            assert "needs a username and password" in str(ei.value)
         finally:
             await _close(driver)
 
@@ -295,9 +308,78 @@ def test_factory_reset_401_raises_auth_error():
         sim = SIM.AverPtzSimulator("sim1", {})
         driver = _make_driver(sim, reject_paths=("set_factory_default",))
         try:
-            with pytest.raises(ConnectionError) as ei:
+            with pytest.raises(ConnectionFaultError) as ei:
                 await driver.send_command("factory_reset")
-            assert "authentication failed" in str(ei.value).lower()
+            assert ei.value.fault_code == "auth_failed"
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def test_a_password_changed_on_the_camera_ends_the_poll_at_the_first_refusal():
+    # Basic credentials go with every CGI request once a username is set. The
+    # password is changed on the camera while connected: the poll's
+    # get_sys_stat is refused, and the typed fault leaves poll() so the
+    # platform drops the connection there instead of after three polls.
+    async def go():
+        sim = SIM.AverPtzSimulator("sim1", {})
+        driver = _make_driver(sim, username="admin", password="secret")
+        try:
+            await driver.poll()
+            assert driver.get_state("model_name") == "PTZ330"
+
+            refused = []
+            inner = sim.handle_request
+
+            def counting(method, path, headers, body):
+                status, resp = inner(method, path, headers, body)
+                if status in (401, 403):
+                    refused.append(status)
+                return status, resp
+
+            sim.handle_request = counting
+            sim.inject_error("wrong_password")
+            with pytest.raises(ConnectionFaultError) as ei:
+                await driver.poll()
+            assert ei.value.fault_code == "auth_failed"
+            assert "refused the username and password" in str(ei.value)
+            assert refused == [401]
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def test_connect_with_a_refused_password_is_auth_failed():
+    # The connect probe (get_sys_stat) refused: the typed fault, not the
+    # untyped "HTTP CGI probe failed".
+    async def go():
+        sim = SIM.AverPtzSimulator("sim1", {})
+        sim.inject_error("wrong_password")
+        driver = _make_driver(sim, username="admin", password="secret")
+        try:
+            with pytest.raises(ConnectionFaultError) as ei:
+                await driver._post_connect()
+            assert ei.value.fault_code == "auth_failed"
+        finally:
+            await _close(driver)
+
+    asyncio.run(go())
+
+
+def test_a_403_keeps_its_untyped_error():
+    # The CGI document names Basic authentication, whose refusal is a 401;
+    # it says nothing about a 403, so a 403 is not taken for a refused
+    # password and keeps the untyped error it had.
+    async def go():
+        sim = SIM.AverPtzSimulator("sim1", {})
+        driver = _make_driver(sim, reject_paths=("get_sys_stat",),
+                              reject_status=403)
+        try:
+            with pytest.raises(ConnectionError) as ei:
+                await driver.poll()
+            assert not isinstance(ei.value, ConnectionFaultError)
         finally:
             await _close(driver)
 

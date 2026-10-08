@@ -33,10 +33,11 @@ Device settings + connection faults
 The image / exposure / WB / picture / AI surface is exposed as device
 settings (writable + read back via the bulk ``get_sys_stat`` poll, with an
 offline pending queue) on top of the transient set_* commands. The reboot /
-factory-reset CGI require HTTP Basic auth on the PTZ-S310/S330 SKUs; a 401
-there is now turned into an auth-worded ConnectionError so the shared
-connection-fault classifier reports ``auth_failed`` instead of the command
-silently doing nothing.
+factory-reset CGI require HTTP Basic auth on the PTZ-S310/S330 SKUs. A 401
+from any CGI is the typed ``auth_failed`` fault: a command reports it instead
+of silently doing nothing, and from the connect probe or the poll it drops the
+connection at the first refusal. VISCA over UDP carries no credential and is
+not affected.
 
 Why Python
 ----------
@@ -61,7 +62,7 @@ from urllib.parse import quote
 
 import httpx
 
-from openavc.drivers.base import BaseDriver
+from openavc.drivers.base import BaseDriver, ConnectionFaultError
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -169,7 +170,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.4",
+        "version": "1.3.5",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -1139,18 +1140,30 @@ class AVerPTZDriver(BaseDriver):
         return None
 
     def _raise_on_auth_reject(self, cmd: str, status_code: int) -> None:
-        """Turn an HTTP 401/403 into an auth-worded ConnectionError.
+        """Raise when the camera refused a CGI request's credentials.
 
-        Reboot / factory-reset on the PTZ-S310/S330 require HTTP Basic auth;
-        without (or with wrong) credentials the camera answers 401. The old
-        code swallowed that as a silent no-op. The "authentication failed"
-        wording is what the shared connection-fault classifier maps to
-        auth_failed, so the user gets an actionable message instead of a
-        command that quietly did nothing. (A rejected command does not flip
-        the device offline — the platform emits device.error and re-raises —
-        so a reachable camera is not wrongly marked down.)
+        The CGI document names HTTP Basic authentication (reboot and factory
+        reset on the PTZ-S310/S330), and a Basic refusal is a 401: the typed
+        auth_failed fault. Credentials go with every request once a username
+        is set, so from the connect probe or the poll it drops the connection
+        at the first refusal; from a command the platform emits device.error
+        and re-raises without dropping, so a reachable camera is not marked
+        down by one privileged command. A 403 is not described by the
+        document and keeps the untyped error it had.
         """
-        if status_code in (401, 403):
+        if status_code == 401:
+            if self.config.get("username"):
+                message = (
+                    "The camera refused the username and password. Check "
+                    "them in this device's settings."
+                )
+            else:
+                message = (
+                    "The camera needs a username and password. Enter them "
+                    "in this device's settings."
+                )
+            raise ConnectionFaultError(message, code="auth_failed")
+        if status_code == 403:
             raise ConnectionError(
                 f"AVer camera at {self._base_url} rejected '{cmd}': HTTP "
                 f"{status_code} - authentication failed. This command needs "
@@ -1162,8 +1175,11 @@ class AVerPTZDriver(BaseDriver):
         # Catch ConnectionError so connect() can use the False return to
         # decide whether to bail. poll() does not call this; it calls
         # _cgi directly, so transport errors propagate up to the watchdog.
+        # A refused credential is not "probe failed": it goes out typed.
         try:
             text = await self._cgi("get_sys_stat")
+        except ConnectionFaultError:
+            raise
         except ConnectionError:
             return False
         if text is None:

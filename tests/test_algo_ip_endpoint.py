@@ -17,10 +17,13 @@ Covers:
     state read back; strobe brightness on both scales; Stop Tone naming the
     tone on old firmware;
   - device settings written and read back, with the 3 dB step refused;
-  - faults: a refused password, a device clock outside the 30-second window
-    (named in the message), Basic and None, a method that does not match the
-    device, the RESTful API off, a password changed mid-session, a command
-    refused for old firmware, poll propagating transport errors.
+  - faults: a refused password; a device clock outside the 30-second window,
+    at connect or moving while connected, signed again once in the device's
+    clock; a wrong password with the clock off refused twice and reported as
+    the password; Basic never signed again; Basic and None, a method that
+    does not match the device, the RESTful API off, a password changed
+    mid-session, a command refused for old firmware, poll propagating
+    transport errors.
 
 Loads the driver and simulator with the ``openavc.*`` imports stubbed so the
 community CI stays self-contained (conftest.py rolls the stubs back).
@@ -129,6 +132,8 @@ class _Link:
         self.sim = sim
         self.reachable = True
         self.requests: list[tuple[str, str, dict, bytes]] = []
+        # The status the simulator answered each request with, in order.
+        self.statuses: list[int] = []
 
 
 def _make_handler(link: _Link):
@@ -140,6 +145,7 @@ def _make_handler(link: _Link):
         link.requests.append((request.method, path, headers, request.content))
         body = request.content.decode("utf-8") if request.content else ""
         status, resp_body, resp_headers = link.sim.handle_request(request.method, path, headers, body)
+        link.statuses.append(status)
         if isinstance(resp_body, dict):
             return httpx.Response(status, json=resp_body, headers=resp_headers)
         return httpx.Response(status, text=str(resp_body), headers=resp_headers)
@@ -690,20 +696,130 @@ async def test_a_wrong_password_is_auth_failed(mocked_client):
 
 
 @pytest.mark.asyncio
-async def test_a_device_clock_outside_the_window_is_named(mocked_client):
+async def test_a_device_clock_outside_the_window_still_connects(mocked_client):
+    """The device's clock is 95 s ahead (NTP off): the first request is
+    refused, its Date header gives the device's clock, and the request is
+    signed again in that clock and answered. Everything after is signed in
+    the device's clock."""
     driver, sim, link = _make({"clock_offset_s": 95})
-    mocked_client(link)
-    with pytest.raises(ConnectionFaultError) as excinfo:
-        await driver.connect()
-    assert excinfo.value.fault_code == "auth_failed"
-    message = str(excinfo.value)
+    await _connect(driver, link, mocked_client)
+    assert driver.get_state("connected") is True
+    assert link.statuses[:2] == [401, 200]
+    assert link.requests[0][1] == link.requests[1][1] == "/api/info/about"
+    assert link.statuses.count(401) == 1
     # The Date header has one-second resolution.
-    assert re.search(r"clock is 9[45] seconds ahead of this server's", message), message
-    assert "NTP" in message
-    # Within the window it works.
+    sent = email.utils.parsedate_to_datetime(link.requests[-1][2]["date"]).timestamp()
+    assert 92 <= sent - time.time() <= 96
+    # Within the window nothing is refused or sent twice.
     driver, sim, link = _make({"clock_offset_s": -20})
     await _connect(driver, link, mocked_client)
     assert driver.get_state("connected") is True
+    assert 401 not in link.statuses
+
+
+@pytest.mark.asyncio
+async def test_a_tighter_window_on_the_device_is_signed_again_too(mocked_client):
+    """The window is a setting on the device (api.auth.tsvar). Set to 5 s,
+    with the device's clock 10 s ahead, the first request is refused and
+    signed again in the device's clock."""
+    driver, sim, link = _make({"timestamp_tolerance_s": 5, "clock_offset_s": 10})
+    await _connect(driver, link, mocked_client)
+    assert driver.get_state("connected") is True
+    assert link.statuses[:2] == [401, 200]
+    assert link.statuses.count(401) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_wrong_password_with_the_clock_ten_seconds_out_is_refused_twice(mocked_client):
+    """Clocks 10 s apart inside the default window: the refusal is signed
+    again once (it could have been a tighter window), refused again, and
+    reported as the password. Never more than two."""
+    driver, sim, link = _make()
+    await _connect(driver, link, mocked_client)
+    start = len(link.statuses)
+    sim._clock_offset = 10
+    sim.inject_error("password_changed")
+    with pytest.raises(ConnectionFaultError) as excinfo:
+        await driver.poll()
+    assert excinfo.value.fault_code == "auth_failed"
+    assert link.statuses[start:] == [401, 401]
+    assert "refused the RESTful API credentials (HTTP 401)" in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_a_device_clock_that_moves_while_connected_signs_again(mocked_client):
+    """The device's clock jumps two minutes while connected. The next request
+    is refused once, signed again in the device's clock and answered: the
+    connection stays up, and nothing after it is refused."""
+    driver, sim, link = _make()
+    await _connect(driver, link, mocked_client)
+    start = len(link.statuses)
+    sim.inject_error("clock_wrong")
+    await driver.poll()
+    assert driver.forced == []
+    assert driver.get_state("connected") is True
+    assert link.statuses[start:].count(401) == 1
+    await driver.poll()
+    await driver.send_command("test_start")
+    assert sim.get_state("test_active") is True
+    assert link.statuses[start:].count(401) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_wrong_password_with_the_clock_off_is_signed_again_once(mocked_client):
+    """Password changed and the clock two minutes out: signed again in the
+    device's clock, refused again, and that refusal is the password."""
+    driver, sim, link = _make()
+    await _connect(driver, link, mocked_client)
+    start = len(link.statuses)
+    sim.inject_error("clock_wrong")
+    sim.inject_error("password_changed")
+    with pytest.raises(ConnectionFaultError) as excinfo:
+        await driver.poll()
+    assert excinfo.value.fault_code == "auth_failed"
+    assert link.statuses[start:] == [401, 401]
+    assert "refused the RESTful API credentials (HTTP 401)" in str(excinfo.value)
+    assert "clock" not in str(excinfo.value)
+    assert driver.forced == [("auth_failed", str(excinfo.value))]
+
+
+@pytest.mark.asyncio
+async def test_a_clock_still_out_after_signing_again_is_named(mocked_client):
+    """A device clock that keeps jumping (each request finds it two minutes
+    further on): signed again once, refused again with the clocks still
+    apart, and the message names the clock."""
+    driver, sim, link = _make()
+    await _connect(driver, link, mocked_client)
+    start = len(link.statuses)
+    answer = sim.handle_request
+
+    def stepping(method, path, headers, body):
+        sim._clock_offset += 120
+        return answer(method, path, headers, body)
+
+    sim.handle_request = stepping
+    with pytest.raises(ConnectionFaultError) as excinfo:
+        await driver.poll()
+    assert excinfo.value.fault_code == "auth_failed"
+    assert link.statuses[start:] == [401, 401]
+    message = str(excinfo.value)
+    assert re.search(r"clock is 2[34]\d seconds ahead of this server's", message), message
+    assert "NTP" in message
+
+
+@pytest.mark.asyncio
+async def test_a_basic_refusal_is_never_signed_again(mocked_client):
+    """Basic carries no timestamp, so a refusal there is the password, whatever
+    the clocks say."""
+    driver, sim, link = _make({"auth_method": "basic"}, {"auth_method": "basic"})
+    await _connect(driver, link, mocked_client)
+    start = len(link.statuses)
+    sim.inject_error("clock_wrong")
+    sim.inject_error("password_changed")
+    with pytest.raises(ConnectionFaultError) as excinfo:
+        await driver.poll()
+    assert excinfo.value.fault_code == "auth_failed"
+    assert link.statuses[start:] == [401]
 
 
 @pytest.mark.asyncio
@@ -744,12 +860,16 @@ async def test_the_api_turned_off_is_invalid_config(mocked_client):
 
 @pytest.mark.asyncio
 async def test_a_password_changed_mid_session_drops_as_auth_failed(mocked_client):
+    """The clocks agree, so the refusal is the password: one refused request,
+    nothing sent again, and the connection drops as auth_failed."""
     driver, sim, link = _make()
     await _connect(driver, link, mocked_client)
+    start = len(link.statuses)
     sim.inject_error("password_changed")
     with pytest.raises(ConnectionFaultError):
         await driver.poll()
     assert driver.forced and driver.forced[-1][0] == "auth_failed"
+    assert link.statuses[start:] == [401]
 
 
 @pytest.mark.asyncio

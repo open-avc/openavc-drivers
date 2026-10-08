@@ -12,7 +12,7 @@
       "name": "Algo IP Endpoint",
       "manufacturer": "Algo",
       "category": "audio",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "OpenAVC",
       "transport": "http",
       "description": "Controls Algo IP speakers, paging adapters, visual alerters, display speakers, intercoms, the 8063 door controller and the 8450 console over their RESTful API. Plays tones and test tones, starts and stops emergency alerts, calls and pages extensions, runs strobe patterns, shows images, slides, clocks and text on the 8410 and 8420, locks and unlocks doors, skips a day's scheduled bells on the 8301, and sets page, ring and speaker volume. Reports call, multicast, SIP and relay input status, ambient noise and the console's active events. Each device is offered only the commands its model has.",
@@ -20,8 +20,8 @@
       "file": "audio/algo_ip_endpoint.py",
       "format": "python",
       "files": {
-        "audio/algo_ip_endpoint.py": "b24b3b9c8a4286eb5eb7dbb8932c57642a819f0256470555511989e073c5fe88",
-        "audio/algo_ip_endpoint_sim.py": "25fc68fb05857e944e1704ac68ceebc272c4d7c4bc3a368573bfdc7a551e3688"
+        "audio/algo_ip_endpoint.py": "90bb2b71856e40915896dfc845f945200acb591d8412f77ab35295b0f26b7b60",
+        "audio/algo_ip_endpoint_sim.py": "74a511a63f69f33f5a0432c3bf72067aa55f9f1c34f57b410a7b1d46cd87f0b7"
       },
       "ports": [
         443
@@ -43,7 +43,7 @@
       ],
       "help": {
         "overview": "Controls one Algo IP endpoint: a speaker, a paging adapter, a visual alerter, a display speaker, an intercom, the 8063 door controller or the 8450 console. Use it to play class change tones and pages, start an emergency alert or a strobe pattern, put a message on a display, or unlock a door from a panel button or a schedule. Once connected, the device page offers only the commands its model has.",
-        "setup": "1. On the device's web interface, go to Advanced Settings > Admin and turn on RESTful API.\n2. Pick the Authentication Method there (Standard is Algo's recommendation) and set a RESTful API Password. Algo's factory password is algo.\n3. For Standard, turn on NTP on the device (Advanced Settings > Time): the device refuses requests when its clock and this server's are more than 30 seconds apart.\n4. Enter the device's IP address, the same authentication method and the password here.",
+        "setup": "1. On the device's web interface, go to Advanced Settings > Admin and turn on RESTful API.\n2. Pick the Authentication Method there (Standard is Algo's recommendation) and set a RESTful API Password. Algo's factory password is algo.\n3. Turn on NTP on the device (Advanced Settings > Time) so its clock stays right.\n4. Enter the device's IP address, the same authentication method and the password here.",
         "connection": "HTTPS on port 443 with the RESTful API password. The device's certificate is self-signed, so certificate verification is off unless you turn it on."
       },
       "compatible_models": [

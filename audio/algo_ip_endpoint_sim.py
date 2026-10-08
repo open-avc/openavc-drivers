@@ -30,7 +30,8 @@ Simulator config (all optional): ``model`` (default 8410), ``firmware_version``
 (default 5.7.1), ``auth_method`` (standard, basic or none; default standard),
 ``password`` (the RESTful API password to insist on; empty accepts any except
 "invalid"), ``clock_offset_s`` (how far the device's clock is from the real
-one).
+one), ``timestamp_tolerance_s`` (``api.auth.tsvar``: how far a Standard
+timestamp may be from the device's clock; default 30).
 
 What the documents do not say, and this simulator decides: the status code and
 body of a refused signature (401, ``{"error": "Unauthorized"}``), of a call the
@@ -179,7 +180,7 @@ class AlgoIpEndpointSimulator(HTTPSimulator):
                 "behavior": "custom",
             },
             "clock_wrong": {
-                "description": "The device's clock is two minutes fast (NTP off): Standard signatures are refused",
+                "description": "The device's clock is two minutes fast (NTP off): a Standard signature timestamped in the server's clock is refused",
                 "behavior": "custom",
             },
             "api_disabled": {
@@ -233,6 +234,10 @@ class AlgoIpEndpointSimulator(HTTPSimulator):
             self._clock_offset = float(cfg.get("clock_offset_s", 0) or 0)
         except (TypeError, ValueError):
             self._clock_offset = 0.0
+        try:
+            self._tolerance = float(cfg.get("timestamp_tolerance_s", _TOLERANCE_S) or _TOLERANCE_S)
+        except (TypeError, ValueError):
+            self._tolerance = float(_TOLERANCE_S)
         for key in ("model", "firmware_version"):
             if cfg.get(key):
                 super().set_state(key, str(cfg[key]))
@@ -291,7 +296,7 @@ class AlgoIpEndpointSimulator(HTTPSimulator):
             timestamp = int(email.utils.parsedate_to_datetime(stamp).timestamp())
         except (TypeError, ValueError, IndexError, OverflowError):
             return False
-        if abs(timestamp - self._now()) > _TOLERANCE_S:
+        if abs(timestamp - self._now()) > self._tolerance:
             return False
         if body:
             content_md5 = self._header(headers, "Content-MD5").strip()

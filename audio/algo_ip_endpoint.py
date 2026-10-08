@@ -20,9 +20,13 @@ Authentication:
   only when the request has a JSON body), sent as ``Authorization: hmac
   admin:<nonce>:<hex digest>`` with ``Date`` and, with a body,
   ``Content-MD5``. The device refuses a timestamp more than 30 seconds
-  (``api.auth.tsvar``) from its own clock, so a device without NTP refuses a
-  correct password; the refusal message says how far apart the clocks are,
-  read from the device's own ``Date`` response header. Basic sends
+  (``api.auth.tsvar``) from its own clock, so a device without NTP, or a
+  clock corrected while connected, refuses a correct password. A refusal is
+  checked against the device's own ``Date`` response header first: when that
+  is more than five seconds from the request's timestamp, the driver keeps
+  the difference, signs the request again in the device's clock and sends it
+  once more. Only a refusal with the clocks in step is reported as
+  ``auth_failed``, which stops OpenAVC reconnecting. Basic sends
   ``admin:<password>``; None sends nothing.
 
 One driver for the whole line:
@@ -64,7 +68,7 @@ import json
 import re
 import secrets
 import time
-from datetime import date
+from datetime import date, timezone
 from typing import Any
 
 import httpx
@@ -80,6 +84,16 @@ _USER = "admin"
 
 # api.auth.tsvar: how far the request timestamp may be from the device's clock.
 _TIMESTAMP_TOLERANCE_S = 30
+
+# A refusal whose Date header is further than this from the timestamp the
+# request was signed with is put down to the clocks, and the request is signed
+# again in the device's clock. Well inside the 30 s default because the window
+# is a setting on the device (api.auth.tsvar) and may be set tighter; above the
+# second or two that whole-second Date headers and a round trip leave between
+# clocks in step. A false auth_failed leaves the device offline until someone
+# presses Reconnect; the cost of this margin is one more refused request when
+# the password is wrong and the clocks are 5 s or more apart.
+_CLOCK_REFUSAL_S = 5
 
 _ABOUT = "/api/info/about"
 _STATUS = "/api/info/status"
@@ -339,7 +353,7 @@ class AlgoIpEndpointDriver(BaseDriver):
         "name": "Algo IP Endpoint",
         "manufacturer": "Algo",
         "category": "audio",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "author": "OpenAVC",
         "description": (
             "Controls Algo IP speakers, paging adapters, visual alerters, "
@@ -438,9 +452,8 @@ class AlgoIpEndpointDriver(BaseDriver):
                 "2. Pick the Authentication Method there (Standard is Algo's "
                 "recommendation) and set a RESTful API Password. Algo's "
                 "factory password is algo.\n"
-                "3. For Standard, turn on NTP on the device (Advanced Settings "
-                "> Time): the device refuses requests when its clock and this "
-                "server's are more than 30 seconds apart.\n"
+                "3. Turn on NTP on the device (Advanced Settings > Time) so "
+                "its clock stays right.\n"
                 "4. Enter the device's IP address, the same authentication "
                 "method and the password here."
             ),
@@ -1269,6 +1282,11 @@ class AlgoIpEndpointDriver(BaseDriver):
         self._last_reply = float("-inf")
         self._last_settings = float("-inf")
         self._last_resync = float("-inf")
+        # The device's clock minus this server's, in seconds, as a refused
+        # request's Date header showed it. Standard signatures are timestamped
+        # in the device's clock. Kept across reconnects: a stale value is
+        # corrected by the first refusal it causes.
+        self._clock_offset = 0.0
         # The tone played last from this driver, for Stop Tone on firmware
         # 5.4 and older (which must name it).
         self._last_tone = ""
@@ -1373,7 +1391,7 @@ class AlgoIpEndpointDriver(BaseDriver):
         if client is None:
             raise ConnectionError("Not connected")
         path = f"{_SETTINGS}/{_API_FLAG}"
-        headers, _ = self._signed("GET", path, None)
+        headers, _, _ = self._signed("GET", path, None)
         await client.get(path, headers=headers)
         self._last_reply = time.monotonic()
 
@@ -1423,11 +1441,15 @@ class AlgoIpEndpointDriver(BaseDriver):
 
     # ── Requests ──
 
-    def _signed(self, method: str, path: str, body: Any) -> tuple[dict[str, str], bytes | None]:
-        """Headers (and the exact body bytes) for one request under the
-        configured authentication method."""
+    def _signed(
+        self, method: str, path: str, body: Any,
+    ) -> tuple[dict[str, str], bytes | None, int | None]:
+        """Headers, the exact body bytes, and the timestamp signed (Standard
+        only, in the device's clock) for one request under the configured
+        authentication method."""
         headers: dict[str, str] = {}
         content: bytes | None = None
+        timestamp: int | None = None
         if body is not None:
             content = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
@@ -1437,7 +1459,7 @@ class AlgoIpEndpointDriver(BaseDriver):
             token = base64.b64encode(f"{_USER}:{password}".encode("utf-8")).decode("ascii")
             headers["Authorization"] = f"Basic {token}"
         elif method_name == "standard":
-            timestamp = int(time.time())
+            timestamp = int(time.time() + self._clock_offset)
             nonce = str(secrets.randbelow(10**9))
             content_md5 = hashlib.md5(content).hexdigest() if content is not None else None
             if content_md5 is not None:
@@ -1447,20 +1469,31 @@ class AlgoIpEndpointDriver(BaseDriver):
             )
             headers["Authorization"] = f"hmac {_USER}:{nonce}:{digest}"
             headers["Date"] = email.utils.formatdate(timestamp, usegmt=True)
-        return headers, content
+        return headers, content, timestamp
+
+    async def _exchange(
+        self, client: httpx.AsyncClient, method: str, path: str, body: Any,
+    ) -> tuple[httpx.Response, int | None]:
+        """Sign and send one request; the answer and the timestamp signed."""
+        headers, content, signed_at = self._signed(method, path, body)
+        response = await client.request(method, path, headers=headers, content=content)
+        self._last_reply = time.monotonic()
+        return response, signed_at
 
     async def _request(self, method: str, path: str, body: Any = None) -> httpx.Response:
         """One request. Transport errors propagate (the poll contract). A
-        refusal of the credentials drops the connection as ``auth_failed``;
-        other statuses come back to the caller."""
+        Standard signature refused because the clocks are apart is signed
+        again in the device's clock and sent once more; a refusal that stands
+        drops the connection as ``auth_failed``. Other statuses come back to
+        the caller."""
         client = self._client
         if client is None:
             raise ConnectionError("Not connected")
-        headers, content = self._signed(method, path, body)
-        response = await client.request(method, path, headers=headers, content=content)
-        self._last_reply = time.monotonic()
+        response, signed_at = await self._exchange(client, method, path, body)
+        if response.status_code in (401, 403) and self._clock_caused(response, signed_at):
+            response, signed_at = await self._exchange(client, method, path, body)
         if response.status_code in (401, 403):
-            message = self._refusal_of_credentials(response)
+            message = self._refusal_of_credentials(response, signed_at)
             if getattr(self, "_connected", False):
                 self._force_disconnect("auth_failed", message)
             raise ConnectionFaultError(message, code="auth_failed")
@@ -1479,22 +1512,43 @@ class AlgoIpEndpointDriver(BaseDriver):
             raise ConnectionFaultError(message, code="invalid_config")
         return response
 
-    def _refusal_of_credentials(self, response: httpx.Response) -> str:
-        """Why the device turned the request down, as far as it can be told:
-        a clock difference beyond the Standard method's tolerance is named,
-        since a correct password reads as a wrong one then."""
-        if self._auth_method() == "standard":
-            skew = self._clock_difference(response)
-            if skew is not None and abs(skew) > _TIMESTAMP_TOLERANCE_S:
-                direction = "ahead of" if skew > 0 else "behind"
-                return (
-                    f"The device refused the request. Its clock is "
-                    f"{abs(skew):.0f} seconds {direction} this server's, and "
-                    f"Standard authentication needs them within "
-                    f"{_TIMESTAMP_TOLERANCE_S} seconds. Turn on NTP on the "
-                    f"device (Advanced Settings > Time) and check this "
-                    f"server's clock."
-                )
+    def _clock_caused(self, response: httpx.Response, signed_at: int | None) -> bool:
+        """Whether a refusal is the clocks rather than the password: a
+        Standard signature whose timestamp is more than ``_CLOCK_REFUSAL_S``
+        from the device's clock (the refusal's Date header). When it is, the
+        device's clock is kept, so the request signed again, and every one
+        after it, is timestamped in that clock."""
+        if signed_at is None:
+            return False
+        device_time = self._device_time(response)
+        if device_time is None or abs(device_time - signed_at) <= _CLOCK_REFUSAL_S:
+            return False
+        self._clock_offset = device_time - time.time()
+        direction = "ahead of" if self._clock_offset > 0 else "behind"
+        log.warning(
+            f"[{self.device_id}] The device's clock is {abs(self._clock_offset):.0f} "
+            f"seconds {direction} this server's; signing requests in the "
+            f"device's clock. Turn on NTP on the device (Advanced Settings > "
+            f"Time) and check this server's clock."
+        )
+        return True
+
+    def _refusal_of_credentials(self, response: httpx.Response, signed_at: int | None) -> str:
+        """Why the device turned the request down, as far as it can be told.
+        The clocks are named only when they are still too far apart for the
+        timestamp the refused request was signed with."""
+        device_time = self._device_time(response) if signed_at is not None else None
+        if device_time is not None and abs(device_time - signed_at) > _CLOCK_REFUSAL_S:
+            skew = device_time - time.time()
+            direction = "ahead of" if skew > 0 else "behind"
+            return (
+                f"The device refused the request. Its clock is "
+                f"{abs(skew):.0f} seconds {direction} this server's, and "
+                f"Standard authentication needs them within "
+                f"{_TIMESTAMP_TOLERANCE_S} seconds. Turn on NTP on the "
+                f"device (Advanced Settings > Time) and check this "
+                f"server's clock."
+            )
         return (
             f"The device refused the RESTful API credentials (HTTP "
             f"{response.status_code}). Check that RESTful API is turned on "
@@ -1504,16 +1558,20 @@ class AlgoIpEndpointDriver(BaseDriver):
         )
 
     @staticmethod
-    def _clock_difference(response: httpx.Response) -> float | None:
-        """Device clock minus this server's, from the response's Date header."""
+    def _device_time(response: httpx.Response) -> float | None:
+        """The device's clock when it answered, from the response's Date
+        header (whole seconds), as a Unix time."""
         stamp = response.headers.get("date")
         if not stamp:
             return None
         try:
-            device_time = email.utils.parsedate_to_datetime(stamp).timestamp()
+            moment = email.utils.parsedate_to_datetime(stamp)
         except (TypeError, ValueError, IndexError, OverflowError):
             return None
-        return device_time - time.time()
+        if moment.tzinfo is None:
+            # An HTTP date is always GMT; a "-0000" zone parses without one.
+            moment = moment.replace(tzinfo=timezone.utc)
+        return moment.timestamp()
 
     async def _get_json(self, path: str) -> dict[str, Any] | None:
         """GET a resource. None when this device does not have it (remembered,

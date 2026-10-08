@@ -49,6 +49,19 @@
 # also push on change). The response rules below double as push handlers;
 # polling covers values that don't push.
 #
+# Pacing: a full poll on an 8x8 frame is ~45 lines (~85 chained commands).
+# Sent back to back, a VS-88H2A (firmware 04.01.0003) returned truncated
+# replies ("@SIGNAL 2,0" with no "~01", "CP-STAT 0,5,0" with its head cut
+# off), so most per-output and per-input state never parsed. The master
+# spec gives no rate, so the default is 100 ms between lines, and the field
+# is on the device page for a unit that needs more.
+#
+# Liveness: "#<CR>" is the protocol handshake every Protocol 3000 unit
+# answers ("~nn@ OK", master spec "Protocol handshaking"). The probe counts
+# any "~nn@" line, an error included, so a socket that opens on something
+# that is not a Kramer, or a unit that stops answering, drops as
+# no_response instead of reading as connected.
+#
 # Device security: some units support #LOGIN/#SECUR command-based
 # authentication (off by default). The driver does not authenticate —
 # use it with security disabled. (A 'send_login' auth extension would
@@ -58,7 +71,7 @@ id: kramer_p3000
 name: Kramer Protocol 3000
 manufacturer: Kramer
 category: switcher
-version: 1.5.0
+version: 1.6.0
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -141,6 +154,7 @@ default_config:
   input_count: 0
   output_count: 0
   poll_interval: 10
+  inter_command_delay: 0.1
 
 config_schema:
   host:
@@ -178,6 +192,14 @@ config_schema:
     default: 10
     min: 0
     label: Poll Interval (sec)
+  inter_command_delay:
+    type: number
+    default: 0.1
+    min: 0
+    label: Inter-Command Delay (sec)
+    description: >
+      Pause between messages sent to the unit. Raise it if routing works
+      but some outputs or inputs never show their status.
 
 on_connect:
   - "#\r"
@@ -618,6 +640,15 @@ polling:
     - { each_child: output, send: "#VMUTE? {child_id}|MUTE? {child_id}\r" }
     - { each_child: output, send: "#AUD-LVL? 1,{child_id}|DISPLAY? {child_id}\r" }
     - { each_child: input, send: "#SIGNAL? {child_id}|HDCP-STAT? 0,{child_id}\r" }
+
+# Protocol handshake as the keep-alive: every unit answers it however it is
+# set up, and any "~nn@" line counts (an error reply proves the link too).
+liveness:
+  send: "#\r"
+  expect: '~\d+@'
+  interval: 30
+  timeout: 5
+  max_failures: 2
 
 # ── SIMULATOR DEFINITION ──
 # Models a VS-88H2-style 8x8 matrix that also implements the ROUTE dialect

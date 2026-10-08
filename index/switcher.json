@@ -902,7 +902,7 @@
       "name": "Kramer Protocol 3000",
       "manufacturer": "Kramer",
       "category": "switcher",
-      "version": "1.5.0",
+      "version": "1.6.0",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Kramer products via Protocol 3000 over TCP (port 5000) or RS-232. Covers matrix switchers (VS series), scalers and presentation switchers (VP series), and distribution amplifiers. On matrix models each configured output and input is a child entity with per-output routing, mute, volume, and sink state. Routing commands speak both Protocol 3000 routing dialects (legacy VID/AUD/AV and layer-based ROUTE), so one driver covers the whole family.\n",
@@ -910,7 +910,7 @@
       "file": "switchers/kramer_p3000.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/kramer_p3000.avcdriver": "5be6b17fb1fc6e285bcedc518a86a919111b4030b738351fdad4cc19b389f6df"
+        "switchers/kramer_p3000.avcdriver": "ee898e17e96d52fa97c0fb44d898007f4024790ee33599328b19e750adc29f75"
       },
       "ports": [
         5000,

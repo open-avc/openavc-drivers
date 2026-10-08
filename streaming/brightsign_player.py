@@ -45,7 +45,13 @@ HTTP Digest as user ``admin`` (BrightSign's fixed username). The default
 password is the player's serial number; a setup file or a script can set
 another one, and a player can be left open with no password at all, so a
 blank password is tried rather than refused. A rejected login is a typed
-``auth_failed`` fault so the platform waits for new credentials. BrightSignOS
+``auth_failed`` fault so the platform waits for new credentials. Only a 401 on
+the read that proves the login counts: ``/health``, the first read of every
+poll and the liveness probe (``/info`` at connect, where a 403 also pauses
+reconnecting: there is nothing to work with). An optional read the
+player refuses (an HDMI output, the Moka display API, a detail read) is
+skipped and named in ``last_error``, and a refused Moka probe means a plain
+player. BrightSignOS
 9.0.218 / 9.1.52 and later serve the API over HTTPS with a self-signed
 certificate and redirect HTTP, so the driver defaults to HTTPS on 443 with
 verification off; older players on plain HTTP set Use HTTPS off and port 80.
@@ -96,6 +102,13 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_RE = re.compile(r"^\d{2}:\d{2}(:\d{2})?$")
 
 
+# The read that proves the login (first in every poll, and the liveness
+# probe), and the names refused reads go by in last_error.
+READ_HEALTH = "health status"
+READ_OUTPUTS = "HDMI outputs"
+READ_DISPLAY = "Moka display settings"
+
+
 class DwsError(Exception):
     """The player answered, and the answer was an error. ``message`` is the
     player's own sentence when it gave one."""
@@ -106,7 +119,12 @@ class DwsError(Exception):
 
     @property
     def not_authorized(self) -> bool:
+        """Refused: the login (401) or the request (403)."""
         return self.http_status in (401, 403)
+
+    @property
+    def login_refused(self) -> bool:
+        return self.http_status == 401
 
 
 # ── Reply parsing (pure; exercised directly by the tests) ───────────────────
@@ -297,7 +315,7 @@ class BrightSignPlayerDriver(BaseDriver):
         "name": "BrightSign Player (Local DWS)",
         "manufacturer": "BrightSign",
         "category": "streaming",
-        "version": "1.0.5",
+        "version": "1.0.6",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -839,6 +857,9 @@ class BrightSignPlayerDriver(BaseDriver):
         self._auth: httpx.DigestAuth | None = None
         self._polls = 0
         self._output_ids: list[int] = []
+        # Reads the player refused (label -> its words), named in last_error
+        # by every poll while any is refused.
+        self._refused: dict[str, str] = {}
         password = str(config.get("password", "") or "")
         if password:
             self.redact_in_log(password)
@@ -887,6 +908,15 @@ class BrightSignPlayerDriver(BaseDriver):
             )
         return ConnectionFaultError(message, code="auth_failed")
 
+    def _refused_message(self) -> str:
+        what = ", ".join(self._refused)
+        reason = next((r for r in self._refused.values() if r), "")
+        detail = f' ("{reason}")' if reason else ""
+        return (
+            f"The player refused the request for the {what}{detail}; those "
+            f"values are not updated."
+        )
+
     # ── Connection lifecycle ──
 
     async def _create_transport(self, transport_type: str) -> None:
@@ -906,8 +936,19 @@ class BrightSignPlayerDriver(BaseDriver):
         try:
             await self._read_info()
         except DwsError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
+            if exc.not_authorized:
+                # 403: the login was accepted and the player will not share
+                # its information. Not a refused password, but retrying cannot
+                # help until a person changes the player, so it pauses
+                # reconnecting like one.
+                raise ConnectionFaultError(
+                    f"The player accepted the login but refused the request for "
+                    f"its information (\"{exc}\"). Check the player's Local DWS "
+                    f"settings, then press Reconnect.",
+                    code="auth_failed",
+                ) from exc
             raise ConnectionError(f"The player answered with an error: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
@@ -918,18 +959,30 @@ class BrightSignPlayerDriver(BaseDriver):
         )
 
     async def _initial_sync(self) -> None:
+        """Read everything once. The login is proven by now (/info in
+        _post_connect), so a read the player refuses is skipped and named in
+        last_error, and the connect goes on."""
+        self._refused = {}
+        reads = (
+            (READ_OUTPUTS, self._enumerate_outputs),
+            ("Moka display API", self._probe_display_control),
+            ("player details", self._read_detail),
+            (READ_HEALTH, self._read_health),
+            (READ_OUTPUTS, self._read_outputs),
+        )
         try:
-            await self._enumerate_outputs()
-            await self._probe_display_control()
-            await self._read_detail()
-            await self._read_health()
-            await self._read_outputs()
-        except DwsError as exc:
-            if exc.not_authorized:
-                raise self._auth_fault() from exc
-            raise ConnectionError(f"The player answered with an error: {exc}") from exc
+            for label, read in reads:
+                try:
+                    await read()
+                except DwsError as exc:
+                    if exc.not_authorized:
+                        self._refused[label] = str(exc)
+                        continue
+                    raise ConnectionError(f"The player answered with an error: {exc}") from exc
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
+        if self._refused:
+            self.set_state("last_error", self._refused_message())
 
     def _link_alive(self) -> bool:
         return self._client is not None
@@ -943,8 +996,12 @@ class BrightSignPlayerDriver(BaseDriver):
         try:
             await self._read_health()
         except DwsError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
+            if exc.not_authorized:
+                # The player answered, refusing the request: it is alive, and
+                # poll reports what it refuses.
+                return
             raise ConnectionFaultError(
                 f"Connected, but the player answered the health check with an error: {exc}",
                 code="no_response",
@@ -975,12 +1032,20 @@ class BrightSignPlayerDriver(BaseDriver):
         if timeout is not None:
             kwargs["timeout"] = httpx.Timeout(timeout, connect=5.0)
         resp = await client.request(method, f"{API}{path}", **kwargs)
-        if resp.status_code in (401, 403):
-            raise DwsError("The player refused the login", http_status=resp.status_code)
+        if resp.status_code == 401:
+            raise DwsError("The player refused the login", http_status=401)
         try:
             payload = resp.json()
         except ValueError:
             payload = resp.text
+        if resp.status_code == 403:
+            # The login was accepted and the player refused this request:
+            # keep its own sentence, and keep it a 403 whatever the body says.
+            try:
+                unwrap_result(payload, http_status=403)
+            except DwsError as exc:
+                raise DwsError(str(exc), http_status=403) from None
+            raise DwsError("HTTP 403", http_status=403)
         return unwrap_result(payload, http_status=resp.status_code)
 
     async def _get(self, path: str, **kw: Any) -> Any:
@@ -1039,16 +1104,33 @@ class BrightSignPlayerDriver(BaseDriver):
     async def _read_detail(self) -> None:
         """The slow-cadence reads. Each is its own request; one that the
         firmware lacks (an older BrightSignOS without the logging route) is
-        logged and skipped rather than failing the whole cycle."""
-        for reader in (self._read_time, self._read_video_mode, self._read_log_level, self._read_local_dws):
+        logged and skipped rather than failing the whole cycle, and one the
+        player refuses is skipped and named in last_error by the poll."""
+        readers = (
+            ("player clock", self._read_time),
+            ("video mode", self._read_video_mode),
+            ("log level", self._read_log_level),
+            ("Local DWS setting", self._read_local_dws),
+        )
+        for label, reader in readers:
             try:
                 await reader()
             except DwsError as exc:
                 if exc.not_authorized:
-                    raise
+                    self._refused[label] = str(exc)
+                    continue
                 log.debug(f"[{self.device_id}] {reader.__name__} skipped: {exc}")
+                continue
+            self._refused.pop(label, None)
         if self.get_state("display_control_supported"):
-            await self._read_display_control()
+            try:
+                await self._read_display_control()
+            except DwsError as exc:
+                if not exc.not_authorized:
+                    raise
+                self._refused[READ_DISPLAY] = str(exc)
+            else:
+                self._refused.pop(READ_DISPLAY, None)
 
     async def _enumerate_outputs(self) -> None:
         """Register one child per HDMI output the player answers for:
@@ -1059,7 +1141,10 @@ class BrightSignPlayerDriver(BaseDriver):
             try:
                 result = await self._get(f"/video/hdmi/output/{n}")
             except DwsError as exc:
-                if exc.not_authorized:
+                if exc.not_authorized and n == 0:
+                    # Output 0 is on every player: refused, the roster is
+                    # unknown (the caller names it); past 0 a refusal is the
+                    # end of the roster like any other.
                     raise
                 if n == 0:
                     log.warning(f"[{self.device_id}] The player did not answer for HDMI output 0: {exc}")
@@ -1082,12 +1167,12 @@ class BrightSignPlayerDriver(BaseDriver):
                 self.set_child_state_batch("hdmi_output", n, parse_output(result))
 
     async def _probe_display_control(self) -> None:
-        """Moka displays answer /display-control; every other player refuses."""
+        """Moka displays answer /display-control; every other player refuses,
+        and a refusal of any kind, 401 or 403 included, means the API is not
+        there for this driver to use."""
         try:
             result = await self._get("/display-control")
-        except DwsError as exc:
-            if exc.not_authorized:
-                raise
+        except DwsError:
             self.set_state("display_control_supported", False)
             return
         supported = isinstance(result, dict) and ("powerSetting" in result or "volume" in result)
@@ -1105,9 +1190,7 @@ class BrightSignPlayerDriver(BaseDriver):
     async def _read_display_always_on(self) -> None:
         try:
             result = await self._get("/display-control/always-on")
-        except DwsError as exc:
-            if exc.not_authorized:
-                raise
+        except DwsError:
             return
         if isinstance(result, dict) and "enabled" in result:
             self.set_state("display_always_on", _as_bool(result.get("enabled")))
@@ -1115,25 +1198,42 @@ class BrightSignPlayerDriver(BaseDriver):
     # ── Polling ──
 
     async def poll(self) -> None:
+        """/health first, which proves the login: a 401 there is the typed
+        auth fault. A read the player refuses after that (a 403, or a 401
+        now the login is proven) is skipped and named in last_error, written
+        again by every poll while it holds."""
         if self._client is None:
             return
         self._polls += 1
         every = max(1, _as_int(self.config.get("detail_poll_every"), 6))
+        reads: list[tuple[str, Any]] = [
+            (READ_HEALTH, self._read_health),
+            # With no roster yet (output 0 refused at connect), ask for it again.
+            (READ_OUTPUTS, self._read_outputs if self._output_ids else self._enumerate_outputs),
+        ]
+        if self._polls % every == 0:
+            reads += [("player information", self._read_info), ("player details", self._read_detail)]
         try:
-            await self._read_health()
-            await self._read_outputs()
-            if self._polls % every == 0:
-                await self._read_info()
-                await self._read_detail()
-        except DwsError as exc:
-            if exc.not_authorized:
-                raise self._auth_fault() from exc
-            # The player answered, with something other than its status: it
-            # is reachable but not in a state that answers, so say so on the
-            # card without counting it as a dead link.
-            self.set_state("last_error", str(exc))
+            for label, read in reads:
+                try:
+                    await read()
+                except DwsError as exc:
+                    if exc.login_refused and label == READ_HEALTH:
+                        raise self._auth_fault() from exc
+                    if exc.not_authorized:
+                        self._refused[label] = str(exc)
+                        continue
+                    # The player answered, with something other than its
+                    # status: it is reachable but not in a state that
+                    # answers, so say so on the card without counting it as
+                    # a dead link.
+                    self.set_state("last_error", str(exc))
+                    return
+                self._refused.pop(label, None)
         except httpx.TransportError as exc:
             raise ConnectionError(f"{self._host} is not responding: {exc}") from exc
+        if self._refused:
+            self.set_state("last_error", self._refused_message())
 
     async def refresh_children(self) -> Any:
         try:
@@ -1156,7 +1256,7 @@ class BrightSignPlayerDriver(BaseDriver):
         try:
             return await handler(self, params)
         except DwsError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
             self.set_state("last_error", str(exc))
             raise ValueError(str(exc)) from exc
@@ -1371,7 +1471,7 @@ class BrightSignPlayerDriver(BaseDriver):
         try:
             return await self._write_setting(key, value)
         except DwsError as exc:
-            if exc.not_authorized:
+            if exc.login_refused:
                 raise self._auth_fault() from exc
             self.set_state("last_error", str(exc))
             raise ValueError(str(exc)) from exc

@@ -23,7 +23,13 @@ Covers:
     from config, and the simulator's own UDP receiver;
   - a player error landing in last_error and the user's exception;
   - every declared command has a dispatch branch; actions and settings point
-    at declared commands and state.
+    at declared commands and state;
+  - a refused login against a refused read: a 401 on /health (first in every
+    poll, and the liveness probe) is auth_failed, while an optional read the
+    player refuses (an HDMI output, the Moka display API) is skipped, named
+    in last_error on every poll and does not stop the connect, a refused
+    Moka probe means a plain player, and a 403 on /info at connect pauses
+    like a refused login.
 
 The driver is loaded with the ``openavc.*`` imports stubbed so the community
 CI stays self-contained (conftest.py rolls the stubs back).
@@ -783,3 +789,111 @@ def test_the_route_list_is_served():
     assert sim.handle_request("GET", "/api/v1/nope", {}, "")[0] == 404
     assert sim.handle_request("PUT", "/api/v1/time", {}, "not json")[0] == 400
     assert json.loads(json.dumps(sim._info()))["serial"] == SIM.SERIAL
+
+
+# ── A refused login against a refused read ─────────────────────────────────
+
+
+def test_a_refused_hdmi_output_read_is_reported_and_the_rest_still_polls():
+    async def scenario():
+        driver, sim = await _connected()
+        sim.inject_error("output_forbidden")
+        sim.set_state("health", "inactive")
+        await driver.poll()
+        assert _st(driver, "connected") is True
+        assert _st(driver, "health") == "inactive"               # the rest still reads
+        error = _st(driver, "last_error")
+        assert "HDMI outputs" in error and "Forbidden" in error
+        driver.set_state("last_error", None)                     # written again next poll
+        await driver.poll()
+        assert "HDMI outputs" in _st(driver, "last_error")
+        sim.clear_error("output_forbidden")
+        driver.set_state("last_error", "untouched")
+        await driver.poll()
+        assert _st(driver, "last_error") == "untouched"
+        await driver.disconnect()
+    _run(scenario())
+
+
+def test_a_password_change_is_auth_failed_from_health_the_first_read_of_a_poll():
+    async def scenario():
+        driver, sim = await _connected({"password": "pw"}, {"password": "pw"})
+        refused: list[str] = []
+        inner = sim.handle_request
+
+        def counting(method, path, headers, body):
+            result = inner(method, path, headers, body)
+            if result[0] == 401 and any(k.lower() == "authorization" for k in headers):
+                refused.append(path.split("?", 1)[0])
+            return result
+
+        sim.handle_request = counting
+        sim.inject_error("wrong_password")
+        with pytest.raises(ConnectionFaultError) as info:
+            await driver.poll()
+        assert info.value.fault_code == "auth_failed"
+        assert set(refused) == {"/api/v1/health"}
+        await driver.disconnect()
+    _run(scenario())
+
+
+def test_the_liveness_probe_answers_on_a_refused_read_and_drops_on_a_refused_login():
+    async def scenario():
+        driver, sim = await _connected()
+        sim._route = lambda method, route, payload: SIM._err(403, "Forbidden")
+        await driver._liveness_probe()                           # the player answered
+        sim.inject_error("wrong_password")
+        with pytest.raises(ConnectionFaultError) as info:
+            await driver._liveness_probe()
+        assert info.value.fault_code == "auth_failed"
+        await driver.disconnect()
+    _run(scenario())
+
+
+def test_a_refused_optional_read_does_not_stop_the_connect():
+    async def scenario():
+        driver, sim, handler = _make({"moka": True, "outputs": 2})
+        sim.inject_error("display_control_forbidden")
+        await _connect(driver, handler)
+        assert _st(driver, "connected") is True
+        # A refused Moka probe means the display API is not there for us.
+        assert _st(driver, "display_control_supported") is False
+        assert _st(driver, "output_count") == 2
+        await driver.disconnect()
+
+        driver, sim, handler = _make({"outputs": 2})
+        sim.inject_error("output_forbidden")
+        await _connect(driver, handler)
+        assert _st(driver, "connected") is True
+        assert "HDMI outputs" in _st(driver, "last_error")
+        driver.set_state("last_error", None)       # still refused: poll says so again
+        await driver.poll()
+        assert "HDMI outputs" in _st(driver, "last_error")
+        sim.clear_error("output_forbidden")         # answered: the roster arrives
+        await driver.poll()
+        assert _st(driver, "output_count") == 2
+        await driver.disconnect()
+    _run(scenario())
+
+
+def test_a_command_the_player_refuses_is_not_a_changed_password():
+    async def scenario():
+        driver, sim = await _connected({"moka": True})
+        sim.inject_error("display_control_forbidden")
+        with pytest.raises(ValueError) as info:
+            await driver.send_command("display_power_standby")
+        assert "Forbidden" in str(info.value)
+        assert not isinstance(info.value, ConnectionFaultError)
+        await driver.disconnect()
+    _run(scenario())
+
+
+def test_a_403_on_the_player_information_at_connect_pauses_like_a_refused_login():
+    async def scenario():
+        driver, sim, handler = _make()
+        sim._route = lambda method, route, payload: SIM._err(403, "Forbidden")
+        with pytest.raises(ConnectionFaultError) as info:
+            await _connect(driver, handler)
+        assert info.value.fault_code == "auth_failed"
+        assert "accepted the login" in str(info.value) and "Forbidden" in str(info.value)
+    _run(scenario())

@@ -21,6 +21,12 @@ always refused, which is how the driver's auth-failure path is exercised.
 With the password blank the player is open, which BrightSign allows and the
 connect-lifecycle smoke relies on.
 
+Error modes for a refusal mid-session: ``wrong_password`` (the password
+changed on the player: every request is answered 401 with a fresh Digest
+challenge, set password or not), ``output_forbidden`` (the HDMI output
+routes answer 403 in the player's error envelope, everything else works) and
+``display_control_forbidden`` (the same for the display-control routes).
+
 Configuration: ``outputs`` (1, 2 or 4 HDMI outputs, default 1), ``moka``
 (True for a Moka display with the display-control API), ``password`` (blank
 = open), ``reboot_downtime`` (seconds the player answers nothing after a
@@ -174,6 +180,18 @@ class BrightSignPlayerSimulator(HTTPSimulator):
                 "description": "Player stops responding to HTTP requests",
                 "behavior": "no_response",
             },
+            "wrong_password": {
+                "description": "Password changed on the player: every request is refused (HTTP 401)",
+                "behavior": "custom",
+            },
+            "output_forbidden": {
+                "description": "The HDMI output routes answer 403; the rest still answers",
+                "behavior": "custom",
+            },
+            "display_control_forbidden": {
+                "description": "The display-control routes answer 403; the rest still answers",
+                "behavior": "custom",
+            },
         },
     }
 
@@ -271,6 +289,8 @@ class BrightSignPlayerSimulator(HTTPSimulator):
             # HTTP answer gets is a gateway error the driver treats as no
             # answer at all.
             return 503, "Service Unavailable"
+        if "wrong_password" in self.active_errors:
+            return self._challenge()
         if self._password and not self._digest_ok(method, path, headers):
             return self._challenge()
         if self._password == "invalid":
@@ -278,6 +298,11 @@ class BrightSignPlayerSimulator(HTTPSimulator):
         if not route.startswith(API):
             return 404, "Not Found"
         route = route[len(API):] or "/"
+        if (
+            ("output_forbidden" in self.active_errors and route.startswith("/video/hdmi/output"))
+            or ("display_control_forbidden" in self.active_errors and route.startswith("/display-control"))
+        ):
+            return _err(403, "Forbidden")
         self.calls.append(f"{method} {route}")
         try:
             payload = json.loads(body) if body else {}

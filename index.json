@@ -2350,7 +2350,7 @@
       "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
       "manufacturer": "Bose Professional",
       "category": "audio",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Bose Professional ControlSpace EX, ESP and CSP processors through the ControlSpace Serial Control Protocol on TCP port 10055 or the RS-232 port. Declare the modules from your ControlSpace Designer design (gains, inputs, outputs, selectors, routers, mixers, automatic mic mixers, EQs, dynamics, delays, logic, telephone and VoIP lines, signal-level meters, or any parameter by index) and each becomes a child entity whose controls panels bind to. Groups carry master level, mute and source; parameter sets recall by number or name; room combine groups join and split. Every control is subscribed on a processor that supports subscriptions, so changes made from a CC-16 or CC-64 wall controller or from Designer appear at once.",
@@ -2358,7 +2358,7 @@
       "file": "audio/bose_controlspace.py",
       "format": "python",
       "files": {
-        "audio/bose_controlspace.py": "4e5abc641302e689fc08610c697fc9ddabbb6d896f987e72016f6d1d6783b872",
+        "audio/bose_controlspace.py": "f1c7526864f07f9af8f16a93b5512e41f4986edf8bb2bb7a4a1e769b26099127",
         "audio/bose_controlspace_sim.py": "80cfe3aed3debec7ed012d979fe33bd27b5d223d62a5bea85cfb3e60fc567166"
       },
       "ports": [

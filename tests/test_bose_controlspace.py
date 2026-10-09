@@ -732,9 +732,11 @@ async def test_liveness_probe_resolves_and_times_out():
     drv, sim = _make()
     await drv.connect()
     await _settle()
+    drv._last_rx = None                  # quiet for an interval: it asks
     await drv._liveness_probe()
     assert drv.transport.lines()[-1] == "GS"
     drv.transport.silent = True
+    drv._last_rx = None
     with pytest.raises(TimeoutError):
         await drv._liveness_probe()
     assert drv._waiters == []
@@ -961,3 +963,19 @@ def test_a_command_that_erases_or_deletes_asks_first(command):
 
 def test_asking_first_needs_platform_0_36_0():
     assert DRV.BoseControlSpaceDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"
+
+
+
+@pytest.mark.asyncio
+async def test_the_probe_does_not_ask_a_processor_that_answered_within_the_interval():
+    # Anything the processor sent inside the interval proves the link; asking
+    # anyway queued GS behind queries holding the send lock through their own
+    # timeouts, and a probe that waited past HEALTH_TIMEOUT_S was a miss.
+    drv, sim = _make()
+    await drv.connect()
+    await _settle()
+    sent = len(drv.transport.lines())
+    await drv.transport.deliver(b"S 1\r")
+    async with drv._send_lock:           # a query in flight
+        await asyncio.wait_for(drv._liveness_probe(), 0.5)
+    assert len(drv.transport.lines()) == sent

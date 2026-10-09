@@ -1749,7 +1749,7 @@ class BoseControlSpaceDriver(BaseDriver):
         "name": "Bose Professional ControlSpace (ESP / EX / CSP)",
         "manufacturer": "Bose Professional",
         "category": "audio",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # confirm on the commands that erase, delete or reset needs 0.36.0.
         "min_platform_version": "0.36.0",
         "author": "OpenAVC",
@@ -2050,6 +2050,8 @@ class BoseControlSpaceDriver(BaseDriver):
         self._responding: set[str] = set()
         self._push_supported = False
         self._send_lock = asyncio.Lock()
+        # When the processor last sent anything (event-loop time).
+        self._last_rx: float | None = None
         self._meter_task: asyncio.Task | None = None
         super().__init__(device_id, config, state, events)
         for problem in self._problems:
@@ -2387,6 +2389,7 @@ class BoseControlSpaceDriver(BaseDriver):
     async def on_data_received(self, data: bytes) -> None:
         if not data:
             return
+        self._last_rx = asyncio.get_running_loop().time()
         if data[0] in (ACK, NAK):
             if not self._dispatch_waiters(data) and data[0] == NAK:
                 self.set_state("last_error", self._nak_message(data))
@@ -2568,7 +2571,19 @@ class BoseControlSpaceDriver(BaseDriver):
     # ── Liveness ──
 
     async def _liveness_probe(self) -> None:
-        """``GS`` answers ``S n`` on every processor; silence twice drops the link."""
+        """``GS`` answers ``S n`` on every processor; silence twice drops the link.
+
+        Anything received within the last interval already proves the link,
+        so the probe asks only on a link that has been quiet that long:
+        otherwise it waits behind queries that hold the send lock through
+        their own timeouts (a module that does not answer costs one each)
+        and can be counted a miss on a processor that is answering.
+        """
+        last = self._last_rx
+        if last is not None and (
+            asyncio.get_running_loop().time() - last < self.HEALTH_INTERVAL_S
+        ):
+            return
         reply = await self._query("GS", lambda f: bool(_S_RE.match(f.decode("ascii", "replace"))),
                                   self.PROBE_TIMEOUT_S)
         if reply is None:

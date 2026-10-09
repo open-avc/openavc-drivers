@@ -1333,7 +1333,7 @@
       "name": "WyreStorm MX / MXV Matrix",
       "manufacturer": "WyreStorm",
       "category": "switcher",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls WyreStorm MX-H2A, MXV, and MX-KIT series HDMI/HDBaseT matrix switchers (4x4 up to 8x8) via Telnet on port 23 or RS-232. Every video output and every audio de-embed output is a child entity tracking its routed source; audio outputs also track mute. Covers independent audio routing, A/V scene presets, CEC display power (manual and automatic), low-power standby, IR system codes, and input EDID presets on the MX-0404-HDMI.\n",
@@ -1341,7 +1341,7 @@
       "file": "switchers/wyrestorm_mx.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/wyrestorm_mx.avcdriver": "f820f80048f57510c9370ed47ebc02d8a805538a47a5d48ba5bd7810eb48717b"
+        "switchers/wyrestorm_mx.avcdriver": "72ac6502723f77d7b4e7868cbf3c95d5a8d738bc7c3b15acd65c65f7169fcbef"
       },
       "ports": [
         23

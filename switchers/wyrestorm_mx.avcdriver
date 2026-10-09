@@ -45,7 +45,7 @@ id: wyrestorm_mx
 name: WyreStorm MX / MXV Matrix
 manufacturer: WyreStorm
 category: switcher
-version: 1.1.1
+version: 1.1.2
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -610,7 +610,7 @@ commands:
   standby:
     label: Enter Standby
     send: "STANDBY\r\n"
-    help: "Low-power mode — front panel and outputs power down. Any command wakes the unit, the driver's own polls included, so with polling on it wakes again within the Poll Interval. Requires v2+ firmware on most MXV models."
+    help: "Low-power mode: the front panel and outputs power down. Any command wakes the unit, the driver's own polls included, so with polling on it wakes again within the Poll Interval. Requires v2+ firmware on most MXV models."
 
   wake:
     label: Wake from Standby

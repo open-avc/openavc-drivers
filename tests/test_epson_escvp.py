@@ -52,6 +52,9 @@ _ORIG_WAIT_FOR = asyncio.wait_for
 _CURRENT_SIM: object | None = None
 _DROP_HANDSHAKE = False   # projector never answers -> connect timeout
 _REJECT_HANDSHAKE = False  # projector answers with a non-ok status byte
+# When a list, replies are held here instead of delivered, until _flush():
+# a projector that answers after later lines have already gone out.
+_HELD: list | None = None
 
 
 class _FakeTCPTransport:
@@ -68,6 +71,7 @@ class _FakeTCPTransport:
         self.connected = False
         self._sim = None
         self._parser = None
+        self.lines: list[bytes] = []
 
     @classmethod
     async def create(cls, *, host, port, on_data, on_disconnect, delimiter=None,
@@ -94,9 +98,21 @@ class _FakeTCPTransport:
             )
         else:
             raw = self._sim.handle_command(data)
+            self.lines.append(data)
+            if _HELD is not None:
+                _HELD.append(raw)
+                return
         if raw:
             for frame in self._parser.feed(raw):
                 await self.on_data(frame)
+
+    async def flush(self) -> None:
+        global _HELD
+        held, _HELD = _HELD or [], None
+        for raw in held:
+            if raw:
+                for frame in self._parser.feed(raw):
+                    await self.on_data(frame)
 
     async def close(self):
         self.connected = False
@@ -117,6 +133,7 @@ class _FakeBaseDriver(LifecycleFake):
         self.events = events
         self.transport = None
         self._connected = False
+        self._bg_tasks: set = set()
 
     def set_state(self, key, value) -> None:
         self.state.set(key, value)
@@ -291,7 +308,7 @@ async def _make_pair(driver_overrides=None):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.4.2"
+    assert DRV.EpsonEscVpDriver.DRIVER_INFO["version"] == "1.4.3"
 
 
 def test_device_settings_declared():
@@ -429,5 +446,103 @@ def test_handshake_timeout_is_no_response(monkeypatch):
             await driver.connect()
         # The classifier maps "not responding" -> no_response.
         assert "not responding" in str(ei.value).lower()
+
+    asyncio.run(go())
+
+
+# ── Replies: one per line, values routed by the key they name ───────────────
+#
+# ESC/VP21 answers every line with one colon-terminated reply: a bare colon
+# for a set, KEY=VALUE for a get, ERR for an invalid command (guide 2.1-2.4).
+# The driver once matched values to queries by order and queued only
+# queries, so an ERR answering a setter popped a query's slot and every later
+# value landed on the wrong state.
+
+def _hold() -> None:
+    global _HELD
+    _HELD = []
+
+
+def test_an_err_answering_a_setter_does_not_shift_later_values():
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("ASPECT", "40")
+        sim.set_state("MUTE", "ON")
+        await driver.connect()
+        try:
+            _hold()
+            await driver.send_command("raw_command", {"command": "NOSUCH 1"})
+            await driver.poll()
+            await driver.transport.flush()
+            assert driver.get_state("power_state") == "on"
+            assert driver.get_state("error_status") == "00"
+            assert driver.get_state("video_mute") is True
+            assert driver.get_state("aspect") == "40"
+            assert driver._pending == []
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_polls_hold_while_power_on_waits_for_its_colon():
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("PWR", "00")
+        await driver.connect()
+        try:
+            assert driver.get_state("power_state") == "standby"
+            _hold()
+            await driver.send_command("power_on", {})
+            sent = len(driver.transport.lines)
+            await driver.poll()
+            # The guide asks for PWR ON's colon before the next command.
+            assert len(driver.transport.lines) == sent
+            await driver.transport.flush()     # the lamp lit: the colon
+            for _ in range(5):
+                await asyncio.sleep(0)
+            assert driver.get_state("power_state") == "on"
+            await driver.poll()
+            assert len(driver.transport.lines) > sent
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_polls_resume_once_power_on_has_had_its_longest_ignition(monkeypatch):
+    # A lamp that fails three times never returns the colon; after the
+    # guide's longest ignition the polls go out again, and silence shows.
+    monkeypatch.setattr(DRV, "POWER_ON_MAX_S", 0.0)
+
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("PWR", "00")
+        await driver.connect()
+        try:
+            _hold()
+            await driver.send_command("power_on", {})
+            sent = len(driver.transport.lines)
+            await driver.poll()
+            assert len(driver.transport.lines) > sent
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_send_that_fails_mid_poll_reaches_the_watchdog():
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            async def dead(data) -> None:
+                raise ConnectionError("transport closed")
+
+            driver.transport.send = dead
+            with pytest.raises(ConnectionError):
+                await driver.poll()
+        finally:
+            await driver.disconnect()
 
     asyncio.run(go())

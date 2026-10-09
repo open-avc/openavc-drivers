@@ -52,6 +52,7 @@ Source:
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from typing import Any
 
 from openavc.drivers.base import BaseDriver
@@ -86,6 +87,35 @@ POWER_STATE_MAP = {
     "09": "av_standby",
 }
 POWER_STATES = sorted({*POWER_STATE_MAP.values(), "unknown"})
+
+# PWR ON answers its colon only once the lamp has lit: within 40, 70 and
+# 100 seconds for the first, second and third ignition attempt (ESC/VP21
+# guide, section 5.2 note 1). Polls wait for it that long; the guide asks
+# for the colon of one command before the next is sent.
+POWER_ON_MAX_S = 100.0
+
+# Said with the platform's "stopped answering" verdict. In an abnormal
+# state (lamp failure, abnormally high temperature) the projector executes
+# nothing and returns no colon (ESC/VP21 guide, section 5.3), so silence
+# is how a lamp failure shows over the network.
+ABNORMAL_STATE_HINT = (
+    "An Epson projector stops answering in an abnormal state, such as a "
+    "lamp failure or a high temperature: check the projector's indicators."
+)
+
+# Every get reply names its command (``PWR=01``), so a value goes to the
+# state its reply names, whatever line it answers.
+REPLY_KEYS = {
+    "PWR": "power",
+    "ERR": "error",
+    "SOURCE": "source",
+    "MUTE": "video_mute",
+    "FREEZE": "freeze",
+    "ASPECT": "aspect",
+    "CMODE": "color_mode",
+    "LAMP": "lamp_hours",
+    "SNO": "serial_number",
+}
 
 
 # Common Epson source codes. The full list is model-dependent (see
@@ -173,7 +203,7 @@ class EpsonEscVpDriver(BaseDriver):
         "name": "Epson Projector (ESC/VP21)",
         "manufacturer": "Epson",
         "category": "projector",
-        "version": "1.4.2",
+        "version": "1.4.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -492,8 +522,12 @@ class EpsonEscVpDriver(BaseDriver):
         self._handshake_complete = False
         self._handshake_event = asyncio.Event()
         self._handshake_ok: bool | None = None
-        # Pending query queue — see ``_send_query`` / ``_dispatch_response``.
-        self._pending_queries: list[str] = []
+        # One entry per ESC/VP21 line sent, oldest first: the line itself.
+        # Every line is answered by exactly one colon-terminated reply (a
+        # bare colon, ``KEY=VAL``, or ``ERR``), so each reply pops one.
+        self._pending: list[str] = []
+        # When PWR ON went out, until its colon arrives (or POWER_ON_MAX_S).
+        self._power_on_sent_at: float | None = None
         super().__init__(device_id, config, state, events)
 
     # ── Lifecycle ──
@@ -505,7 +539,8 @@ class EpsonEscVpDriver(BaseDriver):
         self._handshake_complete = False
         self._handshake_event.clear()
         self._handshake_ok = None
-        self._pending_queries.clear()
+        self._pending.clear()
+        self._power_on_sent_at = None
 
     def _transport_kwargs(
         self, transport_type: str, kwargs: dict[str, Any]
@@ -562,7 +597,8 @@ class EpsonEscVpDriver(BaseDriver):
         self._handshake_complete = False
         self._handshake_event.clear()
         self._handshake_ok = None
-        self._pending_queries.clear()
+        self._pending.clear()
+        self._power_on_sent_at = None
 
     # ── Frame parsing ──
 
@@ -597,12 +633,25 @@ class EpsonEscVpDriver(BaseDriver):
         # ESC/VP21 commands are CR-terminated.
         await self.transport.send((line + "\r").encode("ascii"))
 
+    async def _send_tracked(self, line: str) -> None:
+        # Queued before it is sent, so its reply always finds it.
+        self._pending.append(line)
+        await self._send_line(line)
+
     async def _send_query(self, key: str, command: str) -> None:
-        # ``key`` is the state-variable dispatch key; ``command`` is the
-        # actual ESC/VP21 line to send. Pending-queue ordering is
-        # preserved: every reply pops the head off and routes by key.
-        self._pending_queries.append(key)
-        await self._send_line(command)
+        # ``key`` names the state the reply feeds; the reply names it too
+        # (REPLY_KEYS), which is what routes it.
+        await self._send_tracked(command)
+
+    def _power_on_pending(self) -> bool:
+        """True while a PWR ON waits for its colon, up to POWER_ON_MAX_S."""
+        sent = self._power_on_sent_at
+        if sent is None:
+            return False
+        if asyncio.get_running_loop().time() - sent < POWER_ON_MAX_S:
+            return True
+        self._power_on_sent_at = None
+        return False
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None
@@ -610,11 +659,12 @@ class EpsonEscVpDriver(BaseDriver):
         params = params or {}
 
         if command == "power_on":
-            await self._send_line("PWR ON")
-            await asyncio.sleep(0.05)
-            await self._send_query("power", "PWR?")
+            # Its colon comes once the lamp has lit; the power read-back
+            # goes out then (on_data_received), and polls hold until it.
+            self._power_on_sent_at = asyncio.get_running_loop().time()
+            await self._send_tracked("PWR ON")
         elif command == "power_off":
-            await self._send_line("PWR OFF")
+            await self._send_tracked("PWR OFF")
             await asyncio.sleep(0.05)
             await self._send_query("power", "PWR?")
         elif command == "set_source":
@@ -623,20 +673,20 @@ class EpsonEscVpDriver(BaseDriver):
             if not code:
                 log.warning(f"[{self.device_id}] Unknown source name: {name}")
                 return
-            await self._send_line(f"SOURCE {code}")
+            await self._send_tracked(f"SOURCE {code}")
             await asyncio.sleep(0.05)
             await self._send_query("source", "SOURCE?")
         elif command == "video_mute_on":
-            await self._send_line("MUTE ON")
+            await self._send_tracked("MUTE ON")
             await self._send_query("video_mute", "MUTE?")
         elif command == "video_mute_off":
-            await self._send_line("MUTE OFF")
+            await self._send_tracked("MUTE OFF")
             await self._send_query("video_mute", "MUTE?")
         elif command == "freeze_on":
-            await self._send_line("FREEZE ON")
+            await self._send_tracked("FREEZE ON")
             await self._send_query("freeze", "FREEZE?")
         elif command == "freeze_off":
-            await self._send_line("FREEZE OFF")
+            await self._send_tracked("FREEZE OFF")
             await self._send_query("freeze", "FREEZE?")
         elif command == "set_aspect":
             name = str(params.get("aspect", "")).strip()
@@ -644,7 +694,7 @@ class EpsonEscVpDriver(BaseDriver):
             if not code:
                 log.warning(f"[{self.device_id}] Unknown aspect name: {name}")
                 return
-            await self._send_line(f"ASPECT {code}")
+            await self._send_tracked(f"ASPECT {code}")
             await self._send_query("aspect", "ASPECT?")
         elif command == "set_color_mode":
             name = str(params.get("mode", "")).strip()
@@ -652,7 +702,7 @@ class EpsonEscVpDriver(BaseDriver):
             if not code:
                 log.warning(f"[{self.device_id}] Unknown color mode: {name}")
                 return
-            await self._send_line(f"CMODE {code}")
+            await self._send_tracked(f"CMODE {code}")
             await self._send_query("color_mode", "CMODE?")
         elif command == "send_key":
             name = str(params.get("key", "")).strip()
@@ -660,11 +710,11 @@ class EpsonEscVpDriver(BaseDriver):
             if not code:
                 log.warning(f"[{self.device_id}] Unknown key name: {name}")
                 return
-            await self._send_line(f"KEY {code}")
+            await self._send_tracked(f"KEY {code}")
         elif command == "raw_command":
             line = str(params.get("command", "")).strip()
             if line:
-                await self._send_line(line)
+                await self._send_tracked(line)
         elif command == "refresh":
             await self.poll()
             return
@@ -693,6 +743,11 @@ class EpsonEscVpDriver(BaseDriver):
     async def poll(self) -> None:
         if not self.transport or not self.transport.connected:
             return
+        if self._power_on_pending():
+            # The guide asks for the colon of one command before the next.
+            # A poll that sends nothing is not counted as a silent one.
+            log.debug(f"[{self.device_id}] Waiting for PWR ON to complete")
+            return
         try:
             # PWR? and ERR? always work, even in standby. The rest
             # only return useful values when the projector is on; the
@@ -712,7 +767,20 @@ class EpsonEscVpDriver(BaseDriver):
                 if not self.get_state("serial_number"):
                     await self._send_query("serial_number", "SNO?")
         except ConnectionError:
+            # Let it out: the platform counts a poll that fails toward
+            # taking the device offline.
             log.warning(f"[{self.device_id}] Poll failed — not connected")
+            raise
+
+    def _silence_fault(self, cycles: int) -> Any:
+        fault = super()._silence_fault(cycles)
+        counts = self._io_counts()
+        if counts is not None and counts[2] > 0:
+            # It answered on this connection and then stopped.
+            return dataclasses.replace(
+                fault, message=f"{fault.message} {ABNORMAL_STATE_HINT}"
+            )
+        return fault
 
     # ── Receiving ──
 
@@ -734,40 +802,47 @@ class EpsonEscVpDriver(BaseDriver):
         # Post-handshake frame. Strip the trailing CR if present (queries
         # respond ``KEY=VAL\r:``; the parser hands us ``KEY=VAL\r``).
         line = data.rstrip(b"\r").decode("ascii", errors="ignore").strip()
-        if not line:
-            # Bare set ack — no payload to dispatch.
-            return
 
         # Async push event (signal change etc). Format isn't formally
-        # documented; log at debug and don't try to derive state.
+        # documented; it answers no line, so it pops nothing.
         if line.startswith("IMEVENT="):
             log.debug(f"[{self.device_id}] IMEVENT: {line}")
             return
 
-        # Error reply to a specific command — pop the pending key but
-        # don't crash; some queries (e.g. SOURCE? in standby) legally
-        # return ERR.
+        # Every other reply answers the oldest line still waiting: a bare
+        # colon (a set done), ``KEY=VALUE`` (a get) or ``ERR``.
+        sent = self._pending.pop(0) if self._pending else None
+        if sent == "PWR ON":
+            self._power_on_sent_at = None
+            if line == "":
+                # The lamp is lit: read the power state back now.
+                task = asyncio.ensure_future(self._read_power_after_power_on())
+                self._bg_tasks.add(task)
+                task.add_done_callback(self._bg_tasks.discard)
+        if not line:
+            return
         if line == "ERR":
-            pending = (
-                self._pending_queries.pop(0) if self._pending_queries else None
-            )
-            log.debug(
-                f"[{self.device_id}] ESC/VP21 ERR for query={pending!r}"
-            )
+            # Some queries legally return ERR (SOURCE? in standby).
+            log.debug(f"[{self.device_id}] ESC/VP21 ERR for {sent!r}")
             return
 
         self._dispatch_response(line)
 
+    async def _read_power_after_power_on(self) -> None:
+        try:
+            await self._send_query("power", "PWR?")
+        except ConnectionError:
+            pass
+
     def _dispatch_response(self, line: str) -> None:
-        # Successful query responses are ``KEY=VALUE``.
+        # Successful query responses are ``KEY=VALUE``, and the key says
+        # which query it answers.
         if "=" not in line:
             log.debug(f"[{self.device_id}] Unparseable response: {line!r}")
             return
-        _, value = line.split("=", 1)
+        reply_key, value = line.split("=", 1)
         value = value.strip()
-        pending = (
-            self._pending_queries.pop(0) if self._pending_queries else None
-        )
+        pending = REPLY_KEYS.get(reply_key.strip().upper())
 
         if pending == "power":
             self.set_state(

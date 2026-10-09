@@ -1162,7 +1162,7 @@
         {
           "id": "viewsonic_cde",
           "confidence": "full",
-          "notes": "Verified on a CDE8631-1C (firmware 20250609234259) over TCP 5000. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
+          "notes": "Verified on a CDE8631-1C over TCP 5000, on firmware 20250609234259 and 20260526125505. Set Power Save to Sleep in the Advanced menu for network control in standby and Power On; in Hibernate the display leaves the network, and it does not wake over Wake-on-LAN. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
         }
       ]
     },
@@ -1174,7 +1174,7 @@
         {
           "id": "viewsonic_cde",
           "confidence": "full",
-          "notes": "Verified on a CDE8631-1C (firmware 20250609234259) over TCP 5000. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
+          "notes": "Verified on a CDE8631-1C over TCP 5000, on firmware 20250609234259 and 20260526125505. Set Power Save to Sleep in the Advanced menu for network control in standby and Power On; in Hibernate the display leaves the network, and it does not wake over Wake-on-LAN. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
         }
       ]
     },
@@ -1186,7 +1186,7 @@
         {
           "id": "viewsonic_cde",
           "confidence": "full",
-          "notes": "Verified on a CDE8631-1C (firmware 20250609234259) over TCP 5000. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
+          "notes": "Verified on a CDE8631-1C over TCP 5000, on firmware 20250609234259 and 20260526125505. Set Power Save to Sleep in the Advanced menu for network control in standby and Power On; in Hibernate the display leaves the network, and it does not wake over Wake-on-LAN. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
         }
       ]
     },

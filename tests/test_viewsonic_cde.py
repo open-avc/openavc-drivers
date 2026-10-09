@@ -162,17 +162,25 @@ def test_the_verified_model_has_its_own_entry():
     assert INFO["verified"] is True
 
 
-def test_power_on_is_the_wake_on_lan_and_runs_offline():
-    cmd = INFO["commands"]["power_on"]
-    assert cmd["available_offline"] is True
-    assert cmd["udp"] == {"magic_packet": "mac_address"}
-    assert "send" not in cmd
+def test_power_on_is_the_protocol_command_and_wake_on_lan_is_its_own():
+    # A CDE8631-1C ignored the magic packet in every power-save mode and
+    # turned on to Set Power 001 every time, so Power On is the command.
+    on = INFO["commands"]["power_on"]
+    assert on["send"] == "s!001"
+    assert on["sets"] == {"power": "on"}
+    assert "udp" not in on and not on.get("available_offline")
+    assert "power_on_lan" not in INFO["commands"]
+    wake = INFO["commands"]["wake_on_lan"]
+    assert wake["available_offline"] is True
+    assert wake["udp"] == {"magic_packet": "mac_address"}
+    assert "send" not in wake
+    assert wake["sets"] == {"power": "on"}
     # The MAC can come from the display (state) or be typed in (config).
     assert "mac_address" in STATE_VARS
     assert "mac_address" in INFO["config_schema"]
-    assert cmd["sets"] == {"power": "on"}
-    # The protocol's own Set Power stays reachable.
-    assert INFO["commands"]["power_on_lan"]["send"] == "s!001"
+    # The device-page buttons are the ones that work on the verified model.
+    assert INFO["quick_actions"][:2] == ["power_on", "power_off"]
+    assert "wake_on_lan" not in INFO["quick_actions"]
 
 
 def test_enum_settings_take_the_state_tokens_and_write_the_display_codes():
@@ -195,7 +203,7 @@ def test_packet_build_matches_spec_examples():
     # Set brightness 76 on ID 01: '8' '01' 's' '$' '076' CR, then its read-back.
     assert _wire("set_brightness", {"level": 76}) == b"801s$076\r801gb000\r"
     # A set addressed to ID 05 (RS-232 chain).
-    assert _wire("power_on_lan", config={**CONFIG, "monitor_id": 5}) == b"805s!001\r"
+    assert _wire("power_on", config={**CONFIG, "monitor_id": 5}) == b"805s!001\r"
     # The backlight-level pair rides its own command type: 'A' set (raw command).
     assert _wire("raw_command", {"cmd_type": "A", "code": "B", "value": "080"}) == b"801AB080\r"
     assert _wire("raw_command", {"cmd_type": "a", "code": "B", "value": "000"}) == b"801aB000\r"
@@ -251,7 +259,7 @@ def test_sets_carry_the_read_back_of_what_they_change(command):
 def test_commands_the_display_applies_after_their_ack_send_no_read_back():
     # A get sent with these reads the old value; the display's push brings
     # the new one. Pinned so nobody "completes" the read-back list with them.
-    for command in ("volume_up", "volume_down", "freeze_on", "freeze_off", "power_on_lan", "power_off"):
+    for command in ("volume_up", "volume_down", "freeze_on", "freeze_off", "power_on", "power_off"):
         assert "\r" not in INFO["commands"][command]["send"], command
 
 

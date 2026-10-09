@@ -8426,12 +8426,12 @@
       "version": "2.1.0",
       "author": "OpenAVC",
       "transport": "tcp",
-      "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, the display's clock, ambient sensor readings, and a Power On that wakes a display whose standby closes the network port over Wake-on-LAN. Listens for the display's own status pushes and polls for the rest.",
+      "description": "Controls ViewSonic CDE-series commercial displays (and other ViewSonic large-format displays publishing the LFD RS-232 & LAN protocol) on TCP port 5000 or direct RS-232. Power, input select, volume, mute, brightness, backlight, picture values, freeze and screen blank, PIP, video-wall tiling, keypad navigation, control locks, the display's clock, ambient sensor readings, and a Wake-on-LAN wake for displays whose standby closes the network port. Listens for the display's own status pushes and polls for the rest.",
       "source_url": "https://viewsonicvsa.freshdesk.com/support/solutions/articles/43000470279-viewsonic-lfd-rs-232-lan-protocol",
       "file": "displays/viewsonic_cde.avcdriver",
       "format": "avcdriver",
       "files": {
-        "displays/viewsonic_cde.avcdriver": "042371c41ba405d9bdf3aa7926860d7e85617b5c35ebd62c75dc86a7c1ad2ef6"
+        "displays/viewsonic_cde.avcdriver": "875927df3f50d45bebdcf9743cefbca272fd461b770da589a3d00d7808ab21f1"
       },
       "ports": [
         5000
@@ -8454,8 +8454,8 @@
       ],
       "help": {
         "overview": "ViewSonic commercial displays speaking the LFD RS-232 & LAN protocol. Power, input, audio, picture controls, screen blank and freeze, PIP, video-wall tiling, and control locks. The display pushes power / input / brightness / backlight / volume / mute changes on its own; everything else is polled every 30 seconds.",
-        "setup": "1. Network control: connect the display's LAN port, note the IP address\n   from the network settings, and add it here (TCP port 5000, no\n   login). Monitor ID stays 1 for LAN control.\n\n2. Check the display's standby / network-standby setting: on many\n   models a display in standby closes the network port. Enable the mode\n   that keeps the network alive, or rely on Power On, which wakes the\n   display over Wake-on-LAN (turn Wake-on-LAN on in the display's\n   settings; the MAC address is learned on every connection).\n\n3. Serial control: connect the RS-232 port with a crossover (null-modem)\n   cable, 9600 8N1 (fixed). On a daisy chain, set each display's\n   Monitor ID in its OSD and match it here.",
-        "connection": "A display whose standby mode shuts the network down does not answer on TCP 5000. Power On wakes it over Wake-on-LAN; the display's MAC is learned automatically on every connection, or can be typed in under Edit Device for a display that has never connected."
+        "setup": "1. Network control: connect the display's LAN port, note the IP address\n   from the network settings, and add it here (TCP port 5000, no\n   login). Monitor ID stays 1 for LAN control. On the CDE31 series,\n   LAN Control must be On in the Advanced section of the display's\n   on-screen menu.\n\n2. Standby: on the CDE31 series set Power Save in the Advanced menu to\n   Sleep. In Sleep the display keeps answering in standby, and Power On\n   turns it on in about 3 seconds. In Hibernate it leaves the network\n   about 6 seconds after Power Off and has to be turned on with its\n   remote or power key. On other models, check the standby or\n   network-standby setting the same way, or use Wake (Wake-on-LAN) for\n   a model whose standby turns the network off (turn WOL on in the\n   display's settings; the MAC address is learned on every connection).\n\n3. Serial control: connect the display's RS-232 port (9-pin male) with a\n   null-modem cable, or a straight cable plus the null-modem adapter\n   that comes with the display, at 9600 8N1 (fixed). On the CDE31\n   series turn RS232 On in the Advanced menu. On a daisy chain, set\n   each display's Monitor ID in its menu and match it here.",
+        "connection": "A display whose standby mode shuts the network down (Hibernate on the CDE31 series) does not answer on TCP 5000 until it is turned on at the display. On models that wake over the network, Wake (Wake-on-LAN) turns it on; the display's MAC is learned automatically on every connection, or can be typed in under Edit Device for a display that has never connected."
       },
       "compatible_models": [
         {
@@ -8466,7 +8466,7 @@
             "CDE8631-1B"
           ],
           "confidence": "full",
-          "notes": "Verified on a CDE8631-1C (firmware 20250609234259) over TCP 5000. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
+          "notes": "Verified on a CDE8631-1C over TCP 5000, on firmware 20250609234259 and 20260526125505. Set Power Save to Sleep in the Advanced menu for network control in standby and Power On; in Hibernate the display leaves the network, and it does not wake over Wake-on-LAN. Inputs: HDMI 1-3, USB-C, the embedded Android player, and the slot-in PC when one is installed. PIP, surround sound and the customized hot keys are not available on this model. Brightness, contrast and sharpness are refused while the embedded Android source is showing; use Backlight there."
         },
         {
           "manufacturer": "ViewSonic",

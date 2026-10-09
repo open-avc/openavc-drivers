@@ -31,7 +31,7 @@ Push vs poll:
     into child state immediately. On connect the driver sweeps SysEx
     Get queries across every parameter it mirrors (mute, fader, name,
     colour per channel; gain, pad, 48V per socket — ~2400 queries,
-    pipelined with periodic yields); a slow polling re-sweep (default
+    10 ms apart, so about 24 s); a slow polling re-sweep (default
     60 s) is the backstop for updates missed during transient drops.
 
     Writes apply optimistically: sibling Qu hardware demonstrated that
@@ -947,6 +947,15 @@ def _build_commands() -> dict[str, dict[str, Any]]:
 
 # ── Driver ───────────────────────────────────────────────────────────────────
 
+# Gap after each Get in a full re-read (on connect, Refresh, and the
+# periodic backstop). No Allen & Heath MIDI document gives a rate the
+# console's MIDI-over-TCP input can take; this caps the re-read at 100
+# requests a second, where the whole sweep once went out as one burst
+# (16 at a time, 10 ms apart: about 1,600 a second). The dLive's ~2,400 Gets take about 24 s,
+# inside the default 60 s poll interval.
+SWEEP_GAP_S = 0.01
+
+
 class AllenHeathDLiveDriver(BaseDriver):
     """Allen & Heath dLive MIDI-over-TCP driver."""
 
@@ -962,7 +971,7 @@ class AllenHeathDLiveDriver(BaseDriver):
         "name": "Allen & Heath dLive Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "2.1.0",
+        "version": "2.1.1",
         "author": "OpenAVC",
         "description": (
             "Controls Allen & Heath dLive digital mixing systems "
@@ -1597,8 +1606,7 @@ class AllenHeathDLiveDriver(BaseDriver):
     async def _refresh_all(self) -> None:
         """Issue SysEx Get queries for every parameter mirrored as state:
         mute / fader / name / colour per channel, gain / pad / 48V per
-        socket (~2400 queries). Pipelined with a yield every 16 messages
-        to keep the socket flowing on a fresh connect.
+        socket (~2400 queries), SWEEP_GAP_S apart.
         """
         if not self.connected:
             return
@@ -1623,8 +1631,7 @@ class AllenHeathDLiveDriver(BaseDriver):
                 await self._send(q)
             except Exception:  # noqa: BLE001
                 break
-            if i % 16 == 15:
-                await asyncio.sleep(0.01)
+            await asyncio.sleep(SWEEP_GAP_S)
 
     # ── Incoming MIDI parser ────────────────────────────────────────────
 

@@ -37,6 +37,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     StubEvents as _FakeEvents,
@@ -330,7 +332,7 @@ async def _make_pair(config=None, sim_config=None):
 
 def test_metadata_shape():
     info = dl.AllenHeathDLiveDriver.DRIVER_INFO
-    assert info["version"] == "2.1.0"
+    assert info["version"] == "2.1.1"
     assert info["min_platform_version"] == "0.25.0"
     assert info["commands"], "class-level command catalog must not be empty"
     for qa in info["quick_actions"]:
@@ -819,4 +821,54 @@ def test_silent_console_forces_typed_no_response_disconnect():
         assert driver.stashed_fault[0] == "no_response"
         _SWALLOW = False
         await driver.disconnect()
+    _run(main())
+
+
+_REAL_SWEEP_GAP_S = dl.SWEEP_GAP_S
+
+
+@pytest.fixture(autouse=True)
+def _no_sweep_gap(monkeypatch):
+    # The paced re-read takes seconds on a full console; the other tests in
+    # this file are about the protocol, so they run it with no gap.
+    monkeypatch.setattr(dl, "SWEEP_GAP_S", 0.0)
+
+
+def test_a_full_re_read_spaces_every_get(monkeypatch):
+    # The re-read once went out 16 Gets at a time; every Get now waits
+    # SWEEP_GAP_S after it.
+    sleeps: list[float] = []
+
+    class _RecordingAsyncio:
+        # Stands in for the driver module's asyncio only, so the platform's
+        # own timers keep their real sleeps.
+        def __getattr__(self, name):
+            return getattr(asyncio, name)
+
+        @staticmethod
+        async def sleep(delay, *a, **k):
+            sleeps.append(delay)
+            await asyncio.sleep(0)
+
+    async def main():
+        driver, _sim = await _make_pair()
+        await driver.connect()
+        try:
+            sent: list[bytes] = []
+            real_send = driver.transport.send
+
+            async def counting(data):
+                sent.append(bytes(data))
+                await real_send(data)
+
+            driver.transport.send = counting
+            monkeypatch.setattr(dl, "SWEEP_GAP_S", _REAL_SWEEP_GAP_S)
+            monkeypatch.setattr(dl, "asyncio", _RecordingAsyncio())
+            await driver._refresh_all()
+            monkeypatch.setattr(dl, "asyncio", asyncio)
+            assert len(sent) > 16
+            assert sleeps.count(dl.SWEEP_GAP_S) == len(sent)
+            assert dl.SWEEP_GAP_S * len(sent) < 60
+        finally:
+            await driver.disconnect()
     _run(main())

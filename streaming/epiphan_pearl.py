@@ -364,7 +364,7 @@ class EpiphanPearlDriver(BaseDriver):
         "name": "Epiphan Pearl",
         "manufacturer": "Epiphan",
         "category": "streaming",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # The connection lifecycle hooks this driver overrides landed in
         # 0.24.0 (the sibling HTTP drivers declare the same floor); the
         # channel_rtsp_ports table field alone would need 0.23.0.
@@ -1000,6 +1000,9 @@ class EpiphanPearlDriver(BaseDriver):
         self._storage_ids: dict[str, str] = {}
         self._afu_ids: dict[str, str] = {}
         self._single_touch_ids: dict[str, str] = {}
+        # Whether the one-touch control list has been read on this
+        # connection: an empty list is an answer, not a reason to ask again.
+        self._single_touch_listed = False
         # Per input: the dotted settings path behind each control, and its type.
         self._input_paths: dict[str, dict[str, str]] = {}
         self._input_schema: dict[str, dict[str, dict[str, Any]]] = {}
@@ -1154,6 +1157,7 @@ class EpiphanPearlDriver(BaseDriver):
         goes on."""
         self._poll_count = 0
         self._refused = {}
+        self._single_touch_listed = False
         try:
             for label, read in self._fast_reads() + self._detail_reads():
                 try:
@@ -1938,6 +1942,7 @@ class EpiphanPearlDriver(BaseDriver):
         controls = await self._get("/system/singletouchcontrol")
         if not isinstance(controls, list):
             return
+        self._single_touch_listed = True
         seen: set[str] = set()
         for entry in controls:
             if not isinstance(entry, dict) or "id" not in entry:
@@ -1951,13 +1956,18 @@ class EpiphanPearlDriver(BaseDriver):
         for stale in set(self.list_children("single_touch")) - seen:
             self.deregister_child("single_touch", stale)
             self._single_touch_ids.pop(stale, None)
-        await self._read_single_touch_states()
+        await self._read_single_touch_control_states()
 
     async def _read_single_touch_states(self) -> None:
-        if not self._single_touch_ids:
+        """Every poll. Lists the controls first only when this connection
+        has no list yet; a Pearl with none answers an empty list, and the
+        detail read refreshes it."""
+        if not self._single_touch_listed:
             await self._read_single_touch_roster()
-            if not self._single_touch_ids:
-                return
+            return
+        await self._read_single_touch_control_states()
+
+    async def _read_single_touch_control_states(self) -> None:
         for local, stcid in list(self._single_touch_ids.items()):
             if not self.is_child_registered("single_touch", local):
                 continue

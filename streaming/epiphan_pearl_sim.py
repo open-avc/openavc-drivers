@@ -151,6 +151,9 @@ class EpiphanPearlSimulator(HTTPSimulator):
         # The API documents a 409 when "the maximum number of allowed network
         # inputs is reached" without saying what the maximum is.
         self._max_network_inputs = int(cfg.get("max_network_inputs", 10))
+        # The API answers the one-touch list as an array and documents no
+        # minimum; 0 models a unit that lists none.
+        self._single_touch_controls = int(cfg.get("single_touch_controls", 1))
         self._started = time.time()
         self.calls: list[str] = []
         self._build_model()
@@ -314,7 +317,9 @@ class EpiphanPearlSimulator(HTTPSimulator):
             "maintenance": {"state": "nodev", "transfer": None},
         }
         self._afu: dict[str, dict[str, Any]] = {"0": {"protocol": "webdav"}}
-        self._single_touch: dict[str, dict[str, Any]] = {"0": {"pressed": False}}
+        self._single_touch: dict[str, dict[str, Any]] = {
+            str(n): {"pressed": False} for n in range(self._single_touch_controls)
+        }
         self._presets: list[dict[str, Any]] = [
             {"name": "Default", "description": "Default profile", "sections": ["all"], "readonly": True},
             {"name": "Lecture", "description": "", "sections": list(SECTIONS), "readonly": False},
@@ -358,8 +363,8 @@ class EpiphanPearlSimulator(HTTPSimulator):
         elif key == "external_storage":
             self._storages["external"]["state"] = "ready" if value else "nodev"
         elif key == "single_touch_pressed":
-            stc = self._single_touch["0"]
-            if bool(value) != stc["pressed"]:
+            stc = self._single_touch.get("0")
+            if stc is not None and bool(value) != stc["pressed"]:
                 self._toggle_single_touch("0")
 
     def _sync_state(self) -> None:
@@ -367,7 +372,8 @@ class EpiphanPearlSimulator(HTTPSimulator):
         super().set_state("recorders_started", sum(1 for r in self._recorders.values() if r["state"] == "started"))
         super().set_state("publishers_started", sum(
             1 for ch in self._channels.values() for p in ch["publishers"].values() if p["started"]))
-        super().set_state("single_touch_pressed", self._single_touch["0"]["pressed"])
+        super().set_state("single_touch_pressed",
+                          self._single_touch.get("0", {}).get("pressed", False))
         super().set_state("event_ongoing", any(
             e["status"] in ("running", "paused") for e in self._events.values()))
         super().set_state("external_storage", self._storages["external"]["state"] == "ready")

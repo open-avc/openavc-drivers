@@ -776,6 +776,22 @@ def test_single_touch_toggle_starts_and_stops_what_it_includes():
     _run(scenario())
 
 
+def test_a_pearl_listing_no_one_touch_controls_connects_and_polls():
+    # The list is an array with no documented minimum. The state read and the
+    # list read once called each other while the list was empty, one GET per
+    # round, until the recursion limit ended the connect.
+    async def scenario():
+        driver, sim = await _connected(sim_config={"single_touch_controls": 0})
+        assert driver.list_children("single_touch") == []
+        # Once at connect (the fast read) and once more (the detail read).
+        assert sim.calls.count("GET /system/singletouchcontrol") == 2
+        sim.calls.clear()
+        await _polls(driver, 6)
+        # Only the detail read, every sixth poll, asks for the list again.
+        assert sim.calls.count("GET /system/singletouchcontrol") == 1
+    _run(scenario())
+
+
 # ── Events, presets, system ──────────────────────────────────────────────────
 
 

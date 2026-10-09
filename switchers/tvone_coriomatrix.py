@@ -133,7 +133,7 @@ class TvoneCoriomatrixDriver(BaseDriver):
         "name": "tvONE CORIOmatrix",
         "manufacturer": "tvONE",
         "category": "switcher",
-        "version": "1.0.2",
+        "version": "1.0.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -683,12 +683,19 @@ class TvoneCoriomatrixDriver(BaseDriver):
         preset list refresh on the first and every 6th cycle.
 
         Transport failures propagate so the platform's poll loop can flip
-        the device offline (never-offline guard).
+        the device offline. A request nothing answers ends the cycle (the
+        CLI answers a bad request with !Failed, so silence means the unit is
+        not answering) rather than waiting out every remaining one, and the
+        platform's silence check judges it.
         """
         for ctype in ("input", "output"):
             for alias in sorted(self._known[ctype]):
-                await self._request(_long_form(alias) or alias)
-        await self._request("Preset.Take")
+                ok, _lines = await self._request(_long_form(alias) or alias)
+                if ok is None:
+                    return
+        ok, _lines = await self._request("Preset.Take")
+        if ok is None:
+            return
         if self._poll_cycle % 6 == 0:
             await self._request("System.Status")
             await self._request("System.API_Version")

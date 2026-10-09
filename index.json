@@ -8200,7 +8200,7 @@
       "name": "tvONE CORIOmatrix",
       "manufacturer": "tvONE",
       "category": "switcher",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls tvONE CORIOmatrix and CORIOmatrix mini modular matrix routers over the CORIOmax command-line API (TCP 10001). The installed input/output cards are discovered from the frame, so every port appears as a child entity with its routing, signal status, and cut-to-black state. Includes routing preset recall and save with a live preset picker.",
@@ -8208,7 +8208,7 @@
       "file": "switchers/tvone_coriomatrix.py",
       "format": "python",
       "files": {
-        "switchers/tvone_coriomatrix.py": "b29decb91424c4af975494a4a434c48a308f40226729f0af4099b93746b1bb71",
+        "switchers/tvone_coriomatrix.py": "1a351f5649aabf56ddc1c49130c1d8e7c7f2a0c750a22a3c820d8b77890562a2",
         "switchers/tvone_coriomatrix_sim.py": "5c8d8bfd4e663da9806e49c2bb9ee136bc9cec16b9373002e956eb2db0593a07"
       },
       "ports": [

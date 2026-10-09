@@ -362,7 +362,7 @@ def _child(driver, ctype, cid, prop):
 
 def test_metadata_and_platform_gate():
     info = DRV.TvoneCoriomatrixDriver.DRIVER_INFO
-    assert info["version"] == "1.0.2"
+    assert info["version"] == "1.0.3"
     # The connection lifecycle hooks this driver overrides ship in 0.24.0.
     # The 0.25.0 floor is the package move: this file imports openavc.*.
     assert info["min_platform_version"] == "0.25.0"
@@ -563,3 +563,28 @@ async def test_poll_propagates_transport_failure():
     driver.transport.connected = False
     with pytest.raises(ConnectionError):
         await driver.poll()
+
+
+
+def test_a_poll_stops_at_the_first_request_nothing_answers():
+    # A bad request answers !Failed, so silence means the unit is not
+    # answering: the poll once waited 4 s on every port of a silent unit.
+    async def go():
+        global _SWALLOW
+        driver, sim = await _make_pair()
+        try:
+            real = driver._request
+
+            async def quick(line, timeout=4.0):
+                return await real(line, timeout=0.05)
+
+            driver._request = quick
+            _FakeTCPTransport.sent_lines = []
+            _SWALLOW = True
+            await driver.poll()
+            assert len(_FakeTCPTransport.sent_lines) == 1
+        finally:
+            _SWALLOW = False
+            await driver.disconnect()
+
+    asyncio.run(go())

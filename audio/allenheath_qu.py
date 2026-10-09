@@ -22,9 +22,9 @@ What makes this driver first-class
   from the console. Console-side moves push into state so panels stay in sync.
 * **Active-sense keep-alive as the liveness signal.** The Qu drops any TCP MIDI
   client that goes silent for 12 s, and streams Active Sense (FE) itself every
-  ~300 ms. The driver sends FE on a timer (keep-alive) and watches the inbound
-  FE stream (liveness) — a vanished console stops sending, and the driver tears
-  the socket down for a clean reconnect.
+  ~300 ms. The platform's liveness probe sends FE every 4 s (keep-alive) and
+  fails once nothing has arrived for 10 s, so a vanished console is taken
+  offline and the platform reconnects.
 
 Scope (this version):
     Live mixing / routing surface — mutes, faders (position + dB), pan, send
@@ -53,7 +53,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from openavc.drivers.base import BaseDriver, ConnectionFaultError
+from openavc.drivers.base import BaseDriver
 from openavc.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -644,7 +644,7 @@ class AllenHeathQuDriver(BaseDriver):
         "name": "Allen & Heath Qu Digital Mixer",
         "manufacturer": "Allen & Heath",
         "category": "audio",
-        "version": "1.2.0",
+        "version": "1.2.1",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -824,6 +824,16 @@ class AllenHeathQuDriver(BaseDriver):
         "commands": {},   # populated per-instance in __init__
     }
 
+    # Liveness: the probe below runs every ACTIVE_SENSE_TX_INTERVAL and is the
+    # keep-alive too; one failed probe (nothing heard for RX_SILENCE_TIMEOUT)
+    # takes the connection down, the same 10-14 s the console needs to vanish.
+    HEALTH_INTERVAL_S = ACTIVE_SENSE_TX_INTERVAL
+    HEALTH_MAX_FAILURES = 1
+    HEALTH_FAULT_MESSAGE = (
+        f"The mixer stopped sending: nothing arrived for "
+        f"{RX_SILENCE_TIMEOUT:.0f} seconds."
+    )
+
     def __init__(self, device_id: str, config: dict[str, Any],
                  state: Any, events: Any) -> None:
         self.DRIVER_INFO = {**type(self).DRIVER_INFO, "commands": _build_commands()}
@@ -848,8 +858,7 @@ class AllenHeathQuDriver(BaseDriver):
         self._route_by_ch: dict[int, tuple[str, str]] = {}
         self._registered: set[tuple[str, str]] = set()
 
-        # Keep-alive / liveness.
-        self._sense_task: asyncio.Task[None] | None = None
+        # Liveness: when the console last sent anything.
         self._last_rx = 0.0
 
     # ── Small helpers ───────────────────────────────────────────────────────
@@ -911,57 +920,26 @@ class AllenHeathQuDriver(BaseDriver):
         return kwargs
 
     async def _initial_sync(self) -> None:
-        # Start the active-sense keep-alive + liveness watchdog immediately —
-        # the Qu drops a silent client after 12 s.
+        # Send Active Sense at once: the Qu drops a silent client after 12 s,
+        # and the liveness probe's first keep-alive is an interval away.
         self._last_rx = self._now()
         await self._send(bytes([ACTIVE_SENSE]))
-        self._start_sense_loop()
 
         # Identify + full-state sync.
         await self._identify_and_sync()
 
-    async def _close_session(self) -> None:
-        self._stop_sense_loop()
+    # ── Active-sense keep-alive + liveness probe ────────────────────────────
 
-    # ── Active-sense keep-alive + liveness watchdog ─────────────────────────
-
-    def _start_sense_loop(self) -> None:
-        if self._sense_task and not self._sense_task.done():
-            return
-        self._sense_task = asyncio.ensure_future(self._sense_loop())
-
-    def _stop_sense_loop(self) -> None:
-        if self._sense_task and not self._sense_task.done():
-            self._sense_task.cancel()
-        self._sense_task = None
-
-    async def _sense_loop(self) -> None:
-        """Send Active Sense on a timer (keep-alive) and tear the socket down
-        if the console stops sending (liveness). The Qu emits FE ~every 300 ms,
-        so a multi-second inbound gap means it has vanished."""
-        try:
-            while self._connected and self.transport:
-                await asyncio.sleep(ACTIVE_SENSE_TX_INTERVAL)
-                if not (self._connected and self.transport):
-                    return
-                if self._now() - self._last_rx > RX_SILENCE_TIMEOUT:
-                    log.warning("[%s] no MIDI for %.0fs — dropping connection",
-                                self.device_id, RX_SILENCE_TIMEOUT)
-                    self._last_fault = ConnectionFaultError(
-                        "The Qu stopped sending — connection lost.",
-                        code="no_response")
-                    if self.transport:
-                        try:
-                            await self.transport.close()
-                        except Exception:  # noqa: BLE001
-                            pass
-                    return
-                try:
-                    await self._send(bytes([ACTIVE_SENSE]))
-                except (ConnectionError, OSError):
-                    return
-        except asyncio.CancelledError:
-            pass
+    async def _liveness_probe(self) -> None:
+        """Send Active Sense (the keep-alive) and fail when the console has
+        sent nothing for RX_SILENCE_TIMEOUT. The Qu emits FE about every
+        300 ms whatever else it is doing, so a gap that long means it has
+        gone; the platform then drops the connection and reconnects."""
+        await self._send(bytes([ACTIVE_SENSE]))
+        silent_for = self._now() - self._last_rx
+        if silent_for > RX_SILENCE_TIMEOUT:
+            raise ConnectionError(
+                f"nothing from the console for {silent_for:.0f} s")
 
     # ── Identify + state sync ───────────────────────────────────────────────
 

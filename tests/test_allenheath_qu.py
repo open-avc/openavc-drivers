@@ -419,3 +419,47 @@ def test_incoming_program_change_sets_scene():
     d._register_topology("Qu-16")
     _run(_feed(d, [0xC0, 0x09]))              # Program 9 -> scene 10
     assert d.get_state("current_scene") == 10
+
+
+# ── Liveness: a console that stops sending goes offline ──
+#
+# The probe is the platform's liveness hook: the platform runs it every
+# HEALTH_INTERVAL_S and, after HEALTH_MAX_FAILURES failures, drops the
+# connection with a no_response fault and reconnects. The driver once ran its
+# own loop that closed the socket without telling the platform, so the device
+# read connected and never reconnected.
+
+def test_liveness_probe_sends_active_sense_and_passes_while_the_console_sends():
+    async def go():
+        d = _make()
+        d._last_rx = d._now()
+        await d._liveness_probe()
+        assert bytes(d.transport.sent) == bytes([0xFE])
+
+    _run(go())
+
+
+def test_liveness_probe_fails_once_the_console_has_gone_quiet():
+    async def go():
+        d = _make()
+        d._last_rx = d._now() - (qu.RX_SILENCE_TIMEOUT + 1)
+        try:
+            await d._liveness_probe()
+        except ConnectionError:
+            pass
+        else:
+            raise AssertionError("a silent console passed the probe")
+        # The keep-alive still went out before the verdict.
+        assert bytes(d.transport.sent) == bytes([0xFE])
+
+    _run(go())
+
+
+def test_the_probe_keeps_the_console_inside_its_12_second_window():
+    # The Qu drops a client that sends nothing for 12 s; the probe is the
+    # keep-alive, so it must run well inside that, and one failure (10 s of
+    # silence) is enough to call the console gone.
+    driver = qu.AllenHeathQuDriver
+    assert driver.HEALTH_INTERVAL_S == qu.ACTIVE_SENSE_TX_INTERVAL < 12
+    assert driver.HEALTH_MAX_FAILURES == 1
+    assert "Connected" not in driver.HEALTH_FAULT_MESSAGE

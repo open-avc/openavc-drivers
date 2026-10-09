@@ -41,7 +41,7 @@ id: atlona_omnistream
 name: Atlona OmniStream
 manufacturer: Atlona
 category: switcher
-version: 1.5.0
+version: 1.5.1
 author: OpenAVC
 min_platform_version: "0.22.0"
 description: >
@@ -147,6 +147,9 @@ config_schema:
     type: integer
     default: 2
     min: 0
+    # The CLI's per-output commands take HDMI output 1 or 2 (OmniStream
+    # CLI/JSON API, firmware 2.0); no unit in the family has more.
+    max: 2
     label: HDMI Output Count
     description: >
       Number of HDMI outputs — each becomes an HDMI Output child with
@@ -193,7 +196,7 @@ child_entity_types:
   output:
     label: HDMI Output
     label_plural: HDMI Outputs
-    id_format: { type: integer, min: 1, max: 8 }
+    id_format: { type: integer, min: 1, max: 2 }
     state_variables:
       video_input:
         type: string

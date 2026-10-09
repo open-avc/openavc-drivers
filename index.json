@@ -831,7 +831,7 @@
       "name": "Atlona OmniStream",
       "manufacturer": "Atlona",
       "category": "switcher",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls Atlona OmniStream Pro, R-Type, and Wallplate AV-over-IP encoders and decoders via the Telnet CLI (port 23). Each HDMI output is a child entity tracking its active video/audio source and status, audio mute/volume, analog speaker power, and HDCP version. Supports source routing, video enable, and CEC/RS-232 display triggers. Runtime control surface only \u2014 install-time setup is configured in the device's web UI.\n",
@@ -839,7 +839,7 @@
       "file": "switchers/atlona_omnistream.avcdriver",
       "format": "avcdriver",
       "files": {
-        "switchers/atlona_omnistream.avcdriver": "9cebacbacfd57f672c8a061e978ccf3ff2f2cdd70e163e4815ff42b5b39ff0eb"
+        "switchers/atlona_omnistream.avcdriver": "03f84251b58c5c060ae3614274ab1f0f36641cf141f749ad5cd2b0161f86b753"
       },
       "ports": [
         23,

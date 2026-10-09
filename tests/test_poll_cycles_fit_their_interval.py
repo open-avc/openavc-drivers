@@ -33,10 +33,6 @@ CATEGORIES = (
 
 # driver id -> why its poll can outlast its interval today.
 POLL_OUTLASTS_INTERVAL: dict[str, str] = {
-    "atlona_omnistream": (
-        "polls 8 values per output at the 500 ms gap the protocol asks for; "
-        "at its 8 outputs that is 33.5 s against a 30 s interval"
-    ),
     "extron_sis": (
         "its rosters accept the 128 inputs and outputs the id format allows; "
         "from 20x20 a poll at the 100 ms SIS gap outlasts the 10 s interval"

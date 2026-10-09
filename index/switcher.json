@@ -703,7 +703,7 @@
       "name": "Extron NAV Pro AV-over-IP (NAVigator)",
       "manufacturer": "Extron",
       "category": "switcher",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "OpenAVC",
       "transport": "ssh",
       "description": "Route and monitor an Extron NAV Pro AV-over-IP system through its NAVigator System Manager: video, audio and USB ties, WindoWall video-wall presets and windows, KVM workstation presets, system alarms, and every managed encoder and decoder as a child entity. Requires the free LinkLicense for Third-Party Control on the NAVigator.",
@@ -711,7 +711,7 @@
       "file": "switchers/extron_nav.py",
       "format": "python",
       "files": {
-        "switchers/extron_nav.py": "53208f48e0656345ddd0af18d2f0fc1a9cb38f7e09c85c291cd27b7e6806c4c6",
+        "switchers/extron_nav.py": "67e62086411af4c8fe724a6722dda17dc3f5e8771da84c491dc188f15966f4f0",
         "switchers/extron_nav_sim.py": "62f8618d94e8560234dc4c83df2b1dcdee3ad7e281d5dde604efce7d12fe6cc4"
       },
       "ports": [

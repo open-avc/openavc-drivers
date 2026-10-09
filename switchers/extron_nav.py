@@ -185,7 +185,7 @@ class ExtronNavDriver(BaseDriver):
         "name": "Extron NAV Pro AV-over-IP (NAVigator)",
         "manufacturer": "Extron",
         "category": "switcher",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "author": "OpenAVC",
         # Computed by `python -m openavc.drivers.check` from restarts_device_for
         # (0.34.0). BaseDriver.child_fault() -- which this driver calls on every
@@ -896,6 +896,8 @@ class ExtronNavDriver(BaseDriver):
         self._rx = ""
         self._lines: asyncio.Queue[str] = asyncio.Queue()
         self._cmd_lock = asyncio.Lock()
+        # When the NAVigator last sent anything (event-loop time).
+        self._last_rx: float | None = None
         self._detail_countdown = 0
         # {(number, kind): name} — names are expensive (one encapsulated
         # request each), so they are read once per endpoint and cached.
@@ -917,6 +919,8 @@ class ExtronNavDriver(BaseDriver):
         not a request happens to be waiting, and can never be mistaken for
         somebody's reply.
         """
+        if data:
+            self._last_rx = asyncio.get_running_loop().time()
         self._rx += data.decode("latin-1", errors="replace")
         while True:
             match = re.search(r"\r\n|\r|\n", self._rx)
@@ -1162,7 +1166,17 @@ class ExtronNavDriver(BaseDriver):
         firmware spells it after "NAVigator" (the pattern the identity read
         accepts), or an error code, which ``allow_error`` turns into a return
         instead of a raise. Only silence is a miss.
+
+        Anything received within the last interval already proves the link,
+        so the probe asks only on a link that has been quiet that long:
+        otherwise it waits behind a request that holds the CLI for up to its
+        own timeout and can be counted a miss on a unit that is answering.
         """
+        last = self._last_rx
+        if last is not None and (
+            asyncio.get_running_loop().time() - last < float(self.HEALTH_INTERVAL_S)
+        ):
+            return
         await self._request(f"1I{CR}", re.compile(r"^NAVigator"),
                             timeout=float(self.HEALTH_TIMEOUT_S),
                             allow_error=True)

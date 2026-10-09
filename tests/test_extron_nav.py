@@ -715,9 +715,11 @@ def test_encapsulation_passthrough_returns_the_endpoints_own_reply():
 def test_the_liveness_probe_awaits_an_answer():
     async def go():
         drv, sim, state, link = await _pair()
+        drv._last_rx = None                  # quiet for an interval: it asks
         await drv._liveness_probe()          # answered
         link.silent = True                   # device goes quiet, socket open
         drv.config["command_timeout"] = 1
+        drv._last_rx = None
         with pytest.raises(TimeoutError):
             await drv._liveness_probe()
         # A fire-and-forget probe would have succeeded here, and the platform
@@ -1022,5 +1024,19 @@ def test_resetting_the_name_restores_the_factory_default():
         await drv.send_command("reset_device_name", {})
         # "NAVigator-" plus the last three pairs of the MAC.
         assert _s(state, "device_name") == "NAVigator-13-9C-32"
+        await drv.disconnect()
+    _run(go())
+
+
+
+def test_the_liveness_probe_does_not_ask_a_unit_that_answered_within_the_interval():
+    # Anything the NAVigator sent inside the interval proves the link; asking
+    # anyway queued the probe behind a request holding the CLI for up to its
+    # own timeout, and a probe that waited past HEALTH_TIMEOUT_S was a miss.
+    async def go():
+        drv, sim, state, link = await _pair()
+        link.silent = True                   # nothing would answer now
+        await drv.on_data_received(b"Vrb3\r\n")
+        await asyncio.wait_for(drv._liveness_probe(), 0.5)
         await drv.disconnect()
     _run(go())

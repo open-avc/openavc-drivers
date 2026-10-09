@@ -304,6 +304,16 @@ know, and runs the driver wrong.
 Those are all checks of what the driver **declares**. Nothing above reads a
 Python driver's code. That half is covered by the test you ship with it.
 
+`build_index.py` also prints the platform's **warnings** for a `.avcdriver`, the
+same ones the Driver Builder shows, as `warning: <file>: <message>` lines. A
+warning never fails the build, with one exception: a poll that takes longer than
+its poll interval fails `tests/test_poll_cycles_fit_their_interval.py`, at the
+default config and at the largest child roster the driver accepts. Each poll
+line waits the `inter_command_delay` (or 50 ms over TCP or serial when none is
+set), so fix it by polling less per cycle or per child, setting a longer
+`poll_interval`, or giving the roster's count field a `max` that matches the
+largest real unit.
+
 `build_index.py` speaks for the whole catalog, so it needs this repo's layout,
 its `manufacturers.json`, and a rebuilt index. To check **one file**, at any
 path, with none of that present — a driver mid-write, or one built for a single

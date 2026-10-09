@@ -43,6 +43,10 @@ Guide for contributing device drivers to the OpenAVC community library.
    python -m openavc.drivers.check path/to/my_driver.py
    ```
    See [Checking one driver file](#checking-one-driver-file) below.
+   Both print the platform's warnings as well. A warning never fails the
+   build, except one: CI fails a YAML driver whose poll would take longer than
+   its poll interval, at its default config or at the largest roster it
+   accepts.
 
 9. **Submit a pull request** with your driver file, the regenerated catalog files, and a `manufacturers.json` entry if your manufacturer is new.
 

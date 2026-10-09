@@ -51,6 +51,7 @@ from _vendor.avcdriver_semantic import (  # noqa: E402
     platform_version_errors,
     unknown_key_errors,
     validate_driver_definition,
+    validate_driver_warnings,
 )
 from _vendor.python_info import (  # noqa: E402
     ExtractError,
@@ -1851,6 +1852,9 @@ def main(argv: list[str] | None = None) -> int:
     # these are exactly the spots the unknown-key check could not cover.
     unevaluated: list[str] = []
     reference_skips: list[str] = []
+    # The platform's warnings for a YAML driver: the list the Driver Builder
+    # and `python -m openavc.drivers.check` show. Printed, never a failure.
+    warnings: list[str] = []
     discovery_per_driver: list[tuple[str, str, dict[str, Any]]] = []
     for filepath, data in raw:
         rel = filepath.relative_to(repo_root).as_posix()
@@ -1876,6 +1880,7 @@ def main(argv: list[str] | None = None) -> int:
                     data, validate_driver_definition(data, strict=True)
                 )
             )
+            warnings.extend(f"{rel}: {w}" for w in validate_driver_warnings(data))
         else:
             # A Python driver only ever had its 20 index fields checked: the
             # rest of DRIVER_INFO is dropped before validation, and the
@@ -1958,6 +1963,9 @@ def main(argv: list[str] | None = None) -> int:
             f"{by_file} Python driver(s) were not checked; the set they "
             f"resolve against is computed at runtime."
         )
+
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
 
     if errors:
         print(f"\nFAILED: {len(errors)} validation error(s):\n", file=sys.stderr)

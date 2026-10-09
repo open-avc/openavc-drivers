@@ -62,9 +62,18 @@ FILES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
         (),
     ),
     (
+        "openavc/drivers/child_ids.py",
+        "scripts/_vendor/child_ids.py",
+        (),
+    ),
+    (
         "openavc/drivers/avcdriver_semantic.py",
         "scripts/_vendor/avcdriver_semantic.py",
         (
+            (
+                "from openavc.drivers.child_ids import",
+                "from .child_ids import",
+            ),
             ("from openavc.drivers.spec import (", "from .spec import ("),
             (
                 "from openavc.utils.regex_safety import",

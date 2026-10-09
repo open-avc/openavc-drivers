@@ -1196,6 +1196,27 @@ def test_without_check_the_reason_is_a_warning_and_the_build_proceeds(
     assert "skipping schema validation" in err, err
 
 
+def test_the_platforms_warnings_print_and_never_fail_the_build(tmp_path: Path) -> None:
+    """A serial driver that reads replies with no liveness block gets the
+    platform validator's warning, in the same words, and still builds."""
+    from _vendor.avcdriver_semantic import validate_driver_warnings
+
+    _write_manufacturers(tmp_path)
+    overrides = {
+        "transport": "serial",
+        "state_variables": {"power": {"type": "string", "label": "Power"}},
+        "responses": [{"match": "PWR=(\\w+)", "set": {"power": "$1"}}],
+    }
+    _write_yaml_driver(tmp_path, overrides=overrides)
+
+    rc, _, err = _run(tmp_path)
+
+    assert rc == 0, err
+    definition = {"transport": "serial", **overrides}
+    [expected] = validate_driver_warnings(definition)
+    assert f"warning: audio/test_driver.avcdriver: {expected}" in err, err
+
+
 # --- min_platform_version, computed from the fields a driver uses -----------
 #
 # The floor itself is the platform's rule (and its own tests); what these pin

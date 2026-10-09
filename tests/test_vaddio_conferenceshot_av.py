@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import asyncio
+
 import pytest
 
 from _platform_stubs import (
@@ -383,3 +385,41 @@ async def test_an_open_control_port_lets_the_connect_proceed():
 
     drv._port_answers = _open
     await drv._pre_connect()   # must not raise
+
+
+
+# --------------------------------------------------------------------------
+# Liveness — an answering camera is never counted a miss
+# --------------------------------------------------------------------------
+
+
+class _AnsweringLink:
+    connected = True
+
+    def __init__(self):
+        self.asked: list[bytes] = []
+
+    async def send_and_wait(self, data, timeout):
+        self.asked.append(bytes(data))
+        return b"camera standby get\r\nstandby:        off\r\nOK"
+
+
+@pytest.mark.asyncio
+async def test_the_probe_does_not_wait_behind_a_long_command_on_an_answering_camera():
+    # A move holds the session for up to move_timeout; the probe once queued
+    # behind it and was counted a miss on a camera that was answering.
+    drv = make_driver()
+    drv.transport = _AnsweringLink()
+    drv._last_answer = asyncio.get_running_loop().time()   # it just answered
+    async with drv._io_lock:                                 # the move in flight
+        await asyncio.wait_for(drv._liveness_probe(), 0.5)
+    assert drv.transport.asked == []
+
+
+@pytest.mark.asyncio
+async def test_the_probe_asks_a_camera_that_has_been_quiet_for_an_interval():
+    drv = make_driver()
+    drv.transport = _AnsweringLink()
+    drv._last_answer = asyncio.get_running_loop().time() - drv.HEALTH_INTERVAL_S - 1
+    await drv._liveness_probe()
+    assert drv.transport.asked == [b"camera standby get\r\n"]

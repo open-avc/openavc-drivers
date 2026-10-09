@@ -295,7 +295,7 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         "name": "Vaddio ConferenceSHOT AV",
         "manufacturer": "Vaddio",
         "category": "camera",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "author": "OpenAVC",
         "min_platform_version": "0.34.0",
         "description": (
@@ -1201,6 +1201,8 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         self._auth_buffer = bytearray()
         self._auth_event = asyncio.Event()
         self._io_lock = asyncio.Lock()
+        # When the camera last answered a command (event-loop time).
+        self._last_answer: float | None = None
         self._poll_count = 0
         self._saved_parser: Any = None
 
@@ -1355,6 +1357,7 @@ class VaddioConferenceShotAVDriver(BaseDriver):
             raw = await self.transport.send_and_wait(
                 f"{command}\r\n".encode(), timeout=timeout
             )
+            self._last_answer = asyncio.get_running_loop().time()
         block = _strip_telnet(raw).decode("utf-8", "replace")
         reply = parse_reply(block, command)
         if not reply.ok:
@@ -1396,7 +1399,18 @@ class VaddioConferenceShotAVDriver(BaseDriver):
         A Telnet session that has been cut without a FIN looks exactly like
         an idle one, and this protocol never speaks first, so the only way to
         find out is to ask and wait.
+
+        An answer to anything within the last interval already proves the
+        link, so the probe asks only on a link that has been quiet that long.
+        Otherwise a probe could queue behind a move that holds the session
+        for up to ``move_timeout`` and be counted a miss on a camera that is
+        answering.
         """
+        last = self._last_answer
+        if last is not None and (
+            asyncio.get_running_loop().time() - last < self.HEALTH_INTERVAL_S
+        ):
+            return
         await self._ask("camera standby get", timeout=self.HEALTH_TIMEOUT_S)
 
     # -- readers -----------------------------------------------------------

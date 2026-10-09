@@ -8256,7 +8256,7 @@
       "name": "Vaddio ConferenceSHOT AV",
       "manufacturer": "Vaddio",
       "category": "camera",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls the Vaddio (Legrand AV) ConferenceSHOT AV conferencing system over its Telnet Serial Command API. Pan/tilt/zoom with absolute positioning and readable position, 16 presets, the full CCU colour and lighting surface, the seven-channel audio mixer as child entities, video mute, indicator LED, IR cut filter, software triggers, IP/USB streaming control with a previewable RTSP stream, and device health.",
@@ -8264,7 +8264,7 @@
       "file": "cameras/vaddio_conferenceshot_av.py",
       "format": "python",
       "files": {
-        "cameras/vaddio_conferenceshot_av.py": "05a6323d5ba9e967b9359f1f8fd5c9221ea2afdcc3c4bae83480dc5b00e1c946",
+        "cameras/vaddio_conferenceshot_av.py": "ff920577f47ca5e0fad4c4c46a2bd7427683e2b774c613cb196bfbb4d4dec656",
         "cameras/vaddio_conferenceshot_av_sim.py": "e7b79afb83066191c810b51f3cf6a926316592eed4c445fd34ed1eafd9e40407"
       },
       "ports": [

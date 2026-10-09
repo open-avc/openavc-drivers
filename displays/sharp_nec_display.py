@@ -66,6 +66,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Optional
 
+from openavc.core.connection_fault import CHILD_NOT_RESPONDING
 from openavc.drivers.base import BaseDriver
 from openavc.transport.binary_helpers import checksum_xor
 from openavc.transport.frame_parsers import CallableFrameParser
@@ -376,9 +377,9 @@ class SharpNECDisplayDriver(BaseDriver):
         "name": "Sharp/NEC Display (External Control)",
         "manufacturer": "Sharp NEC",
         "category": "display",
-        "version": "1.0.3",
+        "version": "1.0.4",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
-        "min_platform_version": "0.25.0",
+        "min_platform_version": "0.29.0",
         "author": "OpenAVC",
         "description": (
             "Controls Sharp/NEC professional large-format displays over "
@@ -1110,16 +1111,45 @@ class SharpNECDisplayDriver(BaseDriver):
         """Read every display's power, parameters, temperature — and, on
         a slower rotation, its self-diagnosis status.
 
-        Transport failures and reply timeouts propagate so the platform
-        watchdog counts them; per-opcode "unsupported" results are
-        remembered and skipped on later cycles.
+        Transport failures propagate so the platform watchdog counts them;
+        per-opcode "unsupported" results are remembered and skipped on later
+        cycles. A Monitor ID that does not answer is marked not responding
+        on its own child and the rest of the chain is still read: only a
+        chain on which no display answered fails the poll.
         """
         if self.transport is None or not self.transport.connected:
             raise ConnectionError(f"[{self.device_id}] Not connected")
 
         self._poll_cycle += 1
-        for monitor_id in self.list_children("display"):
-            reply = await self._command(monitor_id, b"01D6")
+        roster = list(self.list_children("display"))
+        any_reply = False
+        for monitor_id in roster:
+            try:
+                await self._poll_display(monitor_id)
+            except TimeoutError:
+                self.set_child_state_batch(
+                    "display",
+                    monitor_id,
+                    self.child_fault(
+                        CHILD_NOT_RESPONDING,
+                        f"No reply from Monitor ID {monitor_id}. Check that a "
+                        f"display on the chain is set to this ID.",
+                    ),
+                )
+                continue
+            any_reply = True
+        if roster and not any_reply:
+            raise TimeoutError(
+                f"[{self.device_id}] No display answered "
+                f"({len(roster)} Monitor ID(s) polled)"
+            )
+
+    async def _poll_display(self, monitor_id: int) -> None:
+        """Read one display; TimeoutError when its power read gets no
+        reply."""
+        reply = await self._command(monitor_id, b"01D6")
+        self.set_child_state_batch("display", monitor_id, self.child_fault())
+        try:
             power_mode = reply.get("value")
 
             # Parameter reads are only meaningful when the panel is on;
@@ -1148,6 +1178,13 @@ class SharpNECDisplayDriver(BaseDriver):
                         f"[{self.device_id}] Display {monitor_id} "
                         "self-diagnosis read timed out"
                     )
+        except TimeoutError:
+            # It answered its power read; a later read that times out
+            # ends this display's cycle without condemning it.
+            log.debug(
+                f"[{self.device_id}] Display {monitor_id} stopped "
+                "answering mid-poll"
+            )
 
     # ── Commands ──
 

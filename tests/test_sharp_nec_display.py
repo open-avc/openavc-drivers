@@ -41,8 +41,10 @@ import pytest
 from _lifecycle_fake import LifecycleFake
 from _platform_stubs import (
     CallableFrameParser as _StubCallableFrameParser,
+    StubBaseDriver as _StubBaseDriver,
     StubEvents as _FakeEvents,
     StubState as _FakeState,
+    install_connection_fault_stub,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -58,6 +60,8 @@ class _FakeBaseDriver(LifecycleFake):
     child-entity registry (mirrors base.py semantics used by the driver)."""
 
     DRIVER_INFO: dict = {}
+
+    child_fault = staticmethod(_StubBaseDriver.child_fault)
 
     def __init__(self, device_id, config, state, events) -> None:
         self.device_id = device_id
@@ -301,6 +305,7 @@ def _load(name: str, path: Path) -> ModuleType:
     base = ModuleType("openavc.drivers.base")
     base.BaseDriver = _FakeBaseDriver
     sys.modules["openavc.drivers.base"] = base
+    install_connection_fault_stub()
 
     def _xor(data: bytes) -> int:
         result = 0
@@ -367,10 +372,10 @@ def _child(driver, monitor_id):
 
 def test_version_and_platform_gate():
     info = DRV.SharpNECDisplayDriver.DRIVER_INFO
-    assert info["version"] == "1.0.3"
-    # The connection lifecycle hooks this driver overrides ship in 0.24.0.
-    # The 0.25.0 floor is the package move: this file imports openavc.*.
-    assert info["min_platform_version"] == "0.25.0"
+    assert info["version"] == "1.0.4"
+    # child_fault(), which marks a silent Monitor ID on its own child,
+    # arrived in 0.29.0.
+    assert info["min_platform_version"] == "0.29.0"
     assert info["ports"] == [7142]
     assert info["manufacturer"] == "Sharp NEC"
 
@@ -855,6 +860,55 @@ def test_reconnect_starts_with_clean_slate():
             assert driver._quiet_until == 0.0
             # The initial full read ran once (identity + first poll).
             assert driver._poll_cycle == 1
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+
+# ── A silent Monitor ID on a shared chain ───────────────────────────────────
+
+
+def _quick_replies(driver):
+    real = driver._transact
+
+    async def quick(*args, **kwargs):
+        kwargs["timeout"] = 0.05
+        return await real(*args, **kwargs)
+
+    driver._transact = quick
+
+
+def test_a_silent_monitor_id_does_not_take_the_chain_down():
+    # The chain has display 1; the roster also lists 5, which nothing
+    # answers. The poll once raised at 5 and dropped the whole chain after
+    # three polls; now 5 alone reads not responding.
+    async def go():
+        driver, sim = await _make_pair(driver_overrides={"display_ids": "1,5"})
+        _quick_replies(driver)
+        await driver.connect()
+        try:
+            await driver.poll()
+            assert _child(driver, 1).get("online") is True
+            five = _child(driver, 5)
+            assert five["online"] is False
+            assert five["offline_reason"] == "not_responding"
+            assert "Monitor ID 5" in five["offline_detail"]
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_chain_where_no_display_answers_fails_the_poll():
+    async def go():
+        driver, sim = await _make_pair(driver_overrides={"display_ids": "5,6"})
+        _quick_replies(driver)
+        await driver.connect()
+        try:
+            with pytest.raises(TimeoutError):
+                await driver.poll()
         finally:
             await driver.disconnect()
 

@@ -44,7 +44,7 @@ id: extron_sis
 name: Extron SIS Protocol
 manufacturer: Extron
 category: switcher
-version: 1.8.1
+version: 1.8.2
 author: OpenAVC
 min_platform_version: "0.27.0"
 description: >
@@ -152,7 +152,7 @@ config_schema:
     description: >
       Number of outputs on a matrix switcher — each becomes an Output child
       tracking its routed input and mute state. Leave 0 for single-output
-      devices (scalers, presentation switchers, DAs).
+      devices (scalers, presentation switchers, DAs). Each poll asks about every output and input 0.1 s apart, so a 32x32 matrix's poll takes about 16 seconds: on a large matrix set Poll Interval above that.
   poll_interval:
     type: integer
     default: 10

@@ -163,7 +163,7 @@ class SonyVPLDriver(BaseDriver):
         "name": "Sony VPL Projector (ADCP)",
         "manufacturer": "Sony",
         "category": "projector",
-        "version": "1.4.2",
+        "version": "1.4.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -590,7 +590,11 @@ class SonyVPLDriver(BaseDriver):
         self._auth_done = asyncio.Event()
         self._auth_ok: bool | None = None
         self._challenge: str | None = None
-        self._pending_queries: list[str] = []
+        # One entry per line sent after the login, oldest first: the query
+        # name for a query, None for a setter, key or raw line. ADCP answers
+        # every line with exactly one response (ok, a value, or an err_*
+        # code), so each response pops exactly one entry.
+        self._pending: list[str | None] = []
         super().__init__(device_id, config, state, events)
 
     # ── Lifecycle ──
@@ -643,7 +647,7 @@ class SonyVPLDriver(BaseDriver):
         self._auth_done.clear()
         self._auth_ok = None
         self._challenge = None
-        self._pending_queries.clear()
+        self._pending.clear()
 
     # ── Sending ──
 
@@ -652,13 +656,17 @@ class SonyVPLDriver(BaseDriver):
             raise ConnectionError(f"[{self.device_id}] Not connected")
         await self.transport.send((line + "\r\n").encode("ascii"))
 
+    async def _send_tracked(self, line: str, query: str | None = None) -> None:
+        # ADCP responses come back in order and carry no command name, so
+        # every line is queued before it is sent and each response pops the
+        # head: a query's value lands on that query, and a setter's ok or
+        # error is consumed by the setter instead of shifting every later
+        # value onto the wrong query.
+        self._pending.append(query)
+        await self._send_line(line)
+
     async def _send_query(self, command: str) -> None:
-        # ADCP responses come back in order, so we queue the query name
-        # and pop the head off when a response arrives. This handles
-        # burst polling without losing track of which response maps to
-        # which state variable.
-        self._pending_queries.append(command)
-        await self._send_line(f"{command} ?")
+        await self._send_tracked(f"{command} ?", command)
 
     async def send_command(
         self, command: str, params: dict[str, Any] | None = None
@@ -673,40 +681,40 @@ class SonyVPLDriver(BaseDriver):
         followup: str | None = None
 
         if command == "power_on":
-            await self._send_line('power "on"')
+            await self._send_tracked('power "on"')
             followup = "power_status"
         elif command == "power_off":
-            await self._send_line('power "off"')
+            await self._send_tracked('power "off"')
             followup = "power_status"
         elif command == "set_input":
             value = str(params.get("input", "")).strip()
-            await self._send_line(f'input "{value}"')
+            await self._send_tracked(f'input "{value}"')
             followup = "input"
         elif command == "mute_video":
-            await self._send_line('blank "on"')
+            await self._send_tracked('blank "on"')
             followup = "blank"
         elif command == "unmute_video":
-            await self._send_line('blank "off"')
+            await self._send_tracked('blank "off"')
             followup = "blank"
         elif command == "mute_audio":
-            await self._send_line('muting "on"')
+            await self._send_tracked('muting "on"')
             followup = "muting"
         elif command == "unmute_audio":
-            await self._send_line('muting "off"')
+            await self._send_tracked('muting "off"')
             followup = "muting"
         elif command == "freeze_on":
-            await self._send_line('freeze "on"')
+            await self._send_tracked('freeze "on"')
             followup = "freeze"
         elif command == "freeze_off":
-            await self._send_line('freeze "off"')
+            await self._send_tracked('freeze "off"')
             followup = "freeze"
         elif command == "set_picture_mode":
             mode = str(params.get("mode", "")).strip()
-            await self._send_line(f'picture_mode "{mode}"')
+            await self._send_tracked(f'picture_mode "{mode}"')
             followup = "picture_mode"
         elif command == "set_aspect":
             aspect = str(params.get("aspect", "")).strip()
-            await self._send_line(f'aspect "{aspect}"')
+            await self._send_tracked(f'aspect "{aspect}"')
             followup = "aspect"
         elif command in (
             "set_contrast",
@@ -716,11 +724,11 @@ class SonyVPLDriver(BaseDriver):
         ):
             value = int(params.get("value", 0))
             field = command[len("set_") :]
-            await self._send_line(f"{field} {value}")
+            await self._send_tracked(f"{field} {value}")
             followup = field
         elif command == "send_key":
             key = str(params.get("key", "")).strip()
-            await self._send_line(f'key "{key}"')
+            await self._send_tracked(f'key "{key}"')
             # A key press can change any number of states (power, blank,
             # muting, freeze, picture/aspect on toggle keys, etc.). The
             # cheapest correct thing is to re-poll the common toggles.
@@ -730,7 +738,7 @@ class SonyVPLDriver(BaseDriver):
         elif command == "raw_command":
             line = str(params.get("command", "")).strip()
             if line:
-                await self._send_line(line)
+                await self._send_tracked(line)
         elif command == "refresh":
             await self.poll()
             return
@@ -739,10 +747,8 @@ class SonyVPLDriver(BaseDriver):
             return
 
         if followup is not None:
-            # Brief pause so the setter's `ok` arrives before we issue
-            # the follow-up query; this keeps the pending-query slot
-            # tied to the right response.
-            await asyncio.sleep(0.05)
+            # The setter's own response pops its own queue entry, so the
+            # read-back can go straight after it.
             await self._send_query(followup)
 
     # ── Device settings ──
@@ -789,7 +795,10 @@ class SonyVPLDriver(BaseDriver):
                 await self._send_query("color")
                 await self._send_query("sharpness")
         except ConnectionError:
+            # Let it out: the platform counts a poll that fails toward
+            # taking the device offline.
             log.warning(f"[{self.device_id}] Poll failed — not connected")
+            raise
 
     # ── Receiving ──
 
@@ -804,15 +813,19 @@ class SonyVPLDriver(BaseDriver):
             self._handle_auth_line(line)
             return
 
-        # Post-auth: error responses are diagnostic, ok confirms the last
-        # set, and everything else is a query response.
+        # Post-auth: every response answers the oldest line still waiting.
+        pending = self._pending.pop(0) if self._pending else None
         if line in ("ok", "OK"):
             return
         if line.startswith("err_"):
-            log.debug(f"[{self.device_id}] ADCP error: {line}")
+            # A query whose value is not available now (err_inactive,
+            # err_val) or a refused setter: nothing to store.
+            log.debug(
+                f"[{self.device_id}] ADCP error: {line} (for {pending or 'a command'})"
+            )
             return
 
-        self._dispatch_response(line)
+        self._dispatch_response(line, pending)
 
     def _handle_auth_line(self, line: str) -> None:
         if self._challenge is None and self._auth_ok is None:
@@ -850,12 +863,10 @@ class SonyVPLDriver(BaseDriver):
             )
         self._auth_done.set()
 
-    def _dispatch_response(self, line: str) -> None:
+    def _dispatch_response(self, line: str, pending: str | None) -> None:
         # Most query responses are bare values, sometimes quoted.
-        # `error ?` is a JSON array. We pair the response with the
-        # head of the pending-query queue.
-        pending = self._pending_queries.pop(0) if self._pending_queries else None
-
+        # `error ?` is a JSON array. ``pending`` is the query this
+        # response answers (None for a setter or raw line).
         if pending == "error":
             self._parse_error_response(line)
             return

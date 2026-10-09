@@ -326,7 +326,7 @@ async def _make_pair(driver_overrides=None, sim_password="", power="on"):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.SonyVPLDriver.DRIVER_INFO["version"] == "1.4.2"
+    assert DRV.SonyVPLDriver.DRIVER_INFO["version"] == "1.4.3"
     assert DRV.SonyVPLDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -476,6 +476,80 @@ def test_unknown_device_setting_raises():
         try:
             with pytest.raises(ValueError):
                 await driver.set_device_setting("nonsense", 1)
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+# ── Replies match the line they answer ──────────────────────────────────────
+#
+# ADCP answers every line with exactly one response and names no command in
+# it (Protocol Manual, COMMON, 1st Edition Revised 2, pages 8-9), so the
+# driver pairs responses with lines by order. An error response to a query
+# once left the queue unpopped and every later value landed one query late.
+
+def test_an_error_answer_to_a_query_does_not_shift_the_later_values():
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("picture_mode", "cinema")
+        sim.set_state("aspect", "zoom")
+        sim.set_state("contrast", 61)
+        real_query = sim._handle_query
+
+        def picture_mode_unavailable(name):
+            # err_inactive: "A command is temporarily invalidated."
+            if name == "picture_mode":
+                return b"err_inactive\r\n"
+            return real_query(name)
+
+        sim._handle_query = picture_mode_unavailable
+        await driver.connect()
+        try:
+            assert driver.get_state("picture_mode") is None
+            assert driver.get_state("aspect") == "zoom"
+            assert driver.get_state("contrast") == 61
+            assert driver.get_state("power_status") == "on"
+            assert driver._pending == []
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_refused_setter_does_not_shift_its_read_back():
+    async def go():
+        driver, sim = await _make_pair()
+        sim.set_state("input", "hdmi2")
+        await driver.connect()
+        try:
+            # The simulator answers err_val to an input it does not have;
+            # the read-back that follows still lands on input.
+            await driver.send_command("set_input", {"input": "nonexistent"})
+            assert driver.get_state("input") == "hdmi2"
+            await driver.poll()
+            assert driver.get_state("input") == "hdmi2"
+            assert driver.get_state("contrast") == 50
+            assert driver._pending == []
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+def test_a_send_that_fails_mid_poll_reaches_the_watchdog():
+    # The platform counts a poll that raises a transport error toward taking
+    # the device offline; a poll that swallowed it would hide a dead link.
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            async def dead(data) -> None:
+                raise ConnectionError("transport closed")
+
+            driver.transport.send = dead
+            with pytest.raises(ConnectionError):
+                await driver.poll()
         finally:
             await driver.disconnect()
 

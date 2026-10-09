@@ -670,3 +670,16 @@ def test_the_shipped_default_actually_connects_without_editing():
         "-- otherwise a one-click install fails for everyone on "
         "an older platform"
     )
+
+
+
+def test_the_catalog_names_the_transport_a_fresh_install_uses():
+    # Telnet is the default (the switch's SSH offers only hmac-sha1, which
+    # current OpenSSH refuses); the catalog said ssh and the setup help told
+    # the user to leave Connection on ssh and port 22.
+    info = Driver.DRIVER_INFO
+    assert info["transport"] == info["default_config"]["transport"] == "tcp"
+    assert info["default_config"]["port"] == 23
+    setup = info["help"]["setup"]
+    assert "'tcp' and the port on 23" in setup
+    assert "'ssh' and the port on 22" not in setup

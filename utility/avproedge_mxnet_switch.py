@@ -611,7 +611,7 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "name": "AVPro Edge MXnet Network Switch",
         "manufacturer": "AVPro Edge",
         "category": "utility",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "author": "OpenAVC",
         # Computed by build_index.py, not chosen: the `web_ui` field below
         # carries a 0.24.0 floor. Well behind the current release, so this
@@ -638,8 +638,11 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
         "simulated": True,
         "protocols": ["mxnet_switch_cli"],
         "ports": [22, 23],
-        "transport": "ssh",
-        "transports": ["ssh", "tcp"],
+        # Telnet is the default: the switch's SSH server offers only the
+        # hmac-sha1 MAC, which OpenSSH 8.8 and newer refuse, so SSH fails to
+        # negotiate on most current systems (default_config agrees).
+        "transport": "tcp",
+        "transports": ["tcp", "ssh"],
         # The switch serves its web GUI on plain HTTP. Declared rather than
         # left to auto-detect because a bare "GET /" without a Host header gets
         # a 302 to http://localhost/index.html (a firmware quirk) -- a probe
@@ -721,9 +724,9 @@ class AVProEdgeMXnetSwitchDriver(BaseDriver):
                 "ports, give it an address like 192.168.1.50, and change the "
                 "switch's address from there.\n"
                 "2. Log in. The default username and password are both "
-                "'admin'. SSH is already enabled from the factory.\n"
+                "'admin'.\n"
                 "3. Add it here: enter the switch IP, leave Connection on "
-                "'ssh' and the port on 22, and enter the username and "
+                "'tcp' and the port on 23, and enter the username and "
                 "password.\n"
                 "4. Ports, PoE status, and attached endpoints are discovered "
                 "automatically once it connects.\n\n"

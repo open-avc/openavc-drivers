@@ -51,7 +51,7 @@ class PJLinkDriver(BaseDriver):
         "name": "PJLink Class 1 Projector",
         "manufacturer": "Generic",
         "category": "projector",
-        "version": "2.6.2",
+        "version": "2.6.3",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -961,7 +961,14 @@ class PJLinkDriver(BaseDriver):
             # dropped the connection, typed. Nothing more to send.
             return
         except ConnectionError:
+            if self._auth_failed or self.transport is None:
+                # Already taken down (a refused password drops it typed,
+                # and that teardown can land between this poll's sends).
+                return
+            # Let it out: the platform counts a poll that fails toward
+            # taking the device offline.
             log.warning(f"[{self.device_id}] Poll failed: not connected")
+            raise
 
     # --- Disconnect handler ---
 

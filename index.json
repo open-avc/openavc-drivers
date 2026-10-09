@@ -3742,7 +3742,7 @@
       "name": "PJLink Class 1 Projector",
       "manufacturer": "Generic",
       "category": "projector",
-      "version": "2.6.2",
+      "version": "2.6.3",
       "author": "OpenAVC",
       "transport": "tcp",
       "description": "Controls any PJLink Class 1 compatible projector.",
@@ -3750,7 +3750,7 @@
       "file": "projectors/pjlink_class1.py",
       "format": "python",
       "files": {
-        "projectors/pjlink_class1.py": "e96333d56754a18999523429514ef082d9185b664194caf3bc00891a70852bb8",
+        "projectors/pjlink_class1.py": "dce64c0b02c617910119814462fd6a31ea9b7cc3035d2aaeb0ddb1ee138ae524",
         "projectors/pjlink_class1_discovery.py": "a8e65922160cfd5e615bd0cf43344df54ad69d2b6b1df82581854cbfa2be11a5",
         "projectors/pjlink_class1_sim.py": "6adb58362f8a4d72f9301784697598d81a0b73d4922314ea30f7945ef83dcc5e"
       },

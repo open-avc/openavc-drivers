@@ -309,7 +309,7 @@ async def _make_pair(driver_overrides=None, sim_password=""):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.2"
+    assert DRV.PJLinkDriver.DRIVER_INFO["version"] == "2.6.3"
     assert DRV.PJLinkDriver.DRIVER_INFO["min_platform_version"] == "0.25.0"
 
 
@@ -568,6 +568,26 @@ def test_no_auth_connects():
         await driver.connect()
         try:
             assert driver._connected is True
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
+
+def test_a_send_that_fails_mid_poll_reaches_the_watchdog():
+    # The platform counts a poll that raises a transport error toward taking
+    # the device offline; poll() once caught it and only logged it.
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            async def dead(data) -> None:
+                raise ConnectionError("transport closed")
+
+            driver.transport.send = dead
+            with pytest.raises(ConnectionError):
+                await driver.poll()
         finally:
             await driver.disconnect()
 

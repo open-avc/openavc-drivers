@@ -244,7 +244,7 @@ class RackLinkRLNKDriver(BaseDriver):
         "name": "Middle Atlantic RackLink PDU",
         "manufacturer": "Middle Atlantic",
         "category": "power",
-        "version": "1.3.7",
+        "version": "1.3.8",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0.
         "min_platform_version": "0.25.0",
         "author": "OpenAVC",
@@ -859,10 +859,13 @@ class RackLinkRLNKDriver(BaseDriver):
             await self._send_get(CMD_MAC_ADDRESS)
             await self._send_get(CMD_OUTLET_COUNT)
             await self._send_get(CMD_CONTACT_COUNT)
-            for n in range(1, MAX_OUTLETS + 1):
+            # The unit's own outlets and contacts, once a count reply has
+            # named them; every position the protocol allows only until then.
+            # Asking an 8-outlet unit for 16 drew eight refusals every poll.
+            for n in self._poll_positions("outlet", MAX_OUTLETS):
                 await self._send_get_indexed(CMD_OUTLET, n)
                 await self._send_get_indexed(CMD_OUTLET_NAME, n)
-            for n in range(1, MAX_CONTACTS + 1):
+            for n in self._poll_positions("contact", MAX_CONTACTS):
                 await self._send_get_indexed(CMD_CONTACT, n)
                 await self._send_get_indexed(CMD_CONTACT_NAME, n)
             for cmd in (
@@ -880,7 +883,23 @@ class RackLinkRLNKDriver(BaseDriver):
             ):
                 await self._send_get(cmd)
         except ConnectionError:
+            if self._session_up and not self._authenticated:
+                # The PDU dropped the session and a login on this connection
+                # is under way (_send_envelope refuses until it lands); the
+                # next poll reads everything again.
+                return
+            # Let it out: the platform counts a poll that fails toward
+            # taking the device offline.
             log.warning(f"[{self.device_id}] Poll failed — not connected")
+            raise
+
+    def _poll_positions(self, child_type: str, maximum: int) -> list[int]:
+        """The positions to read: the registered ones once the count reply
+        has reconciled the roster, else every position up to ``maximum``."""
+        counted = "outlet_count" if child_type == "outlet" else "contact_count"
+        if self.get_state(counted) is None:
+            return list(range(1, maximum + 1))
+        return sorted(int(n) for n in self.list_children(child_type))
 
     # ── Receiving ──
 

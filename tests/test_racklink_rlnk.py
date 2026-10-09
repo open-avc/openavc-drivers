@@ -417,7 +417,7 @@ async def _settle(n: int = 4) -> None:
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.7"
+    assert DRV.RackLinkRLNKDriver.DRIVER_INFO["version"] == "1.3.8"
 
 
 def test_child_entity_types_declared():
@@ -766,5 +766,25 @@ def test_health_loop_forces_reconnect_on_silent_device():
         finally:
             _SWALLOW = False
             driver._stop_health_loop()
+
+    asyncio.run(go())
+
+
+
+def test_a_poll_reads_only_the_outlets_and_contacts_the_unit_has():
+    # The poll once asked for 16 outlets and 8 contacts whatever the unit
+    # had, so an 8-outlet unit refused eight reads every poll.
+    async def go():
+        driver, sim = await _make_pair(sim_config={"outlets": 8})
+        await driver.connect()
+        driver._stop_health_loop()
+        try:
+            await _settle(10)
+            seen = _record_frames(sim)
+            await driver.poll()
+            await _settle(10)
+            assert sum(1 for c, _s, _v in seen if c == DRV.CMD_OUTLET) == 8
+        finally:
+            await driver.disconnect()
 
     asyncio.run(go())

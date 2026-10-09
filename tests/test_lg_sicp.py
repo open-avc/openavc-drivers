@@ -806,6 +806,31 @@ def test_standby_skips_full_surface():
     asyncio.run(go())
 
 
+def test_a_send_that_fails_mid_poll_reaches_the_watchdog():
+    # The platform counts a poll that raises a transport error toward taking
+    # the device offline; a poll that swallowed it would hide a dead link.
+    async def go():
+        driver, sim = await _make_pair()
+        await driver.connect()
+        try:
+            transport = driver.transport
+
+            async def dead(data) -> None:
+                raise ConnectionError("transport closed")
+
+            transport.send = dead
+            try:
+                await driver.poll()
+            except ConnectionError:
+                pass
+            else:
+                raise AssertionError("poll() swallowed the transport error")
+        finally:
+            await driver.disconnect()
+
+    asyncio.run(go())
+
+
 def test_silence_is_expected_only_while_every_display_is_off():
     # The manual promises a power reply only from a display that is fully
     # on, so the platform's silence check must not count a quiet chain while

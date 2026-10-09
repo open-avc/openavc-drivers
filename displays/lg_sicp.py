@@ -1053,18 +1053,17 @@ class LGSICPDriver(BaseDriver):
         """
         if not self.transport or not self.transport.connected:
             return
-        try:
-            for set_id in self.list_children("display"):
-                await self._send_to("ka", set_id, "FF")
-                if self.get_child_state("display", set_id).get("power") != "on":
-                    continue
-                for cmd in self._HOT_QUERIES:
-                    await self._send_to(cmd, set_id, "FF")
-                await self._send_to("sv", set_id, "02 FF")
-                for cmd in self._FULL_QUERIES:
-                    await self._send_to(cmd, set_id, "FF")
-        except ConnectionError:
-            log.warning(f"[{self.device_id}] Poll failed — not connected")
+        # A send that fails mid-cycle raises out of here, so the platform's
+        # missed-poll watchdog sees the dead link.
+        for set_id in self.list_children("display"):
+            await self._send_to("ka", set_id, "FF")
+            if self.get_child_state("display", set_id).get("power") != "on":
+                continue
+            for cmd in self._HOT_QUERIES:
+                await self._send_to(cmd, set_id, "FF")
+            await self._send_to("sv", set_id, "02 FF")
+            for cmd in self._FULL_QUERIES:
+                await self._send_to(cmd, set_id, "FF")
 
     def _silence_expected(self) -> bool:
         """No reply is a fault only while some display reads "on".

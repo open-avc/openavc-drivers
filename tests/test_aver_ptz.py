@@ -174,7 +174,7 @@ async def _close(driver):
 # ── Metadata / shape ────────────────────────────────────────────────────────
 
 def test_version_bumped():
-    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.5"
+    assert DRV.AVerPTZDriver.DRIVER_INFO["version"] == "1.3.6"
     assert DRV.AVerPTZDriver.DRIVER_INFO["min_platform_version"] == "0.36.0"
 
 
@@ -399,3 +399,13 @@ def test_non_auth_command_succeeds():
             await _close(driver)
 
     asyncio.run(go())
+
+
+
+def test_no_inter_command_delay_setting_the_driver_does_not_apply():
+    # The driver sends through its own HTTP client and VISCA socket, so the
+    # platform's inter-command delay never reached them: the setting did
+    # nothing, and no AVer document asks for a gap.
+    info = DRV.AVerPTZDriver.DRIVER_INFO
+    assert "inter_command_delay" not in info["default_config"]
+    assert "inter_command_delay" not in info["config_schema"]

@@ -170,7 +170,7 @@ class AVerPTZDriver(BaseDriver):
         "name": "AVer Pro-AV PTZ Camera (PTZ310/330)",
         "manufacturer": "AVer",
         "category": "camera",
-        "version": "1.3.5",
+        "version": "1.3.6",
         # The connection lifecycle hooks this driver overrides landed in 0.24.0;
         # confirm on factory_reset needs 0.36.0.
         "min_platform_version": "0.36.0",
@@ -256,7 +256,6 @@ class AVerPTZDriver(BaseDriver):
             "pan_speed": 12,
             "tilt_speed": 10,
             "poll_interval": 5,
-            "inter_command_delay": 0.05,
         },
         "config_schema": {
             "host": {"type": "string", "required": True, "label": "IP Address"},
@@ -309,12 +308,6 @@ class AVerPTZDriver(BaseDriver):
                     "How often to re-query camera state. Set to 0 to "
                     "disable polling entirely."
                 ),
-            },
-            "inter_command_delay": {
-                "type": "number",
-                "default": 0.05,
-                "min": 0.0,
-                "label": "Inter-command Delay (sec)",
             },
         },
         "state_variables": {

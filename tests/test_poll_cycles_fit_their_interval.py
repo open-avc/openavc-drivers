@@ -43,8 +43,12 @@ POLL_OUTLASTS_INTERVAL: dict[str, str] = {
         "raise Poll Interval"
     ),
     "kramer_p3000": (
-        "its rosters accept the 128 inputs and outputs the id format allows; "
-        "from 20x20 a poll at its 100 ms gap outlasts the 10 s interval"
+        "four reads per output and one per input, 100 ms apart, on rosters "
+        "of up to 128; from 20x20 a poll outlasts the 10 s interval. Same "
+        "missing list-to-children rule as extron_sis, and the protocol "
+        "announces only front-panel and IR changes, so the poll is not a "
+        "backstop. The roster's help tells an installer to raise Poll "
+        "Interval"
     ),
 }
 
